@@ -1,0 +1,7 @@
+RewriteEngine On
+# Si el archivo o carpeta existe realmente, que lo abra
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Si no existe, que mande todo al index.php
+RewriteRule ^ index.php [L]

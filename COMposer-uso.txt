@@ -1,0 +1,31 @@
+Cómo ejecutar Composer cuando no está en el PATH de la terminal
+================================================================
+
+Opción 1 - Script del proyecto (recomendado)
+--------------------------------------------
+Desde la carpeta del proyecto (infinity-v4) ejecuta:
+
+  composer.bat require paquete/nombre
+  composer.bat install
+  composer.bat update
+
+El archivo composer.bat usa PHP y Composer de Laragon (c:\laragon\bin).
+
+
+Opción 2 - Terminal de Laragon
+------------------------------
+Abre Laragon -> Clic derecho en el icono -> Terminal (o Cmder).
+En esa terminal PHP y Composer suelen estar en el PATH. Luego:
+
+  cd c:\laragon\www\infinity-v4
+  composer require paquete/nombre
+
+
+Opción 3 - Añadir Composer al PATH de Windows
+---------------------------------------------
+1. Panel de control -> Sistema -> Configuración avanzada -> Variables de entorno
+2. En "Variables del sistema" edita "Path"
+3. Añade (ajusta la versión de PHP si es distinta):
+   c:\laragon\bin\php\php-8.3.29-Win32-vs16-x64
+   c:\laragon\bin\composer
+4. Reinicia la terminal y ejecuta: composer --version
