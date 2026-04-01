@@ -1,6 +1,6 @@
 # Infinity V4
 
-Proyecto Laravel con Vue 3 y Vite
+Sistema de gestión para ISP. Proyecto Laravel con Vue 3 y Vite.
 
 ## Tecnologías
 
