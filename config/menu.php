@@ -10,6 +10,13 @@ return [
             // Sin permiso: visible para todos los autenticados. La ruta real es / o /inicio (ver sidebar).
         ],
         [
+            'name' => 'corte-servicio',
+            'label' => 'Corte de servicio',
+            'path' => '/admin/corte-servicio',
+            'icon' => 'bolt',
+            'admin_only' => true,
+        ],
+        [
             'name' => 'tareas',
             'label' => 'Tareas',
             'path' => '/tareas',
@@ -72,6 +79,7 @@ return [
                 ['name' => 'facturas', 'label' => 'Facturas electrónicas', 'path' => '/facturas', 'permiso' => 'facturas.ver'],
                 ['name' => 'factura-internas', 'label' => 'Facturas internas', 'path' => '/factura-internas', 'permiso' => 'factura-interna.ver'],
                 ['name' => 'pendiente-pago', 'label' => 'Pendiente de pago', 'path' => '/factura-internas/pendientes', 'permiso' => 'pagos-pendientes.ver'],
+                ['name' => 'promesas-pago', 'label' => 'Promesas de pago', 'path' => '/promesas-pago', 'permiso' => 'pagos-pendientes.ver'],
                 ['name' => 'cobros-servicios', 'label' => 'Cobros', 'path' => '/cobros/servicios', 'permiso' => 'cobros.ver'],
                 ['name' => 'cobros', 'label' => 'Cobros y recibos', 'path' => '/cobros', 'permiso' => 'cobros.ver'],
             ],
@@ -95,12 +103,12 @@ return [
             'label' => 'Configuración',
             'path' => '/configuracion',
             'icon' => 'cog',
-            'permiso' => 'configuracion.ver',
             'submenu' => [
-                ['name' => 'config-impresion', 'label' => 'Impresión', 'path' => '/configuracion/impresion', 'permiso' => 'configuracion.ver'],
+                ['name' => 'config-impresion', 'label' => 'Impresión', 'path' => '/configuracion/impresion'],
                 ['name' => 'config-ajustes', 'label' => 'Ajustes generales', 'path' => '/configuracion/ajustes', 'permiso' => 'configuracion.ver'],
                 ['name' => 'config-facturacion', 'label' => 'Facturación y servicios', 'path' => '/configuracion/facturacion', 'permiso' => 'configuracion.ver'],
                 ['name' => 'config-tareas-periodicas', 'label' => 'Tareas periódicas', 'path' => '/configuracion/tareas-periodicas', 'permiso' => 'configuracion.ver'],
+                ['name' => 'config-backup-bd', 'label' => 'Backup base de datos', 'path' => '/configuracion/backup-bd', 'permiso' => 'configuracion.ver'],
             ],
         ],
         [
@@ -127,6 +135,7 @@ return [
                 ['name' => 'routers', 'label' => 'Routers', 'path' => '/sistema/routers', 'permiso' => 'sistema.ver'],
                 ['name' => 'router-ip-pools', 'label' => 'Pools de IP', 'path' => '/sistema/router-ip-pools', 'permiso' => 'sistema.ver'],
                 ['name' => 'importar-wisphub', 'label' => 'Importar WispHub', 'path' => '/sistema/importar-wisphub', 'permiso' => 'sistema.ver'],
+                ['name' => 'mikrotik-pendientes', 'label' => 'MikroTik pendientes', 'path' => '/sistema/mikrotik-pendientes', 'permiso' => 'sistema.ver'],
             ],
         ],
         [

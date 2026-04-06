@@ -23,9 +23,14 @@ class MenuUsuario
         $items = config('menu.items', []);
         $user->loadMissing('rol.permisos');
 
-        $filter = function (array $items) use (&$filter, $user): array {
+        $esAdmin = $user->rol && strtolower($user->rol->descripcion) === 'administrador';
+
+        $filter = function (array $items) use (&$filter, $user, $esAdmin): array {
             $out = [];
             foreach ($items as $item) {
+                if (! empty($item['admin_only']) && ! $esAdmin) {
+                    continue;
+                }
                 $permiso = $item['permiso'] ?? null;
                 if ($permiso && ! $user->tienePermiso($permiso)) {
                     continue;

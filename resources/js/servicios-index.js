@@ -8,6 +8,7 @@ if (el) {
   const cfg = typeof window.__SERVICIOS_INDEX_CONFIG__ !== 'undefined' ? window.__SERVICIOS_INDEX_CONFIG__ : {};
   const app = createApp(ServiciosIndex, {
     servicios: cfg.servicios || [],
+    nodos: cfg.nodos || [],
     clientes: cfg.clientes || [],
     canCreateFactura: cfg.canCreateFactura ?? false,
     formAction: cfg.formAction || '',
@@ -21,7 +22,7 @@ if (el) {
     urlSuspender: cfg.urlSuspender || '',
     urlSyncPppoe: cfg.urlSyncPppoe || '',
     urlCrearFacturaInterna: cfg.urlCrearFacturaInterna || '',
-    filtros: cfg.filtros || { buscar: '', cliente_id: '', estado: 'todos', estado_pago: 'todos', fecha_desde: '', fecha_hasta: '' },
+    filtros: cfg.filtros || { buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', fecha_desde: '', fecha_hasta: '' },
   });
   app.mount(el);
 }

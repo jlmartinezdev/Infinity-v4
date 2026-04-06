@@ -2,7 +2,7 @@
   <!-- Desktop Sidebar (collapsible) - Siempre tema oscuro -->
   <aside
     :class="[
-      'fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-40',
+      'fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-40 overflow-x-hidden',
       'hidden lg:block',
       desktopExpanded ? 'w-64' : 'w-20'
     ]"
@@ -41,7 +41,7 @@
     <nav
       ref="navEl"
       :class="[
-        'px-3 py-4 space-y-1 overflow-y-auto',
+        'px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden min-h-0',
         desktopExpanded && user ? 'h-[calc(100vh-8rem)]' : 'h-[calc(100vh-4rem)]'
       ]"
       @scroll="onNavScroll"
@@ -53,26 +53,26 @@
           :href="item.path"
           @click.prevent="handleMenuClick(item)"
           :class="[
-            'flex items-center px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors group whitespace-nowrap',
+            'flex items-center min-w-0 px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors group gap-2',
             isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''
           ]"
         >
           <component :is="iconComponent(item.icon)" class="w-5 h-5 flex-shrink-0" />
-          <span v-if="desktopExpanded" class="ml-3 text-sm font-medium">{{ item.label }}</span>
-          <span v-if="desktopExpanded && item.badge" class="ml-auto bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">{{ item.badge }}</span>
+          <span v-if="desktopExpanded" class="text-sm font-medium min-w-0 flex-1 truncate">{{ item.label }}</span>
+          <span v-if="desktopExpanded && item.badge" class="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0">{{ item.badge }}</span>
         </a>
 
         <!-- Item with submenu -->
         <div v-else class="space-y-1">
           <div
             :class="[
-              'flex items-center px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group whitespace-nowrap',
+              'flex items-center min-w-0 px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group gap-2',
               isSubmenuActive(item) ? 'bg-purple-900/20 text-purple-400' : ''
             ]"
             @click="toggleSubmenu(item)"
           >
             <component :is="iconComponent(item.icon)" class="w-5 h-5 flex-shrink-0" />
-            <span v-if="desktopExpanded" class="ml-3 text-sm font-medium flex-1">{{ item.label }}</span>
+            <span v-if="desktopExpanded" class="text-sm font-medium flex-1 min-w-0 truncate">{{ item.label }}</span>
             <span v-if="desktopExpanded" class="transition-transform duration-200" :class="{ 'rotate-180': isSubmenuExpanded(item) }">
               <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </span>
@@ -120,7 +120,7 @@
   <!-- Mobile Sidebar (Modal) - Siempre tema oscuro -->
   <aside
     v-show="isOpen"
-    class="fixed left-0 top-0 h-screen w-64 bg-gray-900 border-r border-gray-800 z-40 lg:hidden overflow-y-auto"
+    class="fixed left-0 top-0 h-screen w-64 max-w-[min(100vw,16rem)] bg-gray-900 border-r border-gray-800 z-40 lg:hidden overflow-y-auto overflow-x-hidden"
   >
     <div class="h-16 flex items-center justify-between px-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
       <div class="flex items-center space-x-2">
@@ -146,24 +146,24 @@
           :href="item.path"
           @click.prevent="handleMenuClick(item)"
           :class="[
-            'flex items-center px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors',
+            'flex items-center min-w-0 gap-2 px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors',
             isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''
           ]"
         >
           <component :is="iconComponent(item.icon)" class="w-5 h-5 flex-shrink-0" />
-          <span class="ml-3 text-sm font-medium">{{ item.label }}</span>
-          <span v-if="item.badge" class="ml-auto bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">{{ item.badge }}</span>
+          <span class="text-sm font-medium min-w-0 flex-1 truncate">{{ item.label }}</span>
+          <span v-if="item.badge" class="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0">{{ item.badge }}</span>
         </a>
         <div v-else class="space-y-1">
           <div
             :class="[
-              'flex items-center px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group',
+              'flex items-center min-w-0 gap-2 px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group',
               isSubmenuActive(item) ? 'bg-purple-900/20 text-purple-400' : ''
             ]"
             @click="toggleSubmenu(item)"
           >
             <component :is="iconComponent(item.icon)" class="w-5 h-5 flex-shrink-0" />
-            <span class="ml-3 text-sm font-medium flex-1">{{ item.label }}</span>
+            <span class="text-sm font-medium flex-1 min-w-0 truncate">{{ item.label }}</span>
             <span class="transition-transform duration-200" :class="{ 'rotate-180': isSubmenuExpanded(item) }">
               <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </span>
@@ -317,6 +317,7 @@ const ServerIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="
 const ClipboardListIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>` };
 const CubeIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>` };
 const TvIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>` };
+const BoltIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>` };
 
 const iconMap = {
   home: HomeIcon,
@@ -331,6 +332,7 @@ const iconMap = {
   'clipboard-list': ClipboardListIcon,
   cube: CubeIcon,
   tv: TvIcon,
+  bolt: BoltIcon,
 };
 
 function iconComponent(icon) {

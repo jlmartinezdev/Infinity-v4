@@ -27467,6 +27467,9 @@ var STORAGE_KEY_NAV_SCROLL = 'infinity_sidebar_nav_scroll';
     var TvIcon = {
       template: "<svg fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\"></path></svg>"
     };
+    var BoltIcon = {
+      template: "<svg fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M13 10V3L4 14h7v7l9-11h-7z\"></path></svg>"
+    };
     var iconMap = {
       home: HomeIcon,
       users: UsersIcon,
@@ -27479,7 +27482,8 @@ var STORAGE_KEY_NAV_SCROLL = 'infinity_sidebar_nav_scroll';
       server: ServerIcon,
       'clipboard-list': ClipboardListIcon,
       cube: CubeIcon,
-      tv: TvIcon
+      tv: TvIcon,
+      bolt: BoltIcon
     };
     function iconComponent(icon) {
       if (_typeof(icon) === 'object' && icon !== null) return icon;
@@ -27644,6 +27648,7 @@ var STORAGE_KEY_NAV_SCROLL = 'infinity_sidebar_nav_scroll';
       ClipboardListIcon: ClipboardListIcon,
       CubeIcon: CubeIcon,
       TvIcon: TvIcon,
+      BoltIcon: BoltIcon,
       iconMap: iconMap,
       iconComponent: iconComponent,
       defaultMenu: defaultMenu,
@@ -27700,11 +27705,11 @@ var _hoisted_2 = {
 var _hoisted_3 = ["href", "onClick"];
 var _hoisted_4 = {
   key: 0,
-  class: "ml-3 text-sm font-medium"
+  class: "text-sm font-medium min-w-0 flex-1 truncate"
 };
 var _hoisted_5 = {
   key: 1,
-  class: "ml-auto bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full"
+  class: "bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0"
 };
 var _hoisted_6 = {
   class: "space-y-1"
@@ -27712,7 +27717,7 @@ var _hoisted_6 = {
 var _hoisted_7 = ["onClick"];
 var _hoisted_8 = {
   key: 0,
-  class: "ml-3 text-sm font-medium flex-1"
+  class: "text-sm font-medium flex-1 min-w-0 truncate"
 };
 var _hoisted_9 = {
   key: 0,
@@ -27752,18 +27757,18 @@ var _hoisted_20 = {
   class: "text-xs text-gray-400 truncate"
 };
 var _hoisted_21 = {
-  class: "fixed left-0 top-0 h-screen w-64 bg-gray-900 border-r border-gray-800 z-40 lg:hidden overflow-y-auto"
+  class: "fixed left-0 top-0 h-screen w-64 max-w-[min(100vw,16rem)] bg-gray-900 border-r border-gray-800 z-40 lg:hidden overflow-y-auto overflow-x-hidden"
 };
 var _hoisted_22 = {
   class: "px-3 py-4 space-y-1"
 };
 var _hoisted_23 = ["href", "onClick"];
 var _hoisted_24 = {
-  class: "ml-3 text-sm font-medium"
+  class: "text-sm font-medium min-w-0 flex-1 truncate"
 };
 var _hoisted_25 = {
   key: 0,
-  class: "ml-auto bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full"
+  class: "bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0"
 };
 var _hoisted_26 = {
   key: 1,
@@ -27771,7 +27776,7 @@ var _hoisted_26 = {
 };
 var _hoisted_27 = ["onClick"];
 var _hoisted_28 = {
-  class: "ml-3 text-sm font-medium flex-1"
+  class: "text-sm font-medium flex-1 min-w-0 truncate"
 };
 var _hoisted_29 = {
   key: 0,
@@ -27813,7 +27818,7 @@ var _hoisted_40 = {
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   var _$props$user, _$props$user2, _$props$user3, _$props$user4;
   return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Desktop Sidebar (collapsible) - Siempre tema oscuro "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("aside", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-40', 'hidden lg:block', $setup.desktopExpanded ? 'w-64' : 'w-20'])
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-40 overflow-x-hidden', 'hidden lg:block', $setup.desktopExpanded ? 'w-64' : 'w-20'])
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Logo "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_1, [$setup.desktopExpanded ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_2, [_cache[1] || (_cache[1] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "flex items-center space-x-2 min-w-0"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
@@ -27845,7 +27850,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg"
   }, null, -1 /* CACHED */)]))))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Navigation "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("nav", {
     ref: "navEl",
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['px-3 py-4 space-y-1 overflow-y-auto', $setup.desktopExpanded && $props.user ? 'h-[calc(100vh-8rem)]' : 'h-[calc(100vh-4rem)]']),
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden min-h-0', $setup.desktopExpanded && $props.user ? 'h-[calc(100vh-8rem)]' : 'h-[calc(100vh-4rem)]']),
     onScroll: $setup.onNavScroll
   }, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.filteredMenu, function (item) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
@@ -27856,13 +27861,13 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
         return $setup.handleMenuClick(item);
       }, ["prevent"]),
-      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors group whitespace-nowrap', $setup.isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''])
+      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center min-w-0 px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors group gap-2', $setup.isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''])
     }, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)((0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveDynamicComponent)($setup.iconComponent(item.icon)), {
       class: "w-5 h-5 flex-shrink-0"
     })), $setup.desktopExpanded ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_4, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(item.label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.desktopExpanded && item.badge ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(item.badge), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 10 /* CLASS, PROPS */, _hoisted_3)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 1
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Item with submenu "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group whitespace-nowrap', $setup.isSubmenuActive(item) ? 'bg-purple-900/20 text-purple-400' : '']),
+      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center min-w-0 px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group gap-2', $setup.isSubmenuActive(item) ? 'bg-purple-900/20 text-purple-400' : '']),
       onClick: function onClick($event) {
         return $setup.toggleSubmenu(item);
       }
@@ -27925,11 +27930,11 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
         return $setup.handleMenuClick(item);
       }, ["prevent"]),
-      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors', $setup.isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''])
+      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center min-w-0 gap-2 px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors', $setup.isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''])
     }, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)((0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveDynamicComponent)($setup.iconComponent(item.icon)), {
       class: "w-5 h-5 flex-shrink-0"
     })), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_24, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(item.label), 1 /* TEXT */), item.badge ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_25, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(item.badge), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 10 /* CLASS, PROPS */, _hoisted_23)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_26, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group', $setup.isSubmenuActive(item) ? 'bg-purple-900/20 text-purple-400' : '']),
+      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(['flex items-center min-w-0 gap-2 px-3 py-2.5 text-gray-200 cursor-pointer rounded-lg hover:bg-gray-800 group', $setup.isSubmenuActive(item) ? 'bg-purple-900/20 text-purple-400' : '']),
       onClick: function onClick($event) {
         return $setup.toggleSubmenu(item);
       }

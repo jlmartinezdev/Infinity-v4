@@ -14,6 +14,7 @@ use App\Models\Servicio;
 use App\Models\Router;
 use App\Models\RouterIpPool;
 use App\Models\PoolIpAsignada;
+use App\Models\MikrotikOperacionPendiente;
 use App\Helpers\MapsUrlHelper;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
@@ -748,6 +749,12 @@ class PedidoController extends Controller
             $mensaje .= ' Sincronizado con MikroTik.';
         } else {
             $mensaje .= ' Sincronización con MikroTik falló: ' . ($syncResult['error'] ?? 'error desconocido') . '. Podés sincronizar manualmente desde el servicio.';
+            MikrotikOperacionPendiente::registrarSiFallo(
+                MikrotikOperacionPendiente::TIPO_SYNC_PPPOE_SERVICIO,
+                ['servicio_id' => $servicioCreado->servicio_id],
+                $syncResult['error'] ?? 'Error',
+                'pedidos.crear-usuario-pppoe'
+            );
         }
 
         if ($wantsJson) {
@@ -796,9 +803,13 @@ class PedidoController extends Controller
         }
 
         $facturaInternaId = null;
+        $servicioIdsPedido = Servicio::where('pedido_id', $pedido->pedido_id)->pluck('servicio_id')->all();
+        $omitirFacturaPorCalendario = Carbon::now()->day < 7
+            && $pedido->cliente_id
+            && $servicioIdsPedido !== [];
 
         try {
-            DB::transaction(function () use ($pedido, $facturacionService, &$facturaInternaId) {
+            DB::transaction(function () use ($pedido, $facturacionService, &$facturaInternaId, $servicioIdsPedido) {
                 $pedido->update(['estado_instalado' => true]);
                 Servicio::where('pedido_id', $pedido->pedido_id)->update([
                     'estado' => 'A',
@@ -807,10 +818,13 @@ class PedidoController extends Controller
                     $pedido->cliente->update(['url_ubicacion' => trim($pedido->maps_gps)]);
                 }
 
-                $servicioIds = Servicio::where('pedido_id', $pedido->pedido_id)->pluck('servicio_id')->all();
-                if ($pedido->cliente_id && $servicioIds !== []) {
+                // Política de facturación: no generar factura interna al finalizar pedido entre el día 1 y 5;
+                // solo desde el día 6 hasta fin de mes.
+                $puedeFacturarPedidoInstalado = Carbon::now()->day >= 7;
+
+                if ($pedido->cliente_id && $servicioIdsPedido !== [] && $puedeFacturarPedidoInstalado) {
                     $resultado = $facturacionService->generarFacturaInternaDesdeServicios(
-                        $servicioIds,
+                        $servicioIdsPedido,
                         Carbon::now()->startOfMonth(),
                         Carbon::now()->endOfMonth(),
                         Auth::id(),
@@ -825,8 +839,15 @@ class PedidoController extends Controller
             ], 422);
         }
 
+        $msgFactura = '';
+        if ($facturaInternaId) {
+            $msgFactura = ' Se generó la factura interna prorrateada del mes.';
+        } elseif ($omitirFacturaPorCalendario) {
+            $msgFactura = ' No se generó factura interna: solo se emite desde el día 6 hasta fin de mes.';
+        }
+
         $payload = [
-            'message' => 'Pedido finalizado. Instalación marcada como completada.'.($facturaInternaId ? ' Se generó la factura interna prorrateada del mes.' : ''),
+            'message' => 'Pedido finalizado. Instalación marcada como completada.'.$msgFactura,
             'redirect' => route('pedidos.index'),
         ];
         if ($facturaInternaId !== null) {

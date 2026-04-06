@@ -10,6 +10,10 @@
 @php
     $config = [
         'servicios' => $serviciosParaVue ?? [],
+        'nodos' => isset($nodos) ? $nodos->map(fn($n) => [
+            'nodo_id' => $n->nodo_id,
+            'descripcion' => $n->descripcion,
+        ])->values()->all() : [],
         'clientes' => $clientes->map(fn($c) => [
             'cliente_id' => $c->cliente_id,
             'cedula' => $c->cedula,
@@ -30,6 +34,7 @@
         'filtros' => [
             'buscar' => request('buscar', ''),
             'cliente_id' => request('cliente_id', ''),
+            'nodo_id' => request('nodo_id', ''),
             'estado' => request('estado', 'todos'),
             'estado_pago' => request('estado_pago', 'todos'),
             'fecha_desde' => request('fecha_desde', ''),

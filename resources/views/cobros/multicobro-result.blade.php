@@ -36,7 +36,7 @@
                     Copiar imagen (recibo {{ $indice + 1 }}/{{ $cobros->count() }})
                 </button>
             </div>
-            <div id="recibo-captura-{{ $cobro->id }}" class="recibo-wrapper recibo-termico {{ !$loop->last ? 'break-after-page' : '' }}" data-mm="80">
+            <div id="recibo-captura-{{ $cobro->id }}" class="recibo-wrapper {{ !$loop->last ? 'break-after-page' : '' }}">
                 @include('cobros._recibo-contenido', [
                     'cobro' => $cobro,
                     'ajustes' => $ajustes,
@@ -52,19 +52,38 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset(mix('js/recibo-modo-local.js')) }}" defer></script>
 <script src="{{ asset(mix('js/recibo-copy-image.js')) }}" defer></script>
 <script>
 (function() {
     var STORAGE_KEY = 'reciboPapelMm';
-    var mm = '80';
-    try {
-        var v = localStorage.getItem(STORAGE_KEY);
-        if (v === '56' || v === '80') mm = v;
-    } catch (e) {}
-    document.querySelectorAll('.recibo-wrapper').forEach(function(el) {
-        el.style.maxWidth = mm + 'mm';
-        el.style.marginLeft = 'auto';
-        el.style.marginRight = 'auto';
+    function leerMm() {
+        try {
+            var v = localStorage.getItem(STORAGE_KEY);
+            return v === '56' ? '56' : '80';
+        } catch (e) {
+            return '80';
+        }
+    }
+    function aplicar() {
+        var mm = leerMm();
+        document.querySelectorAll('.recibo-wrapper').forEach(function(el) {
+            el.style.maxWidth = mm + 'mm';
+            el.style.marginLeft = 'auto';
+            el.style.marginRight = 'auto';
+        });
+        var sid = 'recibo-papel-print-css';
+        var st = document.getElementById(sid);
+        if (!st) {
+            st = document.createElement('style');
+            st.id = sid;
+            document.head.appendChild(st);
+        }
+        st.textContent = '@media print { @page { margin: 4mm; size: ' + mm + 'mm auto; } #recibo-multicobro-print .recibo-wrapper { max-width: ' + mm + 'mm !important; } }';
+    }
+    aplicar();
+    window.addEventListener('storage', function(e) {
+        if (e.key === STORAGE_KEY) aplicar();
     });
 })();
 </script>
@@ -72,17 +91,11 @@
 
 <style>
 @media print {
-    @page {
-        margin: 4mm;
-        size: 80mm auto;
-    }
     #recibo-multicobro-print {
         max-width: none !important;
     }
-    .recibo-wrapper {
-        max-width: 80mm !important;
-    }
-    .recibo-termico {
+    .recibo-termico,
+    #recibo-multicobro-print .recibo-bloque-linea-simple {
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
@@ -91,8 +104,18 @@
         -webkit-print-color-adjust: economy;
         print-color-adjust: economy;
     }
+    #recibo-multicobro-print .recibo-matricial,
+    #recibo-multicobro-print .recibo-modo-wrapper[data-recibo-modo="sin_grafico"] > .recibo-bloque-estandar > .recibo-termico,
+    #recibo-multicobro-print .recibo-bloque-linea-simple {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    }
+    #recibo-multicobro-print .recibo-modo-wrapper[data-recibo-modo="sin_grafico"] > .recibo-bloque-estandar > .recibo-termico {
+        border: 1px dashed #000 !important;
+    }
     #recibo-multicobro-print .recibo-termico,
-    #recibo-multicobro-print .recibo-termico * {
+    #recibo-multicobro-print .recibo-termico *,
+    #recibo-multicobro-print .recibo-bloque-linea-simple,
+    #recibo-multicobro-print .recibo-bloque-linea-simple * {
         color: #000 !important;
     }
     #recibo-multicobro-print .recibo-termico svg {

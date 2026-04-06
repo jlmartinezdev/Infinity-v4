@@ -15,6 +15,11 @@
             IP: {{ $servicio->ip ?? '—' }} —
             Plan: {{ $servicio->plan?->nombre ?? '—' }}
         </p>
+        @if($servicio->usuario_pppoe)
+            <p class="text-xs text-amber-700/90 dark:text-amber-300/90 mt-2">
+                Al confirmar, se eliminará el usuario PPPoE <strong class="font-mono">{{ $servicio->usuario_pppoe }}</strong> del MikroTik del nodo actual y se creará o actualizará en el router del nodo destino.
+            </p>
+        @endif
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MikrotikOperacionPendiente;
 use App\Models\Router;
 use App\Models\ServicioHotspot;
 use App\Services\MikroTikService;
@@ -112,6 +113,13 @@ class HotspotController extends Controller
         if ($result['success']) {
             return redirect()->back()->with('success', 'Usuario hotspot sincronizado correctamente.');
         }
+
+        MikrotikOperacionPendiente::registrarSiFallo(
+            MikrotikOperacionPendiente::TIPO_SYNC_HOTSPOT,
+            ['servicio_hotspot_id' => $servicioHotspot->getKey()],
+            $result['error'] ?? 'Error al sincronizar',
+            'hotspot.sync'
+        );
 
         return redirect()->back()->with('error', $result['error'] ?? 'Error al sincronizar.');
     }

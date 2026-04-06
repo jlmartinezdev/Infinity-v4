@@ -9,6 +9,10 @@ class AjustesGenerales extends Model
 {
     protected $table = 'ajustes_generales';
 
+    public const RECIBO_MODO_CON_GRAFICO = 'con_grafico';
+
+    public const RECIBO_MODO_SIN_GRAFICO = 'sin_grafico';
+
     protected $fillable = [
         'nombre_empresa',
         'logo',
@@ -16,7 +20,27 @@ class AjustesGenerales extends Model
         'email',
         'direccion',
         'sitio_web',
+        'recibo_modo',
+        'recibo_papel_mm',
     ];
+
+    /**
+     * Ancho del papel del recibo en mm (56 o 80). Valor por defecto 80.
+     */
+    public function reciboPapelMm(): int
+    {
+        $v = (string) ($this->recibo_papel_mm ?? '80');
+
+        return $v === '56' ? 56 : 80;
+    }
+
+    /**
+     * Recibo solo texto (impresora matricial / sin logo ni imágenes).
+     */
+    public function reciboSinGrafico(): bool
+    {
+        return ($this->recibo_modo ?? self::RECIBO_MODO_CON_GRAFICO) === self::RECIBO_MODO_SIN_GRAFICO;
+    }
 
     /** Obtiene el único registro de ajustes (id = 1). */
     public static function obtener(): ?self

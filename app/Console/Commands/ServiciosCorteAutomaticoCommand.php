@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\FacturacionParametro;
+use App\Models\MikrotikOperacionPendiente;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
@@ -12,7 +13,8 @@ class ServiciosCorteAutomaticoCommand extends Command
 {
     protected $signature = 'servicios:corte-automatico
                             {--dry-run : Solo mostrar qué servicios se suspenderían, sin ejecutar}
-                            {--force : Ejecutar aunque no sea el día de corte configurado}';
+                            {--force : Ejecutar aunque no sea el día de corte configurado}
+                            {--nodo= : Solo servicios cuyo router pertenece a este nodo (nodo_id)}';
 
     protected $description = 'Suspende servicios por falta de pago (facturas vencidas). Se ejecuta el día y hora configurados. También deshabilita PPPoE en routers MikroTik.';
 
@@ -34,7 +36,13 @@ class ServiciosCorteAutomaticoCommand extends Command
             $this->info('Modo dry-run: no se realizarán cambios.');
         }
 
-        $suspendidos = $facturacionService->suspenderPorFaltaPago($dryRun);
+        $nodoOpt = $this->option('nodo');
+        $nodoId = $nodoOpt !== null && $nodoOpt !== '' ? (int) $nodoOpt : null;
+        if ($nodoId !== null) {
+            $this->info("Filtro por nodo_id: {$nodoId}");
+        }
+
+        $suspendidos = $facturacionService->suspenderPorFaltaPago($dryRun, $nodoId);
 
         if (empty($suspendidos)) {
             $this->info('No hay servicios pendientes de suspender por falta de pago.');
@@ -62,6 +70,12 @@ class ServiciosCorteAutomaticoCommand extends Command
                     $this->line("  ✓ MikroTik: PPPoE deshabilitado para {$servicio->usuario_pppoe}");
                 } else {
                     $this->warn("  ✗ MikroTik: {$result['error']} para {$servicio->usuario_pppoe}");
+                    MikrotikOperacionPendiente::registrarSiFallo(
+                        MikrotikOperacionPendiente::TIPO_PPPOE_DISABLED,
+                        ['servicio_id' => $servicio->servicio_id, 'disabled' => true],
+                        $result['error'] ?? 'Error',
+                        'servicios:corte-automatico'
+                    );
                 }
             }
         }

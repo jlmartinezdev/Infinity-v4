@@ -28,7 +28,7 @@
         <div class="relative shrink-0" ref="dropdownEstadoRef">
           <button
             type="button"
-            @click="dropdownEstadoOpen = !dropdownEstadoOpen; dropdownEstadoPagoOpen = false"
+            @click="dropdownEstadoOpen = !dropdownEstadoOpen; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[140px] justify-between"
           >
             <span>{{ filtros.estado === 'todos' ? 'Estado' : estadoLabel(filtros.estado) }}</span>
@@ -66,11 +66,47 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
+        <!-- Filtro Nodo -->
+        <div class="relative shrink-0" ref="dropdownNodoRef">
+          <button
+            type="button"
+            @click="dropdownNodoOpen = !dropdownNodoOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false"
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[150px] max-w-[220px] justify-between"
+          >
+            <span class="truncate">{{ nodoFiltroLabel }}</span>
+            <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div
+            v-show="dropdownNodoOpen"
+            class="absolute left-0 mt-1.5 min-w-[200px] max-h-64 overflow-y-auto py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20"
+          >
+            <button
+              type="button"
+              @click="filtros.nodo_id = ''; dropdownNodoOpen = false"
+              class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              :class="!filtros.nodo_id ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
+            >
+              Todos los nodos
+            </button>
+            <button
+              v-for="n in nodos"
+              :key="n.nodo_id"
+              type="button"
+              @click="filtros.nodo_id = String(n.nodo_id); dropdownNodoOpen = false"
+              class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors truncate"
+              :class="String(filtros.nodo_id) === String(n.nodo_id) ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
+            >
+              {{ n.descripcion || ('Nodo #' + n.nodo_id) }}
+            </button>
+          </div>
+        </div>
         <!-- Dropdown Estado de Pago -->
         <div class="relative shrink-0" ref="dropdownEstadoPagoRef">
           <button
             type="button"
-            @click="dropdownEstadoPagoOpen = !dropdownEstadoPagoOpen; dropdownEstadoOpen = false"
+            @click="dropdownEstadoPagoOpen = !dropdownEstadoPagoOpen; dropdownEstadoOpen = false; dropdownNodoOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[160px] justify-between"
           >
             <span>{{ filtros.estado_pago === 'todos' ? 'Estado de Pago' : estadoPagoLabel(filtros.estado_pago) }}</span>
@@ -463,6 +499,7 @@ const opcionesEstadoPago = [
 
 const props = defineProps({
   servicios: { type: Array, default: () => [] },
+  nodos: { type: Array, default: () => [] },
   clientes: { type: Array, default: () => [] },
   canCreateFactura: { type: Boolean, default: false },
   formAction: { type: String, default: '' },
@@ -476,7 +513,7 @@ const props = defineProps({
   urlSuspender: { type: String, default: '' },
   urlSyncPppoe: { type: String, default: '' },
   urlCrearFacturaInterna: { type: String, default: '' },
-  filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', estado: 'todos', estado_pago: 'todos', fecha_desde: '', fecha_hasta: '' }) },
+  filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', fecha_desde: '', fecha_hasta: '' }) },
 });
 
 const STORAGE_KEY_BUSCAR = 'servicios_index_buscar';
@@ -495,6 +532,7 @@ const perPage = ref(15);
 const filtros = ref({
   buscar: getBuscarInicial(),
   cliente_id: props.filtros?.cliente_id ?? '',
+  nodo_id: props.filtros?.nodo_id != null && props.filtros?.nodo_id !== '' ? String(props.filtros.nodo_id) : '',
   estado: props.filtros?.estado ?? 'todos',
   estado_pago: props.filtros?.estado_pago ?? 'todos',
   fecha_desde: props.filtros?.fecha_desde ?? '',
@@ -502,8 +540,16 @@ const filtros = ref({
 });
 const dropdownEstadoOpen = ref(false);
 const dropdownEstadoPagoOpen = ref(false);
+const dropdownNodoOpen = ref(false);
 const dropdownEstadoRef = ref(null);
 const dropdownEstadoPagoRef = ref(null);
+const dropdownNodoRef = ref(null);
+
+const nodoFiltroLabel = computed(() => {
+  if (!filtros.value.nodo_id) return 'Nodo';
+  const n = props.nodos.find((x) => String(x.nodo_id) === String(filtros.value.nodo_id));
+  return n ? (n.descripcion || `Nodo #${n.nodo_id}`) : 'Nodo';
+});
 const openAccionesId = ref(null);
 const accionesRefs = ref({});
 const dropdownPos = ref(null);
@@ -607,12 +653,13 @@ function toggleAcciones(id, ev) {
 }
 
 function closeDropdowns(ev) {
-  if (
-    dropdownEstadoRef.value && !dropdownEstadoRef.value.contains(ev.target) &&
-    dropdownEstadoPagoRef.value && !dropdownEstadoPagoRef.value.contains(ev.target)
-  ) {
+  const insideEstado = dropdownEstadoRef.value?.contains(ev.target);
+  const insidePago = dropdownEstadoPagoRef.value?.contains(ev.target);
+  const insideNodo = dropdownNodoRef.value?.contains(ev.target);
+  if (!insideEstado && !insidePago && !insideNodo) {
     dropdownEstadoOpen.value = false;
     dropdownEstadoPagoOpen.value = false;
+    dropdownNodoOpen.value = false;
   }
   if (openAccionesId.value !== null) {
     const el = accionesRefs.value[openAccionesId.value];
@@ -631,7 +678,7 @@ const selectedCount = computed(() => selectedIds.value.length);
 
 const serviciosFiltrados = computed(() => {
   let list = serviciosList.value;
-  const { buscar, cliente_id, estado, estado_pago, fecha_desde, fecha_hasta } = filtros.value;
+  const { buscar, cliente_id, nodo_id, estado, estado_pago, fecha_desde, fecha_hasta } = filtros.value;
 
   if (fecha_desde || fecha_hasta) {
     list = list.filter(s => {
@@ -657,6 +704,10 @@ const serviciosFiltrados = computed(() => {
   }
   if (cliente_id) {
     list = list.filter(s => String(s.cliente?.cliente_id) === String(cliente_id));
+  }
+  if (nodo_id) {
+    const nid = String(nodo_id);
+    list = list.filter(s => String(s.pool?.router?.nodo?.nodo_id ?? '') === nid);
   }
   if (estado && estado !== 'todos') {
     list = list.filter(s => (s.estado || 'P') === estado);

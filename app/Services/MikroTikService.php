@@ -199,20 +199,37 @@ class MikroTikService
     }
 
     /**
-     * Elimina un secreto PPPoE por nombre de usuario.
+     * Elimina un secreto PPPoE por nombre de usuario (consulta puntual, sin listar todos los secretos).
+     *
+     * @return array{success: bool, removed?: bool, message?: string, error?: string}
      */
     public function removePppoeSecretByName(Router $router, string $name): array
     {
-        $secrets = $this->getPppoeSecrets($router);
-        foreach ($secrets as $item) {
-            if (isset($item['name']) && $item['name'] === $name) {
-                $id = $item['.id'] ?? null;
-                if ($id) {
-                    return $this->removePppoeSecret($router, $id);
-                }
-            }
+        $name = trim($name);
+        if ($name === '') {
+            return ['success' => true, 'removed' => false, 'message' => 'Sin nombre de usuario'];
         }
-        return ['success' => true, 'message' => 'Usuario no encontrado en el router'];
+
+        try {
+            $secret = $this->getPppoeSecretByName($router, $name);
+            if (! $secret || empty($secret['.id'])) {
+                Log::info('[MikroTik] removePppoeSecretByName: no existe en router', ['router' => $router->ip, 'name' => $name]);
+
+                return ['success' => true, 'removed' => false, 'message' => 'Usuario no encontrado en el router'];
+            }
+            $this->removePppoeSecret($router, $secret['.id']);
+            Log::info('[MikroTik] removePppoeSecretByName: eliminado', ['router' => $router->ip, 'name' => $name]);
+
+            return ['success' => true, 'removed' => true];
+        } catch (Throwable $e) {
+            Log::warning('[MikroTik] removePppoeSecretByName failed', [
+                'router' => $router->ip,
+                'name' => $name,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'removed' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /**

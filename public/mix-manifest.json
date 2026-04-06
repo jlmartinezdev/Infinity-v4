@@ -1,18 +1,19 @@
 {
-    "/js/app.js": "/js/app.js?id=2b8ff0ba76c1e06a91fb1bd1778dd01f",
+    "/js/app.js": "/js/app.js?id=0028b5a1870caebb098b31da015b9bee",
     "/js/login.js": "/js/login.js?id=10ce7ca7b469f40cb8745b9039c749c8",
     "/js/register.js": "/js/register.js?id=62944fbcf4a529f778db81f7d4c35ebf",
     "/js/pedido-form.js": "/js/pedido-form.js?id=f4b9988d15ce1d861810ee88297c4c63",
     "/js/pedidos-list.js": "/js/pedidos-list.js?id=c1e3039341b19b5a2d4d6d9031b801da",
     "/js/clientes-list.js": "/js/clientes-list.js?id=b328919547594e705a5dacc08986e5d8",
     "/js/recibo-copy-image.js": "/js/recibo-copy-image.js?id=5671ac89794a2a45decb9f64144ae561",
+    "/js/recibo-modo-local.js": "/js/recibo-modo-local.js?id=ab7532743418f527ac77f6c467a8fd57",
     "/js/servicio-form-ips.js": "/js/servicio-form-ips.js?id=194dbb1a0cf4669bcdad456d4676b9fe",
     "/js/usuario-management.js": "/js/usuario-management.js?id=ebbfd5b2065b6d1b7508a1c9677208fd",
     "/js/mapas-pedidos.js": "/js/mapas-pedidos.js?id=5c31bd95ee65a7a367fc759ae605d900",
     "/js/mapa-nap.js": "/js/mapa-nap.js?id=4a1906becb370e93d2c71b294284b9f5",
-    "/js/servicios-index.js": "/js/servicios-index.js?id=14d2301b399057b613b45841ef7ad9d9",
+    "/js/servicios-index.js": "/js/servicios-index.js?id=a8b795ba1169f3aad29e8f75c6247d9a",
     "/js/cobros-servicios.js": "/js/cobros-servicios.js?id=8ebfeab01c400b2740661463a3926fd9",
     "/js/facturas-internas-index.js": "/js/facturas-internas-index.js?id=8ba97d130b9c230360c8cc475b95e52a",
     "/js/tareas-dashboard.js": "/js/tareas-dashboard.js?id=39e60e932c4d2583c9807cb2f10e3f70",
-    "/css/app.css": "/css/app.css?id=6d0ff47bf165d597432aa2de5e144921"
+    "/css/app.css": "/css/app.css?id=0afedc232bc13f1fa4d231d1ca2cfc76"
 }

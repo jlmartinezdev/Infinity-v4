@@ -556,7 +556,7 @@ class CobroController extends Controller
             return redirect()->route('cobros.index')->with('info', 'No hay recibos de multicobro para mostrar.');
         }
 
-        $cobros = Cobro::with(['cliente', 'facturaInternas', 'usuario'])
+        $cobros = Cobro::with(['cliente.servicios', 'facturaInternas', 'usuario'])
             ->whereIn('id', $ids)
             ->orderBy('id')
             ->get();
@@ -576,7 +576,7 @@ class CobroController extends Controller
      */
     public function show(Cobro $cobro)
     {
-        $cobro->load(['cliente', 'facturaInternas', 'usuario']);
+        $cobro->load(['cliente.servicios', 'facturaInternas', 'usuario']);
         $ajustes = \App\Models\AjustesGenerales::obtener();
 
         return view('cobros.show', compact('cobro', 'ajustes'));
@@ -593,24 +593,35 @@ class CobroController extends Controller
             abort(403, 'No podés descargar este recibo.');
         }
 
-        $cobro->load(['cliente', 'facturaInternas', 'usuario']);
+        $cobro->load(['cliente.servicios', 'facturaInternas', 'usuario']);
         $ajustes = \App\Models\AjustesGenerales::obtener();
 
+        $modo = request()->query('recibo_modo', 'con_grafico');
+        if (! in_array($modo, ['con_grafico', 'sin_grafico', 'sin_grafico_linea'], true)) {
+            $modo = 'con_grafico';
+        }
+        $reciboLineaSimple = $modo === 'sin_grafico_linea';
+        $reciboSinGrafico = in_array($modo, ['sin_grafico', 'sin_grafico_linea'], true);
+
         $logoBase64 = null;
-        if ($ajustes && $ajustes->logo && Storage::disk('public')->exists($ajustes->logo)) {
+        if (! $reciboSinGrafico && $ajustes && $ajustes->logo && Storage::disk('public')->exists($ajustes->logo)) {
             $mime = Storage::disk('public')->mimeType($ajustes->logo) ?? 'image/png';
             $logoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($ajustes->logo));
         }
 
-        // Tamaño ticket 80 mm de ancho (puntos: mm × 72 / 25,4); alto amplio para rollo térmico.
+        // Impresión en navegador usa localStorage (reciboPapelMm); el PDF usa ancho fijo en servidor.
+        $anchoMm = 80;
+        // Tamaño ticket (puntos: mm × 72 / 25,4); alto amplio para rollo térmico.
         $mmToPt = static fn (float $mm): float => $mm * 72 / 25.4;
-        $anchoPt = $mmToPt(80);
+        $anchoPt = $mmToPt((float) $anchoMm);
         $altoPt = $mmToPt(600);
 
         $pdf = Pdf::loadView('cobros.recibo-pdf', [
             'cobro' => $cobro,
             'ajustes' => $ajustes,
             'logoBase64' => $logoBase64,
+            'reciboSinGrafico' => $reciboSinGrafico,
+            'reciboLineaSimple' => $reciboLineaSimple,
             'esMulticobro' => false,
         ])->setPaper([0, 0, $anchoPt, $altoPt], 'portrait');
 

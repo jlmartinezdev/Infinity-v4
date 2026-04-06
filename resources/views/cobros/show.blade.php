@@ -30,36 +30,50 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset(mix('js/recibo-modo-local.js')) }}" defer></script>
 <script src="{{ asset(mix('js/recibo-copy-image.js')) }}" defer></script>
 <script>
 (function() {
     var STORAGE_KEY = 'reciboPapelMm';
-    var el = document.getElementById('recibo-contenido');
-    if (!el) return;
-    try {
-        var mm = localStorage.getItem(STORAGE_KEY);
-        if (mm !== '56' && mm !== '80') mm = '80';
+    function leerMm() {
+        try {
+            var v = localStorage.getItem(STORAGE_KEY);
+            return v === '56' ? '56' : '80';
+        } catch (e) {
+            return '80';
+        }
+    }
+    function aplicar() {
+        var mm = leerMm();
+        var el = document.getElementById('recibo-contenido');
+        if (!el) return;
         el.style.maxWidth = mm + 'mm';
         el.style.marginLeft = 'auto';
         el.style.marginRight = 'auto';
-    } catch (e) {}
+        var sid = 'recibo-papel-print-css';
+        var st = document.getElementById(sid);
+        if (!st) {
+            st = document.createElement('style');
+            st.id = sid;
+            document.head.appendChild(st);
+        }
+        st.textContent = '@media print { @page { margin: 4mm; size: ' + mm + 'mm auto; } #recibo-contenido { max-width: ' + mm + 'mm !important; } }';
+    }
+    aplicar();
+    window.addEventListener('storage', function(e) {
+        if (e.key === STORAGE_KEY) aplicar();
+    });
 })();
 </script>
 @endpush
 
 <style>
 @media print {
-    @page {
-        margin: 4mm;
-        size: 80mm auto;
-    }
     #recibo-print {
         max-width: none !important;
     }
-    #recibo-contenido {
-        max-width: 80mm !important;
-    }
-    .recibo-termico {
+    .recibo-termico,
+    #recibo-print .recibo-bloque-linea-simple {
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
@@ -68,9 +82,19 @@
         -webkit-print-color-adjust: economy;
         print-color-adjust: economy;
     }
+    #recibo-print .recibo-matricial,
+    #recibo-print .recibo-modo-wrapper[data-recibo-modo="sin_grafico"] > .recibo-bloque-estandar > .recibo-termico,
+    #recibo-print .recibo-bloque-linea-simple {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    }
+    #recibo-print .recibo-modo-wrapper[data-recibo-modo="sin_grafico"] > .recibo-bloque-estandar > .recibo-termico {
+        border: 1px dashed #000 !important;
+    }
     /* Solo negro al imprimir (incluye modo oscuro y grises Tailwind) */
     #recibo-print .recibo-termico,
-    #recibo-print .recibo-termico * {
+    #recibo-print .recibo-termico *,
+    #recibo-print .recibo-bloque-linea-simple,
+    #recibo-print .recibo-bloque-linea-simple * {
         color: #000 !important;
     }
     #recibo-print .recibo-termico svg {

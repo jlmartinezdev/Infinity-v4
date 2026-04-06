@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FacturaInterna extends Model
 {
@@ -60,6 +61,12 @@ class FacturaInterna extends Model
     public function detalles(): HasMany
     {
         return $this->hasMany(FacturaInternaDetalle::class)->orderBy('id');
+    }
+
+    /** Promesa de pago registrada para esta factura (como máximo una vigente). */
+    public function promesaPago(): HasOne
+    {
+        return $this->hasOne(PromesaPago::class, 'factura_interna_id');
     }
 
     /** Cobros que aplican a esta factura (vía pivot cobro_factura_interna con monto por factura). */

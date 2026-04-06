@@ -15,7 +15,7 @@ class ConfiguracionController extends Controller
     }
 
     /**
-     * Impresión: tamaño papel recibo (guardado en localStorage).
+     * Impresión: ancho de papel y modo de recibo solo en localStorage (navegador).
      */
     public function impresion()
     {

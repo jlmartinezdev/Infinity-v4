@@ -6,9 +6,26 @@
 <div class="max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Pendiente de pago</h1>
-        <a href="{{ route('cobros.create') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-            Registrar cobro
-        </a>
+        <div class="flex items-center gap-2 flex-wrap">
+            <a href="{{ route('promesas-pago.index') }}"
+               class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg text-sm font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+               title="Lista de promesas de pago">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                </svg>
+                <span class="hidden sm:inline">Promesas</span>
+            </a>
+            @if(auth()->user()?->tienePermiso('cobros.crear'))
+                <a href="{{ route('cobros.create') }}"
+                   class="inline-flex items-center justify-center p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
+                   title="Registrar cobro"
+                   aria-label="Registrar cobro">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                </a>
+            @endif
+        </div>
     </div>
 
     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Facturas internas con saldo pendiente. Busque por nombre o cédula del cliente. Marque filas y use "Multicobro" para abonar varias facturas de una vez.</p>
@@ -64,7 +81,8 @@
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cobrado</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Saldo</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Promesa</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-36">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
@@ -82,25 +100,22 @@
                             <td class="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{{ number_format($f->total, 0, ',', '.') }} {{ $f->moneda }}</td>
                             <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ number_format($f->monto_pagado, 0, ',', '.') }} {{ $f->moneda }}</td>
                             <td class="px-4 py-3 text-sm text-right font-semibold text-amber-700 dark:text-amber-400">{{ number_format($f->saldo_pendiente, 0, ',', '.') }} {{ $f->moneda }}</td>
-                            <td class="px-4 py-3 flex items-center gap-2">
-                                <a href="{{ route('factura-internas.show', $f) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm" title="Ver factura interna"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
-                                </svg>
-                                </a>
-                                @if(auth()->user()?->tienePermiso('cobros.crear'))
-                                    <a href="{{ route('cobros.create', ['cliente_id' => $f->cliente_id, 'factura_interna_id' => $f->id]) }}" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
-                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
-                                    Registrar cobro
-                                    </a>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                @if($f->promesaPago)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200" title="Promesa de pago">
+                                        Hasta {{ $f->promesaPago->vencimiento_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}
+                                    </span>
+                                @else
+                                    —
                                 @endif
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @include('factura-internas.partials.pendientes-acciones-iconos', ['f' => $f])
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ auth()->user()?->tienePermiso('cobros.crear') ? 9 : 8 }}" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay facturas internas pendientes de pago.</td>
+                            <td colspan="{{ auth()->user()?->tienePermiso('cobros.crear') ? 10 : 9 }}" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay facturas internas pendientes de pago.</td>
                         </tr>
                     @endforelse
                 </tbody>

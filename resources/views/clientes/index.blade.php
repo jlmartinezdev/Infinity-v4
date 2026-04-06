@@ -25,7 +25,7 @@
                         placeholder="Buscar por cédula, nombre, apellido, email o teléfono..."
                         class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
                     @if(request('buscar'))
-                        <a href="{{ route('clientes.index', ['estado' => request('estado')]) }}" 
+                        <a href="{{ route('clientes.index', request()->except('buscar')) }}" 
                             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                             title="Limpiar búsqueda">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,6 +40,13 @@
                         <option value="activo" {{ request('estado') === 'activo' ? 'selected' : '' }}>Activo</option>
                         <option value="inactivo" {{ request('estado') === 'inactivo' ? 'selected' : '' }}>Inactivo</option>
                         <option value="suspendido" {{ request('estado') === 'suspendido' ? 'selected' : '' }}>Suspendido</option>
+                    </select>
+                </div>
+                <div class="sm:w-56">
+                    <label for="sin_servicio" class="sr-only">Servicios</label>
+                    <select id="sin_servicio" name="sin_servicio" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+                        <option value="" {{ ! request()->boolean('sin_servicio') ? 'selected' : '' }}>Todos (con o sin servicio)</option>
+                        <option value="1" {{ request()->boolean('sin_servicio') ? 'selected' : '' }}>Sin servicio asociado</option>
                     </select>
                 </div>
                 <button type="submit" 

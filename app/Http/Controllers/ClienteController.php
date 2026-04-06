@@ -36,6 +36,10 @@ class ClienteController extends Controller
             $query->where('estado', $request->estado);
         }
 
+        if ($request->boolean('sin_servicio')) {
+            $query->whereDoesntHave('servicios');
+        }
+
         $clientes = $query->with(['servicios.plan', 'servicios.pool'])->paginate(15)->withQueryString();
 
         return view('clientes.index', compact('clientes'));

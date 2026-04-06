@@ -9,8 +9,9 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <a href="{{ route('configuracion.impresion') }}" class="block p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Impresión</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Tamaño de papel para recibos (pos printer 80mm / 56mm).</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Tamaño de papel, recibo con o sin gráfico (matricial).</p>
         </a>
+        @if(auth()->user()->tienePermiso('configuracion.ver'))
         <a href="{{ route('configuracion.ajustes') }}" class="block p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Ajustes generales</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Nombre de empresa, logo, contactos y sitio web.</p>
@@ -23,6 +24,11 @@
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Tareas periódicas</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Ver y gestionar tareas automáticas con nombre, acción, resultado y nodo.</p>
         </a>
+        <a href="{{ route('configuracion.backup') }}" class="block p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Backup base de datos</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Descargar copia SQL (MySQL/MariaDB) o archivo SQLite.</p>
+        </a>
+        @endif
     </div>
 </div>
 @endsection

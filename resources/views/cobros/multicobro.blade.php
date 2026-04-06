@@ -44,7 +44,7 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
-        <form action="{{ route('cobros.store-multicobro') }}" method="POST">
+        <form action="{{ route('cobros.store-multicobro') }}" method="POST" id="form-multicobro">
             @csrf
             @foreach($facturas as $f)
                 <input type="hidden" name="factura_interna_ids[]" value="{{ $f->id }}">
@@ -99,7 +99,7 @@
             </p>
 
             <div class="mt-6 flex gap-3">
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                <button type="submit" id="btn-registrar-multicobro" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-70 disabled:cursor-not-allowed">
                     Registrar multicobro
                 </button>
                 <a href="{{ route('factura-internas.pendientes') }}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
@@ -109,4 +109,23 @@
         </form>
     </div>
 </div>
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('form-multicobro');
+    var btn = document.getElementById('btn-registrar-multicobro');
+    if (form && btn) {
+        form.addEventListener('submit', function(e) {
+            if (form.dataset.submitting === '1') {
+                e.preventDefault();
+                return;
+            }
+            form.dataset.submitting = '1';
+            btn.disabled = true;
+            btn.textContent = 'Procesando…';
+        });
+    }
+});
+</script>
+@endpush
 @endsection

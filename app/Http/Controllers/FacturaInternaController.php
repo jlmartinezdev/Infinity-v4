@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AjustesGenerales;
 use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\FacturaDetalle;
@@ -9,10 +10,12 @@ use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
 use App\Models\Impuesto;
 use App\Services\FacturacionService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class FacturaInternaController extends Controller
@@ -115,7 +118,17 @@ class FacturaInternaController extends Controller
      */
     public function pendientes(Request $request)
     {
-        $query = FacturaInterna::with(['cliente'])
+        return view('factura-internas.pendientes', [
+            'facturas' => $this->facturasPendientesPaginadas($request),
+        ]);
+    }
+
+    /**
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
+    private function facturasPendientesPaginadas(Request $request)
+    {
+        $query = FacturaInterna::with(['cliente', 'promesaPago'])
             ->where('estado', 'pendiente')
             ->whereRaw('total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
             ->orderBy('fecha_vencimiento')
@@ -130,16 +143,38 @@ class FacturaInternaController extends Controller
             });
         }
 
-        $facturas = $query->paginate(20)->withQueryString();
-
-        return view('factura-internas.pendientes', compact('facturas'));
+        return $query->paginate(20)->withQueryString();
     }
 
     public function show(FacturaInterna $factura_interna)
     {
         $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros']);
+        $ajustes = AjustesGenerales::obtener();
 
-        return view('factura-internas.show', compact('factura_interna'));
+        return view('factura-internas.show', compact('factura_interna', 'ajustes'));
+    }
+
+    /**
+     * Descarga la factura interna en PDF (misma información que la vista de detalle).
+     */
+    public function pdf(FacturaInterna $factura_interna)
+    {
+        $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros']);
+        $ajustes = AjustesGenerales::obtener();
+
+        $logoBase64 = null;
+        if ($ajustes && $ajustes->logo && Storage::disk('public')->exists($ajustes->logo)) {
+            $mime = Storage::disk('public')->mimeType($ajustes->logo) ?? 'image/png';
+            $logoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($ajustes->logo));
+        }
+
+        $nombreArchivo = 'factura-interna-'.$factura_interna->id.'.pdf';
+
+        return Pdf::loadView('factura-internas.pdf', [
+            'factura_interna' => $factura_interna,
+            'ajustes' => $ajustes,
+            'logoBase64' => $logoBase64,
+        ])->setPaper('a4', 'portrait')->download($nombreArchivo);
     }
 
     public function edit(FacturaInterna $factura_interna)

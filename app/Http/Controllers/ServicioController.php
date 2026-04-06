@@ -7,6 +7,7 @@ use App\Models\Servicio;
 use App\Models\Cliente;
 use App\Models\Plan;
 use App\Models\RouterIpPool;
+use App\Models\MikrotikOperacionPendiente;
 use App\Models\PoolIpAsignada;
 use App\Services\MikroTikService;
 use Illuminate\Http\Request;
@@ -34,7 +35,10 @@ class ServicioController extends Controller
                     'router' => $s->pool->router ? [
                         'nombre' => $s->pool->router->nombre,
                         'ip' => $s->pool->router->ip,
-                        'nodo' => $s->pool->router->nodo ? ['nodo_id' => $s->pool->router->nodo->nodo_id] : null,
+                        'nodo' => $s->pool->router->nodo ? [
+                            'nodo_id' => $s->pool->router->nodo->nodo_id,
+                            'descripcion' => $s->pool->router->nodo->descripcion,
+                        ] : null,
                     ] : null,
                 ] : null,
                 'ip' => $s->ip,
@@ -47,9 +51,15 @@ class ServicioController extends Controller
             ];
         })->values()->all();
 
+        $nodos = Nodo::orderBy('descripcion')->get(['nodo_id', 'descripcion']);
+
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'servicios' => $serviciosParaVue,
+                'nodos' => $nodos->map(fn (Nodo $n) => [
+                    'nodo_id' => $n->nodo_id,
+                    'descripcion' => $n->descripcion,
+                ])->values()->all(),
             ]);
         }
 
@@ -57,6 +67,7 @@ class ServicioController extends Controller
             'servicios' => $servicios,
             'clientes' => $clientes,
             'serviciosParaVue' => $serviciosParaVue,
+            'nodos' => $nodos,
         ]);
     }
 
@@ -172,9 +183,9 @@ class ServicioController extends Controller
         return view('servicios.edit', compact('servicio', 'clientes', 'planes', 'pools'));
     }
 
-    public function update(Request $request, $servicio_id)
+    public function update(Request $request, $servicio_id, MikroTikService $mikrotik)
     {
-        $servicio = Servicio::findOrFail($servicio_id);
+        $servicio = Servicio::with(['pool.router', 'plan.perfilPppoe', 'cliente'])->findOrFail($servicio_id);
 
         $validated = $request->validate([
             'pool_id' => ['required', 'integer', 'exists:router_ip_pools,pool_id'],
@@ -192,6 +203,13 @@ class ServicioController extends Controller
             'mac_address' => ['nullable', 'string', 'max:20'],
         ]);
 
+        $poolOldId = (int) $servicio->pool_id;
+        $usuarioOld = trim((string) ($servicio->usuario_pppoe ?? ''));
+        $routerOld = $servicio->pool?->router;
+
+        $usuarioNew = trim((string) ($validated['usuario_pppoe'] ?? ''));
+        $poolNewId = (int) $validated['pool_id'];
+
         $ipAnterior = $servicio->ip;
         $poolAnterior = $servicio->pool_id;
 
@@ -207,7 +225,44 @@ class ServicioController extends Controller
 
         $servicio->update($validated);
 
-        return redirect()->route('servicios.index')->with('success', 'Servicio actualizado correctamente.');
+        $servicio->refresh();
+        $servicio->load(['pool.router', 'plan.perfilPppoe', 'cliente']);
+
+        $mensaje = 'Servicio actualizado correctamente.';
+
+        $debeQuitarSecretoAnterior = $routerOld && $usuarioOld !== ''
+            && ($poolOldId !== $poolNewId || $usuarioOld !== $usuarioNew);
+        if ($debeQuitarSecretoAnterior) {
+            $quitar = $mikrotik->removePppoeSecretByName($routerOld, $usuarioOld);
+            if (! $quitar['success']) {
+                $mensaje .= ' No se pudo quitar el usuario PPPoE anterior en MikroTik: ' . ($quitar['error'] ?? '') . '.';
+                MikrotikOperacionPendiente::registrarSiFallo(
+                    MikrotikOperacionPendiente::TIPO_REMOVE_PPPOE_SECRET,
+                    ['router_id' => $routerOld->router_id, 'usuario_pppoe' => $usuarioOld],
+                    $quitar['error'] ?? 'Error al eliminar secreto',
+                    'servicios.update'
+                );
+            } elseif (! empty($quitar['removed'])) {
+                $mensaje .= ' Usuario PPPoE anterior eliminado del router.';
+            }
+        }
+
+        if ($usuarioNew !== '' && $servicio->pool?->router && $servicio->estaActivo()) {
+            $sync = $mikrotik->syncPppoeServicio($servicio);
+            if ($sync['success']) {
+                $mensaje .= ' Sincronizado con MikroTik.';
+            } else {
+                $mensaje .= ' No se pudo sincronizar con MikroTik: ' . ($sync['error'] ?? 'error desconocido') . '. Podés reintentar con «Sincronizar PPPoE».';
+                MikrotikOperacionPendiente::registrarSiFallo(
+                    MikrotikOperacionPendiente::TIPO_SYNC_PPPOE_SERVICIO,
+                    ['servicio_id' => $servicio->servicio_id],
+                    $sync['error'] ?? 'Error al sincronizar',
+                    'servicios.update'
+                );
+            }
+        }
+
+        return redirect()->route('servicios.index')->with('success', $mensaje);
     }
 
     public function destroy($servicio_id)
@@ -233,8 +288,20 @@ class ServicioController extends Controller
         $servicio = Servicio::with('pool.router')->findOrFail($servicio_id);
         $servicio->activar();
         if ($servicio->usuario_pppoe && $servicio->pool?->router) {
-            $mikrotik->setPppoeDisabledEnRouter($servicio, false);
+            $r = $mikrotik->setPppoeDisabledEnRouter($servicio, false);
+            if (! $r['success']) {
+                MikrotikOperacionPendiente::registrarSiFallo(
+                    MikrotikOperacionPendiente::TIPO_PPPOE_DISABLED,
+                    ['servicio_id' => $servicio->servicio_id, 'disabled' => false],
+                    $r['error'] ?? 'Error',
+                    'servicios.activar'
+                );
+                return redirect()->back()
+                    ->with('success', 'Servicio reactivado en el sistema.')
+                    ->with('warning', 'MikroTik: no se pudo habilitar PPPoE — ' . ($r['error'] ?? 'error') . '. Quedó registrado para reintento.');
+            }
         }
+
         return redirect()->back()->with('success', 'Servicio reactivado correctamente.');
     }
 
@@ -247,7 +314,18 @@ class ServicioController extends Controller
         $servicio->suspender();
 
         if ($servicio->usuario_pppoe && $servicio->pool?->router) {
-            $mikrotik->setPppoeDisabledEnRouter($servicio, true);
+            $r = $mikrotik->setPppoeDisabledEnRouter($servicio, true);
+            if (! $r['success']) {
+                MikrotikOperacionPendiente::registrarSiFallo(
+                    MikrotikOperacionPendiente::TIPO_PPPOE_DISABLED,
+                    ['servicio_id' => $servicio->servicio_id, 'disabled' => true],
+                    $r['error'] ?? 'Error',
+                    'servicios.suspender'
+                );
+                return redirect()->back()
+                    ->with('success', 'Servicio suspendido en el sistema.')
+                    ->with('warning', 'MikroTik: no se pudo deshabilitar PPPoE — ' . ($r['error'] ?? 'error') . '. Quedó registrado para reintento.');
+            }
         }
 
         return redirect()->back()->with('success', 'Servicio suspendido correctamente.');
@@ -263,12 +341,26 @@ class ServicioController extends Controller
         try {
             $result = $mikrotik->syncPppoeServicio($servicio);
         } catch (\Throwable $e) {
+            MikrotikOperacionPendiente::registrarSiFallo(
+                MikrotikOperacionPendiente::TIPO_SYNC_PPPOE_SERVICIO,
+                ['servicio_id' => $servicio->servicio_id],
+                $e->getMessage(),
+                'servicios.sync-pppoe'
+            );
+
             return redirect()->back()->with('error', 'Error de conexión al router: ' . $e->getMessage());
         }
 
         if ($result['success']) {
             return redirect()->back()->with('success', 'Usuario PPPoE sincronizado en el router.');
         }
+
+        MikrotikOperacionPendiente::registrarSiFallo(
+            MikrotikOperacionPendiente::TIPO_SYNC_PPPOE_SERVICIO,
+            ['servicio_id' => $servicio->servicio_id],
+            $result['error'] ?? 'Error al sincronizar',
+            'servicios.sync-pppoe'
+        );
 
         return redirect()->back()->with('error', $result['error'] ?? 'Error al sincronizar.');
     }
@@ -330,6 +422,13 @@ class ServicioController extends Controller
             return redirect()->back()->withInput()->with('error', 'La IP seleccionada no está disponible en el pool destino.');
         }
 
+        $routerOrigen = $servicio->pool?->router;
+        $usuarioPppoeOrigen = $servicio->usuario_pppoe ? trim($servicio->usuario_pppoe) : '';
+        $resultadoEliminarOrigen = null;
+        if ($routerOrigen && $usuarioPppoeOrigen !== '') {
+            $resultadoEliminarOrigen = $mikrotik->removePppoeSecretByName($routerOrigen, $usuarioPppoeOrigen);
+        }
+
         $ipAnterior = $servicio->ip;
         $poolAnterior = $servicio->pool_id;
 
@@ -356,12 +455,35 @@ class ServicioController extends Controller
         $servicio->load(['pool.router', 'plan.perfilPppoe', 'cliente']);
 
         $mensaje = 'Servicio migrado correctamente al nuevo nodo.';
+        if ($resultadoEliminarOrigen !== null) {
+            if ($resultadoEliminarOrigen['success']) {
+                if (! empty($resultadoEliminarOrigen['removed'])) {
+                    $mensaje .= ' Usuario PPPoE eliminado del MikroTik del nodo anterior.';
+                }
+            } else {
+                $mensaje .= ' No se pudo eliminar el usuario PPPoE en el router anterior: ' . ($resultadoEliminarOrigen['error'] ?? 'error desconocido') . '. Revisá el router o eliminá el secreto a mano.';
+                if ($routerOrigen && $usuarioPppoeOrigen !== '') {
+                    MikrotikOperacionPendiente::registrarSiFallo(
+                        MikrotikOperacionPendiente::TIPO_REMOVE_PPPOE_SECRET,
+                        ['router_id' => $routerOrigen->router_id, 'usuario_pppoe' => $usuarioPppoeOrigen],
+                        $resultadoEliminarOrigen['error'] ?? 'Error',
+                        'servicios.migrar'
+                    );
+                }
+            }
+        }
         if ($servicio->usuario_pppoe && $servicio->pool?->router) {
             $syncResult = $mikrotik->syncPppoeServicio($servicio);
             if ($syncResult['success']) {
-                $mensaje .= ' Sincronizado con MikroTik.';
+                $mensaje .= ' Sincronizado con MikroTik en el nuevo nodo.';
             } else {
-                $mensaje .= ' Migración OK pero sincronización MikroTik falló: ' . ($syncResult['error'] ?? 'error desconocido') . '. Podés sincronizar manualmente desde el servicio.';
+                $mensaje .= ' Migración OK pero sincronización MikroTik en el nuevo nodo falló: ' . ($syncResult['error'] ?? 'error desconocido') . '. Podés sincronizar manualmente desde el servicio.';
+                MikrotikOperacionPendiente::registrarSiFallo(
+                    MikrotikOperacionPendiente::TIPO_SYNC_PPPOE_SERVICIO,
+                    ['servicio_id' => $servicio->servicio_id],
+                    $syncResult['error'] ?? 'Error',
+                    'servicios.migrar'
+                );
             }
         }
 

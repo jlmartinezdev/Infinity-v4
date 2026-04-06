@@ -24,7 +24,7 @@
     </div>
     @endauth
 
-    <div class="{{ auth()->check() ? 'lg:ml-64' : '' }} flex flex-col min-h-screen transition-all duration-300 print:ml-0 bg-gray-50 dark:bg-gray-900">
+    <div class="{{ auth()->check() ? 'lg:ml-64' : '' }} flex flex-col min-h-screen min-w-0 transition-all duration-300 print:ml-0 bg-gray-50 dark:bg-gray-900">
         <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 print:hidden transition-colors">
             <div class="px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
@@ -63,7 +63,7 @@
             </div>
         </header>
 
-        <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 print:py-0 print:px-0">
+        <main class="flex-1 min-w-0 overflow-x-hidden py-8 px-4 sm:px-6 lg:px-8 print:py-0 print:px-0">
             @if (session('success'))
                 <div class="mb-6 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-green-800 dark:text-green-200 print:hidden break-words text-sm">
                     {{ session('success') }}
@@ -72,6 +72,11 @@
             @if (session('error'))
                 <div class="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden">
                     {{ session('error') }}
+                </div>
+            @endif
+            @if (session('warning'))
+                <div class="mb-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-amber-900 dark:text-amber-200 print:hidden break-words text-sm">
+                    {{ session('warning') }}
                 </div>
             @endif
             @yield('content')

@@ -56,14 +56,14 @@
             </div>
 
             <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 min-w-0">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-600">Clientes</p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.clientes }}</p>
+                            <p class="text-3xl font-bold text-gray-900 mt-2 tabular-nums">{{ stats.clientes }}</p>
                         </div>
-                        <div class="bg-blue-100 rounded-full p-3">
+                        <div class="bg-blue-100 rounded-full p-3 flex-shrink-0">
                             <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                             </svg>
@@ -71,13 +71,13 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div>
+                <div class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 min-w-0">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-600">Servicios Activos</p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.servicios }}</p>
+                            <p class="text-3xl font-bold text-gray-900 mt-2 tabular-nums">{{ stats.servicios }}</p>
                         </div>
-                        <div class="bg-green-100 rounded-full p-3">
+                        <div class="bg-green-100 rounded-full p-3 flex-shrink-0">
                             <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                             </svg>
@@ -85,13 +85,13 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div>
+                <div class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 min-w-0 sm:col-span-2 lg:col-span-1">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-600">Facturación Mensual</p>
-                            <p class="text-2xl font-bold text-gray-900 mt-2">{{ formatNumber(stats.facturacion) }} PYG</p>
+                            <p class="text-lg sm:text-xl font-bold text-gray-900 mt-2 break-words leading-tight tabular-nums">{{ formatNumber(stats.facturacion) }} <span class="text-sm font-semibold text-gray-500">PYG</span></p>
                         </div>
-                        <div class="bg-yellow-100 rounded-full p-3">
+                        <div class="bg-yellow-100 rounded-full p-3 flex-shrink-0">
                             <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
@@ -99,13 +99,13 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div>
+                <div class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 min-w-0">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-600">Tickets Abiertos</p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.tickets }}</p>
+                            <p class="text-3xl font-bold text-gray-900 mt-2 tabular-nums">{{ stats.tickets }}</p>
                         </div>
-                        <div class="bg-red-100 rounded-full p-3">
+                        <div class="bg-red-100 rounded-full p-3 flex-shrink-0">
                             <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
@@ -113,13 +113,13 @@
                     </div>
                 </div>
 
-                <a :href="urlServiciosHoy" class="bg-white rounded-lg shadow p-6 border border-gray-200 hover:border-cyan-400 transition-colors block">
-                    <div class="flex items-center justify-between">
-                        <div>
+                <a :href="urlServiciosHoy" class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 hover:border-cyan-400 transition-colors block min-w-0">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-600">Instalados hoy</p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.clientes_instalados_hoy }}</p>
+                            <p class="text-3xl font-bold text-gray-900 mt-2 tabular-nums">{{ stats.clientes_instalados_hoy }}</p>
                         </div>
-                        <div class="bg-cyan-100 rounded-full p-3">
+                        <div class="bg-cyan-100 rounded-full p-3 flex-shrink-0">
                             <svg class="w-8 h-8 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
@@ -127,13 +127,13 @@
                     </div>
                 </a>
 
-                <a :href="urlServiciosMes" class="bg-white rounded-lg shadow p-6 border border-gray-200 hover:border-teal-400 transition-colors block">
-                    <div class="flex items-center justify-between">
-                        <div>
+                <a :href="urlServiciosMes" class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 hover:border-teal-400 transition-colors block min-w-0">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-600">Instalados este mes</p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.clientes_instalados_mes }}</p>
+                            <p class="text-3xl font-bold text-gray-900 mt-2 tabular-nums">{{ stats.clientes_instalados_mes }}</p>
                         </div>
-                        <div class="bg-teal-100 rounded-full p-3">
+                        <div class="bg-teal-100 rounded-full p-3 flex-shrink-0">
                             <svg class="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                             </svg>

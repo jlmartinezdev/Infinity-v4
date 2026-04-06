@@ -10,8 +10,11 @@ use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
 use App\Models\FacturacionParametro;
 use App\Models\Impuesto;
+use App\Models\MikrotikOperacionPendiente;
+use App\Models\PromesaPago;
 use App\Models\Servicio;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class FacturacionService
@@ -510,6 +513,20 @@ class FacturacionService
         }
 
         $cobro = DB::transaction(function () use ($data, $usuarioId, $concepto, $fechaPagoFinal, $items, $montoTotal) {
+            $idsFacturasPromesa = [];
+            if (! empty($items)) {
+                foreach ($items as $item) {
+                    $fid = (int) ($item['id'] ?? $item['factura_interna_id'] ?? 0);
+                    if ($fid > 0) {
+                        $idsFacturasPromesa[] = $fid;
+                    }
+                }
+                $idsFacturasPromesa = array_unique($idsFacturasPromesa);
+                if ($idsFacturasPromesa !== []) {
+                    PromesaPago::whereIn('factura_interna_id', $idsFacturasPromesa)->delete();
+                }
+            }
+
             $numeros = Cobro::reservarSiguientesNumerosRecibo(1);
             $numeroRecibo = $numeros[0];
 
@@ -535,14 +552,6 @@ class FacturacionService
                 }
             }
 
-            $cliente = Cliente::find($data['cliente_id']);
-            if ($cliente) {
-                $this->revisarActivacionServicios($cliente);
-                if (!empty($items)) {
-                    $this->recalcularCalificacionPagoCliente($cliente);
-                }
-            }
-
             foreach ($items as $item) {
                 $fid = (int) ($item['id'] ?? $item['factura_interna_id'] ?? 0);
                 if ($fid > 0) {
@@ -556,6 +565,14 @@ class FacturacionService
                         }
                     }
                 }
+            }
+
+            $cliente = Cliente::find($data['cliente_id']);
+            if ($cliente) {
+                if (! empty($items)) {
+                    $this->recalcularCalificacionPagoCliente($cliente);
+                }
+                $this->revisarActivacionServicios($cliente);
             }
 
             return $cobro;
@@ -588,7 +605,8 @@ class FacturacionService
     }
 
     /**
-     * Si el cliente tiene servicios suspendidos por falta de pago y ya no tiene facturas emitidas con saldo pendiente vencido, reactiva los servicios.
+     * Si el cliente tiene servicios suspendidos por falta de pago y ya no tiene facturas vencidas con saldo pendiente,
+     * reactiva en BD y habilita PPPoE en MikroTik (igual que la acción manual «Activar servicio»).
      */
     public function revisarActivacionServicios(Cliente $cliente): void
     {
@@ -599,10 +617,32 @@ class FacturacionService
             ->filter(fn (FacturaInterna $f) => $f->saldo_pendiente > 0);
 
         if ($facturasVencidasConSaldo->isEmpty()) {
-            $cliente->servicios()
+            $servicios = $cliente->servicios()
                 ->where('estado', Servicio::ESTADO_SUSPENDIDO)
                 ->where('motivo_suspension', 'like', '%Falta de pago%')
-                ->each(fn (Servicio $s) => $s->activar());
+                ->with('pool.router')
+                ->get();
+
+            if ($servicios->isEmpty()) {
+                return;
+            }
+
+            $mikrotik = app(MikroTikService::class);
+
+            foreach ($servicios as $servicio) {
+                $servicio->activar();
+                if ($servicio->usuario_pppoe && $servicio->pool?->router) {
+                    $r = $mikrotik->setPppoeDisabledEnRouter($servicio, false);
+                    if (! $r['success']) {
+                        MikrotikOperacionPendiente::registrarSiFallo(
+                            MikrotikOperacionPendiente::TIPO_PPPOE_DISABLED,
+                            ['servicio_id' => $servicio->servicio_id, 'disabled' => false],
+                            $r['error'] ?? 'Error',
+                            'facturacion.registrar-cobro.reactivar'
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -611,27 +651,117 @@ class FacturacionService
      * Se consideran vencidas las facturas cuya fecha_vencimiento ya pasó (se ejecuta el día de corte configurado).
      *
      * @param  bool  $dryRun  Si true, solo devuelve la lista sin suspender
+     * @param  int|null  $nodoId  Si no es null, solo suspende servicios cuyo pool/router pertenece a ese nodo
      */
-    public function suspenderPorFaltaPago(bool $dryRun = false): array
+    public function suspenderPorFaltaPago(bool $dryRun = false, ?int $nodoId = null): array
     {
         $fechaLimite = now()->toDateString();
 
         $facturasVencidas = FacturaInterna::whereIn('estado', ['pendiente', 'emitida'])
             ->where('fecha_vencimiento', '<', $fechaLimite)
-            ->with('cliente.servicios')
+            ->with(['cliente.servicios.pool.router'])
             ->get()
             ->filter(fn (FacturaInterna $f) => $f->saldo_pendiente > 0);
 
         $suspendidos = [];
         foreach ($facturasVencidas as $factura) {
+            if (PromesaPago::where('factura_interna_id', $factura->id)
+                ->where('vencimiento_at', '>', now())
+                ->exists()) {
+                continue;
+            }
             $cliente = $factura->cliente;
             foreach ($cliente->servicios as $servicio) {
+                if ($nodoId !== null) {
+                    $servicio->loadMissing('pool.router');
+                    $nid = (int) ($servicio->pool?->router?->nodo_id ?? 0);
+                    if ($nid !== $nodoId) {
+                        continue;
+                    }
+                }
                 if ($servicio->estaActivo()) {
-                    if (!$dryRun) {
+                    if (! $dryRun) {
                         $servicio->suspender('Falta de pago - Factura vencida');
                     }
                     $suspendidos[] = ['servicio_id' => $servicio->servicio_id, 'cliente_id' => $cliente->cliente_id];
                 }
+            }
+        }
+
+        return $suspendidos;
+    }
+
+    /**
+     * Reactiva servicios suspendidos por falta de pago al registrar una promesa de pago.
+     *
+     * @return Collection<int, Servicio>
+     */
+    public function activarServiciosTrasPromesaDePago(Cliente $cliente): Collection
+    {
+        $reactivados = collect();
+        $servicios = $cliente->servicios()
+            ->where('estado', Servicio::ESTADO_SUSPENDIDO)
+            ->where('motivo_suspension', 'like', '%Falta de pago%')
+            ->with('pool.router')
+            ->get();
+        foreach ($servicios as $servicio) {
+            $servicio->activar();
+            $reactivados->push($servicio);
+        }
+
+        return $reactivados;
+    }
+
+    /**
+     * Promesas cuya fecha/hora ya venció: si la factura sigue con saldo, suspende servicios activos y elimina la promesa.
+     *
+     * @return array<int, array{servicio_id: int, cliente_id: int}>
+     */
+    public function procesarPromesasVencidas(bool $dryRun = false): array
+    {
+        $suspendidos = [];
+        $promesas = PromesaPago::with(['facturaInterna.cliente.servicios'])
+            ->where('vencimiento_at', '<=', now())
+            ->get();
+
+        foreach ($promesas as $promesa) {
+            $factura = $promesa->facturaInterna;
+            if (! $factura) {
+                if (! $dryRun) {
+                    $promesa->delete();
+                }
+
+                continue;
+            }
+            $factura->refresh();
+            if ($factura->saldo_pendiente <= 0) {
+                if (! $dryRun) {
+                    $promesa->delete();
+                }
+
+                continue;
+            }
+            $cliente = $factura->cliente;
+            if (! $cliente) {
+                if (! $dryRun) {
+                    $promesa->delete();
+                }
+
+                continue;
+            }
+            foreach ($cliente->servicios as $servicio) {
+                if ($servicio->estaActivo()) {
+                    if (! $dryRun) {
+                        $servicio->suspender('Falta de pago - Promesa de pago vencida');
+                    }
+                    $suspendidos[] = [
+                        'servicio_id' => $servicio->servicio_id,
+                        'cliente_id' => $cliente->cliente_id,
+                    ];
+                }
+            }
+            if (! $dryRun) {
+                $promesa->delete();
             }
         }
 

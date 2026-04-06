@@ -106,7 +106,7 @@
             </div>
 
             <div class="mt-6 flex gap-3">
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                <button type="submit" id="btn-registrar-cobro" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-70 disabled:cursor-not-allowed">
                     Registrar cobro
                 </button>
                 <a href="{{ route('cobros.servicios') }}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">Cancelar</a>
@@ -118,6 +118,20 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    var formCobro = document.getElementById('form-cobro');
+    var btnRegistrar = document.getElementById('btn-registrar-cobro');
+    if (formCobro && btnRegistrar) {
+        formCobro.addEventListener('submit', function(e) {
+            if (formCobro.dataset.submitting === '1') {
+                e.preventDefault();
+                return;
+            }
+            formCobro.dataset.submitting = '1';
+            btnRegistrar.disabled = true;
+            btnRegistrar.textContent = 'Procesando…';
+        });
+    }
+
     var montoInput = document.getElementById('monto');
     var conceptoInput = document.getElementById('concepto');
     var totalEl = document.getElementById('total-seleccionado');

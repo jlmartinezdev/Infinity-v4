@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'permiso' => \App\Http\Middleware\CheckPermiso::class,
+            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
         ]);
         // Usuario ya autenticado que visita /login → inicio según permisos
         $middleware->redirectUsersTo(function () {
@@ -44,6 +45,21 @@ return Application::configure(basePath: dirname(__DIR__))
             ->monthlyOn($diaCorte, (string) $hora)
             ->before(function () {
                 Log::info('Tarea iniciado: servicios:corte-automatico');
+            });
+
+        // Promesas de pago vencidas (fecha/hora acordada superada → suspender si sigue el saldo)
+        $schedule->command('promesas:procesar-vencidas')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->before(function () {
+                Log::info('Tarea iniciado: promesas:procesar-vencidas');
+            });
+
+        $schedule->command('mikrotik:procesar-pendientes')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->before(function () {
+                Log::info('Tarea iniciado: mikrotik:procesar-pendientes');
             });
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -47,6 +47,10 @@ use App\Http\Controllers\OltMarcaController;
 use App\Http\Controllers\OltController;
 use App\Http\Controllers\OltPuertoController;
 use App\Http\Controllers\TvCuentaController;
+use App\Http\Controllers\DatabaseBackupController;
+use App\Http\Controllers\PromesaPagoController;
+use App\Http\Controllers\CorteServicioController;
+use App\Http\Controllers\MikrotikPendienteController;
 
 // Rutas de autenticación
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -86,10 +90,13 @@ Route::middleware(['auth', 'permiso:tareas.crear'])->group(function () {
 });
 Route::delete('/tareas/{tarea}', [TareaController::class, 'destroy'])->name('tareas.destroy')->middleware(['auth', 'permiso:tareas.eliminar']);
 
-// Configuración
+// Configuración: índice e impresión para cualquier usuario autenticado; el resto requiere configuracion.ver
 Route::middleware('auth')->group(function () {
     Route::get('/configuracion', [ConfiguracionController::class, 'index'])->name('configuracion.index');
     Route::get('/configuracion/impresion', [ConfiguracionController::class, 'impresion'])->name('configuracion.impresion');
+});
+
+Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::get('/configuracion/ajustes', [ConfiguracionController::class, 'ajustes'])->name('configuracion.ajustes');
     Route::post('/configuracion/ajustes', [ConfiguracionController::class, 'storeAjustes'])->name('configuracion.ajustes.store');
     Route::get('/configuracion/facturacion', [ConfiguracionController::class, 'facturacion'])->name('configuracion.facturacion');
@@ -100,6 +107,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/configuracion/tareas-periodicas/{tareaPeriodica}/edit', [TareaPeriodicaController::class, 'edit'])->name('tareas-periodicas.edit');
     Route::put('/configuracion/tareas-periodicas/{tareaPeriodica}', [TareaPeriodicaController::class, 'update'])->name('tareas-periodicas.update');
     Route::delete('/configuracion/tareas-periodicas/{tareaPeriodica}', [TareaPeriodicaController::class, 'destroy'])->name('tareas-periodicas.destroy');
+    Route::get('/configuracion/backup-bd', [DatabaseBackupController::class, 'index'])->name('configuracion.backup');
+    Route::post('/configuracion/backup-bd/descargar', [DatabaseBackupController::class, 'download'])->name('configuracion.backup.download');
+});
+
+Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/corte-servicio', [CorteServicioController::class, 'index'])->name('admin.corte-servicio.index');
+    Route::post('/corte-servicio/todos', [CorteServicioController::class, 'ejecutarTodos'])->name('admin.corte-servicio.todos');
+    Route::post('/corte-servicio/nodo', [CorteServicioController::class, 'ejecutarNodo'])->name('admin.corte-servicio.nodo');
 });
 
 // Clientes (CRUD)
@@ -254,9 +269,17 @@ Route::delete('/cobros/{cobro}', [CobroController::class, 'destroy'])->name('cob
 
 // Facturas internas (listado, ver, editar)
 Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pendientes'])->name('factura-internas.pendientes')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::middleware(['auth', 'permiso:pagos-pendientes.ver'])->group(function () {
+    Route::get('/promesas-pago', [PromesaPagoController::class, 'index'])->name('promesas-pago.index');
+});
+Route::middleware(['auth', 'permiso:cobros.crear'])->group(function () {
+    Route::get('/factura-internas/{factura_interna}/promesa-pago', [PromesaPagoController::class, 'create'])->name('promesas-pago.create');
+    Route::post('/factura-internas/{factura_interna}/promesa-pago', [PromesaPagoController::class, 'store'])->name('promesas-pago.store');
+});
 Route::middleware(['auth', 'permiso:factura-interna.ver'])->group(function () {
     Route::get('/factura-internas/list', [FacturaInternaController::class, 'list'])->name('factura-internas.list');
     Route::get('/factura-internas', [FacturaInternaController::class, 'index'])->name('factura-internas.index');
+    Route::get('/factura-internas/{factura_interna}/pdf', [FacturaInternaController::class, 'pdf'])->name('factura-internas.pdf');
     Route::get('/factura-internas/{factura_interna}', [FacturaInternaController::class, 'show'])->name('factura-internas.show');
 });
 Route::middleware(['auth', 'permiso:factura-interna.crear'])->group(function () {
@@ -412,6 +435,10 @@ Route::middleware(['auth', 'permiso:usuarios.ver'])->group(function () {
 // Sistema (routers, pools de IP, IPs asignadas, importar WispHub)
 Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema.ver'])->group(function () {
     Route::get('auditoria', [AuditoriaController::class, 'index'])->name('auditoria.index');
+    Route::get('mikrotik-pendientes', [MikrotikPendienteController::class, 'index'])->name('mikrotik-pendientes.index');
+    Route::post('mikrotik-pendientes/reintentar-todos', [MikrotikPendienteController::class, 'reintentarTodos'])->name('mikrotik-pendientes.reintentar-todos');
+    Route::post('mikrotik-pendientes/{id}/reintentar', [MikrotikPendienteController::class, 'reintentar'])->whereNumber('id')->name('mikrotik-pendientes.reintentar');
+    Route::delete('mikrotik-pendientes/{id}', [MikrotikPendienteController::class, 'descartar'])->whereNumber('id')->name('mikrotik-pendientes.descartar');
     Route::get('importar-wisphub', [WispHubImportController::class, 'index'])->name('importar-wisphub.index');
     Route::post('importar-wisphub/run', [WispHubImportController::class, 'run'])->name('importar-wisphub.run');
     Route::get('importar-wisphub/exportar-excel', [WispHubImportController::class, 'exportarExcel'])->name('importar-wisphub.exportar-excel');
