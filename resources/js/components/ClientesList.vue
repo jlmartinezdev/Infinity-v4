@@ -82,6 +82,29 @@
         </td>
         <td class="px-4 py-3">
           <div class="flex items-center justify-end gap-1">
+            <a
+              v-if="urlAccionesCliente"
+              :href="urlAccionesCliente(c.cliente_id)"
+              class="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+              title="Acciones del cliente"
+              @click.stop
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </a>
+            <a
+              v-if="urlDetalleCliente"
+              :href="urlDetalleCliente(c.cliente_id)"
+              class="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              title="Ver detalle general"
+              @click.stop
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </a>
             <button
               v-if="puedeEditar"
               type="button"
@@ -259,6 +282,8 @@ const props = defineProps({
   urlCreateServicioBase: { type: String, default: '' },
   urlBuscarTemp: { type: String, default: '' },
   urlActualizarDesdeTempBase: { type: String, default: '' },
+  urlDetalleClienteBase: { type: String, default: '' },
+  urlAccionesClienteBase: { type: String, default: '' },
   puedeEditar: { type: Boolean, default: false },
 });
 
@@ -327,6 +352,16 @@ function urlCreateServicio(clienteId) {
 }
 
 const urlCreate = computed(() => props.urlCreateCliente);
+
+const urlDetalleCliente = computed(() => {
+  const b = props.urlDetalleClienteBase;
+  return b && String(b).includes('__id__') ? (id) => b.replace('__id__', id) : null;
+});
+
+const urlAccionesCliente = computed(() => {
+  const b = props.urlAccionesClienteBase;
+  return b && String(b).includes('__id__') ? (id) => b.replace('__id__', id) : null;
+});
 
 function confirmDestroy(ev) {
   if (window.confirm('¿Eliminar este cliente?')) {

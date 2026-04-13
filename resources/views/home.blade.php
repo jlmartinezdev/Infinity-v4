@@ -9,6 +9,172 @@
         <p class="text-gray-600 dark:text-gray-400">Panel de control de Infinity ISP</p>
     </div>
 
+    @if(auth()->user()?->tienePermiso('clientes.ver'))
+    <div class="mb-8 w-full">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
+            <label for="dashboard-cliente-buscar" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Buscar cliente — ir a acciones</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-3">Escriba nombre, apellido, cédula, teléfono o número de cliente. Elija un resultado para abrir el panel de acciones (factura, ticket, servicios, etc.).</p>
+            <div class="relative" id="dashboard-buscar-cliente-root">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400 dark:text-gray-500" aria-hidden="true">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </span>
+                    <input type="search" id="dashboard-cliente-buscar" name="dashboard_cliente_buscar" autocomplete="off" placeholder="Buscar por nombre, cédula, teléfono…" aria-autocomplete="list" aria-controls="dashboard-cliente-resultados" aria-expanded="false"
+                        class="mt-0 w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
+                    <button type="button" id="dashboard-cliente-limpiar" class="absolute inset-y-0 right-0 flex items-center pr-2 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hidden" title="Limpiar" aria-label="Limpiar búsqueda">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div id="dashboard-cliente-resultados" role="listbox" class="hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg py-1"></div>
+                <p id="dashboard-cliente-ayuda" class="mt-2 text-xs text-gray-500 dark:text-gray-400 hidden"></p>
+            </div>
+        </div>
+    </div>
+    @push('scripts')
+    <script>
+    (function () {
+        var root = document.getElementById('dashboard-buscar-cliente-root');
+        if (!root) return;
+        var input = document.getElementById('dashboard-cliente-buscar');
+        var panel = document.getElementById('dashboard-cliente-resultados');
+        var btnLimpiar = document.getElementById('dashboard-cliente-limpiar');
+        var ayuda = document.getElementById('dashboard-cliente-ayuda');
+        var urlBuscar = @json(route('clientes.buscar'));
+        var baseAcciones = @json(rtrim(url('/clientes'), '/'));
+        var debounceTimer = null;
+        var abortCtrl = null;
+        var items = [];
+        var activeIndex = -1;
+
+        function escapeHtml(s) {
+            var d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        function cerrarPanel() {
+            panel.classList.add('hidden');
+            panel.innerHTML = '';
+            items = [];
+            activeIndex = -1;
+            input.setAttribute('aria-expanded', 'false');
+        }
+
+        function irAcciones(clienteId) {
+            window.location.href = baseAcciones + '/' + clienteId + '/acciones';
+        }
+
+        function renderResultados(data) {
+            panel.innerHTML = '';
+            items = [];
+            activeIndex = -1;
+            if (!data || data.length === 0) {
+                panel.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Sin resultados</div>';
+                panel.classList.remove('hidden');
+                input.setAttribute('aria-expanded', 'true');
+                return;
+            }
+            data.forEach(function (c, idx) {
+                var label = (c.nombre || '') + ' ' + (c.apellido || '') + (c.cedula ? ' · ' + c.cedula : '');
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.role = 'option';
+                btn.className = 'w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-green-50 dark:hover:bg-green-900/30 focus:bg-green-50 dark:focus:bg-green-900/30 focus:outline-none border-0 border-b border-gray-100 dark:border-gray-700 last:border-0';
+                btn.dataset.index = String(idx);
+                btn.dataset.id = String(c.cliente_id);
+                btn.innerHTML = '<span class="font-medium">' + escapeHtml((c.nombre || '') + ' ' + (c.apellido || '')).trim() + '</span>' +
+                    (c.cedula ? '<span class="block text-xs text-gray-500 dark:text-gray-400">#' + escapeHtml(String(c.cliente_id)) + ' · CI ' + escapeHtml(String(c.cedula)) + '</span>' : '<span class="block text-xs text-gray-500 dark:text-gray-400">#' + escapeHtml(String(c.cliente_id)) + '</span>');
+                btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                btn.addEventListener('click', function () { irAcciones(c.cliente_id); });
+                panel.appendChild(btn);
+                items.push(btn);
+            });
+            panel.classList.remove('hidden');
+            input.setAttribute('aria-expanded', 'true');
+        }
+
+        function buscar(q) {
+            if (abortCtrl) abortCtrl.abort();
+            if (q.length < 2) {
+                cerrarPanel();
+                ayuda.classList.add('hidden');
+                return;
+            }
+            abortCtrl = new AbortController();
+            ayuda.textContent = 'Buscando…';
+            ayuda.classList.remove('hidden');
+            fetch(urlBuscar + '?q=' + encodeURIComponent(q), {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                signal: abortCtrl.signal
+            }).then(function (r) { return r.json(); }).then(function (data) {
+                ayuda.classList.add('hidden');
+                renderResultados(Array.isArray(data) ? data : []);
+            }).catch(function (e) {
+                if (e.name === 'AbortError') return;
+                ayuda.textContent = 'No se pudo buscar. Intente de nuevo.';
+                ayuda.classList.remove('hidden');
+            });
+        }
+
+        function debouncedBuscar() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () {
+                buscar(input.value.trim());
+            }, 280);
+        }
+
+        function setActive(i) {
+            items.forEach(function (el, j) {
+                if (j === i) {
+                    el.classList.add('ring-2', 'ring-inset', 'ring-green-500', 'dark:ring-green-400');
+                } else {
+                    el.classList.remove('ring-2', 'ring-inset', 'ring-green-500', 'dark:ring-green-400');
+                }
+            });
+            activeIndex = i;
+        }
+
+        input.addEventListener('input', function () {
+            btnLimpiar.classList.toggle('hidden', !input.value.length);
+            debouncedBuscar();
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (!panel.classList.contains('hidden') && items.length) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActive(Math.min(activeIndex + 1, items.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActive(Math.max(activeIndex - 1, 0));
+                } else if (e.key === 'Enter' && activeIndex >= 0 && items[activeIndex]) {
+                    e.preventDefault();
+                    irAcciones(items[activeIndex].dataset.id);
+                } else if (e.key === 'Enter' && activeIndex < 0 && items.length === 1) {
+                    e.preventDefault();
+                    irAcciones(items[0].dataset.id);
+                } else if (e.key === 'Escape') {
+                    cerrarPanel();
+                }
+            }
+        });
+
+        btnLimpiar.addEventListener('click', function () {
+            input.value = '';
+            btnLimpiar.classList.add('hidden');
+            cerrarPanel();
+            ayuda.classList.add('hidden');
+            input.focus();
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!root.contains(e.target)) cerrarPanel();
+        });
+    })();
+    </script>
+    @endpush
+    @endif
+
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <a href="{{ route('clientes.index') }}" class="bg-white dark:bg-gray-800 rounded-lg shadow p-5 sm:p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-colors block min-w-0">
             <div class="flex items-start justify-between gap-3 min-w-0">

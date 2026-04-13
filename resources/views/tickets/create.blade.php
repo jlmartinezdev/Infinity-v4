@@ -8,7 +8,7 @@
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
         <form action="{{ route('tickets.store') }}" method="POST" enctype="multipart/form-data">
-            @include('tickets._form', ['ticket' => null])
+            @include('tickets._form', ['ticket' => null, 'clientePresetId' => $clientePresetId ?? null])
         </form>
     </div>
 </div>

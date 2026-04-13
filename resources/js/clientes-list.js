@@ -17,6 +17,8 @@ if (el) {
     urlCreateServicioBase: cfg.urlCreateServicioBase || '',
     urlBuscarTemp: cfg.urlBuscarTemp || '',
     urlActualizarDesdeTempBase: cfg.urlActualizarDesdeTempBase || '',
+    urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
+    urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',
     puedeEditar: cfg.puedeEditar ?? false,
   });
   app.mount(el);

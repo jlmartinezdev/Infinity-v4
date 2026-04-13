@@ -2,9 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\MapsUrlHelper;
 use App\Models\Cliente;
 use App\Models\CedulaPadron;
+use App\Models\Cobro;
 use App\Models\PoolIpAsignada;
+use App\Models\Servicio;
+use App\Models\Ticket;
+use App\Services\MikroTikService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -43,6 +48,92 @@ class ClienteController extends Controller
         $clientes = $query->with(['servicios.plan', 'servicios.pool'])->paginate(15)->withQueryString();
 
         return view('clientes.index', compact('clientes'));
+    }
+
+    /**
+     * Mapa de clientes activos con URL de ubicación de la que se puedan extraer coordenadas válidas.
+     */
+    public function mapaActivos()
+    {
+        $clientes = Cliente::query()
+            ->where('estado', 'activo')
+            ->whereNotNull('url_ubicacion')
+            ->where('url_ubicacion', '!=', '')
+            ->with(['servicios.plan'])
+            ->orderBy('nombre')
+            ->get();
+
+        $puntos = [];
+        foreach ($clientes as $cliente) {
+            $coords = MapsUrlHelper::extractLatLonFromMapsUrl($cliente->url_ubicacion);
+            if ($coords['lat'] === null || $coords['lon'] === null) {
+                continue;
+            }
+            $puntos[] = [
+                'cliente_id' => $cliente->cliente_id,
+                'lat' => $coords['lat'],
+                'lon' => $coords['lon'],
+                'nombre' => trim(implode(' ', array_filter([$cliente->nombre, $cliente->apellido]))),
+                'plan' => $this->etiquetaPlanesCliente($cliente),
+                'url_ubicacion' => $cliente->url_ubicacion,
+            ];
+        }
+
+        return view('clientes.mapa-activos', [
+            'puntos' => $puntos,
+            'googleMapsApiKey' => config('services.google.maps_key'),
+        ]);
+    }
+
+    /**
+     * Texto de plan(es) para el mapa: primero servicios activos, si no hay, cualquier servicio con plan.
+     */
+    private function etiquetaPlanesCliente(Cliente $cliente): ?string
+    {
+        $activos = $cliente->servicios->filter(fn (Servicio $s) => $s->estado === Servicio::ESTADO_ACTIVO);
+        $nombres = $activos->map(fn (Servicio $s) => $s->plan?->nombre)->filter()->unique()->values();
+        if ($nombres->isNotEmpty()) {
+            return $nombres->implode(', ');
+        }
+        $cualquiera = $cliente->servicios->map(fn (Servicio $s) => $s->plan?->nombre)->filter()->unique()->values();
+
+        return $cualquiera->isNotEmpty() ? $cualquiera->implode(', ') : null;
+    }
+
+    /**
+     * Vista de detalle general: datos del cliente, servicios, historial de cobros y de tickets.
+     */
+    public function detalle(Cliente $cliente)
+    {
+        $cliente->load(['servicios.plan', 'servicios.pool']);
+
+        $cobros = Cobro::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->with(['usuario', 'facturaInternas'])
+            ->orderByDesc('fecha_pago')
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get();
+
+        $tickets = Ticket::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->with(['ticketAsunto', 'usuario', 'asignado'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get();
+
+        return view('clientes.detalle', compact('cliente', 'cobros', 'tickets'));
+    }
+
+    /**
+     * Panel de acciones rápidas para el cliente (enlaces a tickets, facturación, servicios, edición).
+     */
+    public function acciones(Cliente $cliente)
+    {
+        $cliente->load(['servicios.plan', 'servicios.pool']);
+
+        return view('clientes.acciones', compact('cliente'));
     }
 
     /**
@@ -177,7 +268,11 @@ class ClienteController extends Controller
             ->where(function ($query) use ($q) {
                 $query->where('nombre', 'like', "%{$q}%")
                     ->orWhere('apellido', 'like', "%{$q}%")
-                    ->orWhere('cedula', 'like', "%{$q}%");
+                    ->orWhere('cedula', 'like', "%{$q}%")
+                    ->orWhere('telefono', 'like', "%{$q}%");
+                if (ctype_digit($q) && strlen($q) <= 10) {
+                    $query->orWhere('cliente_id', (int) $q);
+                }
             })
             ->orderBy('nombre')
             ->limit(15)
@@ -313,8 +408,17 @@ class ClienteController extends Controller
     /**
      * Eliminar cliente y todos los registros relacionados en cascada.
      */
-    public function destroy(Cliente $cliente)
+    public function destroy(Cliente $cliente, MikroTikService $mikrotik)
     {
+        $cliente->load(['servicios.pool.router']);
+        $avisosMikrotik = [];
+        foreach ($cliente->servicios as $servicio) {
+            $r = $mikrotik->quitarPppoeAlBorrarServicio($servicio, 'clientes.destroy');
+            if ($r['aviso']) {
+                $avisosMikrotik[] = $r['aviso'];
+            }
+        }
+
         DB::transaction(function () use ($cliente) {
             $clienteId = $cliente->cliente_id;
 
@@ -324,7 +428,7 @@ class ClienteController extends Controller
             // 2. Facturas internas (los detalles se eliminan por cascade en la BD)
             $cliente->facturaInternas()->delete();
 
-            // 3. Servicios (liberar IPs del pool primero)
+            // 3. Servicios (liberar IPs del pool primero; MikroTik PPPoE ya limpiado antes de la transacción)
             foreach ($cliente->servicios as $servicio) {
                 if ($servicio->ip && $servicio->pool_id) {
                     PoolIpAsignada::where('pool_id', $servicio->pool_id)
@@ -356,6 +460,13 @@ class ClienteController extends Controller
             $cliente->delete();
         });
 
-        return redirect()->route('clientes.index')->with('success', 'Cliente y registros relacionados eliminados correctamente.');
+        $mensaje = 'Cliente y registros relacionados eliminados correctamente.';
+        if ($avisosMikrotik !== []) {
+            $mensaje .= ' '.implode(' ', $avisosMikrotik).' Quedó registrado para reintento automático en operaciones MikroTik pendientes.';
+
+            return redirect()->route('clientes.index')->with('warning', $mensaje);
+        }
+
+        return redirect()->route('clientes.index')->with('success', $mensaje);
     }
 }

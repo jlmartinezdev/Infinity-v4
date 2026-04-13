@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MikrotikOperacionPendiente;
 use App\Models\PerfilPppoe;
 use App\Models\Router;
 use App\Models\Servicio;
@@ -230,6 +231,39 @@ class MikroTikService
 
             return ['success' => false, 'removed' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Al eliminar un servicio (o antes de borrar los servicios de un cliente): quita el secreto PPPoE en MikroTik.
+     * Si falla la API, registra operación pendiente para reintento (payload por router + usuario).
+     *
+     * @return array{success: bool, aviso: string|null} aviso texto para flash si hubo fallo de red/API
+     */
+    public function quitarPppoeAlBorrarServicio(Servicio $servicio, string $origen = 'servicios.destroy'): array
+    {
+        $servicio->loadMissing('pool.router');
+        $usuario = trim((string) ($servicio->usuario_pppoe ?? ''));
+        if ($usuario === '' || ! $servicio->pool?->router) {
+            return ['success' => true, 'aviso' => null];
+        }
+
+        $router = $servicio->pool->router;
+        $quitar = $this->removePppoeSecretByName($router, $usuario);
+        if (! $quitar['success']) {
+            MikrotikOperacionPendiente::registrarSiFallo(
+                MikrotikOperacionPendiente::TIPO_REMOVE_PPPOE_SECRET,
+                ['router_id' => $router->router_id, 'usuario_pppoe' => $usuario],
+                $quitar['error'] ?? 'Error al eliminar secreto',
+                $origen
+            );
+
+            return [
+                'success' => false,
+                'aviso' => 'No se pudo eliminar el usuario PPPoE «'.$usuario.'» en MikroTik: '.($quitar['error'] ?? 'error desconocido').'.',
+            ];
+        }
+
+        return ['success' => true, 'aviso' => null];
     }
 
     /**

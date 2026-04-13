@@ -14,11 +14,13 @@ class TicketController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ticket::with(['cliente', 'pedido', 'ticketAsunto', 'usuario', 'asignado'])
+        $query = Ticket::with(['cliente.servicios', 'pedido', 'ticketAsunto', 'usuario', 'asignado'])
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('estado')) {
             $query->where('estado', $request->estado);
+        } elseif ($request->boolean('ocultar_resuelto_cerrado')) {
+            $query->whereNotIn('estado', ['resuelto', 'cerrado']);
         }
         if ($request->filled('ticket_asunto_id')) {
             $query->where('ticket_asunto_id', $request->ticket_asunto_id);
@@ -34,14 +36,15 @@ class TicketController extends Controller
         return view('tickets.index', compact('tickets', 'asuntos', 'clientes'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $asuntos = TicketAsunto::orderBy('nombre')->get();
         $clientes = Cliente::orderBy('nombre')->get();
         $tecnicos = User::where('estado', 'activo')->orderBy('name')->get();
         $pedidos = Pedido::with('cliente')->orderBy('fecha_pedido', 'desc')->limit(200)->get();
+        $clientePresetId = $request->filled('cliente_id') ? (int) $request->cliente_id : null;
 
-        return view('tickets.create', compact('asuntos', 'clientes', 'tecnicos', 'pedidos'));
+        return view('tickets.create', compact('asuntos', 'clientes', 'tecnicos', 'pedidos', 'clientePresetId'));
     }
 
     public function store(Request $request)

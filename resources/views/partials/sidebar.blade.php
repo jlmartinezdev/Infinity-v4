@@ -22,6 +22,17 @@
             ->whereDoesntHave('estadoPedidoDetalles', fn ($q) => $q->where('estado', 'D'))
             ->count()
         : 0;
+
+    // Tareas en columna "Pendiente" del tablero (estado = pendiente)
+    $tareasPendientesCount = $user && $user->tienePermiso('tareas.ver')
+        ? \App\Models\Tarea::where('estado', 'pendiente')->count()
+        : 0;
+
+    // Tickets con estado pendiente
+    $ticketsPendientesCount = $user && $user->tienePermiso('tickets.ver')
+        ? \App\Models\Ticket::where('estado', 'pendiente')->count()
+        : 0;
+
     foreach ($menuItems as &$item) {
         if ($item['name'] === 'clientes' && isset($item['submenu'])) {
             foreach ($item['submenu'] as &$subItem) {
@@ -30,6 +41,12 @@
                     break;
                 }
             }
+        }
+        if (($item['name'] ?? '') === 'tareas' && $tareasPendientesCount > 0) {
+            $item['badge'] = (string) $tareasPendientesCount;
+        }
+        if (($item['name'] ?? '') === 'tickets' && $ticketsPendientesCount > 0) {
+            $item['badge'] = (string) $ticketsPendientesCount;
         }
     }
     unset($item, $subItem);

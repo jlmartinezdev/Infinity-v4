@@ -28,6 +28,7 @@ if (el) {
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',
     crearAgendaUrl: cfg.crearAgendaUrl || '',
     finalizarPedidoUrl: cfg.finalizarPedidoUrl || '',
+    urlExportarExcel: cfg.urlExportarExcel || '',
   });
   app.mount(el);
 }

@@ -75,6 +75,7 @@
         'crearUsuarioPppoeUrl' => route('pedidos.crear-usuario-pppoe', ':pedido'),
         'crearAgendaUrl' => route('pedidos.crear-agenda', ':pedido'),
         'finalizarPedidoUrl' => route('pedidos.finalizar', ':pedido'),
+        'urlExportarExcel' => route('pedidos.exportar-excel'),
     ]) !!};
 </script>
 

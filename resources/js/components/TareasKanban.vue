@@ -44,9 +44,20 @@
                   {{ prioridadLabel(t.prioridad) }}
                 </span>
                 <button
+                  type="button"
+                  @click.stop="abrirDetalle(t)"
+                  class="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                  title="Ver detalle"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+                <button
                   v-if="canCreate"
                   type="button"
-                  @click="abrirEditar(t)"
+                  @click.stop="abrirEditar(t)"
                   class="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded"
                   title="Editar"
                 >
@@ -55,7 +66,7 @@
                 <button
                   v-if="canCreate"
                   type="button"
-                  @click="confirmarEliminar(t)"
+                  @click.stop="confirmarEliminar(t)"
                   class="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded"
                   title="Eliminar"
                 >
@@ -136,6 +147,93 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal detalle (solo lectura) -->
+    <Teleport to="body">
+      <div
+        v-show="modalDetalleOpen"
+        class="fixed inset-0 z-[60] flex items-center justify-center px-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tarea-detalle-titulo"
+      >
+        <div class="absolute inset-0 bg-black/50" @click="cerrarDetalle"></div>
+        <div
+          class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 border border-gray-200 dark:border-gray-700"
+        >
+          <div class="flex justify-between items-start gap-3 mb-4">
+            <h2 id="tarea-detalle-titulo" class="text-lg font-semibold text-gray-900 dark:text-gray-100 pr-2">
+              Detalle de la tarea
+            </h2>
+            <button
+              type="button"
+              class="p-1 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 shrink-0"
+              aria-label="Cerrar"
+              @click="cerrarDetalle"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div v-if="detalleTarea" class="space-y-4 text-sm">
+            <div>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">ID</p>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ detalleTarea.id }}</p>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Título</p>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5 font-medium">{{ detalleTarea.titulo }}</p>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Descripción</p>
+              <p class="text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-wrap break-words">{{ detalleTarea.descripcion || '—' }}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</p>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ estadoLabel(detalleTarea.estado) }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Prioridad</p>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ detalleTarea.prioridad ? prioridadLabel(detalleTarea.prioridad) : '—' }}</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Creador</p>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ detalleTarea.creador?.name || '—' }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asignado</p>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ detalleTarea.asignado?.name || '—' }}</p>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Vencimiento</p>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ detalleTarea.fecha_vencimiento ? formatFecha(detalleTarea.fecha_vencimiento) : '—' }}</p>
+            </div>
+            <div v-if="detalleTarea.created_at || detalleTarea.updated_at" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-200 dark:border-gray-600">
+              <div v-if="detalleTarea.created_at">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Creado</p>
+                <p class="text-gray-600 dark:text-gray-400 mt-0.5 text-xs">{{ detalleTarea.created_at }}</p>
+              </div>
+              <div v-if="detalleTarea.updated_at">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actualizado</p>
+                <p class="text-gray-600 dark:text-gray-400 mt-0.5 text-xs">{{ detalleTarea.updated_at }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-6 flex justify-end">
+            <button
+              type="button"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              @click="cerrarDetalle"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -162,6 +260,8 @@ const props = defineProps({
 
 const tareasList = ref([...(props.tareas || [])]);
 const modalOpen = ref(false);
+const modalDetalleOpen = ref(false);
+const detalleTarea = ref(null);
 const editando = ref(null);
 const form = ref({
   titulo: '',
@@ -183,6 +283,12 @@ const tareasPorColumna = (estado) => {
 function prioridadLabel(p) {
   const m = { baja: 'Baja', media: 'Media', alta: 'Alta' };
   return m[p] || p;
+}
+
+function estadoLabel(estado) {
+  if (estado == null || estado === '') return '—';
+  const m = { pendiente: 'Pendiente', en_progreso: 'En progreso', completado: 'Completado' };
+  return m[estado] || estado;
 }
 
 function prioridadClase(p) {
@@ -222,6 +328,17 @@ function abrirEditar(t) {
 function cerrarModal() {
   modalOpen.value = false;
   editando.value = null;
+}
+
+function abrirDetalle(t) {
+  const actual = tareasList.value.find(x => x.id === t.id) || t;
+  detalleTarea.value = { ...actual };
+  modalDetalleOpen.value = true;
+}
+
+function cerrarDetalle() {
+  modalDetalleOpen.value = false;
+  detalleTarea.value = null;
 }
 
 async function guardar() {

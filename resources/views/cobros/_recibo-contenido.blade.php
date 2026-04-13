@@ -35,12 +35,52 @@
     border-top-color: #000 !important;
     border-top-style: dashed !important;
 }
+/* Modo con gráfico: menos altura (pantalla e impresión) */
 .recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-linea-din {
     border-top-color: #9ca3af;
+    margin-top: 0.375rem !important;
+    margin-bottom: 0.375rem !important;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-bloque-estandar > .recibo-termico {
+    padding: 0.875rem 1rem;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-bloque-estandar > .recibo-termico > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.5rem !important;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-cabecera-principal {
+    margin-bottom: 0.5rem !important;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-header-con-grafico img {
+    max-height: 2.5rem;
+    margin-bottom: 0.125rem;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-contacto {
+    line-height: 1.2;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-bloque-estandar .pl-2.border-l-2.border-gray-300 {
+    margin-bottom: 0.375rem !important;
+    padding-left: 0.375rem;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-header-con-grafico .recibo-empresa {
+    font-size: 1rem;
+    line-height: 1.25rem;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-bloque-estandar > .recibo-termico .text-lg.font-bold {
+    font-size: 1rem;
+    line-height: 1.25rem;
+}
+.recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-bloque-estandar > .recibo-termico .recibo-pie p.mt-3 {
+    margin-top: 0.5rem;
 }
 @media print {
     .recibo-modo-wrapper[data-recibo-modo="sin_grafico"] > .recibo-bloque-estandar > .recibo-termico {
         border-color: #000 !important;
+    }
+    .recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-bloque-estandar > .recibo-termico {
+        padding: 0.625rem 0.75rem !important;
+    }
+    .recibo-modo-wrapper[data-recibo-modo="con_grafico"] .recibo-header-con-grafico img {
+        max-height: 2.25rem;
     }
 }
 </style>
@@ -64,7 +104,7 @@
         </div>
     @endif
     {{-- Cabecera: logo (modo gráfico) o solo texto (matricial / sin gráfico) --}}
-    <div class="text-center mb-4">
+    <div class="text-center mb-4 recibo-cabecera-principal">
         <div class="recibo-header-con-grafico">
         @if($ajustes && $ajustes->logo)
             <img src="{{ $ajustes->urlLogo() }}" alt="Logo" class="mx-auto h-14 object-contain print:h-12 mb-2">
@@ -190,7 +230,7 @@
     <div class="recibo-linea border-t recibo-linea-din my-3"></div>
 
     {{-- Pie --}}
-    <div class="text-center recibo-mono text-xs text-gray-800">
+    <div class="text-center recibo-mono text-xs text-gray-800 recibo-pie">
         <p class="font-semibold uppercase">GRACIAS POR SU PAGO</p>
         <p class="mt-1 uppercase">VALIDO COMO COMPROBANTE</p>
         <p class="mt-3 text-gray-500">#{{ $cobro->numero_recibo }}</p>

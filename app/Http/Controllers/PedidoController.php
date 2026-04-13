@@ -20,6 +20,7 @@ use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -698,9 +699,9 @@ class PedidoController extends Controller
         // 5. Crear servicio con datos del pedido (servicio_id es auto-increment)
         $clienteId = (int) $cliente->cliente_id;
 
-        // Usuario PPPoE: nombre y apellido separados por _ en mayúscula
-        $nombre = trim($cliente->nombre ?? '');
-        $apellido = trim($cliente->apellido ?? '');
+        // Usuario PPPoE: nombre y apellido separados por _ en mayúscula (ñ → n para login ASCII).
+        $nombre = str_replace(['ñ', 'Ñ'], 'n', trim($cliente->nombre ?? ''));
+        $apellido = str_replace(['ñ', 'Ñ'], 'n', trim($cliente->apellido ?? ''));
         $partes = array_filter([$nombre, $apellido]);
         $usuarioPppoe = str_replace(' ', '_', Str::upper(Str::ascii(implode('_', $partes))));
         $usuarioPppoe = preg_replace('/[^A-Z0-9._-]/', '', $usuarioPppoe);
@@ -856,5 +857,143 @@ class PedidoController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * Exportar todos los pedidos a Excel (CSV UTF-8 con separador ;), con datos del pedido, cliente, plan y workflow de estados.
+     */
+    public function exportarExcel(): StreamedResponse
+    {
+        $pedidos = Pedido::query()
+            ->with([
+                'cliente',
+                'plan',
+                'estadoPedidoDetalles.estadoPedido',
+                'estadoPedidoDetalles.usuario',
+                'estadoPedidoDetalles.nodo',
+                'estadoPedidoDetalles.tipoTecnologia',
+                'estadoPedidoDetalles.plan',
+            ])
+            ->withCount('agendas')
+            ->orderBy('fecha_pedido', 'desc')
+            ->get();
+
+        $filename = 'pedidos-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($pedidos) {
+            $output = fopen('php://output', 'w');
+            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($output, [
+                'ID pedido',
+                'Fecha pedido',
+                'Cliente ID',
+                'Cédula',
+                'Nombre',
+                'Apellido',
+                'Teléfono',
+                'Email',
+                'Dirección',
+                'URL ubicación cliente',
+                'Plan',
+                'Prioridad instalación',
+                'Ubicación',
+                'Maps GPS',
+                'Latitud',
+                'Longitud',
+                'Descripción pedido',
+                'Observaciones pedido',
+                'Instalación completada',
+                'Usuario PPPoE creado',
+                'Cant. agendas',
+                'Creado (pedido)',
+                'Actualizado (pedido)',
+                'Workflow estados (detalle)',
+            ], ';');
+
+            foreach ($pedidos as $p) {
+                $c = $p->cliente;
+                fputcsv($output, [
+                    $p->pedido_id,
+                    $p->fecha_pedido?->format('d/m/Y') ?? '',
+                    $c?->cliente_id ?? '',
+                    $c?->cedula ?? '',
+                    $c?->nombre ?? '',
+                    $c?->apellido ?? '',
+                    $c?->telefono ?? '',
+                    $c?->email ?? '',
+                    $c?->direccion ?? '',
+                    $c?->url_ubicacion ?? '',
+                    $p->plan?->nombre ?? '',
+                    Pedido::prioridadLabel((int) ($p->prioridad_instalacion ?? 2)),
+                    $p->ubicacion ?? '',
+                    $p->maps_gps ?? '',
+                    $p->lat !== null ? (string) $p->lat : '',
+                    $p->lon !== null ? (string) $p->lon : '',
+                    $p->descripcion ?? '',
+                    $p->observaciones ?? '',
+                    ($p->estado_instalado ?? false) ? 'Sí' : 'No',
+                    ($p->usuario_pppoe_creado ?? false) ? 'Sí' : 'No',
+                    (int) ($p->agendas_count ?? 0),
+                    $p->created_at?->format('d/m/Y H:i:s') ?? '',
+                    $p->updated_at?->format('d/m/Y H:i:s') ?? '',
+                    $this->workflowPedidoTexto($p),
+                ], ';');
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    private function workflowPedidoTexto(Pedido $pedido): string
+    {
+        $partes = [];
+        $detalles = $pedido->estadoPedidoDetalles->sortBy(function ($d) {
+            return ($d->created_at ?? $d->fecha)?->timestamp ?? 0;
+        });
+
+        foreach ($detalles as $d) {
+            $nombreEstado = $d->estadoPedido?->descripcion ?? '';
+            $fecha = $d->fecha?->format('d/m/Y H:i') ?? '';
+            $resolucion = $this->etiquetaEstadoDetalle($d->estado);
+            $usuario = $d->usuario?->name ?? '';
+            $notas = preg_replace('/\s+/u', ' ', trim((string) ($d->notas ?? '')));
+            $nodo = $d->nodo?->descripcion ?? '';
+            $tec = $d->tipoTecnologia?->descripcion ?? '';
+            $planDet = $d->plan?->nombre ?? '';
+
+            $trozo = "[{$nombreEstado}] {$fecha} · {$resolucion}";
+            if ($usuario !== '') {
+                $trozo .= ' · '.$usuario;
+            }
+            if ($notas !== '') {
+                $trozo .= ' · '.$notas;
+            }
+            if ($nodo !== '') {
+                $trozo .= ' · Nodo: '.$nodo;
+            }
+            if ($tec !== '') {
+                $trozo .= ' · Tec: '.$tec;
+            }
+            if ($planDet !== '') {
+                $trozo .= ' · Plan det.: '.$planDet;
+            }
+            $partes[] = $trozo;
+        }
+
+        return implode(' | ', $partes);
+    }
+
+    private function etiquetaEstadoDetalle(?string $estado): string
+    {
+        return match ($estado) {
+            'A' => 'Aprobado',
+            'D' => 'Descartado',
+            'P' => 'Pendiente',
+            default => $estado ?? '',
+        };
     }
 }

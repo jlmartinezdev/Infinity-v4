@@ -5,6 +5,7 @@
 
 @php
     $ticket = $ticket ?? null;
+    $clientePresetId = $clientePresetId ?? null;
 @endphp
 
 <div class="space-y-6">
@@ -54,7 +55,7 @@
         <div>
             <label for="cliente_buscar" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
             @php
-                $clienteIdInicial = old('cliente_id', $ticket?->cliente_id);
+                $clienteIdInicial = old('cliente_id', $ticket?->cliente_id ?? ($clientePresetId ?? null));
                 $clienteLabelInicial = '';
                 if ($ticket?->cliente) {
                     $clienteLabelInicial = trim($ticket->cliente->nombre . ' ' . $ticket->cliente->apellido) . ($ticket->cliente->cedula ? ' (' . $ticket->cliente->cedula . ')' : '');

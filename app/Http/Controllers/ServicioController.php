@@ -265,9 +265,11 @@ class ServicioController extends Controller
         return redirect()->route('servicios.index')->with('success', $mensaje);
     }
 
-    public function destroy($servicio_id)
+    public function destroy($servicio_id, MikroTikService $mikrotik)
     {
-        $servicio = Servicio::findOrFail($servicio_id);
+        $servicio = Servicio::with('pool.router')->findOrFail($servicio_id);
+
+        $resultadoMk = $mikrotik->quitarPppoeAlBorrarServicio($servicio, 'servicios.destroy');
 
         if ($servicio->ip) {
             PoolIpAsignada::where('pool_id', $servicio->pool_id)
@@ -277,7 +279,14 @@ class ServicioController extends Controller
 
         $servicio->delete();
 
-        return redirect()->route('servicios.index')->with('success', 'Servicio eliminado correctamente.');
+        $mensaje = 'Servicio eliminado correctamente.';
+        if ($resultadoMk['aviso']) {
+            $mensaje .= ' '.$resultadoMk['aviso'].' Quedó registrado para reintento automático en operaciones MikroTik pendientes.';
+
+            return redirect()->route('servicios.index')->with('warning', $mensaje);
+        }
+
+        return redirect()->route('servicios.index')->with('success', $mensaje);
     }
 
     /**

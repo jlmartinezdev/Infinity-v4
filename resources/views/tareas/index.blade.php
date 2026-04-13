@@ -17,6 +17,8 @@
             'fecha_vencimiento' => $t->fecha_vencimiento?->format('Y-m-d'),
             'creador' => $t->creador ? ['usuario_id' => $t->creador->usuario_id, 'name' => $t->creador->name] : null,
             'asignado' => $t->asignado ? ['usuario_id' => $t->asignado->usuario_id, 'name' => $t->asignado->name] : null,
+            'created_at' => $t->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $t->updated_at?->format('Y-m-d H:i:s'),
         ])->values()->all(),
         'usuarios' => $usuarios->map(fn($u) => ['usuario_id' => $u->usuario_id, 'name' => $u->name])->values()->all(),
         'canCreate' => auth()->user()?->tienePermiso('tareas.crear') ?? false,

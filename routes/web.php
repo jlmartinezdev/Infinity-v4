@@ -122,6 +122,9 @@ Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
     Route::get('/clientes/buscar', [ClienteController::class, 'buscar'])->name('clientes.buscar');
     Route::get('/clientes/buscar-temp', [ClienteController::class, 'buscarTemp'])->name('clientes.buscar-temp');
     Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
+    Route::get('/clientes/mapa-activos', [ClienteController::class, 'mapaActivos'])->name('clientes.mapa-activos');
+    Route::get('/clientes/{cliente}/detalle', [ClienteController::class, 'detalle'])->name('clientes.detalle');
+    Route::get('/clientes/{cliente}/acciones', [ClienteController::class, 'acciones'])->name('clientes.acciones');
     Route::get('/clientes/create', [ClienteController::class, 'create'])->name('clientes.create')->middleware('permiso:clientes.crear');
 });
 Route::middleware(['auth', 'permiso:clientes.crear'])->group(function () {
@@ -192,6 +195,7 @@ Route::delete('/planes/{plan}', [PlanController::class, 'destroy'])->name('plane
 
 // Pedidos (CRUD)
 Route::middleware(['auth', 'permiso:pedidos.ver'])->group(function () {
+    Route::get('/pedidos/exportar-excel', [PedidoController::class, 'exportarExcel'])->name('pedidos.exportar-excel');
     Route::get('/pedidos', [PedidoController::class, 'index'])->name('pedidos.index');
     Route::get('/pedidos/create', [PedidoController::class, 'create'])->name('pedidos.create')->middleware('permiso:pedidos.crear');
 });
@@ -269,6 +273,8 @@ Route::delete('/cobros/{cobro}', [CobroController::class, 'destroy'])->name('cob
 
 // Facturas internas (listado, ver, editar)
 Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pendientes'])->name('factura-internas.pendientes')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/list', [FacturaInternaController::class, 'pendientesList'])->name('factura-internas.pendientes.list')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/exportar-excel', [FacturaInternaController::class, 'exportarPendientesExcel'])->name('factura-internas.pendientes.exportar-excel')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::middleware(['auth', 'permiso:pagos-pendientes.ver'])->group(function () {
     Route::get('/promesas-pago', [PromesaPagoController::class, 'index'])->name('promesas-pago.index');
 });

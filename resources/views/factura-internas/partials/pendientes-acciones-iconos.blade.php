@@ -1,5 +1,29 @@
 {{-- Factura interna $f --}}
+@php
+    $clientePend = $f->cliente;
+    $payloadContacto = [
+        'nombre' => $clientePend ? trim(($clientePend->nombre ?? '').' '.($clientePend->apellido ?? '')) : '',
+        'cedula' => $clientePend?->cedula ?? '',
+        'celular' => $clientePend?->telefono ?? '',
+        'email' => $clientePend?->email ?? '',
+        'direccion' => $clientePend?->direccion ?? '',
+        'url_ubicacion' => $clientePend?->url_ubicacion ?? '',
+        'detalle_url' => ($clientePend && auth()->user()?->tienePermiso('clientes.ver'))
+            ? route('clientes.detalle', $clientePend)
+            : '',
+    ];
+@endphp
 <div class="inline-flex items-center gap-0.5">
+    <button type="button"
+        class="js-btn-detalle-contacto-cliente inline-flex items-center justify-center p-2 rounded-lg text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/30 transition-colors"
+        title="Contacto, dirección y ubicación"
+        aria-label="Ver contacto y ubicación del cliente"
+        data-cliente='@json($payloadContacto)'>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0Z" />
+        </svg>
+    </button>
     <a href="{{ route('factura-internas.show', $f) }}"
        class="inline-flex items-center justify-center p-2 rounded-lg text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/30 transition-colors"
        title="Ver factura interna"

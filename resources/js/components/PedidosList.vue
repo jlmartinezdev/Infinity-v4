@@ -3,7 +3,15 @@
         <!-- Header -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Lista de pedidos</h1>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                <a v-if="urlExportarExcel"
+                    :href="urlExportarExcel"
+                    class="inline-flex items-center gap-2 px-4 py-2 border border-green-600 text-green-700 dark:text-green-400 dark:border-green-500 bg-white dark:bg-gray-800 rounded-lg font-medium hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Exportar Excel
+                </a>
                 <button type="button" @click="modalFactibilidadOpen = true"
                     class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
                     Análisis de Factibilidad Rapido
@@ -20,6 +28,7 @@
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                 <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                     <div class="sm:w-48">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado</label>
                         <select name="estado_id" v-model="formEstadoId" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             <option value="todos">Todos los estados</option>
                             <option v-for="e in estados" :key="e.estado_id" :value="String(e.estado_id)">
@@ -28,32 +37,54 @@
                         </select>
                     </div>
                     <div class="sm:w-40">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Tecnología</label>
                         <select name="tecnologia" v-model="formTecnologia" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             <option value="todos">Todas las tecnologías</option>
                             <option value="gpon">GPON / Fibra</option>
                             <option value="wireless">Wireless</option>
                         </select>
                     </div>
-                    <div class="relative" ref="dropdownInstaladosRef">
-                        <button type="button" @click="dropdownInstaladosOpen = !dropdownInstaladosOpen"
-                            class="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors text-sm font-medium">
-                            <span>Pedidos instalados / descartados</span>
-                            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
+                    <div class="sm:w-40">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha desde</label>
+                        <input
+                            v-model="filtroFechaDesde"
+                            type="date"
+                            class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                        />
+                    </div>
+                    <div class="sm:w-40">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha hasta</label>
+                        <input
+                            v-model="filtroFechaHasta"
+                            type="date"
+                            class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                        />
+                    </div>
+                    <div class="sm:w-56">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Instalación</label>
+                        <select v-model="filtroInstalacion" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            <option value="todos">Todos</option>
+                            <option value="pendientes">Pendientes (sin instalar)</option>
+                            <option value="instalados">Solo instalados</option>
+                        </select>
+                    </div>
+                    <div v-if="filtroFechaDesde || filtroFechaHasta" class="flex items-end">
+                        <button
+                            type="button"
+                            class="text-sm text-purple-600 dark:text-purple-400 hover:underline px-1 py-2"
+                            @click="filtroFechaDesde = ''; filtroFechaHasta = ''"
+                        >
+                            Limpiar fechas
                         </button>
-                        <div v-show="dropdownInstaladosOpen" class="absolute left-0 mt-1.5 min-w-[240px] py-3 px-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20">
-                            <label class="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                                <input type="checkbox" :checked="mostrarInstalados === '1'" @change="setMostrarInstalados($event.target.checked ? '1' : '0')"
-                                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
-                                <span class="text-sm text-gray-700 dark:text-gray-200">Mostrar pedidos instalados</span>
-                            </label>
+                    </div>
+                    <div class="relative pt-2">
+                        
                             <label class="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                                 <input type="checkbox" :checked="mostrarDescartados === '1'" @change="setMostrarDescartados($event.target.checked ? '1' : '0')"
                                     class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
                                 <span class="text-sm text-gray-700 dark:text-gray-200">Mostrar pedidos descartados</span>
                             </label>
-                        </div>
+                        
                     </div>
                     <!--button type="button"
                         class="inline-flex items-center justify-center px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors shadow-sm"
@@ -505,7 +536,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import PedidoForm from '@/components/PedidoForm.vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
@@ -547,6 +578,10 @@ const props = defineProps({
         type: String,
         default: ''
     },
+    urlExportarExcel: {
+        type: String,
+        default: ''
+    },
     nodos: {
         type: Array,
         default: () => []
@@ -576,17 +611,20 @@ const dropdownInstaladosRef = ref(null);
 const modalPedidoContentRef = ref(null);
 const modalPedidoHeaderRef = ref(null);
 
-const mostrarInstalados = ref(props.mostrarInstaladosInitial);
+/** todos | pendientes | instalados — filtro por estado_instalado del pedido */
+const filtroInstalacion = ref('todos');
+const filtroFechaDesde = ref('');
+const filtroFechaHasta = ref('');
 const mostrarDescartados = ref('1');
 const formEstadoId = ref(props.filtroEstadoId || 'todos');
 const formClienteId = ref(props.filtroClienteId || 'todos');
 const formTecnologia = ref('todos');
 const fechaHoy = new Date().toISOString().split('T')[0];
 
-function setMostrarInstalados(val) {
-    mostrarInstalados.value = val;
-    try { localStorage.setItem('pedidos_mostrar_instalados', val); } catch (e) {}
-    dropdownInstaladosOpen.value = false;
+function aplicarCompatFiltroInstalacionDesdeProps() {
+    if (props.mostrarInstaladosInitial === '0') {
+        filtroInstalacion.value = 'pendientes';
+    }
 }
 
 function setMostrarDescartados(val) {
@@ -609,11 +647,33 @@ function handleClickOutside(e) {
     }
 }
 
+watch(filtroInstalacion, (v) => {
+    try { localStorage.setItem('pedidos_filtro_instalacion', v); } catch (e) {}
+});
+
+watch([filtroFechaDesde, filtroFechaHasta], ([desde, hasta]) => {
+    try {
+        if (desde) localStorage.setItem('pedidos_fecha_desde', desde); else localStorage.removeItem('pedidos_fecha_desde');
+        if (hasta) localStorage.setItem('pedidos_fecha_hasta', hasta); else localStorage.removeItem('pedidos_fecha_hasta');
+    } catch (e) {}
+});
+
 onMounted(() => {
     // Restaurar preferencias desde localStorage
     try {
-        const stored = localStorage.getItem('pedidos_mostrar_instalados');
-        if (stored === '0' || stored === '1') mostrarInstalados.value = stored;
+        const fi = localStorage.getItem('pedidos_filtro_instalacion');
+        if (fi === 'todos' || fi === 'pendientes' || fi === 'instalados') {
+            filtroInstalacion.value = fi;
+        } else {
+            const storedOld = localStorage.getItem('pedidos_mostrar_instalados');
+            if (storedOld === '0') {
+                filtroInstalacion.value = 'pendientes';
+            } else {
+                aplicarCompatFiltroInstalacionDesdeProps();
+            }
+        }
+        filtroFechaDesde.value = localStorage.getItem('pedidos_fecha_desde') || '';
+        filtroFechaHasta.value = localStorage.getItem('pedidos_fecha_hasta') || '';
         const storedDesc = localStorage.getItem('pedidos_mostrar_descartados');
         if (storedDesc === '0' || storedDesc === '1') mostrarDescartados.value = storedDesc;
     } catch (e) {}
@@ -637,7 +697,7 @@ onUnmounted(() => {
     if (window._pedidosListCleanup) window._pedidosListCleanup();
 });
 
-// Filtrar por búsqueda, estado, cliente y mostrar_instalados (todo client-side)
+// Filtrar por búsqueda, estado, cliente, fechas, instalación y descartados (todo client-side)
 const pedidosFiltrados = computed(() => {
     let list = props.pedidos || [];
 
@@ -656,9 +716,29 @@ const pedidosFiltrados = computed(() => {
         list = list.filter(p => String(p.cliente_id ?? p.cliente?.cliente_id ?? '') === clienteId);
     }
 
-    // Filtro mostrar/ocultar instalados
-    if (mostrarInstalados.value === '0') {
+    // Filtro por rango de fecha del pedido (campo fecha_pedido)
+    if (filtroFechaDesde.value) {
+        const desde = filtroFechaDesde.value;
+        list = list.filter(p => {
+            const fp = p.fecha_pedido;
+            if (!fp) return false;
+            return String(fp) >= desde;
+        });
+    }
+    if (filtroFechaHasta.value) {
+        const hasta = filtroFechaHasta.value;
+        list = list.filter(p => {
+            const fp = p.fecha_pedido;
+            if (!fp) return false;
+            return String(fp) <= hasta;
+        });
+    }
+
+    // Filtro instalación: pendientes = sin instalar; instalados = completados
+    if (filtroInstalacion.value === 'pendientes') {
         list = list.filter(p => !p.estado_instalado);
+    } else if (filtroInstalacion.value === 'instalados') {
+        list = list.filter(p => !!p.estado_instalado);
     }
 
     // Filtro mostrar/ocultar descartados (pedidos con al menos un estado D)
