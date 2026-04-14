@@ -54,7 +54,7 @@ class MapsUrlHelper
      *
      * @return array{lat: float|null, lon: float|null}
      */
-    public static function extractLatLonFromMapsUrl(?string $url): array
+    public static function extractLatLonFromMapsUrl(?string $url, bool $resolveShortUrl = true): array
     {
         $result = ['lat' => null, 'lon' => null];
         if ($url === null || trim($url) === '') {
@@ -64,7 +64,7 @@ class MapsUrlHelper
         $url = trim($url);
 
         // URL corta: resolver redirección y extraer de la URL final
-        if (self::isShortMapsUrl($url)) {
+        if ($resolveShortUrl && self::isShortMapsUrl($url)) {
             $resolved = self::resolveShortMapsUrl($url);
             if ($resolved !== null) {
                 $url = $resolved;

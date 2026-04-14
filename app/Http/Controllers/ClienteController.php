@@ -59,13 +59,28 @@ class ClienteController extends Controller
             ->where('estado', 'activo')
             ->whereNotNull('url_ubicacion')
             ->where('url_ubicacion', '!=', '')
-            ->with(['servicios.plan'])
+            ->select(['cliente_id', 'nombre', 'apellido', 'url_ubicacion'])
             ->orderBy('nombre')
             ->get();
 
+        $infoServicioPorCliente = DB::table('servicios as s')
+            ->leftJoin('planes as p', 'p.plan_id', '=', 's.plan_id')
+            ->leftJoin('tipos_tecnologias as tt', 'tt.tecnologia_id', '=', 'p.tecnologia_id')
+            ->whereIn('s.cliente_id', $clientes->pluck('cliente_id'))
+            ->whereNotNull('p.nombre')
+            ->selectRaw("
+                s.cliente_id,
+                GROUP_CONCAT(DISTINCT p.nombre ORDER BY p.nombre SEPARATOR ', ') as planes,
+                GROUP_CONCAT(DISTINCT tt.descripcion ORDER BY tt.descripcion SEPARATOR ', ') as tecnologias
+            ")
+            ->groupBy('s.cliente_id')
+            ->get()
+            ->keyBy('cliente_id');
+
         $puntos = [];
         foreach ($clientes as $cliente) {
-            $coords = MapsUrlHelper::extractLatLonFromMapsUrl($cliente->url_ubicacion);
+            // En listado masivo evitamos resolver URLs cortas por HTTP para no bloquear la carga.
+            $coords = MapsUrlHelper::extractLatLonFromMapsUrl($cliente->url_ubicacion, false);
             if ($coords['lat'] === null || $coords['lon'] === null) {
                 continue;
             }
@@ -74,7 +89,8 @@ class ClienteController extends Controller
                 'lat' => $coords['lat'],
                 'lon' => $coords['lon'],
                 'nombre' => trim(implode(' ', array_filter([$cliente->nombre, $cliente->apellido]))),
-                'plan' => $this->etiquetaPlanesCliente($cliente),
+                'plan' => $infoServicioPorCliente[$cliente->cliente_id]->planes ?? null,
+                'tecnologia' => $infoServicioPorCliente[$cliente->cliente_id]->tecnologias ?? null,
                 'url_ubicacion' => $cliente->url_ubicacion,
             ];
         }

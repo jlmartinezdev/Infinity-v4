@@ -27358,12 +27358,19 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var props = __props;
     var mapContainer = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loading = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(true);
+    var loadingMessage = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('Cargando mapa...');
+    var puntosProcesados = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(0);
+    var totalPuntos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(0);
     var error = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var map = null;
     var markers = [];
-    var infoWindows = [];
+    var sharedInfoWindow = null;
+    var progressPercent = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      if (!totalPuntos.value) return 0;
+      return Math.round(puntosProcesados.value / totalPuntos.value * 100);
+    });
     function getHomeMarkerIcon(google) {
-      var color = '#9333ea';
+      var color = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '#9333ea';
       // Lienzo con margen transparente: sin esto Maps suele rasterizar el SVG mal y recorta un lateral.
       var w = 48;
       var h = 48;
@@ -27376,6 +27383,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         origin: new google.maps.Point(0, 0),
         anchor: new google.maps.Point(24, 32)
       };
+    }
+    function markerColorByPlan(plan, tecnologia) {
+      var text = "".concat(tecnologia || '', " ").concat(plan || '').toLowerCase();
+      if (text.includes('gpon')) return '#16a34a'; // verde
+      if (text.includes('wireless')) return '#2563eb'; // azul
+      return '#9333ea'; // por defecto
     }
     function loadGoogleMaps() {
       return new Promise(function (resolve, reject) {
@@ -27412,55 +27425,97 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       if (!props.urlDetalleClienteBase || !clienteId) return '';
       return props.urlDetalleClienteBase.replace('__id__', String(clienteId));
     }
-    function initMap(google) {
-      if (!mapContainer.value) return;
-      var center = props.puntos.length ? {
-        lat: props.puntos[0].lat,
-        lng: props.puntos[0].lon
-      } : {
-        lat: -25.2637,
-        lng: -57.5759
-      };
-      map = new google.maps.Map(mapContainer.value, {
-        center: center,
-        zoom: props.puntos.length ? 10 : 6,
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: true,
-        zoomControl: true
-      });
-      var bounds = new google.maps.LatLngBounds();
-      var iconConfig = getHomeMarkerIcon(google);
-      props.puntos.forEach(function (p) {
-        var position = {
-          lat: p.lat,
-          lng: p.lon
-        };
-        var titulo = p.nombre || "Cliente #".concat(p.cliente_id);
-        var marker = new google.maps.Marker({
-          position: position,
-          map: map,
-          title: titulo,
-          icon: iconConfig
-        });
-        var detalleHref = urlDetalle(p.cliente_id);
-        var content = "\n      <div class=\"p-2 min-w-[200px] max-w-[320px]\">\n        <div class=\"font-semibold text-gray-900\">".concat(escapeHtml(titulo), "</div>\n        ").concat(p.plan ? "<div class=\"text-sm text-gray-700 mt-1\">Plan: ".concat(escapeHtml(p.plan), "</div>") : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>', "\n        ").concat(p.url_ubicacion ? "<a href=\"".concat(escapeHtml(p.url_ubicacion), "\" target=\"_blank\" rel=\"noopener\" class=\"inline-block mt-2 text-sm text-blue-600 hover:underline\">Abrir ubicaci\xF3n</a>") : '', "\n        ").concat(detalleHref ? "<a href=\"".concat(escapeHtml(detalleHref), "\" class=\"inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline\">Ver cliente</a>") : '', "\n      </div>\n    ");
-        var infoWindow = new google.maps.InfoWindow({
-          content: content
-        });
-        marker.addListener('click', function () {
-          infoWindows.forEach(function (iw) {
-            return iw.close();
-          });
-          infoWindow.open(map, marker);
-        });
-        markers.push(marker);
-        infoWindows.push(infoWindow);
-        bounds.extend(position);
-      });
-      if (props.puntos.length > 1) {
-        map.fitBounds(bounds);
-      }
+    function initMap(_x) {
+      return _initMap.apply(this, arguments);
+    }
+    function _initMap() {
+      _initMap = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(google) {
+        var center, bounds, iconCache, batchSize, i, batch;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.n) {
+            case 0:
+              if (mapContainer.value) {
+                _context2.n = 1;
+                break;
+              }
+              return _context2.a(2);
+            case 1:
+              center = props.puntos.length ? {
+                lat: props.puntos[0].lat,
+                lng: props.puntos[0].lon
+              } : {
+                lat: -25.2637,
+                lng: -57.5759
+              };
+              map = new google.maps.Map(mapContainer.value, {
+                center: center,
+                zoom: props.puntos.length ? 10 : 6,
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true,
+                zoomControl: true
+              });
+              bounds = new google.maps.LatLngBounds();
+              iconCache = new Map();
+              sharedInfoWindow = new google.maps.InfoWindow();
+              totalPuntos.value = props.puntos.length;
+              puntosProcesados.value = 0;
+              loadingMessage.value = totalPuntos.value ? 'Cargando clientes en el mapa...' : 'No hay clientes para mostrar';
+              batchSize = 120;
+              i = 0;
+            case 2:
+              if (!(i < props.puntos.length)) {
+                _context2.n = 4;
+                break;
+              }
+              batch = props.puntos.slice(i, i + batchSize);
+              batch.forEach(function (p) {
+                var position = {
+                  lat: p.lat,
+                  lng: p.lon
+                };
+                var titulo = p.nombre || "Cliente #".concat(p.cliente_id);
+                var marker = new google.maps.Marker({
+                  position: position,
+                  map: map,
+                  title: titulo,
+                  icon: function () {
+                    var color = markerColorByPlan(p.plan, p.tecnologia);
+                    if (!iconCache.has(color)) {
+                      iconCache.set(color, getHomeMarkerIcon(google, color));
+                    }
+                    return iconCache.get(color);
+                  }(),
+                  optimized: true
+                });
+                var detalleHref = urlDetalle(p.cliente_id);
+                var content = "\n        <div class=\"p-2 min-w-[200px] max-w-[320px]\">\n          <div class=\"font-semibold text-gray-900\">".concat(escapeHtml(titulo), "</div>\n          ").concat(p.plan ? "<div class=\"text-sm text-gray-700 mt-1\">Plan: ".concat(escapeHtml(p.plan), "</div>") : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>', "\n          ").concat(p.url_ubicacion ? "<a href=\"".concat(escapeHtml(p.url_ubicacion), "\" target=\"_blank\" rel=\"noopener\" class=\"inline-block mt-2 text-sm text-blue-600 hover:underline\">Abrir ubicaci\xF3n</a>") : '', "\n          ").concat(detalleHref ? "<a href=\"".concat(escapeHtml(detalleHref), "\" class=\"inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline\">Ver cliente</a>") : '', "\n        </div>\n      ");
+                marker.addListener('click', function () {
+                  sharedInfoWindow.setContent(content);
+                  sharedInfoWindow.open(map, marker);
+                });
+                markers.push(marker);
+                bounds.extend(position);
+              });
+              puntosProcesados.value = Math.min(i + batch.length, totalPuntos.value);
+              _context2.n = 3;
+              return new Promise(function (resolve) {
+                return requestAnimationFrame(resolve);
+              });
+            case 3:
+              i += batchSize;
+              _context2.n = 2;
+              break;
+            case 4:
+              if (props.puntos.length > 1) {
+                map.fitBounds(bounds);
+              }
+            case 5:
+              return _context2.a(2);
+          }
+        }, _callee2);
+      }));
+      return _initMap.apply(this, arguments);
     }
     function escapeHtml(text) {
       if (!text) return '';
@@ -27485,37 +27540,41 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             return loadGoogleMaps();
           case 2:
             google = _context.v;
-            initMap(google);
-            _context.n = 4;
-            break;
+            _context.n = 3;
+            return initMap(google);
           case 3:
-            _context.p = 3;
-            _t = _context.v;
-            error.value = _t.message || 'Error al cargar el mapa';
+            _context.n = 5;
+            break;
           case 4:
             _context.p = 4;
-            loading.value = false;
-            return _context.f(4);
+            _t = _context.v;
+            error.value = _t.message || 'Error al cargar el mapa';
           case 5:
+            _context.p = 5;
+            loading.value = false;
+            return _context.f(5);
+          case 6:
             return _context.a(2);
         }
-      }, _callee, null, [[1, 3, 4, 5]]);
+      }, _callee, null, [[1, 4, 5, 6]]);
     })));
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.onBeforeUnmount)(function () {
-      infoWindows.forEach(function (iw) {
-        return iw.close();
-      });
+      var _sharedInfoWindow;
+      (_sharedInfoWindow = sharedInfoWindow) === null || _sharedInfoWindow === void 0 || _sharedInfoWindow.close();
       markers.forEach(function (m) {
         return m.setMap(null);
       });
       markers = [];
-      infoWindows = [];
+      sharedInfoWindow = null;
       map = null;
     });
     var __returned__ = {
       props: props,
       mapContainer: mapContainer,
       loading: loading,
+      loadingMessage: loadingMessage,
+      puntosProcesados: puntosProcesados,
+      totalPuntos: totalPuntos,
       error: error,
       get map() {
         return map;
@@ -27529,17 +27588,20 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       set markers(v) {
         markers = v;
       },
-      get infoWindows() {
-        return infoWindows;
+      get sharedInfoWindow() {
+        return sharedInfoWindow;
       },
-      set infoWindows(v) {
-        infoWindows = v;
+      set sharedInfoWindow(v) {
+        sharedInfoWindow = v;
       },
+      progressPercent: progressPercent,
       getHomeMarkerIcon: getHomeMarkerIcon,
+      markerColorByPlan: markerColorByPlan,
       loadGoogleMaps: loadGoogleMaps,
       urlDetalle: urlDetalle,
       initMap: initMap,
       escapeHtml: escapeHtml,
+      computed: vue__WEBPACK_IMPORTED_MODULE_0__.computed,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
       onMounted: vue__WEBPACK_IMPORTED_MODULE_0__.onMounted,
       onBeforeUnmount: vue__WEBPACK_IMPORTED_MODULE_0__.onBeforeUnmount
@@ -27585,20 +27647,39 @@ var _hoisted_3 = {
   class: "absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 rounded-lg"
 };
 var _hoisted_4 = {
+  class: "w-[min(360px,92%)] px-4"
+};
+var _hoisted_5 = {
+  class: "text-center text-gray-700 dark:text-gray-300"
+};
+var _hoisted_6 = {
+  key: 0,
+  class: "mt-3"
+};
+var _hoisted_7 = {
+  class: "h-2 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden"
+};
+var _hoisted_8 = {
+  class: "mt-2 text-xs text-center text-gray-600 dark:text-gray-400"
+};
+var _hoisted_9 = {
   key: 1,
   class: "absolute inset-0 flex items-center justify-center bg-red-50/90 dark:bg-red-900/20 rounded-lg p-4"
 };
-var _hoisted_5 = {
+var _hoisted_10 = {
   class: "text-red-700 dark:text-red-300 text-center"
 };
-var _hoisted_6 = {
+var _hoisted_11 = {
   key: 2,
   class: "absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg p-4"
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, null, 512 /* NEED_PATCH */), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_3, _toConsumableArray(_cache[0] || (_cache[0] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
-    class: "text-gray-600 dark:text-gray-400"
-  }, "Cargando mapa...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_4, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_6, _toConsumableArray(_cache[1] || (_cache[1] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, null, 512 /* NEED_PATCH */), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_3, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_4, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loadingMessage), 1 /* TEXT */), $setup.totalPuntos > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: "h-full bg-purple-600 transition-all duration-200",
+    style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
+      width: "".concat($setup.progressPercent, "%")
+    })
+  }, null, 4 /* STYLE */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_8, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.puntosProcesados) + " / " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.totalPuntos) + " clientes (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.progressPercent) + "%) ", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, _toConsumableArray(_cache[0] || (_cache[0] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-amber-800 dark:text-amber-200 text-center"
   }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
 }

@@ -2,7 +2,17 @@
   <div class="relative w-full h-full min-h-[300px]">
     <div ref="mapContainer" class="absolute inset-0 w-full h-full rounded-lg"></div>
     <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 rounded-lg">
-      <span class="text-gray-600 dark:text-gray-400">Cargando mapa...</span>
+      <div class="w-[min(360px,92%)] px-4">
+        <p class="text-center text-gray-700 dark:text-gray-300">{{ loadingMessage }}</p>
+        <div v-if="totalPuntos > 0" class="mt-3">
+          <div class="h-2 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div class="h-full bg-purple-600 transition-all duration-200" :style="{ width: `${progressPercent}%` }"></div>
+          </div>
+          <p class="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">
+            {{ puntosProcesados }} / {{ totalPuntos }} clientes ({{ progressPercent }}%)
+          </p>
+        </div>
+      </div>
     </div>
     <div v-if="error" class="absolute inset-0 flex items-center justify-center bg-red-50/90 dark:bg-red-900/20 rounded-lg p-4">
       <p class="text-red-700 dark:text-red-300 text-center">{{ error }}</p>
@@ -14,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   apiKey: { type: String, default: '' },
@@ -24,13 +34,19 @@ const props = defineProps({
 
 const mapContainer = ref(null);
 const loading = ref(true);
+const loadingMessage = ref('Cargando mapa...');
+const puntosProcesados = ref(0);
+const totalPuntos = ref(0);
 const error = ref('');
 let map = null;
 let markers = [];
-let infoWindows = [];
+let sharedInfoWindow = null;
+const progressPercent = computed(() => {
+  if (!totalPuntos.value) return 0;
+  return Math.round((puntosProcesados.value / totalPuntos.value) * 100);
+});
 
-function getHomeMarkerIcon(google) {
-  const color = '#9333ea';
+function getHomeMarkerIcon(google, color = '#9333ea') {
   // Lienzo con margen transparente: sin esto Maps suele rasterizar el SVG mal y recorta un lateral.
   const w = 48;
   const h = 48;
@@ -58,6 +74,13 @@ function getHomeMarkerIcon(google) {
     origin: new google.maps.Point(0, 0),
     anchor: new google.maps.Point(24, 32),
   };
+}
+
+function markerColorByPlan(plan, tecnologia) {
+  const text = `${tecnologia || ''} ${plan || ''}`.toLowerCase();
+  if (text.includes('gpon')) return '#16a34a'; // verde
+  if (text.includes('wireless')) return '#2563eb'; // azul
+  return '#9333ea'; // por defecto
 }
 
 function loadGoogleMaps() {
@@ -94,7 +117,7 @@ function urlDetalle(clienteId) {
   return props.urlDetalleClienteBase.replace('__id__', String(clienteId));
 }
 
-function initMap(google) {
+async function initMap(google) {
   if (!mapContainer.value) return;
 
   const center = props.puntos.length
@@ -111,39 +134,57 @@ function initMap(google) {
   });
 
   const bounds = new google.maps.LatLngBounds();
-  const iconConfig = getHomeMarkerIcon(google);
+  const iconCache = new Map();
+  sharedInfoWindow = new google.maps.InfoWindow();
+  totalPuntos.value = props.puntos.length;
+  puntosProcesados.value = 0;
+  loadingMessage.value = totalPuntos.value
+    ? 'Cargando clientes en el mapa...'
+    : 'No hay clientes para mostrar';
 
-  props.puntos.forEach((p) => {
-    const position = { lat: p.lat, lng: p.lon };
-    const titulo = p.nombre || `Cliente #${p.cliente_id}`;
-    const marker = new google.maps.Marker({
-      position,
-      map,
-      title: titulo,
-      icon: iconConfig,
+  const batchSize = 120;
+  for (let i = 0; i < props.puntos.length; i += batchSize) {
+    const batch = props.puntos.slice(i, i + batchSize);
+
+    batch.forEach((p) => {
+      const position = { lat: p.lat, lng: p.lon };
+      const titulo = p.nombre || `Cliente #${p.cliente_id}`;
+      const marker = new google.maps.Marker({
+        position,
+        map,
+        title: titulo,
+        icon: (() => {
+          const color = markerColorByPlan(p.plan, p.tecnologia);
+          if (!iconCache.has(color)) {
+            iconCache.set(color, getHomeMarkerIcon(google, color));
+          }
+          return iconCache.get(color);
+        })(),
+        optimized: true,
+      });
+
+      const detalleHref = urlDetalle(p.cliente_id);
+      const content = `
+        <div class="p-2 min-w-[200px] max-w-[320px]">
+          <div class="font-semibold text-gray-900">${escapeHtml(titulo)}</div>
+          ${p.plan ? `<div class="text-sm text-gray-700 mt-1">Plan: ${escapeHtml(p.plan)}</div>` : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>'}
+          ${p.url_ubicacion ? `<a href="${escapeHtml(p.url_ubicacion)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir ubicación</a>` : ''}
+          ${detalleHref ? `<a href="${escapeHtml(detalleHref)}" class="inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline">Ver cliente</a>` : ''}
+        </div>
+      `;
+
+      marker.addListener('click', () => {
+        sharedInfoWindow.setContent(content);
+        sharedInfoWindow.open(map, marker);
+      });
+
+      markers.push(marker);
+      bounds.extend(position);
     });
 
-    const detalleHref = urlDetalle(p.cliente_id);
-    const content = `
-      <div class="p-2 min-w-[200px] max-w-[320px]">
-        <div class="font-semibold text-gray-900">${escapeHtml(titulo)}</div>
-        ${p.plan ? `<div class="text-sm text-gray-700 mt-1">Plan: ${escapeHtml(p.plan)}</div>` : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>'}
-        ${p.url_ubicacion ? `<a href="${escapeHtml(p.url_ubicacion)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir ubicación</a>` : ''}
-        ${detalleHref ? `<a href="${escapeHtml(detalleHref)}" class="inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline">Ver cliente</a>` : ''}
-      </div>
-    `;
-
-    const infoWindow = new google.maps.InfoWindow({ content });
-
-    marker.addListener('click', () => {
-      infoWindows.forEach((iw) => iw.close());
-      infoWindow.open(map, marker);
-    });
-
-    markers.push(marker);
-    infoWindows.push(infoWindow);
-    bounds.extend(position);
-  });
+    puntosProcesados.value = Math.min(i + batch.length, totalPuntos.value);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
 
   if (props.puntos.length > 1) {
     map.fitBounds(bounds);
@@ -164,7 +205,7 @@ onMounted(async () => {
   }
   try {
     const google = await loadGoogleMaps();
-    initMap(google);
+    await initMap(google);
   } catch (e) {
     error.value = e.message || 'Error al cargar el mapa';
   } finally {
@@ -173,10 +214,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  infoWindows.forEach((iw) => iw.close());
+  sharedInfoWindow?.close();
   markers.forEach((m) => m.setMap(null));
   markers = [];
-  infoWindows = [];
+  sharedInfoWindow = null;
   map = null;
 });
 </script>
