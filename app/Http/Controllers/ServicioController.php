@@ -9,8 +9,11 @@ use App\Models\Plan;
 use App\Models\RouterIpPool;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\PoolIpAsignada;
+use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ServicioController extends Controller
@@ -48,6 +51,7 @@ class ServicioController extends Controller
                 'fecha_instalacion_formatted' => $s->fecha_instalacion?->format('d/m/Y'),
                 'estado' => $s->estado ?? 'P',
                 'estado_pago' => $s->estado_pago ?? null,
+                'app_tv' => (bool) ($s->app_tv ?? false),
             ];
         })->values()->all();
 
@@ -187,6 +191,9 @@ class ServicioController extends Controller
     {
         $servicio = Servicio::with(['pool.router', 'plan.perfilPppoe', 'cliente'])->findOrFail($servicio_id);
 
+        $planIdAnterior = (int) $servicio->plan_id;
+        $planAnterior = $servicio->plan ?? Plan::find($planIdAnterior);
+
         $validated = $request->validate([
             'pool_id' => ['required', 'integer', 'exists:router_ip_pools,pool_id'],
             'plan_id' => ['required', 'integer', 'exists:planes,plan_id'],
@@ -199,7 +206,7 @@ class ServicioController extends Controller
             'password_pppoe' => ['nullable', 'string', 'max:20'],
             'fecha_instalacion' => ['nullable', 'date'],
             'fecha_cancelacion' => ['nullable', 'date'],
-            'estado' => ['nullable', 'string', 'in:A,S,C,P'],
+            'estado' => ['nullable', 'string', 'in:A,S,C,P,X'],
             'mac_address' => ['nullable', 'string', 'max:20'],
         ]);
 
@@ -262,6 +269,24 @@ class ServicioController extends Controller
             }
         }
 
+        if ($planIdAnterior !== (int) $validated['plan_id'] && $planAnterior) {
+            try {
+                $extraCambioPlan = app(FacturacionService::class)->registrarPostCambioPlanServicio(
+                    $servicio,
+                    $planAnterior,
+                    $request->user()?->usuario_id
+                );
+                if ($extraCambioPlan !== '') {
+                    $mensaje .= ' '.$extraCambioPlan;
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Cambio de plan: factura/ticket: '.$e->getMessage(), [
+                    'servicio_id' => $servicio->servicio_id,
+                ]);
+                $mensaje .= ' No se pudo completar el registro automático de factura/ticket por cambio de plan; revisar manualmente.';
+            }
+        }
+
         return redirect()->route('servicios.index')->with('success', $mensaje);
     }
 
@@ -312,6 +337,98 @@ class ServicioController extends Controller
         }
 
         return redirect()->back()->with('success', 'Servicio reactivado correctamente.');
+    }
+
+    /**
+     * Cancelar servicio: factura interna prorrateada (día 1 del mes hasta hoy), estado cancelado,
+     * PPPoE deshabilitado; si el cliente no tiene otros servicios no cancelados, pasa a inactivo.
+     */
+    public function cancelar(Request $request, $servicio_id, MikroTikService $mikrotik, FacturacionService $facturacion)
+    {
+        if (! $request->user()?->tienePermiso('facturas.crear')) {
+            abort(403, 'No tenés permiso para generar la factura de cancelación.');
+        }
+
+        $servicio = Servicio::with(['plan', 'cliente', 'pool.router'])->findOrFail($servicio_id);
+
+        if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            return redirect()->back()->with('error', 'El servicio ya está cancelado.');
+        }
+
+        $fechaCancel = Carbon::parse($request->input('fecha_cancelacion', now()->toDateString()))->startOfDay();
+        $hoy = now()->startOfDay();
+        if ($fechaCancel->gt($hoy)) {
+            return redirect()->back()->with('error', 'La fecha de cancelación no puede ser futura.');
+        }
+        if ($servicio->fecha_instalacion) {
+            $iniInst = Carbon::parse($servicio->fecha_instalacion)->startOfDay();
+            if ($fechaCancel->lt($iniInst)) {
+                return redirect()->back()->with('error', 'La fecha de cancelación no puede ser anterior a la instalación del servicio.');
+            }
+        }
+
+        $precioPlan = (float) ($servicio->plan?->precio ?? 0);
+        $monto = FacturacionService::calcularMontoProrrateoCancelacionMes($fechaCancel, $precioPlan);
+
+        $clienteId = (int) $servicio->cliente_id;
+        $soloEsteServicioNoCancelado = Servicio::where('cliente_id', $clienteId)
+            ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+            ->count() === 1;
+
+        $mensaje = '';
+        $warning = null;
+
+        try {
+            DB::transaction(function () use ($servicio, $fechaCancel, $monto, $facturacion, $request, $soloEsteServicioNoCancelado, &$mensaje) {
+                $factura = $facturacion->generarFacturaInternaPorCancelacionServicio(
+                    $servicio,
+                    $fechaCancel,
+                    $monto,
+                    $request->user()?->usuario_id
+                );
+                $mensaje = 'Servicio cancelado. Factura interna #'.$factura->id.' por '.number_format($monto, 0, ',', '.').' Gs.';
+
+                $servicio->update([
+                    'estado' => Servicio::ESTADO_CANCELADO,
+                    'fecha_cancelacion' => $fechaCancel->toDateString(),
+                    'fecha_suspension' => null,
+                    'motivo_suspension' => null,
+                ]);
+
+                if ($soloEsteServicioNoCancelado && $servicio->cliente) {
+                    $servicio->cliente->update(['estado' => 'inactivo']);
+                    $mensaje .= ' El cliente quedó inactivo (no tenía otros servicios activos).';
+                }
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Cancelar servicio: '.$e->getMessage(), [
+                'servicio_id' => $servicio_id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()->with('error', 'No se pudo cancelar el servicio: '.$e->getMessage());
+        }
+
+        $servicio->refresh();
+        $servicio->load('pool.router');
+        if ($servicio->usuario_pppoe && $servicio->pool?->router) {
+            $r = $mikrotik->setPppoeDisabledEnRouter($servicio, true);
+            if (! $r['success']) {
+                MikrotikOperacionPendiente::registrarSiFallo(
+                    MikrotikOperacionPendiente::TIPO_PPPOE_DISABLED,
+                    ['servicio_id' => $servicio->servicio_id, 'disabled' => true],
+                    $r['error'] ?? 'Error',
+                    'servicios.cancelar'
+                );
+                $warning = 'MikroTik: no se pudo deshabilitar PPPoE — '.($r['error'] ?? 'error').'. Quedó registrado para reintento.';
+            }
+        }
+
+        if ($warning) {
+            return redirect()->back()->with('success', $mensaje)->with('warning', $warning);
+        }
+
+        return redirect()->back()->with('success', $mensaje);
     }
 
     /**

@@ -28,7 +28,7 @@
         <div class="relative shrink-0" ref="dropdownEstadoRef">
           <button
             type="button"
-            @click="dropdownEstadoOpen = !dropdownEstadoOpen; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false"
+            @click="dropdownEstadoOpen = !dropdownEstadoOpen; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false; dropdownAppTvOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[140px] justify-between"
           >
             <span>{{ filtros.estado === 'todos' ? 'Estado' : estadoLabel(filtros.estado) }}</span>
@@ -70,7 +70,7 @@
         <div class="relative shrink-0" ref="dropdownNodoRef">
           <button
             type="button"
-            @click="dropdownNodoOpen = !dropdownNodoOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false"
+            @click="dropdownNodoOpen = !dropdownNodoOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownAppTvOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[150px] max-w-[220px] justify-between"
           >
             <span class="truncate">{{ nodoFiltroLabel }}</span>
@@ -106,7 +106,7 @@
         <div class="relative shrink-0" ref="dropdownEstadoPagoRef">
           <button
             type="button"
-            @click="dropdownEstadoPagoOpen = !dropdownEstadoPagoOpen; dropdownEstadoOpen = false; dropdownNodoOpen = false"
+            @click="dropdownEstadoPagoOpen = !dropdownEstadoPagoOpen; dropdownEstadoOpen = false; dropdownNodoOpen = false; dropdownAppTvOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[160px] justify-between"
           >
             <span>{{ filtros.estado_pago === 'todos' ? 'Estado de Pago' : estadoPagoLabel(filtros.estado_pago) }}</span>
@@ -125,6 +125,34 @@
               @click="filtros.estado_pago = opt.value; dropdownEstadoPagoOpen = false"
               class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               :class="filtros.estado_pago === opt.value ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+        <!-- Filtro App TV -->
+        <div class="relative shrink-0" ref="dropdownAppTvRef">
+          <button
+            type="button"
+            @click="dropdownAppTvOpen = !dropdownAppTvOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false"
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[140px] justify-between"
+          >
+            <span>{{ appTvFiltroLabel }}</span>
+            <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div
+            v-show="dropdownAppTvOpen"
+            class="absolute left-0 mt-1.5 min-w-[180px] py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20"
+          >
+            <button
+              v-for="opt in opcionesAppTv"
+              :key="opt.value"
+              type="button"
+              @click="filtros.app_tv = opt.value; dropdownAppTvOpen = false"
+              class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              :class="filtros.app_tv === opt.value ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
             >
               {{ opt.label }}
             </button>
@@ -228,7 +256,19 @@
                 <span class="text-gray-600 dark:text-gray-400 text-xs">{{ formatCedula(s.cliente?.cedula) }}</span>
               </td>
               <td class="px-4 py-3 text-sm">
-                <span class="text-gray-600 dark:text-gray-300 font-medium">{{ s.plan?.nombre ?? '—' }}</span><br>
+                <span class="inline-flex items-center gap-1.5 text-gray-600 dark:text-gray-300 font-medium">
+                  <span
+                    v-if="s.app_tv"
+                    class="inline-flex shrink-0 text-indigo-600 dark:text-indigo-400"
+                    title="App TV activa"
+                    aria-label="App TV activa"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </span>
+                  <span>{{ s.plan?.nombre ?? '—' }}</span>
+                </span><br>
                 <span class="text-gray-600 dark:text-gray-400 text-xs">{{ s.fecha_instalacion_formatted ?? '—' }}</span>
               </td>
               <td class="px-4 py-3 text-sm">
@@ -365,6 +405,19 @@
             Crear factura
           </a>
           <form
+            v-if="canCancelarServicio && urlCancelar && servicioAcciones.estado !== 'X'"
+            :action="urlCancelar.replace('__id__', servicioAcciones.servicio_id)"
+            method="POST"
+            class="block"
+            @submit.prevent="confirmCancelar($event)"
+          >
+            <input type="hidden" name="_token" :value="csrfToken" />
+            <button type="submit" class="w-full px-4 py-2.5 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center gap-2">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+              Cancelar servicio
+            </button>
+          </form>
+          <form
             v-if="servicioAcciones.usuario_pppoe && servicioAcciones.pool?.router"
             :action="urlSyncPppoe.replace('__id__', servicioAcciones.servicio_id)"
             method="POST"
@@ -487,7 +540,8 @@ const opcionesEstado = [
   { value: 'P', label: 'Pendiente' },
   { value: 'A', label: 'Activo' },
   { value: 'S', label: 'Suspendido' },
-  { value: 'C', label: 'Cancelado' },
+  { value: 'C', label: 'Cortado' },
+  { value: 'X', label: 'Cancelado' },
 ];
 const opcionesEstadoPago = [
   { value: 'todos', label: 'Todos' },
@@ -496,12 +550,18 @@ const opcionesEstadoPago = [
   { value: 'exento', label: 'Exento' },
   { value: 'pendiente', label: 'Pendiente' },
 ];
+const opcionesAppTv = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'si', label: 'Con app TV' },
+  { value: 'no', label: 'Sin app TV' },
+];
 
 const props = defineProps({
   servicios: { type: Array, default: () => [] },
   nodos: { type: Array, default: () => [] },
   clientes: { type: Array, default: () => [] },
   canCreateFactura: { type: Boolean, default: false },
+  canCancelarServicio: { type: Boolean, default: false },
   formAction: { type: String, default: '' },
   csrfToken: { type: String, default: '' },
   urlIndex: { type: String, default: '' },
@@ -511,9 +571,10 @@ const props = defineProps({
   urlDestroy: { type: String, default: '' },
   urlActivar: { type: String, default: '' },
   urlSuspender: { type: String, default: '' },
+  urlCancelar: { type: String, default: '' },
   urlSyncPppoe: { type: String, default: '' },
   urlCrearFacturaInterna: { type: String, default: '' },
-  filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', fecha_desde: '', fecha_hasta: '' }) },
+  filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' }) },
 });
 
 const STORAGE_KEY_BUSCAR = 'servicios_index_buscar';
@@ -535,20 +596,29 @@ const filtros = ref({
   nodo_id: props.filtros?.nodo_id != null && props.filtros?.nodo_id !== '' ? String(props.filtros.nodo_id) : '',
   estado: props.filtros?.estado ?? 'todos',
   estado_pago: props.filtros?.estado_pago ?? 'todos',
+  app_tv: props.filtros?.app_tv ?? 'todos',
   fecha_desde: props.filtros?.fecha_desde ?? '',
   fecha_hasta: props.filtros?.fecha_hasta ?? '',
 });
 const dropdownEstadoOpen = ref(false);
 const dropdownEstadoPagoOpen = ref(false);
 const dropdownNodoOpen = ref(false);
+const dropdownAppTvOpen = ref(false);
 const dropdownEstadoRef = ref(null);
 const dropdownEstadoPagoRef = ref(null);
 const dropdownNodoRef = ref(null);
+const dropdownAppTvRef = ref(null);
 
 const nodoFiltroLabel = computed(() => {
   if (!filtros.value.nodo_id) return 'Nodo';
   const n = props.nodos.find((x) => String(x.nodo_id) === String(filtros.value.nodo_id));
   return n ? (n.descripcion || `Nodo #${n.nodo_id}`) : 'Nodo';
+});
+
+const appTvFiltroLabel = computed(() => {
+  const v = filtros.value.app_tv ?? 'todos';
+  const opt = opcionesAppTv.find((o) => o.value === v);
+  return opt ? opt.label : 'App TV';
 });
 const openAccionesId = ref(null);
 const accionesRefs = ref({});
@@ -638,7 +708,7 @@ function toggleAcciones(id, ev) {
     const btn = ev?.currentTarget;
     if (btn) {
       const rect = btn.getBoundingClientRect();
-      const dropdownHeight = 220;
+      const dropdownHeight = 280;
       const dropdownWidth = 180;
       const spaceBelow = window.innerHeight - rect.bottom;
       const showAbove = spaceBelow < dropdownHeight;
@@ -656,10 +726,12 @@ function closeDropdowns(ev) {
   const insideEstado = dropdownEstadoRef.value?.contains(ev.target);
   const insidePago = dropdownEstadoPagoRef.value?.contains(ev.target);
   const insideNodo = dropdownNodoRef.value?.contains(ev.target);
-  if (!insideEstado && !insidePago && !insideNodo) {
+  const insideAppTv = dropdownAppTvRef.value?.contains(ev.target);
+  if (!insideEstado && !insidePago && !insideNodo && !insideAppTv) {
     dropdownEstadoOpen.value = false;
     dropdownEstadoPagoOpen.value = false;
     dropdownNodoOpen.value = false;
+    dropdownAppTvOpen.value = false;
   }
   if (openAccionesId.value !== null) {
     const el = accionesRefs.value[openAccionesId.value];
@@ -678,7 +750,7 @@ const selectedCount = computed(() => selectedIds.value.length);
 
 const serviciosFiltrados = computed(() => {
   let list = serviciosList.value;
-  const { buscar, cliente_id, nodo_id, estado, estado_pago, fecha_desde, fecha_hasta } = filtros.value;
+  const { buscar, cliente_id, nodo_id, estado, estado_pago, app_tv, fecha_desde, fecha_hasta } = filtros.value;
 
   if (fecha_desde || fecha_hasta) {
     list = list.filter(s => {
@@ -714,6 +786,11 @@ const serviciosFiltrados = computed(() => {
   }
   if (estado_pago && estado_pago !== 'todos') {
     list = list.filter(s => (s.estado_pago || '') === estado_pago);
+  }
+  if (app_tv === 'si') {
+    list = list.filter(s => !!s.app_tv);
+  } else if (app_tv === 'no') {
+    list = list.filter(s => !s.app_tv);
   }
   return list;
 });
@@ -817,7 +894,7 @@ function formatCedula(cedula) {
 }
 
 function estadoLabel(estado) {
-  const map = { A: 'Activo', S: 'Suspendido', C: 'Cancelado', P: 'Pendiente' };
+  const map = { A: 'Activo', S: 'Suspendido', C: 'Cortado', X: 'Cancelado', P: 'Pendiente' };
   return map[estado ?? 'P'] ?? 'Pendiente';
 }
 
@@ -825,7 +902,8 @@ function estadoClase(estado) {
   const map = {
     A: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
     S: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    C: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    C: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    X: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     P: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   };
   return map[estado ?? 'P'] ?? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
@@ -835,7 +913,8 @@ function estadoLedDotClase(estado) {
   const map = {
     A: 'bg-green-500 shadow-[0_0_8px_3px_rgba(34,197,94,0.7)]',
     S: 'bg-amber-500 shadow-[0_0_8px_3px_rgba(245,158,11,0.7)]',
-    C: 'bg-gray-500 shadow-[0_0_8px_3px_rgba(107,114,128,0.6)]',
+    C: 'bg-orange-500 shadow-[0_0_8px_3px_rgba(249,115,22,0.65)]',
+    X: 'bg-gray-500 shadow-[0_0_8px_3px_rgba(107,114,128,0.6)]',
     P: 'bg-blue-500 shadow-[0_0_8px_3px_rgba(59,130,246,0.7)]',
   };
   return map[estado ?? 'P'] ?? 'bg-blue-500 shadow-[0_0_8px_3px_rgba(59,130,246,0.7)]';
@@ -848,6 +927,13 @@ function estadoPagoLabel(estadoPago) {
 
 function confirmDestroy(ev) {
   if (window.confirm('¿Eliminar este servicio? Si tiene IP asignada, quedará disponible en el pool.')) {
+    ev.target.closest('form').submit();
+  }
+}
+
+function confirmCancelar(ev) {
+  const msg = '¿Cancelar este servicio? Se generará una factura interna con el monto prorrateado desde el día 1 del mes hasta hoy, el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
+  if (window.confirm(msg)) {
     ev.target.closest('form').submit();
   }
 }

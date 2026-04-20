@@ -7,7 +7,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cuentas TV (streaming)</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Cada cuenta permite hasta 3 clientes (1 dispositivo por cliente).</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Cada cuenta maneja 3 perfiles editables y cada perfil se asigna a un cliente.</p>
         </div>
         @if(auth()->user()?->tienePermiso('tv.editar'))
             <a href="{{ route('tv-cuentas.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">
@@ -29,7 +29,8 @@
                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre / usuario app</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Vencimiento pago</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Contraseña</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aviso vencimiento</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usos</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                     </tr>
@@ -40,12 +41,20 @@
                             <td class="px-4 py-3 text-sm">
                                 <span class="font-medium text-gray-900 dark:text-gray-100">{{ $c->nombre ?: '—' }}</span>
                                 <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{{ $c->usuario_app }}</div>
+                                <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
+                                    P1: {{ $c->perfil_1 ?: 'Perfil 1' }} | P2: {{ $c->perfil_2 ?: 'Perfil 2' }} | P3: {{ $c->perfil_3 ?: 'Perfil 3' }}
+                                </div>
+                                <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
+                                    Precio P1: {{ $c->precio_perfil_1 !== null ? 'Gs. '.number_format((float) $c->precio_perfil_1, 0, ',', '.') : '—' }}
+                                    | Precio P2: {{ $c->precio_perfil_2 !== null ? 'Gs. '.number_format((float) $c->precio_perfil_2, 0, ',', '.') : '—' }}
+                                    | Precio P3: {{ $c->precio_perfil_3 !== null ? 'Gs. '.number_format((float) $c->precio_perfil_3, 0, ',', '.') : '—' }}
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                {{ $c->vencimiento_pago->format('d/m/Y') }}
-                                @if($c->vencimiento_pago->isPast())
-                                    <span class="ml-2 text-xs text-red-600 dark:text-red-400">(vencido)</span>
-                                @endif
+                                {{ $c->password }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                Día {{ $c->dia_aviso_vencimiento ?? $c->vencimiento_pago?->day ?? '—' }} de cada mes
                             </td>
                             <td class="px-4 py-3 text-sm text-center">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $c->asignaciones_count >= 3 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200' }}">
@@ -62,7 +71,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay cuentas TV registradas.</td>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay cuentas TV registradas.</td>
                         </tr>
                     @endforelse
                 </tbody>

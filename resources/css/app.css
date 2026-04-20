@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    /* Mejora formularios nativos y scrollbars cuando la clase .dark está en <html> */
+    html.dark {
+        color-scheme: dark;
+    }
+    html:not(.dark) {
+        color-scheme: light;
+    }
+}

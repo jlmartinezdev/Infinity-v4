@@ -16,6 +16,13 @@ class TvCuenta extends Model
         'usuario_app',
         'password',
         'vencimiento_pago',
+        'dia_aviso_vencimiento',
+        'perfil_1',
+        'precio_perfil_1',
+        'perfil_2',
+        'precio_perfil_2',
+        'perfil_3',
+        'precio_perfil_3',
         'notas',
     ];
 
@@ -24,6 +31,10 @@ class TvCuenta extends Model
         return [
             'vencimiento_pago' => 'date',
             'password' => 'encrypted',
+            'dia_aviso_vencimiento' => 'integer',
+            'precio_perfil_1' => 'decimal:2',
+            'precio_perfil_2' => 'decimal:2',
+            'precio_perfil_3' => 'decimal:2',
         ];
     }
 

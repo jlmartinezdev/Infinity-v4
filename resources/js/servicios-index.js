@@ -11,6 +11,7 @@ if (el) {
     nodos: cfg.nodos || [],
     clientes: cfg.clientes || [],
     canCreateFactura: cfg.canCreateFactura ?? false,
+    canCancelarServicio: cfg.canCancelarServicio ?? false,
     formAction: cfg.formAction || '',
     csrfToken: cfg.csrfToken || '',
     urlIndex: cfg.urlIndex || '',
@@ -20,9 +21,10 @@ if (el) {
     urlDestroy: cfg.urlDestroy || '',
     urlActivar: cfg.urlActivar || '',
     urlSuspender: cfg.urlSuspender || '',
+    urlCancelar: cfg.urlCancelar || '',
     urlSyncPppoe: cfg.urlSyncPppoe || '',
     urlCrearFacturaInterna: cfg.urlCrearFacturaInterna || '',
-    filtros: cfg.filtros || { buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', fecha_desde: '', fecha_hasta: '' },
+    filtros: cfg.filtros || { buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' },
   });
   app.mount(el);
 }

@@ -7,6 +7,7 @@ use App\Models\TicketAsunto;
 use App\Models\Cliente;
 use App\Models\Pedido;
 use App\Models\User;
+use App\Services\FacturacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -14,7 +15,7 @@ class TicketController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ticket::with(['cliente.servicios', 'pedido', 'ticketAsunto', 'usuario', 'asignado'])
+        $query = Ticket::with(['cliente.servicios.pool.router', 'pedido', 'ticketAsunto', 'usuario', 'asignado'])
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('estado')) {
@@ -134,7 +135,7 @@ class TicketController extends Controller
     public function crearAgenda(Ticket $ticket)
     {
         $params = [
-            'from_ticket' => $ticket->ticket_id,
+            'from_ticket' => $ticket->id,
             'fecha' => now()->format('Y-m-d'),
         ];
         if ($ticket->cliente_id) {
@@ -145,7 +146,7 @@ class TicketController extends Controller
             $params['pedido_id'] = $ticket->pedido_id;
         } else {
             $params['tipo'] = 'general';
-            $asunto = $ticket->ticketAsunto?->nombre ?? 'Ticket #' . $ticket->ticket_id;
+            $asunto = $ticket->ticketAsunto?->nombre ?? 'Ticket #' . $ticket->id;
             $params['titulo'] = \Str::limit($asunto, 120);
         }
         return redirect()->route('agenda.create', $params);
@@ -161,5 +162,47 @@ class TicketController extends Controller
         ]);
         $ticket->update(['estado' => $validated['estado']]);
         return response()->json(['success' => true, 'estado' => $ticket->estado]);
+    }
+
+    /**
+     * Genera factura interna pendiente por cobro del ticket (monto libre).
+     */
+    public function facturar(Request $request, Ticket $ticket, FacturacionService $facturacion)
+    {
+        if (! $ticket->cliente_id) {
+            return response()->json(['message' => 'El ticket debe tener un cliente asociado para facturar.'], 422);
+        }
+        if ($ticket->factura_interna_id) {
+            return response()->json(['message' => 'Este ticket ya tiene una factura interna registrada.'], 422);
+        }
+
+        $validated = $request->validate([
+            'monto' => ['required', 'numeric', 'min:1'],
+        ]);
+        $monto = round((float) $validated['monto'], 2);
+
+        $ticket->load('cliente');
+        if (! $ticket->cliente) {
+            return response()->json(['message' => 'Cliente no encontrado.'], 422);
+        }
+
+        try {
+            $factura = $facturacion->generarFacturaInternaPorCobroTicket(
+                $ticket->cliente,
+                $ticket,
+                $monto,
+                $request->user()->usuario_id
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'No se pudo generar la factura interna.'], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'factura_interna_id' => $factura->id,
+            'message' => 'Factura interna generada correctamente.',
+        ]);
     }
 }

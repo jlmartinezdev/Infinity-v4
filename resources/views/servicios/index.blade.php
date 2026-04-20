@@ -20,6 +20,9 @@
             'nombre' => trim(($c->nombre ?? '') . ' ' . ($c->apellido ?? '')),
         ])->values()->all(),
         'canCreateFactura' => auth()->user()?->tienePermiso('facturas.crear') ?? false,
+        'canCancelarServicio' => auth()->check()
+            && auth()->user()->tienePermiso('servicios.crear')
+            && auth()->user()->tienePermiso('facturas.crear'),
         'formAction' => route('facturas.preparar-interna-desde-servicios'),
         'csrfToken' => csrf_token(),
         'urlIndex' => route('servicios.index'),
@@ -29,6 +32,7 @@
         'urlDestroy' => url('servicios') . '/__id__',
         'urlActivar' => url('servicios') . '/__id__/activar',
         'urlSuspender' => url('servicios') . '/__id__/suspender',
+        'urlCancelar' => url('servicios') . '/__id__/cancelar',
         'urlSyncPppoe' => url('servicios') . '/__id__/sync-pppoe',
         'urlCrearFacturaInterna' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio', ['servicio' => '__id__']) : '',
         'filtros' => [
@@ -37,6 +41,7 @@
             'nodo_id' => request('nodo_id', ''),
             'estado' => request('estado', 'todos'),
             'estado_pago' => request('estado_pago', 'todos'),
+            'app_tv' => request('app_tv', 'todos'),
             'fecha_desde' => request('fecha_desde', ''),
             'fecha_hasta' => request('fecha_hasta', ''),
         ],

@@ -7,7 +7,7 @@
     <div class="mb-6">
         <a href="{{ route('sistema.olts.show', $oltPuerto->olt) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">&larr; Volver al OLT</a>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Editar puerto {{ $oltPuerto->numero }}</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">OLT: {{ $oltPuerto->olt->ip ?? $oltPuerto->olt->modelo ?? '#' . $oltPuerto->olt_id }}</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">OLT: {{ $oltPuerto->olt->codigo ?? $oltPuerto->olt->ip ?? $oltPuerto->olt->modelo ?? '#' . $oltPuerto->olt_id }} — {{ $oltPuerto->olt->marca ?? '—' }}</p>
     </div>
 
     <form action="{{ route('sistema.olt-puertos.update', $oltPuerto) }}" method="POST" class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">

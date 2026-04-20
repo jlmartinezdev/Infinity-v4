@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Permiso;
 use App\Models\User;
 
 /**
@@ -50,6 +51,68 @@ class MenuUsuario
         };
 
         return $filter($items);
+    }
+
+    /**
+     * Permisos definidos en config/menu.php (únicos, orden de aparición en el menú),
+     * solo códigos que existen en la tabla permisos. Para la UI de asignación a usuarios.
+     *
+     * @return list<array{codigo: string, contexto: string, nombre: string}>
+     */
+    public static function permisosMenuParaUi(): array
+    {
+        $nombresPorCodigo = Permiso::query()->pluck('nombre', 'codigo')->all();
+        $codigosValidos = array_flip(array_keys($nombresPorCodigo));
+
+        /** @var array<string, array{contextos: list<string>}> $agrupados orden de inserción = orden de primera aparición en el menú */
+        $agrupados = [];
+
+        foreach (config('menu.items', []) as $item) {
+            if (($item['name'] ?? '') === 'home') {
+                continue;
+            }
+            if (! empty($item['admin_only'])) {
+                continue;
+            }
+
+            $grupo = trim((string) ($item['label'] ?? ''));
+
+            $addContexto = function (string $codigo, string $lineaContexto) use (&$agrupados, $codigosValidos): void {
+                if ($codigo === '' || ! isset($codigosValidos[$codigo]) || $lineaContexto === '') {
+                    return;
+                }
+                if (! isset($agrupados[$codigo])) {
+                    $agrupados[$codigo] = ['contextos' => []];
+                }
+                if (! in_array($lineaContexto, $agrupados[$codigo]['contextos'], true)) {
+                    $agrupados[$codigo]['contextos'][] = $lineaContexto;
+                }
+            };
+
+            if (! empty($item['permiso'])) {
+                $codigo = (string) $item['permiso'];
+                $addContexto($codigo, $grupo);
+            }
+            foreach ($item['submenu'] ?? [] as $sub) {
+                if (! empty($sub['permiso'])) {
+                    $codigo = (string) $sub['permiso'];
+                    $subEtiqueta = trim((string) ($sub['label'] ?? ''));
+                    $linea = $subEtiqueta !== '' ? $grupo.' → '.$subEtiqueta : $grupo;
+                    $addContexto($codigo, $linea);
+                }
+            }
+        }
+
+        $rows = [];
+        foreach ($agrupados as $codigo => $meta) {
+            $rows[] = [
+                'codigo' => $codigo,
+                'contexto' => implode(' · ', $meta['contextos']),
+                'nombre' => $nombresPorCodigo[$codigo] ?? $codigo,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

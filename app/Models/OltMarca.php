@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OltMarca extends Model
 {
@@ -19,11 +18,6 @@ class OltMarca extends Model
         'estado',
         'notas',
     ];
-
-    public function olts(): HasMany
-    {
-        return $this->hasMany(Olt::class, 'olt_marca_id', 'olt_marca_id');
-    }
 
     public function getRouteKeyName(): string
     {

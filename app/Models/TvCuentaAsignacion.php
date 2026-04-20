@@ -11,16 +11,29 @@ class TvCuentaAsignacion extends Model
 
     protected $fillable = [
         'tv_cuenta_id',
-        'cliente_id',
+        'servicio_id',
+        'perfil_numero',
+        'fecha_activacion',
+        'es_promo',
+        'precio_aplicado',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'fecha_activacion' => 'date',
+            'es_promo' => 'boolean',
+            'precio_aplicado' => 'decimal:2',
+        ];
+    }
 
     public function tvCuenta(): BelongsTo
     {
         return $this->belongsTo(TvCuenta::class, 'tv_cuenta_id');
     }
 
-    public function cliente(): BelongsTo
+    public function servicio(): BelongsTo
     {
-        return $this->belongsTo(Cliente::class, 'cliente_id', 'cliente_id');
+        return $this->belongsTo(\App\Models\Servicio::class, 'servicio_id', 'servicio_id');
     }
 }

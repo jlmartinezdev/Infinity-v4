@@ -34,6 +34,7 @@ mix.js('resources/js/usuario-management.js', 'public/js').vue();
 mix.js('resources/js/mapas-pedidos.js', 'public/js').vue();
 mix.js('resources/js/mapa-clientes-activos.js', 'public/js').vue();
 mix.js('resources/js/mapa-nap.js', 'public/js').vue();
+mix.js('resources/js/caja-nap-form-mapa.js', 'public/js').vue();
 mix.js('resources/js/servicios-index.js', 'public/js').vue();
 mix.js('resources/js/cobros-servicios.js', 'public/js').vue();
 mix.js('resources/js/facturas-internas-index.js', 'public/js').vue();

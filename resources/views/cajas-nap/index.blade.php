@@ -50,6 +50,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Código</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nodo</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">FTTH</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Coordenadas</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                     </tr>
@@ -64,6 +65,16 @@
                                     {{ ucfirst($c->tipo) }}
                                 </span>
                             </td>
+                            <td class="px-4 py-3 text-sm">
+                                @if($c->splitter_segundo_nivel)
+                                    <span class="font-medium">1×{{ $c->splitter_segundo_nivel }}</span>
+                                    <span class="text-gray-500 dark:text-gray-400 text-xs block mt-0.5">
+                                        {{ max(0, (int) $c->splitter_segundo_nivel - (int) $c->puertos_ocupados_count) }}/{{ (int) $c->splitter_segundo_nivel }} libres
+                                    </span>
+                                @else
+                                    <span class="text-gray-400">—</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-sm">{{ $c->lat && $c->lon ? number_format($c->lat, 5) . ', ' . number_format($c->lon, 5) : '—' }}</td>
                             <td class="px-4 py-3 text-right">
                                 <a href="{{ route('sistema.cajas-nap.show', $c) }}" class="text-purple-600 dark:text-purple-400 hover:underline mr-3">Ver</a>
@@ -77,7 +88,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                 No hay cajas NAP. <a href="{{ route('sistema.cajas-nap.create') }}" class="text-purple-600 hover:underline">Crear una</a>.
                             </td>
                         </tr>

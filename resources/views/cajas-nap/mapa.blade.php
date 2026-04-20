@@ -7,7 +7,7 @@
     <div class="mb-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Mapa de infraestructura óptica</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Cajas NAP, nodos, salidas PON y líneas de cable</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Cajas NAP, nodos, salidas PON y líneas de cable. Usá el botón <strong class="font-medium text-gray-600 dark:text-gray-300">Mi ubicación</strong> (abajo a la derecha en el mapa) para centrar el mapa en tu posición GPS, como en Google Maps.</p>
         </div>
         <div class="flex items-center gap-3">
             <select id="filtro-nodo" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">

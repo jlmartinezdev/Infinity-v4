@@ -4,61 +4,65 @@ namespace App\Http\Controllers;
 
 use App\Models\Nodo;
 use App\Models\Olt;
-use App\Models\OltMarca;
 use Illuminate\Http\Request;
 
 class OltController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Olt::with(['nodo', 'oltMarca', 'oltPuertos'])->orderBy('ip');
+        $query = Olt::with(['nodo', 'oltPuertos'])->orderBy('codigo')->orderBy('ip');
 
         if ($request->filled('nodo_id')) {
             $query->where('nodo_id', $request->nodo_id);
         }
-        if ($request->filled('olt_marca_id')) {
-            $query->where('olt_marca_id', $request->olt_marca_id);
+        if ($request->filled('marca')) {
+            $query->where('marca', 'like', '%'.$request->marca.'%');
         }
 
         $olts = $query->paginate(15)->withQueryString();
         $nodos = Nodo::orderBy('descripcion')->get();
-        $marcas = OltMarca::where('estado', 'activo')->orderBy('nombre')->get();
 
-        return view('olts.index', compact('olts', 'nodos', 'marcas'));
+        return view('olts.index', compact('olts', 'nodos'));
     }
 
     public function create()
     {
         $nodos = Nodo::orderBy('descripcion')->get();
-        $marcas = OltMarca::where('estado', 'activo')->orderBy('nombre')->get();
 
-        return view('olts.create', compact('nodos', 'marcas'));
+        return view('olts.create', compact('nodos'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nodo_id' => ['required', 'exists:nodos,nodo_id'],
-            'olt_marca_id' => ['required', 'exists:olt_marcas,olt_marca_id'],
-            'modelo' => ['nullable', 'string', 'max:100'],
+            'marca' => ['required', 'string', 'max:100'],
+            'codigo' => ['nullable', 'string', 'max:50'],
+            'modelo' => ['nullable', 'string', 'max:50'],
             'ip' => ['nullable', 'string', 'max:45'],
-            'cantidad_puertos' => ['nullable', 'integer', 'min:1', 'max:128'],
+            'cantidad_puerto' => ['nullable', 'integer', 'min:1', 'max:128'],
             'tipo_pon' => ['required', 'in:GPON,EPON,XG-PON'],
             'estado' => ['nullable', 'string', 'max:20'],
             'notas' => ['nullable', 'string'],
         ]);
 
-        $validated['cantidad_puertos'] = $validated['cantidad_puertos'] ?? 8;
+        $validated['cantidad_puerto'] = $validated['cantidad_puerto'] ?? 8;
         $validated['estado'] = $validated['estado'] ?? 'activo';
+        if (empty($validated['codigo'])) {
+            unset($validated['codigo']);
+        }
 
         $olt = Olt::create($validated);
+        if (empty($olt->codigo)) {
+            $olt->update(['codigo' => 'OLT-'.$olt->olt_id]);
+        }
 
         return redirect()->route('sistema.olts.show', $olt)->with('success', 'OLT creado correctamente.');
     }
 
     public function show(Olt $olt)
     {
-        $olt->load(['nodo', 'oltMarca', 'oltPuertos.salidaPons']);
+        $olt->load(['nodo', 'oltPuertos', 'salidaPons']);
 
         return view('olts.show', compact('olt'));
     }
@@ -66,23 +70,27 @@ class OltController extends Controller
     public function edit(Olt $olt)
     {
         $nodos = Nodo::orderBy('descripcion')->get();
-        $marcas = OltMarca::where('estado', 'activo')->orderBy('nombre')->get();
 
-        return view('olts.edit', compact('olt', 'nodos', 'marcas'));
+        return view('olts.edit', compact('olt', 'nodos'));
     }
 
     public function update(Request $request, Olt $olt)
     {
         $validated = $request->validate([
             'nodo_id' => ['required', 'exists:nodos,nodo_id'],
-            'olt_marca_id' => ['required', 'exists:olt_marcas,olt_marca_id'],
-            'modelo' => ['nullable', 'string', 'max:100'],
+            'marca' => ['required', 'string', 'max:100'],
+            'codigo' => ['nullable', 'string', 'max:50'],
+            'modelo' => ['nullable', 'string', 'max:50'],
             'ip' => ['nullable', 'string', 'max:45'],
-            'cantidad_puertos' => ['nullable', 'integer', 'min:1', 'max:128'],
+            'cantidad_puerto' => ['nullable', 'integer', 'min:1', 'max:128'],
             'tipo_pon' => ['required', 'in:GPON,EPON,XG-PON'],
             'estado' => ['nullable', 'string', 'max:20'],
             'notas' => ['nullable', 'string'],
         ]);
+
+        if (empty($validated['codigo'])) {
+            unset($validated['codigo']);
+        }
 
         $olt->update($validated);
 

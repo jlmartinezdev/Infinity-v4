@@ -11,7 +11,7 @@
         </div>
         <button type="button" 
                 onclick="event.preventDefault(); event.stopPropagation(); abrirModalCrear(event); return false;"
-                class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                class="inline-flex items-center px-4 py-2 bg-blue-600 dark:bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
             + Nuevo Usuario
         </button>
     </div>
@@ -102,7 +102,9 @@
 
                     @php
                         $rolesConPermisos = \App\Models\Rol::with('permisos')->get()->mapWithKeys(fn ($r) => [$r->descripcion => $r->permisos->pluck('codigo')->toArray()]);
-                        $categoriasPermisos = \App\Models\Permiso::porCategoria();
+                        $permisosMenu = \App\Support\MenuUsuario::permisosMenuParaUi();
+                        $codigosPermisosMenu = array_column($permisosMenu, 'codigo');
+                        $categoriasPermisos = \App\Models\Permiso::porCategoriaExcluyendoCodigos($codigosPermisosMenu);
                         $permisosUsuario = $usuarioSeleccionado->permisos ?? [];
                     @endphp
                     <script>
@@ -134,18 +136,60 @@
                         </div>
                         <div class="space-y-4">
 
+                            @if(count($permisosMenu) > 0)
+                            <div class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 dark:border-gray-600 dark:bg-gray-900 dark:ring-1 dark:ring-gray-700/80">
+                                <h3 class="text-sm font-semibold text-emerald-900 dark:text-gray-100 mb-1">Menú principal (barra lateral)</h3>
+                                <p class="text-xs text-emerald-800 dark:text-gray-300 mb-3">Permisos que controlan las secciones del menú. Debajo están el resto (crear, editar, eliminar, etc.).</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    @foreach($permisosMenu as $row)
+                                        <label class="flex flex-col sm:flex-row sm:items-start gap-1 rounded-md border border-emerald-100 bg-white/80 p-2 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700">
+                                            <span class="flex items-start gap-2 min-w-0">
+                                                <input type="checkbox"
+                                                       name="permisos[]"
+                                                       value="{{ $row['codigo'] }}"
+                                                       {{ in_array($row['codigo'], $permisosUsuario) ? 'checked' : '' }}
+                                                       class="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 dark:border-gray-500 dark:bg-gray-700 dark:text-emerald-400 dark:focus:ring-emerald-500 dark:focus:ring-offset-gray-900">
+                                                <span class="min-w-0">
+                                                    <span class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ $row['nombre'] }}</span>
+                                                    <span class="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">{{ $row['contexto'] }}</span>
+                                                </span>
+                                            </span>
+                                            <span class="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-500 sm:ml-auto">({{ $row['codigo'] }})</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+
+                            @if(count($categoriasPermisos) > 0)
+                            <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 mb-2 bg-gray-50/80 dark:bg-gray-950/80 dark:ring-1 dark:ring-gray-800">
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Permisos detallados</h3>
+                                <p class="text-xs text-gray-600 dark:text-gray-300">Crear, editar, eliminar y demás acciones por categoría (los del menú lateral ya están arriba).</p>
+                                @if(in_array('sistema.ver', $codigosPermisosMenu, true))
+                                <p class="mt-2 rounded-md border border-dashed border-gray-300 bg-white/60 px-2.5 py-2 text-xs leading-relaxed text-gray-700 dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-300">
+                                    <span class="font-medium text-gray-900 dark:text-gray-100">Menú FTTH</span>
+                                    <span class="text-gray-600 dark:text-gray-400"> y </span>
+                                    <span class="font-medium text-gray-900 dark:text-gray-100">Sistema</span>
+                                    <span class="text-gray-600 dark:text-gray-400"> comparten el permiso </span>
+                                    <code class="font-mono text-[11px] text-emerald-800 dark:text-emerald-400">sistema.ver</code>
+                                    <span class="text-gray-600 dark:text-gray-400"> (OLT, cajas NAP, mapa óptico, salidas PON, routers, pools, etc.). Activarlo arriba habilita ambas entradas del menú.</span>
+                                </p>
+                                @endif
+                            </div>
+                            @endif
+
                             <!-- Categorías de Permisos (desde tabla permisos) -->
                             @foreach($categoriasPermisos as $categoria => $permisos)
-                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                                    <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 pb-2 border-b dark:border-gray-600">{{ $categoria }}</h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 space-y-2">
+                                <div class="rounded-lg border border-gray-200 bg-gray-50/30 p-3 dark:border-gray-700 dark:bg-gray-900/50">
+                                    <h3 class="mb-2 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:text-gray-100">{{ $categoria }}</h3>
+                                    <div class="grid grid-cols-1 gap-2 space-y-2 md:grid-cols-2">
                                         @foreach($permisos as $permiso => $label)
                                             <label class="flex items-center">
                                                 <input type="checkbox" 
                                                        name="permisos[]" 
                                                        value="{{ $permiso }}"
                                                        {{ in_array($permiso, $permisosUsuario) ? 'checked' : '' }}
-                                                       class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:bg-gray-700">
+                                                       class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-500 dark:bg-gray-700 dark:text-blue-500 dark:focus:ring-blue-400 dark:focus:ring-offset-gray-900">
                                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ $label }}</span>
                                                 <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">({{ $permiso }})</span>
                                             </label>
@@ -157,7 +201,7 @@
 
                         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <button type="submit" 
-                                    class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                                    class="w-full px-4 py-2 bg-blue-600 dark:bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
                                 Guardar permisos
                             </button>
                         </div>

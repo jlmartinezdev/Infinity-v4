@@ -25,12 +25,15 @@ class Ticket extends Model
         'observaciones',
         'imagen',
         'fecha_cierre',
+        'factura_interna_id',
+        'monto_cobro_ticket',
     ];
 
     protected function casts(): array
     {
         return [
             'fecha_cierre' => 'datetime',
+            'monto_cobro_ticket' => 'decimal:2',
         ];
     }
 
@@ -57,6 +60,11 @@ class Ticket extends Model
     public function asignado(): BelongsTo
     {
         return $this->belongsTo(User::class, 'asignado_id', 'usuario_id');
+    }
+
+    public function facturaInterna(): BelongsTo
+    {
+        return $this->belongsTo(FacturaInterna::class, 'factura_interna_id');
     }
 
     public static function estados(): array

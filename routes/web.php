@@ -1,56 +1,56 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\ClienteController;
-use App\Http\Controllers\EstadoPedidoController;
-use App\Http\Controllers\PedidoController;
-use App\Http\Controllers\PlanController;
-use App\Http\Controllers\TipoTecnologiaController;
-use App\Http\Controllers\PerfilPppoeController;
-use App\Http\Controllers\UsuarioController;
-use App\Http\Controllers\RolController;
-use App\Http\Controllers\NodoController;
-use App\Http\Controllers\RouterController;
-use App\Http\Controllers\RouterIpPoolController;
-use App\Http\Controllers\PoolIpAsignadaController;
-use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\AgendaController;
-use App\Http\Controllers\WispHubImportController;
-use App\Http\Controllers\ImportarCsvClientesController;
 use App\Http\Controllers\AuditoriaController;
-use App\Http\Controllers\NotificacionController;
-use App\Http\Controllers\TicketController;
-use App\Http\Controllers\FacturaController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CajaNapController;
+use App\Http\Controllers\CategoriaGastoController;
+use App\Http\Controllers\CategoriaProductoController;
+use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CobroController;
-use App\Http\Controllers\FacturaInternaController;
+use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\TareaController;
-use App\Http\Controllers\TareaPeriodicaController;
+use App\Http\Controllers\CorteServicioController;
+use App\Http\Controllers\DatabaseBackupController;
+use App\Http\Controllers\EstadoPedidoController;
+use App\Http\Controllers\FacturaController;
+use App\Http\Controllers\FacturaInternaController;
+use App\Http\Controllers\GastoController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\HotspotPerfilController;
-use App\Http\Controllers\ProveedorController;
-use App\Http\Controllers\ProductoController;
-use App\Http\Controllers\CategoriaProductoController;
-use App\Http\Controllers\CategoriaGastoController;
-use App\Http\Controllers\CompraController;
-use App\Http\Controllers\VentaController;
-use App\Http\Controllers\GastoController;
-use App\Http\Controllers\PagoController;
-use App\Http\Controllers\CajaNapController;
+use App\Http\Controllers\ImportarCsvClientesController;
 use App\Http\Controllers\LineaCableController;
+use App\Http\Controllers\MikrotikPendienteController;
+use App\Http\Controllers\NodoController;
+use App\Http\Controllers\NotificacionController;
+use App\Http\Controllers\OltController;
+use App\Http\Controllers\OltMarcaController;
+use App\Http\Controllers\OltPuertoController;
+use App\Http\Controllers\PagoController;
+use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\PerfilPppoeController;
+use App\Http\Controllers\PlanController;
+use App\Http\Controllers\PoolIpAsignadaController;
+use App\Http\Controllers\ProductoController;
+use App\Http\Controllers\PromesaPagoController;
+use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\RolController;
+use App\Http\Controllers\RouterController;
+use App\Http\Controllers\RouterIpPoolController;
 use App\Http\Controllers\SalidaPonController;
+use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SplitterPrimarioController;
 use App\Http\Controllers\SplitterSecundarioController;
-use App\Http\Controllers\OltMarcaController;
-use App\Http\Controllers\OltController;
-use App\Http\Controllers\OltPuertoController;
+use App\Http\Controllers\TareaController;
+use App\Http\Controllers\TareaPeriodicaController;
+use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TipoTecnologiaController;
 use App\Http\Controllers\TvCuentaController;
-use App\Http\Controllers\DatabaseBackupController;
-use App\Http\Controllers\PromesaPagoController;
-use App\Http\Controllers\CorteServicioController;
-use App\Http\Controllers\MikrotikPendienteController;
+use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\VentaController;
+use App\Http\Controllers\WispHubImportController;
+use Illuminate\Support\Facades\Route;
 
 // Rutas de autenticación
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -310,6 +310,7 @@ Route::middleware(['auth', 'permiso:tickets.crear'])->group(function () {
     Route::put('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
 });
 Route::delete('/tickets/{ticket}', [TicketController::class, 'destroy'])->name('tickets.destroy')->middleware(['auth', 'permiso:tickets.eliminar']);
+Route::post('/tickets/{ticket}/facturar', [TicketController::class, 'facturar'])->name('tickets.facturar')->middleware(['auth', 'permiso:factura-interna.crear']);
 
 // Servicios (CRUD, servicio_id auto-increment como PK)
 Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
@@ -326,6 +327,7 @@ Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::put('/servicios/{servicio_id}', [ServicioController::class, 'update'])->name('servicios.update');
     Route::post('/servicios/{servicio_id}/activar', [ServicioController::class, 'activar'])->name('servicios.activar');
     Route::post('/servicios/{servicio_id}/suspender', [ServicioController::class, 'suspender'])->name('servicios.suspender');
+    Route::post('/servicios/{servicio_id}/cancelar', [ServicioController::class, 'cancelar'])->name('servicios.cancelar');
     Route::post('/servicios/{servicio_id}/sync-pppoe', [ServicioController::class, 'syncPppoe'])->name('servicios.sync-pppoe');
     Route::post('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarStore'])->name('servicios.migrar-store');
 });
@@ -463,7 +465,13 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     // Cajas NAP e infraestructura óptica
     Route::get('cajas-nap/mapa', [CajaNapController::class, 'mapa'])->name('cajas-nap.mapa');
     Route::get('cajas-nap/mapa/data', [CajaNapController::class, 'mapaData'])->name('cajas-nap.mapa.data');
-    Route::resource('cajas-nap', CajaNapController::class);
+    Route::get('cajas-nap/{cajaNap}/servicios-por-cliente', [CajaNapController::class, 'serviciosPorCliente'])
+        ->name('cajas-nap.servicios-por-cliente')
+        ->middleware('permiso:sistema.editar');
+    Route::resource('cajas-nap', CajaNapController::class)
+        ->parameters(['cajas-nap' => 'cajaNap']);
+    Route::post('cajas-nap/{cajaNap}/puertos-activos/{puertoActivo}/asignar', [CajaNapController::class, 'asignarPuertoActivo'])->name('cajas-nap.puertos-activos.asignar');
+    Route::delete('cajas-nap/{cajaNap}/puertos-activos/{puertoActivo}/liberar', [CajaNapController::class, 'liberarPuertoActivo'])->name('cajas-nap.puertos-activos.liberar');
     Route::get('cajas-nap/{cajaNap}/splitters-primarios/create', [SplitterPrimarioController::class, 'create'])->name('splitters-primarios.create');
     Route::post('cajas-nap/{cajaNap}/splitters-primarios', [SplitterPrimarioController::class, 'store'])->name('splitters-primarios.store');
     Route::get('splitters-primarios/{splitterPrimario}/edit', [SplitterPrimarioController::class, 'edit'])->name('splitters-primarios.edit');

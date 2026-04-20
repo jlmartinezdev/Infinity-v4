@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Pedido;
-use App\Models\RouterIpPool;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Servicio extends Model
 {
     use Auditable;
+
     protected $table = 'servicios';
 
     protected $primaryKey = 'servicio_id';
@@ -39,11 +38,17 @@ class Servicio extends Model
         'pppoe_synced',
         'estado_pago',
         'saldo_a_favor',
+        'app_tv',
+        'cantidad_perfil_app',
+        'precio_app',
     ];
 
     const ESTADO_ACTIVO = 'A';
+
     const ESTADO_SUSPENDIDO = 'S';
+
     const ESTADO_CORTADO = 'C';
+
     const ESTADO_CANCELADO = 'X';
 
     public static function estadosDisponibles(): array
@@ -64,6 +69,9 @@ class Servicio extends Model
             'fecha_suspension' => 'date',
             'pppoe_synced' => 'datetime',
             'saldo_a_favor' => 'decimal:2',
+            'app_tv' => 'boolean',
+            'cantidad_perfil_app' => 'integer',
+            'precio_app' => 'decimal:2',
         ];
     }
 
@@ -90,6 +98,12 @@ class Servicio extends Model
     public function servicioHotspot(): HasOne
     {
         return $this->hasOne(ServicioHotspot::class, 'servicio_id', 'servicio_id');
+    }
+
+    /** Puerto FTTH en caja NAP (si el servicio está empalado en fibra). */
+    public function cajaNapPuertoActivo(): HasOne
+    {
+        return $this->hasOne(CajaNapPuertoActivo::class, 'servicio_id', 'servicio_id');
     }
 
     public function estaActivo(): bool

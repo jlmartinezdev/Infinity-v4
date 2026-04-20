@@ -29,7 +29,7 @@ class LineaCableController extends Controller
         $cajas = CajaNap::with('nodo')->orderBy('codigo')->get();
         $splittersPrimarios = SplitterPrimario::with('cajaNap')->orderBy('codigo')->get();
         $splittersSecundarios = SplitterSecundario::with(['cajaNap', 'splitterPrimario'])->orderBy('codigo')->get();
-        $salidaPons = SalidaPon::with(['nodo', 'cajaNap'])->orderBy('codigo')->get();
+        $salidaPons = SalidaPon::with(['nodo', 'olt', 'cajaNaps'])->orderBy('codigo')->get();
 
         return view('lineas-cable.create', compact(
             'fibraColores', 'nodos', 'cajas', 'splittersPrimarios', 'splittersSecundarios', 'salidaPons'
@@ -72,7 +72,7 @@ class LineaCableController extends Controller
         $cajas = CajaNap::with('nodo')->orderBy('codigo')->get();
         $splittersPrimarios = SplitterPrimario::with('cajaNap')->orderBy('codigo')->get();
         $splittersSecundarios = SplitterSecundario::with(['cajaNap', 'splitterPrimario'])->orderBy('codigo')->get();
-        $salidaPons = SalidaPon::with(['nodo', 'cajaNap'])->orderBy('codigo')->get();
+        $salidaPons = SalidaPon::with(['nodo', 'olt', 'cajaNaps'])->orderBy('codigo')->get();
 
         return view('lineas-cable.edit', compact(
             'lineaCable', 'fibraColores', 'nodos', 'cajas', 'splittersPrimarios', 'splittersSecundarios', 'salidaPons'
@@ -108,6 +108,7 @@ class LineaCableController extends Controller
     public function destroy(LineaCable $lineaCable)
     {
         $lineaCable->delete();
+
         return redirect()->route('lineas-cable.index')->with('success', 'Línea de cable eliminada correctamente.');
     }
 }

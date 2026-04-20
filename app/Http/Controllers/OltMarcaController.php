@@ -61,11 +61,6 @@ class OltMarcaController extends Controller
 
     public function destroy(OltMarca $oltMarca)
     {
-        if ($oltMarca->olts()->exists()) {
-            return redirect()->route('sistema.olt-marcas.index')
-                ->with('error', 'No se puede eliminar: hay OLTs asociados a esta marca.');
-        }
-
         $oltMarca->delete();
 
         return redirect()->route('sistema.olt-marcas.index')->with('success', 'Marca OLT eliminada correctamente.');

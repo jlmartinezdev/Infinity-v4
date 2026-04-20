@@ -27,6 +27,24 @@ class Permiso extends Model
     }
 
     /**
+     * Igual que {@see porCategoria()} pero sin los códigos indicados (p. ej. ya mostrados en bloque «menú»).
+     *
+     * @param  list<string>  $excluirCodigos
+     */
+    public static function porCategoriaExcluyendoCodigos(array $excluirCodigos): array
+    {
+        $excluirCodigos = array_values(array_unique($excluirCodigos));
+
+        return static::orderBy('categoria')->orderBy('orden')->orderBy('nombre')
+            ->when($excluirCodigos !== [], fn ($q) => $q->whereNotIn('codigo', $excluirCodigos))
+            ->get()
+            ->groupBy('categoria')
+            ->map(fn ($items) => $items->pluck('nombre', 'codigo')->toArray())
+            ->filter(fn (array $permisos) => $permisos !== [])
+            ->toArray();
+    }
+
+    /**
      * Todos los códigos de permiso.
      */
     public static function codigos(): array

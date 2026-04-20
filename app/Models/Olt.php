@@ -17,10 +17,11 @@ class Olt extends Model
 
     protected $fillable = [
         'nodo_id',
-        'olt_marca_id',
+        'marca',
+        'codigo',
         'modelo',
         'ip',
-        'cantidad_puertos',
+        'cantidad_puerto',
         'tipo_pon',
         'estado',
         'notas',
@@ -29,7 +30,7 @@ class Olt extends Model
     protected function casts(): array
     {
         return [
-            'cantidad_puertos' => 'integer',
+            'cantidad_puerto' => 'integer',
         ];
     }
 
@@ -38,14 +39,14 @@ class Olt extends Model
         return $this->belongsTo(Nodo::class, 'nodo_id', 'nodo_id');
     }
 
-    public function oltMarca(): BelongsTo
-    {
-        return $this->belongsTo(OltMarca::class, 'olt_marca_id', 'olt_marca_id');
-    }
-
     public function oltPuertos(): HasMany
     {
         return $this->hasMany(OltPuerto::class, 'olt_id', 'olt_id');
+    }
+
+    public function salidaPons(): HasMany
+    {
+        return $this->hasMany(SalidaPon::class, 'olt_id', 'olt_id');
     }
 
     public function getRouteKeyName(): string

@@ -7,7 +7,7 @@
     <div class="mb-6">
         <a href="{{ route('sistema.olts.show', $olt) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">&larr; Volver al OLT</a>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Nuevo puerto PON</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">OLT: {{ $olt->ip ?? $olt->modelo ?? '#' . $olt->olt_id }} — {{ $olt->oltMarca?->nombre }}</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">OLT: {{ $olt->codigo ?? $olt->ip ?? $olt->modelo ?? '#' . $olt->olt_id }} — {{ $olt->marca ?? '—' }}</p>
     </div>
 
     <form action="{{ route('sistema.olt-puertos.store', $olt) }}" method="POST" class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">

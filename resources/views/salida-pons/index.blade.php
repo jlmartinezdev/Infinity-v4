@@ -31,9 +31,10 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Código</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nodo</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">OLT / Puerto</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Caja NAP</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Puerto</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">OLT</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Puerto OLT</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Módulo / potencia</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cajas NAP</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                     </tr>
                 </thead>
@@ -42,15 +43,21 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <td class="px-4 py-3 font-medium">{{ $s->codigo }}</td>
                             <td class="px-4 py-3">{{ $s->nodo?->descripcion ?? '—' }}</td>
-                            <td class="px-4 py-3">
-                                @if($s->oltPuerto)
-                                    {{ $s->oltPuerto->olt?->ip ?? $s->oltPuerto->olt?->modelo ?? 'OLT' }} / P{{ $s->oltPuerto->numero }}
+                            <td class="px-4 py-3 text-sm">
+                                @if($s->olt)
+                                    {{ $s->olt->codigo ?? $s->olt->ip ?? 'OLT #' . $s->olt_id }}
                                 @else
                                     —
                                 @endif
                             </td>
-                            <td class="px-4 py-3">{{ $s->cajaNap?->codigo ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ $s->puerto }}</td>
+                            <td class="px-4 py-3">{{ $s->puerto_olt }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                {{ $s->tipo_modulo ?? '—' }}
+                                @if($s->potencia_salida !== null)
+                                    <span class="text-gray-500"> / {{ number_format((float) $s->potencia_salida, 2) }} dBm</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-sm">{{ $s->cajaNaps->pluck('codigo')->filter()->implode(', ') ?: '—' }}</td>
                             <td class="px-4 py-3 text-right">
                                 <a href="{{ route('sistema.salida-pons.edit', $s) }}" class="text-purple-600 hover:underline mr-3">Editar</a>
                                 <form action="{{ route('sistema.salida-pons.destroy', $s) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar?');">
@@ -62,7 +69,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay salidas PON.</td>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay salidas PON.</td>
                         </tr>
                     @endforelse
                 </tbody>
