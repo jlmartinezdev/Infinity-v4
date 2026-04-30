@@ -271,11 +271,23 @@ class PedidoController extends Controller
             'fecha_pedido' => ['required', 'date'],
             'ubicacion' => ['nullable', 'string', 'max:500'],
             'maps_gps' => ['nullable', 'string', 'max:500'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lon' => ['nullable', 'numeric', 'between:-180,180'],
             'celular' => ['nullable', 'string', 'max:50'],
             'descripcion' => ['nullable', 'string'],
             'prioridad_instalacion' => ['nullable', 'integer', 'in:1,2,3'],
             'observaciones' => ['nullable', 'string'],
         ]);
+
+        $lat = $validated['lat'] ?? null;
+        $lon = $validated['lon'] ?? null;
+        if (($lat === null || $lon === null) && ! empty($validated['maps_gps'])) {
+            $extracted = MapsUrlHelper::extractLatLonFromMapsUrl($validated['maps_gps']);
+            $lat = $lat ?? $extracted['lat'];
+            $lon = $lon ?? $extracted['lon'];
+        }
+        $validated['lat'] = $lat;
+        $validated['lon'] = $lon;
 
         $pedido->update($validated);
 
@@ -507,7 +519,7 @@ class PedidoController extends Controller
     }
 
     /**
-     * Reabrir un estado de pedido aprobado (cambiar de A a P para poder editarlo).
+     * Reabrir un estado de pedido resuelto (A o D) para volver a pendiente (P).
      */
     public function reabrirEstado(Request $request, Pedido $pedido)
     {
@@ -520,14 +532,14 @@ class PedidoController extends Controller
             ->where('estado_id', $validated['estado_id'])
             ->firstOrFail();
 
-        if ($detalle->estado !== 'A') {
+        if (!in_array($detalle->estado, ['A', 'D'], true)) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se pueden reabrir estados aprobados.',
+                    'message' => 'Solo se pueden reabrir estados aprobados o descartados.',
                 ], 400);
             }
-            return redirect()->route('pedidos.index')->with('error', 'Solo se pueden reabrir estados aprobados.');
+            return redirect()->route('pedidos.index')->with('error', 'Solo se pueden reabrir estados aprobados o descartados.');
         }
 
         EstadoPedidoDetalle::where('pedido_id', $pedido->pedido_id)
@@ -712,12 +724,19 @@ class PedidoController extends Controller
         // Contraseña PPPoE: aleatoria alfanumérica, 8 caracteres (máx 20 en BD)
         $passwordPppoe = Str::random(8);
 
-        // Opcional: asignar primera IP disponible del pool (excluir .255)
+        // Opcional: asignar primera IP disponible del pool (excluir .255),
+        // validando además que no esté en uso por otro servicio.
         $ipAsignada = PoolIpAsignada::where('pool_id', $pool->pool_id)
             ->where('estado', 'disponible')
             ->whereRaw("ip NOT LIKE '%.255'")
             ->orderBy('ip')
-            ->first();
+            ->get()
+            ->first(function (PoolIpAsignada $ipPool) use ($pool) {
+                return ! Servicio::where('pool_id', $pool->pool_id)
+                    ->where('ip', $ipPool->ip)
+                    ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+                    ->exists();
+            });
 
         $servicioData = [
             'cliente_id' => $clienteId,
@@ -732,15 +751,39 @@ class PedidoController extends Controller
         ];
 
         $servicioCreado = null;
-        DB::transaction(function () use ($servicioData, $ipAsignada, $pedido, &$servicioCreado) {
-            $servicioCreado = Servicio::create($servicioData);
-            if ($ipAsignada) {
-                PoolIpAsignada::where('pool_id', $ipAsignada->pool_id)
+        try {
+            DB::transaction(function () use ($servicioData, $ipAsignada, $pedido, $pool, &$servicioCreado) {
+                if ($ipAsignada && Servicio::where('pool_id', $pool->pool_id)
                     ->where('ip', $ipAsignada->ip)
-                    ->update(['estado' => 'asignada']);
+                    ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+                    ->exists()) {
+                    throw new \RuntimeException('La IP seleccionada ya está asignada a otro servicio. Intentá nuevamente.');
+                }
+
+                $servicioCreado = Servicio::create($servicioData);
+                if ($ipAsignada) {
+                    PoolIpAsignada::where('pool_id', $ipAsignada->pool_id)
+                        ->where('ip', $ipAsignada->ip)
+                        ->update(['estado' => 'asignada']);
+                }
+                $pedido->update(['usuario_pppoe_creado' => true]);
+            });
+        } catch (\RuntimeException $e) {
+            if ($wantsJson) {
+                return response()->json(['message' => $e->getMessage()], 422);
             }
-            $pedido->update(['usuario_pppoe_creado' => true]);
-        });
+
+            return redirect()->route('pedidos.index')->with('error', $e->getMessage());
+        }
+        
+        if (! $servicioCreado) {
+            $msg = 'No se pudo crear el servicio PPPoE.';
+            if ($wantsJson) {
+                return response()->json(['message' => $msg], 422);
+            }
+
+            return redirect()->route('pedidos.index')->with('error', $msg);
+        }
 
         $servicioCreado->load(['pool.router', 'plan.perfilPppoe', 'cliente']);
         $syncResult = $mikrotik->syncPppoeServicio($servicioCreado);
@@ -819,8 +862,8 @@ class PedidoController extends Controller
                     $pedido->cliente->update(['url_ubicacion' => trim($pedido->maps_gps)]);
                 }
 
-                // Política de facturación: no generar factura interna al finalizar pedido entre el día 1 y 5;
-                // solo desde el día 6 hasta fin de mes.
+                // Política de facturación: no generar factura interna al finalizar pedido entre el día 1 y 6;
+                // solo desde el día 7 hasta fin de mes.
                 $puedeFacturarPedidoInstalado = Carbon::now()->day >= 7;
 
                 if ($pedido->cliente_id && $servicioIdsPedido !== [] && $puedeFacturarPedidoInstalado) {
@@ -844,7 +887,7 @@ class PedidoController extends Controller
         if ($facturaInternaId) {
             $msgFactura = ' Se generó la factura interna prorrateada del mes.';
         } elseif ($omitirFacturaPorCalendario) {
-            $msgFactura = ' No se generó factura interna: solo se emite desde el día 6 hasta fin de mes.';
+            $msgFactura = ' No se generó factura interna: solo se emite desde el día 7 hasta fin de mes.';
         }
 
         $payload = [

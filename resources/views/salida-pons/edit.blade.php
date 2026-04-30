@@ -5,18 +5,11 @@
 @php
     $fc = 'mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100';
     $lb = 'block text-sm font-medium text-gray-700 dark:text-gray-300';
+    $salidaPon->loadMissing('oltPuerto');
     $oltIdOld = old('olt_id', $salidaPon->olt_id);
     $oltActual = isset($olts) ? $olts->firstWhere('olt_id', (int) $oltIdOld) : null;
-    if ($oltActual) {
-        $cPuerto = (int) ($oltActual->cantidad_puerto ?? 0);
-        $maxIni = $cPuerto > 0 ? $cPuerto : \App\Models\SalidaPon::PUERTOS_MAX_SIN_DECLARAR_EN_OLT;
-    } else {
-        $maxIni = \App\Models\SalidaPon::PUERTOS_MAX_SIN_DECLARAR_EN_OLT;
-    }
-    $puertoVal = (int) old('puerto_olt', $salidaPon->puerto_olt ?? 1);
-    if ($puertoVal > $maxIni) {
-        $puertoVal = 1;
-    }
+    $opIdGuardado = old('olt_puerto_id', $salidaPon->olt_puerto_id);
+    $modoRegistradoInicial = $oltActual && $oltActual->oltPuertos->isNotEmpty();
 @endphp
 
 @section('content')
@@ -50,26 +43,40 @@
                     @foreach($olts ?? [] as $o)
                         @php
                             $ports = (int) ($o->cantidad_puerto ?? 0);
+                            $puertosArr = $o->oltPuertos->map(fn ($p) => ['id' => $p->olt_puerto_id, 'n' => $p->numero, 't' => $p->tipo_pon])->values();
+                            if ($salidaPon->oltPuerto && (int) $o->olt_id === (int) old('olt_id', $salidaPon->olt_id)) {
+                                $exists = $puertosArr->contains(fn ($row) => (int) $row['id'] === (int) $salidaPon->oltPuerto->olt_puerto_id);
+                                if (! $exists) {
+                                    $puertosArr->push([
+                                        'id' => (int) $salidaPon->oltPuerto->olt_puerto_id,
+                                        'n' => (int) $salidaPon->oltPuerto->numero,
+                                        't' => (string) $salidaPon->oltPuerto->tipo_pon,
+                                    ]);
+                                    $puertosArr = $puertosArr->sortBy('n')->values();
+                                }
+                            }
+                            $puertosJson = $puertosArr;
                         @endphp
                         <option value="{{ $o->olt_id }}"
                             data-nodo="{{ $o->nodo_id }}"
                             data-ports="{{ $ports }}"
+                            data-puertos="{{ json_encode($puertosJson) }}"
                             {{ (string) old('olt_id', $salidaPon->olt_id) === (string) $o->olt_id ? 'selected' : '' }}>
                             {{ $o->codigo ?? $o->ip ?? 'OLT #' . $o->olt_id }}
                             @if($ports > 0)
-                                — {{ $ports }} puerto{{ $ports === 1 ? '' : 's' }}
+                                — {{ $ports }} puerto{{ $ports === 1 ? '' : 's' }} declarados
                             @endif
                             ({{ $o->nodo?->descripcion ?? '—' }})
                         </option>
                     @endforeach
                 </select>
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Solo OLT del nodo elegido. Puertos según cantidad declarada en el OLT.</p>
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Con puertos cargados en el OLT, la salida se enlaza a un registro de <span class="font-medium">Puerto PON</span>.</p>
                 @error('olt_id')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
         </div>
 
         <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Módulo y puerto</h2>
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Módulo y puerto PON</h2>
         </div>
         <div class="grid gap-5 p-6 sm:grid-cols-2">
             <div>
@@ -95,14 +102,32 @@
                 <input type="text" name="codigo" id="codigo" value="{{ old('codigo', $salidaPon->codigo) }}" required maxlength="50" class="{{ $fc }}">
                 @error('codigo')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
-            <div>
-                <label for="puerto_olt" class="{{ $lb }}">Puerto OLT</label>
-                <select name="puerto_olt" id="puerto_olt" class="{{ $fc }}">
-                    @for($i = 1; $i <= $maxIni; $i++)
-                        <option value="{{ $i }}" {{ $puertoVal === $i ? 'selected' : '' }}>Puerto {{ $i }}</option>
-                    @endfor
-                </select>
-                @error('puerto_olt')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+            <div class="sm:col-span-2">
+                <div id="wrap-olt-puerto-reg" class="{{ $modoRegistradoInicial ? '' : 'hidden' }}">
+                    <label for="olt_puerto_id" class="{{ $lb }}">Puerto PON del OLT <span class="text-red-500">*</span></label>
+                    <select name="olt_puerto_id" id="olt_puerto_id" class="{{ $fc }}"
+                        @unless($modoRegistradoInicial) disabled @endunless
+                        data-current="{{ $opIdGuardado }}">
+                        <option value="">— Elegí un puerto PON —</option>
+                    </select>
+                    @error('olt_puerto_id')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+                <div id="wrap-puerto-numerico" class="{{ $modoRegistradoInicial ? 'hidden' : '' }}">
+                    <label for="puerto_olt" class="{{ $lb }}">Puerto OLT <span class="font-normal text-gray-500 dark:text-gray-400">(número)</span></label>
+                    @php
+                        $maxIni = $oltActual ? ((int) ($oltActual->cantidad_puerto ?? 0) > 0 ? (int) $oltActual->cantidad_puerto : \App\Models\SalidaPon::PUERTOS_MAX_SIN_DECLARAR_EN_OLT) : \App\Models\SalidaPon::PUERTOS_MAX_SIN_DECLARAR_EN_OLT;
+                        $puertoVal = (int) old('puerto_olt', $salidaPon->puerto_olt ?? 1);
+                        if ($puertoVal > $maxIni) {
+                            $puertoVal = 1;
+                        }
+                    @endphp
+                    <select name="puerto_olt" id="puerto_olt" class="{{ $fc }}" @if($modoRegistradoInicial) disabled @endif>
+                        @for($i = 1; $i <= $maxIni; $i++)
+                            <option value="{{ $i }}" {{ $puertoVal === $i ? 'selected' : '' }}>Puerto {{ $i }}</option>
+                        @endfor
+                    </select>
+                    @error('puerto_olt')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
             </div>
         </div>
 

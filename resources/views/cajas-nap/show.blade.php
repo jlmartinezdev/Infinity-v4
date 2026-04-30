@@ -302,7 +302,12 @@
         @if($cajaNap->salidaPon)
             <p class="text-sm text-gray-700 dark:text-gray-300">
                 <span class="font-medium">{{ $cajaNap->salidaPon->codigo }}</span>
-                — puerto OLT {{ $cajaNap->salidaPon->puerto_olt }}
+                —
+                @if($cajaNap->salidaPon->oltPuerto)
+                    puerto PON {{ $cajaNap->salidaPon->oltPuerto->numero }} ({{ $cajaNap->salidaPon->oltPuerto->tipo_pon }})
+                @else
+                    puerto OLT {{ $cajaNap->salidaPon->puerto_olt }}
+                @endif
                 @if($cajaNap->salidaPon->olt)
                     — OLT {{ $cajaNap->salidaPon->olt->codigo ?? $cajaNap->salidaPon->olt->ip ?? '#'.$cajaNap->salidaPon->olt_id }}
                 @endif

@@ -7,6 +7,7 @@ use App\Http\Controllers\CajaNapController;
 use App\Http\Controllers\CategoriaGastoController;
 use App\Http\Controllers\CategoriaProductoController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EstadoPedidoController;
 use App\Http\Controllers\FacturaController;
+use App\Http\Controllers\FacturacionDashboardController;
 use App\Http\Controllers\FacturaInternaController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\HomeController;
@@ -45,6 +47,7 @@ use App\Http\Controllers\SplitterSecundarioController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\TareaPeriodicaController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketAsuntoController;
 use App\Http\Controllers\TipoTecnologiaController;
 use App\Http\Controllers\TvCuentaController;
 use App\Http\Controllers\UsuarioController;
@@ -119,6 +122,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
 // Clientes (CRUD)
 Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
+    Route::get('/clientes/dashboard', [ClienteDashboardController::class, 'index'])->name('clientes.dashboard');
     Route::get('/clientes/buscar', [ClienteController::class, 'buscar'])->name('clientes.buscar');
     Route::get('/clientes/buscar-temp', [ClienteController::class, 'buscarTemp'])->name('clientes.buscar-temp');
     Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
@@ -154,6 +158,8 @@ Route::middleware(['auth', 'permiso:referenciales.ver'])->group(function () {
     Route::get('/nodos/create', [NodoController::class, 'create'])->name('nodos.create')->middleware('permiso:referenciales.editar');
     Route::get('/roles', [RolController::class, 'index'])->name('roles.index');
     Route::get('/roles/create', [RolController::class, 'create'])->name('roles.create')->middleware('permiso:referenciales.editar');
+    Route::get('/ticket-asuntos', [TicketAsuntoController::class, 'index'])->name('ticket-asuntos.index');
+    Route::get('/ticket-asuntos/create', [TicketAsuntoController::class, 'create'])->name('ticket-asuntos.create')->middleware('permiso:referenciales.editar');
 });
 Route::middleware(['auth', 'permiso:referenciales.editar'])->group(function () {
     Route::post('/estados-pedidos', [EstadoPedidoController::class, 'store'])->name('estados-pedidos.store');
@@ -177,6 +183,10 @@ Route::middleware(['auth', 'permiso:referenciales.editar'])->group(function () {
     Route::get('/roles/{rol}/edit', [RolController::class, 'edit'])->name('roles.edit');
     Route::put('/roles/{rol}', [RolController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{rol}', [RolController::class, 'destroy'])->name('roles.destroy');
+    Route::post('/ticket-asuntos', [TicketAsuntoController::class, 'store'])->name('ticket-asuntos.store');
+    Route::get('/ticket-asuntos/{ticket_asunto}/edit', [TicketAsuntoController::class, 'edit'])->name('ticket-asuntos.edit');
+    Route::put('/ticket-asuntos/{ticket_asunto}', [TicketAsuntoController::class, 'update'])->name('ticket-asuntos.update');
+    Route::delete('/ticket-asuntos/{ticket_asunto}', [TicketAsuntoController::class, 'destroy'])->name('ticket-asuntos.destroy');
 });
 
 // Planes (CRUD)
@@ -237,6 +247,9 @@ Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
     Route::get('/facturas/generar-interna', [FacturaController::class, 'generarInterna'])->name('facturas.generar-interna');
     Route::get('/facturas/create', [FacturaController::class, 'create'])->name('facturas.create')->middleware('permiso:facturas.crear');
 });
+Route::get('/facturacion/dashboard', [FacturacionDashboardController::class, 'index'])
+    ->name('facturacion.dashboard')
+    ->middleware(['auth', 'permiso:facturacion.ver']);
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas', [FacturaController::class, 'store'])->name('facturas.store');
     Route::post('/facturas/generar-interna', [FacturaController::class, 'storeGenerarInterna'])->name('facturas.store-generar-interna');

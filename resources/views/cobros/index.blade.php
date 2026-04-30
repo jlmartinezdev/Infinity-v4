@@ -31,7 +31,7 @@
             'forma_pago' => request('forma_pago'),
         ]);
     @endphp
-    <div class="grid grid-cols-1 {{ $esAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }} gap-4 mb-6">
+    <div class="grid grid-cols-1 {{ $esAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-2' }} gap-4 mb-6">
         <a href="{{ route('cobros.index', array_merge($paramsDashboard, ['desde' => now()->toDateString(), 'hasta' => now()->toDateString()])) }}"
             class="block p-5 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all">
             <div class="flex items-center gap-3">
@@ -56,7 +56,22 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes del mes</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">Facturas creadas el mes anterior</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($totalPendienteMes ?? 0, 0, ',', '.') }} PYG</p>
+                </div>
+            </div>
+        </a>
+        <a href="{{ route('factura-internas.pendientes') }}"
+            class="block p-5 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md transition-all">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes total</p>
                     <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($totalPendiente ?? 0, 0, ',', '.') }} PYG</p>
                 </div>
             </div>

@@ -16,7 +16,7 @@
       <span class="inline-block w-3 h-3 rounded-full bg-amber-500 ml-2 mr-1"></span> PON
       <span class="inline-block w-3 h-3 rounded-full border-2 border-white ring-1 ring-gray-400 bg-[#1a73e8] ml-2 mr-1 align-middle"></span> Vos
     </div>
-    <div v-if="apiKey && !loading && !error" class="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-1">
+    <div v-if="apiKey && !loading && !error" class="absolute bottom-20 right-4 z-10 flex flex-col items-end gap-1">
       <button
         type="button"
         class="flex h-11 w-11 items-center justify-center rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-600 text-[#1a73e8] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
@@ -100,6 +100,10 @@ function initMap(google) {
     streetViewControl: true,
     fullscreenControl: true,
     zoomControl: true,
+    // Evita solaparse con el botón «Mi ubicación» (esquina inferior derecha).
+    zoomControlOptions: {
+      position: google.maps.ControlPosition.LEFT_BOTTOM,
+    },
   });
 
   loadData();

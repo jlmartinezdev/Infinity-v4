@@ -27407,7 +27407,11 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        zoomControl: true
+        zoomControl: true,
+        // Evita solaparse con el botón «Mi ubicación» (esquina inferior derecha).
+        zoomControlOptions: {
+          position: google.maps.ControlPosition.LEFT_BOTTOM
+        }
       });
       loadData();
     }
@@ -27878,7 +27882,7 @@ var _hoisted_7 = {
 };
 var _hoisted_8 = {
   key: 4,
-  class: "absolute bottom-4 right-4 z-10 flex flex-col items-end gap-1"
+  class: "absolute bottom-20 right-4 z-10 flex flex-col items-end gap-1"
 };
 var _hoisted_9 = ["disabled"];
 var _hoisted_10 = {

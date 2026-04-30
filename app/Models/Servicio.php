@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -41,6 +42,9 @@ class Servicio extends Model
         'app_tv',
         'cantidad_perfil_app',
         'precio_app',
+        'acuerdo_tipo',
+        'acuerdo_meses',
+        'acuerdo_desde',
     ];
 
     const ESTADO_ACTIVO = 'A';
@@ -72,7 +76,51 @@ class Servicio extends Model
             'app_tv' => 'boolean',
             'cantidad_perfil_app' => 'integer',
             'precio_app' => 'decimal:2',
+            'acuerdo_meses' => 'integer',
+            'acuerdo_desde' => 'date',
         ];
+    }
+
+    public const ACUERDO_TIPO_NINGUNO = 'ninguno';
+    public const ACUERDO_TIPO_LIBRE = 'libre';
+    public const ACUERDO_TIPO_MESES = 'meses';
+
+    public static function acuerdosDisponibles(): array
+    {
+        return [
+            self::ACUERDO_TIPO_NINGUNO => 'Sin acuerdo',
+            self::ACUERDO_TIPO_LIBRE => 'Internet libre (sin facturar)',
+            self::ACUERDO_TIPO_MESES => 'Meses sin facturar',
+        ];
+    }
+
+    public function acuerdoAplicaEnPeriodo(Carbon $periodoDesde, Carbon $periodoHasta): bool
+    {
+        $tipo = (string) ($this->acuerdo_tipo ?: self::ACUERDO_TIPO_NINGUNO);
+        if ($tipo === self::ACUERDO_TIPO_LIBRE) {
+            return true;
+        }
+        if ($tipo !== self::ACUERDO_TIPO_MESES) {
+            return false;
+        }
+
+        $meses = (int) ($this->acuerdo_meses ?? 0);
+        if ($meses <= 0) {
+            return false;
+        }
+
+        $desde = $this->acuerdo_desde
+            ? Carbon::parse($this->acuerdo_desde)->startOfMonth()
+            : ($this->fecha_instalacion ? Carbon::parse($this->fecha_instalacion)->startOfMonth() : null);
+        if (! $desde) {
+            return false;
+        }
+
+        $hasta = $desde->copy()->addMonthsNoOverflow($meses - 1)->endOfMonth();
+        $periodoDesde = $periodoDesde->copy()->startOfDay();
+        $periodoHasta = $periodoHasta->copy()->endOfDay();
+
+        return $desde->lte($periodoHasta) && $hasta->gte($periodoDesde);
     }
 
     public function cliente(): BelongsTo

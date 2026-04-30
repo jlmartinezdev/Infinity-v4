@@ -45,6 +45,12 @@ class FacturaInternaController extends Controller
         if ($request->filled('estado')) {
             $query->where('estado', $request->estado);
         }
+        if ($request->filled('desde')) {
+            $query->whereDate('fecha_emision', '>=', $request->desde);
+        }
+        if ($request->filled('hasta')) {
+            $query->whereDate('fecha_emision', '<=', $request->hasta);
+        }
         $busqueda = trim($request->input('q', ''));
         if ($busqueda !== '') {
             $raw = $busqueda;
@@ -60,6 +66,13 @@ class FacturaInternaController extends Controller
                 });
             });
         }
+
+        $statsQuery = (clone $query)->reorder();
+        $sumCobrosExpr = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
+        $totalPendiente = (float) (clone $statsQuery)
+            ->selectRaw("SUM(GREATEST(factura_internas.total - {$sumCobrosExpr}, 0)) as total_pendiente")
+            ->value('total_pendiente');
+        $cantidadFacturas = (int) (clone $statsQuery)->count('factura_internas.id');
 
         $perPage = min(50, max(5, (int) $request->get('per_page', 15)));
         $paginator = $query->paginate($perPage);
@@ -88,6 +101,10 @@ class FacturaInternaController extends Controller
                 'total' => $paginator->total(),
                 'from' => $paginator->firstItem(),
                 'to' => $paginator->lastItem(),
+            ],
+            'stats' => [
+                'cantidad_facturas' => $cantidadFacturas,
+                'total_pendiente' => $totalPendiente,
             ],
         ]);
     }

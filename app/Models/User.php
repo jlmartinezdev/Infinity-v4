@@ -44,6 +44,7 @@ class User extends Authenticatable
         'permisos',
         'estado',
         'notas',
+        'remember_token',
     ];
 
     /**

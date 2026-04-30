@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Services\MikroTikService;
 use App\Session\CustomDatabaseSessionHandler;
+use Illuminate\Cookie\CookieJar;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +30,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $appUrl = (string) config('app.url', '');
+        if ($appUrl !== '' && str_starts_with($appUrl, 'https://')) {
+            URL::forceScheme('https');
+            // Si no fijaste SESSION_SECURE_COOKIE, marcar cookie de sesión Secure en HTTPS real.
+            if (config('session.secure') === null) {
+                config(['session.secure' => true]);
+            }
+            // CookieJar se instancia con los valores de session al primer resolve(); si ya existía
+            // con secure=null, las cookies encoladas (p. ej. remember) podrían no llevar Secure.
+            if ($this->app->resolved('cookie')) {
+                $session = $this->app['config']->get('session');
+                $this->app->make(CookieJar::class)->setDefaultPathAndDomain(
+                    $session['path'],
+                    $session['domain'],
+                    $session['secure'],
+                    $session['same_site'] ?? null,
+                );
+            }
+        }
+
         // Usar manejador de sesión compatible con tablas sin columna user_id
         $this->app->make('session')->extend('database', function ($app) {
             $table = $app['config']['session.table'];

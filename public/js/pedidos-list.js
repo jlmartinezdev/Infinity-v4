@@ -27660,8 +27660,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_3__);
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
@@ -27799,6 +27805,21 @@ var ACCION_FINALIZAR = 'FINALIZAR';
     var formClienteId = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(props.filtroClienteId || 'todos');
     var formTecnologia = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('todos');
     var fechaHoy = new Date().toISOString().split('T')[0];
+    function getSwalThemeOptions() {
+      var isDark = document.documentElement.classList.contains('dark');
+      if (!isDark) return {};
+      return {
+        background: '#1f2937',
+        color: '#f3f4f6',
+        customClass: {
+          popup: 'border border-gray-700',
+          title: 'text-gray-100',
+          htmlContainer: 'text-gray-200',
+          confirmButton: 'focus:!ring-2 focus:!ring-offset-2 focus:!ring-offset-gray-800',
+          cancelButton: 'focus:!ring-2 focus:!ring-offset-2 focus:!ring-offset-gray-800'
+        }
+      };
+    }
     function aplicarCompatFiltroInstalacionDesdeProps() {
       if (props.mostrarInstaladosInitial === '0') {
         filtroInstalacion.value = 'pendientes';
@@ -28341,7 +28362,7 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               acciones = getAccionesFromParametro(parametro);
               htmlAcciones = buildHtmlAcciones(acciones, props.nodos, props.planes, props.tiposTecnologia, tecnologiaIdSeleccionado);
               _context.n = 1;
-              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                 title: '¿Aprobar este estado?',
                 html: "\n            <div class=\"text-left\">\n                <p class=\"mb-4\">Una vez aprobado, este estado no se podr\xE1 modificar.</p>\n                ".concat(htmlAcciones, "\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Notas (opcional)</label>\n                <textarea id=\"swal-notas\" \n                          rows=\"3\" \n                          maxlength=\"1000\"\n                          placeholder=\"Agregar notas sobre la aprobaci\xF3n...\"\n                          class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none\"></textarea>\n                <p id=\"swal-char-count\" class=\"mt-1 text-xs text-gray-500\">0/1000 caracteres</p>\n            </div>\n        "),
                 icon: 'question',
@@ -28400,7 +28421,7 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                   }
                   return true;
                 }
-              });
+              }));
             case 1:
               result = _context.v;
               if (result.isConfirmed) {
@@ -28436,14 +28457,14 @@ var ACCION_FINALIZAR = 'FINALIZAR';
             case 5:
               response = _context.v;
               _context.n = 6;
-              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                 icon: 'success',
                 title: '¡Éxito!',
                 text: ((_response$data = response.data) === null || _response$data === void 0 ? void 0 : _response$data.message) || 'Estado aprobado correctamente.',
                 confirmButtonColor: '#16a34a',
                 timer: 1500,
                 timerProgressBar: true
-              });
+              }));
             case 6:
               if (response.data && response.data.redirect) {
                 window.location.href = response.data.redirect;
@@ -28461,27 +28482,27 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 status = _t.response.status;
                 message = ((_error$response$data = _t.response.data) === null || _error$response$data === void 0 ? void 0 : _error$response$data.message) || 'Error al aprobar el estado';
                 if (status === 400) {
-                  sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                  sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                     icon: 'warning',
                     title: 'Advertencia',
                     text: message,
                     confirmButtonColor: '#7c3aed'
-                  });
+                  }));
                 } else {
-                  sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                  sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                     icon: 'error',
                     title: 'Error',
                     text: message,
                     confirmButtonColor: '#7c3aed'
-                  });
+                  }));
                 }
               } else {
-                sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                   icon: 'error',
                   title: 'Error',
                   text: 'Error al aprobar el estado. Por favor, intenta nuevamente.',
                   confirmButtonColor: '#7c3aed'
-                });
+                }));
               }
             case 8:
               return _context.a(2);
@@ -28925,6 +28946,7 @@ var ACCION_FINALIZAR = 'FINALIZAR';
       formClienteId: formClienteId,
       formTecnologia: formTecnologia,
       fechaHoy: fechaHoy,
+      getSwalThemeOptions: getSwalThemeOptions,
       aplicarCompatFiltroInstalacionDesdeProps: aplicarCompatFiltroInstalacionDesdeProps,
       setMostrarDescartados: setMostrarDescartados,
       openModalPedido: openModalPedido,
@@ -30059,7 +30081,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         class: "opacity-75",
         fill: "currentColor",
         d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      }, null, -1 /* CACHED */)])))), $setup.loadingCrearPppoe !== pedido.pedido_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_77, "Crear usuario PPPoE")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_78, "Creando…"))], 8 /* PROPS */, _hoisted_74)) : detalle.estado_id === 3 && detalle.estado === 'A' && pedido.usuario_pppoe_creado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_79, " Usuario creado ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), detalle.estado === 'A' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_80, " Aprobado ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), detalle.estado === 'A' && $props.reabrirEstadoUrl ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+      }, null, -1 /* CACHED */)])))), $setup.loadingCrearPppoe !== pedido.pedido_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_77, "Crear usuario PPPoE")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_78, "Creando…"))], 8 /* PROPS */, _hoisted_74)) : detalle.estado_id === 3 && detalle.estado === 'A' && pedido.usuario_pppoe_creado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_79, " Usuario creado ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), detalle.estado === 'A' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_80, " Aprobado ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (detalle.estado === 'A' || detalle.estado === 'D') && $props.reabrirEstadoUrl ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
         key: 3,
         type: "button",
         onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
@@ -30067,7 +30089,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         }, ["stop"]),
         disabled: $setup.loadingReabrir === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id),
         class: "inline-flex items-center px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
-        title: "Reabrir para editar (volver a aprobar o descartar)"
+        title: "Reabrir estado (volver a pendiente)"
       }, [$setup.loadingReabrir !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_82, _toConsumableArray(_cache[46] || (_cache[46] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
         "stroke-linecap": "round",
         "stroke-linejoin": "round",

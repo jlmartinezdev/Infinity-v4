@@ -52,6 +52,9 @@ class ServicioController extends Controller
                 'estado' => $s->estado ?? 'P',
                 'estado_pago' => $s->estado_pago ?? null,
                 'app_tv' => (bool) ($s->app_tv ?? false),
+                'acuerdo_tipo' => $s->acuerdo_tipo ?? 'ninguno',
+                'acuerdo_meses' => $s->acuerdo_meses,
+                'acuerdo_desde' => $s->acuerdo_desde?->format('Y-m-d'),
             ];
         })->values()->all();
 
@@ -136,9 +139,19 @@ class ServicioController extends Controller
             'fecha_instalacion' => ['nullable', 'date'],
             'estado' => ['nullable', 'string', 'in:A,S,C'],
             'mac_address' => ['nullable', 'string', 'max:20'],
+            'acuerdo_tipo' => ['nullable', 'string', 'in:ninguno,libre,meses'],
+            'acuerdo_meses' => ['nullable', 'integer', 'min:1', 'max:24'],
+            'acuerdo_desde' => ['nullable', 'date'],
         ]);
 
         $validated['estado'] = $validated['estado'] ?? 'P';
+        $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
+        if ($validated['acuerdo_tipo'] !== 'meses') {
+            $validated['acuerdo_meses'] = null;
+            $validated['acuerdo_desde'] = null;
+        } elseif (empty($validated['acuerdo_desde'])) {
+            $validated['acuerdo_desde'] = now()->toDateString();
+        }
 
         // Generar usuario y contraseña PPPoE si vienen vacíos (crear desde cliente)
         if (empty(trim((string) ($validated['usuario_pppoe'] ?? '')))) {
@@ -208,7 +221,17 @@ class ServicioController extends Controller
             'fecha_cancelacion' => ['nullable', 'date'],
             'estado' => ['nullable', 'string', 'in:A,S,C,P,X'],
             'mac_address' => ['nullable', 'string', 'max:20'],
+            'acuerdo_tipo' => ['nullable', 'string', 'in:ninguno,libre,meses'],
+            'acuerdo_meses' => ['nullable', 'integer', 'min:1', 'max:24'],
+            'acuerdo_desde' => ['nullable', 'date'],
         ]);
+        $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
+        if ($validated['acuerdo_tipo'] !== 'meses') {
+            $validated['acuerdo_meses'] = null;
+            $validated['acuerdo_desde'] = null;
+        } elseif (empty($validated['acuerdo_desde'])) {
+            $validated['acuerdo_desde'] = now()->toDateString();
+        }
 
         $poolOldId = (int) $servicio->pool_id;
         $usuarioOld = trim((string) ($servicio->usuario_pppoe ?? ''));

@@ -161,7 +161,7 @@
     </div>
 
     <div class="flex flex-wrap gap-3 items-center">
-        <button type="submit"
+        <button type="submit" id="ticket-submit-btn"
             class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
             {{ $ticket ? 'Actualizar ticket' : 'Crear ticket' }}
         </button>
@@ -267,5 +267,19 @@
     if (container.dataset.initialId) {
         input.readOnly = true;
     }
+})();
+
+(function() {
+    var form = document.querySelector('form[action="{{ route('tickets.store') }}"]');
+    if (!form) return;
+
+    var submitBtn = document.getElementById('ticket-submit-btn');
+
+    form.addEventListener('submit', function() {
+        if (!submitBtn) return;
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+        submitBtn.textContent = 'Guardando...';
+    });
 })();
 </script>

@@ -29,6 +29,7 @@ return [
             'icon' => 'users',
             'permiso' => 'clientes.ver',
             'submenu' => [
+                ['name' => 'clientes-dashboard', 'label' => 'Dashboard', 'path' => '/clientes/dashboard', 'permiso' => 'clientes.ver'],
                 ['name' => 'lista-clientes', 'label' => 'Lista clientes', 'path' => '/clientes', 'permiso' => 'clientes.ver'],
                 //['name' => 'importar-csv', 'label' => 'Importar CSV', 'path' => '/clientes/importar-csv', 'permiso' => 'clientes.crear'],
                 ['name' => 'lista-pedidos', 'label' => 'Lista pedidos', 'path' => '/pedidos', 'permiso' => 'pedidos.ver'],
@@ -76,6 +77,7 @@ return [
             'icon' => 'currency',
             'permiso' => 'facturacion.ver',
             'submenu' => [
+                ['name' => 'facturacion-dashboard', 'label' => 'Dashboard', 'path' => '/facturacion/dashboard', 'permiso' => 'facturacion.ver', 'admin_only' => true],
                 ['name' => 'facturas', 'label' => 'Facturas electrónicas', 'path' => '/facturas', 'permiso' => 'facturas.ver'],
                 ['name' => 'factura-internas', 'label' => 'Facturas internas', 'path' => '/factura-internas', 'permiso' => 'factura-interna.ver'],
                 ['name' => 'pendiente-pago', 'label' => 'Pendiente de pago', 'path' => '/factura-internas/pendientes', 'permiso' => 'pagos-pendientes.ver'],
@@ -150,6 +152,7 @@ return [
                 ['name' => 'perfiles-pppoe', 'label' => 'Perfiles PPPoE', 'path' => '/perfiles-pppoe', 'permiso' => 'referenciales.ver'],
                 ['name' => 'nodos', 'label' => 'Nodos', 'path' => '/nodos', 'permiso' => 'referenciales.ver'],
                 ['name' => 'roles', 'label' => 'Roles', 'path' => '/roles', 'permiso' => 'referenciales.ver'],
+                ['name' => 'ticket-asuntos', 'label' => 'Asuntos de tickets', 'path' => '/ticket-asuntos', 'permiso' => 'referenciales.ver'],
             ],
         ],
         [

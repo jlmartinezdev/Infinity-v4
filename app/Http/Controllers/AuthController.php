@@ -87,9 +87,9 @@ class AuthController extends Controller
 
         $remember = $request->boolean('remember', false);
 
-        // Iniciar sesión manualmente
+        // Iniciar sesión manualmente (SessionGuard ya regenera la sesión en login(); no llamar regenerate() otra vez
+        // o la cookie remember_web_* puede quedar desalineada con la sesión en algunos entornos).
         Auth::login($user, $remember);
-        $request->session()->regenerate();
 
         // Si es una petición AJAX o espera JSON, devolver JSON
         if ($request->expectsJson() || $request->ajax()) {

@@ -106,23 +106,30 @@ class FacturacionService
      * Genera una factura interna (mensual) para un cliente a partir de sus servicios activos.
      * Un detalle por cada servicio con el precio del plan.
      *
-     * @param  string|null  $estado  Estado de la factura (por defecto: emitida)
+     * @param  string|null  $estado  Estado de la factura (por defecto: pendiente)
      * @param  string|null  $fechaVencimiento  Fecha de vencimiento Y-m-d (por defecto: emisión + dias_vencimiento_factura)
      */
     public function generarFacturaInterna(Cliente $cliente, Carbon $periodoDesde, Carbon $periodoHasta, ?int $usuarioId = null, ?string $estado = null, ?string $fechaVencimiento = null): FacturaInterna
     {
-        $servicios = $cliente->servicios()
+        $serviciosFacturables = $cliente->servicios()
             ->where('estado', Servicio::ESTADO_ACTIVO)
             ->with('plan')
             ->get();
 
-        if ($servicios->isEmpty()) {
+        $servicios = $serviciosFacturables->reject(
+            fn (Servicio $servicio) => $servicio->acuerdoAplicaEnPeriodo($periodoDesde, $periodoHasta)
+        )->values();
+
+        if ($serviciosFacturables->isEmpty()) {
             throw new \InvalidArgumentException('El cliente no tiene servicios activos para facturar.');
+        }
+        if ($servicios->isEmpty()) {
+            throw new \InvalidArgumentException('Los servicios activos del cliente están bajo acuerdo sin facturación para este período.');
         }
 
         $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
-        $estadoFinal = $estado ?? 'emitida';
+        $estadoFinal = $estado ?? 'pendiente';
         $fechaVencimientoFinal = $fechaVencimiento ?? now()->addDays($diasVencimiento)->toDateString();
 
         $periodoDesdeEfectivo = $periodoDesde->copy();
@@ -190,6 +197,31 @@ class FacturacionService
                 $subtotal += $calc['subtotal'];
                 $totalImpuestos += $calc['monto_impuesto'];
                 $total += $calc['total'];
+
+                // Si el servicio tiene App TV activa y precio definido, agregarlo como línea adicional.
+                $precioApp = (float) ($servicio->precio_app ?? 0);
+                if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
+                    $precioAppFormateado = number_format($precioApp, 0, ',', '.');
+                    $descripcionApp = sprintf('App TV - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
+                    $calcApp = FacturaDetalle::calcularDesdePrecio(1, $precioApp, $impuestoExento);
+
+                    FacturaInternaDetalle::create([
+                        'factura_interna_id' => $factura->id,
+                        'impuesto_id' => $impuestoExento?->id,
+                        'servicio_id' => $servicio->servicio_id,
+                        'descripcion' => $descripcionApp,
+                        'cantidad' => 1,
+                        'precio_unitario' => $precioApp,
+                        'subtotal' => $calcApp['subtotal'],
+                        'porcentaje_impuesto' => $calcApp['porcentaje_impuesto'],
+                        'monto_impuesto' => $calcApp['monto_impuesto'],
+                        'total' => $calcApp['total'],
+                    ]);
+
+                    $subtotal += $calcApp['subtotal'];
+                    $totalImpuestos += $calcApp['monto_impuesto'];
+                    $total += $calcApp['total'];
+                }
             }
 
             $this->aplicarSaldoAFavorEnFactura($factura, $servicios, $subtotal, $totalImpuestos, $total, $impuestoExento);
@@ -221,13 +253,20 @@ class FacturacionService
             throw new \InvalidArgumentException('Debe seleccionar al menos un servicio.');
         }
 
-        $servicios = Servicio::whereIn('servicio_id', $servicioIds)
+        $serviciosActivos = Servicio::whereIn('servicio_id', $servicioIds)
             ->where('estado', Servicio::ESTADO_ACTIVO)
             ->with(['plan', 'cliente'])
             ->get();
 
-        if ($servicios->isEmpty()) {
+        $servicios = $serviciosActivos->reject(
+            fn (Servicio $servicio) => $servicio->acuerdoAplicaEnPeriodo($periodoDesde, $periodoHasta)
+        )->values();
+
+        if ($serviciosActivos->isEmpty()) {
             throw new \InvalidArgumentException('Ninguno de los servicios seleccionados está activo. Solo se facturan servicios activos.');
+        }
+        if ($servicios->isEmpty()) {
+            throw new \InvalidArgumentException('Los servicios seleccionados tienen acuerdo de no facturación en el período indicado.');
         }
 
         $porCliente = $servicios->groupBy('cliente_id');
@@ -315,6 +354,31 @@ class FacturacionService
                     $subtotal += $calc['subtotal'];
                     $totalImpuestos += $calc['monto_impuesto'];
                     $total += $calc['total'];
+
+                    // Si el servicio tiene App TV activa y precio definido, agregarlo como línea adicional.
+                    $precioApp = (float) ($servicio->precio_app ?? 0);
+                    if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
+                        $precioAppFormateado = number_format($precioApp, 0, ',', '.');
+                        $descripcionApp = sprintf('App TV - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
+                        $calcApp = FacturaDetalle::calcularDesdePrecio(1, $precioApp, $impuestoExento);
+
+                        FacturaInternaDetalle::create([
+                            'factura_interna_id' => $factura->id,
+                            'impuesto_id' => $impuestoExento?->id,
+                            'servicio_id' => $servicio->servicio_id,
+                            'descripcion' => $descripcionApp,
+                            'cantidad' => 1,
+                            'precio_unitario' => $precioApp,
+                            'subtotal' => $calcApp['subtotal'],
+                            'porcentaje_impuesto' => $calcApp['porcentaje_impuesto'],
+                            'monto_impuesto' => $calcApp['monto_impuesto'],
+                            'total' => $calcApp['total'],
+                        ]);
+
+                        $subtotal += $calcApp['subtotal'];
+                        $totalImpuestos += $calcApp['monto_impuesto'];
+                        $total += $calcApp['total'];
+                    }
                 }
 
                 $this->aplicarSaldoAFavorEnFactura($factura, $serviciosCliente, $subtotal, $totalImpuestos, $total, $impuestoExento);

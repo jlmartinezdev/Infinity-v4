@@ -355,12 +355,12 @@
                                           class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                                         Aprobado
                                     </span>
-                                    <button v-if="detalle.estado === 'A' && reabrirEstadoUrl"
+                                    <button v-if="(detalle.estado === 'A' || detalle.estado === 'D') && reabrirEstadoUrl"
                                             type="button"
                                             @click.stop="reabrirEstado(pedido.pedido_id, detalle.estado_id)"
                                             :disabled="loadingReabrir === `${pedido.pedido_id}-${detalle.estado_id}`"
                                             class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                            title="Reabrir para editar (volver a aprobar o descartar)">
+                                            title="Reabrir estado (volver a pendiente)">
                                         <svg v-if="loadingReabrir !== `${pedido.pedido_id}-${detalle.estado_id}`" class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                                         </svg>
@@ -620,6 +620,23 @@ const formEstadoId = ref(props.filtroEstadoId || 'todos');
 const formClienteId = ref(props.filtroClienteId || 'todos');
 const formTecnologia = ref('todos');
 const fechaHoy = new Date().toISOString().split('T')[0];
+
+function getSwalThemeOptions() {
+    const isDark = document.documentElement.classList.contains('dark');
+    if (!isDark) return {};
+
+    return {
+        background: '#1f2937',
+        color: '#f3f4f6',
+        customClass: {
+            popup: 'border border-gray-700',
+            title: 'text-gray-100',
+            htmlContainer: 'text-gray-200',
+            confirmButton: 'focus:!ring-2 focus:!ring-offset-2 focus:!ring-offset-gray-800',
+            cancelButton: 'focus:!ring-2 focus:!ring-offset-2 focus:!ring-offset-gray-800',
+        },
+    };
+}
 
 function aplicarCompatFiltroInstalacionDesdeProps() {
     if (props.mostrarInstaladosInitial === '0') {
@@ -1127,6 +1144,7 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
     const htmlAcciones = buildHtmlAcciones(acciones, props.nodos, props.planes, props.tiposTecnologia, tecnologiaIdSeleccionado);
 
     const result = await Swal.fire({
+        ...getSwalThemeOptions(),
         title: '¿Aprobar este estado?',
         html: `
             <div class="text-left">
@@ -1222,6 +1240,7 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
         });
 
         await Swal.fire({
+            ...getSwalThemeOptions(),
             icon: 'success',
             title: '¡Éxito!',
             text: response.data?.message || 'Estado aprobado correctamente.',
@@ -1245,6 +1264,7 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
 
             if (status === 400) {
                 Swal.fire({
+                    ...getSwalThemeOptions(),
                     icon: 'warning',
                     title: 'Advertencia',
                     text: message,
@@ -1252,6 +1272,7 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
                 });
             } else {
                 Swal.fire({
+                    ...getSwalThemeOptions(),
                     icon: 'error',
                     title: 'Error',
                     text: message,
@@ -1260,6 +1281,7 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
             }
         } else {
             Swal.fire({
+                ...getSwalThemeOptions(),
                 icon: 'error',
                 title: 'Error',
                 text: 'Error al aprobar el estado. Por favor, intenta nuevamente.',

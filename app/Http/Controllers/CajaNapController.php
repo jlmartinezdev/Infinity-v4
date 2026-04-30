@@ -48,7 +48,7 @@ class CajaNapController extends Controller
     public function create()
     {
         $nodos = Nodo::orderBy('descripcion')->get();
-        $salidas = SalidaPon::with('olt')->orderBy('codigo')->get();
+        $salidas = SalidaPon::with(['olt', 'nodo', 'oltPuerto'])->orderBy('codigo')->get();
         $apiKey = config('services.google.maps_key', '');
 
         return view('cajas-nap.create', compact('nodos', 'salidas', 'apiKey'));
@@ -102,6 +102,7 @@ class CajaNapController extends Controller
         $cajaNap->load([
             'nodo',
             'salidaPon.olt',
+            'salidaPon.oltPuerto',
             'splitterPrimarios.splitterSecundarios',
             'puertosActivos' => fn ($q) => $q->orderBy('numero_puerto'),
             'puertosActivos.servicio.cliente',
@@ -149,7 +150,7 @@ class CajaNapController extends Controller
     public function edit(CajaNap $cajaNap)
     {
         $nodos = Nodo::orderBy('descripcion')->get();
-        $salidas = SalidaPon::with('olt')->orderBy('codigo')->get();
+        $salidas = SalidaPon::with(['olt', 'nodo', 'oltPuerto'])->orderBy('codigo')->get();
         $apiKey = config('services.google.maps_key', '');
 
         return view('cajas-nap.edit', compact('cajaNap', 'nodos', 'salidas', 'apiKey'));

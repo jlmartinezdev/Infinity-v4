@@ -23,6 +23,7 @@ class SalidaPon extends Model
 
     protected $fillable = [
         'olt_id',
+        'olt_puerto_id',
         'nodo_id',
         'tipo_modulo',
         'potencia_salida',
@@ -35,6 +36,7 @@ class SalidaPon extends Model
     protected function casts(): array
     {
         return [
+            'olt_puerto_id' => 'integer',
             'puerto_olt' => 'integer',
             'potencia_salida' => 'decimal:3',
         ];
@@ -43,6 +45,11 @@ class SalidaPon extends Model
     public function olt(): BelongsTo
     {
         return $this->belongsTo(Olt::class, 'olt_id', 'olt_id');
+    }
+
+    public function oltPuerto(): BelongsTo
+    {
+        return $this->belongsTo(OltPuerto::class, 'olt_puerto_id', 'olt_puerto_id');
     }
 
     public function nodo(): BelongsTo

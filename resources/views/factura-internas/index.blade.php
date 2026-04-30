@@ -21,6 +21,7 @@
         'canEjecutarCrear' => auth()->user()?->tienePermiso('factura-interna.crear') ?? false,
         'canEditar' => auth()->user()?->tienePermiso('factura-interna.crear') ?? false,
         'canEliminar' => auth()->user()?->tienePermiso('factura-interna.eliminar') ?? false,
+        'esAdmin' => strtolower(auth()->user()?->rol?->descripcion ?? '') === 'administrador',
         'flashSuccess' => session('success'),
         'flashError' => session('error'),
     ];

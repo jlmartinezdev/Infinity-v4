@@ -45,7 +45,7 @@
                         </option>
                     @endforeach
                 </select>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Debe ser del mismo nodo que la caja.</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se listan solo las salidas PON del <span class="font-medium">nodo elegido arriba</span>. Deben coincidir con el nodo de la caja.</p>
                 @error('salida_pon_id')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
 
@@ -139,6 +139,7 @@
 @endsection
 
 @push('scripts')
+@include('cajas-nap.partials.filtrar-salidas-pon-por-nodo')
 <script>
     window.__CAJA_NAP_FORM_MAPA_CONFIG__ = @json($cajaNapFormMapaConfig);
 </script>

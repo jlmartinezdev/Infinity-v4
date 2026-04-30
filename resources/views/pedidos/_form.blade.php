@@ -108,18 +108,6 @@
         </div>
 
         <div>
-            <label for="maps_gps" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Maps / GPS</label>
-            <input type="text" name="maps_gps" id="maps_gps"
-                value="{{ old('maps_gps', $pedido?->maps_gps) }}"
-                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                placeholder="https://www.google.com/maps/... o coordenadas">
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enlace de Google Maps o coordenadas GPS</p>
-            @error('maps_gps')
-                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <div>
             <label for="celular" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Celular</label>
             <input type="text" name="celular" id="celular"
                 value="{{ $celularInicial }}"
@@ -151,6 +139,52 @@
             @enderror
         </div>
 
+        <div class="md:col-span-2">
+            <label for="maps_gps" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Maps / GPS</label>
+            <input type="text" name="maps_gps" id="maps_gps"
+                value="{{ old('maps_gps', $pedido?->maps_gps) }}"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="https://www.google.com/maps/... o coordenadas (lat, lon)">
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Puede pegar enlace/coordenadas o hacer clic en el mapa para fijar ubicación.</p>
+            @error('maps_gps')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="lat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitud</label>
+                <input type="number" step="any" name="lat" id="lat"
+                    value="{{ old('lat', $pedido?->lat) }}"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="-25.300660">
+                @error('lat')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="lon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitud</label>
+                <input type="number" step="any" name="lon" id="lon"
+                    value="{{ old('lon', $pedido?->lon) }}"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="-57.635910">
+                @error('lon')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+        </div>
+
+        <div class="md:col-span-2">
+            <div class="flex items-center justify-end mb-2">
+                <button type="button" id="btn-toggle-satelite"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Ver satélite
+                </button>
+            </div>
+            <div id="pedido-mapa-ubicacion" class="w-full h-80 rounded-xl border border-gray-300 dark:border-gray-600 overflow-hidden"></div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Click en el mapa para seleccionar ubicación exacta.</p>
+        </div>
+
         <div class="md:col-span-2 flex flex-wrap gap-3">
             <button type="submit"
                 class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
@@ -165,10 +199,16 @@
 </div>
 
 @push('scripts')
+<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_key') }}" defer></script>
 <script>
 (function () {
     var selectCliente = document.getElementById('cliente_id');
     var inputCelular = document.getElementById('celular');
+    var inputMaps = document.getElementById('maps_gps');
+    var inputLat = document.getElementById('lat');
+    var inputLon = document.getElementById('lon');
+    var mapEl = document.getElementById('pedido-mapa-ubicacion');
+    var btnToggleSatelite = document.getElementById('btn-toggle-satelite');
     if (!selectCliente || !inputCelular) return;
 
     function syncCelularFromSelect() {
@@ -179,6 +219,100 @@
     }
 
     selectCliente.addEventListener('change', syncCelularFromSelect);
+
+    function parseCoordsFromText(texto) {
+        var t = String(texto || '').trim();
+        if (!t) return null;
+        var m = t.match(/(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)/);
+        if (m) return { lat: parseFloat(m[1]), lon: parseFloat(m[2]) };
+        return null;
+    }
+
+    function setCoords(lat, lon, updateMapsField) {
+        if (inputLat) inputLat.value = Number(lat).toFixed(6);
+        if (inputLon) inputLon.value = Number(lon).toFixed(6);
+        if (updateMapsField && inputMaps) {
+            inputMaps.value = 'https://maps.google.com/?q=' + Number(lat).toFixed(6) + ',' + Number(lon).toFixed(6);
+        }
+    }
+
+    function initGoogleMapPicker() {
+        if (!(window.google && window.google.maps && mapEl && inputLat && inputLon)) return false;
+        var latInicial = parseFloat(inputLat.value);
+        var lonInicial = parseFloat(inputLon.value);
+        var hasCoordsIniciales = !Number.isNaN(latInicial) && !Number.isNaN(lonInicial);
+        var center = hasCoordsIniciales ? { lat: latInicial, lng: lonInicial } : { lat: -25.30066, lng: -57.63591 };
+        var zoom = hasCoordsIniciales ? 16 : 12;
+
+        var map = new google.maps.Map(mapEl, {
+            center: center,
+            zoom: zoom,
+            mapTypeId: 'roadmap',
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true
+        });
+
+        var marker = null;
+        if (hasCoordsIniciales) {
+            marker = new google.maps.Marker({
+                position: { lat: latInicial, lng: lonInicial },
+                map: map
+            });
+        }
+
+        map.addListener('click', function (e) {
+            var lat = e.latLng.lat();
+            var lon = e.latLng.lng();
+            setCoords(lat, lon, true);
+            if (marker) {
+                marker.setPosition({ lat: lat, lng: lon });
+            } else {
+                marker = new google.maps.Marker({
+                    position: { lat: lat, lng: lon },
+                    map: map
+                });
+            }
+        });
+
+        if (inputMaps) {
+            inputMaps.addEventListener('change', function () {
+                var coords = parseCoordsFromText(inputMaps.value);
+                if (!coords) return;
+                setCoords(coords.lat, coords.lon, false);
+                if (marker) {
+                    marker.setPosition({ lat: coords.lat, lng: coords.lon });
+                } else {
+                    marker = new google.maps.Marker({
+                        position: { lat: coords.lat, lng: coords.lon },
+                        map: map
+                    });
+                }
+                map.setCenter({ lat: coords.lat, lng: coords.lon });
+                map.setZoom(16);
+            });
+        }
+
+        if (btnToggleSatelite) {
+            btnToggleSatelite.addEventListener('click', function () {
+                var tipoActual = map.getMapTypeId();
+                var siguiente = tipoActual === 'satellite' ? 'roadmap' : 'satellite';
+                map.setMapTypeId(siguiente);
+                btnToggleSatelite.textContent = siguiente === 'satellite' ? 'Ver normal' : 'Ver satélite';
+            });
+        }
+        return true;
+    }
+
+    if (!initGoogleMapPicker()) {
+        var intentos = 0;
+        var timer = setInterval(function () {
+            intentos++;
+            if (initGoogleMapPicker() || intentos > 40) {
+                clearInterval(timer);
+            }
+        }, 150);
+    }
 })();
 </script>
 @endpush

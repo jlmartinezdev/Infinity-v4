@@ -65,6 +65,8 @@ class CobroController extends Controller
         $hoy = now()->toDateString();
         $inicioMes = now()->copy()->startOfMonth()->startOfDay();
         $finMes = now()->copy()->endOfMonth()->endOfDay();
+        $inicioMesAnterior = now()->copy()->subMonthNoOverflow()->startOfMonth()->startOfDay();
+        $finMesAnterior = now()->copy()->subMonthNoOverflow()->endOfMonth()->endOfDay();
 
         $statsQuery = Cobro::query();
         if (!$esAdmin) {
@@ -81,7 +83,30 @@ class CobroController extends Controller
         }
 
         $cobrosHoy = (float) (clone $statsQuery)->whereDate('fecha_pago', $hoy)->sum('monto');
-        $cobrosMes = (float) (clone $statsQuery)->whereBetween('fecha_pago', [$inicioMes, $finMes])->sum('monto');
+        $cobrosMesQuery = DB::table('cobro_factura_interna as cfi')
+            ->join('cobros', 'cobros.id', '=', 'cfi.cobro_id')
+            ->join('factura_internas as fi', 'fi.id', '=', 'cfi.factura_interna_id')
+            ->whereBetween('cobros.fecha_pago', [$inicioMes, $finMes])
+            ->whereBetween('fi.created_at', [$inicioMesAnterior, $finMesAnterior]);
+        if (!$esAdmin) {
+            $cobrosMesQuery->where('cobros.usuario_id', $user->usuario_id);
+        }
+        if ($esAdmin && $request->filled('usuario_id')) {
+            $cobrosMesQuery->where('cobros.usuario_id', $request->usuario_id);
+        }
+        if ($request->filled('forma_pago')) {
+            $formas = array_keys(Cobro::formasPago());
+            if (in_array($request->forma_pago, $formas, true)) {
+                $cobrosMesQuery->where('cobros.forma_pago', $request->forma_pago);
+            }
+        }
+        $cobrosMes = (float) ($cobrosMesQuery->sum('cfi.monto') ?? 0);
+        $totalPendienteMes = (float) (DB::table('factura_internas')
+            ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
+            ->whereIn('estado', ['pendiente', 'emitida'])
+            ->whereBetween('created_at', [$inicioMesAnterior, $finMesAnterior])
+            ->whereRaw('total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
+            ->value('total') ?? 0);
         $totalPendiente = (float) (DB::table('factura_internas')
             ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
             ->whereIn('estado', ['pendiente', 'emitida'])
@@ -90,7 +115,7 @@ class CobroController extends Controller
 
         $formasPago = Cobro::formasPago();
 
-        return view('cobros.index', compact('cobros', 'clientes', 'cobrosHoy', 'cobrosMes', 'totalPendiente', 'esAdmin', 'usuariosConCobros', 'formasPago'));
+        return view('cobros.index', compact('cobros', 'clientes', 'cobrosHoy', 'cobrosMes', 'totalPendienteMes', 'totalPendiente', 'esAdmin', 'usuariosConCobros', 'formasPago'));
     }
 
     /**
@@ -244,6 +269,7 @@ class CobroController extends Controller
 
         $cobro = $this->facturacionService->registrarCobro($validated, $request->user()?->usuario_id);
 
+        $registroSaldoAFavor = false;
         if ($saldoAntes !== null && $facturaOrigenId !== null) {
             if ($monto > $saldoAntes) {
                 $exceso = $monto - $saldoAntes;
@@ -252,12 +278,19 @@ class CobroController extends Controller
                     $exceso,
                     $facturaOrigenId
                 );
+                $registroSaldoAFavor = true;
             }
+        } else {
+            $this->facturacionService->sumarSaldoAFavorCliente(
+                $cliente->cliente_id,
+                $monto
+            );
+            $registroSaldoAFavor = true;
         }
 
         $mensaje = 'Cobro registrado correctamente. Recibo: ' . $cobro->numero_recibo;
-        if ($saldoAntes !== null && $monto > $saldoAntes) {
-            $mensaje .= ' El exceso se registró como saldo a favor del servicio.';
+        if ($registroSaldoAFavor) {
+            $mensaje .= ' El monto se registró como saldo a favor del servicio.';
         }
 
         return redirect()->route('cobros.show', $cobro)->with('success', $mensaje);

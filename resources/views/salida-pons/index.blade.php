@@ -32,7 +32,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Código</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nodo</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">OLT</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Puerto OLT</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Puerto PON</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Módulo / potencia</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cajas NAP</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
@@ -50,7 +50,17 @@
                                     —
                                 @endif
                             </td>
-                            <td class="px-4 py-3">{{ $s->puerto_olt }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                @if($s->oltPuerto)
+                                    <span class="font-medium">{{ $s->oltPuerto->numero }}</span>
+                                    <span class="text-gray-500 dark:text-gray-400">({{ $s->oltPuerto->tipo_pon }})</span>
+                                @else
+                                    {{ $s->puerto_olt }}
+                                    @if($s->olt_id)
+                                        <span class="block text-xs text-amber-600 dark:text-amber-400">Sin enlace a tabla de puertos</span>
+                                    @endif
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-sm">
                                 {{ $s->tipo_modulo ?? '—' }}
                                 @if($s->potencia_salida !== null)

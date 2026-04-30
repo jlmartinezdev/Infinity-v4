@@ -117,7 +117,13 @@
                     @foreach($olt->salidaPons as $sp)
                         <li class="text-gray-700 dark:text-gray-300">
                             <a href="{{ route('sistema.salida-pons.edit', $sp) }}" class="font-medium text-purple-600 hover:underline dark:text-purple-400">{{ $sp->codigo }}</a>
-                            <span class="text-gray-500 dark:text-gray-400">— puerto OLT {{ $sp->puerto_olt }}</span>
+                            <span class="text-gray-500 dark:text-gray-400">—
+                                @if($sp->oltPuerto)
+                                    puerto PON {{ $sp->oltPuerto->numero }} ({{ $sp->oltPuerto->tipo_pon }})
+                                @else
+                                    puerto OLT {{ $sp->puerto_olt }}
+                                @endif
+                            </span>
                             @if($sp->tipo_modulo)<span class="text-gray-500 dark:text-gray-400"> · {{ $sp->tipo_modulo }}</span>@endif
                         </li>
                     @endforeach

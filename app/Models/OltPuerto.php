@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OltPuerto extends Model
 {
@@ -32,6 +33,11 @@ class OltPuerto extends Model
     public function olt(): BelongsTo
     {
         return $this->belongsTo(Olt::class, 'olt_id', 'olt_id');
+    }
+
+    public function salidaPon(): HasOne
+    {
+        return $this->hasOne(SalidaPon::class, 'olt_puerto_id', 'olt_puerto_id');
     }
 
     public function getRouteKeyName(): string

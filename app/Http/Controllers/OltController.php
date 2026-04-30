@@ -62,7 +62,7 @@ class OltController extends Controller
 
     public function show(Olt $olt)
     {
-        $olt->load(['nodo', 'oltPuertos', 'salidaPons']);
+        $olt->load(['nodo', 'oltPuertos', 'salidaPons.oltPuerto']);
 
         return view('olts.show', compact('olt'));
     }

@@ -146,6 +146,40 @@
         @enderror
     </div>
 
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+            <label for="acuerdo_tipo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Acuerdo de facturación</label>
+            <select name="acuerdo_tipo" id="acuerdo_tipo"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+                @php($acuerdoTipo = old('acuerdo_tipo', $servicio?->acuerdo_tipo ?? 'ninguno'))
+                <option value="ninguno" {{ $acuerdoTipo === 'ninguno' ? 'selected' : '' }}>Sin acuerdo</option>
+                <option value="libre" {{ $acuerdoTipo === 'libre' ? 'selected' : '' }}>Internet libre (sin facturar)</option>
+                <option value="meses" {{ $acuerdoTipo === 'meses' ? 'selected' : '' }}>Meses sin facturar</option>
+            </select>
+            @error('acuerdo_tipo')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+        <div>
+            <label for="acuerdo_meses" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad de meses</label>
+            <input type="number" min="1" max="24" name="acuerdo_meses" id="acuerdo_meses" value="{{ old('acuerdo_meses', $servicio?->acuerdo_meses) }}"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
+                placeholder="Ej: 2">
+            @error('acuerdo_meses')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+        <div>
+            <label for="acuerdo_desde" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Aplicar desde</label>
+            <input type="date" name="acuerdo_desde" id="acuerdo_desde" value="{{ old('acuerdo_desde', $servicio?->acuerdo_desde?->format('Y-m-d')) }}"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Para "meses sin facturar". Si no se carga, se usa hoy.</p>
+            @error('acuerdo_desde')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+    </div>
+
     <div class="flex flex-wrap gap-3">
         <button type="submit"
             class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">

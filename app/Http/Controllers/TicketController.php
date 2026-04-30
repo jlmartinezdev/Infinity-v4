@@ -66,6 +66,33 @@ class TicketController extends Controller
         $validated['usuario_id'] = $request->user()->usuario_id;
         $validated['estado'] = $validated['estado'] ?? 'pendiente';
         $validated['prioridad'] = $validated['prioridad'] ?? 'media';
+        $validated['descripcion'] = isset($validated['descripcion']) && $validated['descripcion'] !== null
+            ? trim((string) $validated['descripcion'])
+            : null;
+        $validated['observaciones'] = isset($validated['observaciones']) && $validated['observaciones'] !== null
+            ? trim((string) $validated['observaciones'])
+            : null;
+
+        // Evita duplicados por doble envío (red lenta, reintento del navegador, doble click).
+        $ticketDuplicado = Ticket::query()
+            ->where('usuario_id', $validated['usuario_id'])
+            ->where('ticket_asunto_id', $validated['ticket_asunto_id'])
+            ->where('cliente_id', $validated['cliente_id'] ?? null)
+            ->where('pedido_id', $validated['pedido_id'] ?? null)
+            ->where('estado', $validated['estado'])
+            ->where('prioridad', $validated['prioridad'])
+            ->where('descripcion', $validated['descripcion'])
+            ->where('created_at', '>=', now()->subMinutes(3))
+            ->latest('id')
+            ->first();
+
+        if ($ticketDuplicado) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'ticket_asunto_id' => 'Ya existe un ticket muy reciente con los mismos datos (ID #' . $ticketDuplicado->id . '). Verifique antes de crear otro.',
+                ]);
+        }
 
         if ($request->hasFile('imagen')) {
             $validated['imagen'] = $request->file('imagen')->store('tickets', 'public');

@@ -58,6 +58,17 @@
       {{ inlineError }}
     </div>
 
+    <div v-if="esAdmin" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad de facturas</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.cantidad_facturas }}</p>
+      </div>
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total pendiente</p>
+        <p class="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-400">{{ formatMonto(stats.total_pendiente) }} PYG</p>
+      </div>
+    </div>
+
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 space-y-4">
         <div class="relative">
@@ -108,6 +119,22 @@
               <option value="">Todos</option>
               <option v-for="(label, key) in estados" :key="key" :value="key">{{ label }}</option>
             </select>
+          </div>
+          <div class="sm:w-44">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha emisión desde</label>
+            <input
+              v-model="filtroFechaDesde"
+              type="date"
+              class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+          <div class="sm:w-44">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha emisión hasta</label>
+            <input
+              v-model="filtroFechaHasta"
+              type="date"
+              class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
           </div>
           <div class="flex items-end gap-2">
             <button
@@ -256,6 +283,7 @@ const props = defineProps({
   canEjecutarCrear: { type: Boolean, default: false },
   canEditar: { type: Boolean, default: false },
   canEliminar: { type: Boolean, default: false },
+  esAdmin: { type: Boolean, default: false },
   flashSuccess: { type: String, default: '' },
   flashError: { type: String, default: '' },
 });
@@ -264,7 +292,13 @@ const buscar = ref('');
 const buscarDebounced = ref('');
 const filtroClienteId = ref('');
 const filtroEstado = ref('');
+const filtroFechaDesde = ref('');
+const filtroFechaHasta = ref('');
 const facturas = ref([]);
+const stats = ref({
+  cantidad_facturas: 0,
+  total_pendiente: 0,
+});
 const meta = ref({
   current_page: 1,
   last_page: 1,
@@ -319,13 +353,20 @@ async function cargar(page = 1) {
     params.set('page', String(page));
     if (filtroClienteId.value) params.set('cliente_id', filtroClienteId.value);
     if (filtroEstado.value) params.set('estado', filtroEstado.value);
+    if (filtroFechaDesde.value) params.set('desde', filtroFechaDesde.value);
+    if (filtroFechaHasta.value) params.set('hasta', filtroFechaHasta.value);
     if (buscarDebounced.value.trim()) params.set('q', buscarDebounced.value.trim());
     const { data } = await window.axios.get(`${props.listUrl}?${params.toString()}`);
     facturas.value = data.data || [];
     meta.value = { ...meta.value, ...(data.meta || {}) };
+    stats.value = {
+      cantidad_facturas: Number(data.stats?.cantidad_facturas || 0),
+      total_pendiente: Number(data.stats?.total_pendiente || 0),
+    };
   } catch (e) {
     inlineError.value = e.response?.data?.message || 'No se pudo cargar el listado.';
     facturas.value = [];
+    stats.value = { cantidad_facturas: 0, total_pendiente: 0 };
   } finally {
     loading.value = false;
   }
@@ -396,7 +437,7 @@ watch(buscar, () => {
   }, 350);
 });
 
-watch([filtroClienteId, filtroEstado], () => {
+watch([filtroClienteId, filtroEstado, filtroFechaDesde, filtroFechaHasta], () => {
   cargar(1);
 });
 

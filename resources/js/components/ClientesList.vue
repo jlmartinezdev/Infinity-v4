@@ -24,7 +24,7 @@
       <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
         {{ firstItem + clientes.indexOf(c) }}
       </td>
-        <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+        <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 w-[min(16rem,52vw)] max-w-[min(16rem,52vw)] sm:w-[min(22rem,34vw)] sm:max-w-[min(22rem,34vw)]">
           <span class="text-gray-600 dark:text-gray-300 font-medium">{{ c.nombre }} {{ c.apellido }}</span><br>
           <span class="text-gray-400 dark:text-gray-200">{{ formatDocument(c.cedula) }}</span>
         </td>
