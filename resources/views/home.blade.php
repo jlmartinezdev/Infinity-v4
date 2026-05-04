@@ -202,10 +202,10 @@
                 </div>
             </div>
         </a>
-        <a href="{{ route('cobros.index', ['desde' => now()->startOfMonth()->toDateString(), 'hasta' => now()->endOfMonth()->toDateString()]) }}" class="bg-white dark:bg-gray-800 rounded-lg shadow p-5 sm:p-6 border border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-600 transition-colors block min-w-0 sm:col-span-2 lg:col-span-1">
+        <a href="{{ route('cobros.index', $cobrosMesVentanaQuery ?? []) }}" class="bg-white dark:bg-gray-800 rounded-lg shadow p-5 sm:p-6 border border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-600 transition-colors block min-w-0 sm:col-span-2 lg:col-span-1">
             <div class="flex items-start justify-between gap-3 min-w-0">
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Facturación del mes</p>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Cobros del mes</p>
                     <p class="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mt-2 break-words leading-tight tabular-nums">{{ number_format($stats['facturacion'], 0, ',', '.') }} <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">PYG</span></p>
                 </div>
                 <div class="bg-yellow-100 dark:bg-yellow-900/30 rounded-full p-3 flex-shrink-0">

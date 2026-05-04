@@ -7,7 +7,8 @@
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard de Facturacion</h1>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Factura del mes = facturas emitidas (creadas) en el mes anterior.
+            Facturado: facturas creadas en el mes anterior al indicado en cada columna.
+            Cobrado: igual que en Cobros y recibos — facturas de ese mismo mes anterior y cobros con fecha de pago desde el día 20 del mes anterior hasta el fin del mes de la columna.
         </p>
     </div>
 

@@ -1,13 +1,71 @@
 <template>
-  <template v-if="clientes.length === 0">
-    <tr>
-      <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-        No hay clientes. <a :href="urlCreate" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.
-      </td>
-    </tr>
-  </template>
-  <template v-else>
-    <template v-for="c in clientes" :key="c.cliente_id">
+  <div>
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1 relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+          <input
+            v-model="buscar"
+            type="text"
+            placeholder="Buscar por cédula, nombre, apellido, email o teléfono..."
+            class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
+          >
+          <button
+            v-if="buscar"
+            type="button"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            title="Limpiar búsqueda"
+            @click="buscar = ''"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="sm:w-48">
+          <select v-model="estado" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+            <option value="todos">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+            <option value="suspendido">Suspendido</option>
+          </select>
+        </div>
+        <div class="sm:w-56">
+          <select v-model="sinServicio" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+            <option value="">Todos (con o sin servicio)</option>
+            <option value="1">Sin servicio asociado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-700/50">
+          <tr>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
+            <th scope="col" class="px-4 py-3 w-[min(16rem,52vw)] max-w-[min(16rem,52vw)] sm:w-[min(22rem,34vw)] sm:max-w-[min(22rem,34vw)] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre / Documento</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Direccion</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teléfono</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Calificación</th>
+            <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <template v-if="clientesFiltrados.length === 0">
+            <tr>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                No hay clientes para los filtros aplicados.
+              </td>
+            </tr>
+          </template>
+          <template v-else>
+            <template v-for="(c, idx) in clientesFiltrados" :key="c.cliente_id">
       <tr
         class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
         :class="{ 'cursor-pointer': c.servicios && c.servicios.length > 0 }"
@@ -22,7 +80,7 @@
         @keydown.space.prevent="c.servicios?.length && toggle(c.cliente_id)"
       >
       <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-        {{ firstItem + clientes.indexOf(c) }}
+        {{ firstItem + idx }}
       </td>
         <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 w-[min(16rem,52vw)] max-w-[min(16rem,52vw)] sm:w-[min(22rem,34vw)] sm:max-w-[min(22rem,34vw)]">
           <span class="text-gray-600 dark:text-gray-300 font-medium">{{ c.nombre }} {{ c.apellido }}</span><br>
@@ -196,8 +254,12 @@
           <a :href="urlCreateServicio(c.cliente_id)" class="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium">+ Agregar servicio</a>
         </td>
       </tr>
-    </template>
-  </template>
+            </template>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- Modal buscar temp -->
   <Teleport to="body">
@@ -285,9 +347,15 @@ const props = defineProps({
   urlDetalleClienteBase: { type: String, default: '' },
   urlAccionesClienteBase: { type: String, default: '' },
   puedeEditar: { type: Boolean, default: false },
+  initialBuscar: { type: String, default: '' },
+  initialEstado: { type: String, default: 'todos' },
+  initialSinServicio: { type: String, default: '' },
 });
 
 const openedIds = ref([]);
+const buscar = ref(props.initialBuscar || '');
+const estado = ref(props.initialEstado || 'todos');
+const sinServicio = ref(props.initialSinServicio || '');
 const modalTempVisible = ref(false);
 const modalTempLoading = ref(false);
 const modalTempResultados = ref([]);
@@ -363,6 +431,46 @@ const urlAccionesCliente = computed(() => {
   return b && String(b).includes('__id__') ? (id) => b.replace('__id__', id) : null;
 });
 
+function normalizarTexto(valor) {
+  return (valor || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function coincideBusqueda(cliente, termino) {
+  if (!termino) return true;
+  const tokens = normalizarTexto(termino).split(' ').filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  const textoCliente = normalizarTexto([
+    cliente.nombre,
+    cliente.apellido,
+    cliente.cedula,
+    cliente.email,
+    cliente.telefono,
+    cliente.celular,
+    cliente.direccion,
+  ].filter(Boolean).join(' '));
+
+  return tokens.every((token) => textoCliente.includes(token));
+}
+
+const clientesFiltrados = computed(() => {
+  return props.clientes.filter((cliente) => {
+    const cumpleBusqueda = coincideBusqueda(cliente, buscar.value);
+    const cumpleEstado = estado.value === 'todos' || !estado.value ? true : cliente.estado === estado.value;
+    const cantidadServicios = Array.isArray(cliente.servicios) ? cliente.servicios.length : 0;
+    const cumpleSinServicio = sinServicio.value === '1' ? cantidadServicios === 0 : true;
+    return cumpleBusqueda && cumpleEstado && cumpleSinServicio;
+  });
+});
+
 function confirmDestroy(ev) {
   if (window.confirm('¿Eliminar este cliente?')) {
     ev.target.closest('form').submit();
@@ -370,7 +478,8 @@ function confirmDestroy(ev) {
 }
 
 function formatDocument(document) {
-  return document.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+  if (!document) return '—';
+  return document.toString().replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
 }
 
 /** URL del mapa solo desde url_ubicacion (no usa dirección, evita URLs largas que ensanchan la tabla). */

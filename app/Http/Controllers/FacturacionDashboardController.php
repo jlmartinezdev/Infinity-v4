@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\CobrosMesVentana;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,24 +25,23 @@ class FacturacionDashboardController extends Controller
             ->groupBy('mes')
             ->pluck('total_facturado', 'mes');
 
-        $totalesCobrosPorMes = DB::table('cobro_factura_interna as cfi')
-            ->join('cobros', 'cobros.id', '=', 'cfi.cobro_id')
-            ->join('factura_internas as fi', 'fi.id', '=', 'cfi.factura_interna_id')
-            ->selectRaw("DATE_FORMAT(cobros.fecha_pago, '%Y-%m') as mes, SUM(cfi.monto) as total_cobrado")
-            ->whereBetween('cobros.fecha_pago', [$inicioPeriodo, $finPeriodo])
-            ->whereBetween('fi.created_at', [$inicioPeriodo->copy()->subMonthNoOverflow(), $finPeriodo->copy()->subMonthNoOverflow()])
-            ->groupBy('mes')
-            ->pluck('total_cobrado', 'mes');
-
         $meses = collect(range(0, $cantidadMeses - 1))
             ->map(fn (int $offset) => now()->copy()->startOfMonth()->subMonths($cantidadMeses - 1 - $offset));
 
-        $series = $meses->map(function (Carbon $mesActual) use ($totalesFacturasPorMes, $totalesCobrosPorMes) {
-            $mesClave = $mesActual->format('Y-m');
+        $series = $meses->map(function (Carbon $mesActual) use ($totalesFacturasPorMes) {
             $mesFacturaClave = $mesActual->copy()->subMonthNoOverflow()->format('Y-m');
 
             $totalFacturado = (float) ($totalesFacturasPorMes[$mesFacturaClave] ?? 0);
-            $totalCobrado = (float) ($totalesCobrosPorMes[$mesClave] ?? 0);
+
+            $rangos = CobrosMesVentana::rangosParaMesReferencia($mesActual);
+            $totalCobrado = CobrosMesVentana::sumPivotMontos(
+                $rangos['desdeVentana'],
+                $rangos['hastaVentana'],
+                $rangos['facturaDesde'],
+                $rangos['facturaHasta'],
+                null,
+                null,
+            );
             $totalPendiente = max($totalFacturado - $totalCobrado, 0);
 
             return [

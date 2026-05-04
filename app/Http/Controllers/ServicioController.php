@@ -29,9 +29,16 @@ class ServicioController extends Controller
             ->orderBy('nombre')
             ->get(['cliente_id', 'cedula', 'nombre', 'apellido']);
 
-        $serviciosParaVue = $servicios->map(function ($s) {
+        $saldoFacturasPorCliente = app(FacturacionService::class)->mapSaldoPendienteInternasPorClienteIds(
+            $servicios->pluck('cliente_id')->unique()->filter()->values()->all()
+        );
+
+        $serviciosParaVue = $servicios->map(function ($s) use ($saldoFacturasPorCliente) {
+            $cid = $s->cliente_id ? (int) $s->cliente_id : null;
+
             return [
                 'servicio_id' => $s->servicio_id,
+                'saldo_facturas_pendiente' => $cid ? (float) ($saldoFacturasPorCliente[$cid] ?? 0) : 0,
                 'cliente' => $s->cliente ? ['cliente_id' => $s->cliente->cliente_id, 'nombre' => $s->cliente->nombre, 'apellido' => $s->cliente->apellido, 'cedula' => $s->cliente->cedula] : null,
                 'plan' => $s->plan ? ['nombre' => $s->plan->nombre] : null,
                 'pool' => $s->pool ? [

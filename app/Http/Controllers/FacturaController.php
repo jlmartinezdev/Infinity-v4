@@ -453,6 +453,135 @@ class FacturaController extends Controller
     }
 
     /**
+     * Formulario: factura interna por una fracción del saldo pendiente del cliente (desde el servicio).
+     */
+    public function crearInternaFraccionDeudaServicio(Servicio $servicio, FacturacionService $facturacionService)
+    {
+        $servicio->load(['plan', 'cliente']);
+        if (! $servicio->cliente) {
+            return redirect()->route('servicios.index')->with('error', 'El servicio no tiene cliente asociado.');
+        }
+        if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            return redirect()->route('servicios.index')->with('error', 'No se puede emitir factura en un servicio cancelado.');
+        }
+
+        $saldoPendiente = $facturacionService->saldoPendienteInternasCliente((int) $servicio->cliente_id);
+        if ($saldoPendiente <= 0) {
+            return redirect()->route('servicios.index')->with('error', 'Este cliente no tiene saldo pendiente en facturas internas para fraccionar.');
+        }
+
+        $periodoDesde = now()->startOfMonth()->toDateString();
+        $periodoHasta = now()->endOfMonth()->toDateString();
+        $fechaEmision = now()->toDateString();
+
+        $diaVenc = FacturacionParametro::diaVencimiento();
+        $diaCobro = FacturacionParametro::diaFechaCobro();
+        $fechaVencimiento = Carbon::createFromDate(now()->year, now()->month, 1)->addDays(min($diaVenc, 28) - 1);
+        if ($fechaVencimiento->isPast()) {
+            $fechaVencimiento = Carbon::createFromDate(now()->year, now()->month, 1)->addMonth()->addDays(min($diaVenc, 28) - 1);
+        }
+        $fechaVencimiento = $fechaVencimiento->toDateString();
+
+        $fechaPagoCarbon = Carbon::createFromDate(now()->year, now()->month, 1)->addDays(min($diaCobro, 28) - 1);
+        if ($fechaPagoCarbon->isPast()) {
+            $fechaPagoCarbon = Carbon::createFromDate(now()->year, now()->month, 1)->addMonth()->addDays(min($diaCobro, 28) - 1);
+        }
+        $fechaPago = $fechaPagoCarbon->toDateString();
+
+        $descripcionLineaDefault = sprintf('Fracción deuda — Servicio #%s', $servicio->servicio_id);
+
+        return view('facturas.crear-interna-servicio-fraccion-deuda', compact(
+            'servicio',
+            'saldoPendiente',
+            'periodoDesde',
+            'periodoHasta',
+            'fechaEmision',
+            'fechaVencimiento',
+            'fechaPago',
+            'descripcionLineaDefault',
+        ));
+    }
+
+    /**
+     * Guarda factura interna con un ítem exento por el monto fraccionado (≤ saldo pendiente del cliente).
+     */
+    public function storeInternaFraccionDeudaServicio(Request $request, Servicio $servicio, FacturacionService $facturacionService)
+    {
+        $servicio->load(['plan', 'cliente']);
+        if (! $servicio->cliente) {
+            return redirect()->route('servicios.index')->with('error', 'El servicio no tiene cliente asociado.');
+        }
+        if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            return redirect()->route('servicios.index')->with('error', 'No se puede emitir factura en un servicio cancelado.');
+        }
+
+        $saldoMax = $facturacionService->saldoPendienteInternasCliente((int) $servicio->cliente_id);
+        if ($saldoMax <= 0) {
+            return redirect()->route('servicios.index')->with('error', 'Este cliente no tiene saldo pendiente en facturas internas.');
+        }
+
+        $validated = $request->validate([
+            'fecha_emision' => ['required', 'date'],
+            'fecha_vencimiento' => ['required', 'date'],
+            'fecha_pago' => ['nullable', 'date'],
+            'periodo_desde' => ['required', 'date'],
+            'periodo_hasta' => ['required', 'date', 'after_or_equal:periodo_desde'],
+            'monto_fraccion' => ['required', 'numeric', 'min:1'],
+            'descripcion_linea' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $monto = (float) $validated['monto_fraccion'];
+        $saldoActual = $facturacionService->saldoPendienteInternasCliente((int) $servicio->cliente_id);
+        if ($monto > $saldoActual + 0.0001) {
+            return redirect()->route('facturas.crear-interna-servicio-fraccion-deuda', $servicio)
+                ->withInput()
+                ->with('error', 'El monto no puede superar el saldo pendiente actual ('.number_format($saldoActual, 0, ',', '.').' Gs.).');
+        }
+
+        $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $lineaDesc = trim((string) ($validated['descripcion_linea'] ?? '')) !== ''
+            ? trim($validated['descripcion_linea'])
+            : sprintf('Fracción deuda — %s Gs. — Servicio #%s', number_format($monto, 0, ',', '.'), $servicio->servicio_id);
+
+        $items = [[
+            'descripcion' => $lineaDesc,
+            'cantidad' => 1,
+            'precio_unitario' => $monto,
+            'impuesto_id' => $impuestoExento->id,
+        ]];
+
+        $obs = sprintf(
+            'Factura fraccionada por deuda — Servicio #%d — Período %s a %s',
+            $servicio->servicio_id,
+            Carbon::parse($validated['periodo_desde'])->format('d/m/Y'),
+            Carbon::parse($validated['periodo_hasta'])->format('d/m/Y')
+        );
+
+        try {
+            $factura = $facturacionService->generarFacturaInternaDesdeUnServicio(
+                $servicio,
+                Carbon::parse($validated['periodo_desde']),
+                Carbon::parse($validated['periodo_hasta']),
+                $validated['fecha_emision'],
+                $validated['fecha_vencimiento'],
+                $validated['fecha_pago'] ?? null,
+                0.0,
+                $items,
+                $request->user()?->usuario_id,
+                true,
+                $obs
+            );
+
+            return redirect()->route('factura-internas.show', $factura)
+                ->with('success', 'Factura interna fraccionada por deuda creada correctamente.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('facturas.crear-interna-servicio-fraccion-deuda', $servicio)
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * Ejecuta suspensión por falta de pago: servicios de clientes con facturas vencidas y saldo pendiente se marcan como suspendidos.
      */
     public function suspenderFaltaPago(FacturacionService $facturacionService)

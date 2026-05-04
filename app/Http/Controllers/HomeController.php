@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Auditoria;
 use App\Models\Cliente;
-use App\Models\Cobro;
 use App\Models\Servicio;
 use App\Models\Ticket;
+use App\Support\CobrosMesVentana;
 use App\Support\MenuUsuario;
 use Illuminate\Support\Facades\Auth;
 
@@ -80,9 +80,7 @@ class HomeController extends Controller
         $stats = [
             'clientes' => Cliente::where('estado', 'activo')->count(),
             'servicios' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count(),
-            'facturacion' => Cobro::whereMonth('fecha_pago', now()->month)
-                ->whereYear('fecha_pago', now()->year)
-                ->sum('monto'),
+            'facturacion' => CobrosMesVentana::sumPivotMesActualSinUsuario(),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'en_proceso'])->count(),
             'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
                 ->distinct()
@@ -95,7 +93,9 @@ class HomeController extends Controller
 
         $recentActivity = $this->obtenerActividadReciente();
 
-        return view('home', compact('user', 'stats', 'recentActivity'));
+        $cobrosMesVentanaQuery = CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual());
+
+        return view('home', compact('user', 'stats', 'recentActivity', 'cobrosMesVentanaQuery'));
     }
 
     /**
@@ -106,9 +106,7 @@ class HomeController extends Controller
         $stats = [
             'clientes' => Cliente::where('estado', 'activo')->count(),
             'servicios' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count(),
-            'facturacion' => Cobro::whereMonth('fecha_pago', now()->month)
-                ->whereYear('fecha_pago', now()->year)
-                ->sum('monto'),
+            'facturacion' => CobrosMesVentana::sumPivotMesActualSinUsuario(),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'en_proceso'])->count(),
             'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
                 ->distinct()
@@ -117,6 +115,7 @@ class HomeController extends Controller
                 ->whereYear('fecha_instalacion', now()->year)
                 ->distinct()
                 ->count('cliente_id'),
+            'cobros_mes_ventana_query' => CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual()),
         ];
 
         return response()->json($stats);

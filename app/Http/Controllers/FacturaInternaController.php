@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AjustesGenerales;
-use App\Models\Cliente;
 use App\Models\Cobro;
+use App\Models\Cliente;
 use App\Models\FacturaDetalle;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
@@ -142,20 +142,96 @@ class FacturaInternaController extends Controller
 
     /**
      * Listado paginado JSON para la vista Vue (filtros, orden y paginación).
+     * Una fila por cliente: facturas pendientes del mismo cliente unificadas.
      */
     public function pendientesList(Request $request)
     {
-        $query = $this->facturasPendientesQuery($request);
-        $this->applyFacturasPendientesOrden($request, $query);
+        $sumCobros = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
+        $cobradoExpr = 'LEAST(factura_internas.total, '.$sumCobros.')';
+        $saldoExpr = '(factura_internas.total - '.$cobradoExpr.')';
+        $promExpr = '(SELECT MAX(vencimiento_at) FROM promesa_pagos pp WHERE pp.factura_interna_id = factura_internas.id)';
 
-        $paginator = $query->with(['cliente', 'promesaPago'])->paginate(20);
+        $inner = $this->facturasPendientesQuery($request);
+        $inner->select([
+            'factura_internas.id',
+            'factura_internas.cliente_id',
+            'factura_internas.total',
+            'factura_internas.periodo_desde',
+            'factura_internas.periodo_hasta',
+            'factura_internas.fecha_vencimiento',
+            'factura_internas.moneda',
+            DB::raw('('.$cobradoExpr.') as cobrado_calc'),
+            DB::raw('('.$saldoExpr.') as saldo_calc'),
+            DB::raw('('.$promExpr.') as prom_calc'),
+        ]);
+
+        $perPage = 20;
+        $page = max(1, (int) $request->input('page', 1));
+
+        $totalClientes = (int) DB::query()
+            ->fromSub(clone $inner, 'fi_cnt')
+            ->selectRaw('COUNT(DISTINCT fi_cnt.cliente_id) as c')
+            ->value('c');
+
+        $lastPage = $totalClientes > 0 ? max(1, (int) ceil($totalClientes / $perPage)) : 1;
+        $page = min($page, $lastPage);
+
+        $grouped = DB::query()
+            ->fromSub($inner, 'fi')
+            ->select([
+                'fi.cliente_id',
+                DB::raw('COUNT(*) as facturas_count'),
+                DB::raw('MIN(fi.id) as min_factura_id'),
+                DB::raw('SUM(fi.total) as sum_total'),
+                DB::raw('SUM(fi.cobrado_calc) as sum_cobrado'),
+                DB::raw('SUM(fi.saldo_calc) as sum_saldo'),
+                DB::raw('MIN(fi.fecha_vencimiento) as min_fecha_vencimiento'),
+                DB::raw('MAX(fi.fecha_vencimiento) as max_fecha_vencimiento'),
+                DB::raw('MIN(fi.periodo_desde) as min_periodo_desde'),
+                DB::raw('MAX(fi.periodo_hasta) as max_periodo_hasta'),
+                DB::raw('MAX(fi.moneda) as moneda'),
+                DB::raw("GROUP_CONCAT(fi.id ORDER BY fi.fecha_vencimiento IS NULL ASC, fi.fecha_vencimiento ASC, fi.id ASC SEPARATOR ',') as factura_ids_csv"),
+                DB::raw('MAX(fi.prom_calc) as max_prom_calc'),
+            ])
+            ->groupBy('fi.cliente_id');
+
+        $this->applyPendientesAgrupadoOrden($request, $grouped);
+
+        $slice = (clone $grouped)->offset(($page - 1) * $perPage)->limit($perPage)->get();
+
+        $allFacturaIds = [];
+        foreach ($slice as $r) {
+            if (! empty($r->factura_ids_csv)) {
+                foreach (explode(',', (string) $r->factura_ids_csv) as $idPart) {
+                    $idPart = trim($idPart);
+                    if ($idPart !== '' && ctype_digit($idPart)) {
+                        $allFacturaIds[] = (int) $idPart;
+                    }
+                }
+            }
+        }
+        $allFacturaIds = array_values(array_unique($allFacturaIds));
+
+        $facturasCargadas = collect();
+        if ($allFacturaIds !== []) {
+            $facturasCargadas = FacturaInterna::query()
+                ->whereIn('id', $allFacturaIds)
+                ->with(['cliente', 'promesaPago'])
+                ->get()
+                ->keyBy('id');
+        }
 
         $user = auth()->user();
 
-        $paginator->through(function (FacturaInterna $f) use ($user) {
-            $c = $f->cliente;
+        $data = $slice->map(function ($g) use ($facturasCargadas, $user) {
+            $ids = array_values(array_filter(array_map('intval', explode(',', (string) $g->factura_ids_csv))));
+            $facturas = collect($ids)
+                ->map(fn (int $id) => $facturasCargadas->get($id))
+                ->filter()
+                ->values();
+            $c = $facturas->first()?->cliente;
             $contacto = [
-                'cliente_id' => $f->cliente_id,
+                'cliente_id' => (int) $g->cliente_id,
                 'nombre' => $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '',
                 'cedula' => $c?->cedula ?? '',
                 'celular' => $c?->telefono ?? '',
@@ -167,35 +243,108 @@ class FacturaInternaController extends Controller
                     : '',
             ];
 
+            $promesaLabel = null;
+            $soonest = null;
+            foreach ($facturas as $f) {
+                if ($f->promesaPago && $f->promesaPago->vencimiento_at) {
+                    $at = $f->promesaPago->vencimiento_at->timezone(config('app.timezone'));
+                    if ($soonest === null || $at->lt($soonest)) {
+                        $soonest = $at->copy();
+                        $promesaLabel = 'Hasta '.$at->format('d/m/Y H:i');
+                    }
+                }
+            }
+
             return [
-                'id' => $f->id,
-                'cliente_id' => $f->cliente_id,
-                'cliente_nombre' => trim(($c->nombre ?? '').' '.($c->apellido ?? '')),
-                'periodo_desde' => $f->periodo_desde?->format('Y-m-d'),
-                'periodo_hasta' => $f->periodo_hasta?->format('Y-m-d'),
-                'fecha_vencimiento' => $f->fecha_vencimiento?->format('Y-m-d'),
-                'total' => (float) $f->total,
-                'monto_pagado' => (float) $f->monto_pagado,
-                'saldo_pendiente' => (float) $f->saldo_pendiente,
-                'moneda' => $f->moneda ?? 'PYG',
-                'promesa_label' => $f->promesaPago
-                    ? 'Hasta '.$f->promesaPago->vencimiento_at->timezone(config('app.timezone'))->format('d/m/Y H:i')
-                    : null,
+                'cliente_id' => (int) $g->cliente_id,
+                'min_factura_id' => (int) $g->min_factura_id,
+                'facturas_count' => (int) $g->facturas_count,
+                'factura_ids' => $ids,
+                'cliente_nombre' => $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '',
+                'periodo_desde' => $g->min_periodo_desde ? Carbon::parse($g->min_periodo_desde)->format('Y-m-d') : null,
+                'periodo_hasta' => $g->max_periodo_hasta ? Carbon::parse($g->max_periodo_hasta)->format('Y-m-d') : null,
+                'fecha_vencimiento' => $g->min_fecha_vencimiento ? Carbon::parse($g->min_fecha_vencimiento)->format('Y-m-d') : null,
+                'fecha_vencimiento_max' => $g->max_fecha_vencimiento ? Carbon::parse($g->max_fecha_vencimiento)->format('Y-m-d') : null,
+                'total' => (float) $g->sum_total,
+                'monto_pagado' => (float) $g->sum_cobrado,
+                'saldo_pendiente' => (float) $g->sum_saldo,
+                'moneda' => (string) ($g->moneda ?? 'PYG'),
+                'promesa_label' => $promesaLabel,
                 'contacto_cliente' => $contacto,
+                'facturas' => $facturas->map(function (FacturaInterna $f) {
+                    return [
+                        'id' => $f->id,
+                        'periodo_desde' => $f->periodo_desde?->format('Y-m-d'),
+                        'periodo_hasta' => $f->periodo_hasta?->format('Y-m-d'),
+                        'fecha_vencimiento' => $f->fecha_vencimiento?->format('Y-m-d'),
+                        'total' => (float) $f->total,
+                        'monto_pagado' => (float) $f->monto_pagado,
+                        'saldo_pendiente' => (float) $f->saldo_pendiente,
+                        'moneda' => $f->moneda ?? 'PYG',
+                        'promesa_label' => $f->promesaPago
+                            ? 'Hasta '.$f->promesaPago->vencimiento_at->timezone(config('app.timezone'))->format('d/m/Y H:i')
+                            : null,
+                    ];
+                })->values()->all(),
             ];
-        });
+        })->values()->all();
 
         return response()->json([
-            'data' => $paginator->items(),
+            'data' => $data,
             'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'from' => $paginator->firstItem(),
-                'to' => $paginator->lastItem(),
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $totalClientes,
+                'from' => $totalClientes === 0 ? null : (($page - 1) * $perPage + 1),
+                'to' => $totalClientes === 0 ? null : min($page * $perPage, $totalClientes),
             ],
         ]);
+    }
+
+    /**
+     * PDF con todas las facturas internas pendientes de un cliente (una sección por factura).
+     */
+    public function pdfPendientesPorCliente(Cliente $cliente)
+    {
+        $facturas = FacturaInterna::query()
+            ->where('factura_internas.cliente_id', $cliente->cliente_id)
+            ->whereIn('factura_internas.estado', ['pendiente', 'emitida'])
+            ->whereRaw('factura_internas.total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
+            ->with(['cliente', 'detalles.impuesto', 'usuario', 'cobros'])
+            ->orderByRaw('factura_internas.fecha_vencimiento IS NULL ASC')
+            ->orderBy('factura_internas.fecha_vencimiento')
+            ->orderBy('factura_internas.id')
+            ->get();
+
+        if ($facturas->isEmpty()) {
+            abort(404);
+        }
+
+        $ajustes = AjustesGenerales::obtener();
+
+        $logoBase64 = null;
+        if ($ajustes && $ajustes->logo && Storage::disk('public')->exists($ajustes->logo)) {
+            $mime = Storage::disk('public')->mimeType($ajustes->logo) ?? 'image/png';
+            $logoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($ajustes->logo));
+        }
+
+        $moneda = (string) ($facturas->first()->moneda ?? 'PYG');
+        $resumenTotales = [
+            'moneda' => $moneda,
+            'sum_total_facturado' => (float) $facturas->sum(fn (FacturaInterna $f) => (float) $f->total),
+            'sum_monto_cobrado' => (float) $facturas->sum(fn (FacturaInterna $f) => $f->monto_pagado),
+            'sum_saldo_pendiente' => (float) $facturas->sum(fn (FacturaInterna $f) => $f->saldo_pendiente),
+        ];
+
+        $nombreArchivo = 'facturas-pendientes-cliente-'.$cliente->cliente_id.'.pdf';
+
+        return Pdf::loadView('factura-internas.pdf-pendientes-cliente', [
+            'facturas' => $facturas,
+            'ajustes' => $ajustes,
+            'logoBase64' => $logoBase64,
+            'resumenTotales' => $resumenTotales,
+        ])->setPaper('a4', 'portrait')->download($nombreArchivo);
     }
 
     /**
@@ -253,7 +402,7 @@ class FacturaInternaController extends Controller
     private function facturasPendientesQuery(Request $request)
     {
         $query = FacturaInterna::query()
-            ->where('factura_internas.estado', 'pendiente')
+            ->whereIn('factura_internas.estado', ['pendiente', 'emitida'])
             ->whereRaw('factura_internas.total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)');
 
         if ($request->filled('buscar')) {
@@ -367,6 +516,53 @@ class FacturaInternaController extends Controller
         }
 
         return $min?->format('d/m/Y');
+    }
+
+    /**
+     * Orden del listado agrupado por cliente (subconsulta alias fi).
+     */
+    private function applyPendientesAgrupadoOrden(Request $request, $query): void
+    {
+        $allowed = ['id', 'cliente', 'periodo', 'vencimiento', 'total', 'cobrado', 'saldo', 'promesa'];
+        $sort = $request->input('sort', 'vencimiento');
+        if (! in_array($sort, $allowed, true)) {
+            $sort = 'vencimiento';
+        }
+        $dir = strtolower((string) $request->input('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        // MariaDB no admite ORDER BY sobre alias de funciones de agregado en el mismo SELECT;
+        // se ordena por la expresión agregada (MIN/SUM/MAX sobre fi).
+        switch ($sort) {
+            case 'id':
+                $query->orderByRaw('MIN(fi.id) '.$dir);
+                break;
+            case 'cliente':
+                $query->orderByRaw("(SELECT TRIM(CONCAT(COALESCE(c.nombre,''), ' ', COALESCE(c.apellido,''))) FROM clientes c WHERE c.cliente_id = fi.cliente_id LIMIT 1) {$dir}");
+                break;
+            case 'periodo':
+                $query->orderByRaw('MIN(fi.periodo_desde) '.$dir)
+                    ->orderByRaw('MAX(fi.periodo_hasta) '.$dir);
+                break;
+            case 'vencimiento':
+                $query->orderByRaw('MIN(fi.fecha_vencimiento) IS NULL ASC')
+                    ->orderByRaw('MIN(fi.fecha_vencimiento) '.$dir);
+                break;
+            case 'total':
+                $query->orderByRaw('SUM(fi.total) '.$dir);
+                break;
+            case 'cobrado':
+                $query->orderByRaw('SUM(fi.cobrado_calc) '.$dir);
+                break;
+            case 'saldo':
+                $query->orderByRaw('SUM(fi.saldo_calc) '.$dir);
+                break;
+            case 'promesa':
+                $query->orderByRaw('MAX(fi.prom_calc) IS NULL ASC')
+                    ->orderByRaw('MAX(fi.prom_calc) '.$dir);
+                break;
+        }
+
+        $query->orderByRaw('MIN(fi.id) asc');
     }
 
     /**

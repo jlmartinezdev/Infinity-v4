@@ -8,6 +8,7 @@ use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\User;
 use App\Services\FacturacionService;
+use App\Support\CobrosMesVentana;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,14 @@ class CobroController extends Controller
         if ($request->filled('hasta')) {
             $query->whereDate('fecha_pago', '<=', $request->hasta);
         }
+        if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
+            $fd = $request->factura_desde;
+            $fh = $request->factura_hasta;
+            $query->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
+                $q->whereDate('factura_internas.created_at', '>=', $fd)
+                    ->whereDate('factura_internas.created_at', '<=', $fh);
+            });
+        }
         if ($request->filled('numero_recibo')) {
             $query->where('numero_recibo', 'like', '%' . $request->numero_recibo . '%');
         }
@@ -63,10 +72,9 @@ class CobroController extends Controller
             : collect();
 
         $hoy = now()->toDateString();
-        $inicioMes = now()->copy()->startOfMonth()->startOfDay();
-        $finMes = now()->copy()->endOfMonth()->endOfDay();
-        $inicioMesAnterior = now()->copy()->subMonthNoOverflow()->startOfMonth()->startOfDay();
-        $finMesAnterior = now()->copy()->subMonthNoOverflow()->endOfMonth()->endOfDay();
+
+        $rangosVentanaMes = CobrosMesVentana::rangosMesActual();
+        $cobrosMesVentanaQuery = CobrosMesVentana::queryParamsDesdeRangos($rangosVentanaMes);
 
         $statsQuery = Cobro::query();
         if (!$esAdmin) {
@@ -83,28 +91,28 @@ class CobroController extends Controller
         }
 
         $cobrosHoy = (float) (clone $statsQuery)->whereDate('fecha_pago', $hoy)->sum('monto');
-        $cobrosMesQuery = DB::table('cobro_factura_interna as cfi')
-            ->join('cobros', 'cobros.id', '=', 'cfi.cobro_id')
-            ->join('factura_internas as fi', 'fi.id', '=', 'cfi.factura_interna_id')
-            ->whereBetween('cobros.fecha_pago', [$inicioMes, $finMes])
-            ->whereBetween('fi.created_at', [$inicioMesAnterior, $finMesAnterior]);
-        if (!$esAdmin) {
-            $cobrosMesQuery->where('cobros.usuario_id', $user->usuario_id);
-        }
-        if ($esAdmin && $request->filled('usuario_id')) {
-            $cobrosMesQuery->where('cobros.usuario_id', $request->usuario_id);
-        }
+
+        $usuarioIdVentana = !$esAdmin ? (int) $user->usuario_id : ($request->filled('usuario_id') ? (int) $request->usuario_id : null);
+        $formaVentana = null;
         if ($request->filled('forma_pago')) {
             $formas = array_keys(Cobro::formasPago());
             if (in_array($request->forma_pago, $formas, true)) {
-                $cobrosMesQuery->where('cobros.forma_pago', $request->forma_pago);
+                $formaVentana = $request->forma_pago;
             }
         }
-        $cobrosMes = (float) ($cobrosMesQuery->sum('cfi.monto') ?? 0);
+        $cobrosMes = CobrosMesVentana::sumPivotMontos(
+            $rangosVentanaMes['desdeVentana'],
+            $rangosVentanaMes['hastaVentana'],
+            $rangosVentanaMes['facturaDesde'],
+            $rangosVentanaMes['facturaHasta'],
+            $usuarioIdVentana,
+            $formaVentana,
+        );
+
         $totalPendienteMes = (float) (DB::table('factura_internas')
             ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
             ->whereIn('estado', ['pendiente', 'emitida'])
-            ->whereBetween('created_at', [$inicioMesAnterior, $finMesAnterior])
+            ->whereBetween('created_at', [$rangosVentanaMes['facturaDesde'], $rangosVentanaMes['facturaHasta']])
             ->whereRaw('total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
             ->value('total') ?? 0);
         $totalPendiente = (float) (DB::table('factura_internas')
@@ -115,7 +123,18 @@ class CobroController extends Controller
 
         $formasPago = Cobro::formasPago();
 
-        return view('cobros.index', compact('cobros', 'clientes', 'cobrosHoy', 'cobrosMes', 'totalPendienteMes', 'totalPendiente', 'esAdmin', 'usuariosConCobros', 'formasPago'));
+        return view('cobros.index', compact(
+            'cobros',
+            'clientes',
+            'cobrosHoy',
+            'cobrosMes',
+            'cobrosMesVentanaQuery',
+            'totalPendienteMes',
+            'totalPendiente',
+            'esAdmin',
+            'usuariosConCobros',
+            'formasPago'
+        ));
     }
 
     /**
@@ -550,6 +569,14 @@ class CobroController extends Controller
         }
         if ($request->filled('hasta')) {
             $query->whereDate('fecha_pago', '<=', $request->hasta);
+        }
+        if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
+            $fd = $request->factura_desde;
+            $fh = $request->factura_hasta;
+            $query->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
+                $q->whereDate('factura_internas.created_at', '>=', $fd)
+                    ->whereDate('factura_internas.created_at', '<=', $fh);
+            });
         }
         if ($request->filled('numero_recibo')) {
             $query->where('numero_recibo', 'like', '%' . $request->numero_recibo . '%');

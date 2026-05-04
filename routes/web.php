@@ -258,6 +258,8 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas/generar-interna-desde-servicios', [FacturaController::class, 'storeGenerarInternaDesdeServicios'])->name('facturas.store-generar-interna-desde-servicios');
     Route::get('/facturas/crear-interna-servicio/{servicio}', [FacturaController::class, 'crearInternaDesdeServicio'])->name('facturas.crear-interna-servicio');
     Route::post('/facturas/crear-interna-servicio/{servicio}', [FacturaController::class, 'storeCrearInternaDesdeServicio'])->name('facturas.store-crear-interna-servicio');
+    Route::get('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'crearInternaFraccionDeudaServicio'])->name('facturas.crear-interna-servicio-fraccion-deuda');
+    Route::post('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'storeInternaFraccionDeudaServicio'])->name('facturas.store-interna-servicio-fraccion-deuda');
     Route::post('/facturas/suspender-falta-pago', [FacturaController::class, 'suspenderFaltaPago'])->name('facturas.suspender-falta-pago');
 });
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
@@ -288,6 +290,7 @@ Route::delete('/cobros/{cobro}', [CobroController::class, 'destroy'])->name('cob
 Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pendientes'])->name('factura-internas.pendientes')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/list', [FacturaInternaController::class, 'pendientesList'])->name('factura-internas.pendientes.list')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/exportar-excel', [FacturaInternaController::class, 'exportarPendientesExcel'])->name('factura-internas.pendientes.exportar-excel')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/pdf-cliente/{cliente}', [FacturaInternaController::class, 'pdfPendientesPorCliente'])->name('factura-internas.pendientes.pdf-cliente')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::middleware(['auth', 'permiso:pagos-pendientes.ver'])->group(function () {
     Route::get('/promesas-pago', [PromesaPagoController::class, 'index'])->name('promesas-pago.index');
 });

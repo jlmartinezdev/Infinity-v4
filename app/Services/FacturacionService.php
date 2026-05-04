@@ -404,7 +404,44 @@ class FacturacionService
     }
 
     /**
+     * Suma de saldos pendientes de facturas internas (pendiente/emitida con saldo) por cliente_id.
+     *
+     * @param  list<int>  $clienteIds
+     * @return array<int, float> cliente_id => saldo
+     */
+    public function mapSaldoPendienteInternasPorClienteIds(array $clienteIds): array
+    {
+        $clienteIds = array_values(array_unique(array_filter(array_map('intval', $clienteIds))));
+        if ($clienteIds === []) {
+            return [];
+        }
+        $sumCobros = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
+        $saldoExpr = '(factura_internas.total - LEAST(factura_internas.total, '.$sumCobros.'))';
+        $rows = FacturaInterna::query()
+            ->whereIn('cliente_id', $clienteIds)
+            ->whereIn('estado', ['pendiente', 'emitida'])
+            ->whereRaw('factura_internas.total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
+            ->selectRaw('cliente_id, SUM('.$saldoExpr.') as saldo_pend')
+            ->groupBy('cliente_id')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r->cliente_id] = (float) $r->saldo_pend;
+        }
+
+        return $out;
+    }
+
+    public function saldoPendienteInternasCliente(int $clienteId): float
+    {
+        return (float) ($this->mapSaldoPendienteInternasPorClienteIds([$clienteId])[$clienteId] ?? 0);
+    }
+
+    /**
      * Genera una factura interna desde un solo servicio con datos editables (fechas, descuento, items).
+     *
+     * @param  bool  $permitirServicioNoActivoParaDeuda  Si true, permite facturar con servicio suspendido/cortado (no cancelado), p. ej. fracción de deuda.
      */
     public function generarFacturaInternaDesdeUnServicio(
         Servicio $servicio,
@@ -415,20 +452,26 @@ class FacturacionService
         ?string $fechaPago,
         float $descuento,
         array $items,
-        ?int $usuarioId = null
+        ?int $usuarioId = null,
+        bool $permitirServicioNoActivoParaDeuda = false,
+        ?string $observacionesFactura = null
     ): FacturaInterna {
         $servicio->load(['plan', 'cliente']);
         if (! $servicio->cliente) {
             throw new \InvalidArgumentException('El servicio no tiene cliente asociado.');
         }
-        if ($servicio->estado !== Servicio::ESTADO_ACTIVO) {
-            throw new \InvalidArgumentException('Solo se pueden facturar servicios activos.');
+        if (! $permitirServicioNoActivoParaDeuda) {
+            if ($servicio->estado !== Servicio::ESTADO_ACTIVO) {
+                throw new \InvalidArgumentException('Solo se pueden facturar servicios activos.');
+            }
+        } elseif ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            throw new \InvalidArgumentException('No se puede facturar un servicio cancelado.');
         }
 
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $cliente = $servicio->cliente;
 
-        return DB::transaction(function () use ($servicio, $cliente, $periodoDesde, $periodoHasta, $fechaEmision, $fechaVencimiento, $fechaPago, $descuento, $items, $impuestoExento, $usuarioId) {
+        return DB::transaction(function () use ($servicio, $cliente, $periodoDesde, $periodoHasta, $fechaEmision, $fechaVencimiento, $fechaPago, $descuento, $items, $impuestoExento, $usuarioId, $observacionesFactura) {
             $subtotal = 0;
             $totalImpuestos = 0;
             $total = 0;
@@ -447,7 +490,7 @@ class FacturacionService
                 'total_impuestos' => 0,
                 'total' => 0,
                 'descuento' => $descuento,
-                'observaciones' => sprintf('Factura interna - Período %s a %s', $periodoDesde->format('d/m/Y'), $periodoHasta->format('d/m/Y')),
+                'observaciones' => $observacionesFactura ?? sprintf('Factura interna - Período %s a %s', $periodoDesde->format('d/m/Y'), $periodoHasta->format('d/m/Y')),
             ]);
 
             foreach ($items as $item) {

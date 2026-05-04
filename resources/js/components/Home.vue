@@ -85,10 +85,11 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 min-w-0 sm:col-span-2 lg:col-span-1">
+                <a :href="urlCobrosMesVentana" class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 hover:border-amber-400 transition-colors min-w-0 sm:col-span-2 lg:col-span-1 block">
                     <div class="flex items-start justify-between gap-3 min-w-0">
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-gray-600">Facturación Mensual</p>
+                            <p class="text-sm font-medium text-gray-600">Cobros del mes</p>
+                        
                             <p class="text-lg sm:text-xl font-bold text-gray-900 mt-2 break-words leading-tight tabular-nums">{{ formatNumber(stats.facturacion) }} <span class="text-sm font-semibold text-gray-500">PYG</span></p>
                         </div>
                         <div class="bg-yellow-100 rounded-full p-3 flex-shrink-0">
@@ -97,7 +98,7 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <div class="bg-white rounded-lg shadow p-5 sm:p-6 border border-gray-200 min-w-0">
                     <div class="flex items-start justify-between gap-3 min-w-0">
@@ -203,7 +204,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Sidebar from './Sidebar.vue';
 
@@ -256,6 +257,17 @@ const lastDay = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
 const urlServiciosHoy = `/servicios?fecha_desde=${today}&fecha_hasta=${today}`;
 const urlServiciosMes = `/servicios?fecha_desde=${firstDay}&fecha_hasta=${lastDay}`;
 
+const cobrosMesVentanaQuery = ref({});
+const urlCobrosMesVentana = computed(() => {
+    const q = cobrosMesVentanaQuery.value;
+    if (!q || typeof q.desde !== 'string') {
+        return '/cobros';
+    }
+    const params = new URLSearchParams(q);
+    const s = params.toString();
+    return s ? `/cobros?${s}` : '/cobros';
+});
+
 const formatNumber = (n) => {
     const num = Number(n) || 0;
     return num.toLocaleString('es-PY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -276,6 +288,7 @@ const loadStats = async () => {
                 clientes_instalados_hoy: response.data.clientes_instalados_hoy ?? 0,
                 clientes_instalados_mes: response.data.clientes_instalados_mes ?? 0
             };
+            cobrosMesVentanaQuery.value = response.data.cobros_mes_ventana_query ?? {};
         }
     } catch (error) {
         console.error('Error al cargar estadísticas:', error);

@@ -38,8 +38,8 @@
     </div>
 
     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-      Facturas internas con saldo pendiente. Busque por nombre o cédula. Haga clic en el encabezado de una columna para ordenar (ascendente / descendente). Use el embudo para filtrar.
-      <span v-if="canMulticobro"> Marque filas y use «Multicobro» para abonar varias facturas a la vez.</span>
+      Facturas internas con saldo pendiente, agrupadas por cliente (totales y saldos sumados). La búsqueda por nombre o cédula se aplica mientras escribe. Ordene por columna o use el embudo para filtrar.
+      <span v-if="canMulticobro"> Marque clientes y use «Multicobro» para incluir todas sus facturas pendientes en un solo registro de cobro.</span>
     </p>
 
     <div v-if="flashSuccess" class="mb-4 p-4 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-sm">
@@ -59,14 +59,16 @@
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Buscar por nombre o cédula</label>
             <input
               v-model="buscar"
-              type="text"
-              placeholder="Nombre, apellido o cédula del cliente..."
+              type="search"
+              autocomplete="off"
+              placeholder="Escribe para filtrar al instante…"
               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               @keyup.enter="aplicarBusqueda"
             />
+            
           </div>
           <div class="flex items-end gap-2">
-            <button type="button" class="px-4 py-2 bg-gray-700 dark:bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-500 text-sm" @click="aplicarBusqueda">
+            <button type="button" class="px-4 py-2 bg-gray-700 dark:bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-500 text-sm" title="Aplicar ya sin esperar" @click="aplicarBusqueda">
               Buscar
             </button>
             <button v-if="hayFiltros" type="button" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm" @click="limpiarTodo">
@@ -79,11 +81,11 @@
       <form v-if="canMulticobro && urls.multicobro" :action="urls.multicobro" method="GET" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
         <div class="flex items-center gap-3 flex-wrap">
           <span class="text-sm text-gray-700 dark:text-gray-300">Marcar facturas para multicobro:</span>
-          <button type="submit" :disabled="selectedIds.length === 0" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
-            Registrar multicobro ({{ selectedIds.length }})
+          <button type="submit" :disabled="selectedFacturaIds.length === 0" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+            Registrar multicobro ({{ selectedFacturaIds.length }})
           </button>
         </div>
-        <template v-for="id in selectedIds" :key="'h-' + id">
+        <template v-for="id in selectedFacturaIds" :key="'h-' + id">
           <input type="hidden" name="factura_interna_ids[]" :value="id" />
         </template>
       </form>
@@ -103,8 +105,8 @@
               </th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase relative align-bottom">
                 <div class="flex items-center gap-0.5">
-                  <button type="button" class="inline-flex items-center gap-1 flex-1 min-w-0 rounded px-0.5 py-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 text-left" title="Ordenar por ID" @click="toggleSort('id')">
-                    <span>#</span>
+                  <button type="button" class="inline-flex items-center gap-1 flex-1 min-w-0 rounded px-0.5 py-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 text-left" title="Ordenar por factura más antigua (mín. ID)" @click="toggleSort('id')">
+                    <span>Facturas</span>
                     <span v-if="filtrosActivo.pf_id" class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Filtro activo" />
                     <svg v-if="sortBy === 'id' && sortDir === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                     <svg v-else-if="sortBy === 'id'" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
@@ -292,19 +294,32 @@
               <td :colspan="colspanTabla" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Cargando…</td>
             </tr>
             <template v-else>
-            <tr v-for="row in rows" :key="row.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+            <tr v-for="row in rows" :key="row.cliente_id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
               <td v-if="canMulticobro" class="px-4 py-3">
                 <input
                   type="checkbox"
                   class="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500"
-                  :checked="selectedIds.includes(row.id)"
-                  @change="toggleRow(row.id, ($event.target).checked)"
+                  :checked="isRowFullySelected(row)"
+                  @change="toggleRowCliente(row, ($event.target).checked)"
                 />
               </td>
-              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ row.id }}</td>
+              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                <span class="tabular-nums">{{ row.facturas_count ?? 1 }}</span>
+                <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                  <template v-if="(row.facturas_count ?? 1) > 1">#{{ row.min_factura_id }} +{{ (row.facturas_count ?? 1) - 1 }}</template>
+                  <template v-else>#{{ row.min_factura_id }}</template>
+                </span>
+              </td>
               <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ row.cliente_nombre }}</td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ fmtPeriodo(row) }}</td>
-              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ row.fecha_vencimiento ? fmtFecha(row.fecha_vencimiento) : '—' }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                <template v-if="row.fecha_vencimiento">{{ fmtFecha(row.fecha_vencimiento) }}</template>
+                <template v-else>—</template>
+                <span
+                  v-if="(row.facturas_count ?? 1) > 1 && row.fecha_vencimiento_max && row.fecha_vencimiento_max !== row.fecha_vencimiento"
+                  class="block text-xs text-gray-500 dark:text-gray-500"
+                >al {{ fmtFecha(row.fecha_vencimiento_max) }}</span>
+              </td>
               <td class="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{{ fmtMonto(row.total, row.moneda) }}</td>
               <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ fmtMonto(row.monto_pagado, row.moneda) }}</td>
               <td class="px-4 py-3 text-sm text-right font-semibold text-amber-700 dark:text-amber-400">{{ fmtMonto(row.saldo_pendiente, row.moneda) }}</td>
@@ -328,18 +343,24 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0Z" />
                     </svg>
                   </button>
-                  <a :href="urlFacturaShow(row.id)" class="inline-flex items-center justify-center p-2 rounded-lg text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/30 transition-colors" title="Ver factura interna" aria-label="Ver factura interna">
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center p-2 rounded-lg text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/30 transition-colors"
+                    title="Ver facturas pendientes de este cliente"
+                    aria-label="Ver facturas pendientes de este cliente"
+                    @click="abrirModalFacturasCliente(row)"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
                     </svg>
-                  </a>
-                  <a v-if="canCrearCobro" :href="urlPromesaCreate(row.id)" class="inline-flex items-center justify-center p-2 rounded-lg text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors" title="Registrar promesa de pago" aria-label="Registrar promesa de pago">
+                  </button>
+                  <a v-if="canCrearCobro" :href="urlPromesaCreate(row.min_factura_id)" class="inline-flex items-center justify-center p-2 rounded-lg text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors" title="Registrar promesa (factura más antigua)" aria-label="Registrar promesa de pago">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                     </svg>
                   </a>
-                  <a v-if="canCrearCobro && urls.cobrosCreate" :href="urlCobroCreate(row.cliente_id, row.id)" class="inline-flex items-center justify-center p-2 rounded-lg text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors" title="Registrar cobro" aria-label="Registrar cobro">
+                  <a v-if="canCrearCobro && urls.cobrosCreate" :href="urlCobroCreate(row.cliente_id, row.min_factura_id)" class="inline-flex items-center justify-center p-2 rounded-lg text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors" title="Registrar cobro (factura más antigua)" aria-label="Registrar cobro">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
@@ -418,11 +439,85 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal facturas pendientes del cliente -->
+    <div v-show="modalFacturasAbierto" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarModalFacturasCliente" />
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div class="relative w-full max-w-3xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700" @click.stop>
+          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Facturas pendientes</h2>
+            <div class="flex items-center gap-2 flex-wrap">
+              <a
+                v-if="modalFacturasClienteId != null && templates.pdfPendientesCliente"
+                :href="urlPdfCliente(modalFacturasClienteId)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                PDF
+              </a>
+              <button type="button" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400" aria-label="Cerrar" @click="cerrarModalFacturasCliente">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+            <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalFacturasClienteNombre || '—' }}</span>
+            <span v-if="modalFacturasLineas.length" class="text-gray-500 dark:text-gray-400"> · {{ modalFacturasLineas.length }} factura(s)</span>
+          </div>
+          <div class="px-4 py-3 max-h-[min(70vh,520px)] overflow-y-auto">
+            <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-700/50 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                <tr>
+                  <th class="px-3 py-2">#</th>
+                  <th class="px-3 py-2">Período</th>
+                  <th class="px-3 py-2">Venc.</th>
+                  <th class="px-3 py-2 text-right">Total</th>
+                  <th class="px-3 py-2 text-right">Cobrado</th>
+                  <th class="px-3 py-2 text-right">Saldo</th>
+                  <th class="px-3 py-2">Promesa</th>
+                  <th class="px-3 py-2 text-right w-36">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr v-for="f in modalFacturasLineas" :key="f.id">
+                  <td class="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{{ f.id }}</td>
+                  <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ fmtPeriodo(f) }}</td>
+                  <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ f.fecha_vencimiento ? fmtFecha(f.fecha_vencimiento) : '—' }}</td>
+                  <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">{{ fmtMonto(f.total, f.moneda) }}</td>
+                  <td class="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{{ fmtMonto(f.monto_pagado, f.moneda) }}</td>
+                  <td class="px-3 py-2 text-right font-semibold text-amber-700 dark:text-amber-400">{{ fmtMonto(f.saldo_pendiente, f.moneda) }}</td>
+                  <td class="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{{ f.promesa_label || '—' }}</td>
+                  <td class="px-3 py-2 text-right">
+                    <div class="inline-flex items-center gap-0.5 justify-end">
+                      <a :href="urlFacturaShow(f.id)" class="inline-flex p-1.5 rounded text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/30" title="Ver factura" aria-label="Ver factura">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" /></svg>
+                      </a>
+                      <a v-if="canCrearCobro" :href="urlPromesaCreate(f.id)" class="inline-flex p-1.5 rounded text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/30" title="Promesa" aria-label="Promesa">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                      </a>
+                      <a v-if="canCrearCobro && urls.cobrosCreate && modalFacturasClienteId != null" :href="urlCobroCreate(modalFacturasClienteId, f.id)" class="inline-flex p-1.5 rounded text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30" title="Cobro" aria-label="Cobro">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <button type="button" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-500" @click="cerrarModalFacturasCliente">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -439,7 +534,13 @@ const props = defineProps({
   flashError: { type: String, default: '' },
 });
 
+const BUSCAR_DEBOUNCE_MS = 400;
+
 const buscar = ref('');
+/** Evita disparar búsqueda incremental al hidratar desde la URL o al limpiar con cargar() explícito. */
+const skipBuscarWatch = ref(true);
+let buscarDebounceTimer = null;
+
 const pf = reactive({
   pf_id: '',
   pf_cliente: '',
@@ -474,7 +575,7 @@ const meta = ref({
 const loading = ref(true);
 const loadError = ref('');
 
-const selectedIds = ref([]);
+const selectedFacturaIds = ref([]);
 const openFilterKey = ref(null);
 
 const modalContactoAbierto = ref(false);
@@ -488,9 +589,19 @@ const modalContacto = reactive({
   detalle_url: '',
 });
 
+const modalFacturasAbierto = ref(false);
+const modalFacturasClienteId = ref(null);
+const modalFacturasClienteNombre = ref('');
+const modalFacturasLineas = ref([]);
+
 const colspanTabla = computed(() => (props.canMulticobro ? 10 : 9));
 
-const allSelected = computed(() => rows.value.length > 0 && selectedIds.value.length === rows.value.length);
+function isRowFullySelected(row) {
+  const ids = row?.factura_ids || [];
+  return ids.length > 0 && ids.every((id) => selectedFacturaIds.value.includes(id));
+}
+
+const allSelected = computed(() => rows.value.length > 0 && rows.value.every((r) => isRowFullySelected(r)));
 
 const filtrosActivo = computed(() => ({
   pf_id: !!(pf.pf_id || '').trim(),
@@ -527,6 +638,27 @@ watch(openFilterKey, (v) => {
   } else {
     document.removeEventListener('click', onDocClick, true);
   }
+});
+
+function clearBuscarDebounce() {
+  if (buscarDebounceTimer) {
+    clearTimeout(buscarDebounceTimer);
+    buscarDebounceTimer = null;
+  }
+}
+
+function scheduleBusquedaIncremental() {
+  clearBuscarDebounce();
+  buscarDebounceTimer = setTimeout(() => {
+    buscarDebounceTimer = null;
+    page.value = 1;
+    cargar();
+  }, BUSCAR_DEBOUNCE_MS);
+}
+
+watch(buscar, () => {
+  if (skipBuscarWatch.value) return;
+  scheduleBusquedaIncremental();
 });
 
 function toggleFiltroPop(key) {
@@ -591,7 +723,9 @@ async function cargar() {
     const { data } = await axios.get(props.listUrl, { params: construirParamsApi() });
     rows.value = data.data || [];
     meta.value = { ...meta.value, ...(data.meta || {}) };
-    selectedIds.value = selectedIds.value.filter((id) => rows.value.some((r) => r.id === id));
+    selectedFacturaIds.value = selectedFacturaIds.value.filter((id) =>
+      rows.value.some((r) => (r.factura_ids || []).includes(id)),
+    );
     syncHistory();
   } catch (e) {
     loadError.value = e.response?.data?.message || e.message || 'No se pudo cargar el listado.';
@@ -614,11 +748,14 @@ function toggleSort(col) {
 }
 
 function aplicarBusqueda() {
+  clearBuscarDebounce();
   page.value = 1;
   cargar();
 }
 
 function limpiarTodo() {
+  clearBuscarDebounce();
+  skipBuscarWatch.value = true;
   buscar.value = '';
   Object.keys(pf).forEach((k) => {
     pf[k] = '';
@@ -628,6 +765,9 @@ function limpiarTodo() {
   page.value = 1;
   openFilterKey.value = null;
   cargar();
+  nextTick(() => {
+    skipBuscarWatch.value = false;
+  });
 }
 
 function aplicarFiltroDraft() {
@@ -655,19 +795,32 @@ function irPagina(n) {
   cargar();
 }
 
-function toggleRow(id, checked) {
+function toggleRowCliente(row, checked) {
+  const ids = row?.factura_ids || [];
   if (checked) {
-    if (!selectedIds.value.includes(id)) selectedIds.value.push(id);
+    ids.forEach((id) => {
+      if (!selectedFacturaIds.value.includes(id)) selectedFacturaIds.value.push(id);
+    });
   } else {
-    selectedIds.value = selectedIds.value.filter((i) => i !== id);
+    selectedFacturaIds.value = selectedFacturaIds.value.filter((i) => !ids.includes(i));
   }
 }
 
 function toggleSelectAll(checked) {
   if (checked) {
-    selectedIds.value = rows.value.map((r) => r.id);
+    const acc = [];
+    rows.value.forEach((r) => {
+      (r.factura_ids || []).forEach((id) => {
+        if (!acc.includes(id)) acc.push(id);
+      });
+    });
+    selectedFacturaIds.value = acc;
   } else {
-    selectedIds.value = [];
+    const pageIds = new Set();
+    rows.value.forEach((r) => {
+      (r.factura_ids || []).forEach((id) => pageIds.add(id));
+    });
+    selectedFacturaIds.value = selectedFacturaIds.value.filter((id) => !pageIds.has(id));
   }
 }
 
@@ -705,6 +858,26 @@ function urlCobroCreate(clienteId, facturaId) {
   u.searchParams.set('cliente_id', String(clienteId));
   u.searchParams.set('factura_interna_id', String(facturaId));
   return u.toString();
+}
+
+function urlPdfCliente(clienteId) {
+  return tplReplace(props.templates.pdfPendientesCliente || '#', clienteId);
+}
+
+function abrirModalFacturasCliente(row) {
+  modalFacturasClienteId.value = row?.cliente_id ?? null;
+  modalFacturasClienteNombre.value = row?.cliente_nombre || '';
+  modalFacturasLineas.value = Array.isArray(row?.facturas) ? [...row.facturas] : [];
+  modalFacturasAbierto.value = true;
+  document.body.classList.add('overflow-hidden');
+}
+
+function cerrarModalFacturasCliente() {
+  modalFacturasAbierto.value = false;
+  modalFacturasClienteId.value = null;
+  modalFacturasClienteNombre.value = '';
+  modalFacturasLineas.value = [];
+  document.body.classList.remove('overflow-hidden');
 }
 
 function fmtMonto(n, moneda) {
@@ -748,16 +921,24 @@ function cerrarModalContacto() {
 }
 
 function onEsc(ev) {
-  if (ev.key === 'Escape' && modalContactoAbierto.value) cerrarModalContacto();
+  if (ev.key !== 'Escape') return;
+  if (modalFacturasAbierto.value) cerrarModalFacturasCliente();
+  else if (modalContactoAbierto.value) cerrarModalContacto();
 }
 
 onMounted(() => {
+  skipBuscarWatch.value = true;
   leerParamsUrl();
-  cargar();
+  cargar().finally(() => {
+    nextTick(() => {
+      skipBuscarWatch.value = false;
+    });
+  });
   document.addEventListener('keydown', onEsc);
 });
 
 onUnmounted(() => {
+  clearBuscarDebounce();
   document.removeEventListener('keydown', onEsc);
   document.removeEventListener('click', onDocClick, true);
 });

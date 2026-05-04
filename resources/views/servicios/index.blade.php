@@ -35,6 +35,7 @@
         'urlCancelar' => url('servicios') . '/__id__/cancelar',
         'urlSyncPppoe' => url('servicios') . '/__id__/sync-pppoe',
         'urlCrearFacturaInterna' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio', ['servicio' => '__id__']) : '',
+        'urlCrearFacturaFraccionDeuda' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-fraccion-deuda', ['servicio' => '__id__']) : '',
         'filtros' => [
             'buscar' => request('buscar', ''),
             'cliente_id' => request('cliente_id', ''),

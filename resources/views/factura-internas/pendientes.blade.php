@@ -22,6 +22,7 @@
         'templates' => [
             'facturaShow' => str_replace('/'.$phF, '/{id}', route('factura-internas.show', ['factura_interna' => $phF])),
             'promesaCreate' => str_replace('/'.$phF, '/{id}', route('promesas-pago.create', ['factura_interna' => $phF])),
+            'pdfPendientesCliente' => str_replace('/'.$phC, '/{id}', route('factura-internas.pendientes.pdf-cliente', ['cliente' => $phC])),
         ],
         'clienteDetalleTpl' => ($u?->tienePermiso('clientes.ver'))
             ? str_replace('/'.$phC, '/{id}', route('clientes.detalle', ['cliente' => $phC]))

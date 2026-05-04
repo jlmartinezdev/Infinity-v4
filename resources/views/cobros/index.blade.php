@@ -77,7 +77,7 @@
             </div>
         </a>
         @endif
-        <a href="{{ route('cobros.index', array_merge($paramsDashboard, ['desde' => now()->startOfMonth()->toDateString(), 'hasta' => now()->endOfMonth()->toDateString()])) }}"
+        <a href="{{ route('cobros.index', array_merge($paramsDashboard, $cobrosMesVentanaQuery ?? [])) }}"
             class="block p-5 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md transition-all">
             <div class="flex items-center gap-3">
                 <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -137,6 +137,10 @@
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Nº Recibo</label>
                     <input type="text" name="numero_recibo" value="{{ request('numero_recibo') }}" placeholder="001-001-0..." class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
                 </div>
+                @if(request()->filled('factura_desde') && request()->filled('factura_hasta'))
+                    <input type="hidden" name="factura_desde" value="{{ request('factura_desde') }}">
+                    <input type="hidden" name="factura_hasta" value="{{ request('factura_hasta') }}">
+                @endif
                 <div class="flex items-end">
                     <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 text-sm">Filtrar</button>
                 </div>

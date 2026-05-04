@@ -20,6 +20,9 @@ if (el) {
     urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
     urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',
     puedeEditar: cfg.puedeEditar ?? false,
+    initialBuscar: cfg.initialBuscar || '',
+    initialEstado: cfg.initialEstado || 'todos',
+    initialSinServicio: cfg.initialSinServicio || '',
   });
   app.mount(el);
 }

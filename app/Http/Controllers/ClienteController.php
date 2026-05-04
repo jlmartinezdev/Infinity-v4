@@ -21,31 +21,12 @@ class ClienteController extends Controller
      */
     public function index(Request $request)
     {
-        // Solo clientes registrados desde la sección Clientes (excluir solo_pedido)
-        $query = Cliente::query()
+        // Cargamos el listado completo para que Vue haga el filtrado incremental en cliente.
+        $clientes = Cliente::query()
             ->whereIn('estado', ['activo', 'inactivo', 'suspendido'])
-            ->orderBy('cliente_id', 'desc');
-
-        if ($request->filled('buscar')) {
-            $q = $request->buscar;
-            $query->where(function ($qry) use ($q) {
-                $qry->where('cedula', 'like', "%{$q}%")
-                    ->orWhere('nombre', 'like', "%{$q}%")
-                    ->orWhere('apellido', 'like', "%{$q}%")
-                    ->orWhere('email', 'like', "%{$q}%")
-                    ->orWhere('telefono', 'like', "%{$q}%");
-            });
-        }
-
-        if ($request->filled('estado') && $request->estado !== 'todos') {
-            $query->where('estado', $request->estado);
-        }
-
-        if ($request->boolean('sin_servicio')) {
-            $query->whereDoesntHave('servicios');
-        }
-
-        $clientes = $query->with(['servicios.plan', 'servicios.pool'])->paginate(15)->withQueryString();
+            ->with(['servicios.plan', 'servicios.pool'])
+            ->orderBy('cliente_id', 'desc')
+            ->get();
 
         return view('clientes.index', compact('clientes'));
     }
