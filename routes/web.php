@@ -280,6 +280,7 @@ Route::middleware(['auth', 'permiso:cobros.ver'])->group(function () {
     Route::get('/cobros', [CobroController::class, 'index'])->name('cobros.index');
     Route::get('/cobros/servicios', [CobroController::class, 'servicios'])->name('cobros.servicios');
     Route::get('/cobros/pdf-resumen', [CobroController::class, 'pdfResumen'])->name('cobros.pdf-resumen');
+    Route::get('/cobros/exportar-excel', [CobroController::class, 'exportarExcel'])->name('cobros.exportar-excel');
     Route::get('/cobros/multicobro/result', [CobroController::class, 'multicobroResult'])->name('cobros.multicobro-result');
     Route::get('/cobros/{cobro}/pdf', [CobroController::class, 'reciboPdf'])->name('cobros.recibo-pdf');
     Route::get('/cobros/{cobro}', [CobroController::class, 'show'])->name('cobros.show');

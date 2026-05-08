@@ -108,11 +108,24 @@ class FacturacionService
      *
      * @param  string|null  $estado  Estado de la factura (por defecto: pendiente)
      * @param  string|null  $fechaVencimiento  Fecha de vencimiento Y-m-d (por defecto: emisión + dias_vencimiento_factura)
+     * @param  string|null  $fechaEmision  Fecha de emisión Y-m-d (por defecto: hoy)
+     * @param  list<string>|null  $estadosServicio  Estados de servicio a incluir (por defecto solo activo)
      */
-    public function generarFacturaInterna(Cliente $cliente, Carbon $periodoDesde, Carbon $periodoHasta, ?int $usuarioId = null, ?string $estado = null, ?string $fechaVencimiento = null): FacturaInterna
-    {
+    public function generarFacturaInterna(
+        Cliente $cliente,
+        Carbon $periodoDesde,
+        Carbon $periodoHasta,
+        ?int $usuarioId = null,
+        ?string $estado = null,
+        ?string $fechaVencimiento = null,
+        ?string $fechaEmision = null,
+        ?array $estadosServicio = null,
+    ): FacturaInterna {
+        $estadosServicio = $estadosServicio ?? [Servicio::ESTADO_ACTIVO];
+        $soloActivos = count($estadosServicio) === 1 && $estadosServicio[0] === Servicio::ESTADO_ACTIVO;
+
         $serviciosFacturables = $cliente->servicios()
-            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->whereIn('estado', $estadosServicio)
             ->with('plan')
             ->get();
 
@@ -121,16 +134,28 @@ class FacturacionService
         )->values();
 
         if ($serviciosFacturables->isEmpty()) {
-            throw new \InvalidArgumentException('El cliente no tiene servicios activos para facturar.');
+            throw new \InvalidArgumentException(
+                $soloActivos
+                    ? 'El cliente no tiene servicios activos para facturar.'
+                    : 'El cliente no tiene servicios en el estado seleccionado para facturar.'
+            );
         }
         if ($servicios->isEmpty()) {
-            throw new \InvalidArgumentException('Los servicios activos del cliente están bajo acuerdo sin facturación para este período.');
+            throw new \InvalidArgumentException(
+                $soloActivos
+                    ? 'Los servicios activos del cliente están bajo acuerdo sin facturación para este período.'
+                    : 'Los servicios del cliente en el estado seleccionado están bajo acuerdo sin facturación para este período.'
+            );
         }
 
         $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $estadoFinal = $estado ?? 'pendiente';
-        $fechaVencimientoFinal = $fechaVencimiento ?? now()->addDays($diasVencimiento)->toDateString();
+        $baseVencimiento = $fechaEmision !== null && $fechaEmision !== ''
+            ? Carbon::parse($fechaEmision)->startOfDay()
+            : now()->startOfDay();
+        $fechaVencimientoFinal = $fechaVencimiento ?? $baseVencimiento->copy()->addDays($diasVencimiento)->toDateString();
+        $fechaEmisionFinal = $fechaEmision !== null && $fechaEmision !== '' ? Carbon::parse($fechaEmision)->toDateString() : now()->toDateString();
 
         $periodoDesdeEfectivo = $periodoDesde->copy();
         $instalacionesEnPeriodo = $servicios->filter(function ($s) use ($periodoDesde, $periodoHasta) {
@@ -145,14 +170,12 @@ class FacturacionService
             $periodoDesdeEfectivo = $fechas->sortBy(fn ($c) => $c->format('Y-m-d'))->first()->copy();
         }
 
-        return DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $usuarioId, $estadoFinal, $fechaVencimientoFinal) {
-            $fechaEmision = now()->toDateString();
-
+        return DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $usuarioId, $estadoFinal, $fechaVencimientoFinal, $fechaEmisionFinal) {
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
                 'periodo_desde' => $periodoDesdeEfectivo->toDateString(),
                 'periodo_hasta' => $periodoHasta->toDateString(),
-                'fecha_emision' => $fechaEmision,
+                'fecha_emision' => $fechaEmisionFinal,
                 'fecha_vencimiento' => $fechaVencimientoFinal,
                 'estado' => $estadoFinal,
                 'moneda' => 'PYG',
@@ -1325,7 +1348,13 @@ class FacturacionService
 
         $precioViejo = (float) ($planAnterior->precio ?? 0);
         $precioNuevo = (float) ($servicio->plan?->precio ?? 0);
+        $mismoPrecioPlan = abs($precioViejo - $precioNuevo) < 0.00001;
         $pror = self::calcularMontosProrrateoCambioPlan($fechaCambio, $precioViejo, $precioNuevo);
+        if ($mismoPrecioPlan) {
+            // Si el precio no cambia, no corresponde facturar prorrateo por cambio de plan.
+            $pror['monto_plan_anterior'] = 0.0;
+            $pror['monto_plan_nuevo'] = 0.0;
+        }
 
         $nombreViejo = $planAnterior->nombre ?? 'N/A';
         $nombreNuevo = $servicio->plan?->nombre ?? 'N/A';
@@ -1455,7 +1484,9 @@ class FacturacionService
         } elseif ($servicio->estado !== Servicio::ESTADO_ACTIVO) {
             $lineasTicket[] = 'No se generó ni ajustó factura interna (servicio no activo).';
         } elseif ($items === []) {
-            $lineasTicket[] = 'No se generó factura interna (importes prorrateados en 0).';
+            $lineasTicket[] = $mismoPrecioPlan
+                ? 'No se generó factura interna (el nuevo plan mantiene el mismo precio).'
+                : 'No se generó factura interna (importes prorrateados en 0).';
         }
 
         Ticket::create([

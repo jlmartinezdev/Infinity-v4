@@ -86,6 +86,32 @@ final class CobrosMesVentana
         return (float) ($q->sum('cfi.monto') ?? 0);
     }
 
+    /**
+     * Suma de ingreso real: usa cobros.monto (sin depender de distribucion en pivote).
+     */
+    public static function sumCobrosMontos(
+        Carbon $desdeVentana,
+        Carbon $hastaVentana,
+        ?int $usuarioId = null,
+        ?string $formaPago = null,
+    ): float {
+        $q = DB::table('cobros')
+            ->whereBetween('fecha_pago', [$desdeVentana, $hastaVentana]);
+
+        if ($usuarioId !== null) {
+            $q->where('usuario_id', $usuarioId);
+        }
+
+        if ($formaPago !== null) {
+            $formas = array_keys(Cobro::formasPago());
+            if (in_array($formaPago, $formas, true)) {
+                $q->where('forma_pago', $formaPago);
+            }
+        }
+
+        return (float) ($q->sum('monto') ?? 0);
+    }
+
     public static function sumPivotMesActualSinUsuario(?Carbon $ahora = null): float
     {
         $r = self::rangosMesActual($ahora);
@@ -95,6 +121,18 @@ final class CobrosMesVentana
             $r['hastaVentana'],
             $r['facturaDesde'],
             $r['facturaHasta'],
+            null,
+            null,
+        );
+    }
+
+    public static function sumCobrosMesActualSinUsuario(?Carbon $ahora = null): float
+    {
+        $r = self::rangosMesActual($ahora);
+
+        return self::sumCobrosMontos(
+            $r['desdeVentana'],
+            $r['hastaVentana'],
             null,
             null,
         );

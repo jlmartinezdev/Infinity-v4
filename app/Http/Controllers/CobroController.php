@@ -10,9 +10,11 @@ use App\Models\User;
 use App\Services\FacturacionService;
 use App\Support\CobrosMesVentana;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CobroController extends Controller
 {
@@ -27,40 +29,9 @@ class CobroController extends Controller
 
         $query = Cobro::with(['cliente', 'facturaInternas', 'usuario'])
             ->orderBy('id', 'desc');
+        $this->applyCobrosListFilters($request, $query, $user, $esAdmin);
 
-        if (!$esAdmin) {
-            $query->where('usuario_id', $user->usuario_id);
-        }
-
-        if ($esAdmin && $request->filled('usuario_id')) {
-            $query->where('usuario_id', $request->usuario_id);
-        }
-        if ($request->filled('cliente_id')) {
-            $query->where('cliente_id', $request->cliente_id);
-        }
-        if ($request->filled('desde')) {
-            $query->whereDate('fecha_pago', '>=', $request->desde);
-        }
-        if ($request->filled('hasta')) {
-            $query->whereDate('fecha_pago', '<=', $request->hasta);
-        }
-        if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
-            $fd = $request->factura_desde;
-            $fh = $request->factura_hasta;
-            $query->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
-                $q->whereDate('factura_internas.created_at', '>=', $fd)
-                    ->whereDate('factura_internas.created_at', '<=', $fh);
-            });
-        }
-        if ($request->filled('numero_recibo')) {
-            $query->where('numero_recibo', 'like', '%' . $request->numero_recibo . '%');
-        }
-        if ($request->filled('forma_pago')) {
-            $formas = array_keys(Cobro::formasPago());
-            if (in_array($request->forma_pago, $formas, true)) {
-                $query->where('forma_pago', $request->forma_pago);
-            }
-        }
+        $totalFiltrado = (float) (clone $query)->sum('monto');
 
         $cobros = $query->paginate(20)->withQueryString();
         $clientes = Cliente::orderBy('nombre')->get(['cliente_id', 'nombre', 'apellido']);
@@ -77,37 +48,23 @@ class CobroController extends Controller
         $cobrosMesVentanaQuery = CobrosMesVentana::queryParamsDesdeRangos($rangosVentanaMes);
 
         $statsQuery = Cobro::query();
-        if (!$esAdmin) {
-            $statsQuery->where('usuario_id', $user->usuario_id);
-        }
-        if ($esAdmin && $request->filled('usuario_id')) {
-            $statsQuery->where('usuario_id', $request->usuario_id);
-        }
-        if ($request->filled('forma_pago')) {
-            $formas = array_keys(Cobro::formasPago());
-            if (in_array($request->forma_pago, $formas, true)) {
-                $statsQuery->where('forma_pago', $request->forma_pago);
-            }
-        }
-
+        $this->applyCobrosListFilters($request, $statsQuery, $user, $esAdmin);
         $cobrosHoy = (float) (clone $statsQuery)->whereDate('fecha_pago', $hoy)->sum('monto');
 
-        $usuarioIdVentana = !$esAdmin ? (int) $user->usuario_id : ($request->filled('usuario_id') ? (int) $request->usuario_id : null);
-        $formaVentana = null;
-        if ($request->filled('forma_pago')) {
-            $formas = array_keys(Cobro::formasPago());
-            if (in_array($request->forma_pago, $formas, true)) {
-                $formaVentana = $request->forma_pago;
-            }
+        $mesQuery = Cobro::query();
+        $this->applyCobrosDimensionFilters($request, $mesQuery, $user, $esAdmin);
+        $mesQuery->whereBetween('fecha_pago', [$rangosVentanaMes['desdeVentana'], $rangosVentanaMes['hastaVentana']]);
+        // Mismo criterio que el listado: solo filtrar por fecha de factura si vienen ambos parámetros.
+        // Si no (p. ej. solo Desde/Hasta de pago), no exigir facturas del mes del ciclo: evita tarjeta en 0 con cobros visibles.
+        if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
+            $fd = $request->factura_desde;
+            $fh = $request->factura_hasta;
+            $mesQuery->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
+                $q->whereDate('factura_internas.created_at', '>=', $fd)
+                    ->whereDate('factura_internas.created_at', '<=', $fh);
+            });
         }
-        $cobrosMes = CobrosMesVentana::sumPivotMontos(
-            $rangosVentanaMes['desdeVentana'],
-            $rangosVentanaMes['hastaVentana'],
-            $rangosVentanaMes['facturaDesde'],
-            $rangosVentanaMes['facturaHasta'],
-            $usuarioIdVentana,
-            $formaVentana,
-        );
+        $cobrosMes = (float) $mesQuery->sum('monto');
 
         $totalPendienteMes = (float) (DB::table('factura_internas')
             ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
@@ -126,6 +83,7 @@ class CobroController extends Controller
         return view('cobros.index', compact(
             'cobros',
             'clientes',
+            'totalFiltrado',
             'cobrosHoy',
             'cobrosMes',
             'cobrosMesVentanaQuery',
@@ -554,7 +512,84 @@ class CobroController extends Controller
 
         $query = Cobro::with(['cliente', 'facturaInternas', 'usuario'])
             ->orderBy('id', 'desc');
+        $this->applyCobrosListFilters($request, $query, $user, $esAdmin);
 
+        $total = (float) (clone $query)->sum('monto');
+        $totalRegistrosFiltrados = (clone $query)->count();
+        $cobros = $query->limit(500)->get();
+        $ajustes = \App\Models\AjustesGenerales::obtener();
+
+        $pdf = Pdf::loadView('cobros.pdf-resumen', [
+            'cobros' => $cobros,
+            'total' => $total,
+            'totalRegistrosFiltrados' => $totalRegistrosFiltrados,
+            'ajustes' => $ajustes,
+            'desde' => $request->desde,
+            'hasta' => $request->hasta,
+        ])->setPaper('a4', 'portrait');
+
+        $nombre = 'resumen-cobros-' . now()->format('Y-m-d-His') . '.pdf';
+        return $pdf->download($nombre);
+    }
+
+    /**
+     * Exportar cobros filtrados a Excel (CSV UTF-8 con separador ; compatible con Excel).
+     */
+    public function exportarExcel(Request $request): StreamedResponse
+    {
+        $user = $request->user();
+        $esAdmin = $user && $user->rol && strtolower($user->rol->descripcion) === 'administrador';
+
+        $query = Cobro::with(['cliente', 'facturaInternas', 'usuario'])
+            ->orderBy('id', 'desc');
+        $this->applyCobrosListFilters($request, $query, $user, $esAdmin);
+
+        $cobros = $query->get();
+
+        $filename = 'cobros-' . now()->format('Y-m-d-His') . '.csv';
+
+        return response()->streamDownload(function () use ($cobros) {
+            $output = fopen('php://output', 'w');
+            fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            fputcsv($output, [
+                'Recibo',
+                'Fecha pago',
+                'Cliente',
+                'Facturas internas',
+                'Forma de pago',
+                'Monto',
+                'Cobrado por',
+            ], ';');
+
+            foreach ($cobros as $c) {
+                $facturas = $c->facturaInternas->isNotEmpty()
+                    ? $c->facturaInternas->pluck('id')->map(fn ($id) => '#'.$id)->implode(', ')
+                    : '';
+
+                fputcsv($output, [
+                    $c->numero_recibo,
+                    optional($c->fecha_pago)->format('d/m/Y H:i') ?? '',
+                    trim(($c->cliente->nombre ?? '').' '.($c->cliente->apellido ?? '')),
+                    $facturas,
+                    \App\Models\Cobro::formasPago()[$c->forma_pago] ?? $c->forma_pago,
+                    number_format((float) $c->monto, 0, ',', ''),
+                    $c->usuario->name ?? '',
+                ], ';');
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Filtros de listado que no son rangos de periodo (usuario, cliente, forma de pago, recibo).
+     */
+    protected function applyCobrosDimensionFilters(Request $request, Builder $query, $user, bool $esAdmin): void
+    {
         if (!$esAdmin) {
             $query->where('usuario_id', $user->usuario_id);
         }
@@ -564,6 +599,23 @@ class CobroController extends Controller
         if ($request->filled('cliente_id')) {
             $query->where('cliente_id', $request->cliente_id);
         }
+        if ($request->filled('numero_recibo')) {
+            $query->where('numero_recibo', 'like', '%' . $request->numero_recibo . '%');
+        }
+        if ($request->filled('forma_pago')) {
+            $formas = array_keys(Cobro::formasPago());
+            if (in_array($request->forma_pago, $formas, true)) {
+                $query->where('forma_pago', $request->forma_pago);
+            }
+        }
+    }
+
+    /**
+     * Mismos filtros que el listado de cobros y el PDF resumen.
+     */
+    protected function applyCobrosListFilters(Request $request, Builder $query, $user, bool $esAdmin): void
+    {
+        $this->applyCobrosDimensionFilters($request, $query, $user, $esAdmin);
         if ($request->filled('desde')) {
             $query->whereDate('fecha_pago', '>=', $request->desde);
         }
@@ -578,30 +630,6 @@ class CobroController extends Controller
                     ->whereDate('factura_internas.created_at', '<=', $fh);
             });
         }
-        if ($request->filled('numero_recibo')) {
-            $query->where('numero_recibo', 'like', '%' . $request->numero_recibo . '%');
-        }
-        if ($request->filled('forma_pago')) {
-            $formas = array_keys(Cobro::formasPago());
-            if (in_array($request->forma_pago, $formas, true)) {
-                $query->where('forma_pago', $request->forma_pago);
-            }
-        }
-
-        $cobros = $query->limit(500)->get();
-        $total = $cobros->sum('monto');
-        $ajustes = \App\Models\AjustesGenerales::obtener();
-
-        $pdf = Pdf::loadView('cobros.pdf-resumen', [
-            'cobros' => $cobros,
-            'total' => $total,
-            'ajustes' => $ajustes,
-            'desde' => $request->desde,
-            'hasta' => $request->hasta,
-        ])->setPaper('a4', 'portrait');
-
-        $nombre = 'resumen-cobros-' . now()->format('Y-m-d-His') . '.pdf';
-        return $pdf->download($nombre);
     }
 
     /**

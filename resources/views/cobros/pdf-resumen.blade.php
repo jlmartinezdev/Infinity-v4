@@ -52,7 +52,10 @@
     </table>
 
     <div class="total text-right">
-        Total: {{ number_format($total, 0, ',', '.') }} PYG ({{ $cobros->count() }} cobros)
+        Total: {{ number_format($total, 0, ',', '.') }} PYG ({{ $totalRegistrosFiltrados ?? $cobros->count() }} cobros)
     </div>
+    @if(isset($totalRegistrosFiltrados) && $totalRegistrosFiltrados > 500)
+        <p class="filtros" style="margin-top: 8px;">Nota: la tabla muestra como máximo 500 filas; el total anterior incluye todos los cobros que cumplen el filtro.</p>
+    @endif
 </body>
 </html>

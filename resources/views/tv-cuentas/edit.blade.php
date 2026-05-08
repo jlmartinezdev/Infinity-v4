@@ -163,10 +163,14 @@
                         @error('fecha_activacion')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
                 @endif
-                <div class="md:col-span-4">
+                <div class="md:col-span-4 flex flex-wrap gap-x-6 gap-y-2">
                     <label class="inline-flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
                         <input type="checkbox" name="es_promo" value="1" @checked(old('es_promo')) class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
                         Promo (no cargar precio en el servicio)
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="tvbox_comodato" value="1" @checked(old('tvbox_comodato')) class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                        Se entrega TV box en comodato
                     </label>
                 </div>
                 <div class="md:col-span-4 flex items-end">
@@ -185,7 +189,11 @@
                             Servicio #{{ $a->servicio_id }}
                             @if($a->es_promo ?? false)
                                 <span class="ml-1 text-amber-600 dark:text-amber-400">(Promo)</span>
-                            @elseif(isset($a->precio_aplicado) && (float) $a->precio_aplicado > 0)
+                            @endif
+                            @if($a->tvbox_comodato ?? false)
+                                <span class="ml-1 text-blue-600 dark:text-blue-400">(TV box comodato)</span>
+                            @endif
+                            @if(!($a->es_promo ?? false) && isset($a->precio_aplicado) && (float) $a->precio_aplicado > 0)
                                 <span class="ml-1">· Gs. {{ number_format((float) $a->precio_aplicado, 0, ',', '.') }}</span>
                             @endif
                         </p>

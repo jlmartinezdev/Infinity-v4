@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FacturaInternaController extends Controller
@@ -51,6 +52,11 @@ class FacturaInternaController extends Controller
         if ($request->filled('hasta')) {
             $query->whereDate('fecha_emision', '<=', $request->hasta);
         }
+        if ($request->boolean('pendiente_saldo_cero')) {
+            $sumCobrosFi = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
+            $query->whereIn('factura_internas.estado', ['pendiente', 'emitida'])
+                ->whereRaw("factura_internas.total <= {$sumCobrosFi}");
+        }
         $busqueda = trim($request->input('q', ''));
         if ($busqueda !== '') {
             $raw = $busqueda;
@@ -73,6 +79,9 @@ class FacturaInternaController extends Controller
             ->selectRaw("SUM(GREATEST(factura_internas.total - {$sumCobrosExpr}, 0)) as total_pendiente")
             ->value('total_pendiente');
         $cantidadFacturas = (int) (clone $statsQuery)->count('factura_internas.id');
+        $totalGenerado = (float) (clone $statsQuery)
+            ->selectRaw('SUM(factura_internas.total) as total_generado')
+            ->value('total_generado');
 
         $perPage = min(50, max(5, (int) $request->get('per_page', 15)));
         $paginator = $query->paginate($perPage);
@@ -105,6 +114,7 @@ class FacturaInternaController extends Controller
             'stats' => [
                 'cantidad_facturas' => $cantidadFacturas,
                 'total_pendiente' => $totalPendiente,
+                'total_generado' => $totalGenerado,
             ],
         ]);
     }
@@ -164,6 +174,28 @@ class FacturaInternaController extends Controller
             DB::raw('('.$saldoExpr.') as saldo_calc'),
             DB::raw('('.$promExpr.') as prom_calc'),
         ]);
+
+        $statsBase = DB::query()
+            ->fromSub(clone $inner, 'fi_stats')
+            ->selectRaw('
+                COUNT(*) as cantidad_facturas,
+                COUNT(DISTINCT fi_stats.cliente_id) as cantidad_clientes,
+                COALESCE(SUM(fi_stats.total), 0) as monto_total,
+                COALESCE(SUM(fi_stats.cobrado_calc), 0) as monto_cobrado,
+                COALESCE(SUM(fi_stats.saldo_calc), 0) as monto_saldo
+            ')
+            ->first();
+        $hoy = now()->toDateString();
+        $statsVencidos = DB::query()
+            ->fromSub(clone $inner, 'fi_venc')
+            ->whereNotNull('fi_venc.fecha_vencimiento')
+            ->whereDate('fi_venc.fecha_vencimiento', '<', $hoy)
+            ->selectRaw('
+                COUNT(*) as facturas_vencidas,
+                COUNT(DISTINCT fi_venc.cliente_id) as clientes_vencidos,
+                COALESCE(SUM(fi_venc.saldo_calc), 0) as saldo_vencido
+            ')
+            ->first();
 
         $perPage = 20;
         $page = max(1, (int) $request->input('page', 1));
@@ -299,6 +331,16 @@ class FacturaInternaController extends Controller
                 'from' => $totalClientes === 0 ? null : (($page - 1) * $perPage + 1),
                 'to' => $totalClientes === 0 ? null : min($page * $perPage, $totalClientes),
             ],
+            'stats' => [
+                'cantidad_facturas' => (int) ($statsBase->cantidad_facturas ?? 0),
+                'cantidad_clientes' => (int) ($statsBase->cantidad_clientes ?? 0),
+                'monto_total' => (float) ($statsBase->monto_total ?? 0),
+                'monto_cobrado' => (float) ($statsBase->monto_cobrado ?? 0),
+                'monto_saldo' => (float) ($statsBase->monto_saldo ?? 0),
+                'facturas_vencidas' => (int) ($statsVencidos->facturas_vencidas ?? 0),
+                'clientes_vencidos' => (int) ($statsVencidos->clientes_vencidos ?? 0),
+                'saldo_vencido' => (float) ($statsVencidos->saldo_vencido ?? 0),
+            ],
         ]);
     }
 
@@ -352,48 +394,174 @@ class FacturaInternaController extends Controller
      *
      * Columnas: nombre cliente, monto deuda, dirección, celular, fecha instalación (servicios del cliente).
      */
-    public function exportarPendientesExcel(Request $request): StreamedResponse
+    public function exportarPendientesExcel(Request $request): Response
     {
         $query = $this->facturasPendientesQuery($request);
         $this->applyFacturasPendientesOrden($request, $query);
         $facturas = $query->with(['cliente.servicios'])->get();
 
-        $filename = 'pagos-pendientes-'.now()->format('Y-m-d-His').'.csv';
+        $baseFilename = 'pagos-pendientes-'.now()->format('Y-m-d-His');
 
-        return response()->streamDownload(function () use ($facturas) {
-            $output = fopen('php://output', 'w');
-            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        $headers = [
+            'Nombre cliente',
+            'Monto deuda',
+            'Dirección',
+            'Celular',
+            'Fecha instalación',
+        ];
+        $rows = [];
+        foreach ($facturas as $f) {
+            $c = $f->cliente;
+            $rows[] = [
+                $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '',
+                number_format((float) $f->saldo_pendiente, 0, ',', '.').' '.($f->moneda ?? ''),
+                $c?->direccion ?? '',
+                $c?->telefono ?? '',
+                $this->fechaInstalacionMasAntigua($c) ?? '',
+            ];
+        }
 
-            fputcsv($output, [
-                'Nombre cliente',
-                'Monto deuda',
-                'Dirección',
-                'Celular',
-                'Fecha instalación',
-            ], ';');
+        if (class_exists(\ZipArchive::class)) {
+            $tmpPath = $this->crearXlsxSimple($headers, $rows);
 
-            foreach ($facturas as $f) {
-                $c = $f->cliente;
-                $nombre = $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '';
-                $saldo = number_format((float) $f->saldo_pendiente, 0, ',', '.').' '.($f->moneda ?? '');
-                $direccion = $c?->direccion ?? '';
-                $celular = $c?->telefono ?? '';
-                $fechaInst = $this->fechaInstalacionMasAntigua($c);
+            return response()->download(
+                $tmpPath,
+                $baseFilename.'.xlsx',
+                ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+            )->deleteFileAfterSend(true);
+        }
 
-                fputcsv($output, [
-                    $nombre,
-                    $saldo,
-                    $direccion,
-                    $celular,
-                    $fechaInst ?? '',
-                ], ';');
+        // Fallback para servidores sin extension zip: Excel abre este .xls sin problemas.
+        return response()->streamDownload(function () use ($headers, $rows) {
+            echo '<html><head><meta charset="UTF-8"></head><body><table border="1">';
+            echo '<tr>';
+            foreach ($headers as $h) {
+                echo '<th>'.$this->xlsxXml((string) $h).'</th>';
             }
-
-            fclose($output);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            echo '</tr>';
+            foreach ($rows as $row) {
+                echo '<tr>';
+                foreach ($row as $cell) {
+                    echo '<td>'.$this->xlsxXml((string) ($cell ?? '')).'</td>';
+                }
+                echo '</tr>';
+            }
+            echo '</table></body></html>';
+        }, $baseFilename.'.xls', [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$baseFilename.'.xls"',
         ]);
+    }
+
+    private function crearXlsxSimple(array $headers, array $rows): string
+    {
+        $tmpXlsx = tempnam(sys_get_temp_dir(), 'pp_xlsx_');
+        if ($tmpXlsx === false) {
+            throw new \RuntimeException('No se pudo crear archivo temporal para XLSX.');
+        }
+
+        $zip = new \ZipArchive;
+        if ($zip->open($tmpXlsx, \ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('No se pudo inicializar el archivo XLSX.');
+        }
+
+        $sheetRows = [];
+        $sheetRows[] = $this->xlsxRowXml(1, $headers);
+        foreach ($rows as $index => $row) {
+            $sheetRows[] = $this->xlsxRowXml($index + 2, $row);
+        }
+        $sheetData = implode('', $sheetRows);
+
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>');
+
+        $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>');
+
+        $zip->addFromString('docProps/app.xml', '<?xml version="1.0" encoding="UTF-8"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>Infinity ISP</Application>
+</Properties>');
+
+        $zip->addFromString('docProps/core.xml', '<?xml version="1.0" encoding="UTF-8"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:creator>Infinity ISP</dc:creator>
+  <cp:lastModifiedBy>Infinity ISP</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">'.now()->toAtomString().'</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">'.now()->toAtomString().'</dcterms:modified>
+</cp:coreProperties>');
+
+        $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Pendientes" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>');
+
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>');
+
+        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
+  <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
+</styleSheet>');
+
+        $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>'.$sheetData.'</sheetData>
+</worksheet>');
+
+        $zip->close();
+
+        return $tmpXlsx;
+    }
+
+    private function xlsxRowXml(int $rowNumber, array $values): string
+    {
+        $cells = '';
+        foreach (array_values($values) as $colIndex => $value) {
+            $cellRef = $this->xlsxColumnLetter($colIndex + 1).$rowNumber;
+            $safe = $this->xlsxXml((string) ($value ?? ''));
+            $cells .= '<c r="'.$cellRef.'" t="inlineStr"><is><t xml:space="preserve">'.$safe.'</t></is></c>';
+        }
+
+        return '<row r="'.$rowNumber.'">'.$cells.'</row>';
+    }
+
+    private function xlsxColumnLetter(int $index): string
+    {
+        $letters = '';
+        while ($index > 0) {
+            $mod = ($index - 1) % 26;
+            $letters = chr(65 + $mod).$letters;
+            $index = (int) floor(($index - $mod) / 26);
+        }
+
+        return $letters;
+    }
+
+    private function xlsxXml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 
     /**
@@ -713,7 +881,7 @@ class FacturaInternaController extends Controller
             'detalles.*.id' => ['nullable', 'integer'],
             'detalles.*.descripcion' => ['required', 'string', 'max:500'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0'],
-            'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'detalles.*.precio_unitario' => ['required', 'numeric'],
             'detalles.*.impuesto_id' => ['nullable', 'integer', 'exists:impuestos,id'],
             'forma_pago' => ['nullable', 'string', 'in:efectivo,transferencia,tarjeta,cheque,otro'],
         ]);

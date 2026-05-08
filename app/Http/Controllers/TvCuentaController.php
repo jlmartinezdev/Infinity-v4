@@ -201,6 +201,7 @@ class TvCuentaController extends Controller
                 Rule::exists('servicios', 'servicio_id'),
             ],
             'es_promo' => ['nullable', 'boolean'],
+            'tvbox_comodato' => ['nullable', 'boolean'],
         ];
 
         if ($this->asignacionPerfilesV2Disponible()) {
@@ -257,6 +258,9 @@ class TvCuentaController extends Controller
                 $precioAplicado = $raw !== null ? (float) $raw : 0.0;
             }
             $payload['precio_aplicado'] = $precioAplicado;
+        }
+        if (Schema::hasColumn('tv_cuenta_asignaciones', 'tvbox_comodato')) {
+            $payload['tvbox_comodato'] = (bool) ($validated['tvbox_comodato'] ?? false);
         }
 
         TvCuentaAsignacion::create($payload);

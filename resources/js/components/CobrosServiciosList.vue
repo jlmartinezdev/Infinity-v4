@@ -65,9 +65,9 @@
                 <div
                   v-for="s in serviciosFiltrados"
                   :key="s.servicio_id"
-                  class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                 >
-                  <div class="flex-1 min-w-0">
+                  <div class="w-full sm:flex-1 min-w-0">
                     <p class="font-medium text-gray-900 dark:text-gray-100 truncate">
                       {{ nombresCompletos(s) || '—' }}
                     </p>
@@ -79,7 +79,7 @@
                       {{ s.cliente.direccion }}
                     </p>
                   </div>
-                  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0">
+                  <div class="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shrink-0">
                     <div class="flex items-center gap-3">
                     
                       <span
@@ -89,7 +89,7 @@
                         {{ s.facturas_pendientes.cantidad }} factura(s) pendiente(s): {{ formatMonto(s.facturas_pendientes.monto ?? 0) }}
                       </span>
                     </div>
-                    <div class="flex items-center justify-between gap-2 ">
+                    <div class="flex items-center gap-2">
                      
                       <a
                         v-if="canCrearCobro"

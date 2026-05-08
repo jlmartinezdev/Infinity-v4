@@ -12,11 +12,18 @@ use Illuminate\Console\Command;
 
 class CrearFacturasInternasAutomaticasCommand extends Command
 {
+    /** Estados de servicio que entran en la factura mensual automática (excluye cancelado). */
+    private const ESTADOS_SERVICIO_FACTURA_AUTOMATICA = [
+        Servicio::ESTADO_ACTIVO,
+        Servicio::ESTADO_SUSPENDIDO,
+        Servicio::ESTADO_CORTADO,
+    ];
+
     protected $signature = 'facturas:crear-internas-automaticas
                             {--dry-run : Solo mostrar qué facturas se crearían, sin ejecutar}
                             {--force : Ejecutar aunque no sea el día configurado}';
 
-    protected $description = 'Crea facturas internas automáticamente para todos los clientes con servicios activos. Se ejecuta el día configurado en dia_creacion_factura_automatica (Configuración > Facturación). Factura el mes actual.';
+    protected $description = 'Crea facturas internas automáticamente para clientes en estado activo con al menos un servicio asociado. Factura líneas de servicios activos, suspendidos o cortados (no cancelados). Se ejecuta el día configurado en dia_creacion_factura_automatica (Configuración > Facturación). Factura el mes actual.';
 
     public function handle(FacturacionService $facturacionService): int
     {
@@ -49,9 +56,11 @@ class CrearFacturasInternasAutomaticasCommand extends Command
             $this->info(sprintf('Vencimiento: %s (día %d del mes siguiente)', $fechaVencimiento, $diaVencimiento));
         }
 
-        $clientesConServicios = Cliente::whereHas('servicios', function ($q) {
-            $q->where('estado', Servicio::ESTADO_ACTIVO);
-        })->get();
+        $clientesConServicios = Cliente::query()
+            ->where('estado', 'activo')
+            ->whereHas('servicios')
+            ->orderBy('nombre')
+            ->get();
 
         $creadas = 0;
         $omitidos = 0;
@@ -77,7 +86,16 @@ class CrearFacturasInternasAutomaticasCommand extends Command
                     continue;
                 }
 
-                $facturacionService->generarFacturaInterna($cliente, $periodoDesde, $periodoHasta, null, 'pendiente', $fechaVencimiento);
+                $facturacionService->generarFacturaInterna(
+                    $cliente,
+                    $periodoDesde,
+                    $periodoHasta,
+                    null,
+                    'pendiente',
+                    $fechaVencimiento,
+                    null,
+                    self::ESTADOS_SERVICIO_FACTURA_AUTOMATICA
+                );
                 $creadas++;
                 $this->line("  ✓ Factura creada para Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido})");
             } catch (\Throwable $e) {

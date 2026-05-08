@@ -16,6 +16,7 @@ class TvCuentaAsignacion extends Model
         'fecha_activacion',
         'es_promo',
         'precio_aplicado',
+        'tvbox_comodato',
     ];
 
     protected function casts(): array
@@ -24,6 +25,7 @@ class TvCuentaAsignacion extends Model
             'fecha_activacion' => 'date',
             'es_promo' => 'boolean',
             'precio_aplicado' => 'decimal:2',
+            'tvbox_comodato' => 'boolean',
         ];
     }
 

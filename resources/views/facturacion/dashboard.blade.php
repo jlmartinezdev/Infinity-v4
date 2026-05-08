@@ -8,7 +8,8 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard de Facturacion</h1>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Facturado: facturas creadas en el mes anterior al indicado en cada columna.
-            Cobrado: igual que en Cobros y recibos — facturas de ese mismo mes anterior y cobros con fecha de pago desde el día 20 del mes anterior hasta el fin del mes de la columna.
+            Cobrado: monto real ingresado (`cobros.monto`) en la ventana del ciclo, asociado a facturas de ese mismo mes facturado.
+            Pendiente: saldo real restante de esas facturas del ciclo.
         </p>
     </div>
 
@@ -16,6 +17,59 @@
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Totales mensuales</h2>
         <div class="w-full" style="height: 350px;">
             <canvas id="facturacionDashboardChart"></canvas>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mt-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Monto real cobrado</h2>
+            <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button id="btn-cobro-real-dia" type="button" class="px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white">Por día</button>
+                <button id="btn-cobro-real-mes" type="button" class="px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">Por mes</button>
+            </div>
+        </div>
+        <div class="w-full" style="height: 320px;">
+            <canvas id="facturacionCobroRealChart"></canvas>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mt-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Cobro atrasado y saldo a favor (por mes)</h2>
+        <div class="w-full" style="height: 320px;">
+            <canvas id="facturacionAtrasadoFavorChart"></canvas>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mt-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Debug resumen por mes</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Referencia rápida de los valores usados en el gráfico mensual para validar cálculos.
+        </p>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Mes</th>
+                        <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">Facturado</th>
+                        <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">Cobrado</th>
+                        <th class="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">Pendiente</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    @forelse(($series ?? []) as $row)
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            <td class="px-3 py-2 text-gray-900 dark:text-gray-100">{{ $row['mes'] ?? '—' }}</td>
+                            <td class="px-3 py-2 text-right text-blue-700 dark:text-blue-400 font-medium">{{ number_format((float)($row['total_facturado'] ?? 0), 0, ',', '.') }} PYG</td>
+                            <td class="px-3 py-2 text-right text-green-700 dark:text-green-400 font-medium">{{ number_format((float)($row['total_cobrado'] ?? 0), 0, ',', '.') }} PYG</td>
+                            <td class="px-3 py-2 text-right text-amber-700 dark:text-amber-400 font-medium">{{ number_format((float)($row['total_pendiente'] ?? 0), 0, ',', '.') }} PYG</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">Sin datos.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -29,10 +83,20 @@
         if (!el) return;
 
         const data = @json($series);
+        const dataCobroRealDia = @json($seriesCobroRealDia);
+        const dataCobroRealMes = @json($seriesCobroRealMes);
+        const dataAtrasadoFavor = @json($seriesAtrasadoFavor);
         const labels = data.map(item => item.mes);
         const totalFacturado = data.map(item => Number(item.total_facturado || 0));
         const totalCobrado = data.map(item => Number(item.total_cobrado || 0));
         const totalPendiente = data.map(item => Number(item.total_pendiente || 0));
+        const labelsCobroRealDia = dataCobroRealDia.map(item => item.dia);
+        const valuesCobroRealDia = dataCobroRealDia.map(item => Number(item.total_cobrado_real || 0));
+        const labelsCobroRealMes = dataCobroRealMes.map(item => item.mes);
+        const valuesCobroRealMes = dataCobroRealMes.map(item => Number(item.total_cobrado_real || 0));
+        const labelsAtrasadoFavor = dataAtrasadoFavor.map(item => item.mes);
+        const valuesCobroAtrasado = dataAtrasadoFavor.map(item => Number(item.cobro_atrasado || 0));
+        const valuesSaldoFavor = dataAtrasadoFavor.map(item => Number(item.saldo_favor || 0));
 
         const formatPYG = (value) => {
             const n = Number(value || 0);
@@ -63,6 +127,133 @@
                         data: totalPendiente,
                         backgroundColor: 'rgba(245, 158, 11, 0.75)',
                         borderColor: 'rgba(245, 158, 11, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.dataset.label || '';
+                                return label + ': ' + formatPYG(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return formatPYG(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const elCobroReal = document.getElementById('facturacionCobroRealChart');
+        if (!elCobroReal) return;
+        const btnDia = document.getElementById('btn-cobro-real-dia');
+        const btnMes = document.getElementById('btn-cobro-real-mes');
+
+        const cobroRealChart = new Chart(elCobroReal, {
+            type: 'line',
+            data: {
+                labels: labelsCobroRealDia,
+                datasets: [
+                    {
+                        label: 'Monto real cobrado',
+                        data: valuesCobroRealDia,
+                        borderColor: 'rgba(5, 150, 105, 1)',
+                        backgroundColor: 'rgba(5, 150, 105, 0.2)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.dataset.label || '';
+                                return label + ': ' + formatPYG(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return formatPYG(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        function setMode(mode) {
+            const isDia = mode === 'dia';
+            cobroRealChart.data.labels = isDia ? labelsCobroRealDia : labelsCobroRealMes;
+            cobroRealChart.data.datasets[0].data = isDia ? valuesCobroRealDia : valuesCobroRealMes;
+            cobroRealChart.update();
+
+            if (btnDia && btnMes) {
+                btnDia.className = isDia
+                    ? 'px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white'
+                    : 'px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200';
+                btnMes.className = !isDia
+                    ? 'px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white'
+                    : 'px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200';
+            }
+        }
+
+        btnDia?.addEventListener('click', () => setMode('dia'));
+        btnMes?.addEventListener('click', () => setMode('mes'));
+
+        const elAtrasadoFavor = document.getElementById('facturacionAtrasadoFavorChart');
+        if (!elAtrasadoFavor) return;
+
+        new Chart(elAtrasadoFavor, {
+            type: 'bar',
+            data: {
+                labels: labelsAtrasadoFavor,
+                datasets: [
+                    {
+                        label: 'Cobro atrasado',
+                        data: valuesCobroAtrasado,
+                        backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Saldo a favor',
+                        data: valuesSaldoFavor,
+                        backgroundColor: 'rgba(168, 85, 247, 0.75)',
+                        borderColor: 'rgba(168, 85, 247, 1)',
                         borderWidth: 1
                     }
                 ]

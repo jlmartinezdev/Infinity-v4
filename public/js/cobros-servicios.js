@@ -27508,7 +27508,7 @@ var _hoisted_13 = {
   class: "divide-y divide-gray-100 dark:divide-gray-700/50"
 };
 var _hoisted_14 = {
-  class: "flex-1 min-w-0"
+  class: "w-full sm:flex-1 min-w-0"
 };
 var _hoisted_15 = {
   class: "font-medium text-gray-900 dark:text-gray-100 truncate"
@@ -27525,7 +27525,7 @@ var _hoisted_18 = {
   class: "text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5"
 };
 var _hoisted_19 = {
-  class: "flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0"
+  class: "w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shrink-0"
 };
 var _hoisted_20 = {
   class: "flex items-center gap-3"
@@ -27535,7 +27535,7 @@ var _hoisted_21 = {
   class: "text-xs px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200"
 };
 var _hoisted_22 = {
-  class: "flex items-center justify-between gap-2"
+  class: "flex items-center gap-2"
 };
 var _hoisted_23 = ["href"];
 var _hoisted_24 = {
@@ -27596,7 +27596,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     var _s$cliente$cedula, _s$cliente, _s$plan, _s$plan$precio, _s$plan2, _s$cliente2, _s$facturas_pendiente, _s$facturas_pendiente2, _s$facturas_pendiente3, _s$cliente3;
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
       key: s.servicio_id,
-      class: "flex items-center justify-between gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+      class: "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.nombresCompletos(s) || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_16, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)((_s$cliente$cedula = (_s$cliente = s.cliente) === null || _s$cliente === void 0 ? void 0 : _s$cliente.cedula) !== null && _s$cliente$cedula !== void 0 ? _s$cliente$cedula : '—') + " ", 1 /* TEXT */), (_s$plan = s.plan) !== null && _s$plan !== void 0 && _s$plan.nombre ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_17, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(s.plan.nombre) + "- " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatMonto((_s$plan$precio = (_s$plan2 = s.plan) === null || _s$plan2 === void 0 ? void 0 : _s$plan2.precio) !== null && _s$plan$precio !== void 0 ? _s$plan$precio : 0)) + " PYG", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (_s$cliente2 = s.cliente) !== null && _s$cliente2 !== void 0 && _s$cliente2.direccion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_18, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(s.cliente.direccion), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_19, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_20, [((_s$facturas_pendiente = (_s$facturas_pendiente2 = s.facturas_pendientes) === null || _s$facturas_pendiente2 === void 0 ? void 0 : _s$facturas_pendiente2.cantidad) !== null && _s$facturas_pendiente !== void 0 ? _s$facturas_pendiente : 0) > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(s.facturas_pendientes.cantidad) + " factura(s) pendiente(s): " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatMonto((_s$facturas_pendiente3 = s.facturas_pendientes.monto) !== null && _s$facturas_pendiente3 !== void 0 ? _s$facturas_pendiente3 : 0)), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_22, [$props.canCrearCobro ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
       key: 0,
       href: $setup.urlCrearCobro((_s$cliente3 = s.cliente) === null || _s$cliente3 === void 0 ? void 0 : _s$cliente3.cliente_id),

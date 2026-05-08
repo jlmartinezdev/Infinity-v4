@@ -58,7 +58,7 @@
       {{ inlineError }}
     </div>
 
-    <div v-if="esAdmin" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+    <div v-if="esAdmin" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad de facturas</p>
         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.cantidad_facturas }}</p>
@@ -66,6 +66,10 @@
       <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total pendiente</p>
         <p class="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-400">{{ formatMonto(stats.total_pendiente) }} PYG</p>
+      </div>
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total generado</p>
+        <p class="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-400">{{ formatMonto(stats.total_generado) }} PYG</p>
       </div>
     </div>
 
@@ -147,6 +151,16 @@
             </button>
           </div>
         </div>
+        <label class="flex items-start gap-2 cursor-pointer select-none max-w-xl">
+          <input
+            v-model="filtroPendienteSaldoCero"
+            type="checkbox"
+            class="mt-1 rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 dark:bg-gray-700"
+          />
+          <span class="text-sm text-gray-700 dark:text-gray-300">
+            Solo pendientes o emitidas ya cobradas al 100% (saldo 0; útil si el estado no pasó a «Pagada»).
+          </span>
+        </label>
       </div>
 
       <div class="overflow-x-auto">
@@ -294,10 +308,12 @@ const filtroClienteId = ref('');
 const filtroEstado = ref('');
 const filtroFechaDesde = ref('');
 const filtroFechaHasta = ref('');
+const filtroPendienteSaldoCero = ref(false);
 const facturas = ref([]);
 const stats = ref({
   cantidad_facturas: 0,
   total_pendiente: 0,
+  total_generado: 0,
 });
 const meta = ref({
   current_page: 1,
@@ -356,17 +372,19 @@ async function cargar(page = 1) {
     if (filtroFechaDesde.value) params.set('desde', filtroFechaDesde.value);
     if (filtroFechaHasta.value) params.set('hasta', filtroFechaHasta.value);
     if (buscarDebounced.value.trim()) params.set('q', buscarDebounced.value.trim());
+    if (filtroPendienteSaldoCero.value) params.set('pendiente_saldo_cero', '1');
     const { data } = await window.axios.get(`${props.listUrl}?${params.toString()}`);
     facturas.value = data.data || [];
     meta.value = { ...meta.value, ...(data.meta || {}) };
     stats.value = {
       cantidad_facturas: Number(data.stats?.cantidad_facturas || 0),
       total_pendiente: Number(data.stats?.total_pendiente || 0),
+      total_generado: Number(data.stats?.total_generado || 0),
     };
   } catch (e) {
     inlineError.value = e.response?.data?.message || 'No se pudo cargar el listado.';
     facturas.value = [];
-    stats.value = { cantidad_facturas: 0, total_pendiente: 0 };
+    stats.value = { cantidad_facturas: 0, total_pendiente: 0, total_generado: 0 };
   } finally {
     loading.value = false;
   }
@@ -375,7 +393,7 @@ async function cargar(page = 1) {
 function onEjecutarCrear() {
   const Swal = typeof window !== 'undefined' ? window.Swal : null;
   const msg =
-    '¿Ejecutar la tarea crear-factura-internas? Se crearán facturas internas automáticas del mes actual para clientes con servicios activos (omite si ya existe factura del período).';
+    '¿Ejecutar la tarea crear-factura-internas? Se crearán facturas del mes actual para clientes activos con al menos un servicio asociado; se facturan servicios activos, suspendidos o cortados (omite si ya existe factura del período).';
   const run = () => ejecutarFormRef.value?.submit();
   if (Swal) {
     Swal.fire({
@@ -437,7 +455,7 @@ watch(buscar, () => {
   }, 350);
 });
 
-watch([filtroClienteId, filtroEstado, filtroFechaDesde, filtroFechaHasta], () => {
+watch([filtroClienteId, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroPendienteSaldoCero], () => {
   cargar(1);
 });
 

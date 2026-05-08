@@ -15,6 +15,13 @@
                 </svg>
                 Descargar PDF resumen
             </a>
+            <a href="{{ route('cobros.exportar-excel', request()->query()) }}"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors">
+                <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Exportar Excel
+            </a>
             @if(auth()->user()?->tienePermiso('cobros.crear'))
                 <a href="{{ route('cobros.create') }}"
                     class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
@@ -28,7 +35,9 @@
     @php
         $paramsDashboard = array_filter([
             'usuario_id' => $esAdmin ? request('usuario_id') : null,
+            'cliente_id' => request('cliente_id'),
             'forma_pago' => request('forma_pago'),
+            'numero_recibo' => request('numero_recibo'),
         ]);
     @endphp
     <div class="grid grid-cols-1 {{ $esAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-2' }} gap-4 mb-6">
@@ -146,6 +155,15 @@
                 </div>
             </div>
         </form>
+
+        <div class="px-4 py-3 border-b border-green-100 dark:border-green-900/40 bg-green-50/80 dark:bg-green-900/20">
+            <p class="text-sm text-gray-800 dark:text-gray-200">
+                <span class="font-medium">Total con filtros actuales:</span>
+                {{ number_format($totalFiltrado ?? 0, 0, ',', '.') }} PYG
+                <span class="text-gray-600 dark:text-gray-400">({{ $cobros->total() }} cobro{{ $cobros->total() === 1 ? '' : 's' }})</span>
+                <span class="text-gray-500 dark:text-gray-500 text-xs block sm:inline sm:ml-2">Mismo criterio que el PDF «Descargar PDF resumen».</span>
+            </p>
+        </div>
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

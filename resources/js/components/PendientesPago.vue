@@ -6,7 +6,7 @@
         <a
           :href="exportHref"
           class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-emerald-300 dark:border-emerald-700 rounded-lg text-sm font-medium text-emerald-900 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
-          title="Exportar listado actual a Excel (CSV)"
+          title="Exportar listado actual a Excel (.xlsx)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -41,6 +41,27 @@
       Facturas internas con saldo pendiente, agrupadas por cliente (totales y saldos sumados). La búsqueda por nombre o cédula se aplica mientras escribe. Ordene por columna o use el embudo para filtrar.
       <span v-if="canMulticobro"> Marque clientes y use «Multicobro» para incluir todas sus facturas pendientes en un solo registro de cobro.</span>
     </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Clientes con deuda</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.cantidad_clientes }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-500">{{ stats.cantidad_facturas }} factura(s)</p>
+      </div>
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Monto total facturado</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ fmtMonto(stats.monto_total, 'PYG') }}</p>
+      </div>
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Monto cobrado</p>
+        <p class="mt-1 text-2xl font-bold text-green-700 dark:text-green-400">{{ fmtMonto(stats.monto_cobrado, 'PYG') }}</p>
+      </div>
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Saldo pendiente</p>
+        <p class="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-400">{{ fmtMonto(stats.monto_saldo, 'PYG') }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-500">Vencido: {{ fmtMonto(stats.saldo_vencido, 'PYG') }} ({{ stats.facturas_vencidas }} factura(s))</p>
+      </div>
+    </div>
 
     <div v-if="flashSuccess" class="mb-4 p-4 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-sm">
       {{ flashSuccess }}
@@ -564,6 +585,16 @@ const sortDir = ref('asc');
 const page = ref(1);
 
 const rows = ref([]);
+const stats = ref({
+  cantidad_facturas: 0,
+  cantidad_clientes: 0,
+  monto_total: 0,
+  monto_cobrado: 0,
+  monto_saldo: 0,
+  facturas_vencidas: 0,
+  clientes_vencidos: 0,
+  saldo_vencido: 0,
+});
 const meta = ref({
   current_page: 1,
   last_page: 1,
@@ -723,6 +754,16 @@ async function cargar() {
     const { data } = await axios.get(props.listUrl, { params: construirParamsApi() });
     rows.value = data.data || [];
     meta.value = { ...meta.value, ...(data.meta || {}) };
+    stats.value = {
+      cantidad_facturas: Number(data.stats?.cantidad_facturas || 0),
+      cantidad_clientes: Number(data.stats?.cantidad_clientes || 0),
+      monto_total: Number(data.stats?.monto_total || 0),
+      monto_cobrado: Number(data.stats?.monto_cobrado || 0),
+      monto_saldo: Number(data.stats?.monto_saldo || 0),
+      facturas_vencidas: Number(data.stats?.facturas_vencidas || 0),
+      clientes_vencidos: Number(data.stats?.clientes_vencidos || 0),
+      saldo_vencido: Number(data.stats?.saldo_vencido || 0),
+    };
     selectedFacturaIds.value = selectedFacturaIds.value.filter((id) =>
       rows.value.some((r) => (r.factura_ids || []).includes(id)),
     );
@@ -730,6 +771,16 @@ async function cargar() {
   } catch (e) {
     loadError.value = e.response?.data?.message || e.message || 'No se pudo cargar el listado.';
     rows.value = [];
+    stats.value = {
+      cantidad_facturas: 0,
+      cantidad_clientes: 0,
+      monto_total: 0,
+      monto_cobrado: 0,
+      monto_saldo: 0,
+      facturas_vencidas: 0,
+      clientes_vencidos: 0,
+      saldo_vencido: 0,
+    };
   } finally {
     loading.value = false;
   }

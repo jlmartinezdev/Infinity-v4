@@ -80,7 +80,7 @@ class HomeController extends Controller
         $stats = [
             'clientes' => Cliente::where('estado', 'activo')->count(),
             'servicios' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count(),
-            'facturacion' => CobrosMesVentana::sumPivotMesActualSinUsuario(),
+            'facturacion' => $this->totalCobrosMesActualDesdeCobros(),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'en_proceso'])->count(),
             'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
                 ->distinct()
@@ -106,7 +106,7 @@ class HomeController extends Controller
         $stats = [
             'clientes' => Cliente::where('estado', 'activo')->count(),
             'servicios' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count(),
-            'facturacion' => CobrosMesVentana::sumPivotMesActualSinUsuario(),
+            'facturacion' => $this->totalCobrosMesActualDesdeCobros(),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'en_proceso'])->count(),
             'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
                 ->distinct()
@@ -119,6 +119,15 @@ class HomeController extends Controller
         ];
 
         return response()->json($stats);
+    }
+
+    /**
+     * Total cobrado del ciclo mensual vigente usando cobros.monto
+     * (alineado con el dashboard de Cobros y su enlace desde Home).
+     */
+    private function totalCobrosMesActualDesdeCobros(): float
+    {
+        return CobrosMesVentana::sumCobrosMesActualSinUsuario();
     }
 
     /**

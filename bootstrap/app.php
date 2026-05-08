@@ -29,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withSchedule(function (Schedule $schedule): void {
-        // Creación automática de facturas internas (día configurable en Configuración > Facturación)
+        // Creación automática de facturas internas: clientes activos con servicio; líneas A/S/C (día configurable)
         $diaFactura = (int) \App\Models\FacturacionParametro::obtener('dia_creacion_factura_automatica', 1);
         $horaFactura = '01:00'; // Ejecuta a la 1:00 AM el día configurado
         $schedule->command('facturas:crear-internas-automaticas')
