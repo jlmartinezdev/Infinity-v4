@@ -8,6 +8,8 @@ if (el) {
   const cfg = typeof window.__PENDIENTES_PAGO_CONFIG__ !== 'undefined' ? window.__PENDIENTES_PAGO_CONFIG__ : {};
   const app = createApp(PendientesPago, {
     listUrl: cfg.listUrl || '',
+    mapPuntosUrl: cfg.mapPuntosUrl || '',
+    googleMapsApiKey: cfg.googleMapsApiKey || '',
     exportExcelUrl: cfg.exportExcelUrl || '',
     pfKeys: cfg.pfKeys || [],
     urls: cfg.urls || {},
@@ -18,6 +20,7 @@ if (el) {
     canVerClienteDetalle: cfg.canVerClienteDetalle ?? false,
     flashSuccess: cfg.flashSuccess || '',
     flashError: cfg.flashError || '',
+    nodos: cfg.nodos || [],
   });
   app.mount(el);
 }

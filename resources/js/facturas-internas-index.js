@@ -17,6 +17,7 @@ if (el) {
     canEjecutarCrear: cfg.canEjecutarCrear ?? false,
     canEditar: cfg.canEditar ?? false,
     canEliminar: cfg.canEliminar ?? false,
+    canNotaCredito: cfg.canNotaCredito ?? false,
     esAdmin: cfg.esAdmin ?? false,
     flashSuccess: cfg.flashSuccess || '',
     flashError: cfg.flashError || '',

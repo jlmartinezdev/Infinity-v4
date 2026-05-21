@@ -54,6 +54,7 @@ class EstadoPedidoDetalle extends Model
         'nodo_id',
         'tecnologia_id',
         'plan_id',
+        'pool_id',
     ];
 
     /**
@@ -114,5 +115,10 @@ class EstadoPedidoDetalle extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class, 'plan_id', 'plan_id');
+    }
+
+    public function pool(): BelongsTo
+    {
+        return $this->belongsTo(RouterIpPool::class, 'pool_id', 'pool_id');
     }
 }

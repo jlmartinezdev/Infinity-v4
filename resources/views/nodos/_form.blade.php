@@ -18,6 +18,37 @@
         @enderror
     </div>
 
+    <div>
+        <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tecnologías que maneja el nodo</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Marcá GPON (fibra), Wireless (radio) o ambas si el nodo atiende los dos tipos de instalación.</p>
+        <div class="flex flex-wrap gap-6">
+            @php
+                $gponChecked = old('tecnologia_gpon', $nodo ? $nodo->tecnologia_gpon : true);
+                $wirelessChecked = old('tecnologia_wireless', $nodo ? $nodo->tecnologia_wireless : true);
+            @endphp
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="hidden" name="tecnologia_gpon" value="0">
+                <input type="checkbox" name="tecnologia_gpon" value="1"
+                    class="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
+                    {{ filter_var($gponChecked, FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
+                <span class="text-sm text-gray-800 dark:text-gray-200 font-medium">GPON / Fibra</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="hidden" name="tecnologia_wireless" value="0">
+                <input type="checkbox" name="tecnologia_wireless" value="1"
+                    class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                    {{ filter_var($wirelessChecked, FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
+                <span class="text-sm text-gray-800 dark:text-gray-200 font-medium">Wireless</span>
+            </label>
+        </div>
+        @error('tecnologia_gpon')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+        @error('tecnologia_wireless')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
             <label for="coordenas_gps" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Coordenadas GPS</label>

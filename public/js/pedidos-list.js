@@ -27355,6 +27355,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       type: String,
       required: true
     },
+    verificarTelefonoUrl: {
+      type: String,
+      default: ''
+    },
+    cedulaTemporalUrl: {
+      type: String,
+      default: ''
+    },
     consultarPadronUrl: {
       type: String,
       required: true
@@ -27385,6 +27393,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var guardando = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var errorCliente = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var mensajeClienteSuccess = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var sinDatosCedula = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var cargandoCedulaTemporal = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var verificandoTelefono = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var telefonoAsociacion = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var formData = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)({
       cedula: '',
       cliente_id: null,
@@ -27400,6 +27412,86 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       observaciones: '',
       fecha_pedido: new Date().toISOString().split('T')[0]
     });
+    var limpiarTelefonoAsociacion = function limpiarTelefonoAsociacion() {
+      telefonoAsociacion.value = null;
+    };
+    var verificarTelefonoPedidoBlur = /*#__PURE__*/function () {
+      var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+        var url, raw, payload, _yield$window$axios$p, data, c, nombre, ci, _t;
+        return _regenerator().w(function (_context) {
+          while (1) switch (_context.p = _context.n) {
+            case 0:
+              url = (props.verificarTelefonoUrl || '').trim();
+              if (url) {
+                _context.n = 1;
+                break;
+              }
+              return _context.a(2);
+            case 1:
+              raw = (formData.value.telefono || '').trim();
+              if (raw) {
+                _context.n = 2;
+                break;
+              }
+              limpiarTelefonoAsociacion();
+              return _context.a(2);
+            case 2:
+              verificandoTelefono.value = true;
+              telefonoAsociacion.value = null;
+              _context.p = 3;
+              payload = {
+                telefono: raw
+              };
+              if (formData.value.cliente_id != null) {
+                payload.exclude_cliente_id = formData.value.cliente_id;
+              }
+              _context.n = 4;
+              return window.axios.post(url, payload);
+            case 4:
+              _yield$window$axios$p = _context.v;
+              data = _yield$window$axios$p.data;
+              if (data !== null && data !== void 0 && data.encontrado) {
+                _context.n = 5;
+                break;
+              }
+              return _context.a(2);
+            case 5:
+              c = data.cliente || {};
+              nombre = [c.nombre, c.apellido].filter(Boolean).join(' ').trim() || 'Sin nombre';
+              ci = c.cedula != null ? String(c.cedula) : '';
+              if (data.es_cliente_actual) {
+                telefonoAsociacion.value = {
+                  tipo: 'actual',
+                  texto: "Este n\xFAmero coincide con el cliente cargado: ".concat(nombre, " (CI: ").concat(ci, ").")
+                };
+              } else {
+                telefonoAsociacion.value = {
+                  tipo: 'conflicto',
+                  texto: "Este n\xFAmero est\xE1 registrado para otro cliente: ".concat(nombre, " (CI: ").concat(ci, "). No se podr\xE1 guardar el pedido con este celular.")
+                };
+              }
+              _context.n = 7;
+              break;
+            case 6:
+              _context.p = 6;
+              _t = _context.v;
+              telefonoAsociacion.value = {
+                tipo: 'error',
+                texto: 'No se pudo verificar el teléfono. Intenta de nuevo.'
+              };
+            case 7:
+              _context.p = 7;
+              verificandoTelefono.value = false;
+              return _context.f(7);
+            case 8:
+              return _context.a(2);
+          }
+        }, _callee, null, [[3, 6, 7, 8]]);
+      }));
+      return function verificarTelefonoPedidoBlur() {
+        return _ref2.apply(this, arguments);
+      };
+    }();
     var progressPercentage = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
       return currentStep.value * 50;
     });
@@ -27416,31 +27508,100 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       formData.value.lat = lat;
       formData.value.lon = lon;
     };
-    var buscarCliente = /*#__PURE__*/function () {
-      var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-        var datosPadron, padronResponse, clienteResponse, cliente, _clienteError$respons, _t, _t2, _t3;
-        return _regenerator().w(function (_context) {
-          while (1) switch (_context.p = _context.n) {
+    var onSinDatosCedulaToggle = /*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(ev) {
+        var checked, url, _yield$window$axios$g, data, ced, _t2;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.p = _context2.n) {
             case 0:
-              if (formData.value.cedula) {
-                _context.n = 1;
+              checked = ev.target.checked;
+              url = (props.cedulaTemporalUrl || '').trim();
+              if (!(checked && !url)) {
+                _context2.n = 1;
                 break;
               }
-              return _context.a(2);
+              ev.target.checked = false;
+              return _context2.a(2);
+            case 1:
+              if (!checked) {
+                _context2.n = 8;
+                break;
+              }
+              cargandoCedulaTemporal.value = true;
+              errorCliente.value = '';
+              mensajeClienteSuccess.value = '';
+              _context2.p = 2;
+              _context2.n = 3;
+              return window.axios.get(url);
+            case 3:
+              _yield$window$axios$g = _context2.v;
+              data = _yield$window$axios$g.data;
+              ced = (data === null || data === void 0 ? void 0 : data.cedula) != null ? String(data.cedula) : '';
+              if (ced) {
+                _context2.n = 4;
+                break;
+              }
+              throw new Error('Respuesta inválida');
+            case 4:
+              sinDatosCedula.value = true;
+              formData.value.cedula = ced;
+              formData.value.cliente_id = null;
+              mensajeClienteSuccess.value = 'Cédula temporal asignada (sin datos de documento).';
+              _context2.n = 6;
+              break;
+            case 5:
+              _context2.p = 5;
+              _t2 = _context2.v;
+              sinDatosCedula.value = false;
+              ev.target.checked = false;
+              errorCliente.value = 'No se pudo obtener la cédula temporal. Intenta de nuevo.';
+            case 6:
+              _context2.p = 6;
+              cargandoCedulaTemporal.value = false;
+              return _context2.f(6);
+            case 7:
+              _context2.n = 9;
+              break;
+            case 8:
+              sinDatosCedula.value = false;
+              formData.value.cedula = '';
+              formData.value.cliente_id = null;
+              errorCliente.value = '';
+              mensajeClienteSuccess.value = '';
+            case 9:
+              return _context2.a(2);
+          }
+        }, _callee2, null, [[2, 5, 6, 7]]);
+      }));
+      return function onSinDatosCedulaToggle(_x) {
+        return _ref3.apply(this, arguments);
+      };
+    }();
+    var buscarCliente = /*#__PURE__*/function () {
+      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+        var datosPadron, padronResponse, clienteResponse, cliente, _clienteError$respons, _t3, _t4, _t5;
+        return _regenerator().w(function (_context3) {
+          while (1) switch (_context3.p = _context3.n) {
+            case 0:
+              if (!(sinDatosCedula.value || !formData.value.cedula)) {
+                _context3.n = 1;
+                break;
+              }
+              return _context3.a(2);
             case 1:
               buscando.value = true;
               errorCliente.value = '';
               mensajeClienteSuccess.value = '';
-              _context.p = 2;
+              _context3.p = 2;
               // Primero consultar el padrón
               datosPadron = null;
-              _context.p = 3;
-              _context.n = 4;
+              _context3.p = 3;
+              _context3.n = 4;
               return window.axios.post(props.consultarPadronUrl, {
                 cedula: formData.value.cedula
               });
             case 4:
-              padronResponse = _context.v;
+              padronResponse = _context3.v;
               if (padronResponse.data.encontrado) {
                 datosPadron = padronResponse.data;
                 // Pre-llenar con datos del padrón
@@ -27450,21 +27611,21 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                   formData.value.ubicacion = datosPadron.direccion;
                 }
               }
-              _context.n = 6;
+              _context3.n = 6;
               break;
             case 5:
-              _context.p = 5;
-              _t = _context.v;
+              _context3.p = 5;
+              _t3 = _context3.v;
               // Si no se encuentra en el padrón, continuar sin error
-              console.log('No encontrado en padrón o error al consultar:', _t);
+              console.log('No encontrado en padrón o error al consultar:', _t3);
             case 6:
-              _context.p = 6;
-              _context.n = 7;
+              _context3.p = 6;
+              _context3.n = 7;
               return window.axios.post(props.buscarClienteUrl, {
                 cedula: formData.value.cedula
               });
             case 7:
-              clienteResponse = _context.v;
+              clienteResponse = _context3.v;
               cliente = clienteResponse.data;
               formData.value.cliente_id = cliente.cliente_id;
               // Si no hay datos del padrón, usar datos del cliente
@@ -27478,12 +27639,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               mensajeClienteSuccess.value = 'Cliente encontrado.';
               errorCliente.value = '';
-              _context.n = 9;
+              _context3.n = 9;
               break;
             case 8:
-              _context.p = 8;
-              _t2 = _context.v;
-              if (((_clienteError$respons = _t2.response) === null || _clienteError$respons === void 0 ? void 0 : _clienteError$respons.status) === 404) {
+              _context3.p = 8;
+              _t4 = _context3.v;
+              if (((_clienteError$respons = _t4.response) === null || _clienteError$respons === void 0 ? void 0 : _clienteError$respons.status) === 404) {
                 // Cliente no existe en la tabla, pero puede tener datos del padrón
                 if (datosPadron) {
                   mensajeClienteSuccess.value = 'Encontrado en padrón. Cliente nuevo, se creará automáticamente.';
@@ -27498,24 +27659,25 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 mensajeClienteSuccess.value = '';
               }
             case 9:
-              _context.n = 11;
+              _context3.n = 11;
               break;
             case 10:
-              _context.p = 10;
-              _t3 = _context.v;
+              _context3.p = 10;
+              _t5 = _context3.v;
               errorCliente.value = 'Error al buscar. Puedes continuar ingresando los datos manualmente.';
               mensajeClienteSuccess.value = '';
             case 11:
-              _context.p = 11;
+              _context3.p = 11;
               buscando.value = false;
-              return _context.f(11);
+              void verificarTelefonoPedidoBlur();
+              return _context3.f(11);
             case 12:
-              return _context.a(2);
+              return _context3.a(2);
           }
-        }, _callee, null, [[6, 8], [3, 5], [2, 10, 11, 12]]);
+        }, _callee3, null, [[6, 8], [3, 5], [2, 10, 11, 12]]);
       }));
       return function buscarCliente() {
-        return _ref2.apply(this, arguments);
+        return _ref4.apply(this, arguments);
       };
     }();
     var nextStep = function nextStep() {
@@ -27532,18 +27694,18 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       window.dispatchEvent(new CustomEvent('close-pedido-modal'));
     };
     var submitForm = /*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
         var _formData$value$lat, _formData$value$lon, _formData$value$prior;
-        var dataToSubmit, _response$data, response, _error$response, _error$response2, _error$response3, errors, errorMessages, _t4;
-        return _regenerator().w(function (_context2) {
-          while (1) switch (_context2.p = _context2.n) {
+        var dataToSubmit, _response$data, response, _error$response, _error$response2, _error$response3, errors, errorMessages, _t6;
+        return _regenerator().w(function (_context4) {
+          while (1) switch (_context4.p = _context4.n) {
             case 0:
               if (!(!formData.value.cedula || !formData.value.nombre || !formData.value.apellido || !formData.value.telefono || !formData.value.ubicacion)) {
-                _context2.n = 1;
+                _context4.n = 1;
                 break;
               }
               alert('Por favor, completa todos los campos requeridos.');
-              return _context2.a(2);
+              return _context4.a(2);
             case 1:
               guardando.value = true;
               dataToSubmit = {
@@ -27561,13 +27723,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 prioridad_instalacion: (_formData$value$prior = formData.value.prioridad_instalacion) !== null && _formData$value$prior !== void 0 ? _formData$value$prior : 2,
                 observaciones: formData.value.observaciones || ''
               };
-              _context2.p = 2;
-              _context2.n = 3;
+              _context4.p = 2;
+              _context4.n = 3;
               return window.axios.post(props.submitUrl, dataToSubmit);
             case 3:
-              response = _context2.v;
+              response = _context4.v;
               if (!(response.status === 200 || response.status === 201 || (_response$data = response.data) !== null && _response$data !== void 0 && _response$data.redirect)) {
-                _context2.n = 4;
+                _context4.n = 4;
                 break;
               }
               if (props.modalMode) {
@@ -27575,22 +27737,22 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               } else {
                 window.location.href = props.cancelUrl;
               }
-              return _context2.a(2);
+              return _context4.a(2);
             case 4:
               if (!props.modalMode) {
                 window.location.href = props.cancelUrl;
               }
-              _context2.n = 6;
+              _context4.n = 6;
               break;
             case 5:
-              _context2.p = 5;
-              _t4 = _context2.v;
-              console.error('Error al guardar pedido:', _t4);
-              if (((_error$response = _t4.response) === null || _error$response === void 0 ? void 0 : _error$response.status) === 422) {
-                errors = _t4.response.data.errors;
+              _context4.p = 5;
+              _t6 = _context4.v;
+              console.error('Error al guardar pedido:', _t6);
+              if (((_error$response = _t6.response) === null || _error$response === void 0 ? void 0 : _error$response.status) === 422) {
+                errors = _t6.response.data.errors;
                 errorMessages = Object.values(errors).flat().join('\n');
                 alert('Error de validación:\n' + errorMessages);
-              } else if (((_error$response2 = _t4.response) === null || _error$response2 === void 0 ? void 0 : _error$response2.status) === 302 || ((_error$response3 = _t4.response) === null || _error$response3 === void 0 ? void 0 : _error$response3.status) === 200) {
+              } else if (((_error$response2 = _t6.response) === null || _error$response2 === void 0 ? void 0 : _error$response2.status) === 302 || ((_error$response3 = _t6.response) === null || _error$response3 === void 0 ? void 0 : _error$response3.status) === 200) {
                 if (props.modalMode) {
                   window.dispatchEvent(new CustomEvent('pedido-created'));
                 } else {
@@ -27600,16 +27762,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 alert('Error al guardar el pedido. Por favor, intenta nuevamente.');
               }
             case 6:
-              _context2.p = 6;
+              _context4.p = 6;
               guardando.value = false;
-              return _context2.f(6);
+              return _context4.f(6);
             case 7:
-              return _context2.a(2);
+              return _context4.a(2);
           }
-        }, _callee2, null, [[2, 5, 6, 7]]);
+        }, _callee4, null, [[2, 5, 6, 7]]);
       }));
       return function submitForm() {
-        return _ref3.apply(this, arguments);
+        return _ref5.apply(this, arguments);
       };
     }();
     var __returned__ = {
@@ -27619,10 +27781,17 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       guardando: guardando,
       errorCliente: errorCliente,
       mensajeClienteSuccess: mensajeClienteSuccess,
+      sinDatosCedula: sinDatosCedula,
+      cargandoCedulaTemporal: cargandoCedulaTemporal,
+      verificandoTelefono: verificandoTelefono,
+      telefonoAsociacion: telefonoAsociacion,
       formData: formData,
+      limpiarTelefonoAsociacion: limpiarTelefonoAsociacion,
+      verificarTelefonoPedidoBlur: verificarTelefonoPedidoBlur,
       progressPercentage: progressPercentage,
       formatPrice: formatPrice,
       onMapsGpsInput: onMapsGpsInput,
+      onSinDatosCedulaToggle: onSinDatosCedulaToggle,
       buscarCliente: buscarCliente,
       nextStep: nextStep,
       prevStep: prevStep,
@@ -27708,6 +27877,10 @@ var ACCION_FINALIZAR = 'FINALIZAR';
     aprobarEstadoUrl: {
       type: String,
       required: true
+    },
+    urlOpcionesNodoAprobacion: {
+      type: String,
+      default: ''
     },
     descartarEstadoUrl: {
       type: String,
@@ -28314,21 +28487,183 @@ var ACCION_FINALIZAR = 'FINALIZAR';
         selectPlan.value = '';
       }
     }
+    function descripcionTecnologiaEsGpon(desc) {
+      return /gpon|epon|ftth|fibra|fiber|pon|xg-pon/i.test(desc || '');
+    }
+    function descripcionTecnologiaEsWireless(desc) {
+      return /wireless|inalambr|anten|radio|wifi/i.test(desc || '');
+    }
+    function nodosFiltradosPorTecnologia(nodos, tecnologiaId, tiposTecnologia) {
+      if (!(nodos !== null && nodos !== void 0 && nodos.length)) return [];
+      if (tecnologiaId == null || tecnologiaId === '') return nodos;
+      var t = (tiposTecnologia || []).find(function (x) {
+        return String(x.tecnologia_id) === String(tecnologiaId);
+      });
+      var desc = (t === null || t === void 0 ? void 0 : t.descripcion) || '';
+      var esGpon = descripcionTecnologiaEsGpon(desc);
+      var esWireless = descripcionTecnologiaEsWireless(desc);
+      if (!esGpon && !esWireless) return nodos;
+      return nodos.filter(function (n) {
+        if (esGpon && esWireless) return n.tecnologia_gpon || n.tecnologia_wireless;
+        if (esGpon) return !!n.tecnologia_gpon;
+        if (esWireless) return !!n.tecnologia_wireless;
+        return true;
+      });
+    }
+    function etiquetaNodoSelect(n) {
+      var base = (n.descripcion || "Nodo #".concat(n.nodo_id)).replace(/"/g, '&quot;');
+      var tech = n.tecnologias_etiqueta || '';
+      return tech ? "".concat(base, " (").concat(tech, ")") : base;
+    }
+    function obtenerTecnologiaIdDesdeSwal(acciones) {
+      var _document$getElementB, _document$getElementB2;
+      var auto = (_document$getElementB = document.getElementById('swal-tecnologia-auto')) === null || _document$getElementB === void 0 ? void 0 : _document$getElementB.value;
+      if (auto) return auto;
+      var desdeNodo = (_document$getElementB2 = document.getElementById('swal-select-tecnologia-nodo')) === null || _document$getElementB2 === void 0 ? void 0 : _document$getElementB2.value;
+      if (desdeNodo) return desdeNodo;
+      if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA)) {
+        var _document$getElementB3;
+        return ((_document$getElementB3 = document.getElementById('swal-select-tecnologia')) === null || _document$getElementB3 === void 0 ? void 0 : _document$getElementB3.value) || '';
+      }
+      return '';
+    }
+    function obtenerPoolIdDesdeSwal() {
+      var _document$getElementB4, _document$getElementB5;
+      var auto = (_document$getElementB4 = document.getElementById('swal-pool-auto')) === null || _document$getElementB4 === void 0 ? void 0 : _document$getElementB4.value;
+      if (auto) return auto;
+      return ((_document$getElementB5 = document.getElementById('swal-select-pool')) === null || _document$getElementB5 === void 0 ? void 0 : _document$getElementB5.value) || '';
+    }
+    function aplicarOpcionesNodoEnSwal(_x, _x2, _x3) {
+      return _aplicarOpcionesNodoEnSwal.apply(this, arguments);
+    }
+    function _aplicarOpcionesNodoEnSwal() {
+      _aplicarOpcionesNodoEnSwal = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(nodoId, planes, acciones) {
+        var wrapTech, wrapPool, selectTechNodo, selectPool, autoTech, autoPool, hintTech, reset, url, _yield$axios$get2, data, t, _t7;
+        return _regenerator().w(function (_context8) {
+          while (1) switch (_context8.p = _context8.n) {
+            case 0:
+              wrapTech = document.getElementById('swal-tecnologia-nodo-wrap');
+              wrapPool = document.getElementById('swal-pool-wrap');
+              selectTechNodo = document.getElementById('swal-select-tecnologia-nodo');
+              selectPool = document.getElementById('swal-select-pool');
+              autoTech = document.getElementById('swal-tecnologia-auto');
+              autoPool = document.getElementById('swal-pool-auto');
+              hintTech = document.getElementById('swal-tecnologia-auto-hint');
+              reset = function reset() {
+                if (autoTech) autoTech.value = '';
+                if (autoPool) autoPool.value = '';
+                if (wrapTech) wrapTech.style.display = 'none';
+                if (wrapPool) wrapPool.style.display = 'none';
+                if (hintTech) {
+                  hintTech.style.display = 'none';
+                  hintTech.textContent = '';
+                }
+                if (selectTechNodo) selectTechNodo.innerHTML = '<option value="">-- Seleccionar tipo --</option>';
+                if (selectPool) selectPool.innerHTML = '<option value="">-- Seleccionar pool --</option>';
+              };
+              if (nodoId) {
+                _context8.n = 1;
+                break;
+              }
+              reset();
+              if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+                actualizarSelectPlan(planes, null);
+              }
+              return _context8.a(2);
+            case 1:
+              if (props.urlOpcionesNodoAprobacion) {
+                _context8.n = 2;
+                break;
+              }
+              return _context8.a(2);
+            case 2:
+              _context8.p = 2;
+              url = props.urlOpcionesNodoAprobacion.replace('__id__', String(nodoId));
+              _context8.n = 3;
+              return axios__WEBPACK_IMPORTED_MODULE_2__["default"].get(url);
+            case 3:
+              _yield$axios$get2 = _context8.v;
+              data = _yield$axios$get2.data;
+              if (!data.sin_pools_activos) {
+                _context8.n = 4;
+                break;
+              }
+              reset();
+              sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('El nodo no tiene pools de IP activos.');
+              return _context8.a(2);
+            case 4:
+              if (!data.sin_tecnologia_configurada) {
+                _context8.n = 5;
+                break;
+              }
+              reset();
+              sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('El nodo no tiene tipos de tecnología compatibles en el catálogo.');
+              return _context8.a(2);
+            case 5:
+              sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().resetValidationMessage();
+              if (data.tecnologia_id_auto) {
+                if (autoTech) autoTech.value = String(data.tecnologia_id_auto);
+                if (wrapTech) wrapTech.style.display = 'none';
+                if (hintTech) {
+                  t = (data.tecnologias || []).find(function (x) {
+                    return String(x.tecnologia_id) === String(data.tecnologia_id_auto);
+                  });
+                  hintTech.textContent = "Tecnolog\xEDa asignada desde el nodo: ".concat((t === null || t === void 0 ? void 0 : t.descripcion) || 'automática');
+                  hintTech.style.display = 'block';
+                }
+                if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+                  actualizarSelectPlan(planes, data.tecnologia_id_auto);
+                }
+              } else if (data.requiere_seleccion_tecnologia && selectTechNodo && wrapTech) {
+                if (autoTech) autoTech.value = '';
+                selectTechNodo.innerHTML = '<option value="">-- Seleccionar tipo --</option>' + (data.tecnologias || []).map(function (t) {
+                  return "<option value=\"".concat(t.tecnologia_id, "\">").concat((t.descripcion || '').replace(/"/g, '&quot;'), "</option>");
+                }).join('');
+                wrapTech.style.display = 'block';
+                if (hintTech) hintTech.style.display = 'none';
+              }
+              if (data.pool_id_auto) {
+                if (autoPool) autoPool.value = String(data.pool_id_auto);
+                if (wrapPool) wrapPool.style.display = 'none';
+              } else if (data.requiere_seleccion_pool && selectPool && wrapPool) {
+                if (autoPool) autoPool.value = '';
+                selectPool.innerHTML = '<option value="">-- Seleccionar pool --</option>' + (data.pools || []).map(function (p) {
+                  return "<option value=\"".concat(p.pool_id, "\">").concat((p.label || '').replace(/"/g, '&quot;'), "</option>");
+                }).join('');
+                wrapPool.style.display = 'block';
+              }
+              _context8.n = 7;
+              break;
+            case 6:
+              _context8.p = 6;
+              _t7 = _context8.v;
+              sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('No se pudieron cargar las opciones del nodo.');
+            case 7:
+              return _context8.a(2);
+          }
+        }, _callee8, null, [[2, 6]]);
+      }));
+      return _aplicarOpcionesNodoEnSwal.apply(this, arguments);
+    }
     function buildHtmlAcciones(acciones, nodos, planes, tiposTecnologia) {
       var tecnologiaIdSeleccionado = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : null;
       var html = '';
-      if (acciones.includes(ACCION_SELECCIONAR_NODO) && nodos && nodos.length) {
-        html += "\n            <div class=\"mb-3\">\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Nodo</label>\n                <select id=\"swal-select-nodo\" class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500\">\n                    <option value=\"\">-- Seleccionar nodo --</option>\n                    ".concat(nodos.map(function (n) {
-          return "<option value=\"".concat(n.nodo_id, "\">").concat((n.descripcion || '').replace(/"/g, '&quot;'), "</option>");
-        }).join(''), "\n                </select>\n            </div>");
+      var tieneSeleccionNodo = acciones.includes(ACCION_SELECCIONAR_NODO);
+      var nodosSelect = nodosFiltradosPorTecnologia(nodos, tecnologiaIdSeleccionado, tiposTecnologia);
+      if (tieneSeleccionNodo && nodosSelect.length) {
+        html += "\n            <div class=\"mb-3\">\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Nodo</label>\n                <select id=\"swal-select-nodo\" class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500\">\n                    <option value=\"\">-- Seleccionar nodo --</option>\n                    ".concat(nodosSelect.map(function (n) {
+          return "<option value=\"".concat(n.nodo_id, "\">").concat(etiquetaNodoSelect(n), "</option>");
+        }).join(''), "\n                </select>\n            </div>\n            <input type=\"hidden\" id=\"swal-tecnologia-auto\" value=\"\">\n            <input type=\"hidden\" id=\"swal-pool-auto\" value=\"\">\n            <p id=\"swal-tecnologia-auto-hint\" class=\"mb-2 text-xs text-green-700\" style=\"display:none\"></p>\n            <div id=\"swal-tecnologia-nodo-wrap\" class=\"mb-3\" style=\"display:none\">\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Tipo de tecnolog\xEDa</label>\n                <select id=\"swal-select-tecnologia-nodo\" class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500\">\n                    <option value=\"\">-- Seleccionar tipo --</option>\n                </select>\n                <p class=\"mt-0.5 text-xs text-gray-500\">El nodo maneja GPON y Wireless; eleg\xED cu\xE1l aplica a este pedido.</p>\n            </div>\n            <div id=\"swal-pool-wrap\" class=\"mb-3\" style=\"display:none\">\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Pool de IP</label>\n                <select id=\"swal-select-pool\" class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500\">\n                    <option value=\"\">-- Seleccionar pool --</option>\n                </select>\n                <p class=\"mt-0.5 text-xs text-gray-500\">Este nodo tiene m\xE1s de un pool activo.</p>\n            </div>");
+      } else if (tieneSeleccionNodo && nodos !== null && nodos !== void 0 && nodos.length && nodosSelect.length === 0) {
+        html += "<p class=\"mb-3 text-sm text-amber-700\">No hay nodos configurados para la tecnolog\xEDa de este pedido. Revis\xE1 las tecnolog\xEDas del nodo en Sistema \u2192 Nodos.</p>";
       }
-      if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && tiposTecnologia && tiposTecnologia.length) {
+      if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && !tieneSeleccionNodo && tiposTecnologia && tiposTecnologia.length) {
         html += "\n            <div class=\"mb-3\">\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Tipo de tecnolog\xEDa</label>\n                <select id=\"swal-select-tecnologia\" class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500\">\n                    <option value=\"\">-- Seleccionar tipo --</option>\n                    ".concat(tiposTecnologia.map(function (t) {
           return "<option value=\"".concat(t.tecnologia_id, "\">").concat((t.descripcion || '').replace(/"/g, '&quot;'), "</option>");
         }).join(''), "\n                </select>\n            </div>");
       }
       if (acciones.includes(ACCION_SELECCIONAR_PLAN) && planes && planes.length) {
-        var requiereTecnologiaPrimero = acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA);
+        var requiereTecnologiaPrimero = acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) || tieneSeleccionNodo;
         var idParaFiltrar = tecnologiaIdSeleccionado != null && tecnologiaIdSeleccionado !== '' ? tecnologiaIdSeleccionado : null;
         var tieneTecnologiaPreseleccionada = idParaFiltrar !== null;
         var planesToShow = requiereTecnologiaPrimero ? tieneTecnologiaPreseleccionada ? getPlanesFiltradosPorTecnologia(planes, idParaFiltrar) : [] : getPlanesFiltradosPorTecnologia(planes, idParaFiltrar);
@@ -28347,11 +28682,11 @@ var ACCION_FINALIZAR = 'FINALIZAR';
       // Reservado para implementar después
     }
     var aprobarEstado = /*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(pedido, estadoId, parametro) {
+      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(pedido, estadoId, parametro) {
         var _pedido$pedido_id, _pedido$tecnologia_id;
-        var pedidoId, tecnologiaIdSeleccionado, notasValue, nodoIdValue, tecnologiaIdValue, planIdValue, acciones, htmlAcciones, result, notas, payload, _response$data, url, response, _error$response$data, status, message, _t;
-        return _regenerator().w(function (_context) {
-          while (1) switch (_context.p = _context.n) {
+        var pedidoId, tecnologiaIdSeleccionado, notasValue, nodoIdValue, tecnologiaIdValue, planIdValue, poolIdValue, acciones, htmlAcciones, result, notas, payload, _response$data, url, response, _error$response$data, status, message, _t2;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.p = _context2.n) {
             case 0:
               pedidoId = (_pedido$pedido_id = pedido === null || pedido === void 0 ? void 0 : pedido.pedido_id) !== null && _pedido$pedido_id !== void 0 ? _pedido$pedido_id : pedido;
               tecnologiaIdSeleccionado = (_pedido$tecnologia_id = pedido === null || pedido === void 0 ? void 0 : pedido.tecnologia_id_seleccionado) !== null && _pedido$tecnologia_id !== void 0 ? _pedido$tecnologia_id : null;
@@ -28359,9 +28694,10 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               nodoIdValue = null;
               tecnologiaIdValue = null;
               planIdValue = null;
+              poolIdValue = null;
               acciones = getAccionesFromParametro(parametro);
               htmlAcciones = buildHtmlAcciones(acciones, props.nodos, props.planes, props.tiposTecnologia, tecnologiaIdSeleccionado);
-              _context.n = 1;
+              _context2.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                 title: '¿Aprobar este estado?',
                 html: "\n            <div class=\"text-left\">\n                <p class=\"mb-4\">Una vez aprobado, este estado no se podr\xE1 modificar.</p>\n                ".concat(htmlAcciones, "\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Notas (opcional)</label>\n                <textarea id=\"swal-notas\" \n                          rows=\"3\" \n                          maxlength=\"1000\"\n                          placeholder=\"Agregar notas sobre la aprobaci\xF3n...\"\n                          class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none\"></textarea>\n                <p id=\"swal-char-count\" class=\"mt-1 text-xs text-gray-500\">0/1000 caracteres</p>\n            </div>\n        "),
@@ -28395,40 +28731,134 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                     queueMicrotask(function () {
                       return selectTecnologia.addEventListener('change', onTecnologiaChange);
                     });
-                  } else {
+                  } else if (!acciones.includes(ACCION_SELECCIONAR_NODO)) {
                     // No ejecutar cuando ya hay tecnología preseleccionada desde BD (evita sobrescribir el select de Plan con null)
                     if (!tecnologiaIdSeleccionado) {
                       aplicarFiltroPlanDesdeNotas(props.planes, acciones);
                     }
                   }
+                  var selectNodo = document.getElementById('swal-select-nodo');
+                  if (selectNodo && acciones.includes(ACCION_SELECCIONAR_NODO)) {
+                    var onNodoChange = function onNodoChange() {
+                      aplicarOpcionesNodoEnSwal(selectNodo.value || '', props.planes, acciones);
+                    };
+                    var onTechNodoChange = function onTechNodoChange() {
+                      var _document$getElementB6;
+                      var tid = (_document$getElementB6 = document.getElementById('swal-select-tecnologia-nodo')) === null || _document$getElementB6 === void 0 ? void 0 : _document$getElementB6.value;
+                      if (tid && acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+                        actualizarSelectPlan(props.planes, tid);
+                      }
+                    };
+                    queueMicrotask(function () {
+                      var _document$getElementB7;
+                      selectNodo.addEventListener('change', onNodoChange);
+                      (_document$getElementB7 = document.getElementById('swal-select-tecnologia-nodo')) === null || _document$getElementB7 === void 0 || _document$getElementB7.addEventListener('change', onTechNodoChange);
+                    });
+                  }
                   if (acciones.includes(ACCION_CREAR_USUARIO)) accionCrearUsuario();
                   if (acciones.includes(ACCION_FINALIZAR)) accionFinalizar();
                 },
-                preConfirm: function preConfirm() {
-                  var notasInput = document.getElementById('swal-notas');
-                  notasValue = notasInput ? notasInput.value.trim() : '';
-                  if (acciones.includes(ACCION_SELECCIONAR_NODO)) {
-                    var selectNodo = document.getElementById('swal-select-nodo');
-                    if (selectNodo !== null && selectNodo !== void 0 && selectNodo.value) nodoIdValue = selectNodo.value;
+                preConfirm: function () {
+                  var _preConfirm = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+                    var notasInput, selectNodo, tech, pool, url, _yield$axios$get, data, selectTecnologia, selectPlan, _t;
+                    return _regenerator().w(function (_context) {
+                      while (1) switch (_context.p = _context.n) {
+                        case 0:
+                          notasInput = document.getElementById('swal-notas');
+                          notasValue = notasInput ? notasInput.value.trim() : '';
+                          if (!acciones.includes(ACCION_SELECCIONAR_NODO)) {
+                            _context.n = 10;
+                            break;
+                          }
+                          selectNodo = document.getElementById('swal-select-nodo');
+                          if (selectNodo !== null && selectNodo !== void 0 && selectNodo.value) {
+                            _context.n = 1;
+                            break;
+                          }
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('Seleccioná un nodo.');
+                          return _context.a(2, false);
+                        case 1:
+                          nodoIdValue = selectNodo.value;
+                          tech = obtenerTecnologiaIdDesdeSwal(acciones);
+                          pool = obtenerPoolIdDesdeSwal();
+                          if (!props.urlOpcionesNodoAprobacion) {
+                            _context.n = 9;
+                            break;
+                          }
+                          _context.p = 2;
+                          url = props.urlOpcionesNodoAprobacion.replace('__id__', String(nodoIdValue));
+                          _context.n = 3;
+                          return axios__WEBPACK_IMPORTED_MODULE_2__["default"].get(url);
+                        case 3:
+                          _yield$axios$get = _context.v;
+                          data = _yield$axios$get.data;
+                          if (!data.sin_pools_activos) {
+                            _context.n = 4;
+                            break;
+                          }
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('El nodo no tiene pools de IP activos.');
+                          return _context.a(2, false);
+                        case 4:
+                          if (!data.sin_tecnologia_configurada) {
+                            _context.n = 5;
+                            break;
+                          }
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('El nodo no tiene tecnologías compatibles configuradas.');
+                          return _context.a(2, false);
+                        case 5:
+                          if (!(data.requiere_seleccion_tecnologia && !tech)) {
+                            _context.n = 6;
+                            break;
+                          }
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('Seleccioná el tipo de tecnología (el nodo maneja GPON y Wireless).');
+                          return _context.a(2, false);
+                        case 6:
+                          if (!(data.requiere_seleccion_pool && !pool)) {
+                            _context.n = 7;
+                            break;
+                          }
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('Seleccioná el pool de IP.');
+                          return _context.a(2, false);
+                        case 7:
+                          if (tech) tecnologiaIdValue = tech;else if (data.tecnologia_id_auto) tecnologiaIdValue = String(data.tecnologia_id_auto);
+                          if (pool) poolIdValue = pool;else if (data.pool_id_auto) poolIdValue = String(data.pool_id_auto);
+                          _context.n = 9;
+                          break;
+                        case 8:
+                          _context.p = 8;
+                          _t = _context.v;
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().showValidationMessage('No se pudieron validar las opciones del nodo.');
+                          return _context.a(2, false);
+                        case 9:
+                          _context.n = 11;
+                          break;
+                        case 10:
+                          if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA)) {
+                            selectTecnologia = document.getElementById('swal-select-tecnologia');
+                            if (selectTecnologia !== null && selectTecnologia !== void 0 && selectTecnologia.value) tecnologiaIdValue = selectTecnologia.value;
+                          }
+                        case 11:
+                          if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+                            selectPlan = document.getElementById('swal-select-plan');
+                            if (selectPlan !== null && selectPlan !== void 0 && selectPlan.value) planIdValue = selectPlan.value;
+                          }
+                          return _context.a(2, true);
+                      }
+                    }, _callee, null, [[2, 8]]);
+                  }));
+                  function preConfirm() {
+                    return _preConfirm.apply(this, arguments);
                   }
-                  if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA)) {
-                    var selectTecnologia = document.getElementById('swal-select-tecnologia');
-                    if (selectTecnologia !== null && selectTecnologia !== void 0 && selectTecnologia.value) tecnologiaIdValue = selectTecnologia.value;
-                  }
-                  if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
-                    var selectPlan = document.getElementById('swal-select-plan');
-                    if (selectPlan !== null && selectPlan !== void 0 && selectPlan.value) planIdValue = selectPlan.value;
-                  }
-                  return true;
-                }
+                  return preConfirm;
+                }()
               }));
             case 1:
-              result = _context.v;
+              result = _context2.v;
               if (result.isConfirmed) {
-                _context.n = 2;
+                _context2.n = 2;
                 break;
               }
-              return _context.a(2);
+              return _context2.a(2);
             case 2:
               notas = notasValue || null;
               payload = {
@@ -28436,18 +28866,19 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 notas: notas
               };
               if (acciones.includes(ACCION_SELECCIONAR_NODO) && nodoIdValue != null) payload.nodo_id = parseInt(nodoIdValue, 10);
-              if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && tecnologiaIdValue != null) payload.tecnologia_id = parseInt(tecnologiaIdValue, 10);
+              if (tecnologiaIdValue != null && tecnologiaIdValue !== '') payload.tecnologia_id = parseInt(tecnologiaIdValue, 10);else if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && tecnologiaIdValue != null) payload.tecnologia_id = parseInt(tecnologiaIdValue, 10);
+              if (poolIdValue != null && poolIdValue !== '') payload.pool_id = parseInt(poolIdValue, 10);
               if (acciones.includes(ACCION_SELECCIONAR_PLAN) && planIdValue != null) payload.plan_id = parseInt(planIdValue, 10);
               loadingAprobar.value = "".concat(pedidoId, "-").concat(estadoId);
-              _context.p = 3;
+              _context2.p = 3;
               if (props.aprobarEstadoUrl) {
-                _context.n = 4;
+                _context2.n = 4;
                 break;
               }
               throw new Error('URL de aprobar estado no configurada');
             case 4:
               url = props.aprobarEstadoUrl.replace(':pedido', pedidoId);
-              _context.n = 5;
+              _context2.n = 5;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, payload, {
                 headers: {
                   'Accept': 'application/json',
@@ -28455,8 +28886,8 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }
               });
             case 5:
-              response = _context.v;
-              _context.n = 6;
+              response = _context2.v;
+              _context2.n = 6;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                 icon: 'success',
                 title: '¡Éxito!',
@@ -28471,16 +28902,16 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               } else {
                 window.location.reload();
               }
-              _context.n = 8;
+              _context2.n = 8;
               break;
             case 7:
-              _context.p = 7;
-              _t = _context.v;
-              console.error('Error:', _t);
+              _context2.p = 7;
+              _t2 = _context2.v;
+              console.error('Error:', _t2);
               loadingAprobar.value = null;
-              if (_t.response) {
-                status = _t.response.status;
-                message = ((_error$response$data = _t.response.data) === null || _error$response$data === void 0 ? void 0 : _error$response$data.message) || 'Error al aprobar el estado';
+              if (_t2.response) {
+                status = _t2.response.status;
+                message = ((_error$response$data = _t2.response.data) === null || _error$response$data === void 0 ? void 0 : _error$response$data.message) || 'Error al aprobar el estado';
                 if (status === 400) {
                   sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire(_objectSpread(_objectSpread({}, getSwalThemeOptions()), {}, {
                     icon: 'warning',
@@ -28505,26 +28936,26 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }));
               }
             case 8:
-              return _context.a(2);
+              return _context2.a(2);
           }
-        }, _callee, null, [[3, 7]]);
+        }, _callee2, null, [[3, 7]]);
       }));
-      return function aprobarEstado(_x, _x2, _x3) {
+      return function aprobarEstado(_x4, _x5, _x6) {
         return _ref5.apply(this, arguments);
       };
     }();
     var crearUsuarioPppoe = /*#__PURE__*/function () {
-      var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(pedido) {
+      var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(pedido) {
         var _pedido$pedido_id2;
-        var pedidoId, url, _response$data2, _response$data3, _response$data4, response, msg, syncOk, _error$response, _error$response2, _error$response3, _msg, _t2;
-        return _regenerator().w(function (_context2) {
-          while (1) switch (_context2.p = _context2.n) {
+        var pedidoId, url, _response$data2, _response$data3, _response$data4, response, msg, syncOk, _error$response, _error$response2, _error$response3, _msg, _t3;
+        return _regenerator().w(function (_context3) {
+          while (1) switch (_context3.p = _context3.n) {
             case 0:
               pedidoId = (_pedido$pedido_id2 = pedido === null || pedido === void 0 ? void 0 : pedido.pedido_id) !== null && _pedido$pedido_id2 !== void 0 ? _pedido$pedido_id2 : pedido;
               url = props.crearUsuarioPppoeUrl ? props.crearUsuarioPppoeUrl.replace(':pedido', String(pedidoId)) : "/pedidos/".concat(pedidoId, "/crear-usuario-pppoe");
               loadingCrearPppoe.value = pedidoId;
-              _context2.p = 1;
-              _context2.n = 2;
+              _context3.p = 1;
+              _context3.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].get(url, {
                 headers: {
                   Accept: 'application/json',
@@ -28532,10 +28963,10 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }
               });
             case 2:
-              response = _context2.v;
+              response = _context3.v;
               msg = ((_response$data2 = response.data) === null || _response$data2 === void 0 ? void 0 : _response$data2.message) || 'Usuario PPPoE creado.';
               syncOk = (_response$data3 = response.data) === null || _response$data3 === void 0 ? void 0 : _response$data3.sync_ok;
-              _context2.n = 3;
+              _context3.n = 3;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 icon: syncOk === false ? 'warning' : 'success',
                 title: syncOk === false ? 'Creado con advertencia' : 'Usuario PPPoE',
@@ -28548,29 +28979,29 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               } else {
                 window.location.reload();
               }
-              _context2.n = 5;
+              _context3.n = 5;
               break;
             case 4:
-              _context2.p = 4;
-              _t2 = _context2.v;
-              _msg = ((_error$response = _t2.response) === null || _error$response === void 0 || (_error$response = _error$response.data) === null || _error$response === void 0 ? void 0 : _error$response.message) || 'No se pudo crear el usuario PPPoE.';
-              _context2.n = 5;
+              _context3.p = 4;
+              _t3 = _context3.v;
+              _msg = ((_error$response = _t3.response) === null || _error$response === void 0 || (_error$response = _error$response.data) === null || _error$response === void 0 ? void 0 : _error$response.message) || 'No se pudo crear el usuario PPPoE.';
+              _context3.n = 5;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
-                icon: ((_error$response2 = _t2.response) === null || _error$response2 === void 0 ? void 0 : _error$response2.status) === 422 ? 'warning' : 'error',
-                title: ((_error$response3 = _t2.response) === null || _error$response3 === void 0 ? void 0 : _error$response3.status) === 422 ? 'No se puede crear' : 'Error',
+                icon: ((_error$response2 = _t3.response) === null || _error$response2 === void 0 ? void 0 : _error$response2.status) === 422 ? 'warning' : 'error',
+                title: ((_error$response3 = _t3.response) === null || _error$response3 === void 0 ? void 0 : _error$response3.status) === 422 ? 'No se puede crear' : 'Error',
                 text: _msg,
                 confirmButtonColor: '#7c3aed'
               });
             case 5:
-              _context2.p = 5;
+              _context3.p = 5;
               loadingCrearPppoe.value = null;
-              return _context2.f(5);
+              return _context3.f(5);
             case 6:
-              return _context2.a(2);
+              return _context3.a(2);
           }
-        }, _callee2, null, [[1, 4, 5, 6]]);
+        }, _callee3, null, [[1, 4, 5, 6]]);
       }));
-      return function crearUsuarioPppoe(_x4) {
+      return function crearUsuarioPppoe(_x7) {
         return _ref6.apply(this, arguments);
       };
     }();
@@ -28585,20 +29016,20 @@ var ACCION_FINALIZAR = 'FINALIZAR';
       }
     };
     var finalizarPedido = /*#__PURE__*/function () {
-      var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(pedido) {
+      var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(pedido) {
         var _pedido$pedido_id4;
-        var pedidoId, confirmResult, _response$data5, _response$data6, url, response, _error$response4, _error$response5, _error$response6, msg, _t3;
-        return _regenerator().w(function (_context3) {
-          while (1) switch (_context3.p = _context3.n) {
+        var pedidoId, confirmResult, _response$data5, _response$data6, url, response, _error$response4, _error$response5, _error$response6, msg, _t4;
+        return _regenerator().w(function (_context4) {
+          while (1) switch (_context4.p = _context4.n) {
             case 0:
               pedidoId = (_pedido$pedido_id4 = pedido === null || pedido === void 0 ? void 0 : pedido.pedido_id) !== null && _pedido$pedido_id4 !== void 0 ? _pedido$pedido_id4 : pedido;
               if (props.finalizarPedidoUrl) {
-                _context3.n = 1;
+                _context4.n = 1;
                 break;
               }
-              return _context3.a(2);
+              return _context4.a(2);
             case 1:
-              _context3.n = 2;
+              _context4.n = 2;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Finalizar pedido?',
                 html: 'Se marcará el pedido como instalado y los servicios asociados quedarán con estado activo. ¿Continuar?',
@@ -28610,17 +29041,17 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 cancelButtonText: 'Cancelar'
               });
             case 2:
-              confirmResult = _context3.v;
+              confirmResult = _context4.v;
               if (confirmResult.isConfirmed) {
-                _context3.n = 3;
+                _context4.n = 3;
                 break;
               }
-              return _context3.a(2);
+              return _context4.a(2);
             case 3:
               loadingFinalizar.value = pedidoId;
-              _context3.p = 4;
+              _context4.p = 4;
               url = props.finalizarPedidoUrl.replace(':pedido', String(pedidoId));
-              _context3.n = 5;
+              _context4.n = 5;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, {}, {
                 headers: {
                   'Accept': 'application/json',
@@ -28628,8 +29059,8 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }
               });
             case 5:
-              response = _context3.v;
-              _context3.n = 6;
+              response = _context4.v;
+              _context4.n = 6;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 icon: 'success',
                 title: 'Pedido finalizado',
@@ -28642,39 +29073,39 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               } else {
                 window.location.reload();
               }
-              _context3.n = 8;
+              _context4.n = 8;
               break;
             case 7:
-              _context3.p = 7;
-              _t3 = _context3.v;
-              msg = ((_error$response4 = _t3.response) === null || _error$response4 === void 0 || (_error$response4 = _error$response4.data) === null || _error$response4 === void 0 ? void 0 : _error$response4.message) || 'No se pudo finalizar el pedido.';
-              _context3.n = 8;
+              _context4.p = 7;
+              _t4 = _context4.v;
+              msg = ((_error$response4 = _t4.response) === null || _error$response4 === void 0 || (_error$response4 = _error$response4.data) === null || _error$response4 === void 0 ? void 0 : _error$response4.message) || 'No se pudo finalizar el pedido.';
+              _context4.n = 8;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
-                icon: ((_error$response5 = _t3.response) === null || _error$response5 === void 0 ? void 0 : _error$response5.status) === 400 ? 'warning' : 'error',
-                title: ((_error$response6 = _t3.response) === null || _error$response6 === void 0 ? void 0 : _error$response6.status) === 400 ? 'Advertencia' : 'Error',
+                icon: ((_error$response5 = _t4.response) === null || _error$response5 === void 0 ? void 0 : _error$response5.status) === 400 ? 'warning' : 'error',
+                title: ((_error$response6 = _t4.response) === null || _error$response6 === void 0 ? void 0 : _error$response6.status) === 400 ? 'Advertencia' : 'Error',
                 text: msg,
                 confirmButtonColor: '#7c3aed'
               });
             case 8:
-              _context3.p = 8;
+              _context4.p = 8;
               loadingFinalizar.value = null;
-              return _context3.f(8);
+              return _context4.f(8);
             case 9:
-              return _context3.a(2);
+              return _context4.a(2);
           }
-        }, _callee3, null, [[4, 7, 8, 9]]);
+        }, _callee4, null, [[4, 7, 8, 9]]);
       }));
-      return function finalizarPedido(_x5) {
+      return function finalizarPedido(_x8) {
         return _ref7.apply(this, arguments);
       };
     }();
     var reabrirEstado = /*#__PURE__*/function () {
-      var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(pedidoId, estadoId) {
-        var result, _response$data7, _response$data8, url, response, _error$response7, _error$response8, _error$response9, message, _t4;
-        return _regenerator().w(function (_context4) {
-          while (1) switch (_context4.p = _context4.n) {
+      var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(pedidoId, estadoId) {
+        var result, _response$data7, _response$data8, url, response, _error$response7, _error$response8, _error$response9, message, _t5;
+        return _regenerator().w(function (_context5) {
+          while (1) switch (_context5.p = _context5.n) {
             case 0:
-              _context4.n = 1;
+              _context5.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Reabrir este estado?',
                 text: 'El estado volverá a pendiente y podrá aprobar o descartar nuevamente.',
@@ -28686,23 +29117,23 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 cancelButtonText: 'Cancelar'
               });
             case 1:
-              result = _context4.v;
+              result = _context5.v;
               if (result.isConfirmed) {
-                _context4.n = 2;
+                _context5.n = 2;
                 break;
               }
-              return _context4.a(2);
+              return _context5.a(2);
             case 2:
               loadingReabrir.value = "".concat(pedidoId, "-").concat(estadoId);
-              _context4.p = 3;
+              _context5.p = 3;
               if (props.reabrirEstadoUrl) {
-                _context4.n = 4;
+                _context5.n = 4;
                 break;
               }
               throw new Error('URL de reabrir estado no configurada');
             case 4:
               url = props.reabrirEstadoUrl.replace(':pedido', pedidoId);
-              _context4.n = 5;
+              _context5.n = 5;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, {
                 estado_id: estadoId
               }, {
@@ -28712,8 +29143,8 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }
               });
             case 5:
-              response = _context4.v;
-              _context4.n = 6;
+              response = _context5.v;
+              _context5.n = 6;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 icon: 'success',
                 title: '¡Éxito!',
@@ -28728,37 +29159,37 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               } else {
                 window.location.reload();
               }
-              _context4.n = 8;
+              _context5.n = 8;
               break;
             case 7:
-              _context4.p = 7;
-              _t4 = _context4.v;
-              console.error('Error:', _t4);
+              _context5.p = 7;
+              _t5 = _context5.v;
+              console.error('Error:', _t5);
               loadingReabrir.value = null;
-              message = ((_error$response7 = _t4.response) === null || _error$response7 === void 0 || (_error$response7 = _error$response7.data) === null || _error$response7 === void 0 ? void 0 : _error$response7.message) || 'Error al reabrir el estado. Intente nuevamente.';
+              message = ((_error$response7 = _t5.response) === null || _error$response7 === void 0 || (_error$response7 = _error$response7.data) === null || _error$response7 === void 0 ? void 0 : _error$response7.message) || 'Error al reabrir el estado. Intente nuevamente.';
               sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
-                icon: ((_error$response8 = _t4.response) === null || _error$response8 === void 0 ? void 0 : _error$response8.status) === 400 ? 'warning' : 'error',
-                title: ((_error$response9 = _t4.response) === null || _error$response9 === void 0 ? void 0 : _error$response9.status) === 400 ? 'Advertencia' : 'Error',
+                icon: ((_error$response8 = _t5.response) === null || _error$response8 === void 0 ? void 0 : _error$response8.status) === 400 ? 'warning' : 'error',
+                title: ((_error$response9 = _t5.response) === null || _error$response9 === void 0 ? void 0 : _error$response9.status) === 400 ? 'Advertencia' : 'Error',
                 text: message,
                 confirmButtonColor: '#7c3aed'
               });
             case 8:
-              return _context4.a(2);
+              return _context5.a(2);
           }
-        }, _callee4, null, [[3, 7]]);
+        }, _callee5, null, [[3, 7]]);
       }));
-      return function reabrirEstado(_x6, _x7) {
+      return function reabrirEstado(_x9, _x0) {
         return _ref8.apply(this, arguments);
       };
     }();
     var descartarEstado = /*#__PURE__*/function () {
-      var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(pedidoId, estadoId) {
-        var notasValue, result, notas, _response$data9, url, response, _error$response$data2, status, message, _t5;
-        return _regenerator().w(function (_context5) {
-          while (1) switch (_context5.p = _context5.n) {
+      var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(pedidoId, estadoId) {
+        var notasValue, result, notas, _response$data9, url, response, _error$response$data2, status, message, _t6;
+        return _regenerator().w(function (_context6) {
+          while (1) switch (_context6.p = _context6.n) {
             case 0:
               notasValue = '';
-              _context5.n = 1;
+              _context6.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Descartar este estado?',
                 html: "\n            <div class=\"text-left\">\n                <p class=\"mb-4\">Esta acci\xF3n no se puede deshacer.</p>\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Notas (opcional)</label>\n                <textarea id=\"swal-notas-descartar\" \n                          rows=\"3\" \n                          maxlength=\"1000\"\n                          placeholder=\"Agregar notas sobre el descarte...\"\n                          class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none\"></textarea>\n                <p id=\"swal-char-count-descartar\" class=\"mt-1 text-xs text-gray-500\">0/1000 caracteres</p>\n            </div>\n        ",
@@ -28784,24 +29215,24 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }
               });
             case 1:
-              result = _context5.v;
+              result = _context6.v;
               if (result.isConfirmed) {
-                _context5.n = 2;
+                _context6.n = 2;
                 break;
               }
-              return _context5.a(2);
+              return _context6.a(2);
             case 2:
               notas = notasValue || null;
               loadingDescartar.value = "".concat(pedidoId, "-").concat(estadoId);
-              _context5.p = 3;
+              _context6.p = 3;
               if (props.descartarEstadoUrl) {
-                _context5.n = 4;
+                _context6.n = 4;
                 break;
               }
               throw new Error('URL de descartar estado no configurada');
             case 4:
               url = props.descartarEstadoUrl.replace(':pedido', pedidoId);
-              _context5.n = 5;
+              _context6.n = 5;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, {
                 estado_id: estadoId,
                 notas: notas
@@ -28812,8 +29243,8 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 }
               });
             case 5:
-              response = _context5.v;
-              _context5.n = 6;
+              response = _context6.v;
+              _context6.n = 6;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 icon: 'success',
                 title: '¡Éxito!',
@@ -28828,16 +29259,16 @@ var ACCION_FINALIZAR = 'FINALIZAR';
               } else {
                 window.location.reload();
               }
-              _context5.n = 8;
+              _context6.n = 8;
               break;
             case 7:
-              _context5.p = 7;
-              _t5 = _context5.v;
-              console.error('Error:', _t5);
+              _context6.p = 7;
+              _t6 = _context6.v;
+              console.error('Error:', _t6);
               loadingDescartar.value = null;
-              if (_t5.response) {
-                status = _t5.response.status;
-                message = ((_error$response$data2 = _t5.response.data) === null || _error$response$data2 === void 0 ? void 0 : _error$response$data2.message) || 'Error al descartar el estado';
+              if (_t6.response) {
+                status = _t6.response.status;
+                message = ((_error$response$data2 = _t6.response.data) === null || _error$response$data2 === void 0 ? void 0 : _error$response$data2.message) || 'Error al descartar el estado';
                 if (status === 400) {
                   sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                     icon: 'warning',
@@ -28862,21 +29293,21 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 });
               }
             case 8:
-              return _context5.a(2);
+              return _context6.a(2);
           }
-        }, _callee5, null, [[3, 7]]);
+        }, _callee6, null, [[3, 7]]);
       }));
-      return function descartarEstado(_x8, _x9) {
+      return function descartarEstado(_x1, _x10) {
         return _ref9.apply(this, arguments);
       };
     }();
     var eliminarPedido = /*#__PURE__*/function () {
-      var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(pedidoId) {
+      var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(pedidoId) {
         var result, form, tokenInput, methodInput;
-        return _regenerator().w(function (_context6) {
-          while (1) switch (_context6.n) {
+        return _regenerator().w(function (_context7) {
+          while (1) switch (_context7.n) {
             case 0:
-              _context6.n = 1;
+              _context7.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Eliminar este pedido?',
                 text: 'Esta acción no se puede deshacer.',
@@ -28888,12 +29319,12 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 cancelButtonText: 'Cancelar'
               });
             case 1:
-              result = _context6.v;
+              result = _context7.v;
               if (result.isConfirmed) {
-                _context6.n = 2;
+                _context7.n = 2;
                 break;
               }
-              return _context6.a(2);
+              return _context7.a(2);
             case 2:
               try {
                 form = document.createElement('form');
@@ -28921,11 +29352,11 @@ var ACCION_FINALIZAR = 'FINALIZAR';
                 });
               }
             case 3:
-              return _context6.a(2);
+              return _context7.a(2);
           }
-        }, _callee6);
+        }, _callee7);
       }));
-      return function eliminarPedido(_x0) {
+      return function eliminarPedido(_x11) {
         return _ref0.apply(this, arguments);
       };
     }();
@@ -28986,6 +29417,13 @@ var ACCION_FINALIZAR = 'FINALIZAR';
       getPlanesFiltradosPorTecnologia: getPlanesFiltradosPorTecnologia,
       aplicarFiltroPlanDesdeNotas: aplicarFiltroPlanDesdeNotas,
       actualizarSelectPlan: actualizarSelectPlan,
+      descripcionTecnologiaEsGpon: descripcionTecnologiaEsGpon,
+      descripcionTecnologiaEsWireless: descripcionTecnologiaEsWireless,
+      nodosFiltradosPorTecnologia: nodosFiltradosPorTecnologia,
+      etiquetaNodoSelect: etiquetaNodoSelect,
+      obtenerTecnologiaIdDesdeSwal: obtenerTecnologiaIdDesdeSwal,
+      obtenerPoolIdDesdeSwal: obtenerPoolIdDesdeSwal,
+      aplicarOpcionesNodoEnSwal: aplicarOpcionesNodoEnSwal,
       buildHtmlAcciones: buildHtmlAcciones,
       accionCrearUsuario: accionCrearUsuario,
       accionFinalizar: accionFinalizar,
@@ -29042,61 +29480,57 @@ var _hoisted_1 = {
   class: "bg-white dark:bg-gray-800 overflow-hidden"
 };
 var _hoisted_2 = {
-  class: "px-6 py-4 border-b border-gray-200 dark:border-gray-700"
+  class: "flex items-center justify-between mb-2"
 };
 var _hoisted_3 = {
-  class: "flex items-center justify-between mb-2"
+  class: "text-sm font-medium text-gray-700 dark:text-gray-300"
 };
 var _hoisted_4 = {
   class: "text-sm font-medium text-gray-700 dark:text-gray-300"
 };
 var _hoisted_5 = {
-  class: "text-sm font-medium text-gray-700 dark:text-gray-300"
-};
-var _hoisted_6 = {
   class: "w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2"
 };
-var _hoisted_7 = {
-  class: "space-y-6"
+var _hoisted_6 = {
+  class: "grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
 };
-var _hoisted_8 = {
-  class: "flex gap-2"
-};
-var _hoisted_9 = ["disabled"];
-var _hoisted_10 = {
+var _hoisted_7 = ["disabled", "required"];
+var _hoisted_8 = ["disabled"];
+var _hoisted_9 = {
   key: 0,
-  class: "animate-spin h-5 w-5 text-white",
+  class: "animate-spin h-5 w-5 shrink-0 text-white",
   xmlns: "http://www.w3.org/2000/svg",
   fill: "none",
   viewBox: "0 0 24 24"
 };
+var _hoisted_10 = {
+  class: "truncate"
+};
 var _hoisted_11 = {
-  key: 0,
-  class: "mt-1 text-sm text-green-600"
+  class: "col-span-2 row-start-2 flex h-11 w-full min-w-0 cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium text-gray-700 dark:text-gray-300 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:text-sm"
 };
-var _hoisted_12 = {
-  key: 1,
-  class: "mt-1 text-sm text-red-600"
-};
+var _hoisted_12 = ["checked", "disabled"];
 var _hoisted_13 = {
-  class: "space-y-6"
+  key: 0,
+  class: "mt-1 text-sm text-green-600 dark:text-green-400"
 };
 var _hoisted_14 = {
-  key: 0,
-  class: "mb-4 pb-4 border-b border-gray-200 dark:border-gray-700"
+  key: 1,
+  class: "mt-1 text-sm text-red-600 dark:text-red-400"
 };
 var _hoisted_15 = {
-  class: "text-lg font-bold text-gray-900 dark:text-gray-100"
+  key: 0,
+  class: "mt-1 text-xs text-gray-500 dark:text-gray-400"
 };
 var _hoisted_16 = {
-  class: "text-sm text-gray-600 dark:text-gray-400"
+  class: "text-lg font-bold text-gray-900 dark:text-gray-100"
 };
 var _hoisted_17 = {
-  key: 0,
-  class: "mt-1 text-xs text-green-600"
+  class: "text-sm text-gray-600 dark:text-gray-400"
 };
 var _hoisted_18 = {
-  class: "flex items-center justify-between"
+  key: 0,
+  class: "mt-1 text-xs text-green-600"
 };
 var _hoisted_19 = ["disabled"];
 var _hoisted_20 = ["value"];
@@ -29113,35 +29547,45 @@ var _hoisted_30 = ["value"];
 var _hoisted_31 = ["value"];
 var _hoisted_32 = ["value"];
 function render(_ctx, _cache, $props, $setup, $data, $options) {
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Header "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Progress Bar "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_3, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_4, "Paso " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.currentStep) + "/2", 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.progressPercentage) + "%", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Header "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Progress Bar "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)([$props.modalMode ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 py-4', "border-b border-gray-200 dark:border-gray-700"])
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_3, "Paso " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.currentStep) + "/2", 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_4, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.progressPercentage) + "%", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "bg-blue-600 h-2 rounded-full transition-all duration-300",
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       width: $setup.progressPercentage + '%'
     })
-  }, null, 4 /* STYLE */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Form Content "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
+  }, null, 4 /* STYLE */)])], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Form Content "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.submitForm, ["prevent"]),
-    class: "p-6"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 1: Datos Básicos "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", {
-    class: "text-lg font-bold text-gray-900 dark:text-gray-100 mb-4"
-  }, "DATOS BÁSICOS", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Cédula con búsqueda "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'p-4 sm:p-6' : 'p-6')
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 1: Datos Básicos "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4' : 'space-y-6')
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["text-lg font-bold text-gray-900 dark:text-gray-100", $props.modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'])
+  }, "DATOS BÁSICOS", 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Cédula: misma altura; sm+ tres columnas iguales; móvil checkbox ancho completo debajo "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)([{
+      'sm:col-span-2': $props.modalMode
+    }, "min-w-0"])
+  }, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "cedula",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Cédula *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_8, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, "Cédula *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "text",
     id: "cedula",
     "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
       return $setup.formData.cedula = $event;
     }),
     onBlur: $setup.buscarCliente,
-    class: "flex-1 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
+    disabled: $setup.sinDatosCedula,
+    autocomplete: "off",
+    class: "h-11 w-full min-w-0 px-3 sm:px-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed row-start-1 col-start-1",
     placeholder: "1234567",
-    required: ""
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.cedula]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    required: !$setup.sinDatosCedula
+  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_7), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.cedula]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     onClick: $setup.buscarCliente,
-    disabled: $setup.buscando,
-    class: "px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2 min-w-[120px]"
-  }, [$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_10, _toConsumableArray(_cache[8] || (_cache[8] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+    disabled: $setup.sinDatosCedula || $setup.buscando || $setup.cargandoCedulaTemporal,
+    class: "h-11 w-full min-w-[5.5rem] sm:min-w-0 px-3 sm:px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2 row-start-1 col-start-2 self-stretch"
+  }, [$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_9, _toConsumableArray(_cache[7] || (_cache[7] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29152,7 +29596,15 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "opacity-75",
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  }, null, -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscando ? 'Consultando...' : 'Buscar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_9)]), $setup.mensajeClienteSuccess && !$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.mensajeClienteSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorCliente && !$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_12, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCliente), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscando ? 'Consultando...' : 'Buscar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_8), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    type: "checkbox",
+    checked: $setup.sinDatosCedula,
+    disabled: $setup.cargandoCedulaTemporal || !($props.cedulaTemporalUrl || '').trim(),
+    onChange: $setup.onSinDatosCedulaToggle,
+    class: "h-4 w-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-500"
+  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_12), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "truncate text-center leading-tight"
+  }, "SIN DATOS", -1 /* CACHED */))])]), $setup.mensajeClienteSuccess && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.mensajeClienteSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorCliente && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCliente), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "nombre",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Nombre *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29174,7 +29626,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
     required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.apellido]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Celular "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.apellido]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Celular (en modal queda solo en la columna izquierda del grid) "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "telefono",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Celular *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29183,11 +29635,22 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "onUpdate:modelValue": _cache[3] || (_cache[3] = function ($event) {
       return $setup.formData.telefono = $event;
     }),
+    onBlur: $setup.verificarTelefonoPedidoBlur,
+    onInput: $setup.limpiarTelefonoAsociacion,
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
-    placeholder: "0981234567",
+    placeholder: "0981234567 o +595981234567",
     required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.telefono]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Botón siguiente "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: "flex justify-end"
+  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.telefono]]), $setup.verificandoTelefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, "Verificando teléfono…")) : $setup.telefonoAsociacion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", {
+    key: 1,
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["mt-1 text-sm", {
+      'text-amber-700 dark:text-amber-300': $setup.telefonoAsociacion.tipo === 'conflicto',
+      'text-emerald-700 dark:text-emerald-300': $setup.telefonoAsociacion.tipo === 'actual',
+      'text-red-600 dark:text-red-400': $setup.telefonoAsociacion.tipo === 'error'
+    }])
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.telefonoAsociacion.texto), 3 /* TEXT, CLASS */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Botón siguiente "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex justify-end", {
+      'sm:col-span-2': $props.modalMode
+    }])
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     onClick: $setup.nextStep,
@@ -29202,12 +29665,15 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M9 5l7 7-7 7"
-  })], -1 /* CACHED */)])))])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 1]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 2: Ubicación y Plan "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre del cliente en header "), $setup.formData.nombre && $setup.formData.apellido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_14, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.cedula), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), _cache[22] || (_cache[22] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", {
-    class: "text-lg font-bold text-gray-900 dark:text-gray-100 mb-4"
-  }, "UBICACIÓN Y PLAN", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ubicación "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  })], -1 /* CACHED */)])))], 2 /* CLASS */)], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 1]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 2: Ubicación y Plan "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4' : 'space-y-6')
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre del cliente en header "), $setup.formData.nombre && $setup.formData.apellido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+    key: 0,
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["pb-4 border-b border-gray-200 dark:border-gray-700", $props.modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'])
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.cedula), 1 /* TEXT */)], 2 /* CLASS */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ubicación "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "ubicacion",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Ubicación *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, "Dirección *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "text",
     id: "ubicacion",
     "onUpdate:modelValue": _cache[4] || (_cache[4] = function ($event) {
@@ -29216,7 +29682,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
     placeholder: "Esquina calle X",
     required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.ubicacion]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Maps/GPS "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[16] || (_cache[16] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.ubicacion]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Maps/GPS "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "maps_gps",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Maps/GPS", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29228,37 +29694,26 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onInput: $setup.onMapsGpsInput,
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
     placeholder: "Pega el link de Google Maps o coordenadas (lat, lon)"
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.maps_gps]]), $setup.formData.lat != null && $setup.formData.lon != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_17, " Coordenadas detectadas: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lon), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Prioridad de instalación "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[18] || (_cache[18] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "prioridad_instalacion",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Prioridad de instalación", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
-    id: "prioridad_instalacion",
-    "onUpdate:modelValue": _cache[6] || (_cache[6] = function ($event) {
-      return $setup.formData.prioridad_instalacion = $event;
-    }),
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
-  }, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
-    value: 1
-  }, "Alta", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
-    value: 2
-  }, "Media", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
-    value: 3
-  }, "Baja", -1 /* CACHED */)])), 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.formData.prioridad_instalacion]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Notas "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[19] || (_cache[19] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.maps_gps]]), $setup.formData.lat != null && $setup.formData.lon != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_18, " Coordenadas detectadas: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lon), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Notas "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[16] || (_cache[16] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "observaciones",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Notas", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
     id: "observaciones",
-    "onUpdate:modelValue": _cache[7] || (_cache[7] = function ($event) {
+    "onUpdate:modelValue": _cache[6] || (_cache[6] = function ($event) {
       return $setup.formData.observaciones = $event;
     }),
     rows: "3",
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors resize-y bg-white dark:bg-gray-700 dark:text-gray-100",
     placeholder: "Opcional"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.observaciones]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Botones "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_18, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.observaciones]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Botones "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex items-center justify-between", {
+      'sm:col-span-2': $props.modalMode
+    }])
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     onClick: $setup.prevStep,
     class: "w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
-  }, _toConsumableArray(_cache[20] || (_cache[20] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-6 h-6",
     fill: "none",
     stroke: "currentColor",
@@ -29272,7 +29727,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "submit",
     disabled: $setup.guardando,
     class: "inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-  }, [_cache[21] || (_cache[21] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, [_cache[18] || (_cache[18] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-5 h-5",
     fill: "none",
     stroke: "currentColor",
@@ -29282,7 +29737,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M5 13l4 4L19 7"
-  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.guardando ? 'Guardando...' : 'Guardar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_19)])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 2]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Campos ocultos para el formulario "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.guardando ? 'Guardando...' : 'Guardar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_19)], 2 /* CLASS */)], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 2]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Campos ocultos para el formulario "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "cedula",
     value: $setup.formData.cedula
@@ -29334,7 +29789,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "hidden",
     name: "observaciones",
     value: $setup.formData.observaciones
-  }, null, 8 /* PROPS */, _hoisted_32)], 32 /* NEED_HYDRATION */)]);
+  }, null, 8 /* PROPS */, _hoisted_32)], 34 /* CLASS, NEED_HYDRATION */)]);
 }
 
 /***/ },
@@ -29689,7 +30144,7 @@ var _hoisted_101 = {
 };
 var _hoisted_102 = {
   ref: "modalPedidoContentRef",
-  class: "absolute w-full max-w-md max-h-[85vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl",
+  class: "absolute w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl",
   style: {
     "top": "50%",
     "left": "50%",
@@ -29701,7 +30156,7 @@ var _hoisted_103 = {
   class: "sticky top-0 z-10 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-move select-none"
 };
 var _hoisted_104 = {
-  class: "p-4 bg-white dark:bg-gray-800"
+  class: "p-3 sm:p-4 bg-white dark:bg-gray-800 min-w-0"
 };
 var _hoisted_105 = {
   class: "fixed inset-0 z-50 overflow-hidden",
@@ -30194,12 +30649,14 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     planes: $props.pedidoFormConfig.planes,
     "estado-id": $props.pedidoFormConfig.estadoId,
     "buscar-cliente-url": $props.pedidoFormConfig.buscarClienteUrl,
+    "verificar-telefono-url": $props.pedidoFormConfig.verificarTelefonoUrl || '',
+    "cedula-temporal-url": $props.pedidoFormConfig.cedulaTemporalUrl || '',
     "consultar-padron-url": $props.pedidoFormConfig.consultarPadronUrl,
     "submit-url": $props.pedidoFormConfig.submitUrl,
     "cancel-url": $props.pedidoFormConfig.cancelUrl,
     "csrf-token": $props.pedidoFormConfig.csrfToken,
     "modal-mode": true
-  }, null, 8 /* PROPS */, ["pedido-id", "planes", "estado-id", "buscar-cliente-url", "consultar-padron-url", "submit-url", "cancel-url", "csrf-token"])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 512 /* NEED_PATCH */)], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalPedidoOpen]])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal Análisis de Factibilidad "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
+  }, null, 8 /* PROPS */, ["pedido-id", "planes", "estado-id", "buscar-cliente-url", "verificar-telefono-url", "cedula-temporal-url", "consultar-padron-url", "submit-url", "cancel-url", "csrf-token"])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 512 /* NEED_PATCH */)], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalPedidoOpen]])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal Análisis de Factibilidad "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
     to: "body"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_105, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-gray-900/60 transition-opacity",
@@ -35868,6 +36325,7 @@ if (el) {
     filtroClienteId: cfg.filtroClienteId || '',
     mostrarInstaladosInitial: cfg.mostrarInstaladosInitial || '1',
     aprobarEstadoUrl: cfg.aprobarEstadoUrl || '',
+    urlOpcionesNodoAprobacion: cfg.urlOpcionesNodoAprobacion || '',
     descartarEstadoUrl: cfg.descartarEstadoUrl || '',
     reabrirEstadoUrl: cfg.reabrirEstadoUrl || '',
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',

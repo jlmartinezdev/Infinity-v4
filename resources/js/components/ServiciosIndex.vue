@@ -98,7 +98,7 @@
               class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors truncate"
               :class="String(filtros.nodo_id) === String(n.nodo_id) ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
             >
-              {{ n.descripcion || ('Nodo #' + n.nodo_id) }}
+              {{ n.descripcion || ('Nodo #' + n.nodo_id) }}{{ n.tecnologias_etiqueta ? ' · ' + n.tecnologias_etiqueta : '' }}
             </button>
           </div>
         </div>
@@ -423,7 +423,20 @@
             <input type="hidden" name="_token" :value="csrfToken" />
             <button type="submit" class="w-full px-4 py-2.5 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center gap-2">
               <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
-              Cancelar servicio
+              Cancelar servicio (con factura)
+            </button>
+          </form>
+          <form
+            v-if="canDarBajaServicio && urlDarBaja && servicioAcciones.estado !== 'X'"
+            :action="urlDarBaja.replace('__id__', servicioAcciones.servicio_id)"
+            method="POST"
+            class="block"
+            @submit.prevent="confirmDarBaja($event)"
+          >
+            <input type="hidden" name="_token" :value="csrfToken" />
+            <button type="submit" class="w-full px-4 py-2.5 text-left text-sm text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/30 flex items-center gap-2">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg>
+              Dar de baja (sin factura)
             </button>
           </form>
           <form
@@ -571,6 +584,7 @@ const props = defineProps({
   clientes: { type: Array, default: () => [] },
   canCreateFactura: { type: Boolean, default: false },
   canCancelarServicio: { type: Boolean, default: false },
+  canDarBajaServicio: { type: Boolean, default: false },
   formAction: { type: String, default: '' },
   csrfToken: { type: String, default: '' },
   urlIndex: { type: String, default: '' },
@@ -581,6 +595,7 @@ const props = defineProps({
   urlActivar: { type: String, default: '' },
   urlSuspender: { type: String, default: '' },
   urlCancelar: { type: String, default: '' },
+  urlDarBaja: { type: String, default: '' },
   urlSyncPppoe: { type: String, default: '' },
   urlCrearFacturaInterna: { type: String, default: '' },
   urlCrearFacturaFraccionDeuda: { type: String, default: '' },
@@ -948,6 +963,13 @@ function confirmDestroy(ev) {
 
 function confirmCancelar(ev) {
   const msg = '¿Cancelar este servicio? Se generará una factura interna con el monto prorrateado desde el día 1 del mes hasta hoy, el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
+  if (window.confirm(msg)) {
+    ev.target.closest('form').submit();
+  }
+}
+
+function confirmDarBaja(ev) {
+  const msg = '¿Dar de baja este servicio sin factura? Se liberará la IP y el puerto NAP (si aplica), el servicio quedará cancelado y se deshabilitará PPPoE en el router. Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
   if (window.confirm(msg)) {
     ev.target.closest('form').submit();
   }

@@ -10,10 +10,7 @@
 @php
     $config = [
         'servicios' => $serviciosParaVue ?? [],
-        'nodos' => isset($nodos) ? $nodos->map(fn($n) => [
-            'nodo_id' => $n->nodo_id,
-            'descripcion' => $n->descripcion,
-        ])->values()->all() : [],
+        'nodos' => isset($nodos) ? $nodos->map(fn ($n) => $n->toArraySelect())->values()->all() : [],
         'clientes' => $clientes->map(fn($c) => [
             'cliente_id' => $c->cliente_id,
             'cedula' => $c->cedula,
@@ -23,6 +20,7 @@
         'canCancelarServicio' => auth()->check()
             && auth()->user()->tienePermiso('servicios.crear')
             && auth()->user()->tienePermiso('facturas.crear'),
+        'canDarBajaServicio' => auth()->user()?->tienePermiso('servicios.crear') ?? false,
         'formAction' => route('facturas.preparar-interna-desde-servicios'),
         'csrfToken' => csrf_token(),
         'urlIndex' => route('servicios.index'),
@@ -33,6 +31,7 @@
         'urlActivar' => url('servicios') . '/__id__/activar',
         'urlSuspender' => url('servicios') . '/__id__/suspender',
         'urlCancelar' => url('servicios') . '/__id__/cancelar',
+        'urlDarBaja' => url('servicios') . '/__id__/dar-baja',
         'urlSyncPppoe' => url('servicios') . '/__id__/sync-pppoe',
         'urlCrearFacturaInterna' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio', ['servicio' => '__id__']) : '',
         'urlCrearFacturaFraccionDeuda' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-fraccion-deuda', ['servicio' => '__id__']) : '',

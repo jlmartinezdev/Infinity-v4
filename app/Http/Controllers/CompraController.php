@@ -48,7 +48,14 @@ class CompraController extends Controller
     {
         $proveedores = Proveedor::where('estado', 'activo')->orderBy('nombre')->get();
         $productos = Producto::with('categoria')->where('estado', 'activo')->orderBy('nombre')->get();
-        return view('compras.create', compact('proveedores', 'productos'));
+        $productosJs = $productos->map(fn($p) => [
+            'id' => $p->id,
+            'codigo' => $p->codigo,
+            'nombre' => $p->nombre,
+            'precio_compra' => (float) $p->precio_compra,
+        ])->values();
+
+        return view('compras.create', compact('proveedores', 'productos', 'productosJs'));
     }
 
     /**
@@ -130,7 +137,14 @@ class CompraController extends Controller
         $compra->load(['proveedor', 'detalles.producto']);
         $proveedores = Proveedor::where('estado', 'activo')->orderBy('nombre')->get();
         $productos = Producto::with('categoria')->where('estado', 'activo')->orderBy('nombre')->get();
-        return view('compras.edit', compact('compra', 'proveedores', 'productos'));
+        $productosJs = $productos->map(fn($p) => [
+            'id' => $p->id,
+            'codigo' => $p->codigo,
+            'nombre' => $p->nombre,
+            'precio_compra' => (float) $p->precio_compra,
+        ])->values();
+
+        return view('compras.edit', compact('compra', 'proveedores', 'productos', 'productosJs'));
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\MapsUrlHelper;
 use App\Models\AjustesGenerales;
 use App\Models\Cobro;
 use App\Models\Cliente;
@@ -9,6 +10,8 @@ use App\Models\FacturaDetalle;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
 use App\Models\Impuesto;
+use App\Models\Nodo;
+use App\Models\Servicio;
 use App\Services\FacturacionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -53,9 +56,8 @@ class FacturaInternaController extends Controller
             $query->whereDate('fecha_emision', '<=', $request->hasta);
         }
         if ($request->boolean('pendiente_saldo_cero')) {
-            $sumCobrosFi = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
             $query->whereIn('factura_internas.estado', ['pendiente', 'emitida'])
-                ->whereRaw("factura_internas.total <= {$sumCobrosFi}");
+                ->whereRaw(FacturaInterna::sqlSaldoPendienteExpr().' <= 0.00001');
         }
         $busqueda = trim($request->input('q', ''));
         if ($busqueda !== '') {
@@ -74,9 +76,9 @@ class FacturaInternaController extends Controller
         }
 
         $statsQuery = (clone $query)->reorder();
-        $sumCobrosExpr = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
+        $saldoSql = FacturaInterna::sqlSaldoPendienteExpr();
         $totalPendiente = (float) (clone $statsQuery)
-            ->selectRaw("SUM(GREATEST(factura_internas.total - {$sumCobrosExpr}, 0)) as total_pendiente")
+            ->selectRaw("SUM({$saldoSql}) as total_pendiente")
             ->value('total_pendiente');
         $cantidadFacturas = (int) (clone $statsQuery)->count('factura_internas.id');
         $totalGenerado = (float) (clone $statsQuery)
@@ -87,6 +89,9 @@ class FacturaInternaController extends Controller
         $paginator = $query->paginate($perPage);
 
         $paginator->through(function (FacturaInterna $f) {
+            $saldo = (float) $f->saldo_pendiente;
+            $puedeNotaCredito = in_array($f->estado, ['pendiente', 'emitida'], true) && $saldo > 0.00001;
+
             return [
                 'id' => $f->id,
                 'cliente_id' => $f->cliente_id,
@@ -97,7 +102,9 @@ class FacturaInternaController extends Controller
                 'fecha_emision' => $f->fecha_emision?->format('Y-m-d'),
                 'estado' => $f->estado,
                 'total' => (float) $f->total,
+                'saldo_pendiente' => $saldo,
                 'moneda' => $f->moneda ?? 'PYG',
+                'puede_emitir_nota_credito' => $puedeNotaCredito,
             ];
         });
 
@@ -147,7 +154,9 @@ class FacturaInternaController extends Controller
      */
     public function pendientes(Request $request)
     {
-        return view('factura-internas.pendientes');
+        $nodos = Nodo::orderBy('descripcion')->get();
+
+        return view('factura-internas.pendientes', compact('nodos'));
     }
 
     /**
@@ -156,9 +165,8 @@ class FacturaInternaController extends Controller
      */
     public function pendientesList(Request $request)
     {
-        $sumCobros = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
-        $cobradoExpr = 'LEAST(factura_internas.total, '.$sumCobros.')';
-        $saldoExpr = '(factura_internas.total - '.$cobradoExpr.')';
+        $cobradoExpr = 'LEAST(factura_internas.total, '.FacturaInterna::sqlSumCobros().')';
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
         $promExpr = '(SELECT MAX(vencimiento_at) FROM promesa_pagos pp WHERE pp.factura_interna_id = factura_internas.id)';
 
         $inner = $this->facturasPendientesQuery($request);
@@ -255,7 +263,10 @@ class FacturaInternaController extends Controller
 
         $user = auth()->user();
 
-        $data = $slice->map(function ($g) use ($facturasCargadas, $user) {
+        $clienteIdsPagina = $slice->pluck('cliente_id')->unique()->map(fn ($id) => (int) $id)->values()->all();
+        $conServicioActivo = $this->clienteIdsConServicioActivo($clienteIdsPagina);
+
+        $data = $slice->map(function ($g) use ($facturasCargadas, $user, $conServicioActivo) {
             $ids = array_values(array_filter(array_map('intval', explode(',', (string) $g->factura_ids_csv))));
             $facturas = collect($ids)
                 ->map(fn (int $id) => $facturasCargadas->get($id))
@@ -293,6 +304,7 @@ class FacturaInternaController extends Controller
                 'facturas_count' => (int) $g->facturas_count,
                 'factura_ids' => $ids,
                 'cliente_nombre' => $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '',
+                'cliente_dado_baja' => $this->clienteEsDadoDeBaja($c, $conServicioActivo),
                 'periodo_desde' => $g->min_periodo_desde ? Carbon::parse($g->min_periodo_desde)->format('Y-m-d') : null,
                 'periodo_hasta' => $g->max_periodo_hasta ? Carbon::parse($g->max_periodo_hasta)->format('Y-m-d') : null,
                 'fecha_vencimiento' => $g->min_fecha_vencimiento ? Carbon::parse($g->min_fecha_vencimiento)->format('Y-m-d') : null,
@@ -340,6 +352,95 @@ class FacturaInternaController extends Controller
                 'facturas_vencidas' => (int) ($statsVencidos->facturas_vencidas ?? 0),
                 'clientes_vencidos' => (int) ($statsVencidos->clientes_vencidos ?? 0),
                 'saldo_vencido' => (float) ($statsVencidos->saldo_vencido ?? 0),
+            ],
+        ]);
+    }
+
+    /**
+     * Clientes con saldo pendiente que tengan coordenadas extraíbles desde url_ubicacion (mismos filtros que el listado).
+     * No resuelve enlaces cortos de Maps por rendimiento; usar URL o coordenadas completas en la ficha del cliente.
+     */
+    public function pendientesMapaPuntos(Request $request)
+    {
+        $cobradoExpr = 'LEAST(factura_internas.total, '.FacturaInterna::sqlSumCobros().')';
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
+        $promExpr = '(SELECT MAX(vencimiento_at) FROM promesa_pagos pp WHERE pp.factura_interna_id = factura_internas.id)';
+
+        $inner = $this->facturasPendientesQuery($request);
+        $inner->select([
+            'factura_internas.id',
+            'factura_internas.cliente_id',
+            'factura_internas.total',
+            'factura_internas.periodo_desde',
+            'factura_internas.periodo_hasta',
+            'factura_internas.fecha_vencimiento',
+            'factura_internas.moneda',
+            DB::raw('('.$cobradoExpr.') as cobrado_calc'),
+            DB::raw('('.$saldoExpr.') as saldo_calc'),
+            DB::raw('('.$promExpr.') as prom_calc'),
+        ]);
+
+        $grouped = DB::query()
+            ->fromSub($inner, 'fi')
+            ->select([
+                'fi.cliente_id',
+                DB::raw('SUM(fi.saldo_calc) as sum_saldo'),
+                DB::raw('MAX(fi.moneda) as moneda'),
+            ])
+            ->groupBy('fi.cliente_id');
+
+        $this->applyPendientesAgrupadoOrden($request, $grouped);
+
+        $rows = $grouped->get();
+        if ($rows->isEmpty()) {
+            return response()->json([
+                'puntos' => [],
+                'stats_mapa' => [
+                    'total_clientes' => 0,
+                    'con_coordenadas' => 0,
+                    'sin_coordenadas' => 0,
+                ],
+            ]);
+        }
+
+        $clienteIds = $rows->pluck('cliente_id')->unique()->filter()->map(fn ($id) => (int) $id)->values()->all();
+        $clientes = Cliente::query()
+            ->whereIn('cliente_id', $clienteIds)
+            ->get(['cliente_id', 'nombre', 'apellido', 'direccion', 'url_ubicacion']);
+
+        $byId = $clientes->keyBy('cliente_id');
+
+        $puntos = [];
+        $sinCoord = 0;
+        foreach ($rows as $r) {
+            $cid = (int) $r->cliente_id;
+            $c = $byId->get($cid);
+            $url = trim((string) ($c?->url_ubicacion ?? ''));
+            $coords = MapsUrlHelper::extractLatLonFromMapsUrl($url !== '' ? $url : null, false);
+            if ($coords['lat'] === null || $coords['lon'] === null) {
+                $sinCoord++;
+
+                continue;
+            }
+            $nombre = $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '';
+            $puntos[] = [
+                'cliente_id' => $cid,
+                'lat' => $coords['lat'],
+                'lon' => $coords['lon'],
+                'nombre' => $nombre,
+                'saldo_pendiente' => (float) $r->sum_saldo,
+                'moneda' => (string) ($r->moneda ?? 'PYG'),
+                'direccion' => $c?->direccion ?? '',
+                'url_ubicacion' => $url,
+            ];
+        }
+
+        return response()->json([
+            'puntos' => $puntos,
+            'stats_mapa' => [
+                'total_clientes' => $rows->count(),
+                'con_coordenadas' => count($puntos),
+                'sin_coordenadas' => $sinCoord,
             ],
         ]);
     }
@@ -571,7 +672,7 @@ class FacturaInternaController extends Controller
     {
         $query = FacturaInterna::query()
             ->whereIn('factura_internas.estado', ['pendiente', 'emitida'])
-            ->whereRaw('factura_internas.total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)');
+            ->whereRaw(FacturaInterna::sqlSaldoPendienteExpr().' > 0.00001');
 
         if ($request->filled('buscar')) {
             $term = '%'.trim($request->buscar).'%';
@@ -580,6 +681,15 @@ class FacturaInternaController extends Controller
                     ->orWhere('apellido', 'like', $term)
                     ->orWhere('cedula', 'like', $term);
             });
+        }
+
+        if ($request->filled('nodo_id')) {
+            $nodoId = (int) $request->nodo_id;
+            if ($nodoId > 0) {
+                $query->whereHas('cliente.servicios.pool.router', function ($q) use ($nodoId) {
+                    $q->where('nodo_id', $nodoId);
+                });
+            }
         }
 
         $this->applyFacturasPendientesFiltrosColumna($request, $query);
@@ -641,9 +751,8 @@ class FacturaInternaController extends Controller
             $query->where('factura_internas.total', '<=', (float) str_replace(',', '.', (string) $request->pf_total_max));
         }
 
-        $sumCobros = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
-        $cobradoExpr = 'LEAST(factura_internas.total, '.$sumCobros.')';
-        $saldoExpr = '(factura_internas.total - '.$cobradoExpr.')';
+        $cobradoExpr = 'LEAST(factura_internas.total, '.FacturaInterna::sqlSumCobros().')';
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
 
         if ($request->filled('pf_cob_min')) {
             $query->whereRaw($cobradoExpr.' >= ?', [(float) str_replace(',', '.', (string) $request->pf_cob_min)]);
@@ -734,6 +843,37 @@ class FacturaInternaController extends Controller
     }
 
     /**
+     * @param  list<int>  $clienteIds
+     * @return \Illuminate\Support\Collection<int, int> claves = cliente_id con al menos un servicio no cancelado
+     */
+    private function clienteIdsConServicioActivo(array $clienteIds): \Illuminate\Support\Collection
+    {
+        if ($clienteIds === []) {
+            return collect();
+        }
+
+        return Servicio::query()
+            ->whereIn('cliente_id', $clienteIds)
+            ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+            ->distinct()
+            ->pluck('cliente_id')
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+    }
+
+    private function clienteEsDadoDeBaja(?Cliente $c, \Illuminate\Support\Collection $conServicioActivo): bool
+    {
+        if (! $c) {
+            return false;
+        }
+        if ((string) $c->estado === 'inactivo') {
+            return true;
+        }
+
+        return ! $conServicioActivo->has((int) $c->cliente_id);
+    }
+
+    /**
      * Orden del listado / export / API pendientes. Parámetros: sort, direction (asc|desc).
      */
     private function applyFacturasPendientesOrden(Request $request, $query): void
@@ -745,9 +885,8 @@ class FacturaInternaController extends Controller
         }
         $dir = strtolower((string) $request->input('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        $sumCobros = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
-        $cobradoExpr = 'LEAST(factura_internas.total, '.$sumCobros.')';
-        $saldoExpr = '(factura_internas.total - '.$cobradoExpr.')';
+        $cobradoExpr = 'LEAST(factura_internas.total, '.FacturaInterna::sqlSumCobros().')';
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
         $promExpr = '(SELECT MAX(vencimiento_at) FROM promesa_pagos pp WHERE pp.factura_interna_id = factura_internas.id)';
 
         switch ($sort) {
@@ -788,10 +927,64 @@ class FacturaInternaController extends Controller
 
     public function show(FacturaInterna $factura_interna)
     {
-        $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros']);
+        $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros', 'notasCredito.usuario']);
         $ajustes = AjustesGenerales::obtener();
 
         return view('factura-internas.show', compact('factura_interna', 'ajustes'));
+    }
+
+    /**
+     * Emite nota de crédito sobre la factura (reduce saldo pendiente).
+     */
+    public function emitirNotaCredito(Request $request, FacturaInterna $factura_interna, FacturacionService $facturacionService)
+    {
+        $validated = $request->validate([
+            'monto' => ['required', 'numeric', 'min:1'],
+            'motivo' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $nota = $facturacionService->emitirNotaCredito(
+                $factura_interna,
+                (float) $validated['monto'],
+                $validated['motivo'] ?? null,
+                auth()->user()?->usuario_id
+            );
+        } catch (\InvalidArgumentException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+
+        $msg = 'Nota de crédito emitida por '.number_format((float) $nota->monto, 0, ',', '.').' '.$factura_interna->moneda.'.';
+        if ($request->expectsJson()) {
+            $factura_interna->refresh();
+
+            return response()->json([
+                'message' => $msg,
+                'nota' => [
+                    'id' => $nota->id,
+                    'monto' => (float) $nota->monto,
+                    'motivo' => $nota->motivo,
+                    'created_at' => $nota->created_at?->toIso8601String(),
+                ],
+                'factura' => [
+                    'estado' => $factura_interna->estado,
+                    'saldo_pendiente' => (float) $factura_interna->saldo_pendiente,
+                    'monto_notas_credito' => (float) $factura_interna->monto_notas_credito,
+                    'esta_pagada' => $factura_interna->esta_pagada,
+                ],
+            ]);
+        }
+
+        return redirect()
+            ->route('factura-internas.show', $factura_interna)
+            ->with('success', $msg);
     }
 
     /**
@@ -799,7 +992,7 @@ class FacturaInternaController extends Controller
      */
     public function pdf(FacturaInterna $factura_interna)
     {
-        $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros']);
+        $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros', 'notasCredito.usuario']);
         $ajustes = AjustesGenerales::obtener();
 
         $logoBase64 = null;

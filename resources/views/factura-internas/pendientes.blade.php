@@ -12,6 +12,8 @@
     $phC = 979797979;
     $config = [
         'listUrl' => route('factura-internas.pendientes.list'),
+        'mapPuntosUrl' => route('factura-internas.pendientes.mapa-puntos'),
+        'googleMapsApiKey' => (string) config('services.google.maps_key', ''),
         'exportExcelUrl' => route('factura-internas.pendientes.exportar-excel'),
         'pfKeys' => $pfKeys,
         'urls' => [
@@ -32,6 +34,7 @@
         'canVerClienteDetalle' => $u?->tienePermiso('clientes.ver') ?? false,
         'flashSuccess' => session('success') ?? '',
         'flashError' => session('error') ?? '',
+        'nodos' => ($nodos ?? collect())->map(fn ($n) => $n->toArraySelect())->values()->all(),
     ];
 @endphp
 <script>

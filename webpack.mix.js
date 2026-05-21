@@ -38,6 +38,8 @@ mix.js('resources/js/caja-nap-form-mapa.js', 'public/js').vue();
 mix.js('resources/js/servicios-index.js', 'public/js').vue();
 mix.js('resources/js/cobros-servicios.js', 'public/js').vue();
 mix.js('resources/js/facturas-internas-index.js', 'public/js').vue();
+mix.js('resources/js/notas-credito-index.js', 'public/js').vue();
+mix.js('resources/js/compras-create.js', 'public/js').vue();
 mix.js('resources/js/pendientes-pago.js', 'public/js').vue();
 mix.js('resources/js/tareas-dashboard.js', 'public/js').vue();
 

@@ -77,6 +77,11 @@ class FacturaInterna extends Model
             ->withTimestamps();
     }
 
+    public function notasCredito(): HasMany
+    {
+        return $this->hasMany(FacturaInternaNotaCredito::class)->orderByDesc('id');
+    }
+
     /** Monto aplicado a esta factura (suma de pivot.monto; cap en total para no exceder por sobrepagos). */
     public function getMontoPagadoAttribute(): float
     {
@@ -86,9 +91,38 @@ class FacturaInterna extends Model
         return min((float) $this->total, $suma);
     }
 
+    public function getMontoNotasCreditoAttribute(): float
+    {
+        if ($this->relationLoaded('notasCredito')) {
+            return (float) $this->notasCredito->sum('monto');
+        }
+
+        return (float) $this->notasCredito()->sum('monto');
+    }
+
     public function getSaldoPendienteAttribute(): float
     {
-        return max(0, (float) $this->total - $this->monto_pagado);
+        return max(0, (float) $this->total - $this->monto_pagado - $this->monto_notas_credito);
+    }
+
+    /** Suma de cobros aplicados a factura_internas (subconsulta SQL). */
+    public static function sqlSumCobros(): string
+    {
+        return '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
+    }
+
+    /** Suma de notas de crédito emitidas sobre la factura (subconsulta SQL). */
+    public static function sqlSumNotasCredito(): string
+    {
+        return '(SELECT COALESCE(SUM(monto),0) FROM factura_interna_notas_credito WHERE factura_interna_id = factura_internas.id)';
+    }
+
+    /** Saldo pendiente en SQL (total − cobrado − notas de crédito, mínimo 0). */
+    public static function sqlSaldoPendienteExpr(): string
+    {
+        $cobrado = 'LEAST(factura_internas.total, '.self::sqlSumCobros().')';
+
+        return 'GREATEST(factura_internas.total - '.$cobrado.' - '.self::sqlSumNotasCredito().', 0)';
     }
 
     public function getEstaPagadaAttribute(): bool

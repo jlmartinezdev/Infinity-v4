@@ -52,6 +52,7 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descripción</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Coordenadas GPS</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ciudad</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tecnologías</th>
                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
@@ -62,6 +63,19 @@
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ $nodo->descripcion ?? '—' }}</td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $nodo->coordenas_gps ?? '—' }}</td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $nodo->ciudad ?? '—' }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                <div class="flex flex-wrap gap-1">
+                                    @if($nodo->tecnologia_gpon)
+                                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200">GPON</span>
+                                    @endif
+                                    @if($nodo->tecnologia_wireless)
+                                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">Wireless</span>
+                                    @endif
+                                    @if(!$nodo->tecnologia_gpon && !$nodo->tecnologia_wireless)
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="px-4 py-3 text-right text-sm">
                                 <a href="{{ route('nodos.edit', $nodo) }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium mr-4">Editar</a>
                                 <form action="{{ route('nodos.destroy', $nodo) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este nodo?');">
@@ -73,7 +87,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay nodos. <a href="{{ route('nodos.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay nodos. <a href="{{ route('nodos.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
                         </tr>
                     @endforelse
                 </tbody>

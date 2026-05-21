@@ -11,6 +11,8 @@ if (el) {
     planes: cfg.planes || [],
     estadoId: cfg.estadoId || 1,
     buscarClienteUrl: cfg.buscarClienteUrl || '',
+    verificarTelefonoUrl: cfg.verificarTelefonoUrl || '',
+    cedulaTemporalUrl: cfg.cedulaTemporalUrl || '',
     consultarPadronUrl: cfg.consultarPadronUrl || '',
     submitUrl: cfg.submitUrl || '',
     cancelUrl: cfg.cancelUrl || '',

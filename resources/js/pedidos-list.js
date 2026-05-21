@@ -23,6 +23,7 @@ if (el) {
     filtroClienteId: cfg.filtroClienteId || '',
     mostrarInstaladosInitial: cfg.mostrarInstaladosInitial || '1',
     aprobarEstadoUrl: cfg.aprobarEstadoUrl || '',
+    urlOpcionesNodoAprobacion: cfg.urlOpcionesNodoAprobacion || '',
     descartarEstadoUrl: cfg.descartarEstadoUrl || '',
     reabrirEstadoUrl: cfg.reabrirEstadoUrl || '',
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',

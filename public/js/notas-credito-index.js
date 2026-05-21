@@ -27317,10 +27317,10 @@ module.exports = Array.isArray || function (arr) {
 
 /***/ },
 
-/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/PedidoForm.vue?vue&type=script&setup=true&lang=js"
-/*!****************************************************************************************************************************************************************************************************************************************!*\
-  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/PedidoForm.vue?vue&type=script&setup=true&lang=js ***!
-  \****************************************************************************************************************************************************************************************************************************************/
+/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js"
+/*!***********************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js ***!
+  \***********************************************************************************************************************************************************************************************************************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -27329,479 +27329,190 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
-/* harmony import */ var _helpers_mapsUrl_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../helpers/mapsUrl.js */ "./resources/js/helpers/mapsUrl.js");
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 
-
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
-  __name: 'PedidoForm',
+  __name: 'NotasCreditoIndex',
   props: {
-    pedidoId: {
+    listUrl: {
       type: String,
-      default: 'Nuevo'
+      required: true
     },
-    planes: {
+    facturaBaseUrl: {
+      type: String,
+      required: true
+    },
+    clientes: {
       type: Array,
-      required: true
-    },
-    estadoId: {
-      type: Number,
-      required: true
-    },
-    buscarClienteUrl: {
-      type: String,
-      required: true
-    },
-    verificarTelefonoUrl: {
-      type: String,
-      default: ''
-    },
-    cedulaTemporalUrl: {
-      type: String,
-      default: ''
-    },
-    consultarPadronUrl: {
-      type: String,
-      required: true
-    },
-    submitUrl: {
-      type: String,
-      required: true
-    },
-    cancelUrl: {
-      type: String,
-      required: true
-    },
-    csrfToken: {
-      type: String,
-      required: true
-    },
-    modalMode: {
-      type: Boolean,
-      default: false
+      default: function _default() {
+        return [];
+      }
     }
   },
   setup: function setup(__props, _ref) {
     var __expose = _ref.expose;
     __expose();
     var props = __props;
-    var currentStep = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(1);
-    var buscando = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
-    var guardando = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
-    var errorCliente = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
-    var mensajeClienteSuccess = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
-    var sinDatosCedula = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
-    var cargandoCedulaTemporal = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
-    var verificandoTelefono = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
-    var telefonoAsociacion = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
-    var formData = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)({
-      cedula: '',
-      cliente_id: null,
-      nombre: '',
-      apellido: '',
-      telefono: '',
-      ubicacion: '',
-      maps_gps: '',
-      lat: null,
-      lon: null,
-      plan_id: '',
-      prioridad_instalacion: 2,
-      observaciones: '',
-      fecha_pedido: new Date().toISOString().split('T')[0]
+    var buscar = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var buscarDebounced = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var filtroClienteId = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var filtroDesde = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var filtroHasta = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var rows = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
+    var stats = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)({
+      cantidad: 0,
+      total_monto: 0
     });
-    var limpiarTelefonoAsociacion = function limpiarTelefonoAsociacion() {
-      telefonoAsociacion.value = null;
-    };
-    var verificarTelefonoPedidoBlur = /*#__PURE__*/function () {
-      var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-        var url, raw, payload, _yield$window$axios$p, data, c, nombre, ci, _t;
+    var meta = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)({
+      current_page: 1,
+      last_page: 1,
+      per_page: 20,
+      total: 0,
+      from: null,
+      to: null
+    });
+    var loading = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var inlineError = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var debounceTimer = null;
+    var urlFacturasInternas = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      var base = (props.facturaBaseUrl || '').replace(/\/$/, '');
+      return base || '/factura-internas';
+    });
+    function formatMonto(n) {
+      return new Intl.NumberFormat('es-PY', {
+        maximumFractionDigits: 0
+      }).format(n);
+    }
+    function formatFecha(iso) {
+      if (!iso) return '—';
+      var d = new Date(iso.replace(' ', 'T'));
+      if (Number.isNaN(d.getTime())) return iso;
+      return d.toLocaleString('es-PY', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    function urlFactura(id) {
+      return "".concat(props.facturaBaseUrl, "/").concat(id);
+    }
+    function cargar() {
+      return _cargar.apply(this, arguments);
+    }
+    function _cargar() {
+      _cargar = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+        var page,
+          _data$stats$cantidad,
+          _data$stats,
+          _data$stats$total_mon,
+          _data$stats2,
+          params,
+          _yield$window$axios$g,
+          data,
+          _e$response,
+          _args = arguments,
+          _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
             case 0:
-              url = (props.verificarTelefonoUrl || '').trim();
-              if (url) {
-                _context.n = 1;
-                break;
-              }
-              return _context.a(2);
-            case 1:
-              raw = (formData.value.telefono || '').trim();
-              if (raw) {
-                _context.n = 2;
-                break;
-              }
-              limpiarTelefonoAsociacion();
-              return _context.a(2);
+              page = _args.length > 0 && _args[0] !== undefined ? _args[0] : 1;
+              loading.value = true;
+              inlineError.value = '';
+              _context.p = 1;
+              params = new URLSearchParams();
+              params.set('page', String(page));
+              if (filtroClienteId.value) params.set('cliente_id', filtroClienteId.value);
+              if (filtroDesde.value) params.set('desde', filtroDesde.value);
+              if (filtroHasta.value) params.set('hasta', filtroHasta.value);
+              if (buscarDebounced.value.trim()) params.set('q', buscarDebounced.value.trim());
+              _context.n = 2;
+              return window.axios.get("".concat(props.listUrl, "?").concat(params.toString()));
             case 2:
-              verificandoTelefono.value = true;
-              telefonoAsociacion.value = null;
-              _context.p = 3;
-              payload = {
-                telefono: raw
-              };
-              if (formData.value.cliente_id != null) {
-                payload.exclude_cliente_id = formData.value.cliente_id;
-              }
-              _context.n = 4;
-              return window.axios.post(url, payload);
-            case 4:
-              _yield$window$axios$p = _context.v;
-              data = _yield$window$axios$p.data;
-              if (data !== null && data !== void 0 && data.encontrado) {
-                _context.n = 5;
-                break;
-              }
-              return _context.a(2);
-            case 5:
-              c = data.cliente || {};
-              nombre = [c.nombre, c.apellido].filter(Boolean).join(' ').trim() || 'Sin nombre';
-              ci = c.cedula != null ? String(c.cedula) : '';
-              if (data.es_cliente_actual) {
-                telefonoAsociacion.value = {
-                  tipo: 'actual',
-                  texto: "Este n\xFAmero coincide con el cliente cargado: ".concat(nombre, " (CI: ").concat(ci, ").")
-                };
-              } else {
-                telefonoAsociacion.value = {
-                  tipo: 'conflicto',
-                  texto: "Este n\xFAmero est\xE1 registrado para otro cliente: ".concat(nombre, " (CI: ").concat(ci, "). No se podr\xE1 guardar el pedido con este celular.")
-                };
-              }
-              _context.n = 7;
-              break;
-            case 6:
-              _context.p = 6;
-              _t = _context.v;
-              telefonoAsociacion.value = {
-                tipo: 'error',
-                texto: 'No se pudo verificar el teléfono. Intenta de nuevo.'
-              };
-            case 7:
-              _context.p = 7;
-              verificandoTelefono.value = false;
-              return _context.f(7);
-            case 8:
-              return _context.a(2);
-          }
-        }, _callee, null, [[3, 6, 7, 8]]);
-      }));
-      return function verificarTelefonoPedidoBlur() {
-        return _ref2.apply(this, arguments);
-      };
-    }();
-    var progressPercentage = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
-      return currentStep.value * 50;
-    });
-    var formatPrice = function formatPrice(price) {
-      return new Intl.NumberFormat('es-PY', {
-        style: 'currency',
-        currency: 'PYG'
-      }).format(price);
-    };
-    var onMapsGpsInput = function onMapsGpsInput() {
-      var _extractLatLonFromMap = (0,_helpers_mapsUrl_js__WEBPACK_IMPORTED_MODULE_1__.extractLatLonFromMapsUrl)(formData.value.maps_gps),
-        lat = _extractLatLonFromMap.lat,
-        lon = _extractLatLonFromMap.lon;
-      formData.value.lat = lat;
-      formData.value.lon = lon;
-    };
-    var onSinDatosCedulaToggle = /*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(ev) {
-        var checked, url, _yield$window$axios$g, data, ced, _t2;
-        return _regenerator().w(function (_context2) {
-          while (1) switch (_context2.p = _context2.n) {
-            case 0:
-              checked = ev.target.checked;
-              url = (props.cedulaTemporalUrl || '').trim();
-              if (!(checked && !url)) {
-                _context2.n = 1;
-                break;
-              }
-              ev.target.checked = false;
-              return _context2.a(2);
-            case 1:
-              if (!checked) {
-                _context2.n = 8;
-                break;
-              }
-              cargandoCedulaTemporal.value = true;
-              errorCliente.value = '';
-              mensajeClienteSuccess.value = '';
-              _context2.p = 2;
-              _context2.n = 3;
-              return window.axios.get(url);
-            case 3:
-              _yield$window$axios$g = _context2.v;
+              _yield$window$axios$g = _context.v;
               data = _yield$window$axios$g.data;
-              ced = (data === null || data === void 0 ? void 0 : data.cedula) != null ? String(data.cedula) : '';
-              if (ced) {
-                _context2.n = 4;
-                break;
-              }
-              throw new Error('Respuesta inválida');
-            case 4:
-              sinDatosCedula.value = true;
-              formData.value.cedula = ced;
-              formData.value.cliente_id = null;
-              mensajeClienteSuccess.value = 'Cédula temporal asignada (sin datos de documento).';
-              _context2.n = 6;
-              break;
-            case 5:
-              _context2.p = 5;
-              _t2 = _context2.v;
-              sinDatosCedula.value = false;
-              ev.target.checked = false;
-              errorCliente.value = 'No se pudo obtener la cédula temporal. Intenta de nuevo.';
-            case 6:
-              _context2.p = 6;
-              cargandoCedulaTemporal.value = false;
-              return _context2.f(6);
-            case 7:
-              _context2.n = 9;
-              break;
-            case 8:
-              sinDatosCedula.value = false;
-              formData.value.cedula = '';
-              formData.value.cliente_id = null;
-              errorCliente.value = '';
-              mensajeClienteSuccess.value = '';
-            case 9:
-              return _context2.a(2);
-          }
-        }, _callee2, null, [[2, 5, 6, 7]]);
-      }));
-      return function onSinDatosCedulaToggle(_x) {
-        return _ref3.apply(this, arguments);
-      };
-    }();
-    var buscarCliente = /*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-        var datosPadron, padronResponse, clienteResponse, cliente, _clienteError$respons, _t3, _t4, _t5;
-        return _regenerator().w(function (_context3) {
-          while (1) switch (_context3.p = _context3.n) {
-            case 0:
-              if (!(sinDatosCedula.value || !formData.value.cedula)) {
-                _context3.n = 1;
-                break;
-              }
-              return _context3.a(2);
-            case 1:
-              buscando.value = true;
-              errorCliente.value = '';
-              mensajeClienteSuccess.value = '';
-              _context3.p = 2;
-              // Primero consultar el padrón
-              datosPadron = null;
-              _context3.p = 3;
-              _context3.n = 4;
-              return window.axios.post(props.consultarPadronUrl, {
-                cedula: formData.value.cedula
-              });
-            case 4:
-              padronResponse = _context3.v;
-              if (padronResponse.data.encontrado) {
-                datosPadron = padronResponse.data;
-                // Pre-llenar con datos del padrón
-                formData.value.nombre = datosPadron.nombre || '';
-                formData.value.apellido = datosPadron.apellido || '';
-                if (datosPadron.direccion) {
-                  formData.value.ubicacion = datosPadron.direccion;
-                }
-              }
-              _context3.n = 6;
-              break;
-            case 5:
-              _context3.p = 5;
-              _t3 = _context3.v;
-              // Si no se encuentra en el padrón, continuar sin error
-              console.log('No encontrado en padrón o error al consultar:', _t3);
-            case 6:
-              _context3.p = 6;
-              _context3.n = 7;
-              return window.axios.post(props.buscarClienteUrl, {
-                cedula: formData.value.cedula
-              });
-            case 7:
-              clienteResponse = _context3.v;
-              cliente = clienteResponse.data;
-              formData.value.cliente_id = cliente.cliente_id;
-              // Si no hay datos del padrón, usar datos del cliente
-              if (!datosPadron) {
-                formData.value.nombre = cliente.nombre || formData.value.nombre;
-                formData.value.apellido = cliente.apellido || formData.value.apellido;
-                formData.value.telefono = cliente.telefono || formData.value.telefono;
-              } else {
-                // Si hay datos del padrón pero también cliente, priorizar padrón pero mantener teléfono del cliente
-                formData.value.telefono = cliente.telefono || formData.value.telefono;
-              }
-              mensajeClienteSuccess.value = 'Cliente encontrado.';
-              errorCliente.value = '';
-              _context3.n = 9;
-              break;
-            case 8:
-              _context3.p = 8;
-              _t4 = _context3.v;
-              if (((_clienteError$respons = _t4.response) === null || _clienteError$respons === void 0 ? void 0 : _clienteError$respons.status) === 404) {
-                // Cliente no existe en la tabla, pero puede tener datos del padrón
-                if (datosPadron) {
-                  mensajeClienteSuccess.value = 'Encontrado en padrón. Cliente nuevo, se creará automáticamente.';
-                  errorCliente.value = '';
-                } else {
-                  errorCliente.value = 'No encontrado. Puedes continuar ingresando los datos manualmente.';
-                  mensajeClienteSuccess.value = '';
-                }
-                formData.value.cliente_id = null;
-              } else {
-                errorCliente.value = 'Error al buscar cliente. Puedes continuar ingresando los datos manualmente.';
-                mensajeClienteSuccess.value = '';
-              }
-            case 9:
-              _context3.n = 11;
-              break;
-            case 10:
-              _context3.p = 10;
-              _t5 = _context3.v;
-              errorCliente.value = 'Error al buscar. Puedes continuar ingresando los datos manualmente.';
-              mensajeClienteSuccess.value = '';
-            case 11:
-              _context3.p = 11;
-              buscando.value = false;
-              void verificarTelefonoPedidoBlur();
-              return _context3.f(11);
-            case 12:
-              return _context3.a(2);
-          }
-        }, _callee3, null, [[6, 8], [3, 5], [2, 10, 11, 12]]);
-      }));
-      return function buscarCliente() {
-        return _ref4.apply(this, arguments);
-      };
-    }();
-    var nextStep = function nextStep() {
-      if (formData.value.cedula && formData.value.nombre && formData.value.apellido && formData.value.telefono) {
-        currentStep.value = 2;
-      } else {
-        alert('Por favor, completa todos los campos requeridos del paso 1.');
-      }
-    };
-    var prevStep = function prevStep() {
-      currentStep.value = 1;
-    };
-    var closeModal = function closeModal() {
-      window.dispatchEvent(new CustomEvent('close-pedido-modal'));
-    };
-    var submitForm = /*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-        var _formData$value$lat, _formData$value$lon, _formData$value$prior;
-        var dataToSubmit, _response$data, response, _error$response, _error$response2, _error$response3, errors, errorMessages, _t6;
-        return _regenerator().w(function (_context4) {
-          while (1) switch (_context4.p = _context4.n) {
-            case 0:
-              if (!(!formData.value.cedula || !formData.value.nombre || !formData.value.apellido || !formData.value.telefono || !formData.value.ubicacion)) {
-                _context4.n = 1;
-                break;
-              }
-              alert('Por favor, completa todos los campos requeridos.');
-              return _context4.a(2);
-            case 1:
-              guardando.value = true;
-              dataToSubmit = {
-                cedula: formData.value.cedula,
-                nombre: formData.value.nombre,
-                apellido: formData.value.apellido,
-                telefono: formData.value.telefono,
-                estado_id: props.estadoId,
-                fecha_pedido: formData.value.fecha_pedido,
-                ubicacion: formData.value.ubicacion,
-                maps_gps: formData.value.maps_gps || '',
-                lat: (_formData$value$lat = formData.value.lat) !== null && _formData$value$lat !== void 0 ? _formData$value$lat : null,
-                lon: (_formData$value$lon = formData.value.lon) !== null && _formData$value$lon !== void 0 ? _formData$value$lon : null,
-                plan_id: 1,
-                prioridad_instalacion: (_formData$value$prior = formData.value.prioridad_instalacion) !== null && _formData$value$prior !== void 0 ? _formData$value$prior : 2,
-                observaciones: formData.value.observaciones || ''
+              rows.value = data.data || [];
+              meta.value = _objectSpread(_objectSpread({}, meta.value), data.meta || {});
+              stats.value = {
+                cantidad: Number((_data$stats$cantidad = (_data$stats = data.stats) === null || _data$stats === void 0 ? void 0 : _data$stats.cantidad) !== null && _data$stats$cantidad !== void 0 ? _data$stats$cantidad : 0),
+                total_monto: Number((_data$stats$total_mon = (_data$stats2 = data.stats) === null || _data$stats2 === void 0 ? void 0 : _data$stats2.total_monto) !== null && _data$stats$total_mon !== void 0 ? _data$stats$total_mon : 0)
               };
-              _context4.p = 2;
-              _context4.n = 3;
-              return window.axios.post(props.submitUrl, dataToSubmit);
-            case 3:
-              response = _context4.v;
-              if (!(response.status === 200 || response.status === 201 || (_response$data = response.data) !== null && _response$data !== void 0 && _response$data.redirect)) {
-                _context4.n = 4;
-                break;
-              }
-              if (props.modalMode) {
-                window.dispatchEvent(new CustomEvent('pedido-created'));
-              } else {
-                window.location.href = props.cancelUrl;
-              }
-              return _context4.a(2);
-            case 4:
-              if (!props.modalMode) {
-                window.location.href = props.cancelUrl;
-              }
-              _context4.n = 6;
+              _context.n = 4;
               break;
+            case 3:
+              _context.p = 3;
+              _t = _context.v;
+              inlineError.value = ((_e$response = _t.response) === null || _e$response === void 0 || (_e$response = _e$response.data) === null || _e$response === void 0 ? void 0 : _e$response.message) || 'No se pudo cargar el listado.';
+              rows.value = [];
+              stats.value = {
+                cantidad: 0,
+                total_monto: 0
+              };
+            case 4:
+              _context.p = 4;
+              loading.value = false;
+              return _context.f(4);
             case 5:
-              _context4.p = 5;
-              _t6 = _context4.v;
-              console.error('Error al guardar pedido:', _t6);
-              if (((_error$response = _t6.response) === null || _error$response === void 0 ? void 0 : _error$response.status) === 422) {
-                errors = _t6.response.data.errors;
-                errorMessages = Object.values(errors).flat().join('\n');
-                alert('Error de validación:\n' + errorMessages);
-              } else if (((_error$response2 = _t6.response) === null || _error$response2 === void 0 ? void 0 : _error$response2.status) === 302 || ((_error$response3 = _t6.response) === null || _error$response3 === void 0 ? void 0 : _error$response3.status) === 200) {
-                if (props.modalMode) {
-                  window.dispatchEvent(new CustomEvent('pedido-created'));
-                } else {
-                  window.location.href = props.cancelUrl;
-                }
-              } else {
-                alert('Error al guardar el pedido. Por favor, intenta nuevamente.');
-              }
-            case 6:
-              _context4.p = 6;
-              guardando.value = false;
-              return _context4.f(6);
-            case 7:
-              return _context4.a(2);
+              return _context.a(2);
           }
-        }, _callee4, null, [[2, 5, 6, 7]]);
+        }, _callee, null, [[1, 3, 4, 5]]);
       }));
-      return function submitForm() {
-        return _ref5.apply(this, arguments);
-      };
-    }();
+      return _cargar.apply(this, arguments);
+    }
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(buscar, function () {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        buscarDebounced.value = buscar.value;
+        cargar(1);
+      }, 350);
+    });
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)([filtroClienteId, filtroDesde, filtroHasta], function () {
+      return cargar(1);
+    });
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(function () {
+      return cargar(1);
+    });
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onUnmounted)(function () {
+      return clearTimeout(debounceTimer);
+    });
     var __returned__ = {
       props: props,
-      currentStep: currentStep,
-      buscando: buscando,
-      guardando: guardando,
-      errorCliente: errorCliente,
-      mensajeClienteSuccess: mensajeClienteSuccess,
-      sinDatosCedula: sinDatosCedula,
-      cargandoCedulaTemporal: cargandoCedulaTemporal,
-      verificandoTelefono: verificandoTelefono,
-      telefonoAsociacion: telefonoAsociacion,
-      formData: formData,
-      limpiarTelefonoAsociacion: limpiarTelefonoAsociacion,
-      verificarTelefonoPedidoBlur: verificarTelefonoPedidoBlur,
-      progressPercentage: progressPercentage,
-      formatPrice: formatPrice,
-      onMapsGpsInput: onMapsGpsInput,
-      onSinDatosCedulaToggle: onSinDatosCedulaToggle,
-      buscarCliente: buscarCliente,
-      nextStep: nextStep,
-      prevStep: prevStep,
-      closeModal: closeModal,
-      submitForm: submitForm,
+      buscar: buscar,
+      buscarDebounced: buscarDebounced,
+      filtroClienteId: filtroClienteId,
+      filtroDesde: filtroDesde,
+      filtroHasta: filtroHasta,
+      rows: rows,
+      stats: stats,
+      meta: meta,
+      loading: loading,
+      inlineError: inlineError,
+      get debounceTimer() {
+        return debounceTimer;
+      },
+      set debounceTimer(v) {
+        debounceTimer = v;
+      },
+      urlFacturasInternas: urlFacturasInternas,
+      formatMonto: formatMonto,
+      formatFecha: formatFecha,
+      urlFactura: urlFactura,
+      cargar: cargar,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
-      computed: vue__WEBPACK_IMPORTED_MODULE_0__.computed,
-      get extractLatLonFromMapsUrl() {
-        return _helpers_mapsUrl_js__WEBPACK_IMPORTED_MODULE_1__.extractLatLonFromMapsUrl;
-      }
+      watch: vue__WEBPACK_IMPORTED_MODULE_0__.watch,
+      onMounted: vue__WEBPACK_IMPORTED_MODULE_0__.onMounted,
+      onUnmounted: vue__WEBPACK_IMPORTED_MODULE_0__.onUnmounted,
+      computed: vue__WEBPACK_IMPORTED_MODULE_0__.computed
     };
     Object.defineProperty(__returned__, '__isScriptSetup', {
       enumerable: false,
@@ -27813,10 +27524,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 
 /***/ },
 
-/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/PedidoForm.vue?vue&type=template&id=60001dd4"
-/*!*********************************************************************************************************************************************************************************************************************************************************************************************************!*\
-  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/PedidoForm.vue?vue&type=template&id=60001dd4 ***!
-  \*********************************************************************************************************************************************************************************************************************************************************************************************************/
+/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/NotasCreditoIndex.vue?vue&type=template&id=67284d34"
+/*!****************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/NotasCreditoIndex.vue?vue&type=template&id=67284d34 ***!
+  \****************************************************************************************************************************************************************************************************************************************************************************************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -27833,319 +27544,256 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 
 var _hoisted_1 = {
-  class: "bg-white dark:bg-gray-800 overflow-hidden"
+  class: "max-w-7xl mx-auto"
 };
 var _hoisted_2 = {
-  class: "flex items-center justify-between mb-2"
+  class: "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
 };
-var _hoisted_3 = {
-  class: "text-sm font-medium text-gray-700 dark:text-gray-300"
-};
+var _hoisted_3 = ["href"];
 var _hoisted_4 = {
-  class: "text-sm font-medium text-gray-700 dark:text-gray-300"
+  class: "grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"
 };
 var _hoisted_5 = {
-  class: "w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2"
+  class: "p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700"
 };
 var _hoisted_6 = {
-  class: "grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+  class: "mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100"
 };
-var _hoisted_7 = ["disabled", "required"];
-var _hoisted_8 = ["disabled"];
+var _hoisted_7 = {
+  class: "p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700"
+};
+var _hoisted_8 = {
+  class: "mt-1 text-2xl font-bold text-sky-700 dark:text-sky-400"
+};
 var _hoisted_9 = {
   key: 0,
-  class: "animate-spin h-5 w-5 shrink-0 text-white",
-  xmlns: "http://www.w3.org/2000/svg",
-  fill: "none",
-  viewBox: "0 0 24 24"
+  class: "mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 text-sm"
 };
 var _hoisted_10 = {
-  class: "truncate"
+  class: "bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden"
 };
 var _hoisted_11 = {
-  class: "col-span-2 row-start-2 flex h-11 w-full min-w-0 cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium text-gray-700 dark:text-gray-300 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:text-sm"
+  class: "p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 space-y-4"
 };
-var _hoisted_12 = ["checked", "disabled"];
+var _hoisted_12 = {
+  class: "relative"
+};
 var _hoisted_13 = {
-  key: 0,
-  class: "mt-1 text-sm text-green-600 dark:text-green-400"
+  class: "flex flex-col sm:flex-row gap-3 flex-wrap"
 };
 var _hoisted_14 = {
-  key: 1,
-  class: "mt-1 text-sm text-red-600 dark:text-red-400"
+  class: "sm:w-56"
 };
-var _hoisted_15 = {
-  key: 0,
-  class: "mt-1 text-xs text-gray-500 dark:text-gray-400"
-};
+var _hoisted_15 = ["value"];
 var _hoisted_16 = {
-  class: "text-lg font-bold text-gray-900 dark:text-gray-100"
+  class: "sm:w-40"
 };
 var _hoisted_17 = {
-  class: "text-sm text-gray-600 dark:text-gray-400"
+  class: "sm:w-40"
 };
 var _hoisted_18 = {
-  key: 0,
-  class: "mt-1 text-xs text-green-600"
+  class: "overflow-x-auto"
 };
-var _hoisted_19 = ["disabled"];
-var _hoisted_20 = ["value"];
-var _hoisted_21 = ["value"];
-var _hoisted_22 = ["value"];
-var _hoisted_23 = ["value"];
-var _hoisted_24 = ["value"];
-var _hoisted_25 = ["value"];
-var _hoisted_26 = ["value"];
-var _hoisted_27 = ["value"];
-var _hoisted_28 = ["value"];
-var _hoisted_29 = ["value"];
-var _hoisted_30 = ["value"];
-var _hoisted_31 = ["value"];
-var _hoisted_32 = ["value"];
+var _hoisted_19 = {
+  class: "min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+};
+var _hoisted_20 = {
+  class: "divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"
+};
+var _hoisted_21 = {
+  key: 0
+};
+var _hoisted_22 = {
+  key: 1
+};
+var _hoisted_23 = {
+  class: "px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100"
+};
+var _hoisted_24 = {
+  class: "px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap"
+};
+var _hoisted_25 = {
+  class: "px-4 py-3 text-sm"
+};
+var _hoisted_26 = ["href"];
+var _hoisted_27 = {
+  key: 0,
+  class: "block text-xs text-gray-500 dark:text-gray-400 capitalize"
+};
+var _hoisted_28 = {
+  class: "px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
+};
+var _hoisted_29 = {
+  class: "block"
+};
+var _hoisted_30 = {
+  key: 0,
+  class: "text-xs text-gray-500 dark:text-gray-400"
+};
+var _hoisted_31 = {
+  class: "px-4 py-3 text-sm text-right font-semibold text-sky-700 dark:text-sky-400 whitespace-nowrap"
+};
+var _hoisted_32 = ["title"];
+var _hoisted_33 = {
+  class: "px-4 py-3 text-sm text-gray-600 dark:text-gray-300"
+};
+var _hoisted_34 = {
+  class: "px-4 py-3 text-right"
+};
+var _hoisted_35 = ["href"];
+var _hoisted_36 = {
+  key: 0,
+  class: "px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3 bg-gray-50 dark:bg-gray-900/30"
+};
+var _hoisted_37 = {
+  class: "text-sm text-gray-600 dark:text-gray-400"
+};
+var _hoisted_38 = {
+  key: 0
+};
+var _hoisted_39 = {
+  class: "flex items-center gap-2"
+};
+var _hoisted_40 = ["disabled"];
+var _hoisted_41 = {
+  class: "text-sm text-gray-600 dark:text-gray-400 tabular-nums"
+};
+var _hoisted_42 = ["disabled"];
 function render(_ctx, _cache, $props, $setup, $data, $options) {
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Header "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Progress Bar "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)([$props.modalMode ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 py-4', "border-b border-gray-200 dark:border-gray-700"])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_3, "Paso " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.currentStep) + "/2", 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_4, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.progressPercentage) + "%", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: "bg-blue-600 h-2 rounded-full transition-all duration-300",
-    style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
-      width: $setup.progressPercentage + '%'
-    })
-  }, null, 4 /* STYLE */)])], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Form Content "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
-    onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.submitForm, ["prevent"]),
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'p-4 sm:p-6' : 'p-6')
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 1: Datos Básicos "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4' : 'space-y-6')
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["text-lg font-bold text-gray-900 dark:text-gray-100", $props.modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'])
-  }, "DATOS BÁSICOS", 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Cédula: misma altura; sm+ tres columnas iguales; móvil checkbox ancho completo debajo "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)([{
-      'sm:col-span-2': $props.modalMode
-    }, "min-w-0"])
-  }, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "cedula",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Cédula *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "text",
-    id: "cedula",
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [_cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", {
+    class: "text-2xl font-bold text-gray-900 dark:text-gray-100"
+  }, "Notas de crédito"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "text-sm text-gray-500 dark:text-gray-400 mt-1"
+  }, " Notas de crédito emitidas sobre facturas internas (reducen el saldo pendiente de la factura). ")], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
+    href: $setup.urlFacturasInternas,
+    class: "inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0"
+  }, " Facturas internas ", 8 /* PROPS */, _hoisted_3)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_4, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [_cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "text-xs font-medium text-gray-500 dark:text-gray-400"
+  }, "Cantidad (filtro actual)", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_6, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.stats.cantidad), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, [_cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "text-xs font-medium text-gray-500 dark:text-gray-400"
+  }, "Total acreditado", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_8, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatMonto($setup.stats.total_monto)) + " PYG", 1 /* TEXT */)])]), $setup.inlineError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.inlineError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_10, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_12, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "h-5 w-5 text-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    "aria-hidden": "true"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
-      return $setup.formData.cedula = $event;
+      return $setup.buscar = $event;
     }),
-    onBlur: $setup.buscarCliente,
-    disabled: $setup.sinDatosCedula,
+    type: "search",
     autocomplete: "off",
-    class: "h-11 w-full min-w-0 px-3 sm:px-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed row-start-1 col-start-1",
-    placeholder: "1234567",
-    required: !$setup.sinDatosCedula
-  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_7), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.cedula]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
-    type: "button",
-    onClick: $setup.buscarCliente,
-    disabled: $setup.sinDatosCedula || $setup.buscando || $setup.cargandoCedulaTemporal,
-    class: "h-11 w-full min-w-[5.5rem] sm:min-w-0 px-3 sm:px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2 row-start-1 col-start-2 self-stretch"
-  }, [$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_9, _toConsumableArray(_cache[7] || (_cache[7] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
-    class: "opacity-25",
-    cx: "12",
-    cy: "12",
-    r: "10",
-    stroke: "currentColor",
-    "stroke-width": "4"
-  }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
-    class: "opacity-75",
-    fill: "currentColor",
-    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  }, null, -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscando ? 'Consultando...' : 'Buscar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_8), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "checkbox",
-    checked: $setup.sinDatosCedula,
-    disabled: $setup.cargandoCedulaTemporal || !($props.cedulaTemporalUrl || '').trim(),
-    onChange: $setup.onSinDatosCedulaToggle,
-    class: "h-4 w-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-500"
-  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_12), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
-    class: "truncate text-center leading-tight"
-  }, "SIN DATOS", -1 /* CACHED */))])]), $setup.mensajeClienteSuccess && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.mensajeClienteSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorCliente && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCliente), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "nombre",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Nombre *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "text",
-    id: "nombre",
+    placeholder: "Buscar por # nota, # factura, nombre o cédula del cliente…",
+    class: "w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.buscar]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    class: "block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5"
+  }, "Cliente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
     "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
-      return $setup.formData.nombre = $event;
+      return $setup.filtroClienteId = $event;
     }),
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
-    required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.nombre]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Apellido "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "apellido",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Apellido *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "text",
-    id: "apellido",
+    class: "w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+  }, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+    value: ""
+  }, "Todos", -1 /* CACHED */)), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($props.clientes, function (c) {
+    return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
+      key: c.cliente_id,
+      value: String(c.cliente_id)
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.apellido), 9 /* TEXT, PROPS */, _hoisted_15);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.filtroClienteId]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_16, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    class: "block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5"
+  }, "Desde", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[2] || (_cache[2] = function ($event) {
-      return $setup.formData.apellido = $event;
+      return $setup.filtroDesde = $event;
     }),
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
-    required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.apellido]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Celular (en modal queda solo en la columna izquierda del grid) "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "telefono",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Celular *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "tel",
-    id: "telefono",
+    type: "date",
+    class: "w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.filtroDesde]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_17, [_cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    class: "block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5"
+  }, "Hasta", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[3] || (_cache[3] = function ($event) {
-      return $setup.formData.telefono = $event;
+      return $setup.filtroHasta = $event;
     }),
-    onBlur: $setup.verificarTelefonoPedidoBlur,
-    onInput: $setup.limpiarTelefonoAsociacion,
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
-    placeholder: "0981234567 o +595981234567",
-    required: ""
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.telefono]]), $setup.verificandoTelefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, "Verificando teléfono…")) : $setup.telefonoAsociacion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", {
-    key: 1,
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["mt-1 text-sm", {
-      'text-amber-700 dark:text-amber-300': $setup.telefonoAsociacion.tipo === 'conflicto',
-      'text-emerald-700 dark:text-emerald-300': $setup.telefonoAsociacion.tipo === 'actual',
-      'text-red-600 dark:text-red-400': $setup.telefonoAsociacion.tipo === 'error'
-    }])
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.telefonoAsociacion.texto), 3 /* TEXT, CLASS */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Botón siguiente "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex justify-end", {
-      'sm:col-span-2': $props.modalMode
-    }])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "date",
+    class: "w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.filtroHasta]])])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_18, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("table", _hoisted_19, [_cache[17] || (_cache[17] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", {
+    class: "bg-gray-50 dark:bg-gray-700/50"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tr", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "# NC"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Fecha"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Factura"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Cliente"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Monto"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Motivo"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Usuario"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
+  }, "Acción")])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", _hoisted_20, [$setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", _hoisted_21, _toConsumableArray(_cache[14] || (_cache[14] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", {
+    colspan: "8",
+    class: "px-4 py-10 text-center text-gray-500 dark:text-gray-400 text-sm"
+  }, "Cargando…", -1 /* CACHED */)])))) : !$setup.rows.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", _hoisted_22, _toConsumableArray(_cache[15] || (_cache[15] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", {
+    colspan: "8",
+    class: "px-4 py-10 text-center text-gray-500 dark:text-gray-400 text-sm"
+  }, "No hay notas de crédito registradas.", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    key: 2
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.rows, function (row) {
+    return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", {
+      key: row.id,
+      class: "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_23, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_24, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatFecha(row.created_at)), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_25, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
+      href: $setup.urlFactura(row.factura_interna_id),
+      class: "text-purple-600 dark:text-purple-400 hover:underline font-medium"
+    }, " #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.factura_interna_id), 9 /* TEXT, PROPS */, _hoisted_26), row.factura_estado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_27, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.factura_estado), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_28, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_29, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_nombre || '—'), 1 /* TEXT */), row.cliente_cedula ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_30, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_cedula), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_31, " −" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatMonto(row.monto)) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.moneda), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", {
+      class: "px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate",
+      title: row.motivo || ''
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.motivo || '—'), 9 /* TEXT, PROPS */, _hoisted_32), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_33, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.usuario_nombre || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_34, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
+      href: $setup.urlFactura(row.factura_interna_id),
+      class: "inline-flex items-center justify-center p-2 rounded-lg text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/30 transition-colors",
+      title: "Ver factura"
+    }, _toConsumableArray(_cache[16] || (_cache[16] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+      class: "w-4 h-4",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24",
+      "aria-hidden": "true"
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "stroke-width": "2",
+      d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+    }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "stroke-width": "2",
+      d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+    })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_35)])]);
+  }), 128 /* KEYED_FRAGMENT */))])])]), $setup.meta.last_page > 1 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_36, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_37, [$setup.meta.total ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_38, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.meta.from) + "–" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.meta.to) + " de " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.meta.total), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_39, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
-    onClick: $setup.nextStep,
-    class: "w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-  }, _toConsumableArray(_cache[13] || (_cache[13] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
-    class: "w-6 h-6",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "2",
-    d: "M9 5l7 7-7 7"
-  })], -1 /* CACHED */)])))], 2 /* CLASS */)], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 1]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 2: Ubicación y Plan "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4' : 'space-y-6')
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre del cliente en header "), $setup.formData.nombre && $setup.formData.apellido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
-    key: 0,
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["pb-4 border-b border-gray-200 dark:border-gray-700", $props.modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.cedula), 1 /* TEXT */)], 2 /* CLASS */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ubicación "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "ubicacion",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Dirección *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "text",
-    id: "ubicacion",
-    "onUpdate:modelValue": _cache[4] || (_cache[4] = function ($event) {
-      return $setup.formData.ubicacion = $event;
-    }),
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
-    placeholder: "Esquina calle X",
-    required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.ubicacion]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Maps/GPS "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "maps_gps",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Maps/GPS", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "text",
-    id: "maps_gps",
-    "onUpdate:modelValue": _cache[5] || (_cache[5] = function ($event) {
-      return $setup.formData.maps_gps = $event;
-    }),
-    onInput: $setup.onMapsGpsInput,
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
-    placeholder: "Pega el link de Google Maps o coordenadas (lat, lon)"
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.maps_gps]]), $setup.formData.lat != null && $setup.formData.lon != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_18, " Coordenadas detectadas: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lon), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Notas "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[16] || (_cache[16] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
-    for: "observaciones",
-    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Notas", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
-    id: "observaciones",
-    "onUpdate:modelValue": _cache[6] || (_cache[6] = function ($event) {
-      return $setup.formData.observaciones = $event;
-    }),
-    rows: "3",
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors resize-y bg-white dark:bg-gray-700 dark:text-gray-100",
-    placeholder: "Opcional"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.observaciones]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Botones "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex items-center justify-between", {
-      'sm:col-span-2': $props.modalMode
-    }])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    class: "px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40",
+    disabled: $setup.meta.current_page <= 1 || $setup.loading,
+    onClick: _cache[4] || (_cache[4] = function ($event) {
+      return $setup.cargar($setup.meta.current_page - 1);
+    })
+  }, " Anterior ", 8 /* PROPS */, _hoisted_40), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_41, "Página " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.meta.current_page) + " / " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.meta.last_page), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
-    onClick: $setup.prevStep,
-    class: "w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
-  }, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
-    class: "w-6 h-6",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "2",
-    d: "M15 19l-7-7 7-7"
-  })], -1 /* CACHED */)]))), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
-    type: "submit",
-    disabled: $setup.guardando,
-    class: "inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-  }, [_cache[18] || (_cache[18] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
-    class: "w-5 h-5",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "stroke-width": "2",
-    d: "M5 13l4 4L19 7"
-  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.guardando ? 'Guardando...' : 'Guardar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_19)], 2 /* CLASS */)], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 2]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Campos ocultos para el formulario "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "cedula",
-    value: $setup.formData.cedula
-  }, null, 8 /* PROPS */, _hoisted_20), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "nombre",
-    value: $setup.formData.nombre
-  }, null, 8 /* PROPS */, _hoisted_21), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "apellido",
-    value: $setup.formData.apellido
-  }, null, 8 /* PROPS */, _hoisted_22), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "telefono",
-    value: $setup.formData.telefono
-  }, null, 8 /* PROPS */, _hoisted_23), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "estado_id",
-    value: $props.estadoId
-  }, null, 8 /* PROPS */, _hoisted_24), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "fecha_pedido",
-    value: $setup.formData.fecha_pedido
-  }, null, 8 /* PROPS */, _hoisted_25), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "ubicacion",
-    value: $setup.formData.ubicacion
-  }, null, 8 /* PROPS */, _hoisted_26), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "maps_gps",
-    value: $setup.formData.maps_gps
-  }, null, 8 /* PROPS */, _hoisted_27), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "lat",
-    value: $setup.formData.lat
-  }, null, 8 /* PROPS */, _hoisted_28), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "lon",
-    value: $setup.formData.lon
-  }, null, 8 /* PROPS */, _hoisted_29), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "plan_id",
-    value: $setup.formData.plan_id
-  }, null, 8 /* PROPS */, _hoisted_30), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "prioridad_instalacion",
-    value: $setup.formData.prioridad_instalacion
-  }, null, 8 /* PROPS */, _hoisted_31), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    type: "hidden",
-    name: "observaciones",
-    value: $setup.formData.observaciones
-  }, null, 8 /* PROPS */, _hoisted_32)], 34 /* CLASS, NEED_HYDRATION */)]);
+    class: "px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40",
+    disabled: $setup.meta.current_page >= $setup.meta.last_page || $setup.loading,
+    onClick: _cache[5] || (_cache[5] = function ($event) {
+      return $setup.cargar($setup.meta.current_page + 1);
+    })
+  }, " Siguiente ", 8 /* PROPS */, _hoisted_42)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]);
 }
 
 /***/ },
@@ -28674,10 +28322,10 @@ window.axios.interceptors.request.use(function (config) {
 
 /***/ },
 
-/***/ "./resources/js/components/PedidoForm.vue"
-/*!************************************************!*\
-  !*** ./resources/js/components/PedidoForm.vue ***!
-  \************************************************/
+/***/ "./resources/js/components/NotasCreditoIndex.vue"
+/*!*******************************************************!*\
+  !*** ./resources/js/components/NotasCreditoIndex.vue ***!
+  \*******************************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -28685,15 +28333,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _PedidoForm_vue_vue_type_template_id_60001dd4__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./PedidoForm.vue?vue&type=template&id=60001dd4 */ "./resources/js/components/PedidoForm.vue?vue&type=template&id=60001dd4");
-/* harmony import */ var _PedidoForm_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./PedidoForm.vue?vue&type=script&setup=true&lang=js */ "./resources/js/components/PedidoForm.vue?vue&type=script&setup=true&lang=js");
+/* harmony import */ var _NotasCreditoIndex_vue_vue_type_template_id_67284d34__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./NotasCreditoIndex.vue?vue&type=template&id=67284d34 */ "./resources/js/components/NotasCreditoIndex.vue?vue&type=template&id=67284d34");
+/* harmony import */ var _NotasCreditoIndex_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js */ "./resources/js/components/NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js");
 /* harmony import */ var _node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../node_modules/vue-loader/dist/exportHelper.js */ "./node_modules/vue-loader/dist/exportHelper.js");
 
 
 
 
 ;
-const __exports__ = /*#__PURE__*/(0,_node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__["default"])(_PedidoForm_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_1__["default"], [['render',_PedidoForm_vue_vue_type_template_id_60001dd4__WEBPACK_IMPORTED_MODULE_0__.render],['__file',"resources/js/components/PedidoForm.vue"]])
+const __exports__ = /*#__PURE__*/(0,_node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__["default"])(_NotasCreditoIndex_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_1__["default"], [['render',_NotasCreditoIndex_vue_vue_type_template_id_67284d34__WEBPACK_IMPORTED_MODULE_0__.render],['__file',"resources/js/components/NotasCreditoIndex.vue"]])
 /* hot reload */
 if (false) // removed by dead control flow
 {}
@@ -28703,99 +28351,42 @@ if (false) // removed by dead control flow
 
 /***/ },
 
-/***/ "./resources/js/components/PedidoForm.vue?vue&type=script&setup=true&lang=js"
-/*!***********************************************************************************!*\
-  !*** ./resources/js/components/PedidoForm.vue?vue&type=script&setup=true&lang=js ***!
-  \***********************************************************************************/
+/***/ "./resources/js/components/NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js"
+/*!******************************************************************************************!*\
+  !*** ./resources/js/components/NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js ***!
+  \******************************************************************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_PedidoForm_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_0__["default"])
+/* harmony export */   "default": () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_NotasCreditoIndex_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_0__["default"])
 /* harmony export */ });
-/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_PedidoForm_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./PedidoForm.vue?vue&type=script&setup=true&lang=js */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/PedidoForm.vue?vue&type=script&setup=true&lang=js");
+/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_NotasCreditoIndex_vue_vue_type_script_setup_true_lang_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/NotasCreditoIndex.vue?vue&type=script&setup=true&lang=js");
  
 
 /***/ },
 
-/***/ "./resources/js/components/PedidoForm.vue?vue&type=template&id=60001dd4"
-/*!******************************************************************************!*\
-  !*** ./resources/js/components/PedidoForm.vue?vue&type=template&id=60001dd4 ***!
-  \******************************************************************************/
+/***/ "./resources/js/components/NotasCreditoIndex.vue?vue&type=template&id=67284d34"
+/*!*************************************************************************************!*\
+  !*** ./resources/js/components/NotasCreditoIndex.vue?vue&type=template&id=67284d34 ***!
+  \*************************************************************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   render: () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_PedidoForm_vue_vue_type_template_id_60001dd4__WEBPACK_IMPORTED_MODULE_0__.render)
+/* harmony export */   render: () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_NotasCreditoIndex_vue_vue_type_template_id_67284d34__WEBPACK_IMPORTED_MODULE_0__.render)
 /* harmony export */ });
-/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_PedidoForm_vue_vue_type_template_id_60001dd4__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./PedidoForm.vue?vue&type=template&id=60001dd4 */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/PedidoForm.vue?vue&type=template&id=60001dd4");
+/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_NotasCreditoIndex_vue_vue_type_template_id_67284d34__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./NotasCreditoIndex.vue?vue&type=template&id=67284d34 */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/NotasCreditoIndex.vue?vue&type=template&id=67284d34");
 
 
 /***/ },
 
-/***/ "./resources/js/helpers/mapsUrl.js"
-/*!*****************************************!*\
-  !*** ./resources/js/helpers/mapsUrl.js ***!
-  \*****************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   extractLatLonFromMapsUrl: () => (/* binding */ extractLatLonFromMapsUrl)
-/* harmony export */ });
-/**
- * Extrae latitud y longitud de una URL de Google Maps o texto "lat, lon".
- * Soporta formatos largos (no resuelve URLs cortas maps.app.goo.gl en el frontend).
- *
- * @param {string|null|undefined} url
- * @returns {{ lat: number|null, lon: number|null }}
- */
-function extractLatLonFromMapsUrl(url) {
-  if (!url || typeof url !== 'string') return {
-    lat: null,
-    lon: null
-  };
-  var s = url.trim();
-  var m;
-  if (m = s.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/)) {
-    var lat = parseFloat(m[1]);
-    var lon = parseFloat(m[2]);
-    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return {
-      lat: lat,
-      lon: lon
-    };
-  }
-  if (m = s.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/)) {
-    var _lat = parseFloat(m[1]);
-    var _lon = parseFloat(m[2]);
-    if (_lat >= -90 && _lat <= 90 && _lon >= -180 && _lon <= 180) return {
-      lat: _lat,
-      lon: _lon
-    };
-  }
-  if (m = s.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/)) {
-    var _lat2 = parseFloat(m[1]);
-    var _lon2 = parseFloat(m[2]);
-    if (_lat2 >= -90 && _lat2 <= 90 && _lon2 >= -180 && _lon2 <= 180) return {
-      lat: _lat2,
-      lon: _lon2
-    };
-  }
-  return {
-    lat: null,
-    lon: null
-  };
-}
-
-/***/ },
-
-/***/ "./resources/js/pedido-form.js"
-/*!*************************************!*\
-  !*** ./resources/js/pedido-form.js ***!
-  \*************************************/
+/***/ "./resources/js/notas-credito-index.js"
+/*!*********************************************!*\
+  !*** ./resources/js/notas-credito-index.js ***!
+  \*********************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -28803,26 +28394,18 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _bootstrap__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./bootstrap */ "./resources/js/bootstrap.js");
 /* harmony import */ var _css_app_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../css/app.css */ "./resources/css/app.css");
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
-/* harmony import */ var _components_PedidoForm_vue__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @/components/PedidoForm.vue */ "./resources/js/components/PedidoForm.vue");
+/* harmony import */ var _components_NotasCreditoIndex_vue__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @/components/NotasCreditoIndex.vue */ "./resources/js/components/NotasCreditoIndex.vue");
 
 
 
 
-var el = document.getElementById('pedido-form-app');
+var el = document.getElementById('notas-credito-app');
 if (el) {
-  var cfg = typeof window.__PEDIDO_FORM_CONFIG__ !== 'undefined' ? window.__PEDIDO_FORM_CONFIG__ : {};
-  var app = (0,vue__WEBPACK_IMPORTED_MODULE_2__.createApp)(_components_PedidoForm_vue__WEBPACK_IMPORTED_MODULE_3__["default"], {
-    pedidoId: cfg.pedidoId || 'Nuevo',
-    planes: cfg.planes || [],
-    estadoId: cfg.estadoId || 1,
-    buscarClienteUrl: cfg.buscarClienteUrl || '',
-    verificarTelefonoUrl: cfg.verificarTelefonoUrl || '',
-    cedulaTemporalUrl: cfg.cedulaTemporalUrl || '',
-    consultarPadronUrl: cfg.consultarPadronUrl || '',
-    submitUrl: cfg.submitUrl || '',
-    cancelUrl: cfg.cancelUrl || '',
-    csrfToken: cfg.csrfToken || '',
-    modalMode: cfg.modalMode === true
+  var cfg = typeof window.__NOTAS_CREDITO_CONFIG__ !== 'undefined' ? window.__NOTAS_CREDITO_CONFIG__ : {};
+  var app = (0,vue__WEBPACK_IMPORTED_MODULE_2__.createApp)(_components_NotasCreditoIndex_vue__WEBPACK_IMPORTED_MODULE_3__["default"], {
+    listUrl: cfg.listUrl || '',
+    facturaBaseUrl: cfg.facturaBaseUrl || '',
+    clientes: cfg.clientes || []
   });
   app.mount(el);
 }
@@ -28945,7 +28528,7 @@ if (el) {
 /******/ 		// undefined = chunk not loaded, null = chunk preloaded/prefetched
 /******/ 		// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
 /******/ 		var installedChunks = {
-/******/ 			"/js/pedido-form": 0,
+/******/ 			"/js/notas-credito-index": 0,
 /******/ 			"css/app": 0
 /******/ 		};
 /******/ 		
@@ -28996,7 +28579,7 @@ if (el) {
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module depends on other loaded chunks and execution need to be delayed
-/******/ 	var __webpack_exports__ = __webpack_require__.O(undefined, ["css/app"], () => (__webpack_require__("./resources/js/pedido-form.js")))
+/******/ 	var __webpack_exports__ = __webpack_require__.O(undefined, ["css/app"], () => (__webpack_require__("./resources/js/notas-credito-index.js")))
 /******/ 	__webpack_exports__ = __webpack_require__.O(__webpack_exports__);
 /******/ 	
 /******/ })()

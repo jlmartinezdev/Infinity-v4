@@ -2,8 +2,8 @@
     "/js/app.js": "/js/app.js?id=0028b5a1870caebb098b31da015b9bee",
     "/js/login.js": "/js/login.js?id=10ce7ca7b469f40cb8745b9039c749c8",
     "/js/register.js": "/js/register.js?id=62944fbcf4a529f778db81f7d4c35ebf",
-    "/js/pedido-form.js": "/js/pedido-form.js?id=f4b9988d15ce1d861810ee88297c4c63",
-    "/js/pedidos-list.js": "/js/pedidos-list.js?id=e48c066c890d0f4b50bf0754da651357",
+    "/js/pedido-form.js": "/js/pedido-form.js?id=d89f581d36938afd347abe50a5d357cc",
+    "/js/pedidos-list.js": "/js/pedidos-list.js?id=5760d6288b2a0ac3a2b8971639ea9469",
     "/js/clientes-list.js": "/js/clientes-list.js?id=5bd3568c868f10aa6b1fa81ea32fbfe8",
     "/js/cliente-form-mapa.js": "/js/cliente-form-mapa.js?id=1d78c7290b874badab6d6dd7f347f9a0",
     "/js/recibo-copy-image.js": "/js/recibo-copy-image.js?id=5671ac89794a2a45decb9f64144ae561",
@@ -14,10 +14,12 @@
     "/js/mapa-clientes-activos.js": "/js/mapa-clientes-activos.js?id=7208e096e252bf263d942f5fb5c139c8",
     "/js/mapa-nap.js": "/js/mapa-nap.js?id=45fe22b740892b994eaae29a898e93e8",
     "/js/caja-nap-form-mapa.js": "/js/caja-nap-form-mapa.js?id=002556d96c24936fb77341f2340d5d7e",
-    "/js/servicios-index.js": "/js/servicios-index.js?id=e8e292c9bdb1d63f01155a540bd6c5b9",
+    "/js/servicios-index.js": "/js/servicios-index.js?id=8f9b967b1eb310d4cdbb152b04f4f962",
     "/js/cobros-servicios.js": "/js/cobros-servicios.js?id=cc10142defaac9324ca9e33ce8a50baa",
-    "/js/facturas-internas-index.js": "/js/facturas-internas-index.js?id=2796259de8bec18231006492d21d3f71",
-    "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=6c99b6795b4490e0c9f808df302f1a99",
+    "/js/facturas-internas-index.js": "/js/facturas-internas-index.js?id=343f68a3972bd0ff3c180ab8f7eb6905",
+    "/js/notas-credito-index.js": "/js/notas-credito-index.js?id=e3440fa043cef0c4b562e39b9943c6d7",
+    "/js/compras-create.js": "/js/compras-create.js?id=7303cdbf8d21a3f97b671bf0508ca2e3",
+    "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=8d1e6d48f49075f18073f2fc4f0a7be4",
     "/js/tareas-dashboard.js": "/js/tareas-dashboard.js?id=1a34705ef6dc95c29a4d2cbc349e5209",
-    "/css/app.css": "/css/app.css?id=a4681a1c7007ba747f8a281857c45653"
+    "/css/app.css": "/css/app.css?id=b4af6cb5a9af033cb17c002f0fcfbc71"
 }

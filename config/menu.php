@@ -80,6 +80,7 @@ return [
                 ['name' => 'facturacion-dashboard', 'label' => 'Dashboard', 'path' => '/facturacion/dashboard', 'permiso' => 'facturacion.ver', 'admin_only' => true],
                 ['name' => 'facturas', 'label' => 'Facturas electrónicas', 'path' => '/facturas', 'permiso' => 'facturas.ver'],
                 ['name' => 'factura-internas', 'label' => 'Facturas internas', 'path' => '/factura-internas', 'permiso' => 'factura-interna.ver'],
+                ['name' => 'notas-credito-internas', 'label' => 'Notas de crédito', 'path' => '/factura-internas/notas-credito', 'permiso' => 'factura-interna.ver'],
                 ['name' => 'pendiente-pago', 'label' => 'Pendiente de pago', 'path' => '/factura-internas/pendientes', 'permiso' => 'pagos-pendientes.ver'],
                 ['name' => 'promesas-pago', 'label' => 'Promesas de pago', 'path' => '/promesas-pago', 'permiso' => 'pagos-pendientes.ver'],
                 ['name' => 'cobros-servicios', 'label' => 'Cobros', 'path' => '/cobros/servicios', 'permiso' => 'cobros.ver'],

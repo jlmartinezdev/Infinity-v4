@@ -17,6 +17,7 @@ use App\Http\Controllers\EstadoPedidoController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FacturacionDashboardController;
 use App\Http\Controllers\FacturaInternaController;
+use App\Http\Controllers\FacturaInternaNotaCreditoController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HotspotController;
@@ -210,7 +211,9 @@ Route::middleware(['auth', 'permiso:pedidos.ver'])->group(function () {
     Route::get('/pedidos/create', [PedidoController::class, 'create'])->name('pedidos.create')->middleware('permiso:pedidos.crear');
 });
 Route::middleware(['auth', 'permiso:pedidos.crear'])->group(function () {
+    Route::get('/pedidos/cedula-temporal', [PedidoController::class, 'cedulaTemporal'])->name('pedidos.cedula-temporal');
     Route::post('/pedidos/buscar-cliente', [PedidoController::class, 'buscarCliente'])->name('pedidos.buscar-cliente');
+    Route::post('/pedidos/verificar-telefono', [PedidoController::class, 'verificarTelefonoPedido'])->name('pedidos.verificar-telefono');
     Route::post('/pedidos/consultar-padron', [PedidoController::class, 'consultarPadron'])->name('pedidos.consultar-padron');
     Route::post('/pedidos', [PedidoController::class, 'store'])->name('pedidos.store');
 });
@@ -218,6 +221,7 @@ Route::middleware(['auth', 'permiso:pedidos.editar'])->group(function () {
     Route::get('/pedidos/{pedido}/edit', [PedidoController::class, 'edit'])->name('pedidos.edit');
     Route::put('/pedidos/{pedido}', [PedidoController::class, 'update'])->name('pedidos.update');
     Route::post('/pedidos/{pedido}/agregar-estado', [PedidoController::class, 'agregarEstado'])->name('pedidos.agregar-estado');
+    Route::get('/pedidos/nodos/{nodo_id}/opciones-aprobacion', [PedidoController::class, 'opcionesNodoAprobacion'])->name('pedidos.nodos.opciones-aprobacion');
     Route::post('/pedidos/{pedido}/aprobar-estado', [PedidoController::class, 'aprobarEstado'])->name('pedidos.aprobar-estado');
     Route::post('/pedidos/{pedido}/descartar-estado', [PedidoController::class, 'descartarEstado'])->name('pedidos.descartar-estado');
     Route::post('/pedidos/{pedido}/reabrir-estado', [PedidoController::class, 'reabrirEstado'])->name('pedidos.reabrir-estado');
@@ -290,6 +294,7 @@ Route::delete('/cobros/{cobro}', [CobroController::class, 'destroy'])->name('cob
 // Facturas internas (listado, ver, editar)
 Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pendientes'])->name('factura-internas.pendientes')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/list', [FacturaInternaController::class, 'pendientesList'])->name('factura-internas.pendientes.list')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/mapa-puntos', [FacturaInternaController::class, 'pendientesMapaPuntos'])->name('factura-internas.pendientes.mapa-puntos')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/exportar-excel', [FacturaInternaController::class, 'exportarPendientesExcel'])->name('factura-internas.pendientes.exportar-excel')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/pdf-cliente/{cliente}', [FacturaInternaController::class, 'pdfPendientesPorCliente'])->name('factura-internas.pendientes.pdf-cliente')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::middleware(['auth', 'permiso:pagos-pendientes.ver'])->group(function () {
@@ -300,6 +305,8 @@ Route::middleware(['auth', 'permiso:cobros.crear'])->group(function () {
     Route::post('/factura-internas/{factura_interna}/promesa-pago', [PromesaPagoController::class, 'store'])->name('promesas-pago.store');
 });
 Route::middleware(['auth', 'permiso:factura-interna.ver'])->group(function () {
+    Route::get('/factura-internas/notas-credito/list', [FacturaInternaNotaCreditoController::class, 'list'])->name('factura-internas.notas-credito.list');
+    Route::get('/factura-internas/notas-credito', [FacturaInternaNotaCreditoController::class, 'index'])->name('factura-internas.notas-credito.index');
     Route::get('/factura-internas/list', [FacturaInternaController::class, 'list'])->name('factura-internas.list');
     Route::get('/factura-internas', [FacturaInternaController::class, 'index'])->name('factura-internas.index');
     Route::get('/factura-internas/{factura_interna}/pdf', [FacturaInternaController::class, 'pdf'])->name('factura-internas.pdf');
@@ -309,6 +316,7 @@ Route::middleware(['auth', 'permiso:factura-interna.crear'])->group(function () 
     Route::post('/factura-internas/ejecutar-crear-factura-internas', [FacturaInternaController::class, 'ejecutarCrearFacturaInternas'])->name('factura-internas.ejecutar-crear-factura-internas');
     Route::get('/factura-internas/{factura_interna}/edit', [FacturaInternaController::class, 'edit'])->name('factura-internas.edit');
     Route::put('/factura-internas/{factura_interna}', [FacturaInternaController::class, 'update'])->name('factura-internas.update');
+    Route::post('/factura-internas/{factura_interna}/nota-credito', [FacturaInternaController::class, 'emitirNotaCredito'])->name('factura-internas.nota-credito');
 });
 Route::delete('/factura-internas/{factura_interna}', [FacturaInternaController::class, 'destroy'])->name('factura-internas.destroy')->middleware(['auth', 'permiso:factura-interna.eliminar']);
 
@@ -345,6 +353,7 @@ Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::post('/servicios/{servicio_id}/activar', [ServicioController::class, 'activar'])->name('servicios.activar');
     Route::post('/servicios/{servicio_id}/suspender', [ServicioController::class, 'suspender'])->name('servicios.suspender');
     Route::post('/servicios/{servicio_id}/cancelar', [ServicioController::class, 'cancelar'])->name('servicios.cancelar');
+    Route::post('/servicios/{servicio_id}/dar-baja', [ServicioController::class, 'darBaja'])->name('servicios.dar-baja');
     Route::post('/servicios/{servicio_id}/sync-pppoe', [ServicioController::class, 'syncPppoe'])->name('servicios.sync-pppoe');
     Route::post('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarStore'])->name('servicios.migrar-store');
 });

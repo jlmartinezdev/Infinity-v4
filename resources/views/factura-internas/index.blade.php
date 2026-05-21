@@ -21,6 +21,7 @@
         'canEjecutarCrear' => auth()->user()?->tienePermiso('factura-interna.crear') ?? false,
         'canEditar' => auth()->user()?->tienePermiso('factura-interna.crear') ?? false,
         'canEliminar' => auth()->user()?->tienePermiso('factura-interna.eliminar') ?? false,
+        'canNotaCredito' => auth()->user()?->tienePermiso('factura-interna.crear') ?? false,
         'esAdmin' => strtolower(auth()->user()?->rol?->descripcion ?? '') === 'administrador',
         'flashSuccess' => session('success'),
         'flashError' => session('error'),
@@ -31,7 +32,7 @@
 </script>
 
 @push('scripts')
-@if(auth()->user()?->tienePermiso('factura-interna.eliminar') || auth()->user()?->tienePermiso('factura-interna.crear'))
+@if(auth()->user()?->tienePermiso('factura-interna.eliminar') || auth()->user()?->tienePermiso('factura-interna.crear') || auth()->user()?->tienePermiso('factura-interna.ver'))
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
 @endif
 <script src="{{ asset(mix('js/facturas-internas-index.js')) }}" defer></script>

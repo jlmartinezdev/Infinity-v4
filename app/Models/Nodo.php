@@ -46,7 +46,52 @@ class Nodo extends Model
         'descripcion',
         'coordenas_gps',
         'ciudad',
+        'tecnologia_gpon',
+        'tecnologia_wireless',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'tecnologia_gpon' => 'boolean',
+            'tecnologia_wireless' => 'boolean',
+        ];
+    }
+
+    public function manejaGpon(): bool
+    {
+        return (bool) $this->tecnologia_gpon;
+    }
+
+    public function manejaWireless(): bool
+    {
+        return (bool) $this->tecnologia_wireless;
+    }
+
+    /** Etiqueta legible: GPON, Wireless o ambos. */
+    public function tecnologiasEtiqueta(): string
+    {
+        $partes = [];
+        if ($this->manejaGpon()) {
+            $partes[] = 'GPON';
+        }
+        if ($this->manejaWireless()) {
+            $partes[] = 'Wireless';
+        }
+
+        return $partes !== [] ? implode(' + ', $partes) : '—';
+    }
+
+    public function toArraySelect(): array
+    {
+        return [
+            'nodo_id' => $this->nodo_id,
+            'descripcion' => $this->descripcion,
+            'tecnologia_gpon' => $this->manejaGpon(),
+            'tecnologia_wireless' => $this->manejaWireless(),
+            'tecnologias_etiqueta' => $this->tecnologiasEtiqueta(),
+        ];
+    }
 
     /**
      * Get the route key for the model.

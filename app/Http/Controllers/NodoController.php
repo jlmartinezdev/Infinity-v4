@@ -41,11 +41,7 @@ class NodoController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'descripcion' => ['nullable', 'string', 'max:120'],
-            'coordenas_gps' => ['nullable', 'string', 'max:50'],
-            'ciudad' => ['nullable', 'string', 'max:50'],
-        ]);
+        $validated = $this->validarNodo($request);
 
         Nodo::create($validated);
 
@@ -68,15 +64,36 @@ class NodoController extends Controller
     {
         $nodo = Nodo::where('nodo_id', $nodo)->firstOrFail();
 
-        $validated = $request->validate([
-            'descripcion' => ['nullable', 'string', 'max:120'],
-            'coordenas_gps' => ['nullable', 'string', 'max:50'],
-            'ciudad' => ['nullable', 'string', 'max:50'],
-        ]);
+        $validated = $this->validarNodo($request);
 
         $nodo->update($validated);
 
         return redirect()->route('nodos.index')->with('success', 'Nodo actualizado correctamente.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validarNodo(Request $request): array
+    {
+        $validated = $request->validate([
+            'descripcion' => ['nullable', 'string', 'max:120'],
+            'coordenas_gps' => ['nullable', 'string', 'max:50'],
+            'ciudad' => ['nullable', 'string', 'max:50'],
+            'tecnologia_gpon' => ['nullable', 'boolean'],
+            'tecnologia_wireless' => ['nullable', 'boolean'],
+        ]);
+
+        $validated['tecnologia_gpon'] = $request->boolean('tecnologia_gpon');
+        $validated['tecnologia_wireless'] = $request->boolean('tecnologia_wireless');
+
+        if (! $validated['tecnologia_gpon'] && ! $validated['tecnologia_wireless']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'tecnologia_gpon' => 'Seleccioná al menos una tecnología que maneje el nodo (GPON o Wireless).',
+            ]);
+        }
+
+        return $validated;
     }
 
     /**

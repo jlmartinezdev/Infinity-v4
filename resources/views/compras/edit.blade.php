@@ -140,7 +140,7 @@
 @push('scripts')
 <script>
 (function() {
-    const productos = @json($productos->map(fn($p) => ['id' => $p->id, 'nombre' => $p->nombre, 'precio_compra' => (float)$p->precio_compra]));
+    const productos = @json($productosJs);
     const detallesIniciales = @json(old('detalles', $compra->detalles->map(fn($d) => ['producto_id' => $d->producto_id, 'cantidad' => $d->cantidad, 'precio_unitario' => $d->precio_unitario])->values()));
     const tbody = document.getElementById('detalles-body');
     const btnAdd = document.getElementById('btn-add-detalle');
@@ -156,7 +156,7 @@
             <td class="px-3 py-2">
                 <select name="detalles[${rowIndex}][producto_id]" class="detalle-producto w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm" required>
                     <option value="">Seleccionar...</option>
-                    ${productos.map(p => `<option value="${p.id}" ${p.id == productoId ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                    ${productos.map(p => `<option value="${p.id}" ${p.id == productoId ? 'selected' : ''}>${p.codigo ? `${p.codigo} - ` : ''}${p.nombre}</option>`).join('')}
                 </select>
             </td>
             <td class="px-3 py-2">

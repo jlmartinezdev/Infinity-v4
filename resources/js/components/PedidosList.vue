@@ -448,7 +448,7 @@
     <Teleport to="body">
         <div v-show="modalPedidoOpen" class="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
             <div class="fixed inset-0 bg-gray-900/60 transition-opacity" @click="closeModalPedido" aria-hidden="true"></div>
-            <div ref="modalPedidoContentRef" class="absolute w-full max-w-md max-h-[85vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl"
+            <div ref="modalPedidoContentRef" class="absolute w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl"
                 style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
                 <div ref="modalPedidoHeaderRef" class="sticky top-0 z-10 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-move select-none">
                     <div class="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -463,13 +463,15 @@
                         </svg>
                     </button>
                 </div>
-                <div class="p-4 bg-white dark:bg-gray-800">
+                <div class="p-3 sm:p-4 bg-white dark:bg-gray-800 min-w-0">
                     <PedidoForm
                         v-if="modalPedidoOpen"
                         :pedido-id="pedidoFormConfig.pedidoId"
                         :planes="pedidoFormConfig.planes"
                         :estado-id="pedidoFormConfig.estadoId"
                         :buscar-cliente-url="pedidoFormConfig.buscarClienteUrl"
+                        :verificar-telefono-url="pedidoFormConfig.verificarTelefonoUrl || ''"
+                        :cedula-temporal-url="pedidoFormConfig.cedulaTemporalUrl || ''"
                         :consultar-padron-url="pedidoFormConfig.consultarPadronUrl"
                         :submit-url="pedidoFormConfig.submitUrl"
                         :cancel-url="pedidoFormConfig.cancelUrl"
@@ -557,6 +559,10 @@ const props = defineProps({
     aprobarEstadoUrl: {
         type: String,
         required: true
+    },
+    urlOpcionesNodoAprobacion: {
+        type: String,
+        default: ''
     },
     descartarEstadoUrl: {
         type: String,
@@ -1079,19 +1085,173 @@ function actualizarSelectPlan(planes, tecnologiaId) {
     }
 }
 
+function descripcionTecnologiaEsGpon(desc) {
+    return /gpon|epon|ftth|fibra|fiber|pon|xg-pon/i.test(desc || '');
+}
+
+function descripcionTecnologiaEsWireless(desc) {
+    return /wireless|inalambr|anten|radio|wifi/i.test(desc || '');
+}
+
+function nodosFiltradosPorTecnologia(nodos, tecnologiaId, tiposTecnologia) {
+    if (!nodos?.length) return [];
+    if (tecnologiaId == null || tecnologiaId === '') return nodos;
+    const t = (tiposTecnologia || []).find((x) => String(x.tecnologia_id) === String(tecnologiaId));
+    const desc = t?.descripcion || '';
+    const esGpon = descripcionTecnologiaEsGpon(desc);
+    const esWireless = descripcionTecnologiaEsWireless(desc);
+    if (!esGpon && !esWireless) return nodos;
+    return nodos.filter((n) => {
+        if (esGpon && esWireless) return n.tecnologia_gpon || n.tecnologia_wireless;
+        if (esGpon) return !!n.tecnologia_gpon;
+        if (esWireless) return !!n.tecnologia_wireless;
+        return true;
+    });
+}
+
+function etiquetaNodoSelect(n) {
+    const base = (n.descripcion || `Nodo #${n.nodo_id}`).replace(/"/g, '&quot;');
+    const tech = n.tecnologias_etiqueta || '';
+    return tech ? `${base} (${tech})` : base;
+}
+
+function obtenerTecnologiaIdDesdeSwal(acciones) {
+    const auto = document.getElementById('swal-tecnologia-auto')?.value;
+    if (auto) return auto;
+    const desdeNodo = document.getElementById('swal-select-tecnologia-nodo')?.value;
+    if (desdeNodo) return desdeNodo;
+    if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA)) {
+        return document.getElementById('swal-select-tecnologia')?.value || '';
+    }
+    return '';
+}
+
+function obtenerPoolIdDesdeSwal() {
+    const auto = document.getElementById('swal-pool-auto')?.value;
+    if (auto) return auto;
+    return document.getElementById('swal-select-pool')?.value || '';
+}
+
+async function aplicarOpcionesNodoEnSwal(nodoId, planes, acciones) {
+    const wrapTech = document.getElementById('swal-tecnologia-nodo-wrap');
+    const wrapPool = document.getElementById('swal-pool-wrap');
+    const selectTechNodo = document.getElementById('swal-select-tecnologia-nodo');
+    const selectPool = document.getElementById('swal-select-pool');
+    const autoTech = document.getElementById('swal-tecnologia-auto');
+    const autoPool = document.getElementById('swal-pool-auto');
+    const hintTech = document.getElementById('swal-tecnologia-auto-hint');
+
+    const reset = () => {
+        if (autoTech) autoTech.value = '';
+        if (autoPool) autoPool.value = '';
+        if (wrapTech) wrapTech.style.display = 'none';
+        if (wrapPool) wrapPool.style.display = 'none';
+        if (hintTech) {
+            hintTech.style.display = 'none';
+            hintTech.textContent = '';
+        }
+        if (selectTechNodo) selectTechNodo.innerHTML = '<option value="">-- Seleccionar tipo --</option>';
+        if (selectPool) selectPool.innerHTML = '<option value="">-- Seleccionar pool --</option>';
+    };
+
+    if (!nodoId) {
+        reset();
+        if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+            actualizarSelectPlan(planes, null);
+        }
+        return;
+    }
+
+    if (!props.urlOpcionesNodoAprobacion) return;
+
+    try {
+        const url = props.urlOpcionesNodoAprobacion.replace('__id__', String(nodoId));
+        const { data } = await axios.get(url);
+
+        if (data.sin_pools_activos) {
+            reset();
+            Swal.showValidationMessage('El nodo no tiene pools de IP activos.');
+            return;
+        }
+        if (data.sin_tecnologia_configurada) {
+            reset();
+            Swal.showValidationMessage('El nodo no tiene tipos de tecnología compatibles en el catálogo.');
+            return;
+        }
+
+        Swal.resetValidationMessage();
+
+        if (data.tecnologia_id_auto) {
+            if (autoTech) autoTech.value = String(data.tecnologia_id_auto);
+            if (wrapTech) wrapTech.style.display = 'none';
+            if (hintTech) {
+                const t = (data.tecnologias || []).find((x) => String(x.tecnologia_id) === String(data.tecnologia_id_auto));
+                hintTech.textContent = `Tecnología asignada desde el nodo: ${t?.descripcion || 'automática'}`;
+                hintTech.style.display = 'block';
+            }
+            if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+                actualizarSelectPlan(planes, data.tecnologia_id_auto);
+            }
+        } else if (data.requiere_seleccion_tecnologia && selectTechNodo && wrapTech) {
+            if (autoTech) autoTech.value = '';
+            selectTechNodo.innerHTML = '<option value="">-- Seleccionar tipo --</option>' +
+                (data.tecnologias || []).map((t) =>
+                    `<option value="${t.tecnologia_id}">${(t.descripcion || '').replace(/"/g, '&quot;')}</option>`,
+                ).join('');
+            wrapTech.style.display = 'block';
+            if (hintTech) hintTech.style.display = 'none';
+        }
+
+        if (data.pool_id_auto) {
+            if (autoPool) autoPool.value = String(data.pool_id_auto);
+            if (wrapPool) wrapPool.style.display = 'none';
+        } else if (data.requiere_seleccion_pool && selectPool && wrapPool) {
+            if (autoPool) autoPool.value = '';
+            selectPool.innerHTML = '<option value="">-- Seleccionar pool --</option>' +
+                (data.pools || []).map((p) =>
+                    `<option value="${p.pool_id}">${(p.label || '').replace(/"/g, '&quot;')}</option>`,
+                ).join('');
+            wrapPool.style.display = 'block';
+        }
+    } catch (_e) {
+        Swal.showValidationMessage('No se pudieron cargar las opciones del nodo.');
+    }
+}
+
 function buildHtmlAcciones(acciones, nodos, planes, tiposTecnologia, tecnologiaIdSeleccionado = null) {
     let html = '';
-    if (acciones.includes(ACCION_SELECCIONAR_NODO) && nodos && nodos.length) {
+    const tieneSeleccionNodo = acciones.includes(ACCION_SELECCIONAR_NODO);
+    const nodosSelect = nodosFiltradosPorTecnologia(nodos, tecnologiaIdSeleccionado, tiposTecnologia);
+    if (tieneSeleccionNodo && nodosSelect.length) {
         html += `
             <div class="mb-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nodo</label>
                 <select id="swal-select-nodo" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
                     <option value="">-- Seleccionar nodo --</option>
-                    ${nodos.map(n => `<option value="${n.nodo_id}">${(n.descripcion || '').replace(/"/g, '&quot;')}</option>`).join('')}
+                    ${nodosSelect.map((n) => `<option value="${n.nodo_id}">${etiquetaNodoSelect(n)}</option>`).join('')}
                 </select>
+            </div>
+            <input type="hidden" id="swal-tecnologia-auto" value="">
+            <input type="hidden" id="swal-pool-auto" value="">
+            <p id="swal-tecnologia-auto-hint" class="mb-2 text-xs text-green-700" style="display:none"></p>
+            <div id="swal-tecnologia-nodo-wrap" class="mb-3" style="display:none">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de tecnología</label>
+                <select id="swal-select-tecnologia-nodo" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                    <option value="">-- Seleccionar tipo --</option>
+                </select>
+                <p class="mt-0.5 text-xs text-gray-500">El nodo maneja GPON y Wireless; elegí cuál aplica a este pedido.</p>
+            </div>
+            <div id="swal-pool-wrap" class="mb-3" style="display:none">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Pool de IP</label>
+                <select id="swal-select-pool" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                    <option value="">-- Seleccionar pool --</option>
+                </select>
+                <p class="mt-0.5 text-xs text-gray-500">Este nodo tiene más de un pool activo.</p>
             </div>`;
+    } else if (tieneSeleccionNodo && nodos?.length && nodosSelect.length === 0) {
+        html += `<p class="mb-3 text-sm text-amber-700">No hay nodos configurados para la tecnología de este pedido. Revisá las tecnologías del nodo en Sistema → Nodos.</p>`;
     }
-    if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && tiposTecnologia && tiposTecnologia.length) {
+    if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && !tieneSeleccionNodo && tiposTecnologia && tiposTecnologia.length) {
         html += `
             <div class="mb-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de tecnología</label>
@@ -1102,7 +1262,7 @@ function buildHtmlAcciones(acciones, nodos, planes, tiposTecnologia, tecnologiaI
             </div>`;
     }
     if (acciones.includes(ACCION_SELECCIONAR_PLAN) && planes && planes.length) {
-        const requiereTecnologiaPrimero = acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA);
+        const requiereTecnologiaPrimero = acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) || tieneSeleccionNodo;
         const idParaFiltrar = (tecnologiaIdSeleccionado != null && tecnologiaIdSeleccionado !== '') ? tecnologiaIdSeleccionado : null;
         const tieneTecnologiaPreseleccionada = idParaFiltrar !== null;
         const planesToShow = requiereTecnologiaPrimero
@@ -1140,6 +1300,7 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
     let nodoIdValue = null;
     let tecnologiaIdValue = null;
     let planIdValue = null;
+    let poolIdValue = null;
     const acciones = getAccionesFromParametro(parametro);
     const htmlAcciones = buildHtmlAcciones(acciones, props.nodos, props.planes, props.tiposTecnologia, tecnologiaIdSeleccionado);
 
@@ -1187,25 +1348,77 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
                     actualizarSelectPlan(props.planes, valor || null);
                 };
                 queueMicrotask(() => selectTecnologia.addEventListener('change', onTecnologiaChange));
-            } else {
+            } else if (!acciones.includes(ACCION_SELECCIONAR_NODO)) {
                 // No ejecutar cuando ya hay tecnología preseleccionada desde BD (evita sobrescribir el select de Plan con null)
                 if (!tecnologiaIdSeleccionado) {
                     aplicarFiltroPlanDesdeNotas(props.planes, acciones);
                 }
             }
+            const selectNodo = document.getElementById('swal-select-nodo');
+            if (selectNodo && acciones.includes(ACCION_SELECCIONAR_NODO)) {
+                const onNodoChange = () => {
+                    aplicarOpcionesNodoEnSwal(selectNodo.value || '', props.planes, acciones);
+                };
+                const onTechNodoChange = () => {
+                    const tid = document.getElementById('swal-select-tecnologia-nodo')?.value;
+                    if (tid && acciones.includes(ACCION_SELECCIONAR_PLAN)) {
+                        actualizarSelectPlan(props.planes, tid);
+                    }
+                };
+                queueMicrotask(() => {
+                    selectNodo.addEventListener('change', onNodoChange);
+                    document.getElementById('swal-select-tecnologia-nodo')?.addEventListener('change', onTechNodoChange);
+                });
+            }
             if (acciones.includes(ACCION_CREAR_USUARIO)) accionCrearUsuario();
             if (acciones.includes(ACCION_FINALIZAR)) accionFinalizar();
         },
-        preConfirm: () => {
+        preConfirm: async () => {
             const notasInput = document.getElementById('swal-notas');
             notasValue = notasInput ? notasInput.value.trim() : '';
             if (acciones.includes(ACCION_SELECCIONAR_NODO)) {
                 const selectNodo = document.getElementById('swal-select-nodo');
-                if (selectNodo?.value) nodoIdValue = selectNodo.value;
-            }
-            if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA)) {
-                const selectTecnologia = document.getElementById('swal-select-tecnologia');
-                if (selectTecnologia?.value) tecnologiaIdValue = selectTecnologia.value;
+                if (!selectNodo?.value) {
+                    Swal.showValidationMessage('Seleccioná un nodo.');
+                    return false;
+                }
+                nodoIdValue = selectNodo.value;
+                const tech = obtenerTecnologiaIdDesdeSwal(acciones);
+                const pool = obtenerPoolIdDesdeSwal();
+                if (props.urlOpcionesNodoAprobacion) {
+                    try {
+                        const url = props.urlOpcionesNodoAprobacion.replace('__id__', String(nodoIdValue));
+                        const { data } = await axios.get(url);
+                        if (data.sin_pools_activos) {
+                            Swal.showValidationMessage('El nodo no tiene pools de IP activos.');
+                            return false;
+                        }
+                        if (data.sin_tecnologia_configurada) {
+                            Swal.showValidationMessage('El nodo no tiene tecnologías compatibles configuradas.');
+                            return false;
+                        }
+                        if (data.requiere_seleccion_tecnologia && !tech) {
+                            Swal.showValidationMessage('Seleccioná el tipo de tecnología (el nodo maneja GPON y Wireless).');
+                            return false;
+                        }
+                        if (data.requiere_seleccion_pool && !pool) {
+                            Swal.showValidationMessage('Seleccioná el pool de IP.');
+                            return false;
+                        }
+                        if (tech) tecnologiaIdValue = tech;
+                        else if (data.tecnologia_id_auto) tecnologiaIdValue = String(data.tecnologia_id_auto);
+                        if (pool) poolIdValue = pool;
+                        else if (data.pool_id_auto) poolIdValue = String(data.pool_id_auto);
+                    } catch (_e) {
+                        Swal.showValidationMessage('No se pudieron validar las opciones del nodo.');
+                        return false;
+                    }
+                }
+            } else {
+                if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA)) {
+                    const selectTecnologia = document.getElementById('swal-select-tecnologia');
+                    if (selectTecnologia?.value) tecnologiaIdValue = selectTecnologia.value;
+                }
             }
             if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
                 const selectPlan = document.getElementById('swal-select-plan');
@@ -1223,7 +1436,9 @@ const aprobarEstado = async (pedido, estadoId, parametro) => {
         notas
     };
     if (acciones.includes(ACCION_SELECCIONAR_NODO) && nodoIdValue != null) payload.nodo_id = parseInt(nodoIdValue, 10);
-    if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && tecnologiaIdValue != null) payload.tecnologia_id = parseInt(tecnologiaIdValue, 10);
+    if (tecnologiaIdValue != null && tecnologiaIdValue !== '') payload.tecnologia_id = parseInt(tecnologiaIdValue, 10);
+    else if (acciones.includes(ACCION_SELECCIONAR_TIPO_TECNOLOGIA) && tecnologiaIdValue != null) payload.tecnologia_id = parseInt(tecnologiaIdValue, 10);
+    if (poolIdValue != null && poolIdValue !== '') payload.pool_id = parseInt(poolIdValue, 10);
     if (acciones.includes(ACCION_SELECCIONAR_PLAN) && planIdValue != null) payload.plan_id = parseInt(planIdValue, 10);
 
     loadingAprobar.value = `${pedidoId}-${estadoId}`;

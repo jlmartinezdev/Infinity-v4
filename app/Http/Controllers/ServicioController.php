@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CajaNapPuertoActivo;
 use App\Models\Nodo;
 use App\Models\Servicio;
 use App\Models\Cliente;
@@ -65,15 +66,12 @@ class ServicioController extends Controller
             ];
         })->values()->all();
 
-        $nodos = Nodo::orderBy('descripcion')->get(['nodo_id', 'descripcion']);
+        $nodos = Nodo::orderBy('descripcion')->get();
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'servicios' => $serviciosParaVue,
-                'nodos' => $nodos->map(fn (Nodo $n) => [
-                    'nodo_id' => $n->nodo_id,
-                    'descripcion' => $n->descripcion,
-                ])->values()->all(),
+                'nodos' => $nodos->map(fn (Nodo $n) => $n->toArraySelect())->values()->all(),
             ]);
         }
 
@@ -301,10 +299,12 @@ class ServicioController extends Controller
 
         if ($planIdAnterior !== (int) $validated['plan_id'] && $planAnterior) {
             try {
+                $generarFacturaProrr = $request->boolean('generar_factura_prorrateo_cambio_plan', true);
                 $extraCambioPlan = app(FacturacionService::class)->registrarPostCambioPlanServicio(
                     $servicio,
                     $planAnterior,
-                    $request->user()?->usuario_id
+                    $request->user()?->usuario_id,
+                    $generarFacturaProrr
                 );
                 if ($extraCambioPlan !== '') {
                     $mensaje .= ' '.$extraCambioPlan;
@@ -459,6 +459,130 @@ class ServicioController extends Controller
         }
 
         return redirect()->back()->with('success', $mensaje);
+    }
+
+    /**
+     * Dar de baja sin factura prorrateada: cancela el servicio, libera IP y puerto NAP,
+     * deshabilita PPPoE; el cliente pasa a inactivo si no tiene otros servicios no cancelados.
+     */
+    public function darBaja(Request $request, $servicio_id, MikroTikService $mikrotik)
+    {
+        $servicio = Servicio::with(['cliente', 'pool.router', 'cajaNapPuertoActivo'])->findOrFail($servicio_id);
+
+        if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            return redirect()->back()->with('error', 'El servicio ya está cancelado.');
+        }
+
+        $fechaBaja = Carbon::parse($request->input('fecha_cancelacion', now()->toDateString()))->startOfDay();
+        $hoy = now()->startOfDay();
+        if ($fechaBaja->gt($hoy)) {
+            return redirect()->back()->with('error', 'La fecha de baja no puede ser futura.');
+        }
+        if ($servicio->fecha_instalacion) {
+            $iniInst = Carbon::parse($servicio->fecha_instalacion)->startOfDay();
+            if ($fechaBaja->lt($iniInst)) {
+                return redirect()->back()->with('error', 'La fecha de baja no puede ser anterior a la instalación del servicio.');
+            }
+        }
+
+        $clienteId = (int) $servicio->cliente_id;
+        $soloEsteServicioNoCancelado = Servicio::where('cliente_id', $clienteId)
+            ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+            ->count() === 1;
+
+        $liberoIp = false;
+        $liberoPuertoNap = false;
+
+        try {
+            DB::transaction(function () use ($servicio, $fechaBaja, $soloEsteServicioNoCancelado, &$liberoIp, &$liberoPuertoNap) {
+                $liberoIp = $this->liberarIpServicio($servicio);
+                $liberoPuertoNap = $this->liberarPuertoNapServicio($servicio);
+
+                $servicio->update([
+                    'estado' => Servicio::ESTADO_CANCELADO,
+                    'fecha_cancelacion' => $fechaBaja->toDateString(),
+                    'fecha_suspension' => null,
+                    'motivo_suspension' => null,
+                    'ip' => null,
+                ]);
+
+                if ($soloEsteServicioNoCancelado && $servicio->cliente) {
+                    $servicio->cliente->update(['estado' => 'inactivo']);
+                }
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Dar de baja servicio: '.$e->getMessage(), [
+                'servicio_id' => $servicio_id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()->with('error', 'No se pudo dar de baja el servicio: '.$e->getMessage());
+        }
+
+        $mensaje = 'Servicio dado de baja sin factura.';
+        if ($liberoIp) {
+            $mensaje .= ' IP liberada en el pool.';
+        }
+        if ($liberoPuertoNap) {
+            $mensaje .= ' Puerto NAP liberado.';
+        }
+        if ($soloEsteServicioNoCancelado) {
+            $mensaje .= ' El cliente quedó inactivo.';
+        }
+
+        $warning = $this->deshabilitarPppoeTrasBaja($servicio->fresh(['pool.router']), $mikrotik, 'servicios.dar-baja');
+
+        if ($warning) {
+            return redirect()->back()->with('success', $mensaje)->with('warning', $warning);
+        }
+
+        return redirect()->back()->with('success', $mensaje);
+    }
+
+    private function liberarIpServicio(Servicio $servicio): bool
+    {
+        $ip = trim((string) ($servicio->ip ?? ''));
+        if ($ip === '' || ! $servicio->pool_id) {
+            return false;
+        }
+
+        PoolIpAsignada::where('pool_id', $servicio->pool_id)
+            ->where('ip', $ip)
+            ->update(['estado' => 'disponible']);
+
+        return true;
+    }
+
+    private function liberarPuertoNapServicio(Servicio $servicio): bool
+    {
+        $actualizado = CajaNapPuertoActivo::where('servicio_id', $servicio->servicio_id)
+            ->update([
+                'servicio_id' => null,
+                'potencia_cliente' => null,
+            ]);
+
+        return $actualizado > 0;
+    }
+
+    private function deshabilitarPppoeTrasBaja(Servicio $servicio, MikroTikService $mikrotik, string $contexto): ?string
+    {
+        if (! $servicio->usuario_pppoe || ! $servicio->pool?->router) {
+            return null;
+        }
+
+        $r = $mikrotik->setPppoeDisabledEnRouter($servicio, true);
+        if ($r['success']) {
+            return null;
+        }
+
+        MikrotikOperacionPendiente::registrarSiFallo(
+            MikrotikOperacionPendiente::TIPO_PPPOE_DISABLED,
+            ['servicio_id' => $servicio->servicio_id, 'disabled' => true],
+            $r['error'] ?? 'Error',
+            $contexto
+        );
+
+        return 'MikroTik: no se pudo deshabilitar PPPoE — '.($r['error'] ?? 'error').'. Quedó registrado para reintento.';
     }
 
     /**

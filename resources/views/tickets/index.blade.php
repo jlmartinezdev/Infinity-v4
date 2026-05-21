@@ -383,9 +383,7 @@
         }
         h += '<a href="' + escapeHtml(cfg.edit_ticket_url) + '" class="block ' + baseBtn + ' text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30">' + icEdit + ' Editar</a>';
         h += '<a href="' + escapeHtml(cfg.agenda_url) + '" class="block ' + baseBtn + ' text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">' + icCal + ' Crear cita en agenda</a>';
-        if (cfg.migrar_url) {
-            h += '<a href="' + escapeHtml(cfg.migrar_url) + '" class="block ' + baseBtn + ' text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">' + icMig + ' Migrar a otro nodo</a>';
-        }
+        
         if (cfg.imagen_url) {
             h += '<a href="' + escapeHtml(cfg.imagen_url) + '" target="_blank" rel="noopener" class="block ' + baseBtn + ' text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">' + icImg + ' Ver imagen</a>';
         }

@@ -4,7 +4,7 @@
     
 
     <!-- Progress Bar -->
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div :class="modalMode ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 py-4'" class="border-b border-gray-200 dark:border-gray-700">
       <div class="flex items-center justify-between mb-2">
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Paso {{ currentStep }}/2</span>
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ progressPercentage }}%</span>
@@ -15,39 +15,58 @@
     </div>
 
     <!-- Form Content -->
-    <form @submit.prevent="submitForm" class="p-6">
+    <form @submit.prevent="submitForm" :class="modalMode ? 'p-4 sm:p-6' : 'p-6'">
       <!-- Paso 1: Datos Básicos -->
-      <div v-show="currentStep === 1" class="space-y-6">
-        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">DATOS BÁSICOS</h3>
+      <div
+        v-show="currentStep === 1"
+        :class="modalMode ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4' : 'space-y-6'"
+      >
+        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100" :class="modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'">DATOS BÁSICOS</h3>
         
-        <!-- Cédula con búsqueda -->
-        <div>
+        <!-- Cédula: misma altura; sm+ tres columnas iguales; móvil checkbox ancho completo debajo -->
+        <div :class="{ 'sm:col-span-2': modalMode }" class="min-w-0">
           <label for="cedula" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula *</label>
-          <div class="flex gap-2">
+          <div
+            class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+          >
             <input
               type="text"
               id="cedula"
               v-model="formData.cedula"
               @blur="buscarCliente"
-              class="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
+              :disabled="sinDatosCedula"
+              autocomplete="off"
+              class="h-11 w-full min-w-0 px-3 sm:px-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed row-start-1 col-start-1"
               placeholder="1234567"
-              required
+              :required="!sinDatosCedula"
             />
             <button
               type="button"
               @click="buscarCliente"
-              :disabled="buscando"
-              class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2 min-w-[120px]"
+              :disabled="sinDatosCedula || buscando || cargandoCedulaTemporal"
+              class="h-11 w-full min-w-[5.5rem] sm:min-w-0 px-3 sm:px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2 row-start-1 col-start-2 self-stretch"
             >
-              <svg v-if="buscando" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg v-if="buscando" class="animate-spin h-5 w-5 shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>{{ buscando ? 'Consultando...' : 'Buscar' }}</span>
+              <span class="truncate">{{ buscando ? 'Consultando...' : 'Buscar' }}</span>
             </button>
+            <label
+              class="col-span-2 row-start-2 flex h-11 w-full min-w-0 cursor-pointer select-none items-center justify-center gap-2 rounded-lg  px-2 text-xs font-medium text-gray-700 dark:text-gray-300  sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:text-sm"
+            >
+              <input
+                type="checkbox"
+                :checked="sinDatosCedula"
+                :disabled="cargandoCedulaTemporal || !(cedulaTemporalUrl || '').trim()"
+                @change="onSinDatosCedulaToggle"
+                class="h-4 w-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-500"
+              />
+              <span class="truncate text-center leading-tight">SIN DATOS</span>
+            </label>
           </div>
-          <p v-if="mensajeClienteSuccess && !buscando" class="mt-1 text-sm text-green-600">{{ mensajeClienteSuccess }}</p>
-          <p v-if="errorCliente && !buscando" class="mt-1 text-sm text-red-600">{{ errorCliente }}</p>
+          <p v-if="mensajeClienteSuccess && !buscando && !cargandoCedulaTemporal" class="mt-1 text-sm text-green-600 dark:text-green-400">{{ mensajeClienteSuccess }}</p>
+          <p v-if="errorCliente && !buscando && !cargandoCedulaTemporal" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ errorCliente }}</p>
         </div>
 
         <!-- Nombre -->
@@ -74,21 +93,35 @@
           />
         </div>
 
-        <!-- Celular -->
+        <!-- Celular (en modal queda solo en la columna izquierda del grid) -->
         <div>
           <label for="telefono" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Celular *</label>
           <input
             type="tel"
             id="telefono"
             v-model="formData.telefono"
+            @blur="verificarTelefonoPedidoBlur"
+            @input="limpiarTelefonoAsociacion"
             class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
-            placeholder="0981234567"
+            placeholder="0981234567 o +595981234567"
             required
           />
+          <p v-if="verificandoTelefono" class="mt-1 text-xs text-gray-500 dark:text-gray-400">Verificando teléfono…</p>
+          <p
+            v-else-if="telefonoAsociacion"
+            class="mt-1 text-sm"
+            :class="{
+              'text-amber-700 dark:text-amber-300': telefonoAsociacion.tipo === 'conflicto',
+              'text-emerald-700 dark:text-emerald-300': telefonoAsociacion.tipo === 'actual',
+              'text-red-600 dark:text-red-400': telefonoAsociacion.tipo === 'error',
+            }"
+          >
+            {{ telefonoAsociacion.texto }}
+          </p>
         </div>
 
         <!-- Botón siguiente -->
-        <div class="flex justify-end">
+        <div class="flex justify-end" :class="{ 'sm:col-span-2': modalMode }">
           <button
             type="button"
             @click="nextStep"
@@ -102,18 +135,23 @@
       </div>
 
       <!-- Paso 2: Ubicación y Plan -->
-      <div v-show="currentStep === 2" class="space-y-6">
+      <div
+        v-show="currentStep === 2"
+        :class="modalMode ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4' : 'space-y-6'"
+      >
         <!-- Nombre del cliente en header -->
-        <div v-if="formData.nombre && formData.apellido" class="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div
+          v-if="formData.nombre && formData.apellido"
+          class="pb-4 border-b border-gray-200 dark:border-gray-700"
+          :class="modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'"
+        >
           <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formData.nombre }} {{ formData.apellido }}</h3>
           <p class="text-sm text-gray-600 dark:text-gray-400">{{ formData.cedula }}</p>
         </div>
 
-        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">UBICACIÓN Y PLAN</h3>
-
         <!-- Ubicación -->
         <div>
-          <label for="ubicacion" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación *</label>
+          <label for="ubicacion" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección *</label>
           <input
             type="text"
             id="ubicacion"
@@ -140,21 +178,6 @@
           </p>
         </div>
 
-        
-        <!-- Prioridad de instalación -->
-        <div>
-          <label for="prioridad_instalacion" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridad de instalación</label>
-          <select
-            id="prioridad_instalacion"
-            v-model="formData.prioridad_instalacion"
-            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
-          >
-            <option :value="1">Alta</option>
-            <option :value="2">Media</option>
-            <option :value="3">Baja</option>
-          </select>
-        </div>
-
         <!-- Notas -->
         <div>
           <label for="observaciones" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
@@ -168,7 +191,7 @@
         </div>
 
         <!-- Botones -->
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between" :class="{ 'sm:col-span-2': modalMode }">
           <button
             type="button"
             @click="prevStep"
@@ -218,6 +241,8 @@ const props = defineProps({
   planes: { type: Array, required: true },
   estadoId: { type: Number, required: true },
   buscarClienteUrl: { type: String, required: true },
+  verificarTelefonoUrl: { type: String, default: '' },
+  cedulaTemporalUrl: { type: String, default: '' },
   consultarPadronUrl: { type: String, required: true },
   submitUrl: { type: String, required: true },
   cancelUrl: { type: String, required: true },
@@ -230,6 +255,10 @@ const buscando = ref(false);
 const guardando = ref(false);
 const errorCliente = ref('');
 const mensajeClienteSuccess = ref('');
+const sinDatosCedula = ref(false);
+const cargandoCedulaTemporal = ref(false);
+const verificandoTelefono = ref(false);
+const telefonoAsociacion = ref(null);
 
 const formData = ref({
   cedula: '',
@@ -246,6 +275,55 @@ const formData = ref({
   observaciones: '',
   fecha_pedido: new Date().toISOString().split('T')[0],
 });
+
+const limpiarTelefonoAsociacion = () => {
+  telefonoAsociacion.value = null;
+};
+
+const verificarTelefonoPedidoBlur = async () => {
+  const url = (props.verificarTelefonoUrl || '').trim();
+  if (!url) {
+    return;
+  }
+  const raw = (formData.value.telefono || '').trim();
+  if (!raw) {
+    limpiarTelefonoAsociacion();
+    return;
+  }
+  verificandoTelefono.value = true;
+  telefonoAsociacion.value = null;
+  try {
+    const payload = { telefono: raw };
+    if (formData.value.cliente_id != null) {
+      payload.exclude_cliente_id = formData.value.cliente_id;
+    }
+    const { data } = await window.axios.post(url, payload);
+    if (!data?.encontrado) {
+      return;
+    }
+    const c = data.cliente || {};
+    const nombre = [c.nombre, c.apellido].filter(Boolean).join(' ').trim() || 'Sin nombre';
+    const ci = c.cedula != null ? String(c.cedula) : '';
+    if (data.es_cliente_actual) {
+      telefonoAsociacion.value = {
+        tipo: 'actual',
+        texto: `Este número coincide con el cliente cargado: ${nombre} (CI: ${ci}).`,
+      };
+    } else {
+      telefonoAsociacion.value = {
+        tipo: 'conflicto',
+        texto: `Este número está registrado para otro cliente: ${nombre} (CI: ${ci}). No se podrá guardar el pedido con este celular.`,
+      };
+    }
+  } catch (e) {
+    telefonoAsociacion.value = {
+      tipo: 'error',
+      texto: 'No se pudo verificar el teléfono. Intenta de nuevo.',
+    };
+  } finally {
+    verificandoTelefono.value = false;
+  }
+};
 
 const progressPercentage = computed(() => {
   return currentStep.value * 50;
@@ -264,8 +342,45 @@ const onMapsGpsInput = () => {
   formData.value.lon = lon;
 };
 
+const onSinDatosCedulaToggle = async (ev) => {
+  const checked = ev.target.checked;
+  const url = (props.cedulaTemporalUrl || '').trim();
+  if (checked && !url) {
+    ev.target.checked = false;
+    return;
+  }
+  if (checked) {
+    cargandoCedulaTemporal.value = true;
+    errorCliente.value = '';
+    mensajeClienteSuccess.value = '';
+    try {
+      const { data } = await window.axios.get(url);
+      const ced = data?.cedula != null ? String(data.cedula) : '';
+      if (!ced) {
+        throw new Error('Respuesta inválida');
+      }
+      sinDatosCedula.value = true;
+      formData.value.cedula = ced;
+      formData.value.cliente_id = null;
+      mensajeClienteSuccess.value = 'Cédula temporal asignada (sin datos de documento).';
+    } catch (e) {
+      sinDatosCedula.value = false;
+      ev.target.checked = false;
+      errorCliente.value = 'No se pudo obtener la cédula temporal. Intenta de nuevo.';
+    } finally {
+      cargandoCedulaTemporal.value = false;
+    }
+  } else {
+    sinDatosCedula.value = false;
+    formData.value.cedula = '';
+    formData.value.cliente_id = null;
+    errorCliente.value = '';
+    mensajeClienteSuccess.value = '';
+  }
+};
+
 const buscarCliente = async () => {
-  if (!formData.value.cedula) return;
+  if (sinDatosCedula.value || !formData.value.cedula) return;
 
   buscando.value = true;
   errorCliente.value = '';
@@ -333,6 +448,7 @@ const buscarCliente = async () => {
     mensajeClienteSuccess.value = '';
   } finally {
     buscando.value = false;
+    void verificarTelefonoPedidoBlur();
   }
 };
 

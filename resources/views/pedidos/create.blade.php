@@ -14,6 +14,8 @@
         'planes' => $planes,
         'estadoId' => $estado->estado_id ?? 1,
         'buscarClienteUrl' => route('pedidos.buscar-cliente'),
+        'verificarTelefonoUrl' => route('pedidos.verificar-telefono'),
+        'cedulaTemporalUrl' => route('pedidos.cedula-temporal'),
         'consultarPadronUrl' => route('pedidos.consultar-padron'),
         'submitUrl' => route('pedidos.store'),
         'cancelUrl' => route('pedidos.index'),

@@ -116,12 +116,33 @@
                 <td class="label">Cobrado</td>
                 <td class="right">{{ number_format($factura_interna->monto_pagado, 0, ',', '.') }} {{ $factura_interna->moneda }}</td>
             </tr>
+            @if((float) $factura_interna->monto_notas_credito > 0)
+                <tr>
+                    <td class="label">Notas de crédito</td>
+                    <td class="right">−{{ number_format($factura_interna->monto_notas_credito, 0, ',', '.') }} {{ $factura_interna->moneda }}</td>
+                </tr>
+            @endif
             <tr>
                 <td class="label">Saldo pendiente</td>
                 <td class="right">{{ number_format($factura_interna->saldo_pendiente, 0, ',', '.') }} {{ $factura_interna->moneda }}@if($factura_interna->esta_pagada) (Pagada)@endif</td>
             </tr>
         </table>
     </div>
+
+    @if($factura_interna->notasCredito->isNotEmpty())
+        <div class="cobros">
+            <strong>Notas de crédito</strong>
+            <ul>
+                @foreach($factura_interna->notasCredito as $nc)
+                    <li>
+                        {{ $nc->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}
+                        — −{{ number_format($nc->monto, 0, ',', '.') }} {{ $factura_interna->moneda }}
+                        @if($nc->motivo) — {{ $nc->motivo }}@endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     @if($factura_interna->cobros->isNotEmpty())
         <div class="cobros">

@@ -23,6 +23,19 @@
           </svg>
           <span class="hidden sm:inline">Promesas</span>
         </a>
+        <button
+          v-if="mapPuntosUrl"
+          type="button"
+          class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-sky-300 dark:border-sky-700 rounded-lg text-sm font-medium text-sky-900 dark:text-sky-200 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
+          title="Clientes con saldo pendiente en el mapa (usa la URL o coordenadas de ubicación del cliente)"
+          @click="abrirModalMapa"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+          </svg>
+          <span class="hidden sm:inline">Ver mapa</span>
+        </button>
         <a
           v-if="canCrearCobro && urls.cobrosCreate"
           :href="urls.cobrosCreate"
@@ -86,7 +99,42 @@
               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               @keyup.enter="aplicarBusqueda"
             />
-            
+          </div>
+          <div v-if="nodos.length" class="relative shrink-0 min-w-[150px] sm:min-w-[180px]" ref="dropdownNodoRef">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Nodo</label>
+            <button
+              type="button"
+              class="w-full inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600/50 text-sm font-medium justify-between"
+              @click="dropdownNodoOpen = !dropdownNodoOpen"
+            >
+              <span class="truncate">{{ nodoFiltroLabel }}</span>
+              <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div
+              v-show="dropdownNodoOpen"
+              class="absolute left-0 right-0 sm:right-auto sm:min-w-[200px] mt-1 max-h-64 overflow-y-auto py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-30"
+            >
+              <button
+                type="button"
+                class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                :class="!nodoId ? 'text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/30' : 'text-gray-700 dark:text-gray-300'"
+                @click="seleccionarNodo('')"
+              >
+                Todos los nodos
+              </button>
+              <button
+                v-for="n in nodos"
+                :key="n.nodo_id"
+                type="button"
+                class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors truncate"
+                :class="String(nodoId) === String(n.nodo_id) ? 'text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/30' : 'text-gray-700 dark:text-gray-300'"
+                @click="seleccionarNodo(String(n.nodo_id))"
+              >
+                {{ n.descripcion || ('Nodo #' + n.nodo_id) }}{{ n.tecnologias_etiqueta ? ' · ' + n.tecnologias_etiqueta : '' }}
+              </button>
+            </div>
           </div>
           <div class="flex items-end gap-2">
             <button type="button" class="px-4 py-2 bg-gray-700 dark:bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-500 text-sm" title="Aplicar ya sin esperar" @click="aplicarBusqueda">
@@ -315,7 +363,14 @@
               <td :colspan="colspanTabla" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Cargando…</td>
             </tr>
             <template v-else>
-            <tr v-for="row in rows" :key="row.cliente_id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+            <tr
+              v-for="row in rows"
+              :key="row.cliente_id"
+              :class="row.cliente_dado_baja
+                ? 'bg-gray-100 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400'
+                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'"
+              :title="row.cliente_dado_baja ? 'Cliente inactivo o servicio dado de baja' : undefined"
+            >
               <td v-if="canMulticobro" class="px-4 py-3">
                 <input
                   type="checkbox"
@@ -324,16 +379,19 @@
                   @change="toggleRowCliente(row, ($event.target).checked)"
                 />
               </td>
-              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+              <td class="px-4 py-3 text-sm font-medium" :class="row.cliente_dado_baja ? '' : 'text-gray-900 dark:text-gray-100'">
                 <span class="tabular-nums">{{ row.facturas_count ?? 1 }}</span>
                 <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">
                   <template v-if="(row.facturas_count ?? 1) > 1">#{{ row.min_factura_id }} +{{ (row.facturas_count ?? 1) - 1 }}</template>
                   <template v-else>#{{ row.min_factura_id }}</template>
                 </span>
               </td>
-              <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ row.cliente_nombre }}</td>
-              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ fmtPeriodo(row) }}</td>
-              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+              <td class="px-4 py-3 text-sm" :class="row.cliente_dado_baja ? '' : 'text-gray-900 dark:text-gray-100'">
+                {{ row.cliente_nombre }}
+                <span v-if="row.cliente_dado_baja" class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300">Baja</span>
+              </td>
+              <td class="px-4 py-3 text-sm" :class="row.cliente_dado_baja ? '' : 'text-gray-600 dark:text-gray-400'">{{ fmtPeriodo(row) }}</td>
+              <td class="px-4 py-3 text-sm" :class="row.cliente_dado_baja ? '' : 'text-gray-600 dark:text-gray-400'">
                 <template v-if="row.fecha_vencimiento">{{ fmtFecha(row.fecha_vencimiento) }}</template>
                 <template v-else>—</template>
                 <span
@@ -341,10 +399,10 @@
                   class="block text-xs text-gray-500 dark:text-gray-500"
                 >al {{ fmtFecha(row.fecha_vencimiento_max) }}</span>
               </td>
-              <td class="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{{ fmtMonto(row.total, row.moneda) }}</td>
-              <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ fmtMonto(row.monto_pagado, row.moneda) }}</td>
-              <td class="px-4 py-3 text-sm text-right font-semibold text-amber-700 dark:text-amber-400">{{ fmtMonto(row.saldo_pendiente, row.moneda) }}</td>
-              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+              <td class="px-4 py-3 text-sm text-right font-medium" :class="row.cliente_dado_baja ? '' : 'text-gray-900 dark:text-gray-100'">{{ fmtMonto(row.total, row.moneda) }}</td>
+              <td class="px-4 py-3 text-sm text-right" :class="row.cliente_dado_baja ? '' : 'text-gray-600 dark:text-gray-400'">{{ fmtMonto(row.monto_pagado, row.moneda) }}</td>
+              <td class="px-4 py-3 text-sm text-right font-semibold" :class="row.cliente_dado_baja ? 'text-gray-500 dark:text-gray-400' : 'text-amber-700 dark:text-amber-400'">{{ fmtMonto(row.saldo_pendiente, row.moneda) }}</td>
+              <td class="px-4 py-3 text-sm" :class="row.cliente_dado_baja ? '' : 'text-gray-600 dark:text-gray-400'">
                 <span v-if="row.promesa_label" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200" title="Promesa de pago">
                   {{ row.promesa_label }}
                 </span>
@@ -534,6 +592,49 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal mapa Google: clientes con saldo pendiente (mismos filtros que la tabla) -->
+    <div v-show="modalMapaAbierto" class="fixed inset-0 z-[55] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="pendientes-mapa-titulo">
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarModalMapa" />
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div class="relative w-full max-w-5xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden" @click.stop>
+          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div>
+              <h2 id="pendientes-mapa-titulo" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Mapa · pendientes de pago</h2>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Respetan los filtros y la búsqueda actuales.
+                <template v-if="mapaStats.total_clientes > 0">
+                  {{ mapaStats.con_coordenadas }} con pin /
+                  {{ mapaStats.total_clientes }} cliente(s) con deuda
+                  <span v-if="mapaStats.sin_coordenadas > 0"> · {{ mapaStats.sin_coordenadas }} sin coordenadas en «URL ubicación»</span>
+                </template>
+              </p>
+            </div>
+            <button type="button" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400" aria-label="Cerrar mapa" @click="cerrarModalMapa">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div v-if="mapaErrorMapa" class="mx-4 mt-3 p-3 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm border border-red-200 dark:border-red-800">
+            {{ mapaErrorMapa }}
+          </div>
+          <div v-if="!googleMapsApiKey" class="m-4 p-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-200 text-center">
+            Configurá <code class="text-xs bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GOOGLE_MAPS_API_KEY</code> en el archivo <code class="text-xs">.env</code> para cargar el mapa.
+          </div>
+          <div v-else class="relative w-full h-[min(72vh,620px)] min-h-[320px] bg-gray-100 dark:bg-gray-900">
+            <div ref="mapaPendientesContainer" class="absolute inset-0 w-full h-full" />
+            <div
+              v-if="mapaCargandoPuntos"
+              class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10"
+            >
+              <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Cargando clientes y mapa…</p>
+            </div>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <button type="button" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-500" @click="cerrarModalMapa">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -543,6 +644,8 @@ import axios from 'axios';
 
 const props = defineProps({
   listUrl: { type: String, default: '' },
+  mapPuntosUrl: { type: String, default: '' },
+  googleMapsApiKey: { type: String, default: '' },
   exportExcelUrl: { type: String, default: '' },
   pfKeys: { type: Array, default: () => [] },
   urls: { type: Object, default: () => ({}) },
@@ -553,14 +656,24 @@ const props = defineProps({
   canVerClienteDetalle: { type: Boolean, default: false },
   flashSuccess: { type: String, default: '' },
   flashError: { type: String, default: '' },
+  nodos: { type: Array, default: () => [] },
 });
 
 const BUSCAR_DEBOUNCE_MS = 400;
 
 const buscar = ref('');
+const nodoId = ref('');
+const dropdownNodoOpen = ref(false);
+const dropdownNodoRef = ref(null);
 /** Evita disparar búsqueda incremental al hidratar desde la URL o al limpiar con cargar() explícito. */
 const skipBuscarWatch = ref(true);
 let buscarDebounceTimer = null;
+
+const nodoFiltroLabel = computed(() => {
+  if (!nodoId.value) return 'Todos los nodos';
+  const n = props.nodos.find((x) => String(x.nodo_id) === String(nodoId.value));
+  return n ? (n.descripcion || `Nodo #${n.nodo_id}`) : 'Nodo';
+});
 
 const pf = reactive({
   pf_id: '',
@@ -625,6 +738,21 @@ const modalFacturasClienteId = ref(null);
 const modalFacturasClienteNombre = ref('');
 const modalFacturasLineas = ref([]);
 
+const modalMapaAbierto = ref(false);
+const mapaPendientesContainer = ref(null);
+const mapaCargandoPuntos = ref(false);
+const mapaErrorMapa = ref('');
+const mapaStats = ref({
+  total_clientes: 0,
+  con_coordenadas: 0,
+  sin_coordenadas: 0,
+});
+const mapaPuntosData = ref([]);
+
+let pendMapInstance = null;
+let pendMapMarkers = [];
+let pendMapInfoWindow = null;
+
 const colspanTabla = computed(() => (props.canMulticobro ? 10 : 9));
 
 function isRowFullySelected(row) {
@@ -647,6 +775,7 @@ const filtrosActivo = computed(() => ({
 
 const hayFiltros = computed(() => {
   if ((buscar.value || '').trim() !== '') return true;
+  if ((nodoId.value || '').trim() !== '') return true;
   return Object.keys(pf).some((k) => !!(pf[k] || '').toString().trim());
 });
 
@@ -660,6 +789,12 @@ function onDocClick(ev) {
   const t = ev.target;
   if (t.closest?.('.pf-popover') || t.closest?.('.pf-funnel')) return;
   openFilterKey.value = null;
+}
+
+function onDocClickNodo(ev) {
+  const t = ev.target;
+  if (dropdownNodoRef.value?.contains(t)) return;
+  dropdownNodoOpen.value = false;
 }
 
 watch(openFilterKey, (v) => {
@@ -710,6 +845,15 @@ function leerParamsUrl() {
     const v = sp.get(k);
     if (v != null && v !== '' && k in pf) pf[k] = v;
   });
+  const nid = sp.get('nodo_id');
+  if (nid != null && nid !== '') nodoId.value = nid;
+}
+
+function seleccionarNodo(id) {
+  nodoId.value = id || '';
+  dropdownNodoOpen.value = false;
+  page.value = 1;
+  cargar();
 }
 
 function construirParamsApi() {
@@ -720,6 +864,25 @@ function construirParamsApi() {
   };
   const b = (buscar.value || '').trim();
   if (b) p.buscar = b;
+  const nid = (nodoId.value || '').trim();
+  if (nid) p.nodo_id = nid;
+  Object.keys(pf).forEach((k) => {
+    const v = (pf[k] || '').toString().trim();
+    if (v !== '') p[k] = v;
+  });
+  return p;
+}
+
+/** Parámetros para el endpoint del mapa (mismos filtros que el listado, sin paginación). */
+function construirParamsMapa() {
+  const p = {
+    sort: sortBy.value,
+    direction: sortDir.value,
+  };
+  const b = (buscar.value || '').trim();
+  if (b) p.buscar = b;
+  const nid = (nodoId.value || '').trim();
+  if (nid) p.nodo_id = nid;
   Object.keys(pf).forEach((k) => {
     const v = (pf[k] || '').toString().trim();
     if (v !== '') p[k] = v;
@@ -731,6 +894,8 @@ function syncHistory() {
   const sp = new URLSearchParams();
   const b = (buscar.value || '').trim();
   if (b) sp.set('buscar', b);
+  const nid = (nodoId.value || '').trim();
+  if (nid) sp.set('nodo_id', nid);
   sp.set('sort', sortBy.value);
   sp.set('direction', sortDir.value);
   Object.keys(pf).forEach((k) => {
@@ -808,6 +973,8 @@ function limpiarTodo() {
   clearBuscarDebounce();
   skipBuscarWatch.value = true;
   buscar.value = '';
+  nodoId.value = '';
+  dropdownNodoOpen.value = false;
   Object.keys(pf).forEach((k) => {
     pf[k] = '';
   });
@@ -879,6 +1046,8 @@ const exportHref = computed(() => {
   const sp = new URLSearchParams();
   const b = (buscar.value || '').trim();
   if (b) sp.set('buscar', b);
+  const nid = (nodoId.value || '').trim();
+  if (nid) sp.set('nodo_id', nid);
   Object.keys(pf).forEach((k) => {
     const v = (pf[k] || '').toString().trim();
     if (v !== '') sp.set(k, v);
@@ -931,6 +1100,182 @@ function cerrarModalFacturasCliente() {
   document.body.classList.remove('overflow-hidden');
 }
 
+function destruirMapaPendientes() {
+  pendMapInfoWindow?.close();
+  pendMapMarkers.forEach((m) => m.setMap(null));
+  pendMapMarkers = [];
+  pendMapInfoWindow = null;
+  pendMapInstance = null;
+}
+
+function escapeHtmlMapa(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function getDeudaMarkerIcon(google) {
+  const w = 48;
+  const h = 48;
+  const size = new google.maps.Size(w, h);
+  const color = '#d97706';
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="' +
+    w +
+    '" height="' +
+    h +
+    '" viewBox="0 0 ' +
+    w +
+    ' ' +
+    h +
+    '">' +
+    '<rect width="100%" height="100%" fill="none"/>' +
+    '<g transform="translate(12,10)">' +
+    '<path fill="' +
+    color +
+    '" stroke="#1f2937" stroke-width="0.45" stroke-linejoin="round" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>' +
+    '</g></svg>';
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    size,
+    scaledSize: size,
+    origin: new google.maps.Point(0, 0),
+    anchor: new google.maps.Point(24, 32),
+  };
+}
+
+function loadGoogleMapsPendientes() {
+  return new Promise((resolve, reject) => {
+    const key = (props.googleMapsApiKey || '').trim();
+    if (!key) {
+      reject(new Error('Sin clave de Google Maps'));
+      return;
+    }
+    if (typeof window.google !== 'undefined' && window.google.maps) {
+      resolve(window.google);
+      return;
+    }
+    const scriptId = 'google-maps-api-pendientes-pago';
+    if (document.getElementById(scriptId)) {
+      const check = setInterval(() => {
+        if (window.google?.maps) {
+          clearInterval(check);
+          resolve(window.google);
+        }
+      }, 100);
+      return;
+    }
+    window.__pendientesPagoMapsReady__ = () => resolve(window.google);
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__pendientesPagoMapsReady__`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => reject(new Error('No se pudo cargar Google Maps'));
+    document.head.appendChild(script);
+  });
+}
+
+async function renderMapaPendientes(google, puntos) {
+  const el = mapaPendientesContainer.value;
+  if (!el) return;
+  destruirMapaPendientes();
+  const list = Array.isArray(puntos) ? puntos : [];
+  const center = list.length ? { lat: list[0].lat, lng: list[0].lon } : { lat: -25.2637, lng: -57.5759 };
+  pendMapInstance = new google.maps.Map(el, {
+    center,
+    zoom: list.length ? 11 : 6,
+    mapTypeControl: true,
+    streetViewControl: true,
+    fullscreenControl: true,
+    zoomControl: true,
+  });
+  pendMapInfoWindow = new google.maps.InfoWindow();
+  const bounds = new google.maps.LatLngBounds();
+  const icon = getDeudaMarkerIcon(google);
+  const batchSize = 120;
+  for (let i = 0; i < list.length; i += batchSize) {
+    const batch = list.slice(i, i + batchSize);
+    batch.forEach((p) => {
+      const position = { lat: p.lat, lng: p.lon };
+      const titulo = p.nombre || `Cliente #${p.cliente_id}`;
+      const marker = new google.maps.Marker({
+        position,
+        map: pendMapInstance,
+        title: titulo,
+        icon,
+        optimized: true,
+      });
+      const saldoTxt = fmtMonto(p.saldo_pendiente, p.moneda);
+      const dir = (p.direccion || '').trim();
+      const detalleHref =
+        props.canVerClienteDetalle && props.clienteDetalleTpl
+          ? tplReplace(props.clienteDetalleTpl, p.cliente_id)
+          : '';
+      const urlUb = (p.url_ubicacion || '').trim();
+      const content = `
+        <div class="p-2 min-w-[200px] max-w-[320px]">
+          <div class="font-semibold text-gray-900">${escapeHtmlMapa(titulo)}</div>
+          <div class="text-sm text-amber-800 mt-1 font-medium">Saldo: ${escapeHtmlMapa(saldoTxt)}</div>
+          ${dir ? `<div class="text-xs text-gray-600 mt-1">${escapeHtmlMapa(dir)}</div>` : ''}
+          ${urlUb ? `<a href="${escapeHtmlMapa(urlUb)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-sky-600 hover:underline">Abrir ubicación</a>` : ''}
+          ${detalleHref ? `<a href="${escapeHtmlMapa(detalleHref)}" class="inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline">Ver cliente</a>` : ''}
+        </div>
+      `;
+      marker.addListener('click', () => {
+        pendMapInfoWindow.setContent(content);
+        pendMapInfoWindow.open(pendMapInstance, marker);
+      });
+      pendMapMarkers.push(marker);
+      bounds.extend(position);
+    });
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  if (list.length > 1) {
+    pendMapInstance.fitBounds(bounds);
+  }
+}
+
+async function abrirModalMapa() {
+  if (!props.mapPuntosUrl) return;
+  mapaErrorMapa.value = '';
+  modalMapaAbierto.value = true;
+  mapaCargandoPuntos.value = true;
+  mapaPuntosData.value = [];
+  mapaStats.value = { total_clientes: 0, con_coordenadas: 0, sin_coordenadas: 0 };
+  document.body.classList.add('overflow-hidden');
+  try {
+    const { data } = await axios.get(props.mapPuntosUrl, { params: construirParamsMapa() });
+    mapaPuntosData.value = Array.isArray(data.puntos) ? data.puntos : [];
+    mapaStats.value = {
+      total_clientes: Number(data.stats_mapa?.total_clientes || 0),
+      con_coordenadas: Number(data.stats_mapa?.con_coordenadas || 0),
+      sin_coordenadas: Number(data.stats_mapa?.sin_coordenadas || 0),
+    };
+  } catch (e) {
+    mapaErrorMapa.value = e.response?.data?.message || e.message || 'No se pudo cargar los puntos del mapa.';
+  } finally {
+    mapaCargandoPuntos.value = false;
+  }
+  await nextTick();
+  const key = (props.googleMapsApiKey || '').trim();
+  if (!key) return;
+  try {
+    const google = await loadGoogleMapsPendientes();
+    await renderMapaPendientes(google, mapaPuntosData.value);
+  } catch (e) {
+    mapaErrorMapa.value = e.message || 'Error al inicializar Google Maps.';
+  }
+}
+
+function cerrarModalMapa() {
+  destruirMapaPendientes();
+  modalMapaAbierto.value = false;
+  mapaErrorMapa.value = '';
+  document.body.classList.remove('overflow-hidden');
+}
+
 function fmtMonto(n, moneda) {
   const x = Math.round(Number(n) || 0);
   return `${x.toLocaleString('es-PY')} ${moneda || ''}`.trim();
@@ -973,7 +1318,8 @@ function cerrarModalContacto() {
 
 function onEsc(ev) {
   if (ev.key !== 'Escape') return;
-  if (modalFacturasAbierto.value) cerrarModalFacturasCliente();
+  if (modalMapaAbierto.value) cerrarModalMapa();
+  else if (modalFacturasAbierto.value) cerrarModalFacturasCliente();
   else if (modalContactoAbierto.value) cerrarModalContacto();
 }
 
@@ -986,11 +1332,14 @@ onMounted(() => {
     });
   });
   document.addEventListener('keydown', onEsc);
+  document.addEventListener('click', onDocClickNodo, true);
 });
 
 onUnmounted(() => {
   clearBuscarDebounce();
   document.removeEventListener('keydown', onEsc);
   document.removeEventListener('click', onDocClick, true);
+  document.removeEventListener('click', onDocClickNodo, true);
+  destruirMapaPendientes();
 });
 </script>

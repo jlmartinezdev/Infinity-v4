@@ -4,6 +4,12 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto pb-10">
+    @if(session('success'))
+        <div class="mb-4 p-4 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-sm">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 text-sm">{{ session('error') }}</div>
+    @endif
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Factura interna #{{ $factura_interna->id }}</h1>
         <div class="flex flex-wrap gap-2">
@@ -13,6 +19,9 @@
             </a>
             @if(!$factura_interna->esta_pagada && auth()->user()?->tienePermiso('cobros.crear'))
                 <a href="{{ route('cobros.create', ['cliente_id' => $factura_interna->cliente_id, 'factura_interna_id' => $factura_interna->id]) }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">Registrar cobro</a>
+            @endif
+            @if($factura_interna->saldo_pendiente > 0 && in_array($factura_interna->estado, ['pendiente', 'emitida'], true) && auth()->user()?->tienePermiso('factura-interna.crear'))
+                <button type="button" id="btn-nota-credito" class="inline-flex items-center px-4 py-2 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700">Nota de crédito</button>
             @endif
             @if(auth()->user()?->tienePermiso('factura-interna.crear'))
                 <a href="{{ route('factura-internas.edit', $factura_interna) }}" class="inline-flex items-center px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 dark:focus:ring-2 dark:focus:ring-amber-400 dark:focus:ring-offset-2 dark:focus:ring-offset-gray-900">Editar</a>
@@ -98,9 +107,32 @@
                         @endif
                         <p class="text-lg font-bold text-gray-900 pt-2 border-t border-gray-100">Total: {{ number_format($factura_interna->total, 0, ',', '.') }} {{ $factura_interna->moneda }}</p>
                         <p class="text-sm text-green-600 mt-2">Cobrado: <span class="font-medium">{{ number_format($factura_interna->monto_pagado, 0, ',', '.') }} {{ $factura_interna->moneda }}</span></p>
+                        @if((float) $factura_interna->monto_notas_credito > 0)
+                            <p class="text-sm text-sky-700">Notas de crédito: <span class="font-medium">−{{ number_format($factura_interna->monto_notas_credito, 0, ',', '.') }} {{ $factura_interna->moneda }}</span></p>
+                        @endif
                         <p class="text-sm {{ $factura_interna->esta_pagada ? 'text-green-700' : 'text-amber-700' }}">Saldo: <span class="font-medium">{{ number_format($factura_interna->saldo_pendiente, 0, ',', '.') }} {{ $factura_interna->moneda }}</span> @if($factura_interna->esta_pagada) <span class="text-green-600">(Pagada)</span> @endif</p>
                     </div>
                 </div>
+                @if($factura_interna->notasCredito->isNotEmpty())
+                    <div class="mt-6 pt-6 border-t border-gray-100">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <p class="text-sm font-medium text-gray-700">Notas de crédito</p>
+                            @if(auth()->user()?->tienePermiso('factura-interna.ver'))
+                                <a href="{{ route('factura-internas.notas-credito.index') }}" class="text-xs text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300">Ver todas</a>
+                            @endif
+                        </div>
+                        <ul class="space-y-1">
+                            @foreach($factura_interna->notasCredito as $nc)
+                                <li class="text-sm text-gray-800">
+                                    {{ $nc->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}
+                                    · −{{ number_format($nc->monto, 0, ',', '.') }} {{ $factura_interna->moneda }}
+                                    @if($nc->motivo)<span class="text-gray-500"> — {{ $nc->motivo }}</span>@endif
+                                    @if($nc->usuario)<span class="text-gray-400 text-xs"> ({{ $nc->usuario->name ?? $nc->usuario->email }})</span>@endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 @if($factura_interna->cobros->isNotEmpty())
                     <div class="mt-6 pt-6 border-t border-gray-100">
                         <p class="text-sm font-medium text-gray-700 mb-2">Cobros aplicados</p>
@@ -124,4 +156,54 @@
         </article>
     </div>
 </div>
+
+@if($factura_interna->saldo_pendiente > 0 && in_array($factura_interna->estado, ['pendiente', 'emitida'], true) && auth()->user()?->tienePermiso('factura-interna.crear'))
+<div id="modal-nota-credito" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="flex min-h-full items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40" data-dismiss-nc></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Emitir nota de crédito</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Reduce el saldo pendiente de la factura #{{ $factura_interna->id }}. Saldo actual: <strong>{{ number_format($factura_interna->saldo_pendiente, 0, ',', '.') }} {{ $factura_interna->moneda }}</strong>.</p>
+            <form method="POST" action="{{ route('factura-internas.nota-credito', $factura_interna) }}" id="form-nota-credito">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label for="nc_monto" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto ({{ $factura_interna->moneda }})</label>
+                        <input type="number" name="monto" id="nc_monto" min="1" step="1" required
+                            value="{{ old('monto', (int) round($factura_interna->saldo_pendiente)) }}"
+                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+                        @error('monto')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label for="nc_motivo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo (opcional)</label>
+                        <textarea name="motivo" id="nc_motivo" rows="2" maxlength="500" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Ej. ajuste, devolución, error de facturación">{{ old('motivo') }}</textarea>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-2">
+                    <button type="button" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" data-dismiss-nc>Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium hover:bg-sky-700">Emitir nota de crédito</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@push('scripts')
+<script>
+(function () {
+    var modal = document.getElementById('modal-nota-credito');
+    var btn = document.getElementById('btn-nota-credito');
+    if (!modal || !btn) return;
+    function open() { modal.classList.remove('hidden'); }
+    function close() { modal.classList.add('hidden'); }
+    btn.addEventListener('click', open);
+    modal.querySelectorAll('[data-dismiss-nc]').forEach(function (el) {
+        el.addEventListener('click', close);
+    });
+    @if($errors->has('monto'))
+    open();
+    @endif
+})();
+</script>
+@endpush
+@endif
 @endsection

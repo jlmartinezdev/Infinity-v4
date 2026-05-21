@@ -16,7 +16,9 @@ use App\Models\RouterIpPool;
 use App\Models\PoolIpAsignada;
 use App\Models\MikrotikOperacionPendiente;
 use App\Helpers\MapsUrlHelper;
+use App\Helpers\TelefonoParaguayHelper;
 use App\Services\FacturacionService;
+use App\Services\PedidoNodoOpcionesService;
 use App\Services\MikroTikService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -24,6 +26,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PedidoController extends Controller
 {
@@ -97,6 +100,62 @@ class PedidoController extends Controller
         }
         
         return view('pedidos.create', compact('planes', 'estado'));
+    }
+
+    /**
+     * Siguiente valor sugerido como cédula temporal (último cliente_id + 1).
+     */
+    public function cedulaTemporal()
+    {
+        $maxId = (int) Cliente::query()->max('cliente_id');
+
+        return response()->json([
+            'cedula' => (string) ($maxId + 1),
+        ]);
+    }
+
+    /**
+     * Verificar a qué cliente está asociado un teléfono (normalizado, mismo criterio que al guardar).
+     */
+    public function verificarTelefonoPedido(Request $request)
+    {
+        $request->validate([
+            'telefono' => ['required', 'string', 'max:50'],
+            'exclude_cliente_id' => ['nullable', 'integer', 'exists:clientes,cliente_id'],
+        ]);
+
+        $exclude = $request->filled('exclude_cliente_id') ? (int) $request->input('exclude_cliente_id') : null;
+        [$conflicto, $mismo] = TelefonoParaguayHelper::buscarPorTelefonoNormalizado(
+            $request->input('telefono'),
+            $exclude
+        );
+
+        $payloadCliente = static function (Cliente $c): array {
+            return [
+                'cliente_id' => $c->cliente_id,
+                'cedula' => $c->cedula,
+                'nombre' => $c->nombre,
+                'apellido' => $c->apellido ?? '',
+            ];
+        };
+
+        if ($conflicto) {
+            return response()->json([
+                'encontrado' => true,
+                'es_cliente_actual' => false,
+                'cliente' => $payloadCliente($conflicto),
+            ]);
+        }
+
+        if ($mismo) {
+            return response()->json([
+                'encontrado' => true,
+                'es_cliente_actual' => true,
+                'cliente' => $payloadCliente($mismo),
+            ]);
+        }
+
+        return response()->json(['encontrado' => false]);
     }
 
     /**
@@ -186,6 +245,17 @@ class PedidoController extends Controller
 
         if (empty($validated['ubicacion']) && empty($validated['maps_gps'])) {
             return back()->withInput()->withErrors(['maps_gps' => 'Debe indicar al menos la ubicación o el enlace de Google Maps.']);
+        }
+
+        $telefonoNorm = TelefonoParaguayHelper::normalize($validated['telefono'] ?? null);
+        if ($telefonoNorm !== null && $telefonoNorm !== '') {
+            $clienteMismaCedula = Cliente::where('cedula', $validated['cedula'])->first();
+            $excluirClienteId = $clienteMismaCedula?->cliente_id;
+            if (TelefonoParaguayHelper::telefonoUsadoPorOtroClienteConPedido($telefonoNorm, $excluirClienteId)) {
+                throw ValidationException::withMessages([
+                    'telefono' => 'Este número de teléfono ya está registrado en otro pedido (cliente distinto).',
+                ]);
+            }
         }
 
         // Buscar o crear cliente
@@ -288,6 +358,18 @@ class PedidoController extends Controller
         }
         $validated['lat'] = $lat;
         $validated['lon'] = $lon;
+
+        if (array_key_exists('celular', $validated)) {
+            $celNorm = TelefonoParaguayHelper::normalize($validated['celular'] ?? null);
+            if ($celNorm !== null && $celNorm !== '') {
+                $excluirId = (int) $validated['cliente_id'];
+                if (TelefonoParaguayHelper::telefonoUsadoPorOtroClienteConPedido($celNorm, $excluirId)) {
+                    throw ValidationException::withMessages([
+                        'celular' => 'Este número de teléfono ya está registrado en otro pedido (cliente distinto).',
+                    ]);
+                }
+            }
+        }
 
         $pedido->update($validated);
 
@@ -392,9 +474,17 @@ class PedidoController extends Controller
     }
 
     /**
+     * Opciones al aprobar un estado con nodo: tecnología (auto si el nodo tiene una sola) y pools activos.
+     */
+    public function opcionesNodoAprobacion(int $nodo_id, PedidoNodoOpcionesService $nodoOpciones)
+    {
+        return response()->json($nodoOpciones->opcionesParaNodo($nodo_id));
+    }
+
+    /**
      * Aprobar un estado de pedido.
      */
-    public function aprobarEstado(Request $request, Pedido $pedido)
+    public function aprobarEstado(Request $request, Pedido $pedido, PedidoNodoOpcionesService $nodoOpciones)
     {
         $validated = $request->validate([
             'estado_id' => ['required', 'integer', 'exists:estados_pedidos,estado_id'],
@@ -402,6 +492,7 @@ class PedidoController extends Controller
             'nodo_id' => ['nullable', 'integer', 'exists:nodos,nodo_id'],
             'tecnologia_id' => ['nullable', 'integer', 'exists:tipos_tecnologias,tecnologia_id'],
             'plan_id' => ['nullable', 'integer', 'exists:planes,plan_id'],
+            'pool_id' => ['nullable', 'integer', 'exists:router_ip_pools,pool_id'],
         ]);
 
         // Verificar que el estado pertenece al pedido
@@ -441,6 +532,38 @@ class PedidoController extends Controller
         if (array_key_exists('plan_id', $validated)) {
             $updateData['plan_id'] = $validated['plan_id'];
         }
+
+        if (! empty($validated['nodo_id'])) {
+            try {
+                $resuelto = $nodoOpciones->resolverSeleccionFinal(
+                    (int) $validated['nodo_id'],
+                    isset($validated['tecnologia_id']) ? (int) $validated['tecnologia_id'] : null,
+                    isset($validated['pool_id']) ? (int) $validated['pool_id'] : null,
+                );
+                $updateData['nodo_id'] = (int) $validated['nodo_id'];
+                if ($resuelto['tecnologia_id']) {
+                    $updateData['tecnologia_id'] = $resuelto['tecnologia_id'];
+                }
+                if ($resuelto['pool_id']) {
+                    $updateData['pool_id'] = $resuelto['pool_id'];
+                }
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => collect($e->errors())->flatten()->first() ?? 'Datos de nodo inválidos.',
+                        'errors' => $e->errors(),
+                    ], 422);
+                }
+
+                return redirect()->route('pedidos.index')
+                    ->withErrors($e->errors())
+                    ->with('error', collect($e->errors())->flatten()->first());
+            }
+        } elseif (array_key_exists('pool_id', $validated)) {
+            $updateData['pool_id'] = $validated['pool_id'];
+        }
+
         // Si no se enviaron nodo_id, tecnologia_id o plan_id, copiar solo de detalles del mismo pedido_id
         $pedidoId = (int) $pedido->pedido_id;
         if (!isset($updateData['nodo_id'])) {
@@ -474,6 +597,17 @@ class PedidoController extends Controller
                 ->first();
             if ($ultimoConPlan) {
                 $updateData['plan_id'] = $ultimoConPlan->plan_id;
+            }
+        }
+        if (! isset($updateData['pool_id'])) {
+            $ultimoConPool = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
+                ->where('estado_id', '!=', $validated['estado_id'])
+                ->whereNotNull('pool_id')
+                ->orderByDesc('fecha')
+                ->orderByDesc('created_at')
+                ->first();
+            if ($ultimoConPool) {
+                $updateData['pool_id'] = $ultimoConPool->pool_id;
             }
         }
         EstadoPedidoDetalle::where('pedido_id', $pedidoId)
@@ -673,21 +807,34 @@ class PedidoController extends Controller
                 ->with('error', $msg);
         }
 
-        // 3. Obtener pool del nodo (primer router del nodo → primer pool activo)
-        $router = Router::where('nodo_id', $nodoId)->first();
-        if (!$router) {
-            $msg = 'No hay router configurado para el nodo del pedido.';
-            if ($wantsJson) {
-                return response()->json(['message' => $msg], 422);
-            }
-
-            return redirect()->route('pedidos.index')
-                ->with('error', $msg);
+        // 3. Pool: el guardado al aprobar factibilidad, o el único activo del nodo
+        $poolIdGuardado = $detalleEstado3->pool_id ?? null;
+        if ($poolIdGuardado === null) {
+            $ultimoConPool = EstadoPedidoDetalle::where('pedido_id', $pedido->pedido_id)
+                ->whereNotNull('pool_id')
+                ->orderByDesc('fecha')
+                ->orderByDesc('created_at')
+                ->first();
+            $poolIdGuardado = $ultimoConPool?->pool_id;
         }
 
-        $pool = RouterIpPool::where('router_id', $router->router_id)->where('activo', true)->first();
-        if (!$pool) {
-            $msg = 'No hay pool de IP activo para el router del nodo.';
+        $pool = null;
+        if ($poolIdGuardado) {
+            $pool = RouterIpPool::query()
+                ->where('pool_id', $poolIdGuardado)
+                ->where('activo', true)
+                ->whereHas('router', fn ($q) => $q->where('nodo_id', $nodoId))
+                ->first();
+        }
+        if (! $pool) {
+            $pool = RouterIpPool::query()
+                ->where('activo', true)
+                ->whereHas('router', fn ($q) => $q->where('nodo_id', $nodoId))
+                ->orderBy('pool_id')
+                ->first();
+        }
+        if (! $pool) {
+            $msg = 'No hay pool de IP activo para el nodo del pedido. Aprobá factibilidad seleccionando un pool.';
             if ($wantsJson) {
                 return response()->json(['message' => $msg], 422);
             }

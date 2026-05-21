@@ -8,6 +8,7 @@ use App\Models\Factura;
 use App\Models\FacturaDetalle;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
+use App\Models\FacturaInternaNotaCredito;
 use App\Models\FacturacionParametro;
 use App\Models\Impuesto;
 use App\Models\MikrotikOperacionPendiente;
@@ -438,12 +439,11 @@ class FacturacionService
         if ($clienteIds === []) {
             return [];
         }
-        $sumCobros = '(SELECT COALESCE(SUM(monto),0) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id)';
-        $saldoExpr = '(factura_internas.total - LEAST(factura_internas.total, '.$sumCobros.'))';
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
         $rows = FacturaInterna::query()
             ->whereIn('cliente_id', $clienteIds)
             ->whereIn('estado', ['pendiente', 'emitida'])
-            ->whereRaw('factura_internas.total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
+            ->whereRaw($saldoExpr.' > 0.00001')
             ->selectRaw('cliente_id, SUM('.$saldoExpr.') as saldo_pend')
             ->groupBy('cliente_id')
             ->get();
@@ -1339,9 +1339,10 @@ class FacturacionService
     /**
      * Ajusta o crea factura interna por cambio de plan y deja ticket de historial.
      *
+     * @param  bool  $generarFacturaProrrateo  Si es false, no se crea ni ajusta factura (p. ej. decisión del operador).
      * @return string Fragmento para concatenar al mensaje de éxito (puede estar vacío).
      */
-    public function registrarPostCambioPlanServicio(Servicio $servicio, Plan $planAnterior, ?int $usuarioId): string
+    public function registrarPostCambioPlanServicio(Servicio $servicio, Plan $planAnterior, ?int $usuarioId, bool $generarFacturaProrrateo = true): string
     {
         $servicio->loadMissing(['plan', 'cliente']);
         $fechaCambio = Carbon::now()->startOfDay();
@@ -1402,7 +1403,15 @@ class FacturacionService
                     'precio_unitario' => $pror['monto_plan_nuevo'],
                 ];
             }
+        }
 
+        $itemsAntesOmitir = $items;
+        if (! $generarFacturaProrrateo && ! $mismoPrecioPlan) {
+            $items = [];
+        }
+        $facturaProrrOmitidaPorOperador = ! $generarFacturaProrrateo && ! $mismoPrecioPlan && $itemsAntesOmitir !== [];
+
+        if ($servicio->cliente_id && $servicio->estado === Servicio::ESTADO_ACTIVO) {
             if ($items !== []) {
                 $facturaActualizable = $this->buscarFacturaInternaPendienteMesSinCobros((int) $servicio->cliente_id, $fechaCambio);
 
@@ -1483,6 +1492,8 @@ class FacturacionService
             $lineasTicket[] = 'No se generó factura interna (servicio sin cliente).';
         } elseif ($servicio->estado !== Servicio::ESTADO_ACTIVO) {
             $lineasTicket[] = 'No se generó ni ajustó factura interna (servicio no activo).';
+        } elseif ($facturaProrrOmitidaPorOperador) {
+            $lineasTicket[] = 'No se generó factura interna prorrateada (el operador eligió no generarla en este guardado).';
         } elseif ($items === []) {
             $lineasTicket[] = $mismoPrecioPlan
                 ? 'No se generó factura interna (el nuevo plan mantiene el mismo precio).'
@@ -1505,5 +1516,54 @@ class FacturacionService
         }
 
         return 'Ticket de historial registrado por cambio de plan.';
+    }
+
+    /**
+     * Emite una nota de crédito sobre la factura interna, reduciendo el saldo pendiente.
+     * Si el saldo queda en cero, la factura pasa a estado pagada.
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function emitirNotaCredito(
+        FacturaInterna $factura,
+        float $monto,
+        ?string $motivo = null,
+        ?int $usuarioId = null
+    ): FacturaInternaNotaCredito {
+        if (! in_array($factura->estado, ['pendiente', 'emitida'], true)) {
+            throw new \InvalidArgumentException('Solo se puede emitir nota de crédito en facturas pendientes o emitidas.');
+        }
+
+        $monto = round($monto, 2);
+        if ($monto <= 0) {
+            throw new \InvalidArgumentException('El monto de la nota de crédito debe ser mayor a cero.');
+        }
+
+        $saldo = round($factura->saldo_pendiente, 2);
+        if ($monto > $saldo + 0.0001) {
+            throw new \InvalidArgumentException(
+                'El monto no puede superar el saldo pendiente ('.number_format($saldo, 0, ',', '.').' '.$factura->moneda.').'
+            );
+        }
+
+        return DB::transaction(function () use ($factura, $monto, $motivo, $usuarioId) {
+            $nota = FacturaInternaNotaCredito::create([
+                'factura_interna_id' => $factura->id,
+                'monto' => $monto,
+                'motivo' => $motivo ? trim($motivo) : null,
+                'usuario_id' => $usuarioId,
+            ]);
+
+            $factura->refresh();
+            if ($factura->saldo_pendiente <= 0.00001) {
+                $factura->update([
+                    'estado' => 'pagada',
+                    'fecha_pago' => $factura->fecha_pago ?? now()->toDateString(),
+                ]);
+                $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pagado');
+            }
+
+            return $nota;
+        });
     }
 }

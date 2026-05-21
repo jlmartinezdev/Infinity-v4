@@ -3,195 +3,116 @@
 @section('title', 'Nueva compra')
 
 @section('content')
-<div class="max-w-5xl mx-auto">
+<div class="max-w-screen-2xl mx-auto">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Nueva compra</h1>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
         <form action="{{ route('compras.store') }}" method="POST" id="form-compra">
             @csrf
 
-            <div class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="proveedor_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor *</label>
-                        <select name="proveedor_id" id="proveedor_id" required
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
-                            <option value="">Seleccionar proveedor...</option>
-                            @foreach($proveedores as $prov)
-                                <option value="{{ $prov->id }}" {{ old('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
-                            @endforeach
-                        </select>
-                        @error('proveedor_id')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-4 lg:min-w-0">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Articulos</h2>
+                        <input type="text" id="buscar-producto" placeholder="Buscar por codigo o nombre..."
+                            class="w-full max-w-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
                     </div>
-
-                    <div>
-                        <label for="fecha" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha *</label>
-                        <input type="date" name="fecha" id="fecha" value="{{ old('fecha', date('Y-m-d')) }}"
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors"
-                            required>
-                        @error('fecha')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="numero_factura" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura</label>
-                        <input type="text" name="numero_factura" id="numero_factura" value="{{ old('numero_factura') }}"
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors"
-                            maxlength="100" placeholder="Ej: FAC-001">
-                        @error('numero_factura')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div>
-                        <label for="notas" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
-                        <input type="text" name="notas" id="notas" value="{{ old('notas') }}"
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
-                        @error('notas')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="descuento" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento</label>
-                        <input type="number" name="descuento" id="descuento" value="{{ old('descuento', 0) }}" step="0.01" min="0"
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
-                        @error('descuento')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div>
-                        <label for="impuesto" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Impuesto</label>
-                        <input type="number" name="impuesto" id="impuesto" value="{{ old('impuesto', 0) }}" step="0.01" min="0"
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
-                        @error('impuesto')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Detalles *</label>
-                        <button type="button" id="btn-add-detalle" class="text-sm px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                            + Agregar línea
-                        </button>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="tabla-detalles">
-                            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <div class="overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg max-h-[70vh]">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Producto</th>
-                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-24">Cantidad</th>
-                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-28">P. unitario</th>
-                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-24">Subtotal</th>
-                                    <th class="px-3 py-2 w-12"></th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Codigo</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Articulo</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Precio</th>
+                                    <th class="px-3 py-2 w-16"></th>
                                 </tr>
                             </thead>
-                            <tbody id="detalles-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {{-- Filas dinámicas --}}
-                            </tbody>
+                            <tbody id="catalogo-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
                         </table>
                     </div>
+                </div>
+
+                <div class="space-y-4 lg:sticky lg:top-4 self-start lg:min-w-0">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label for="proveedor_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor *</label>
+                            <select name="proveedor_id" id="proveedor_id" required
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
+                                <option value="">Seleccionar proveedor...</option>
+                                @foreach($proveedores as $prov)
+                                    <option value="{{ $prov->id }}" {{ old('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
+                                @endforeach
+                            </select>
+                            @error('proveedor_id')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="fecha" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha *</label>
+                            <input type="date" name="fecha" id="fecha" value="{{ old('fecha', date('Y-m-d')) }}"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors"
+                                required>
+                            @error('fecha')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="numero_factura" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura</label>
+                            <input type="text" name="numero_factura" id="numero_factura" value="{{ old('numero_factura') }}"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors"
+                                maxlength="100" placeholder="Ej: FAC-001">
+                            @error('numero_factura')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="descuento" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento</label>
+                            <input type="number" name="descuento" id="descuento" value="{{ old('descuento', 0) }}" step="0.01" min="0"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
+                            @error('descuento')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="impuesto" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Impuesto</label>
+                            <input type="number" name="impuesto" id="impuesto" value="{{ old('impuesto', 0) }}" step="0.01" min="0"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
+                            @error('impuesto')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="notas" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+                            <input type="text" name="notas" id="notas" value="{{ old('notas') }}"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
+                            @error('notas')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div id="compra-detalle-app"></div>
                     @error('detalles')
                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
-                </div>
-
-                <div class="flex flex-wrap gap-3">
-                    <button type="submit"
-                        class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-                        Registrar compra
-                    </button>
-                    <a href="{{ route('compras.index') }}"
-                        class="inline-flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none">
-                        Cancelar
-                    </a>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-@push('scripts')
+@php
+    $compraCreateConfig = [
+        'productos' => $productosJs,
+        'oldDetalles' => old('detalles', []),
+        'cancelUrl' => route('compras.index'),
+    ];
+@endphp
 <script>
-(function() {
-    const productos = @json($productos->map(fn($p) => ['id' => $p->id, 'nombre' => $p->nombre, 'precio_compra' => (float)$p->precio_compra]));
-    const tbody = document.getElementById('detalles-body');
-    const btnAdd = document.getElementById('btn-add-detalle');
-    let rowIndex = 0;
-
-    function addRow(productoId = '', cantidad = '', precioUnitario = '') {
-        const producto = productos.find(p => p.id == productoId);
-        const precio = precioUnitario || (producto ? producto.precio_compra : '');
-        const tr = document.createElement('tr');
-        tr.className = 'detalle-row';
-        tr.dataset.index = rowIndex;
-        tr.innerHTML = `
-            <td class="px-3 py-2">
-                <select name="detalles[${rowIndex}][producto_id]" class="detalle-producto w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm" required>
-                    <option value="">Seleccionar...</option>
-                    ${productos.map(p => `<option value="${p.id}" ${p.id == productoId ? 'selected' : ''}>${p.nombre}</option>`).join('')}
-                </select>
-            </td>
-            <td class="px-3 py-2">
-                <input type="number" name="detalles[${rowIndex}][cantidad]" class="detalle-cantidad w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm text-right" step="0.01" min="0.01" value="${cantidad}" required>
-            </td>
-            <td class="px-3 py-2">
-                <input type="number" name="detalles[${rowIndex}][precio_unitario]" class="detalle-precio w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm text-right" step="0.01" min="0" value="${precio}" required>
-            </td>
-            <td class="px-3 py-2 text-right text-sm subtotal-cell text-gray-900 dark:text-gray-100">0.00</td>
-            <td class="px-3 py-2">
-                <button type="button" class="btn-remove text-red-600 dark:text-red-400 hover:text-red-800 text-sm">✕</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-
-        tr.querySelector('.detalle-producto').addEventListener('change', function() {
-            const p = productos.find(x => x.id == this.value);
-            if (p && !tr.querySelector('.detalle-precio').value) tr.querySelector('.detalle-precio').value = p.precio_compra;
-            calcSubtotal(tr);
-        });
-        tr.querySelector('.detalle-cantidad').addEventListener('input', () => calcSubtotal(tr));
-        tr.querySelector('.detalle-precio').addEventListener('input', () => calcSubtotal(tr));
-        tr.querySelector('.btn-remove').addEventListener('click', () => tr.remove());
-        calcSubtotal(tr);
-        rowIndex++;
-    }
-
-    function calcSubtotal(tr) {
-        const cant = parseFloat(tr.querySelector('.detalle-cantidad').value) || 0;
-        const prec = parseFloat(tr.querySelector('.detalle-precio').value) || 0;
-        tr.querySelector('.subtotal-cell').textContent = (cant * prec).toFixed(2);
-    }
-
-    btnAdd.addEventListener('click', () => addRow());
-
-    // Restore from old() if validation failed
-    const oldDetalles = @json(old('detalles', []));
-    if (oldDetalles.length > 0) {
-        oldDetalles.forEach(d => addRow(d.producto_id ?? '', d.cantidad ?? '', d.precio_unitario ?? ''));
-    } else {
-        addRow();
-    }
-
-    document.getElementById('form-compra').addEventListener('submit', function() {
-        document.querySelectorAll('.detalle-row').forEach((tr, i) => {
-            tr.querySelector('[name*="[producto_id]"]').name = `detalles[${i}][producto_id]`;
-            tr.querySelector('[name*="[cantidad]"]').name = `detalles[${i}][cantidad]`;
-            tr.querySelector('[name*="[precio_unitario]"]').name = `detalles[${i}][precio_unitario]`;
-        });
-    });
-})();
+    window.__COMPRA_CREATE_CONFIG__ = @json($compraCreateConfig);
 </script>
+
+@push('scripts')
+<script src="{{ asset(mix('js/compras-create.js')) }}" defer></script>
 @endpush
 @endsection

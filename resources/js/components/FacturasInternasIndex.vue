@@ -173,15 +173,16 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha emisión</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Saldo</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
             <tr v-if="loading">
-              <td colspan="7" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">Cargando…</td>
+              <td colspan="8" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">Cargando…</td>
             </tr>
             <tr v-else-if="!facturas.length">
-              <td colspan="7" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">No hay facturas internas.</td>
+              <td colspan="8" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">No hay facturas internas.</td>
             </tr>
             <tr
               v-for="f in facturas"
@@ -209,6 +210,9 @@
               <td class="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">
                 {{ formatMonto(f.total) }} {{ f.moneda }}
               </td>
+              <td class="px-4 py-3 text-sm text-right font-semibold" :class="(f.saldo_pendiente ?? 0) > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
+                {{ formatMonto(f.saldo_pendiente ?? 0) }} {{ f.moneda }}
+              </td>
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <a
@@ -221,6 +225,18 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   </a>
+                  <button
+                    v-if="canNotaCredito && f.puede_emitir_nota_credito"
+                    type="button"
+                    class="p-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-colors disabled:opacity-50"
+                    title="Emitir nota de crédito"
+                    :disabled="notaCreditoEnviando"
+                    @click="abrirModalNotaCredito(f)"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                    </svg>
+                  </button>
                   <a
                     v-if="canEditar"
                     :href="urlEdit(f.id)"
@@ -280,6 +296,66 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal nota de crédito -->
+    <div
+      v-if="modalNotaCreditoAbierto"
+      class="fixed inset-0 z-50 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-nc-titulo"
+    >
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40" aria-hidden="true" @click="cerrarModalNotaCredito" />
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+          <h2 id="modal-nc-titulo" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Emitir nota de crédito</h2>
+          <p v-if="notaCreditoFactura" class="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">
+            Factura #{{ notaCreditoFactura.id }} · Saldo: <strong>{{ formatMonto(notaCreditoFactura.saldo_pendiente) }} {{ notaCreditoFactura.moneda }}</strong>
+          </p>
+          <form class="space-y-4" @submit.prevent="enviarNotaCredito">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto</label>
+              <input
+                v-model.number="notaCreditoMonto"
+                type="number"
+                min="1"
+                step="1"
+                required
+                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo (opcional)</label>
+              <textarea
+                v-model="notaCreditoMotivo"
+                rows="2"
+                maxlength="500"
+                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="Ej. ajuste, devolución, error de facturación"
+              />
+            </div>
+            <p v-if="notaCreditoError" class="text-sm text-red-600 dark:text-red-400">{{ notaCreditoError }}</p>
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                :disabled="notaCreditoEnviando"
+                @click="cerrarModalNotaCredito"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium hover:bg-sky-700 disabled:opacity-50"
+                :disabled="notaCreditoEnviando"
+              >
+                {{ notaCreditoEnviando ? 'Emitiendo…' : 'Emitir nota de crédito' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -297,6 +373,7 @@ const props = defineProps({
   canEjecutarCrear: { type: Boolean, default: false },
   canEditar: { type: Boolean, default: false },
   canEliminar: { type: Boolean, default: false },
+  canNotaCredito: { type: Boolean, default: false },
   esAdmin: { type: Boolean, default: false },
   flashSuccess: { type: String, default: '' },
   flashError: { type: String, default: '' },
@@ -328,6 +405,12 @@ const deletingId = ref(null);
 const inlineMessage = ref('');
 const inlineError = ref('');
 const ejecutarFormRef = ref(null);
+const modalNotaCreditoAbierto = ref(false);
+const notaCreditoFactura = ref(null);
+const notaCreditoMonto = ref(0);
+const notaCreditoMotivo = ref('');
+const notaCreditoEnviando = ref(false);
+const notaCreditoError = ref('');
 
 let debounceTimer = null;
 
@@ -410,6 +493,47 @@ function onEjecutarCrear() {
     });
   } else if (window.confirm(msg)) {
     run();
+  }
+}
+
+function abrirModalNotaCredito(f) {
+  notaCreditoFactura.value = f;
+  notaCreditoMonto.value = Math.max(1, Math.round(Number(f.saldo_pendiente) || 0));
+  notaCreditoMotivo.value = '';
+  notaCreditoError.value = '';
+  modalNotaCreditoAbierto.value = true;
+}
+
+function cerrarModalNotaCredito() {
+  modalNotaCreditoAbierto.value = false;
+  notaCreditoFactura.value = null;
+  notaCreditoError.value = '';
+}
+
+async function enviarNotaCredito() {
+  const f = notaCreditoFactura.value;
+  if (!f?.id) return;
+  const monto = Number(notaCreditoMonto.value);
+  if (!monto || monto < 1) {
+    notaCreditoError.value = 'Ingrese un monto válido.';
+    return;
+  }
+  notaCreditoEnviando.value = true;
+  notaCreditoError.value = '';
+  try {
+    const { data } = await window.axios.post(
+      `${props.facturaBaseUrl}/${f.id}/nota-credito`,
+      { monto, motivo: notaCreditoMotivo.value.trim() || null },
+      { headers: { Accept: 'application/json' } }
+    );
+    inlineMessage.value = data.message || 'Nota de crédito emitida.';
+    setTimeout(() => { inlineMessage.value = ''; }, 5000);
+    cerrarModalNotaCredito();
+    await cargar(meta.value.current_page);
+  } catch (e) {
+    notaCreditoError.value = e.response?.data?.message || 'No se pudo emitir la nota de crédito.';
+  } finally {
+    notaCreditoEnviando.value = false;
   }
 }
 
