@@ -101,11 +101,11 @@
 
 
                     @php
-                        $rolesConPermisos = \App\Models\Rol::with('permisos')->get()->mapWithKeys(fn ($r) => [$r->descripcion => $r->permisos->pluck('codigo')->toArray()]);
-                        $permisosMenu = \App\Support\MenuUsuario::permisosMenuParaUi();
-                        $codigosPermisosMenu = array_column($permisosMenu, 'codigo');
-                        $categoriasPermisos = \App\Models\Permiso::porCategoriaExcluyendoCodigos($codigosPermisosMenu);
-                        $permisosUsuario = $usuarioSeleccionado->permisos ?? [];
+                        $rolesConPermisos = \App\Models\Rol::with('permisos')->get()->mapWithKeys(fn ($r) => [
+                            $r->descripcion => \App\Support\PermisosCatalogo::migrarPermisos($r->permisos->pluck('codigo')->toArray()),
+                        ]);
+                        $arbolPermisos = \App\Support\PermisosCatalogo::arbolParaUi();
+                        $permisosUsuario = \App\Support\PermisosCatalogo::migrarPermisos($usuarioSeleccionado->permisos ?? []);
                     @endphp
                     <script>
                         window.__ROL_PERMISOS__ = @json($rolesConPermisos);
@@ -121,7 +121,7 @@
                                     </svg>
                                     <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300">Paquetes de Rol</h4>
                                 </div>
-                                <p class="text-xs text-blue-700 dark:text-blue-400 mb-3">Selecciona un rol para aplicar los permisos por defecto de ese rol:</p>
+                                <p class="text-xs text-blue-700 dark:text-blue-400 mb-3">Selecciona un rol para aplicar su paquete de permisos. Luego podés ajustar cada módulo con Ver / Crear / Editar / Eliminar.</p>
                                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     @foreach($rolesConPermisos as $nombreRol => $codigos)
                                         <button type="button"
@@ -134,69 +134,11 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="space-y-4">
-
-                            @if(count($permisosMenu) > 0)
-                            <div class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 dark:border-gray-600 dark:bg-gray-900 dark:ring-1 dark:ring-gray-700/80">
-                                <h3 class="text-sm font-semibold text-emerald-900 dark:text-gray-100 mb-1">Menú principal (barra lateral)</h3>
-                                <p class="text-xs text-emerald-800 dark:text-gray-300 mb-3">Permisos que controlan las secciones del menú. Debajo están el resto (crear, editar, eliminar, etc.).</p>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    @foreach($permisosMenu as $row)
-                                        <label class="flex flex-col sm:flex-row sm:items-start gap-1 rounded-md border border-emerald-100 bg-white/80 p-2 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700">
-                                            <span class="flex items-start gap-2 min-w-0">
-                                                <input type="checkbox"
-                                                       name="permisos[]"
-                                                       value="{{ $row['codigo'] }}"
-                                                       {{ in_array($row['codigo'], $permisosUsuario) ? 'checked' : '' }}
-                                                       class="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 dark:border-gray-500 dark:bg-gray-700 dark:text-emerald-400 dark:focus:ring-emerald-500 dark:focus:ring-offset-gray-900">
-                                                <span class="min-w-0">
-                                                    <span class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ $row['nombre'] }}</span>
-                                                    <span class="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">{{ $row['contexto'] }}</span>
-                                                </span>
-                                            </span>
-                                            <span class="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-500 sm:ml-auto">({{ $row['codigo'] }})</span>
-                                        </label>
-                                    @endforeach
-                                </div>
-                            </div>
-                            @endif
-
-                            @if(count($categoriasPermisos) > 0)
-                            <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 mb-2 bg-gray-50/80 dark:bg-gray-950/80 dark:ring-1 dark:ring-gray-800">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Permisos detallados</h3>
-                                <p class="text-xs text-gray-600 dark:text-gray-300">Crear, editar, eliminar y demás acciones por categoría (los del menú lateral ya están arriba).</p>
-                                @if(in_array('sistema.ver', $codigosPermisosMenu, true))
-                                <p class="mt-2 rounded-md border border-dashed border-gray-300 bg-white/60 px-2.5 py-2 text-xs leading-relaxed text-gray-700 dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-300">
-                                    <span class="font-medium text-gray-900 dark:text-gray-100">Menú FTTH</span>
-                                    <span class="text-gray-600 dark:text-gray-400"> y </span>
-                                    <span class="font-medium text-gray-900 dark:text-gray-100">Sistema</span>
-                                    <span class="text-gray-600 dark:text-gray-400"> comparten el permiso </span>
-                                    <code class="font-mono text-[11px] text-emerald-800 dark:text-emerald-400">sistema.ver</code>
-                                    <span class="text-gray-600 dark:text-gray-400"> (OLT, cajas NAP, mapa óptico, salidas PON, routers, pools, etc.). Activarlo arriba habilita ambas entradas del menú.</span>
-                                </p>
-                                @endif
-                            </div>
-                            @endif
-
-                            <!-- Categorías de Permisos (desde tabla permisos) -->
-                            @foreach($categoriasPermisos as $categoria => $permisos)
-                                <div class="rounded-lg border border-gray-200 bg-gray-50/30 p-3 dark:border-gray-700 dark:bg-gray-900/50">
-                                    <h3 class="mb-2 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:text-gray-100">{{ $categoria }}</h3>
-                                    <div class="grid grid-cols-1 gap-2 space-y-2 md:grid-cols-2">
-                                        @foreach($permisos as $permiso => $label)
-                                            <label class="flex items-center">
-                                                <input type="checkbox" 
-                                                       name="permisos[]" 
-                                                       value="{{ $permiso }}"
-                                                       {{ in_array($permiso, $permisosUsuario) ? 'checked' : '' }}
-                                                       class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-500 dark:bg-gray-700 dark:text-blue-500 dark:focus:ring-blue-400 dark:focus:ring-offset-gray-900">
-                                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ $label }}</span>
-                                                <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">({{ $permiso }})</span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endforeach
+                        <div class="space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto pe-1">
+                            @include('usuarios._permisos-arbol', [
+                                'arbolPermisos' => $arbolPermisos,
+                                'permisosUsuario' => $permisosUsuario,
+                            ])
                         </div>
 
                         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -229,6 +171,33 @@
         'aprobarUrl' => route('usuarios.aprobar', ':usuario'),
         'editDataUrl' => route('usuarios.edit-data', ':usuario'),
     ]) !!};
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const root = document.getElementById('permisos-granular');
+        if (!root) return;
+
+        root.querySelectorAll('.permisos-toggle-grupo').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const grupo = btn.getAttribute('data-grupo');
+                const boxes = root.querySelectorAll(`.permiso-checkbox[data-grupo="${grupo}"]`);
+                const allChecked = Array.from(boxes).every((b) => b.checked);
+                boxes.forEach((b) => { b.checked = !allChecked; });
+            });
+        });
+
+        root.querySelectorAll('.permisos-toggle-item').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const grupo = btn.getAttribute('data-grupo');
+                const item = btn.getAttribute('data-item');
+                const boxes = root.querySelectorAll(`.permiso-checkbox[data-grupo="${grupo}"][data-item="${item}"]`);
+                const allChecked = Array.from(boxes).every((b) => b.checked);
+                boxes.forEach((b) => { b.checked = !allChecked; });
+            });
+        });
+    });
 </script>
 <script src="{{ asset(mix('js/usuario-management.js')) }}"></script>
 @endpush

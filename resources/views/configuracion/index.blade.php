@@ -20,6 +20,10 @@
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Facturación y servicios</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Fecha creación automática de facturas, cortes por falta de pago, notificaciones.</p>
         </a>
+        <a href="{{ route('configuracion.sifen') }}" class="block p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">SIFEN e-Kuatia</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Emisor, timbrado, certificado digital y CSC para facturación electrónica.</p>
+        </a>
         <a href="{{ route('tareas-periodicas.index') }}" class="block p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md transition-all">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Tareas periódicas</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Ver y gestionar tareas automáticas con nombre, acción, resultado y nodo.</p>

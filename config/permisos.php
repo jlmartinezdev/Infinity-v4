@@ -1,0 +1,308 @@
+<?php
+
+/**
+ * Catálogo jerárquico de permisos (UI y seed).
+ * Código: {base}.{accion} — acciones: ver, crear, editar, eliminar
+ */
+return [
+    'acciones' => ['ver', 'crear', 'editar', 'eliminar'],
+    'acciones_etiqueta' => [
+        'ver' => 'Ver',
+        'crear' => 'Crear',
+        'editar' => 'Editar',
+        'eliminar' => 'Eliminar',
+    ],
+
+    /**
+     * Rutas/middleware legacy → el usuario cumple si tiene alguno de estos códigos granulares.
+     */
+    'compat_any' => [
+        'dashboard.ver' => ['inicio.ver'],
+        'configuracion.ver' => [
+            'configuracion-ajustes.ver',
+            'configuracion-facturacion.ver',
+            'configuracion-sifen.ver',
+            'configuracion-tareas-periodicas.ver',
+            'configuracion-backup.ver',
+        ],
+        'clientes.ver' => ['clientes-dashboard.ver', 'clientes-lista.ver'],
+        'clientes.crear' => ['clientes-lista.crear'],
+        'clientes.editar' => ['clientes-lista.editar', 'clientes-mapa-pedidos.editar'],
+        'clientes.eliminar' => ['clientes-lista.eliminar'],
+        'pedidos.ver' => ['clientes-pedidos.ver', 'clientes-mapa-pedidos.ver'],
+        'pedidos.crear' => ['clientes-pedidos.crear'],
+        'pedidos.editar' => ['clientes-pedidos.editar', 'clientes-mapa-pedidos.editar'],
+        'pedidos.eliminar' => ['clientes-pedidos.eliminar'],
+        'pedidos.finalizar' => ['clientes-pedidos.editar'],
+        'agenda.ver' => ['clientes-agenda.ver'],
+        'agenda.crear' => ['clientes-agenda.crear', 'clientes-agenda.editar'],
+        'agenda.eliminar' => ['clientes-agenda.eliminar'],
+        'servicios.ver' => [
+            'servicios-lista.ver',
+            'servicios-hotspot.ver',
+            'servicios-hotspot-usuarios.ver',
+            'servicios-hotspot-perfiles.ver',
+        ],
+        'servicios.crear' => [
+            'servicios-lista.crear',
+            'servicios-hotspot.crear',
+            'servicios-hotspot-usuarios.crear',
+            'servicios-hotspot-perfiles.crear',
+        ],
+        'servicios.eliminar' => [
+            'servicios-lista.eliminar',
+            'servicios-hotspot.eliminar',
+            'servicios-hotspot-usuarios.eliminar',
+            'servicios-hotspot-perfiles.eliminar',
+        ],
+        'tv.ver' => ['tv.ver'],
+        'tv.editar' => ['tv.crear', 'tv.editar', 'tv.eliminar'],
+        'facturacion.ver' => ['facturacion-dashboard.ver'],
+        'facturas.ver' => ['facturas.ver'],
+        'facturas.crear' => ['facturas.crear', 'facturas.editar'],
+        'facturas.eliminar' => ['facturas.eliminar'],
+        'factura-interna.ver' => ['factura-interna.ver', 'notas-credito.ver'],
+        'factura-interna.crear' => ['factura-interna.crear', 'factura-interna.editar', 'notas-credito.crear', 'notas-credito.editar'],
+        'factura-interna.eliminar' => ['factura-interna.eliminar', 'notas-credito.eliminar'],
+        'pagos-pendientes.ver' => ['pagos-pendientes.ver', 'promesas-pago.ver'],
+        'pagos-pendientes.crear' => ['pagos-pendientes.crear', 'promesas-pago.crear'],
+        'pagos-pendientes.editar' => ['pagos-pendientes.editar', 'promesas-pago.editar'],
+        'pagos-pendientes.eliminar' => ['pagos-pendientes.eliminar', 'promesas-pago.eliminar'],
+        'cobros.ver' => ['cobros.ver', 'cobros-servicios.ver'],
+        'cobros.crear' => ['cobros.crear', 'cobros-servicios.crear'],
+        'cobros.eliminar' => ['cobros.eliminar', 'cobros-servicios.eliminar'],
+        'inventario.ver' => [
+            'inventario-productos.ver',
+            'inventario-compras.ver',
+            'inventario-ventas.ver',
+            'inventario-gastos.ver',
+            'inventario-proveedores.ver',
+            'inventario-categorias-producto.ver',
+            'inventario-categorias-gasto.ver',
+        ],
+        'inventario.editar' => [
+            'inventario-productos.crear', 'inventario-productos.editar', 'inventario-productos.eliminar',
+            'inventario-compras.crear', 'inventario-compras.editar', 'inventario-compras.eliminar',
+            'inventario-ventas.crear', 'inventario-ventas.editar', 'inventario-ventas.eliminar',
+            'inventario-gastos.crear', 'inventario-gastos.editar', 'inventario-gastos.eliminar',
+            'inventario-proveedores.crear', 'inventario-proveedores.editar', 'inventario-proveedores.eliminar',
+            'inventario-categorias-producto.crear', 'inventario-categorias-producto.editar', 'inventario-categorias-producto.eliminar',
+            'inventario-categorias-gasto.crear', 'inventario-categorias-gasto.editar', 'inventario-categorias-gasto.eliminar',
+        ],
+        'referenciales.ver' => [
+            'planes.ver', 'tipos-tecnologia.ver', 'perfiles-pppoe.ver', 'nodos.ver', 'roles.ver', 'ticket-asuntos.ver',
+        ],
+        'referenciales.editar' => [
+            'planes.crear', 'planes.editar', 'planes.eliminar',
+            'tipos-tecnologia.crear', 'tipos-tecnologia.editar', 'tipos-tecnologia.eliminar',
+            'perfiles-pppoe.crear', 'perfiles-pppoe.editar', 'perfiles-pppoe.eliminar',
+            'nodos.crear', 'nodos.editar', 'nodos.eliminar',
+            'roles.crear', 'roles.editar', 'roles.eliminar',
+            'ticket-asuntos.crear', 'ticket-asuntos.editar', 'ticket-asuntos.eliminar',
+        ],
+        'sistema.ver' => [
+            'ftth-olts.ver', 'ftth-marcas-olt.ver', 'ftth-cajas-nap.ver', 'ftth-mapa-optico.ver',
+            'ftth-salidas-pon.ver', 'ftth-lineas-cable.ver',
+            'sistema-routers.ver', 'sistema-pools-ip.ver', 'sistema-mikrotik-pendientes.ver',
+        ],
+        'sistema.editar' => [
+            'ftth-olts.crear', 'ftth-olts.editar', 'ftth-olts.eliminar',
+            'ftth-marcas-olt.crear', 'ftth-marcas-olt.editar', 'ftth-marcas-olt.eliminar',
+            'ftth-cajas-nap.crear', 'ftth-cajas-nap.editar', 'ftth-cajas-nap.eliminar',
+            'ftth-mapa-optico.crear', 'ftth-mapa-optico.editar', 'ftth-mapa-optico.eliminar',
+            'ftth-salidas-pon.crear', 'ftth-salidas-pon.editar', 'ftth-salidas-pon.eliminar',
+            'ftth-lineas-cable.crear', 'ftth-lineas-cable.editar', 'ftth-lineas-cable.eliminar',
+            'sistema-routers.crear', 'sistema-routers.editar', 'sistema-routers.eliminar',
+            'sistema-pools-ip.crear', 'sistema-pools-ip.editar', 'sistema-pools-ip.eliminar',
+            'sistema-mikrotik-pendientes.crear', 'sistema-mikrotik-pendientes.editar', 'sistema-mikrotik-pendientes.eliminar',
+        ],
+        'usuarios.permisos' => ['usuarios-permisos.editar'],
+    ],
+
+    /**
+     * Permisos legacy → equivalentes granulares al migrar usuarios/roles.
+     */
+    'migracion_legacy' => [
+        'dashboard.ver' => ['inicio.ver'],
+        'tareas.crear' => ['tareas.crear', 'tareas.editar'],
+        'agenda.crear' => ['clientes-agenda.crear', 'clientes-agenda.editar'],
+        'agenda.eliminar' => ['clientes-agenda.eliminar'],
+        'tickets.crear' => ['tickets.crear', 'tickets.editar'],
+        'facturas.crear' => ['facturas.crear', 'facturas.editar'],
+        'factura-interna.crear' => ['factura-interna.crear', 'factura-interna.editar'],
+        'planes.crear' => ['planes.crear', 'planes.editar'],
+        'clientes.crear' => ['clientes-lista.crear'],
+        'clientes.editar' => ['clientes-lista.editar', 'clientes-mapa-pedidos.editar'],
+        'clientes.eliminar' => ['clientes-lista.eliminar'],
+        'pedidos.crear' => ['clientes-pedidos.crear'],
+        'pedidos.eliminar' => ['clientes-pedidos.eliminar'],
+        'servicios.eliminar' => ['servicios-lista.eliminar'],
+        'cobros.eliminar' => ['cobros.eliminar', 'cobros-servicios.eliminar'],
+        'usuarios.permisos' => ['usuarios-permisos.editar'],
+        'referenciales.ver' => ['planes.ver', 'tipos-tecnologia.ver', 'perfiles-pppoe.ver', 'nodos.ver', 'roles.ver', 'ticket-asuntos.ver'],
+        'referenciales.editar' => [
+            'tipos-tecnologia.crear', 'tipos-tecnologia.editar', 'tipos-tecnologia.eliminar',
+            'perfiles-pppoe.crear', 'perfiles-pppoe.editar', 'perfiles-pppoe.eliminar',
+            'nodos.crear', 'nodos.editar', 'nodos.eliminar',
+            'roles.crear', 'roles.editar', 'roles.eliminar',
+            'ticket-asuntos.crear', 'ticket-asuntos.editar', 'ticket-asuntos.eliminar',
+        ],
+        'tv.editar' => ['tv.crear', 'tv.editar', 'tv.eliminar'],
+        'facturacion.ver' => ['facturacion-dashboard.ver'],
+        'inventario.ver' => [
+            'inventario-productos.ver', 'inventario-compras.ver', 'inventario-ventas.ver', 'inventario-gastos.ver',
+            'inventario-proveedores.ver', 'inventario-categorias-producto.ver', 'inventario-categorias-gasto.ver',
+        ],
+        'inventario.editar' => [
+            'inventario-productos.crear', 'inventario-productos.editar',
+            'inventario-compras.crear', 'inventario-compras.editar',
+            'inventario-ventas.crear', 'inventario-ventas.editar',
+            'inventario-gastos.crear', 'inventario-gastos.editar',
+            'inventario-proveedores.crear', 'inventario-proveedores.editar',
+            'inventario-categorias-producto.crear', 'inventario-categorias-producto.editar',
+            'inventario-categorias-gasto.crear', 'inventario-categorias-gasto.editar',
+        ],
+        'configuracion.ver' => [
+            'configuracion-ajustes.ver', 'configuracion-facturacion.ver', 'configuracion-sifen.ver',
+            'configuracion-tareas-periodicas.ver', 'configuracion-backup.ver',
+        ],
+        'sistema.ver' => [
+            'ftth-olts.ver', 'ftth-marcas-olt.ver', 'ftth-cajas-nap.ver', 'ftth-mapa-optico.ver',
+            'ftth-salidas-pon.ver', 'ftth-lineas-cable.ver',
+            'sistema-routers.ver', 'sistema-pools-ip.ver', 'sistema-mikrotik-pendientes.ver',
+        ],
+        'sistema.editar' => [
+            'ftth-olts.editar', 'ftth-marcas-olt.editar', 'ftth-cajas-nap.editar', 'ftth-mapa-optico.editar',
+            'ftth-salidas-pon.editar', 'ftth-lineas-cable.editar',
+            'sistema-routers.editar', 'sistema-pools-ip.editar', 'sistema-mikrotik-pendientes.editar',
+        ],
+        'clientes.ver' => ['clientes-dashboard.ver', 'clientes-lista.ver'],
+        'pedidos.ver' => ['clientes-pedidos.ver', 'clientes-mapa-pedidos.ver'],
+        'pedidos.editar' => ['clientes-pedidos.editar', 'clientes-mapa-pedidos.editar'],
+        'pedidos.finalizar' => ['clientes-pedidos.editar'],
+        'agenda.ver' => ['clientes-agenda.ver'],
+        'servicios.ver' => ['servicios-lista.ver', 'servicios-hotspot.ver', 'servicios-hotspot-usuarios.ver', 'servicios-hotspot-perfiles.ver'],
+        'servicios.crear' => ['servicios-lista.crear'],
+        'cobros.ver' => ['cobros.ver', 'cobros-servicios.ver'],
+        'cobros.crear' => ['cobros.crear', 'cobros-servicios.crear'],
+        'pagos-pendientes.ver' => ['pagos-pendientes.ver', 'promesas-pago.ver'],
+    ],
+
+    'grupos' => [
+        [
+            'label' => 'Dashboard Inicio',
+            'items' => [
+                ['label' => 'Inicio', 'base' => 'inicio', 'acciones' => ['ver']],
+            ],
+        ],
+        [
+            'label' => 'Tareas',
+            'items' => [
+                ['label' => 'Tareas', 'base' => 'tareas', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Clientes',
+            'items' => [
+                ['label' => 'Dashboard', 'base' => 'clientes-dashboard', 'acciones' => ['ver']],
+                ['label' => 'Lista clientes', 'base' => 'clientes-lista', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Pedidos', 'base' => 'clientes-pedidos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Agenda', 'base' => 'clientes-agenda', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Mapa de pedidos', 'base' => 'clientes-mapa-pedidos', 'acciones' => ['ver', 'editar']],
+            ],
+        ],
+        [
+            'label' => 'Servicios',
+            'items' => [
+                ['label' => 'Lista servicios', 'base' => 'servicios-lista', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Hotspot', 'base' => 'servicios-hotspot', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Usuarios Hotspot', 'base' => 'servicios-hotspot-usuarios', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Perfiles Hotspot', 'base' => 'servicios-hotspot-perfiles', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'TV streaming',
+            'items' => [
+                ['label' => 'TV streaming', 'base' => 'tv', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Inventario',
+            'items' => [
+                ['label' => 'Productos / Equipos', 'base' => 'inventario-productos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Compras', 'base' => 'inventario-compras', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Ventas', 'base' => 'inventario-ventas', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Gastos', 'base' => 'inventario-gastos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Proveedores', 'base' => 'inventario-proveedores', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Categorías producto', 'base' => 'inventario-categorias-producto', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Categorías gasto', 'base' => 'inventario-categorias-gasto', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Facturación',
+            'items' => [
+                ['label' => 'Dashboard', 'base' => 'facturacion-dashboard', 'acciones' => ['ver']],
+                ['label' => 'Facturas electrónicas', 'base' => 'facturas', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Facturas internas', 'base' => 'factura-interna', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Notas de crédito', 'base' => 'notas-credito', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Pendiente de pago', 'base' => 'pagos-pendientes', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Promesas de pago', 'base' => 'promesas-pago', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Cobros', 'base' => 'cobros-servicios', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Cobros y recibos', 'base' => 'cobros', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Tickets',
+            'items' => [
+                ['label' => 'Tickets', 'base' => 'tickets', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Configuración',
+            'items' => [
+                ['label' => 'Ajustes generales', 'base' => 'configuracion-ajustes', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Facturación y servicios', 'base' => 'configuracion-facturacion', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'SIFEN e-Kuatia', 'base' => 'configuracion-sifen', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Tareas periódicas', 'base' => 'configuracion-tareas-periodicas', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Backup base de datos', 'base' => 'configuracion-backup', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'FTTH',
+            'items' => [
+                ['label' => 'OLTs', 'base' => 'ftth-olts', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Marcas OLT', 'base' => 'ftth-marcas-olt', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Cajas NAP', 'base' => 'ftth-cajas-nap', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Mapa infraestructura óptica', 'base' => 'ftth-mapa-optico', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Salidas PON', 'base' => 'ftth-salidas-pon', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Líneas de cable', 'base' => 'ftth-lineas-cable', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Sistema',
+            'items' => [
+                ['label' => 'Routers', 'base' => 'sistema-routers', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Pools de IP', 'base' => 'sistema-pools-ip', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'MikroTik pendientes', 'base' => 'sistema-mikrotik-pendientes', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Referenciales',
+            'items' => [
+                ['label' => 'Planes', 'base' => 'planes', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Tipos de tecnologías', 'base' => 'tipos-tecnologia', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Perfiles PPPoE', 'base' => 'perfiles-pppoe', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Nodos', 'base' => 'nodos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Roles', 'base' => 'roles', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Asuntos de tickets', 'base' => 'ticket-asuntos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Administración de usuarios',
+            'items' => [
+                ['label' => 'Usuarios', 'base' => 'usuarios', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Gestionar permisos', 'base' => 'usuarios-permisos', 'acciones' => ['ver', 'editar']],
+            ],
+        ],
+    ],
+];

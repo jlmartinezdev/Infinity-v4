@@ -11,6 +11,7 @@ use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\SifenConfiguracionController;
 use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EstadoPedidoController;
@@ -105,6 +106,8 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::post('/configuracion/ajustes', [ConfiguracionController::class, 'storeAjustes'])->name('configuracion.ajustes.store');
     Route::get('/configuracion/facturacion', [ConfiguracionController::class, 'facturacion'])->name('configuracion.facturacion');
     Route::post('/configuracion/facturacion', [ConfiguracionController::class, 'storeFacturacion'])->name('configuracion.facturacion.store');
+    Route::get('/configuracion/sifen', [SifenConfiguracionController::class, 'edit'])->name('configuracion.sifen');
+    Route::post('/configuracion/sifen', [SifenConfiguracionController::class, 'update'])->name('configuracion.sifen.store');
     Route::get('/configuracion/tareas-periodicas', [TareaPeriodicaController::class, 'index'])->name('tareas-periodicas.index');
     Route::get('/configuracion/tareas-periodicas/create', [TareaPeriodicaController::class, 'create'])->name('tareas-periodicas.create');
     Route::post('/configuracion/tareas-periodicas', [TareaPeriodicaController::class, 'store'])->name('tareas-periodicas.store');
@@ -157,6 +160,10 @@ Route::middleware(['auth', 'permiso:referenciales.ver'])->group(function () {
     Route::get('/perfiles-pppoe/create', [PerfilPppoeController::class, 'create'])->name('perfiles-pppoe.create')->middleware('permiso:referenciales.editar');
     Route::get('/nodos', [NodoController::class, 'index'])->name('nodos.index');
     Route::get('/nodos/create', [NodoController::class, 'create'])->name('nodos.create')->middleware('permiso:referenciales.editar');
+    Route::get('/nodos/{nodo}/migrar-pppoe', [NodoController::class, 'migrarPppoe'])->name('nodos.migrar-pppoe');
+    Route::get('/nodos/{nodo}/migrar-pppoe/datos', [NodoController::class, 'migrarPppoeDatos'])->name('nodos.migrar-pppoe.datos');
+    Route::get('/nodos/{nodo}/migrar-pppoe/servicios', [NodoController::class, 'migrarPppoeServicios'])->name('nodos.migrar-pppoe.servicios');
+    Route::get('/nodos/{nodo}/migrar-pppoe/pools', [NodoController::class, 'migrarPppoePools'])->name('nodos.migrar-pppoe.pools');
     Route::get('/roles', [RolController::class, 'index'])->name('roles.index');
     Route::get('/roles/create', [RolController::class, 'create'])->name('roles.create')->middleware('permiso:referenciales.editar');
     Route::get('/ticket-asuntos', [TicketAsuntoController::class, 'index'])->name('ticket-asuntos.index');
@@ -177,6 +184,7 @@ Route::middleware(['auth', 'permiso:referenciales.editar'])->group(function () {
     Route::put('/perfiles-pppoe/{perfil_pppoe}', [PerfilPppoeController::class, 'update'])->name('perfiles-pppoe.update');
     Route::delete('/perfiles-pppoe/{perfil_pppoe}', [PerfilPppoeController::class, 'destroy'])->name('perfiles-pppoe.destroy');
     Route::post('/nodos', [NodoController::class, 'store'])->name('nodos.store');
+    Route::post('/nodos/{nodo}/migrar-pppoe', [NodoController::class, 'migrarPppoeEjecutar'])->name('nodos.migrar-pppoe.ejecutar');
     Route::get('/nodos/{nodo}/edit', [NodoController::class, 'edit'])->name('nodos.edit');
     Route::put('/nodos/{nodo}', [NodoController::class, 'update'])->name('nodos.update');
     Route::delete('/nodos/{nodo}', [NodoController::class, 'destroy'])->name('nodos.destroy');
@@ -207,6 +215,7 @@ Route::delete('/planes/{plan}', [PlanController::class, 'destroy'])->name('plane
 // Pedidos (CRUD)
 Route::middleware(['auth', 'permiso:pedidos.ver'])->group(function () {
     Route::get('/pedidos/exportar-excel', [PedidoController::class, 'exportarExcel'])->name('pedidos.exportar-excel');
+    Route::get('/pedidos/resoluciones-hoy', [PedidoController::class, 'resolucionesHoy'])->name('pedidos.resoluciones-hoy');
     Route::get('/pedidos', [PedidoController::class, 'index'])->name('pedidos.index');
     Route::get('/pedidos/create', [PedidoController::class, 'create'])->name('pedidos.create')->middleware('permiso:pedidos.crear');
 });
@@ -225,6 +234,7 @@ Route::middleware(['auth', 'permiso:pedidos.editar'])->group(function () {
     Route::post('/pedidos/{pedido}/aprobar-estado', [PedidoController::class, 'aprobarEstado'])->name('pedidos.aprobar-estado');
     Route::post('/pedidos/{pedido}/descartar-estado', [PedidoController::class, 'descartarEstado'])->name('pedidos.descartar-estado');
     Route::post('/pedidos/{pedido}/reabrir-estado', [PedidoController::class, 'reabrirEstado'])->name('pedidos.reabrir-estado');
+    Route::post('/pedidos/{pedido}/espera-ampliacion-red', [PedidoController::class, 'esperaAmpliacionRed'])->name('pedidos.espera-ampliacion-red');
     Route::get('/pedidos/{pedido}/crear-usuario-pppoe', [PedidoController::class, 'crearUsuarioPppoe'])->name('pedidos.crear-usuario-pppoe');
     Route::get('/pedidos/{pedido}/crear-agenda', [AgendaController::class, 'createFromPedido'])->name('pedidos.crear-agenda');
 });
@@ -265,8 +275,11 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::get('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'crearInternaFraccionDeudaServicio'])->name('facturas.crear-interna-servicio-fraccion-deuda');
     Route::post('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'storeInternaFraccionDeudaServicio'])->name('facturas.store-interna-servicio-fraccion-deuda');
     Route::post('/facturas/suspender-falta-pago', [FacturaController::class, 'suspenderFaltaPago'])->name('facturas.suspender-falta-pago');
+    Route::post('/facturas/{factura}/emitir', [FacturaController::class, 'emitir'])->name('facturas.emitir');
 });
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
+    Route::get('/facturas/{factura}/kude', [FacturaController::class, 'descargarKude'])->name('facturas.kude');
+    Route::get('/facturas/{factura}/xml', [FacturaController::class, 'descargarXml'])->name('facturas.xml');
     Route::get('/facturas/{factura}', [FacturaController::class, 'show'])->name('facturas.show');
     Route::get('/facturas/{factura}/edit', [FacturaController::class, 'edit'])->name('facturas.edit');
     Route::put('/facturas/{factura}', [FacturaController::class, 'update'])->name('facturas.update');
@@ -361,6 +374,7 @@ Route::delete('/servicios/{servicio_id}', [ServicioController::class, 'destroy']
 
 // Cuentas TV (app streaming: hasta 3 clientes / dispositivos por cuenta)
 Route::middleware(['auth', 'permiso:tv.ver'])->group(function () {
+    Route::get('/tv-cuentas/dashboard', [TvCuentaController::class, 'dashboard'])->name('tv-cuentas.dashboard');
     Route::get('/tv-cuentas', [TvCuentaController::class, 'index'])->name('tv-cuentas.index');
 });
 Route::middleware(['auth', 'permiso:tv.editar'])->group(function () {
@@ -368,6 +382,7 @@ Route::middleware(['auth', 'permiso:tv.editar'])->group(function () {
     Route::post('/tv-cuentas', [TvCuentaController::class, 'store'])->name('tv-cuentas.store');
     Route::get('/tv-cuentas/{tv_cuenta}/edit', [TvCuentaController::class, 'edit'])->name('tv-cuentas.edit');
     Route::put('/tv-cuentas/{tv_cuenta}', [TvCuentaController::class, 'update'])->name('tv-cuentas.update');
+    Route::post('/tv-cuentas/{tv_cuenta}/renovar', [TvCuentaController::class, 'renovar'])->name('tv-cuentas.renovar');
     Route::delete('/tv-cuentas/{tv_cuenta}', [TvCuentaController::class, 'destroy'])->name('tv-cuentas.destroy');
     Route::post('/tv-cuentas/{tv_cuenta}/asignaciones', [TvCuentaController::class, 'storeAsignacion'])->name('tv-cuentas.asignaciones.store');
     Route::delete('/tv-cuentas/{tv_cuenta}/asignaciones/{asignacion}', [TvCuentaController::class, 'destroyAsignacion'])->name('tv-cuentas.asignaciones.destroy');

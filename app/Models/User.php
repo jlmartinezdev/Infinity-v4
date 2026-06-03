@@ -135,6 +135,15 @@ class User extends Authenticatable
             return true;
         }
         $permisosUsuario = is_array($this->permisos) ? $this->permisos : [];
-        return in_array($permiso, $permisosUsuario);
+        if (in_array($permiso, $permisosUsuario, true)) {
+            return true;
+        }
+        foreach (\App\Support\PermisosCatalogo::compatiblesCon((string) $permiso) as $codigoGranular) {
+            if (in_array($codigoGranular, $permisosUsuario, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

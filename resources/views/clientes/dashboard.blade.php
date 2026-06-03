@@ -54,8 +54,14 @@
             'rgba(79, 70, 229, 0.85)'
         ];
 
+        const T = window.InfinityTheme || {};
+        const chartScales = (yCb) => T.chartAxisTheme ? T.chartAxisTheme(yCb) : { y: { beginAtZero: true, ticks: { precision: 0, callback: yCb } } };
+        const chartLegend = (pos) => T.chartLegendTheme ? T.chartLegendTheme(pos) : { position: pos || 'top' };
+        const charts = [];
+        const yTickCallbacks = [];
+
         if (el) {
-            new Chart(el, {
+            const mesChart = new Chart(el, {
                 type: 'bar',
                 data: {
                     labels,
@@ -73,24 +79,21 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'top'
-                        }
+                        legend: chartLegend('top')
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0
-                            }
-                        }
-                    }
+                    scales: chartScales(function (value) {
+                        return Number(value).toLocaleString('es-PY');
+                    })
                 }
+            });
+            charts.push(mesChart);
+            yTickCallbacks.push(function (value) {
+                return Number(value).toLocaleString('es-PY');
             });
         }
 
         if (yearEl) {
-            new Chart(yearEl, {
+            const yearChart = new Chart(yearEl, {
                 type: 'doughnut',
                 data: {
                     labels: yearLabels,
@@ -107,12 +110,16 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'right'
-                        }
+                        legend: chartLegend('right')
                     }
                 }
             });
+            charts.push(yearChart);
+            yTickCallbacks.push(null);
+        }
+
+        if (T.watchThemeCharts && charts.length) {
+            T.watchThemeCharts(charts, yTickCallbacks);
         }
     })();
 </script>

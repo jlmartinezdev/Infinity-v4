@@ -18,6 +18,12 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/sifen/cert/*
+!/storage/sifen/cert/.gitkeep
+/storage/sifen/xml/*
+!/storage/sifen/xml/.gitkeep
+/storage/sifen/pdf/*
+!/storage/sifen/pdf/.gitkeep
 /vendor
 Homestead.json
 Homestead.yaml

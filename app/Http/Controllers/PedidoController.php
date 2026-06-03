@@ -35,7 +35,7 @@ class PedidoController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Pedido::with(['cliente', 'plan', 'estadoPedidoDetalles.estadoPedido', 'estadoPedidoDetalles.usuario'])
+        $query = Pedido::with(['cliente', 'plan', 'estadoPedidoDetalles.estadoPedido', 'estadoPedidoDetalles.usuario', 'esperaAmpliacionRedUsuario'])
             ->withCount('agendas')
             ->orderBy('fecha_pedido', 'desc');
 
@@ -695,6 +695,67 @@ class PedidoController extends Controller
     }
 
     /**
+     * Marcar o quitar el pedido en espera de ampliación de red.
+     */
+    public function esperaAmpliacionRed(Request $request, Pedido $pedido)
+    {
+        $validated = $request->validate([
+            'activo' => ['required', 'boolean'],
+            'notas' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $activo = (bool) $validated['activo'];
+
+        if ($activo && $pedido->estado_instalado) {
+            $msg = 'No se puede marcar en espera: el pedido ya está instalado.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+
+            return redirect()->route('pedidos.index')->with('error', $msg);
+        }
+
+        $update = $activo
+            ? [
+                'espera_ampliacion_red' => true,
+                'espera_ampliacion_red_at' => now(),
+                'espera_ampliacion_red_notas' => isset($validated['notas']) ? trim((string) $validated['notas']) : null,
+                'espera_ampliacion_red_usuario_id' => Auth::id(),
+            ]
+            : [
+                'espera_ampliacion_red' => false,
+                'espera_ampliacion_red_at' => null,
+                'espera_ampliacion_red_notas' => null,
+                'espera_ampliacion_red_usuario_id' => null,
+            ];
+
+        $pedido->update($update);
+        $pedido->load('esperaAmpliacionRedUsuario');
+
+        $mensaje = $activo
+            ? 'Pedido marcado en espera de ampliación de red.'
+            : 'Se quitó la espera de ampliación de red del pedido.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'pedido' => [
+                    'pedido_id' => (int) $pedido->pedido_id,
+                    'espera_ampliacion_red' => (bool) $pedido->espera_ampliacion_red,
+                    'espera_ampliacion_red_at' => $pedido->espera_ampliacion_red_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
+                    'espera_ampliacion_red_notas' => $pedido->espera_ampliacion_red_notas,
+                    'espera_ampliacion_red_usuario' => $pedido->esperaAmpliacionRedUsuario?->name
+                        ?? $pedido->esperaAmpliacionRedUsuario?->email
+                        ?? '',
+                ],
+            ]);
+        }
+
+        return redirect()->route('pedidos.index')->with('success', $mensaje);
+    }
+
+    /**
      * Descartar un estado de pedido.
      */
     public function descartarEstado(Request $request, Pedido $pedido)
@@ -1047,6 +1108,72 @@ class PedidoController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * Clientes con estados de pedido aprobados (A) o desaprobados/descartados (D) en la fecha indicada (hoy por defecto).
+     */
+    public function resolucionesHoy(Request $request)
+    {
+        $fecha = $request->filled('fecha')
+            ? Carbon::parse($request->fecha)->toDateString()
+            : now()->timezone(config('app.timezone'))->toDateString();
+
+        $detalles = EstadoPedidoDetalle::query()
+            ->whereIn('estado', ['A', 'D'])
+            ->whereDate('fecha', $fecha)
+            ->with([
+                'pedido.cliente',
+                'pedido.plan',
+                'estadoPedido',
+                'usuario',
+                'nodo',
+                'plan',
+            ])
+            ->orderByDesc('fecha')
+            ->orderByDesc('pedido_id')
+            ->get();
+
+        $mapRow = function (EstadoPedidoDetalle $d) {
+            $pedido = $d->pedido;
+            $cliente = $pedido?->cliente;
+            $nombre = $cliente ? trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? '')) : '';
+
+            return [
+                'pedido_id' => (int) $d->pedido_id,
+                'estado_id' => (int) $d->estado_id,
+                'tipo' => $d->estado === 'A' ? 'aprobado' : 'desaprobado',
+                'cliente_id' => $cliente ? (int) $cliente->cliente_id : null,
+                'cliente_nombre' => $nombre,
+                'cliente_cedula' => $cliente?->cedula ?? '',
+                'cliente_telefono' => $cliente?->telefono ?? '',
+                'estado_pedido' => $d->estadoPedido?->descripcion ?? '',
+                'plan_nombre' => $pedido?->plan?->nombre ?? $d->plan?->nombre ?? '',
+                'nodo' => $d->nodo?->descripcion ?? '',
+                'fecha' => $d->fecha?->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
+                'usuario' => $d->usuario?->name ?? $d->usuario?->email ?? '',
+                'notas' => $d->notas ?? '',
+            ];
+        };
+
+        $aprobados = $detalles->where('estado', 'A')->values()->map($mapRow)->values()->all();
+        $desaprobados = $detalles->where('estado', 'D')->values()->map($mapRow)->values()->all();
+
+        $clientesAprobados = collect($aprobados)->unique('cliente_id')->count();
+        $clientesDesaprobados = collect($desaprobados)->unique('cliente_id')->count();
+
+        return response()->json([
+            'fecha' => $fecha,
+            'fecha_label' => Carbon::parse($fecha)->format('d/m/Y'),
+            'aprobados' => $aprobados,
+            'desaprobados' => $desaprobados,
+            'stats' => [
+                'total_aprobados' => count($aprobados),
+                'total_desaprobados' => count($desaprobados),
+                'clientes_aprobados' => $clientesAprobados,
+                'clientes_desaprobados' => $clientesDesaprobados,
+            ],
+        ]);
     }
 
     /**

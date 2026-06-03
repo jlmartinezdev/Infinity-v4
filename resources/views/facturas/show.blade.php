@@ -9,6 +9,16 @@
         <div class="flex gap-2">
             @if($factura->estado === 'borrador')
                 <a href="{{ route('facturas.edit', $factura) }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">Editar</a>
+                <form action="{{ route('facturas.emitir', $factura) }}" method="POST" class="inline" onsubmit="return confirm('¿Emitir factura electrónica y enviar a SIFEN?');">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">Emitir e-Kuatia</button>
+                </form>
+            @endif
+            @if($factura->pdf_path)
+                <a href="{{ route('facturas.kude', $factura) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">KuDE PDF</a>
+            @endif
+            @if($factura->xml_path)
+                <a href="{{ route('facturas.xml', $factura) }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700">XML</a>
             @endif
             <a href="{{ route('facturas.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600">Volver</a>
         </div>
@@ -100,7 +110,21 @@
                 <p class="mt-4 text-sm text-gray-600 dark:text-gray-300"><span class="font-medium">Observaciones:</span> {{ $factura->observaciones }}</p>
             @endif
             @if($factura->set_cdc)
-                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">CDC (factura electrónica): {{ $factura->set_cdc }}</p>
+                <div class="mt-4 p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 text-sm">
+                    <p class="font-medium text-gray-700 dark:text-gray-300 mb-1">Factura electrónica (SIFEN)</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 break-all">CDC: {{ $factura->set_cdc }}</p>
+                    @if($factura->set_estado_envio)
+                        <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">
+                            Estado SIFEN:
+                            <span class="font-medium @if($factura->set_estado_envio === 'autorizado') text-green-700 dark:text-green-400 @elseif($factura->set_estado_envio === 'rechazado') text-red-700 dark:text-red-400 @else text-amber-700 dark:text-amber-400 @endif">
+                                {{ ucfirst($factura->set_estado_envio) }}
+                            </span>
+                            @if($factura->set_fecha_autorizacion)
+                                · {{ $factura->set_fecha_autorizacion->format('d/m/Y H:i') }}
+                            @endif
+                        </p>
+                    @endif
+                </div>
             @endif
         </div>
     </div>

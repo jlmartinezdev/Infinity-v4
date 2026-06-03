@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Cliente;
 use App\Models\Cobro;
+use App\Support\CobrosMesVentana;
+use App\Services\CobrosResumenService;
 use App\Models\Factura;
 use App\Models\FacturaDetalle;
 use App\Models\FacturaInterna;
@@ -112,6 +114,11 @@ class FacturacionService
      * @param  string|null  $fechaEmision  Fecha de emisión Y-m-d (por defecto: hoy)
      * @param  list<string>|null  $estadosServicio  Estados de servicio a incluir (por defecto solo activo)
      */
+    private function sincronizarResumenPorFactura(FacturaInterna $factura): void
+    {
+        app(CobrosResumenService::class)->aplicarImpactoFactura($factura);
+    }
+
     public function generarFacturaInterna(
         Cliente $cliente,
         Carbon $periodoDesde,
@@ -171,7 +178,7 @@ class FacturacionService
             $periodoDesdeEfectivo = $fechas->sortBy(fn ($c) => $c->format('Y-m-d'))->first()->copy();
         }
 
-        return DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $usuarioId, $estadoFinal, $fechaVencimientoFinal, $fechaEmisionFinal) {
+        $factura = DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $usuarioId, $estadoFinal, $fechaVencimientoFinal, $fechaEmisionFinal) {
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
                 'periodo_desde' => $periodoDesdeEfectivo->toDateString(),
@@ -226,7 +233,7 @@ class FacturacionService
                 $precioApp = (float) ($servicio->precio_app ?? 0);
                 if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
                     $precioAppFormateado = number_format($precioApp, 0, ',', '.');
-                    $descripcionApp = sprintf('App TV - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
+                    $descripcionApp = sprintf('Servicio especial - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
                     $calcApp = FacturaDetalle::calcularDesdePrecio(1, $precioApp, $impuestoExento);
 
                     FacturaInternaDetalle::create([
@@ -260,6 +267,10 @@ class FacturacionService
 
             return $factura->fresh(['detalles', 'cliente']);
         });
+
+        $this->sincronizarResumenPorFactura($factura);
+
+        return $factura;
     }
 
     /**
@@ -383,7 +394,7 @@ class FacturacionService
                     $precioApp = (float) ($servicio->precio_app ?? 0);
                     if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
                         $precioAppFormateado = number_format($precioApp, 0, ',', '.');
-                        $descripcionApp = sprintf('App TV - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
+                        $descripcionApp = sprintf('Servicio especial - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
                         $calcApp = FacturaDetalle::calcularDesdePrecio(1, $precioApp, $impuestoExento);
 
                         FacturaInternaDetalle::create([
@@ -418,6 +429,7 @@ class FacturacionService
                 return $factura->fresh(['detalles', 'cliente']);
             });
 
+            $this->sincronizarResumenPorFactura($factura);
             $facturas->push($factura);
         }
 
@@ -494,7 +506,7 @@ class FacturacionService
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $cliente = $servicio->cliente;
 
-        return DB::transaction(function () use ($servicio, $cliente, $periodoDesde, $periodoHasta, $fechaEmision, $fechaVencimiento, $fechaPago, $descuento, $items, $impuestoExento, $usuarioId, $observacionesFactura) {
+        $factura = DB::transaction(function () use ($servicio, $cliente, $periodoDesde, $periodoHasta, $fechaEmision, $fechaVencimiento, $fechaPago, $descuento, $items, $impuestoExento, $usuarioId, $observacionesFactura) {
             $subtotal = 0;
             $totalImpuestos = 0;
             $total = 0;
@@ -552,6 +564,10 @@ class FacturacionService
 
             return $factura->fresh(['detalles', 'cliente']);
         });
+
+        $this->sincronizarResumenPorFactura($factura);
+
+        return $factura;
     }
 
     /**
@@ -711,7 +727,10 @@ class FacturacionService
             return $cobro;
         });
 
-        return $cobro->load(['cliente', 'facturaInternas', 'usuario']);
+        $cobro->load(['cliente', 'facturaInternas', 'facturaInterna', 'usuario']);
+        app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, 1);
+
+        return $cobro;
     }
 
     /**
@@ -975,7 +994,7 @@ class FacturacionService
         $descripcionLinea = sprintf('Cobro ticket #%d — %s', $ticket->id, $asuntoNombre);
         $observaciones = sprintf('Factura por cobro de ticket #%d', $ticket->id);
 
-        return DB::transaction(function () use ($cliente, $ticket, $monto, $fechaEmision, $fechaVencimiento, $periodoDesde, $periodoHasta, $impuestoExento, $usuarioId, $descripcionLinea, $observaciones) {
+        $factura = DB::transaction(function () use ($cliente, $ticket, $monto, $fechaEmision, $fechaVencimiento, $periodoDesde, $periodoHasta, $impuestoExento, $usuarioId, $descripcionLinea, $observaciones) {
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
                 'periodo_desde' => $periodoDesde,
@@ -1022,6 +1041,10 @@ class FacturacionService
 
             return $factura->fresh(['detalles', 'cliente']);
         });
+
+        $this->sincronizarResumenPorFactura($factura);
+
+        return $factura;
     }
 
     /**
@@ -1115,6 +1138,8 @@ class FacturacionService
     public function eliminarCobro(Cobro $cobro): void
     {
         $clienteId = $cobro->cliente_id;
+        $cobro->load(['facturaInternas', 'facturaInterna']);
+        app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, -1);
         $facturaIds = $cobro->facturaInternas()->pluck('factura_interna_id')->unique()->all();
         if (empty($facturaIds) && $cobro->factura_interna_id) {
             $facturaIds = [$cobro->factura_interna_id];
@@ -1214,7 +1239,7 @@ class FacturacionService
             $montoStr
         );
 
-        return DB::transaction(function () use ($servicio, $cliente, $fechaCancelacion, $inicioMes, $monto, $diasVencimiento, $impuestoExento, $usuarioId, $descripcion) {
+        $factura = DB::transaction(function () use ($servicio, $cliente, $fechaCancelacion, $inicioMes, $monto, $diasVencimiento, $impuestoExento, $usuarioId, $descripcion) {
             $fechaEmision = now()->toDateString();
             $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
 
@@ -1270,6 +1295,10 @@ class FacturacionService
 
             return $factura->fresh(['detalles', 'cliente']);
         });
+
+        $this->sincronizarResumenPorFactura($factura);
+
+        return $factura;
     }
 
     public static function calcularMontosProrrateoCambioPlan(Carbon $fechaCambio, float $precioPlanViejo, float $precioPlanNuevo): array

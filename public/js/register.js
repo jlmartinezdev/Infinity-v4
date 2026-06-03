@@ -27546,18 +27546,18 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 
 var _hoisted_1 = {
-  class: "min-h-screen flex items-center justify-center bg-gray-50 p-4"
+  class: "min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4"
 };
 var _hoisted_2 = {
-  class: "w-full max-w-md bg-white rounded-xl shadow border border-gray-200 p-6"
+  class: "w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6"
 };
 var _hoisted_3 = {
   key: 0,
-  class: "mt-1 text-sm text-red-600"
+  class: "mt-1 text-sm text-red-600 dark:text-red-400"
 };
 var _hoisted_4 = {
   key: 0,
-  class: "mt-1 text-sm text-red-600"
+  class: "mt-1 text-sm text-red-600 dark:text-red-400"
 };
 var _hoisted_5 = {
   class: "relative"
@@ -27571,25 +27571,25 @@ var _hoisted_8 = {
 };
 var _hoisted_9 = {
   key: 0,
-  class: "mt-1 text-sm text-red-600"
+  class: "mt-1 text-sm text-red-600 dark:text-red-400"
 };
 var _hoisted_10 = {
   key: 0,
-  class: "mt-1 text-sm text-red-600"
+  class: "mt-1 text-sm text-red-600 dark:text-red-400"
 };
 var _hoisted_11 = {
   key: 0,
-  class: "p-3 bg-red-50 border border-red-200 rounded-lg"
+  class: "p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
 };
 var _hoisted_12 = {
-  class: "text-sm text-red-600"
+  class: "text-sm text-red-600 dark:text-red-400"
 };
 var _hoisted_13 = {
   key: 1,
-  class: "p-3 bg-green-50 border border-green-200 rounded-lg"
+  class: "p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
 };
 var _hoisted_14 = {
-  class: "text-sm text-green-600"
+  class: "text-sm text-green-600 dark:text-green-400"
 };
 var _hoisted_15 = ["disabled"];
 var _hoisted_16 = {
@@ -27601,15 +27601,15 @@ var _hoisted_17 = {
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", {
-    class: "text-2xl font-bold text-gray-900"
+    class: "text-2xl font-bold text-gray-900 dark:text-gray-100"
   }, "Registro", -1 /* CACHED */)), _cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
-    class: "text-sm text-gray-500 mt-1"
+    class: "text-sm text-gray-500 dark:text-gray-400 mt-1"
   }, "Ingrese su clave de licencia para solicitar acceso", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     class: "mt-6 space-y-4",
     onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.handleRegister, ["prevent"])
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[5] || (_cache[5] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "nombre",
-    class: "block text-sm font-medium text-gray-700 mb-1"
+    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Nombre completo", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     id: "nombre",
     name: "nombre",
@@ -27617,14 +27617,14 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       return $setup.form.name = $event;
     }),
     type: "text",
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100", {
       'border-red-500': $setup.errors.name
     }]),
     autocomplete: "name",
     required: ""
   }, null, 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.form.name]]), $setup.errors.name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_3, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errors.name), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "email",
-    class: "block text-sm font-medium text-gray-700 mb-1"
+    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Email", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     id: "email",
     name: "email",
@@ -27632,14 +27632,14 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       return $setup.form.email = $event;
     }),
     type: "email",
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100", {
       'border-red-500': $setup.errors.email
     }]),
     autocomplete: "email",
     required: ""
   }, null, 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.form.email]]), $setup.errors.email ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_4, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errors.email), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "password",
-    class: "block text-sm font-medium text-gray-700 mb-1"
+    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Contraseña", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     id: "password",
     name: "password",
@@ -27647,7 +27647,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       return $setup.form.password = $event;
     }),
     type: $setup.showPassword ? 'text' : 'password',
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100", {
       'border-red-500': $setup.errors.password
     }]),
     autocomplete: "new-password",
@@ -27657,10 +27657,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: _cache[3] || (_cache[3] = function ($event) {
       return $setup.showPassword = !$setup.showPassword;
     }),
-    class: "absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+    class: "absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
   }, [$setup.showPassword ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_7, "👁️")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_8, "👁️‍🗨️"))])]), $setup.errors.password ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_9, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errors.password), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "licencia",
-    class: "block text-sm font-medium text-gray-700 mb-1"
+    class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Clave de Licencia", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     id: "licencia",
     name: "licencia",
@@ -27668,7 +27668,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       return $setup.form.license = $event;
     }),
     type: "text",
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500", {
       'border-red-500': $setup.errors.license
     }]),
     placeholder: "LIC-",
@@ -27676,7 +27676,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     required: ""
   }, null, 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.form.license]]), $setup.errors.license ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errors.license), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_12, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.success ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.success), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     disabled: $setup.loading,
-    class: "w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
+    class: "w-full px-4 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
   }, [$setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_16, _toConsumableArray(_cache[9] || (_cache[9] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "animate-spin -ml-1 mr-3 h-5 w-5 text-white",
     xmlns: "http://www.w3.org/2000/svg",
@@ -27694,10 +27694,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
   })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Enviando... ", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_17, "Registrar"))], 8 /* PROPS */, _hoisted_15), _cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: "text-xs text-gray-500 text-center mt-2"
+    class: "text-xs text-gray-500 dark:text-gray-400 text-center mt-2"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" ¿Ya tienes acceso? "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
     href: "/login",
-    class: "text-blue-600 hover:underline"
+    class: "text-blue-600 dark:text-blue-400 hover:underline"
   }, "Iniciar sesión")], -1 /* CACHED */))], 32 /* NEED_HYDRATION */)])]);
 }
 

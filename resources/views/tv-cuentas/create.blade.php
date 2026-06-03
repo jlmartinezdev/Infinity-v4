@@ -11,7 +11,7 @@
 
     @if(request('cliente_id'))
         <div class="mb-4 p-4 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 text-sm">
-            Estás creando una cuenta TV desde la ficha de un cliente. Al guardar, se abrirá la pantalla para asignar ese cliente al perfil.
+            Estás creando una cuenta TV desde la ficha de un cliente. Al guardar, se abrirá la pantalla para asignar ese cliente.
         </div>
     @endif
 
@@ -20,6 +20,17 @@
         @if(request('cliente_id'))
             <input type="hidden" name="cliente_id_prefill" value="{{ request('cliente_id') }}">
         @endif
+        <div>
+            <label for="aplicacion" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Aplicación *</label>
+            <select name="aplicacion" id="aplicacion" required
+                    class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                @foreach($aplicaciones as $valor => $etiqueta)
+                    <option value="{{ $valor }}" @selected(old('aplicacion', \App\Models\TvCuenta::APP_NEBULA) === $valor)>{{ $etiqueta }}</option>
+                @endforeach
+            </select>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Nebula: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta (sin nombre de perfil).</p>
+            @error('aplicacion')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+        </div>
         <div>
             <label for="nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre interno (opcional)</label>
             <input type="text" name="nombre" id="nombre" value="{{ old('nombre') }}" maxlength="120"
@@ -45,38 +56,36 @@
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Ejemplo: 5 significa aviso el día 5 de cada mes.</p>
             @error('dia_aviso_vencimiento')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-                <label for="perfil_1" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Perfil 1 *</label>
-                <input type="text" name="perfil_1" id="perfil_1" value="{{ old('perfil_1', 'Perfil 1') }}" required maxlength="120"
-                       class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                @error('perfil_1')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                <label for="precio_perfil_1" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mt-2">Precio perfil 1</label>
-                <input type="number" name="precio_perfil_1" id="precio_perfil_1" value="{{ old('precio_perfil_1') }}" min="0" step="0.01"
-                       class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                @error('precio_perfil_1')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-            </div>
-            <div>
-                <label for="perfil_2" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Perfil 2 *</label>
-                <input type="text" name="perfil_2" id="perfil_2" value="{{ old('perfil_2', 'Perfil 2') }}" required maxlength="120"
-                       class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                @error('perfil_2')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                <label for="precio_perfil_2" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mt-2">Precio perfil 2</label>
-                <input type="number" name="precio_perfil_2" id="precio_perfil_2" value="{{ old('precio_perfil_2') }}" min="0" step="0.01"
-                       class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                @error('precio_perfil_2')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-            </div>
-            <div>
-                <label for="perfil_3" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Perfil 3 *</label>
-                <input type="text" name="perfil_3" id="perfil_3" value="{{ old('perfil_3', 'Perfil 3') }}" required maxlength="120"
-                       class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                @error('perfil_3')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                <label for="precio_perfil_3" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mt-2">Precio perfil 3</label>
-                <input type="number" name="precio_perfil_3" id="precio_perfil_3" value="{{ old('precio_perfil_3') }}" min="0" step="0.01"
-                       class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                @error('precio_perfil_3')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+
+        <div id="bloque-nebula" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            @foreach([1, 2, 3] as $i)
+                <div>
+                    <label for="perfil_{{ $i }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Perfil {{ $i }} *</label>
+                    <input type="text" name="perfil_{{ $i }}" id="perfil_{{ $i }}" value="{{ old('perfil_'.$i, 'Perfil '.$i) }}" maxlength="120"
+                           class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 campo-nebula">
+                    @error('perfil_'.$i)<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    <label for="precio_perfil_{{ $i }}" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mt-2">Precio perfil {{ $i }}</label>
+                    <input type="number" name="precio_perfil_{{ $i }}" id="precio_perfil_{{ $i }}" value="{{ old('precio_perfil_'.$i) }}" min="0" step="0.01"
+                           class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('precio_perfil_'.$i)<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                </div>
+            @endforeach
+        </div>
+
+        <div id="bloque-lumix" class="hidden">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Lumix no usa nombres de perfil. Cada cuenta admite hasta 4 pantallas simultáneas.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                @foreach([1, 2, 3, 4] as $i)
+                    <div>
+                        <label for="precio_pantalla_{{ $i }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Precio pantalla {{ $i }}</label>
+                        <input type="number" name="precio_pantalla_{{ $i }}" id="precio_pantalla_{{ $i }}" value="{{ old('precio_pantalla_'.$i) }}" min="0" step="0.01"
+                               class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        @error('precio_pantalla_'.$i)<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                @endforeach
             </div>
         </div>
+
         <div>
             <label for="notas" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notas</label>
             <textarea name="notas" id="notas" rows="3" maxlength="2000" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">{{ old('notas') }}</textarea>
@@ -89,3 +98,26 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('aplicacion');
+    const bloqueNebula = document.getElementById('bloque-nebula');
+    const bloqueLumix = document.getElementById('bloque-lumix');
+    const camposNebula = document.querySelectorAll('.campo-nebula');
+
+    const actualizar = () => {
+        const esLumix = select.value === '{{ \App\Models\TvCuenta::APP_LUMIX }}';
+        bloqueNebula.classList.toggle('hidden', esLumix);
+        bloqueLumix.classList.toggle('hidden', !esLumix);
+        camposNebula.forEach((input) => {
+            input.required = !esLumix;
+        });
+    };
+
+    select.addEventListener('change', actualizar);
+    actualizar();
+});
+</script>
+@endpush

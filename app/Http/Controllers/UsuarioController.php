@@ -74,7 +74,7 @@ class UsuarioController extends Controller
         // Inicializar permisos con los del rol para que el menú y las comprobaciones usen los checkboxes
         $rol = Rol::with('permisos')->find($validated['rol_id']);
         if ($rol) {
-            $user->permisos = $rol->permisos->pluck('codigo')->toArray();
+            $user->permisos = \App\Support\PermisosCatalogo::migrarPermisos($rol->permisos->pluck('codigo')->toArray());
             $user->save();
         }
 
@@ -170,6 +170,11 @@ class UsuarioController extends Controller
         ]);
 
         $permisos = $validated['permisos'] ?? [];
+        $validos = array_flip(\App\Support\PermisosCatalogo::todosCodigos());
+        $permisos = array_values(array_filter(
+            $permisos,
+            fn ($c) => is_string($c) && isset($validos[$c])
+        ));
         $user->permisos = $permisos;
         $user->save();
 

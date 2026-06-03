@@ -1,20 +1,13 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Infinity ISP') - {{ config('app.name', 'Infinity ISP') }}</title>
     <link rel="stylesheet" href="{{ asset(mix('css/app.css')) }}">
-    <script>
-        (function() {
-            const stored = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const isDark = stored === 'dark' || (!stored && prefersDark);
-            if (isDark) document.documentElement.classList.add('dark');
-            else document.documentElement.classList.remove('dark');
-        })();
-    </script>
+    @include('partials.theme-init')
 </head>
 <body class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
     @auth
@@ -44,10 +37,7 @@
                         <a href="{{ auth()->user()?->tienePermiso('dashboard.ver') ? url('/') : route('inicio') }}" class="ml-2 lg:ml-0 text-xl font-bold text-gray-900 dark:text-gray-100">Infinity ISP</a>
                     </div>
                     <div class="flex items-center gap-2 sm:gap-4">
-                        <button type="button" id="theme-toggle" class="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors" aria-label="Cambiar tema">
-                            <svg id="theme-icon-light" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                            <svg id="theme-icon-dark" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
-                        </button>
+                        @include('partials.theme-toggle')
                         @auth
                             @include('partials.notifications')
                             <span class="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{{ auth()->user()->name }}</span>
@@ -83,14 +73,9 @@
         </main>
     </div>
 
+    <script src="{{ asset(mix('js/theme.js')) }}"></script>
     <script src="{{ asset(mix('js/app.js')) }}" defer></script>
     <script>
-        document.getElementById('theme-toggle')?.addEventListener('click', function() {
-            const html = document.documentElement;
-            const isDark = html.classList.toggle('dark');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        });
-
         (function() {
             var SCROLL_KEY = 'infinity_scroll';
             function getScrollKey() { return SCROLL_KEY + '_' + (window.location.pathname || '/'); }

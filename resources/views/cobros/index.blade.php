@@ -96,6 +96,13 @@
                 </div>
                 <div>
                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Cobros del mes</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">
+                        @if(!empty($usarResumenCobrosMes))
+                            Total del ciclo (tabla resumen)
+                        @else
+                            Desde el 20 del mes anterior; excluye pago y factura posteriores al 20
+                        @endif
+                    </p>
                     <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($cobrosMes ?? 0, 0, ',', '.') }} PYG</p>
                 </div>
             </div>

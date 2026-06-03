@@ -77,6 +77,7 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-right text-sm">
+                                <a href="{{ route('nodos.migrar-pppoe', $nodo) }}" class="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 font-medium mr-3" title="Mover o copiar usuarios PPPoE entre routers">PPPoE RB</a>
                                 <a href="{{ route('nodos.edit', $nodo) }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium mr-4">Editar</a>
                                 <form action="{{ route('nodos.destroy', $nodo) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este nodo?');">
                                     @csrf

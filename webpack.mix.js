@@ -20,6 +20,7 @@ mix.webpackConfig({
 });
 
 // Vue 3 para todos los bundles que usan componentes .vue
+mix.js('resources/js/theme.js', 'public/js');
 mix.js('resources/js/app.js', 'public/js').vue();
 mix.js('resources/js/login.js', 'public/js').vue();
 mix.js('resources/js/register.js', 'public/js').vue();
@@ -41,6 +42,7 @@ mix.js('resources/js/facturas-internas-index.js', 'public/js').vue();
 mix.js('resources/js/notas-credito-index.js', 'public/js').vue();
 mix.js('resources/js/compras-create.js', 'public/js').vue();
 mix.js('resources/js/pendientes-pago.js', 'public/js').vue();
+mix.js('resources/js/nodo-migrar-pppoe.js', 'public/js').vue();
 mix.js('resources/js/tareas-dashboard.js', 'public/js').vue();
 
 mix.postCss('resources/css/app.css', 'public/css', [

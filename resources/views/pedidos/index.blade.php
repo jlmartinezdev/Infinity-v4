@@ -27,6 +27,14 @@
                 'tecnologia_id_seleccionado' => $pedido->tecnologia_id_seleccionado ?? null,
                 'usuario_pppoe_creado' => (bool) ($pedido->usuario_pppoe_creado ?? false),
                 'estado_instalado' => (bool) ($pedido->estado_instalado ?? false),
+                'espera_ampliacion_red' => (bool) ($pedido->espera_ampliacion_red ?? false),
+                'espera_ampliacion_red_at' => $pedido->espera_ampliacion_red_at
+                    ? $pedido->espera_ampliacion_red_at->timezone(config('app.timezone'))->format('Y-m-d H:i:s')
+                    : null,
+                'espera_ampliacion_red_notas' => $pedido->espera_ampliacion_red_notas,
+                'espera_ampliacion_red_usuario' => $pedido->esperaAmpliacionRedUsuario?->name
+                    ?? $pedido->esperaAmpliacionRedUsuario?->email
+                    ?? null,
                 'tiene_agenda' => (bool) ($pedido->agendas_count ?? 0),
                 'estado_pedido_detalles' => $pedido->estadoPedidoDetalles->map(function($detalle) {
                     return [
@@ -76,10 +84,12 @@
         'urlOpcionesNodoAprobacion' => url('pedidos/nodos') . '/__id__/opciones-aprobacion',
         'descartarEstadoUrl' => route('pedidos.descartar-estado', ':pedido'),
         'reabrirEstadoUrl' => route('pedidos.reabrir-estado', ':pedido'),
+        'esperaAmpliacionRedUrl' => route('pedidos.espera-ampliacion-red', ':pedido'),
         'crearUsuarioPppoeUrl' => route('pedidos.crear-usuario-pppoe', ':pedido'),
         'crearAgendaUrl' => route('pedidos.crear-agenda', ':pedido'),
         'finalizarPedidoUrl' => route('pedidos.finalizar', ':pedido'),
         'urlExportarExcel' => route('pedidos.exportar-excel'),
+        'urlResolucionesHoy' => route('pedidos.resoluciones-hoy'),
     ]) !!};
 </script>
 

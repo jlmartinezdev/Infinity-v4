@@ -12,6 +12,17 @@
                     </svg>
                     Exportar Excel
                 </a>
+                <button
+                    v-if="urlResolucionesHoy"
+                    type="button"
+                    class="inline-flex items-center gap-2 px-4 py-2 border border-sky-600 text-sky-700 dark:text-sky-400 dark:border-sky-500 bg-white dark:bg-gray-800 rounded-lg font-medium hover:bg-sky-50 dark:hover:bg-sky-900/20 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                    @click="abrirModalResolucionesHoy"
+                >
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Aprobados / desaprobados hoy
+                </button>
                 <button type="button" @click="modalFactibilidadOpen = true"
                     class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
                     Análisis de Factibilidad Rapido
@@ -66,6 +77,14 @@
                             <option value="todos">Todos</option>
                             <option value="pendientes">Pendientes (sin instalar)</option>
                             <option value="instalados">Solo instalados</option>
+                        </select>
+                    </div>
+                    <div class="sm:w-56">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Ampliación de red</label>
+                        <select v-model="filtroEsperaAmpliacion" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            <option value="todos">Todos</option>
+                            <option value="solo">Solo en espera</option>
+                            <option value="no">Sin espera</option>
                         </select>
                     </div>
                     <div v-if="filtroFechaDesde || filtroFechaHasta" class="flex items-end">
@@ -165,6 +184,11 @@
                               class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
                             INSTALADO
                         </span>
+                        <span v-else-if="pedido.espera_ampliacion_red"
+                              class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200"
+                              title="En espera de ampliación de red">
+                            ESPERA RED
+                        </span>
                         <span v-else :class="getBadgeClassEstado(pedido)" 
                               class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full">
                             {{ getEstadoActual(pedido)?.estado_pedido?.descripcion ?? 'Sin estado' }}
@@ -234,6 +258,27 @@
                             </svg>
                         </button>
                         <button v-else type="button" class="mx-2">&nbsp;&nbsp;</button>
+                        <button
+                            v-if="esperaAmpliacionRedUrl && !pedido.estado_instalado"
+                            type="button"
+                            @click.stop="toggleEsperaAmpliacionRed(pedido)"
+                            :disabled="loadingEsperaRed === pedido.pedido_id"
+                            :class="[
+                                'p-2 sm:p-1.5 rounded-full hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation',
+                                pedido.espera_ampliacion_red
+                                    ? 'bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 ring-2 ring-orange-400'
+                                    : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+                            ]"
+                            :title="pedido.espera_ampliacion_red ? 'Quitar espera de ampliación de red' : 'Dejar en espera de ampliación de red'"
+                        >
+                            <svg v-if="loadingEsperaRed === pedido.pedido_id" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M2.34 8.66a9.75 9.75 0 0115.32 0M12 18.75h.008v.008H12v-.008z" />
+                            </svg>
+                        </button>
                         <a :href="`/pedidos/${pedido.pedido_id}/edit`"
                            @click.stop
                            class="p-2 sm:p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center justify-center touch-manipulation"
@@ -269,6 +314,18 @@
             <!-- Contenido del Accordion -->
             <div v-show="expandedPedidos.includes(pedido.pedido_id)" class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
                 <div class="p-3 sm:p-4 space-y-4">
+                    <div
+                        v-if="pedido.espera_ampliacion_red"
+                        class="p-3 rounded-lg border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 text-sm text-orange-900 dark:text-orange-100"
+                    >
+                        <p class="font-semibold">En espera de ampliación de red</p>
+                        <p v-if="pedido.espera_ampliacion_red_at" class="text-xs mt-1 text-orange-800/80 dark:text-orange-200/80">
+                            Desde {{ formatFechaHora(pedido.espera_ampliacion_red_at) }}
+                            <span v-if="pedido.espera_ampliacion_red_usuario"> · {{ pedido.espera_ampliacion_red_usuario }}</span>
+                        </p>
+                        <p v-if="pedido.espera_ampliacion_red_notas" class="text-xs mt-1 italic">{{ pedido.espera_ampliacion_red_notas }}</p>
+                    </div>
+
                     <!-- Información adicional del pedido -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div class="break-words">
@@ -535,6 +592,78 @@
             </div>
         </div>
     </Teleport>
+
+    <!-- Modal resoluciones de hoy (aprobados / desaprobados) -->
+    <Teleport to="body">
+        <div v-show="modalResolucionesHoyOpen" class="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="modal-resoluciones-hoy-titulo">
+            <div class="fixed inset-0 bg-gray-900/60" aria-hidden="true" @click="modalResolucionesHoyOpen = false" />
+            <div class="relative min-h-full flex items-center justify-center p-4">
+                <div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl">
+                    <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+                        <div>
+                            <h2 id="modal-resoluciones-hoy-titulo" class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                Clientes aprobados y desaprobados
+                            </h2>
+                            <p v-if="resolucionesFechaLabel" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                {{ resolucionesFechaLabel }}
+                                <span v-if="resolucionesStats">
+                                    · {{ resolucionesStats.clientes_aprobados }} cliente(s) aprobado(s) · {{ resolucionesStats.clientes_desaprobados }} desaprobado(s)
+                                </span>
+                            </p>
+                        </div>
+                        <button type="button" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" aria-label="Cerrar" @click="modalResolucionesHoyOpen = false">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                    <div v-if="resolucionesCargando" class="p-10 text-center text-gray-500 dark:text-gray-400 text-sm">Cargando…</div>
+                    <p v-else-if="resolucionesError" class="p-4 text-sm text-red-600 dark:text-red-400">{{ resolucionesError }}</p>
+                    <div v-else class="overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <section class="rounded-lg border border-green-200 dark:border-green-800/60 bg-green-50/50 dark:bg-green-900/10 overflow-hidden">
+                            <h3 class="px-4 py-2.5 text-sm font-semibold text-green-800 dark:text-green-300 bg-green-100/80 dark:bg-green-900/30 border-b border-green-200 dark:border-green-800/60">
+                                Aprobados ({{ resolucionesAprobados.length }})
+                            </h3>
+                            <ul v-if="resolucionesAprobados.length" class="divide-y divide-green-100 dark:divide-green-900/40 max-h-[50vh] overflow-y-auto">
+                                <li v-for="(row, idx) in resolucionesAprobados" :key="'a-' + row.pedido_id + '-' + row.estado_id + '-' + idx" class="px-4 py-3 text-sm">
+                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ row.cliente_nombre || '—' }}</p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400">{{ row.cliente_cedula }}<span v-if="row.cliente_telefono"> · {{ row.cliente_telefono }}</span></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                        Pedido #{{ row.pedido_id }} · {{ row.estado_pedido }}
+                                        <span v-if="row.plan_nombre"> · {{ row.plan_nombre }}</span>
+                                        <span v-if="row.nodo"> · {{ row.nodo }}</span>
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-0.5">{{ formatResolucionHora(row.fecha) }}<span v-if="row.usuario"> · {{ row.usuario }}</span></p>
+                                    <p v-if="row.notas" class="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">{{ row.notas }}</p>
+                                </li>
+                            </ul>
+                            <p v-else class="px-4 py-6 text-sm text-gray-500 dark:text-gray-400 text-center">Sin aprobaciones hoy.</p>
+                        </section>
+                        <section class="rounded-lg border border-red-200 dark:border-red-800/60 bg-red-50/50 dark:bg-red-900/10 overflow-hidden">
+                            <h3 class="px-4 py-2.5 text-sm font-semibold text-red-800 dark:text-red-300 bg-red-100/80 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800/60">
+                                Desaprobados ({{ resolucionesDesaprobados.length }})
+                            </h3>
+                            <ul v-if="resolucionesDesaprobados.length" class="divide-y divide-red-100 dark:divide-red-900/40 max-h-[50vh] overflow-y-auto">
+                                <li v-for="(row, idx) in resolucionesDesaprobados" :key="'d-' + row.pedido_id + '-' + row.estado_id + '-' + idx" class="px-4 py-3 text-sm">
+                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ row.cliente_nombre || '—' }}</p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400">{{ row.cliente_cedula }}<span v-if="row.cliente_telefono"> · {{ row.cliente_telefono }}</span></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                        Pedido #{{ row.pedido_id }} · {{ row.estado_pedido }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-0.5">{{ formatResolucionHora(row.fecha) }}<span v-if="row.usuario"> · {{ row.usuario }}</span></p>
+                                    <p v-if="row.notas" class="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">{{ row.notas }}</p>
+                                </li>
+                            </ul>
+                            <p v-else class="px-4 py-6 text-sm text-gray-500 dark:text-gray-400 text-center">Sin desaprobaciones hoy.</p>
+                        </section>
+                    </div>
+                    <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0">
+                        <button type="button" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" @click="modalResolucionesHoyOpen = false">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>
 
 <script setup>
@@ -572,6 +701,10 @@ const props = defineProps({
         type: String,
         default: ''
     },
+    esperaAmpliacionRedUrl: {
+        type: String,
+        default: ''
+    },
     crearUsuarioPppoeUrl: {
         type: String,
         default: ''
@@ -585,6 +718,10 @@ const props = defineProps({
         default: ''
     },
     urlExportarExcel: {
+        type: String,
+        default: ''
+    },
+    urlResolucionesHoy: {
         type: String,
         default: ''
     },
@@ -612,6 +749,42 @@ const props = defineProps({
 const buscar = ref('');
 const modalPedidoOpen = ref(false);
 const modalFactibilidadOpen = ref(false);
+const modalResolucionesHoyOpen = ref(false);
+const resolucionesCargando = ref(false);
+const resolucionesError = ref('');
+const resolucionesAprobados = ref([]);
+const resolucionesDesaprobados = ref([]);
+const resolucionesFechaLabel = ref('');
+const resolucionesStats = ref(null);
+
+function formatResolucionHora(iso) {
+    if (!iso) return '—';
+    const d = new Date(String(iso).replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString('es-PY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+async function abrirModalResolucionesHoy() {
+    if (!props.urlResolucionesHoy) return;
+    modalResolucionesHoyOpen.value = true;
+    resolucionesCargando.value = true;
+    resolucionesError.value = '';
+    resolucionesAprobados.value = [];
+    resolucionesDesaprobados.value = [];
+    resolucionesFechaLabel.value = '';
+    resolucionesStats.value = null;
+    try {
+        const { data } = await axios.get(props.urlResolucionesHoy);
+        resolucionesAprobados.value = data.aprobados || [];
+        resolucionesDesaprobados.value = data.desaprobados || [];
+        resolucionesFechaLabel.value = data.fecha_label ? `Hoy · ${data.fecha_label}` : 'Hoy';
+        resolucionesStats.value = data.stats || null;
+    } catch (e) {
+        resolucionesError.value = e.response?.data?.message || 'No se pudo cargar el listado.';
+    } finally {
+        resolucionesCargando.value = false;
+    }
+}
 const dropdownInstaladosOpen = ref(false);
 const dropdownInstaladosRef = ref(null);
 const modalPedidoContentRef = ref(null);
@@ -619,6 +792,7 @@ const modalPedidoHeaderRef = ref(null);
 
 /** todos | pendientes | instalados — filtro por estado_instalado del pedido */
 const filtroInstalacion = ref('todos');
+const filtroEsperaAmpliacion = ref('todos');
 const filtroFechaDesde = ref('');
 const filtroFechaHasta = ref('');
 const mostrarDescartados = ref('1');
@@ -721,8 +895,13 @@ onUnmounted(() => {
 });
 
 // Filtrar por búsqueda, estado, cliente, fechas, instalación y descartados (todo client-side)
+const pedidosOverrides = ref({});
+
 const pedidosFiltrados = computed(() => {
-    let list = props.pedidos || [];
+    let list = (props.pedidos || []).map((p) => {
+        const ov = pedidosOverrides.value[p.pedido_id];
+        return ov ? { ...p, ...ov } : p;
+    });
 
     // Filtro por estado_id (estado actual del pedido)
     if (formEstadoId.value && formEstadoId.value !== 'todos') {
@@ -769,6 +948,12 @@ const pedidosFiltrados = computed(() => {
         list = list.filter(p => !(p.estado_pedido_detalles || []).some(d => d.estado === 'D'));
     }
 
+    if (filtroEsperaAmpliacion.value === 'solo') {
+        list = list.filter(p => !!p.espera_ampliacion_red);
+    } else if (filtroEsperaAmpliacion.value === 'no') {
+        list = list.filter(p => !p.espera_ampliacion_red);
+    }
+
     // Filtro por tecnología (GPON / Wireless)
     if (formTecnologia.value && formTecnologia.value !== 'todos') {
         const tipo = formTecnologia.value;
@@ -810,6 +995,76 @@ const loadingDescartar = ref(null);
 const loadingReabrir = ref(null);
 const loadingFinalizar = ref(null);
 const loadingCrearPppoe = ref(null);
+const loadingEsperaRed = ref(null);
+
+function actualizarPedidoEnLista(pedidoId, datos) {
+    pedidosOverrides.value = {
+        ...pedidosOverrides.value,
+        [pedidoId]: { ...(pedidosOverrides.value[pedidoId] || {}), ...datos },
+    };
+}
+
+const toggleEsperaAmpliacionRed = async (pedido) => {
+    if (!props.esperaAmpliacionRedUrl) return;
+    const activar = !pedido.espera_ampliacion_red;
+    let notas = null;
+
+    if (activar) {
+        const result = await Swal.fire({
+            title: 'Espera de ampliación de red',
+            html: `
+                <p class="text-sm text-gray-600 mb-3 text-left">El pedido quedará marcado hasta que la red esté ampliada.</p>
+                <textarea id="swal-notas-espera-red" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows="3" maxlength="1000" placeholder="Motivo o detalle (opcional)"></textarea>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#ea580c',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Marcar en espera',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const el = document.getElementById('swal-notas-espera-red');
+                return el?.value?.trim() || null;
+            },
+        });
+        if (!result.isConfirmed) return;
+        notas = result.value;
+    } else {
+        const result = await Swal.fire({
+            title: '¿Quitar espera de ampliación?',
+            text: 'El pedido volverá al flujo normal en la lista.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ea580c',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, quitar',
+            cancelButtonText: 'Cancelar',
+        });
+        if (!result.isConfirmed) return;
+    }
+
+    const pedidoId = pedido.pedido_id;
+    loadingEsperaRed.value = pedidoId;
+    try {
+        const url = props.esperaAmpliacionRedUrl.replace(':pedido', String(pedidoId));
+        const { data } = await axios.post(url, { activo: activar, notas });
+        if (data.pedido) {
+            actualizarPedidoEnLista(pedidoId, data.pedido);
+        }
+        await Swal.fire({
+            icon: 'success',
+            title: activar ? 'Marcado en espera' : 'Espera quitada',
+            text: data.message || '',
+            timer: 2200,
+            showConfirmButton: false,
+        });
+    } catch (error) {
+        const message = error.response?.data?.message || 'No se pudo actualizar el estado de espera.';
+        await Swal.fire({ icon: 'error', title: 'Error', text: message });
+    } finally {
+        loadingEsperaRed.value = null;
+    }
+};
 const togglePedido = (pedidoId) => {
     const index = expandedPedidos.value.indexOf(pedidoId);
     if (index > -1) {

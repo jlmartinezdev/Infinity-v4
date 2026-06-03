@@ -477,7 +477,20 @@ class MikroTikService
         if (! $servicio->usuario_pppoe || ! $servicio->pool?->router) {
             return ['success' => false, 'error' => 'Servicio sin usuario PPPoE o sin router asociado.'];
         }
-        $router = $servicio->pool->router;
+
+        return $this->syncPppoeServicioEnRouter($servicio, $servicio->pool->router);
+    }
+
+    /**
+     * Sincroniza credenciales PPPoE del servicio en un router concreto (sin cambiar pool en BD).
+     */
+    public function syncPppoeServicioEnRouter(Servicio $servicio, Router $router, bool $actualizarEstadoServicio = true): array
+    {
+        if (! $servicio->usuario_pppoe) {
+            return ['success' => false, 'error' => 'Servicio sin usuario PPPoE.'];
+        }
+
+        $servicio->loadMissing(['plan.perfilPppoe', 'cliente']);
         $profileName = $servicio->plan?->perfilPppoe?->nombre ?? $servicio->plan?->nombre ?? 'default';
         $password = $servicio->password_pppoe ?? '';
         $remoteAddress = $servicio->ip ?: null;
@@ -527,7 +540,9 @@ class MikroTikService
             } else {
                 $this->addPppoeSecret($router, $servicio->usuario_pppoe, $password, $remoteAddress, $profileName, $localAddress, $nombreCliente ?: null);
             }
-            $servicio->update(['pppoe_synced' => now(), 'pppoe_status' => 'synced']);
+            if ($actualizarEstadoServicio) {
+                $servicio->update(['pppoe_synced' => now(), 'pppoe_status' => 'synced']);
+            }
             Log::info('[MikroTik] syncPppoeServicio: completado OK', ['router' => $router->ip, 'usuario' => $servicio->usuario_pppoe]);
             return ['success' => true];
         } catch (Throwable $e) {

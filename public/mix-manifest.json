@@ -1,9 +1,10 @@
 {
-    "/js/app.js": "/js/app.js?id=0028b5a1870caebb098b31da015b9bee",
+    "/js/theme.js": "/js/theme.js?id=c1cced93d165aaca94b51ea7920e3785",
+    "/js/app.js": "/js/app.js?id=f0e93931169973f78c71f4ea4727e555",
     "/js/login.js": "/js/login.js?id=10ce7ca7b469f40cb8745b9039c749c8",
-    "/js/register.js": "/js/register.js?id=62944fbcf4a529f778db81f7d4c35ebf",
+    "/js/register.js": "/js/register.js?id=532a88793c72281ad3ff3a0f4b703dab",
     "/js/pedido-form.js": "/js/pedido-form.js?id=d89f581d36938afd347abe50a5d357cc",
-    "/js/pedidos-list.js": "/js/pedidos-list.js?id=5760d6288b2a0ac3a2b8971639ea9469",
+    "/js/pedidos-list.js": "/js/pedidos-list.js?id=67aae66bca2e97aa3f045b3cad3ed0e0",
     "/js/clientes-list.js": "/js/clientes-list.js?id=5bd3568c868f10aa6b1fa81ea32fbfe8",
     "/js/cliente-form-mapa.js": "/js/cliente-form-mapa.js?id=1d78c7290b874badab6d6dd7f347f9a0",
     "/js/recibo-copy-image.js": "/js/recibo-copy-image.js?id=5671ac89794a2a45decb9f64144ae561",
@@ -19,7 +20,8 @@
     "/js/facturas-internas-index.js": "/js/facturas-internas-index.js?id=343f68a3972bd0ff3c180ab8f7eb6905",
     "/js/notas-credito-index.js": "/js/notas-credito-index.js?id=e3440fa043cef0c4b562e39b9943c6d7",
     "/js/compras-create.js": "/js/compras-create.js?id=7303cdbf8d21a3f97b671bf0508ca2e3",
-    "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=8d1e6d48f49075f18073f2fc4f0a7be4",
+    "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=cafe1deea9fccc93647679bdf2bc0039",
+    "/js/nodo-migrar-pppoe.js": "/js/nodo-migrar-pppoe.js?id=e151349a8402c4159a243b562977ca78",
     "/js/tareas-dashboard.js": "/js/tareas-dashboard.js?id=1a34705ef6dc95c29a4d2cbc349e5209",
-    "/css/app.css": "/css/app.css?id=b4af6cb5a9af033cb17c002f0fcfbc71"
+    "/css/app.css": "/css/app.css?id=7778e3f4803c734c903140bd3f34e1c6"
 }

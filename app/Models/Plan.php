@@ -118,4 +118,36 @@ class Plan extends Model
             'precio' => 'decimal:2',
         ];
     }
+
+    /** Abreviatura del plan para listados (ej. «Fibra 50» → «F5» o «50MB» → «50MB»). */
+    public function iniciales(): string
+    {
+        $nombre = trim((string) ($this->nombre ?? ''));
+        if ($nombre === '') {
+            $vel = trim((string) ($this->velocidad ?? ''));
+
+            return $vel !== '' ? mb_strtoupper($vel) : '—';
+        }
+
+        $partes = preg_split('/[\s\-\/]+/u', $nombre, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($partes) === 1) {
+            $unico = $partes[0];
+            if (mb_strlen($unico) <= 5) {
+                return mb_strtoupper($unico);
+            }
+
+            return mb_strtoupper(mb_substr($unico, 0, 3));
+        }
+
+        $ini = '';
+        foreach ($partes as $parte) {
+            if (preg_match('/^\d/u', $parte)) {
+                $ini .= preg_replace('/[^0-9]/', '', $parte) ?: mb_substr($parte, 0, 1);
+            } else {
+                $ini .= mb_strtoupper(mb_substr($parte, 0, 1));
+            }
+        }
+
+        return mb_substr($ini, 0, 6) ?: '—';
+    }
 }

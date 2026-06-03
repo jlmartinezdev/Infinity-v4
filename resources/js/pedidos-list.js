@@ -26,10 +26,12 @@ if (el) {
     urlOpcionesNodoAprobacion: cfg.urlOpcionesNodoAprobacion || '',
     descartarEstadoUrl: cfg.descartarEstadoUrl || '',
     reabrirEstadoUrl: cfg.reabrirEstadoUrl || '',
+    esperaAmpliacionRedUrl: cfg.esperaAmpliacionRedUrl || '',
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',
     crearAgendaUrl: cfg.crearAgendaUrl || '',
     finalizarPedidoUrl: cfg.finalizarPedidoUrl || '',
     urlExportarExcel: cfg.urlExportarExcel || '',
+    urlResolucionesHoy: cfg.urlResolucionesHoy || '',
   });
   app.mount(el);
 }

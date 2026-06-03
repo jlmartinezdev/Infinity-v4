@@ -7,6 +7,7 @@ use App\Models\Servicio;
 use App\Models\TvCuenta;
 use App\Models\TvCuentaAsignacion;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -72,43 +73,84 @@ class TvCuentaController extends Controller
         ]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $cuentas = TvCuenta::query()
-            ->withCount('asignaciones')
-            ->orderByDesc('id')
-            ->paginate(20);
+        $filtro = $request->get('estado', 'todos');
+        if (! in_array($filtro, ['todos', 'vencido', 'por_vencer', 'ok'], true)) {
+            $filtro = 'todos';
+        }
 
-        return view('tv-cuentas.index', compact('cuentas'));
+        $todas = TvCuenta::query()
+            ->withCount('asignaciones')
+            ->with([
+                'asignaciones' => fn ($q) => $q->orderBy('perfil_numero')->orderBy('id'),
+                'asignaciones.servicio.cliente',
+                'asignaciones.servicio.plan',
+            ])
+            ->get();
+
+        $stats = [
+            'total' => $todas->count(),
+            'vencido' => 0,
+            'por_vencer' => 0,
+            'ok' => 0,
+            'asignaciones' => (int) $todas->sum('asignaciones_count'),
+            'cupos_totales' => (int) $todas->sum(fn (TvCuenta $c) => $c->maxAsignaciones()),
+        ];
+
+        foreach ($todas as $cuenta) {
+            $stats[$cuenta->estadoVencimiento()]++;
+        }
+
+        $prioridad = ['vencido' => 0, 'por_vencer' => 1, 'ok' => 2];
+        $ordenadas = $todas->sort(function (TvCuenta $a, TvCuenta $b) use ($prioridad) {
+            $ea = $a->estadoVencimiento();
+            $eb = $b->estadoVencimiento();
+            $cmpEstado = ($prioridad[$ea] ?? 9) <=> ($prioridad[$eb] ?? 9);
+            if ($cmpEstado !== 0) {
+                return $cmpEstado;
+            }
+
+            return $a->diasParaVencimiento() <=> $b->diasParaVencimiento();
+        })->values();
+
+        if ($filtro !== 'todos') {
+            $ordenadas = $ordenadas
+                ->filter(fn (TvCuenta $c) => $c->estadoVencimiento() === $filtro)
+                ->values();
+        }
+
+        $perPage = 20;
+        $page = max(1, (int) $request->get('page', 1));
+        $cuentas = new LengthAwarePaginator(
+            $ordenadas->forPage($page, $perPage)->values(),
+            $ordenadas->count(),
+            $perPage,
+            $page,
+            ['path' => route('tv-cuentas.index'), 'query' => $request->query()]
+        );
+
+        return view('tv-cuentas.index', compact('cuentas', 'stats', 'filtro'));
+    }
+
+    /** Redirige al listado integrado (compatibilidad con enlaces antiguos). */
+    public function dashboard(Request $request)
+    {
+        return redirect()->route('tv-cuentas.index', $request->query());
     }
 
     public function create()
     {
-        return view('tv-cuentas.create');
+        return view('tv-cuentas.create', [
+            'aplicaciones' => TvCuenta::aplicaciones(),
+        ]);
     }
 
     public function store(Request $request)
     {
-        $rules = [
-            'nombre' => ['nullable', 'string', 'max:120'],
-            'usuario_app' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'max:500'],
-            'dia_aviso_vencimiento' => ['required', 'integer', 'between:1,31'],
-            'notas' => ['nullable', 'string', 'max:2000'],
-            'cliente_id_prefill' => ['nullable', 'integer', Rule::exists('clientes', 'cliente_id')],
-            'precio_perfil_1' => ['nullable', 'numeric', 'min:0'],
-            'precio_perfil_2' => ['nullable', 'numeric', 'min:0'],
-            'precio_perfil_3' => ['nullable', 'numeric', 'min:0'],
-        ];
-
-        if ($this->perfilesV2Disponible()) {
-            $rules['perfil_1'] = ['required', 'string', 'max:120'];
-            $rules['perfil_2'] = ['required', 'string', 'max:120'];
-            $rules['perfil_3'] = ['required', 'string', 'max:120'];
-        }
-
-        $validated = $request->validate($rules);
+        $validated = $request->validate($this->reglasCuentaTv($request));
         $validated['vencimiento_pago'] = $this->calcularFechaVencimiento((int) $validated['dia_aviso_vencimiento']);
+        $validated = $this->normalizarCamposPorAplicacion($validated);
 
         $clienteIdPrefill = $validated['cliente_id_prefill'] ?? null;
         unset($validated['cliente_id_prefill']);
@@ -133,6 +175,7 @@ class TvCuentaController extends Controller
                 ? $query->orderBy('perfil_numero')
                 : $query->orderBy('id'),
             'asignaciones.servicio.cliente',
+            'asignaciones.servicio.plan',
         ]);
 
         $clientes = Cliente::orderBy('nombre')->get(['cliente_id', 'nombre', 'apellido', 'cedula']);
@@ -143,35 +186,59 @@ class TvCuentaController extends Controller
             ->orderBy('servicio_id')
             ->get(['servicio_id', 'cliente_id', 'plan_id', 'estado', 'app_tv']);
 
-        return view('tv-cuentas.edit', compact('tv_cuenta', 'clientes', 'servicios', 'asignacionPerfilesV2'));
+        return view('tv-cuentas.edit', [
+            'tv_cuenta' => $tv_cuenta,
+            'clientes' => $clientes,
+            'servicios' => $servicios,
+            'asignacionPerfilesV2' => $asignacionPerfilesV2,
+            'aplicaciones' => TvCuenta::aplicaciones(),
+        ]);
     }
 
     public function update(Request $request, TvCuenta $tv_cuenta)
     {
-        $rules = [
-            'nombre' => ['nullable', 'string', 'max:120'],
-            'usuario_app' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'max:500'],
-            'dia_aviso_vencimiento' => ['required', 'integer', 'between:1,31'],
-            'notas' => ['nullable', 'string', 'max:2000'],
-            'precio_perfil_1' => ['nullable', 'numeric', 'min:0'],
-            'precio_perfil_2' => ['nullable', 'numeric', 'min:0'],
-            'precio_perfil_3' => ['nullable', 'numeric', 'min:0'],
-        ];
+        $validated = $request->validate($this->reglasCuentaTv($request, $tv_cuenta));
+        $validated = $this->normalizarCamposPorAplicacion($validated);
 
-        if ($this->perfilesV2Disponible()) {
-            $rules['perfil_1'] = ['required', 'string', 'max:120'];
-            $rules['perfil_2'] = ['required', 'string', 'max:120'];
-            $rules['perfil_3'] = ['required', 'string', 'max:120'];
+        $maxNuevo = ($validated['aplicacion'] ?? TvCuenta::APP_NEBULA) === TvCuenta::APP_LUMIX
+            ? TvCuenta::MAX_LUMIX
+            : TvCuenta::MAX_NEBULA;
+        if ($tv_cuenta->asignaciones()->count() > $maxNuevo) {
+            return redirect()->route('tv-cuentas.edit', $tv_cuenta)
+                ->withInput()
+                ->with('error', 'No se puede cambiar la aplicación: hay más asignaciones activas que cupos permitidos.');
         }
 
-        $validated = $request->validate($rules);
-        $validated['vencimiento_pago'] = $this->calcularFechaVencimiento((int) $validated['dia_aviso_vencimiento']);
+        $diaNuevo = (int) $validated['dia_aviso_vencimiento'];
+        $diaAnterior = (int) ($tv_cuenta->dia_aviso_vencimiento ?? $tv_cuenta->vencimiento_pago?->day ?? 0);
+        if ($diaNuevo !== $diaAnterior || ! $tv_cuenta->vencimiento_pago) {
+            $validated['vencimiento_pago'] = $this->calcularFechaVencimiento($diaNuevo);
+        } else {
+            unset($validated['vencimiento_pago']);
+        }
 
         $tv_cuenta->update($validated);
 
         return redirect()->route('tv-cuentas.edit', $tv_cuenta)
             ->with('success', 'Cuenta TV actualizada.');
+    }
+
+    public function renovar(Request $request, TvCuenta $tv_cuenta)
+    {
+        $nueva = $tv_cuenta->renovarUnMesAdelante();
+
+        $mensaje = 'Cuenta renovada. Próximo vencimiento: ' . $nueva->format('d/m/Y') . '.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'vencimiento_pago' => $nueva->toDateString(),
+                'estado' => $tv_cuenta->fresh()->estadoVencimiento(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', $mensaje);
     }
 
     public function destroy(TvCuenta $tv_cuenta)
@@ -184,9 +251,10 @@ class TvCuentaController extends Controller
 
     public function storeAsignacion(Request $request, TvCuenta $tv_cuenta)
     {
-        if ($tv_cuenta->asignaciones()->count() >= TvCuenta::MAX_ASIGNACIONES) {
+        $maxSlots = $tv_cuenta->maxAsignaciones();
+        if ($tv_cuenta->asignaciones()->count() >= $maxSlots) {
             return redirect()->route('tv-cuentas.edit', $tv_cuenta)
-                ->with('error', 'Esta cuenta ya tiene 3 usuarios asignados (máximo de dispositivos).');
+                ->with('error', 'Esta cuenta ya tiene '.$maxSlots.' '.$tv_cuenta->etiquetaTipoSlot().( $maxSlots === 1 ? '' : 's').' asignados (máximo).');
         }
 
         $rules = [
@@ -205,7 +273,7 @@ class TvCuentaController extends Controller
         ];
 
         if ($this->asignacionPerfilesV2Disponible()) {
-            $rules['perfil_numero'] = ['required', 'integer', 'between:1,3'];
+            $rules['perfil_numero'] = ['required', 'integer', 'between:1,'.$maxSlots];
             $rules['fecha_activacion'] = ['required', 'date'];
         }
 
@@ -228,7 +296,7 @@ class TvCuentaController extends Controller
                 ->exists();
             if ($perfilEnUso) {
                 return redirect()->route('tv-cuentas.edit', $tv_cuenta)
-                    ->with('error', 'Ese perfil ya está asignado en esta cuenta.');
+                    ->with('error', 'Ese '.$tv_cuenta->etiquetaTipoSlot().' ya está asignado en esta cuenta.');
             }
         }
 
@@ -249,13 +317,7 @@ class TvCuentaController extends Controller
         if (Schema::hasColumn('tv_cuenta_asignaciones', 'precio_aplicado')) {
             $precioAplicado = 0.0;
             if (! $esPromo && $this->asignacionPerfilesV2Disponible() && isset($validated['perfil_numero'])) {
-                $raw = match ((int) $validated['perfil_numero']) {
-                    1 => $tv_cuenta->precio_perfil_1,
-                    2 => $tv_cuenta->precio_perfil_2,
-                    3 => $tv_cuenta->precio_perfil_3,
-                    default => null,
-                };
-                $precioAplicado = $raw !== null ? (float) $raw : 0.0;
+                $precioAplicado = (float) ($tv_cuenta->precioSlot((int) $validated['perfil_numero']) ?? 0);
             }
             $payload['precio_aplicado'] = $precioAplicado;
         }
@@ -269,8 +331,65 @@ class TvCuentaController extends Controller
 
         return redirect()->route('tv-cuentas.edit', $tv_cuenta)
             ->with('success', $this->asignacionPerfilesV2Disponible()
-                ? 'Servicio asignado al perfil correctamente.'
+                ? 'Servicio asignado al '.$tv_cuenta->etiquetaTipoSlot().' correctamente.'
                 : 'Servicio asignado correctamente.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reglasCuentaTv(Request $request, ?TvCuenta $cuenta = null): array
+    {
+        $aplicacion = $request->input('aplicacion', $cuenta?->aplicacion ?? TvCuenta::APP_NEBULA);
+        $esLumix = $aplicacion === TvCuenta::APP_LUMIX;
+
+        $rules = [
+            'nombre' => ['nullable', 'string', 'max:120'],
+            'aplicacion' => ['required', 'string', Rule::in(array_keys(TvCuenta::aplicaciones()))],
+            'usuario_app' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string', 'max:500'],
+            'dia_aviso_vencimiento' => ['required', 'integer', 'between:1,31'],
+            'notas' => ['nullable', 'string', 'max:2000'],
+            'cliente_id_prefill' => ['nullable', 'integer', Rule::exists('clientes', 'cliente_id')],
+            'precio_perfil_1' => ['nullable', 'numeric', 'min:0'],
+            'precio_perfil_2' => ['nullable', 'numeric', 'min:0'],
+            'precio_perfil_3' => ['nullable', 'numeric', 'min:0'],
+            'precio_pantalla_1' => ['nullable', 'numeric', 'min:0'],
+            'precio_pantalla_2' => ['nullable', 'numeric', 'min:0'],
+            'precio_pantalla_3' => ['nullable', 'numeric', 'min:0'],
+            'precio_pantalla_4' => ['nullable', 'numeric', 'min:0'],
+        ];
+
+        if ($this->perfilesV2Disponible() && ! $esLumix) {
+            $rules['perfil_1'] = ['required', 'string', 'max:120'];
+            $rules['perfil_2'] = ['required', 'string', 'max:120'];
+            $rules['perfil_3'] = ['required', 'string', 'max:120'];
+        }
+
+        return $rules;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function normalizarCamposPorAplicacion(array $validated): array
+    {
+        if (($validated['aplicacion'] ?? TvCuenta::APP_NEBULA) === TvCuenta::APP_LUMIX) {
+            $validated['perfil_1'] = null;
+            $validated['perfil_2'] = null;
+            $validated['perfil_3'] = null;
+            $validated['precio_perfil_1'] = null;
+            $validated['precio_perfil_2'] = null;
+            $validated['precio_perfil_3'] = null;
+        } else {
+            $validated['precio_pantalla_1'] = null;
+            $validated['precio_pantalla_2'] = null;
+            $validated['precio_pantalla_3'] = null;
+            $validated['precio_pantalla_4'] = null;
+        }
+
+        return $validated;
     }
 
     public function destroyAsignacion(TvCuenta $tv_cuenta, TvCuentaAsignacion $asignacion)

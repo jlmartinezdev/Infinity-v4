@@ -48,6 +48,10 @@ class Pedido extends Model
         'prioridad_instalacion',
         'estado_instalado',
         'usuario_pppoe_creado',
+        'espera_ampliacion_red',
+        'espera_ampliacion_red_at',
+        'espera_ampliacion_red_notas',
+        'espera_ampliacion_red_usuario_id',
         'descripcion',
         'observaciones',
     ];
@@ -65,6 +69,8 @@ class Pedido extends Model
             'lon' => 'float',
             'estado_instalado' => 'boolean',
             'usuario_pppoe_creado' => 'boolean',
+            'espera_ampliacion_red' => 'boolean',
+            'espera_ampliacion_red_at' => 'datetime',
         ];
     }
 
@@ -122,6 +128,11 @@ class Pedido extends Model
     public function agendas(): HasMany
     {
         return $this->hasMany(Agenda::class, 'pedido_id', 'pedido_id');
+    }
+
+    public function esperaAmpliacionRedUsuario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'espera_ampliacion_red_usuario_id', 'usuario_id');
     }
 
     /**

@@ -18,6 +18,7 @@ if (el) {
     canMulticobro: cfg.canMulticobro ?? false,
     canCrearCobro: cfg.canCrearCobro ?? false,
     canVerClienteDetalle: cfg.canVerClienteDetalle ?? false,
+    esAdmin: cfg.esAdmin ?? false,
     flashSuccess: cfg.flashSuccess || '',
     flashError: cfg.flashError || '',
     nodos: cfg.nodos || [],

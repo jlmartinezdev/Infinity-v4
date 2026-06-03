@@ -73,35 +73,66 @@ class AuditarDashboardInicioCobrosCommand extends Command
             return self::SUCCESS;
         }
 
-        // Como esta ahora HomeController: suma cobros.monto con fecha en ventana y con factura en rango.
-        $totalNuevoCobrosMonto = (float) $rows
-            ->filter(fn ($r) => (int) $r->tiene_factura_rango === 1)
+        $diaCorte = CobrosMesVentana::diaCorteMesReferencia($mesReferencia)->toDateString();
+
+        $subMinFactura = DB::table('cobro_factura_interna as cfi_min')
+            ->join('factura_internas as fi_min', 'fi_min.id', '=', 'cfi_min.factura_interna_id')
+            ->groupBy('cfi_min.cobro_id')
+            ->selectRaw('cfi_min.cobro_id, MIN(fi_min.created_at) as factura_created_at');
+
+        $facturaPorCobro = DB::table('cobros')
+            ->leftJoinSub($subMinFactura, 'fmin', fn ($j) => $j->on('fmin.cobro_id', '=', 'cobros.id'))
+            ->leftJoin('factura_internas as fi_leg', 'fi_leg.id', '=', 'cobros.factura_interna_id')
+            ->whereIn('cobros.id', $rows->pluck('id'))
+            ->selectRaw('cobros.id, COALESCE(fmin.factura_created_at, fi_leg.created_at) as factura_created_at')
+            ->pluck('factura_created_at', 'id');
+
+        $rowsConAtribucion = $rows->map(function ($r) use ($facturaPorCobro, $mesReferencia) {
+            $fechaPago = Carbon::parse($r->fecha_pago);
+            $facturaCreated = $facturaPorCobro->get($r->id);
+            $facturaCarbon = $facturaCreated ? Carbon::parse($facturaCreated) : null;
+            $r->cuenta_en_mes = CobrosMesVentana::cobroCuentaEnMesReferencia($fechaPago, $facturaCarbon, $mesReferencia) ? 1 : 0;
+
+            return $r;
+        });
+
+        // Total con atribucion (Home + Cobros del mes): ventana + regla dia 20.
+        $totalConAtribucion = (float) $rowsConAtribucion
+            ->filter(fn ($r) => (int) $r->cuenta_en_mes === 1)
+            ->sum('monto');
+
+        // Home / Cobros del mes: ventana + atribucion dia 20 (sin exigir rango de factura).
+        $totalHome = $totalConAtribucion;
+
+        // Dashboard facturacion (cobrado del ciclo): ventana + facturas del mes anterior + atribucion.
+        $totalDashboardCiclo = (float) $rowsConAtribucion
+            ->filter(fn ($r) => (int) $r->tiene_factura_rango === 1 && (int) $r->cuenta_en_mes === 1)
             ->sum('monto');
 
         // Como estaba antes HomeController: suma pivote con fecha cobro en ventana + factura en rango.
-        $totalAnteriorPivot = (float) $rows->sum('pivot_total_rango');
+        $totalAnteriorPivot = (float) $rowsConAtribucion->sum('pivot_total_rango');
 
-        // Como suma en Cobros y Recibos (tarjeta "Cobros del mes" sin filtros extra):
-        // cobros.monto en ventana de pago, sin exigir rango de factura.
-        $totalCobrosRecibos = (float) $rows->sum('monto');
+        $totalCobrosRecibos = $totalConAtribucion;
 
-        $diferenciaGlobal = $totalNuevoCobrosMonto - $totalAnteriorPivot;
-        $difInicioVsCobrosRecibos = $totalNuevoCobrosMonto - $totalCobrosRecibos;
+        $diferenciaGlobal = $totalDashboardCiclo - $totalAnteriorPivot;
+        $difHomeVsCobrosRecibos = $totalHome - $totalCobrosRecibos;
 
         $this->info('Auditoria Dashboard Inicio + Cobros y Recibos (Cobros del mes)');
         $this->line('Mes de referencia: '.$mesReferencia->format('Y-m'));
         $this->line('Ventana cobros: '.$rangos['desdeVentana']->format('Y-m-d').' a '.$rangos['hastaVentana']->format('Y-m-d'));
+        $this->line('Corte atribucion (dia 20 mes ref.): '.$diaCorte);
         $this->line('Rango facturas: '.$rangos['facturaDesde']->format('Y-m-d').' a '.$rangos['facturaHasta']->format('Y-m-d'));
         $this->newLine();
-        $this->line('Total NUEVO (cobros.monto): '.number_format($totalNuevoCobrosMonto, 2, ',', '.'));
-        $this->line('Total ANTERIOR (pivote):    '.number_format($totalAnteriorPivot, 2, ',', '.'));
-        $this->line('Total Cobros y Recibos:     '.number_format($totalCobrosRecibos, 2, ',', '.'));
-        $this->line('Dif NUEVO - ANTERIOR:       '.number_format($diferenciaGlobal, 2, ',', '.'));
-        $this->line('Dif NUEVO - C&R:            '.number_format($difInicioVsCobrosRecibos, 2, ',', '.'));
-        $this->line('Cobros en ventana:          '.$rows->count());
-        $this->line('Cobros con factura en rango: '.$rows->where('tiene_factura_rango', 1)->count());
+        $this->line('Total COBROS DEL MES (Home / C&R): '.number_format($totalConAtribucion, 2, ',', '.'));
+        $this->line('Total Dashboard ciclo:            '.number_format($totalDashboardCiclo, 2, ',', '.'));
+        $this->line('Total ANTERIOR (pivote):          '.number_format($totalAnteriorPivot, 2, ',', '.'));
+        $this->line('Dif Dashboard - pivote:           '.number_format($diferenciaGlobal, 2, ',', '.'));
+        $this->line('Dif Home - C&R:                   '.number_format($difHomeVsCobrosRecibos, 2, ',', '.'));
+        $this->line('Cobros en ventana:          '.$rowsConAtribucion->count());
+        $this->line('Cobros atribuidos al mes:   '.$rowsConAtribucion->where('cuenta_en_mes', 1)->count());
+        $this->line('Cobros con factura en rango: '.$rowsConAtribucion->where('tiene_factura_rango', 1)->count());
 
-        $detalle = $rows
+        $detalle = $rowsConAtribucion
             ->when($soloDiferencias, fn ($c) => $c->filter(fn ($r) => abs((float) $r->diferencia) > 0.009))
             ->sortByDesc(fn ($r) => abs((float) $r->diferencia))
             ->take($top)
@@ -113,7 +144,7 @@ class AuditarDashboardInicioCobrosCommand extends Command
                 'Pivot rango' => number_format((float) $r->pivot_total_rango, 2, ',', '.'),
                 'Dif' => number_format((float) $r->diferencia, 2, ',', '.'),
                 'En Inicio nuevo?' => (int) $r->tiene_factura_rango === 1 ? 'Si' : 'No',
-                'En C&R?' => 'Si',
+                'En C&M?' => (int) $r->cuenta_en_mes === 1 ? 'Si' : 'No',
             ])
             ->values()
             ->all();
@@ -121,7 +152,7 @@ class AuditarDashboardInicioCobrosCommand extends Command
         if (! empty($detalle)) {
             $this->newLine();
             $this->warn('Detalle (top '.$top.'):');
-            $this->table(['ID', 'Recibo', 'Fecha', 'Monto cobro', 'Pivot rango', 'Dif', 'En Inicio nuevo?', 'En C&R?'], $detalle);
+            $this->table(['ID', 'Recibo', 'Fecha', 'Monto cobro', 'Pivot rango', 'Dif', 'En Inicio nuevo?', 'En C&M?'], $detalle);
         }
 
         return self::SUCCESS;

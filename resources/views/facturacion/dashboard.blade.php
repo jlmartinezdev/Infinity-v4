@@ -7,9 +7,8 @@
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard de Facturacion</h1>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Facturado: facturas creadas en el mes anterior al indicado en cada columna.
-            Cobrado: monto real ingresado (`cobros.monto`) en la ventana del ciclo, asociado a facturas de ese mismo mes facturado.
-            Pendiente: saldo real restante de esas facturas del ciclo.
+            Facturado, cobrado y pendiente del ciclo mensual: tabla `cobros_resumen` (mes anterior + facturas anticipadas desde el día 20).
+            Por día: ingreso bruto por fecha de pago del mes actual.
         </p>
     </div>
 
@@ -43,7 +42,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mt-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Debug resumen por mes</h2>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Referencia rápida de los valores usados en el gráfico mensual para validar cálculos.
+            Valores de `cobros_resumen` usados en los gráficos mensuales.
         </p>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
@@ -103,7 +102,12 @@
             return n.toLocaleString('es-PY', { maximumFractionDigits: 0 }) + ' PYG';
         };
 
-        new Chart(el, {
+        const T = window.InfinityTheme || {};
+        const chartScales = (yCb) => T.chartAxisTheme ? T.chartAxisTheme(yCb) : { y: { beginAtZero: true, ticks: { callback: yCb } } };
+        const chartLegend = (pos) => T.chartLegendTheme ? T.chartLegendTheme(pos) : { position: pos || 'top' };
+        const charts = [];
+
+        const mainChart = new Chart(el, {
             type: 'bar',
             data: {
                 labels,
@@ -139,9 +143,7 @@
                     intersect: false
                 },
                 plugins: {
-                    legend: {
-                        position: 'top'
-                    },
+                    legend: chartLegend('top'),
                     tooltip: {
                         callbacks: {
                             label: function (context) {
@@ -151,18 +153,12 @@
                         }
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return formatPYG(value);
-                            }
-                        }
-                    }
-                }
+                scales: chartScales(function (value) {
+                    return formatPYG(value);
+                })
             }
         });
+        charts.push(mainChart);
 
         const elCobroReal = document.getElementById('facturacionCobroRealChart');
         if (!elCobroReal) return;
@@ -190,9 +186,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'top'
-                    },
+                    legend: chartLegend('top'),
                     tooltip: {
                         callbacks: {
                             label: function (context) {
@@ -202,18 +196,12 @@
                         }
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return formatPYG(value);
-                            }
-                        }
-                    }
-                }
+                scales: chartScales(function (value) {
+                    return formatPYG(value);
+                })
             }
         });
+        charts.push(cobroRealChart);
 
         function setMode(mode) {
             const isDia = mode === 'dia';
@@ -237,7 +225,7 @@
         const elAtrasadoFavor = document.getElementById('facturacionAtrasadoFavorChart');
         if (!elAtrasadoFavor) return;
 
-        new Chart(elAtrasadoFavor, {
+        const atrasadoFavorChart = new Chart(elAtrasadoFavor, {
             type: 'bar',
             data: {
                 labels: labelsAtrasadoFavor,
@@ -266,9 +254,7 @@
                     intersect: false
                 },
                 plugins: {
-                    legend: {
-                        position: 'top'
-                    },
+                    legend: chartLegend('top'),
                     tooltip: {
                         callbacks: {
                             label: function (context) {
@@ -278,18 +264,20 @@
                         }
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return formatPYG(value);
-                            }
-                        }
-                    }
-                }
+                scales: chartScales(function (value) {
+                    return formatPYG(value);
+                })
             }
         });
+        charts.push(atrasadoFavorChart);
+
+        if (T.watchThemeCharts) {
+            T.watchThemeCharts(charts, [
+                function (value) { return formatPYG(value); },
+                function (value) { return formatPYG(value); },
+                function (value) { return formatPYG(value); },
+            ]);
+        }
     })();
 </script>
 @endpush

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Cobro;
+use App\Models\CobroResumen;
 use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\User;
@@ -44,6 +45,7 @@ class CobroController extends Controller
 
         $hoy = now()->toDateString();
 
+        $mesReferenciaCobros = now()->startOfMonth();
         $rangosVentanaMes = CobrosMesVentana::rangosMesActual();
         $cobrosMesVentanaQuery = CobrosMesVentana::queryParamsDesdeRangos($rangosVentanaMes);
 
@@ -51,27 +53,29 @@ class CobroController extends Controller
         $this->applyCobrosListFilters($request, $statsQuery, $user, $esAdmin);
         $cobrosHoy = (float) (clone $statsQuery)->whereDate('fecha_pago', $hoy)->sum('monto');
 
-        $mesQuery = Cobro::query();
-        $this->applyCobrosDimensionFilters($request, $mesQuery, $user, $esAdmin);
-        $mesQuery->whereBetween('fecha_pago', [$rangosVentanaMes['desdeVentana'], $rangosVentanaMes['hastaVentana']]);
-        // Mismo criterio que el listado: solo filtrar por fecha de factura si vienen ambos parámetros.
-        // Si no (p. ej. solo Desde/Hasta de pago), no exigir facturas del mes del ciclo: evita tarjeta en 0 con cobros visibles.
-        if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
-            $fd = $request->factura_desde;
-            $fh = $request->factura_hasta;
-            $mesQuery->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
-                $q->whereDate('factura_internas.created_at', '>=', $fd)
-                    ->whereDate('factura_internas.created_at', '<=', $fh);
-            });
-        }
-        $cobrosMes = (float) $mesQuery->sum('monto');
+        // Admin con "Todos" los usuarios: total del ciclo desde cobros_resumen (mismo criterio que el dashboard).
+        // Con usuario concreto o usuario no admin: suma en vivo desde cobros.
+        $usarResumenCobrosMes = $esAdmin && ! $request->filled('usuario_id');
 
-        $totalPendienteMes = (float) (DB::table('factura_internas')
-            ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
-            ->whereIn('estado', ['pendiente', 'emitida'])
-            ->whereBetween('created_at', [$rangosVentanaMes['facturaDesde'], $rangosVentanaMes['facturaHasta']])
-            ->whereRaw('total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
-            ->value('total') ?? 0);
+        if ($usarResumenCobrosMes) {
+            $cobrosMes = CobroResumen::totalCobradoParaMes($mesReferenciaCobros);
+        } else {
+            $mesQuery = Cobro::query();
+            $this->applyCobrosDimensionFilters($request, $mesQuery, $user, $esAdmin);
+            $mesQuery->whereBetween('fecha_pago', [$rangosVentanaMes['desdeVentana'], $rangosVentanaMes['hastaVentana']]);
+            CobrosMesVentana::aplicarFiltroAtribucionMesReferencia($mesQuery, $mesReferenciaCobros);
+            if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
+                $fd = $request->factura_desde;
+                $fh = $request->factura_hasta;
+                $mesQuery->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
+                    $q->whereDate('factura_internas.created_at', '>=', $fd)
+                        ->whereDate('factura_internas.created_at', '<=', $fh);
+                });
+            }
+            $cobrosMes = (float) $mesQuery->sum('cobros.monto');
+        }
+
+        $totalPendienteMes = CobroResumen::totalPendienteParaMes($mesReferenciaCobros);
         $totalPendiente = (float) (DB::table('factura_internas')
             ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
             ->whereIn('estado', ['pendiente', 'emitida'])
@@ -91,7 +95,8 @@ class CobroController extends Controller
             'totalPendiente',
             'esAdmin',
             'usuariosConCobros',
-            'formasPago'
+            'formasPago',
+            'usarResumenCobrosMes'
         ));
     }
 

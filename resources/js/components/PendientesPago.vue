@@ -55,7 +55,7 @@
       <span v-if="canMulticobro"> Marque clientes y use «Multicobro» para incluir todas sus facturas pendientes en un solo registro de cobro.</span>
     </p>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div v-if="esAdmin" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Clientes con deuda</p>
         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.cantidad_clientes }}</p>
@@ -72,7 +72,7 @@
       <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Saldo pendiente</p>
         <p class="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-400">{{ fmtMonto(stats.monto_saldo, 'PYG') }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-500">Vencido: {{ fmtMonto(stats.saldo_vencido, 'PYG') }} ({{ stats.facturas_vencidas }} factura(s))</p>
+        <p class="text-xs text-gray-500 dark:text-gray-500">Sin clientes dados de baja · Vencido: {{ fmtMonto(stats.saldo_vencido, 'PYG') }} ({{ stats.facturas_vencidas }} factura(s))</p>
       </div>
     </div>
 
@@ -654,6 +654,7 @@ const props = defineProps({
   canMulticobro: { type: Boolean, default: false },
   canCrearCobro: { type: Boolean, default: false },
   canVerClienteDetalle: { type: Boolean, default: false },
+  esAdmin: { type: Boolean, default: false },
   flashSuccess: { type: String, default: '' },
   flashError: { type: String, default: '' },
   nodos: { type: Array, default: () => [] },

@@ -27406,6 +27406,10 @@ var BUSCAR_DEBOUNCE_MS = 400;
       type: Boolean,
       default: false
     },
+    esAdmin: {
+      type: Boolean,
+      default: false
+    },
     flashSuccess: {
       type: String,
       default: ''
@@ -28342,6 +28346,7 @@ var _hoisted_8 = {
   key: 0
 };
 var _hoisted_9 = {
+  key: 0,
   class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
 };
 var _hoisted_10 = {
@@ -28375,15 +28380,15 @@ var _hoisted_19 = {
   class: "text-xs text-gray-500 dark:text-gray-500"
 };
 var _hoisted_20 = {
-  key: 0,
+  key: 1,
   class: "mb-4 p-4 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-sm"
 };
 var _hoisted_21 = {
-  key: 1,
+  key: 2,
   class: "mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 text-sm"
 };
 var _hoisted_22 = {
-  key: 2,
+  key: 3,
   class: "mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 text-sm"
 };
 var _hoisted_23 = {
@@ -29013,7 +29018,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     d: "M12 4.5v15m7.5-7.5h-15"
-  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_6)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_7, [_cache[53] || (_cache[53] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Facturas internas con saldo pendiente, agrupadas por cliente (totales y saldos sumados). La búsqueda por nombre o cédula se aplica mientras escribe. Ordene por columna o use el embudo para filtrar. ", -1 /* CACHED */)), $props.canMulticobro ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_8, " Marque clientes y use «Multicobro» para incluir todas sus facturas pendientes en un solo registro de cobro.")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_10, [_cache[54] || (_cache[54] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_6)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_7, [_cache[53] || (_cache[53] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Facturas internas con saldo pendiente, agrupadas por cliente (totales y saldos sumados). La búsqueda por nombre o cédula se aplica mientras escribe. Ordene por columna o use el embudo para filtrar. ", -1 /* CACHED */)), $props.canMulticobro ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_8, " Marque clientes y use «Multicobro» para incluir todas sus facturas pendientes en un solo registro de cobro.")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $props.esAdmin ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_10, [_cache[54] || (_cache[54] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs font-medium text-gray-500 dark:text-gray-400"
   }, "Clientes con deuda", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.stats.cantidad_clientes), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_12, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.stats.cantidad_facturas) + " factura(s)", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [_cache[55] || (_cache[55] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs font-medium text-gray-500 dark:text-gray-400"
@@ -29021,7 +29026,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "text-xs font-medium text-gray-500 dark:text-gray-400"
   }, "Monto cobrado", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.fmtMonto($setup.stats.monto_cobrado, 'PYG')), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_17, [_cache[57] || (_cache[57] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs font-medium text-gray-500 dark:text-gray-400"
-  }, "Saldo pendiente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_18, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.fmtMonto($setup.stats.monto_saldo, 'PYG')), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_19, "Vencido: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.fmtMonto($setup.stats.saldo_vencido, 'PYG')) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.stats.facturas_vencidas) + " factura(s))", 1 /* TEXT */)])]), $props.flashSuccess ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_20, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.flashSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.flashError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.flashError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loadError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_22, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loadError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_23, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_24, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_25, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_26, [_cache[58] || (_cache[58] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Saldo pendiente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_18, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.fmtMonto($setup.stats.monto_saldo, 'PYG')), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_19, "Sin clientes dados de baja · Vencido: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.fmtMonto($setup.stats.saldo_vencido, 'PYG')) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.stats.facturas_vencidas) + " factura(s))", 1 /* TEXT */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.flashSuccess ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_20, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.flashSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.flashError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.flashError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loadError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_22, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loadError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_23, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_24, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_25, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_26, [_cache[58] || (_cache[58] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5"
   }, "Buscar por nombre o cédula", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
@@ -30564,7 +30569,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var el = document.getElementById('pendientes-pago-app');
 if (el) {
-  var _cfg$canMulticobro, _cfg$canCrearCobro, _cfg$canVerClienteDet;
+  var _cfg$canMulticobro, _cfg$canCrearCobro, _cfg$canVerClienteDet, _cfg$esAdmin;
   var cfg = typeof window.__PENDIENTES_PAGO_CONFIG__ !== 'undefined' ? window.__PENDIENTES_PAGO_CONFIG__ : {};
   var app = (0,vue__WEBPACK_IMPORTED_MODULE_2__.createApp)(_components_PendientesPago_vue__WEBPACK_IMPORTED_MODULE_3__["default"], {
     listUrl: cfg.listUrl || '',
@@ -30578,6 +30583,7 @@ if (el) {
     canMulticobro: (_cfg$canMulticobro = cfg.canMulticobro) !== null && _cfg$canMulticobro !== void 0 ? _cfg$canMulticobro : false,
     canCrearCobro: (_cfg$canCrearCobro = cfg.canCrearCobro) !== null && _cfg$canCrearCobro !== void 0 ? _cfg$canCrearCobro : false,
     canVerClienteDetalle: (_cfg$canVerClienteDet = cfg.canVerClienteDetalle) !== null && _cfg$canVerClienteDet !== void 0 ? _cfg$canVerClienteDet : false,
+    esAdmin: (_cfg$esAdmin = cfg.esAdmin) !== null && _cfg$esAdmin !== void 0 ? _cfg$esAdmin : false,
     flashSuccess: cfg.flashSuccess || '',
     flashError: cfg.flashError || '',
     nodos: cfg.nodos || []

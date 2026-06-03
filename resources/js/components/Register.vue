@@ -1,47 +1,47 @@
 <template>
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow border border-gray-200 p-6">
-            <h1 class="text-2xl font-bold text-gray-900">Registro</h1>
-            <p class="text-sm text-gray-500 mt-1">Ingrese su clave de licencia para solicitar acceso</p>
+    <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Registro</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Ingrese su clave de licencia para solicitar acceso</p>
 
             <form class="mt-6 space-y-4" @submit.prevent="handleRegister">
                 <div>
-                    <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre completo</label>
                     <input 
                         id="nombre"
                         name="nombre"
                         v-model="form.name" 
                         type="text" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         :class="{ 'border-red-500': errors.name }"
                         autocomplete="name"
                         required
                     />
-                    <p v-if="errors.name" class="mt-1 text-sm text-red-600">{{ errors.name }}</p>
+                    <p v-if="errors.name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ errors.name }}</p>
                 </div>
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                     <input 
                         id="email"
                         name="email"
                         v-model="form.email" 
                         type="email" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         :class="{ 'border-red-500': errors.email }"
                         autocomplete="email"
                         required
                     />
-                    <p v-if="errors.email" class="mt-1 text-sm text-red-600">{{ errors.email }}</p>
+                    <p v-if="errors.email" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ errors.email }}</p>
                 </div>
                 <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
                     <div class="relative">
                         <input 
                             id="password"
                             name="password"
                             v-model="form.password" 
                             :type="showPassword ? 'text' : 'password'"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                             :class="{ 'border-red-500': errors.password }"
                             autocomplete="new-password"
                             required
@@ -49,40 +49,40 @@
                         <button
                             type="button"
                             @click="showPassword = !showPassword"
-                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         >
                             <span v-if="showPassword">👁️</span>
                             <span v-else>👁️‍🗨️</span>
                         </button>
                     </div>
-                    <p v-if="errors.password" class="mt-1 text-sm text-red-600">{{ errors.password }}</p>
+                    <p v-if="errors.password" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ errors.password }}</p>
                 </div>
                 <div>
-                    <label for="licencia" class="block text-sm font-medium text-gray-700 mb-1">Clave de Licencia</label>
+                    <label for="licencia" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clave de Licencia</label>
                     <input 
                         id="licencia"
                         name="licencia"
                         v-model="form.license" 
                         type="text" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500" 
                         :class="{ 'border-red-500': errors.license }"
                         placeholder="LIC-"
                         autocomplete="off"
                         required
                     />
-                    <p v-if="errors.license" class="mt-1 text-sm text-red-600">{{ errors.license }}</p>
+                    <p v-if="errors.license" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ errors.license }}</p>
                 </div>
 
-                <div v-if="error" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p class="text-sm text-red-600">{{ error }}</p>
+                <div v-if="error" class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
                 </div>
-                <div v-if="success" class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p class="text-sm text-green-600">{{ success }}</p>
+                <div v-if="success" class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p class="text-sm text-green-600 dark:text-green-400">{{ success }}</p>
                 </div>
 
                 <button 
                     :disabled="loading" 
-                    class="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    class="w-full px-4 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
                 >
                     <span v-if="loading" class="flex items-center justify-center">
                         <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -94,8 +94,8 @@
                     <span v-else>Registrar</span>
                 </button>
 
-                <div class="text-xs text-gray-500 text-center mt-2">
-                    ¿Ya tienes acceso? <a href="/login" class="text-blue-600 hover:underline">Iniciar sesión</a>
+                <div class="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+                    ¿Ya tienes acceso? <a href="/login" class="text-blue-600 dark:text-blue-400 hover:underline">Iniciar sesión</a>
                 </div>
             </form>
         </div>

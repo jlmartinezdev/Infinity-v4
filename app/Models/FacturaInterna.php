@@ -125,6 +125,25 @@ class FacturaInterna extends Model
         return 'GREATEST(factura_internas.total - '.$cobrado.' - '.self::sqlSumNotasCredito().', 0)';
     }
 
+    /**
+     * Verdadero si el cliente debe contarse en totales de saldo pendiente (activo y con servicio no cancelado).
+     *
+     * @param  string  $clienteIdColumn  Columna SQL del cliente_id (ej. factura_internas.cliente_id, fi_stats.cliente_id)
+     */
+    public static function sqlClienteCuentaEnTotalPendiente(string $clienteIdColumn = 'factura_internas.cliente_id'): string
+    {
+        $cancelado = Servicio::ESTADO_CANCELADO;
+
+        return "(
+            (SELECT c.estado FROM clientes c WHERE c.cliente_id = {$clienteIdColumn} LIMIT 1) != 'inactivo'
+            AND EXISTS (
+                SELECT 1 FROM servicios s
+                WHERE s.cliente_id = {$clienteIdColumn}
+                AND s.estado != '{$cancelado}'
+            )
+        )";
+    }
+
     public function getEstaPagadaAttribute(): bool
     {
         return $this->saldo_pendiente <= 0;

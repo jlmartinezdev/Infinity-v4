@@ -123,11 +123,11 @@ class HomeController extends Controller
 
     /**
      * Total cobrado del ciclo mensual vigente usando cobros.monto
-     * (alineado con el dashboard de Cobros y su enlace desde Home).
+     * (ventana 20→fin de mes; excluye pago y factura posteriores al día 20 del mes actual).
      */
     private function totalCobrosMesActualDesdeCobros(): float
     {
-        return CobrosMesVentana::sumCobrosMesActualSinUsuario();
+        return \App\Models\CobroResumen::totalCobradoParaMes();
     }
 
     /**

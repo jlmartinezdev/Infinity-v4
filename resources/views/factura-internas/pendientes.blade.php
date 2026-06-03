@@ -32,6 +32,7 @@
         'canMulticobro' => $u?->tienePermiso('cobros.crear') ?? false,
         'canCrearCobro' => $u?->tienePermiso('cobros.crear') ?? false,
         'canVerClienteDetalle' => $u?->tienePermiso('clientes.ver') ?? false,
+        'esAdmin' => strtolower($u?->rol?->descripcion ?? '') === 'administrador',
         'flashSuccess' => session('success') ?? '',
         'flashError' => session('error') ?? '',
         'nodos' => ($nodos ?? collect())->map(fn ($n) => $n->toArraySelect())->values()->all(),

@@ -9,6 +9,7 @@ use App\Models\FacturacionParametro;
 use App\Models\Impuesto;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
+use App\Services\Sifen\SifenService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -210,6 +211,71 @@ class FacturaController extends Controller
         }
         $factura->delete();
         return redirect()->route('facturas.index')->with('success', 'Factura eliminada.');
+    }
+
+    /**
+     * Emite la factura electrónica: genera DE, firma, envía a SIFEN y produce KuDE PDF.
+     */
+    public function emitir(Factura $factura, SifenService $sifenService)
+    {
+        if ($factura->estado !== 'borrador') {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Solo se pueden emitir facturas en estado borrador.');
+        }
+
+        try {
+            $resultado = $sifenService->emitirDocumento($factura, true);
+        } catch (\Throwable $e) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Error al emitir factura electrónica: '.$e->getMessage());
+        }
+
+        $mensaje = 'Factura electrónica emitida. CDC: '.$resultado['cdc'];
+        if ($resultado['sifen'] && ($resultado['sifen']['protocolo'] ?? null)) {
+            $mensaje .= ' · Protocolo: '.$resultado['sifen']['protocolo'];
+        }
+
+        return redirect()->route('facturas.show', $factura)->with('success', $mensaje);
+    }
+
+    /**
+     * Descarga el KuDE PDF de una factura emitida.
+     */
+    public function descargarKude(Factura $factura)
+    {
+        if (! $factura->pdf_path) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'No hay KuDE PDF generado para esta factura.');
+        }
+
+        $ruta = storage_path($factura->pdf_path);
+        if (! is_file($ruta)) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Archivo KuDE no encontrado en el servidor.');
+        }
+
+        return response()->download($ruta, basename($ruta));
+    }
+
+    /**
+     * Descarga el XML firmado del DE.
+     */
+    public function descargarXml(Factura $factura)
+    {
+        if (! $factura->xml_path) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'No hay XML generado para esta factura.');
+        }
+
+        $ruta = storage_path($factura->xml_path);
+        if (! is_file($ruta)) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Archivo XML no encontrado en el servidor.');
+        }
+
+        return response()->download($ruta, basename($ruta), [
+            'Content-Type' => 'application/xml',
+        ]);
     }
 
     /**

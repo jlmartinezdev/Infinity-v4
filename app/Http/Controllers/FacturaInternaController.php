@@ -77,8 +77,9 @@ class FacturaInternaController extends Controller
 
         $statsQuery = (clone $query)->reorder();
         $saldoSql = FacturaInterna::sqlSaldoPendienteExpr();
+        $cuentaPendiente = FacturaInterna::sqlClienteCuentaEnTotalPendiente('factura_internas.cliente_id');
         $totalPendiente = (float) (clone $statsQuery)
-            ->selectRaw("SUM({$saldoSql}) as total_pendiente")
+            ->selectRaw("SUM(CASE WHEN {$cuentaPendiente} THEN {$saldoSql} ELSE 0 END) as total_pendiente")
             ->value('total_pendiente');
         $cantidadFacturas = (int) (clone $statsQuery)->count('factura_internas.id');
         $totalGenerado = (float) (clone $statsQuery)
@@ -183,26 +184,28 @@ class FacturaInternaController extends Controller
             DB::raw('('.$promExpr.') as prom_calc'),
         ]);
 
+        $cuentaSaldoPendiente = FacturaInterna::sqlClienteCuentaEnTotalPendiente('fi_stats.cliente_id');
         $statsBase = DB::query()
             ->fromSub(clone $inner, 'fi_stats')
-            ->selectRaw('
+            ->selectRaw("
                 COUNT(*) as cantidad_facturas,
                 COUNT(DISTINCT fi_stats.cliente_id) as cantidad_clientes,
                 COALESCE(SUM(fi_stats.total), 0) as monto_total,
                 COALESCE(SUM(fi_stats.cobrado_calc), 0) as monto_cobrado,
-                COALESCE(SUM(fi_stats.saldo_calc), 0) as monto_saldo
-            ')
+                COALESCE(SUM(CASE WHEN {$cuentaSaldoPendiente} THEN fi_stats.saldo_calc ELSE 0 END), 0) as monto_saldo
+            ")
             ->first();
         $hoy = now()->toDateString();
+        $cuentaSaldoVencido = FacturaInterna::sqlClienteCuentaEnTotalPendiente('fi_venc.cliente_id');
         $statsVencidos = DB::query()
             ->fromSub(clone $inner, 'fi_venc')
             ->whereNotNull('fi_venc.fecha_vencimiento')
             ->whereDate('fi_venc.fecha_vencimiento', '<', $hoy)
-            ->selectRaw('
+            ->selectRaw("
                 COUNT(*) as facturas_vencidas,
                 COUNT(DISTINCT fi_venc.cliente_id) as clientes_vencidos,
-                COALESCE(SUM(fi_venc.saldo_calc), 0) as saldo_vencido
-            ')
+                COALESCE(SUM(CASE WHEN {$cuentaSaldoVencido} THEN fi_venc.saldo_calc ELSE 0 END), 0) as saldo_vencido
+            ")
             ->first();
 
         $perPage = 20;
