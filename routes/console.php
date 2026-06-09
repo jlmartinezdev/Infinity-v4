@@ -14,8 +14,14 @@ Artisan::command('crear-factura-internas', function () {
 })->purpose('Alias: crea facturas internas automáticas para clientes activos con servicio asociado; factura A/S/C (mes actual, --force).');
 
 Artisan::command('verificar-facturas-mes-pasado', function () {
-    return $this->call('facturas:verificar-mes-pasado-clientes-activos');
-})->purpose('Alias: verifica si todos los clientes activos con servicio tienen factura interna del mes pasado.');
+    return $this->call('facturas:auditar-internas-mes-pasado', [
+        '--solo-faltantes' => true,
+    ]);
+})->purpose('Alias: audita clientes activos sin factura interna del mes pasado (solo faltantes).');
+
+Artisan::command('auditar-facturas-internas-mes-pasado', function () {
+    return $this->call('facturas:auditar-internas-mes-pasado');
+})->purpose('Alias: auditoría completa de facturas internas mensuales faltantes.');
 
 Artisan::command('verificar-servicios-suspendidos-mikrotik', function () {
     return $this->call('mikrotik:verificar-servicios-suspendidos');
@@ -28,3 +34,15 @@ Artisan::command('auditar-cobros-pivote', function () {
 Artisan::command('auditar-dashboard-inicio-cobros', function () {
     return $this->call('cobros:auditar-dashboard-inicio');
 })->purpose('Alias: compara cobros.monto vs pivote como en dashboard de Inicio.');
+
+Artisan::command('auditar-cobros-resumen', function () {
+    return $this->call('cobros:auditar-resumen');
+})->purpose('Alias: audita cobros_resumen vs totales recalculados desde cobros.');
+
+Artisan::command('auditar-saldo-favor-recibos', function () {
+    return $this->call('cobros:auditar-saldo-favor-recibos', ['--solo-con-saldo' => true]);
+})->purpose('Alias: lista recibos que generaron saldo a favor.');
+
+Artisan::command('auditar-monto-pagado-facturas', function () {
+    return $this->call('cobros:auditar-monto-pagado-facturas', ['--solo-diferencias' => true]);
+})->purpose('Alias: audita monto pagado vs pivote en facturas internas.');

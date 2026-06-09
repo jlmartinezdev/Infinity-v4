@@ -26,11 +26,20 @@
                 Nebula: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta. Los badges indican vencimiento (por vencer en {{ \App\Models\TvCuenta::DIAS_AVISO_POR_VENCER }} días o menos, vencido).
             </p>
         </div>
-        @if(auth()->user()?->tienePermiso('tv.editar'))
-            <a href="{{ route('tv-cuentas.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 shrink-0">
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <a href="{{ route('tv-cuentas.exportar-excel', request()->query()) }}"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors">
+                <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Exportar Excel
+            </a>
+            @if(auth()->user()?->tienePermiso('tv.editar'))
+            <a href="{{ route('tv-cuentas.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">
                 Nueva cuenta
             </a>
-        @endif
+            @endif
+        </div>
     </div>
 
     @if(session('success'))

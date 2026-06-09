@@ -502,9 +502,14 @@ class CobroController extends Controller
      */
     public function destroy(Cobro $cobro)
     {
-        $this->facturacionService->eliminarCobro($cobro);
+        $montoSaldoFavor = $this->facturacionService->eliminarCobro($cobro);
 
-        return redirect()->route('cobros.index')->with('success', 'Cobro eliminado correctamente.');
+        $mensaje = 'Cobro eliminado correctamente.';
+        if ($montoSaldoFavor > 0.009) {
+            $mensaje .= ' Se descontaron '.number_format($montoSaldoFavor, 0, ',', '.').' PYG del saldo a favor del cliente.';
+        }
+
+        return redirect()->route('cobros.index')->with('success', $mensaje);
     }
 
     /**

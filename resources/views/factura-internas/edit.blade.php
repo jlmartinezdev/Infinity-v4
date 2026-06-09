@@ -7,6 +7,9 @@
     <div class="mb-6">
         <a href="{{ route('factura-internas.show', $factura_interna) }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium">&larr; Volver a factura</a>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Editar factura interna #{{ $factura_interna->id }}</h1>
+        @if($factura_interna->esServicioEspecial())
+            <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">Servicio especial — sin período ni vencimiento</p>
+        @endif
     </div>
 
     <form action="{{ route('factura-internas.update', $factura_interna) }}" method="POST" id="form-edit-factura-interna">
@@ -25,6 +28,7 @@
                     </select>
                     @error('cliente_id')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
+                @unless($factura_interna->esServicioEspecial())
                 <div>
                     <label for="periodo_desde" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Período desde *</label>
                     <input type="date" name="periodo_desde" id="periodo_desde" value="{{ old('periodo_desde', $factura_interna->periodo_desde?->format('Y-m-d')) }}" required class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -35,16 +39,19 @@
                     <input type="date" name="periodo_hasta" id="periodo_hasta" value="{{ old('periodo_hasta', $factura_interna->periodo_hasta?->format('Y-m-d')) }}" required class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     @error('periodo_hasta')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
+                @endunless
                 <div>
                     <label for="fecha_emision" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de emisión *</label>
                     <input type="date" name="fecha_emision" id="fecha_emision" value="{{ old('fecha_emision', $factura_interna->fecha_emision?->format('Y-m-d')) }}" required class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     @error('fecha_emision')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
+                @unless($factura_interna->esServicioEspecial())
                 <div>
                     <label for="fecha_vencimiento" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de vencimiento *</label>
                     <input type="date" name="fecha_vencimiento" id="fecha_vencimiento" value="{{ old('fecha_vencimiento', $factura_interna->fecha_vencimiento?->format('Y-m-d')) }}" required class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     @error('fecha_vencimiento')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
+                @endunless
                 <div>
                     <label for="estado" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado *</label>
                     <select name="estado" id="estado" required class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">

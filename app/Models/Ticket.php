@@ -98,4 +98,21 @@ class Ticket extends Model
             'otro' => 'Otro',
         ];
     }
+
+    /**
+     * Cobros facturados como servicio especial (sin período ni vencimiento), p. ej. cambio de contraseña.
+     */
+    public function esFacturaServicioEspecial(): bool
+    {
+        $this->loadMissing('ticketAsunto');
+        $nombre = mb_strtolower(trim($this->ticketAsunto?->nombre ?? ''));
+
+        if ($nombre === '') {
+            return false;
+        }
+
+        return str_contains($nombre, 'contraseña')
+            || str_contains($nombre, 'contrasena')
+            || str_contains($nombre, 'password');
+    }
 }

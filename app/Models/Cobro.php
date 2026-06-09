@@ -23,6 +23,7 @@ class Cobro extends Model
         'concepto',
         'observaciones',
         'usuario_id',
+        'cobro_rendicion_id',
     ];
 
     protected function casts(): array
@@ -75,6 +76,21 @@ class Cobro extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usuario_id', 'usuario_id');
+    }
+
+    public function rendicion(): BelongsTo
+    {
+        return $this->belongsTo(CobroRendicion::class, 'cobro_rendicion_id');
+    }
+
+    public function scopeEfectivoPendienteRendicion($query, ?int $usuarioId = null)
+    {
+        $query->where('forma_pago', 'efectivo')->whereNull('cobro_rendicion_id');
+        if ($usuarioId !== null) {
+            $query->where('usuario_id', $usuarioId);
+        }
+
+        return $query;
     }
 
     /**

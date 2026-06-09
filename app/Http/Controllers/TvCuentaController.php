@@ -11,6 +11,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TvCuentaController extends Controller
 {
@@ -131,6 +132,135 @@ class TvCuentaController extends Controller
         );
 
         return view('tv-cuentas.index', compact('cuentas', 'stats', 'filtro'));
+    }
+
+    /**
+     * Exportar clientes con app TV asignada a Excel (CSV UTF-8 con separador ;).
+     * Una fila por asignación (cliente + perfil/pantalla en cuenta TV).
+     */
+    public function exportarExcel(Request $request): StreamedResponse
+    {
+        $filtro = $request->get('estado', 'todos');
+        if (! in_array($filtro, ['todos', 'vencido', 'por_vencer', 'ok'], true)) {
+            $filtro = 'todos';
+        }
+
+        $asignaciones = TvCuentaAsignacion::query()
+            ->with([
+                'tvCuenta',
+                'servicio.cliente',
+                'servicio.plan',
+            ])
+            ->whereHas('tvCuenta')
+            ->get()
+            ->filter(function (TvCuentaAsignacion $asig) use ($filtro) {
+                $cuenta = $asig->tvCuenta;
+                if (! $cuenta) {
+                    return false;
+                }
+
+                return $filtro === 'todos' || $cuenta->estadoVencimiento() === $filtro;
+            })
+            ->sort(function (TvCuentaAsignacion $a, TvCuentaAsignacion $b) {
+                $clienteA = $a->servicio?->cliente;
+                $clienteB = $b->servicio?->cliente;
+                $nombreA = mb_strtolower(trim(($clienteA?->nombre ?? '').' '.($clienteA?->apellido ?? '')));
+                $nombreB = mb_strtolower(trim(($clienteB?->nombre ?? '').' '.($clienteB?->apellido ?? '')));
+                $cmp = $nombreA <=> $nombreB;
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+
+                $appCmp = ($a->tvCuenta?->aplicacion ?? '') <=> ($b->tvCuenta?->aplicacion ?? '');
+                if ($appCmp !== 0) {
+                    return $appCmp;
+                }
+
+                $cuentaCmp = ($a->tvCuenta?->usuario_app ?? '') <=> ($b->tvCuenta?->usuario_app ?? '');
+                if ($cuentaCmp !== 0) {
+                    return $cuentaCmp;
+                }
+
+                return ((int) ($a->perfil_numero ?? 0)) <=> ((int) ($b->perfil_numero ?? 0));
+            })
+            ->values();
+
+        $filename = 'clientes-app-tv-'.now()->format('Y-m-d-His').'.csv';
+        $aplicaciones = TvCuenta::aplicaciones();
+        $estadosServicio = Servicio::estadosDisponibles();
+
+        return response()->streamDownload(function () use ($asignaciones, $aplicaciones, $estadosServicio) {
+            $output = fopen('php://output', 'w');
+            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($output, [
+                'ID cliente',
+                'Cliente',
+                'Cédula',
+                'Teléfono',
+                'Email',
+                'ID servicio',
+                'Plan',
+                'Estado servicio',
+                'App',
+                'Cuenta TV',
+                'Usuario app',
+                'Contraseña app',
+                'Perfil/Pantalla',
+                'Nombre perfil',
+                'Precio aplicado (Gs.)',
+                'Promo',
+                'TV box comodato',
+                'Fecha activación',
+                'Vencimiento cuenta',
+                'Estado vencimiento',
+                'Día vencimiento mensual',
+            ], ';');
+
+            foreach ($asignaciones as $asig) {
+                $cuenta = $asig->tvCuenta;
+                $servicio = $asig->servicio;
+                $cliente = $servicio?->cliente;
+                $perfilNum = (int) ($asig->perfil_numero ?? 0);
+
+                fputcsv($output, [
+                    $cliente?->cliente_id ?? '',
+                    trim(($cliente?->nombre ?? '').' '.($cliente?->apellido ?? '')),
+                    $cliente?->cedula ?? '',
+                    $cliente?->telefono ?? '',
+                    $cliente?->email ?? '',
+                    $servicio?->servicio_id ?? '',
+                    $servicio?->plan?->nombre ?? '',
+                    $estadosServicio[$servicio?->estado ?? ''] ?? ($servicio?->estado ?? ''),
+                    $aplicaciones[$cuenta?->aplicacion ?? ''] ?? ($cuenta?->aplicacion ?? ''),
+                    $cuenta?->nombre ?? '',
+                    $cuenta?->usuario_app ?? '',
+                    $cuenta?->password ?? '',
+                    $perfilNum > 0
+                        ? ($cuenta?->esLumix() ? 'Pantalla '.$perfilNum : 'Perfil '.$perfilNum)
+                        : '',
+                    $perfilNum > 0 ? ($cuenta?->nombreSlot($perfilNum) ?? '') : '',
+                    $asig->precio_aplicado !== null
+                        ? number_format((float) $asig->precio_aplicado, 0, ',', '')
+                        : '',
+                    ($asig->es_promo ?? false) ? 'Sí' : 'No',
+                    ($asig->tvbox_comodato ?? false) ? 'Sí' : 'No',
+                    optional($asig->fecha_activacion)->format('d/m/Y') ?? '',
+                    $cuenta ? $cuenta->fechaVencimientoReferencia()->format('d/m/Y') : '',
+                    $cuenta ? match ($cuenta->estadoVencimiento()) {
+                        'vencido' => 'Vencido',
+                        'por_vencer' => 'Por vencer',
+                        default => 'Al día',
+                    } : '',
+                    $cuenta ? $cuenta->diaVencimientoMensual() : '',
+                ], ';');
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 
     /** Redirige al listado integrado (compatibilidad con enlaces antiguos). */

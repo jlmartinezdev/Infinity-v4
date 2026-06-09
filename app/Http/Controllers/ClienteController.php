@@ -6,6 +6,7 @@ use App\Helpers\MapsUrlHelper;
 use App\Models\Cliente;
 use App\Models\CedulaPadron;
 use App\Models\Cobro;
+use App\Models\FacturaInterna;
 use App\Models\PoolIpAsignada;
 use App\Models\Servicio;
 use App\Models\Ticket;
@@ -98,11 +99,32 @@ class ClienteController extends Controller
     }
 
     /**
-     * Vista de detalle general: datos del cliente, servicios, historial de cobros y de tickets.
+     * Vista de detalle general: datos del cliente, servicios, facturación, historial de cobros y de tickets.
      */
     public function detalle(Cliente $cliente)
     {
         $cliente->load(['servicios.plan', 'servicios.pool']);
+
+        $saldoPendienteExpr = FacturaInterna::sqlSaldoPendienteExpr();
+
+        $totalPendientePago = (float) (FacturaInterna::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->whereNotIn('estado', ['anulada', 'cancelada'])
+            ->whereRaw($saldoPendienteExpr.' > 0.009')
+            ->selectRaw('SUM('.$saldoPendienteExpr.') as total')
+            ->value('total') ?? 0);
+
+        $totalSaldoFavor = (float) $cliente->servicios->sum(
+            fn (Servicio $s) => (float) ($s->saldo_a_favor ?? 0)
+        );
+
+        $facturasInternas = FacturaInterna::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->whereNotIn('estado', ['anulada', 'cancelada'])
+            ->orderByDesc('fecha_emision')
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get();
 
         $cobros = Cobro::query()
             ->where('cliente_id', $cliente->cliente_id)
@@ -120,7 +142,14 @@ class ClienteController extends Controller
             ->limit(60)
             ->get();
 
-        return view('clientes.detalle', compact('cliente', 'cobros', 'tickets'));
+        return view('clientes.detalle', compact(
+            'cliente',
+            'cobros',
+            'tickets',
+            'totalPendientePago',
+            'totalSaldoFavor',
+            'facturasInternas',
+        ));
     }
 
     /**

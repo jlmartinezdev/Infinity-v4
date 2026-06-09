@@ -33,7 +33,19 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mt-6">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Cobro atrasado y saldo a favor (por mes)</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Cobro atrasado y saldo a favor (por mes)</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">El saldo a favor corresponde a cobros adelantados sin factura o con exceso sobre lo aplicado.</p>
+            </div>
+            <a href="{{ route('facturacion.cobros-saldo-favor') }}"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+                Ver cobros saldo a favor
+            </a>
+        </div>
         <div class="w-full" style="height: 320px;">
             <canvas id="facturacionAtrasadoFavorChart"></canvas>
         </div>

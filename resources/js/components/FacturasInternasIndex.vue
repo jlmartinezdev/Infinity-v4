@@ -196,7 +196,13 @@
                 <span v-if="f.cliente_cedula" class="text-xs text-gray-500 dark:text-gray-400">{{ f.cliente_cedula }}</span>
               </td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                {{ formatDMY(f.periodo_desde) }} – {{ formatDMY(f.periodo_hasta) }}
+                <template v-if="f.tipo_factura === 'servicio_especial'">
+                  <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Servicio especial</span>
+                </template>
+                <template v-else-if="f.periodo_desde && f.periodo_hasta">
+                  {{ formatDMY(f.periodo_desde) }} – {{ formatDMY(f.periodo_hasta) }}
+                </template>
+                <template v-else>—</template>
               </td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ formatDMY(f.fecha_emision) }}</td>
               <td class="px-4 py-3">

@@ -7,6 +7,8 @@
     $formasPago = \App\Models\Cobro::formasPago();
     $estadosTicket = \App\Models\Ticket::estados();
     $estadosServicio = \App\Models\Servicio::estadosDisponibles();
+    $estadosFactura = \App\Models\FacturaInterna::estados();
+    $u = auth()->user();
     $mapsUrl = null;
     if ($cliente->url_ubicacion) {
         $raw = trim((string) $cliente->url_ubicacion);
@@ -41,6 +43,27 @@
                     Editar cliente
                 </a>
             @endif
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pendiente de pago</p>
+            <p class="mt-2 text-2xl font-bold {{ ($totalPendientePago ?? 0) > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-gray-100' }}">
+                {{ number_format((float) ($totalPendientePago ?? 0), 0, ',', '.') }} PYG
+            </p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Saldo en facturas internas vigentes</p>
+            @if($u?->tienePermiso('pagos-pendientes.ver') && ($totalPendientePago ?? 0) > 0)
+                <a href="{{ route('factura-internas.pendientes', ['buscar' => $cliente->cedula ?: trim($cliente->nombre.' '.$cliente->apellido)]) }}"
+                    class="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline">Ver en pendientes</a>
+            @endif
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Saldo a favor</p>
+            <p class="mt-2 text-2xl font-bold {{ ($totalSaldoFavor ?? 0) > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-gray-900 dark:text-gray-100' }}">
+                {{ number_format((float) ($totalSaldoFavor ?? 0), 0, ',', '.') }} PYG
+            </p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Crédito por cobros adelantados en servicios</p>
         </div>
     </div>
 
@@ -116,6 +139,71 @@
                                         <a href="{{ route('servicios.edit', $s) }}" class="text-purple-600 dark:text-purple-400 hover:underline">Editar</a>
                                     </td>
                                 @endif
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+
+    {{-- Facturas generadas --}}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Facturas generadas</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Últimas {{ ($facturasInternas ?? collect())->count() }} facturas internas</p>
+            </div>
+            @if($u?->tienePermiso('factura-interna.ver'))
+                <a href="{{ route('factura-internas.index', ['buscar' => $cliente->cedula ?: trim($cliente->nombre.' '.$cliente->apellido)]) }}"
+                    class="text-sm text-purple-600 dark:text-purple-400 hover:underline shrink-0">Ver todas</a>
+            @endif
+        </div>
+        @if(($facturasInternas ?? collect())->isEmpty())
+            <p class="text-sm text-gray-500 dark:text-gray-400">No hay facturas internas registradas para este cliente.</p>
+        @else
+            <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700/50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Emisión</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Período / tipo</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Pendiente</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach($facturasInternas as $factura)
+                            @php
+                                $saldoFactura = (float) $factura->saldo_pendiente;
+                            @endphp
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td class="px-4 py-2 text-gray-900 dark:text-gray-100 font-medium">#{{ $factura->id }}</td>
+                                <td class="px-4 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $factura->fecha_emision?->format('d/m/Y') ?? '—' }}</td>
+                                <td class="px-4 py-2 text-gray-600 dark:text-gray-400">
+                                    @if($factura->esServicioEspecial())
+                                        <span class="text-amber-700 dark:text-amber-400">{{ $factura->etiquetaTipoFactura() }}</span>
+                                    @elseif($factura->periodo_desde && $factura->periodo_hasta)
+                                        {{ $factura->periodo_desde->format('d/m/Y') }} – {{ $factura->periodo_hasta->format('d/m/Y') }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="px-4 py-2 text-right text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ number_format((float) $factura->total, 0, ',', '.') }} PYG</td>
+                                <td class="px-4 py-2 text-right whitespace-nowrap font-medium {{ $saldoFactura > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-green-700 dark:text-green-400' }}">
+                                    {{ number_format($saldoFactura, 0, ',', '.') }} PYG
+                                </td>
+                                <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{{ $estadosFactura[$factura->estado] ?? $factura->estado }}</td>
+                                <td class="px-4 py-2 text-right whitespace-nowrap">
+                                    @if($u?->tienePermiso('factura-interna.ver'))
+                                        <a href="{{ route('factura-internas.show', $factura) }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver</a>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

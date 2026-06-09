@@ -181,6 +181,7 @@ class FacturacionService
         $factura = DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $usuarioId, $estadoFinal, $fechaVencimientoFinal, $fechaEmisionFinal) {
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
+                'tipo_factura' => FacturaInterna::TIPO_SERVICIO,
                 'periodo_desde' => $periodoDesdeEfectivo->toDateString(),
                 'periodo_hasta' => $periodoHasta->toDateString(),
                 'fecha_emision' => $fechaEmisionFinal,
@@ -342,6 +343,7 @@ class FacturacionService
 
                 $factura = FacturaInterna::create([
                     'cliente_id' => $cliente->cliente_id,
+                    'tipo_factura' => FacturaInterna::TIPO_SERVICIO,
                     'periodo_desde' => $periodoDesdeEfectivo->toDateString(),
                     'periodo_hasta' => $periodoHasta->toDateString(),
                     'fecha_emision' => $fechaEmision,
@@ -513,6 +515,7 @@ class FacturacionService
 
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
+                'tipo_factura' => FacturaInterna::TIPO_SERVICIO,
                 'periodo_desde' => $periodoDesde->toDateString(),
                 'periodo_hasta' => $periodoHasta->toDateString(),
                 'fecha_emision' => $fechaEmision,
@@ -539,6 +542,104 @@ class FacturacionService
                     'impuesto_id' => $impuesto->id,
                     'servicio_id' => $servicio->servicio_id,
                     'descripcion' => $item['descripcion'] ?? 'Servicio',
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => $precioUnitario,
+                    'subtotal' => $calc['subtotal'],
+                    'porcentaje_impuesto' => $calc['porcentaje_impuesto'],
+                    'monto_impuesto' => $calc['monto_impuesto'],
+                    'total' => $calc['total'],
+                ]);
+
+                $subtotal += $calc['subtotal'];
+                $totalImpuestos += $calc['monto_impuesto'];
+                $total += $calc['total'];
+            }
+
+            $totalFinal = max(0, $total - $descuento);
+
+            $factura->update([
+                'subtotal' => $subtotal,
+                'total_impuestos' => $totalImpuestos,
+                'total' => $totalFinal,
+            ]);
+
+            $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pendiente');
+
+            return $factura->fresh(['detalles', 'cliente']);
+        });
+
+        $this->sincronizarResumenPorFactura($factura);
+
+        return $factura;
+    }
+
+    /**
+     * Factura interna por servicio especial: sin período facturado ni fecha de vencimiento.
+     *
+     * @param  array<int, array{descripcion?: string, cantidad?: float, precio_unitario?: float, impuesto_id?: int|null}>  $items
+     */
+    public function generarFacturaInternaServicioEspecial(
+        Servicio $servicio,
+        string $fechaEmision,
+        float $descuento,
+        array $items,
+        ?int $usuarioId = null,
+        ?string $observacionesFactura = null
+    ): FacturaInterna {
+        $servicio->load(['plan', 'cliente']);
+        if (! $servicio->cliente) {
+            throw new \InvalidArgumentException('El servicio no tiene cliente asociado.');
+        }
+        if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            throw new \InvalidArgumentException('No se puede facturar un servicio cancelado.');
+        }
+        if (empty($items)) {
+            throw new \InvalidArgumentException('Debe incluir al menos un ítem en la factura.');
+        }
+
+        $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $cliente = $servicio->cliente;
+
+        $factura = DB::transaction(function () use ($servicio, $cliente, $fechaEmision, $descuento, $items, $impuestoExento, $usuarioId, $observacionesFactura) {
+            $subtotal = 0;
+            $totalImpuestos = 0;
+            $total = 0;
+
+            $obsDefault = sprintf(
+                'Factura interna — Servicio especial #%d (%s)',
+                $servicio->servicio_id,
+                $servicio->plan?->nombre ?? 'sin plan'
+            );
+
+            $factura = FacturaInterna::create([
+                'cliente_id' => $cliente->cliente_id,
+                'tipo_factura' => FacturaInterna::TIPO_SERVICIO_ESPECIAL,
+                'periodo_desde' => null,
+                'periodo_hasta' => null,
+                'fecha_emision' => $fechaEmision,
+                'fecha_vencimiento' => null,
+                'fecha_pago' => null,
+                'estado' => 'pendiente',
+                'moneda' => 'PYG',
+                'usuario_id' => $usuarioId,
+                'subtotal' => 0,
+                'total_impuestos' => 0,
+                'total' => 0,
+                'descuento' => $descuento,
+                'observaciones' => $observacionesFactura ?? $obsDefault,
+            ]);
+
+            foreach ($items as $item) {
+                $impuesto = Impuesto::find($item['impuesto_id'] ?? null) ?? $impuestoExento;
+                $cantidad = (float) ($item['cantidad'] ?? 1);
+                $precioUnitario = (float) ($item['precio_unitario'] ?? 0);
+                $calc = FacturaDetalle::calcularDesdePrecio($cantidad, $precioUnitario, $impuesto);
+
+                FacturaInternaDetalle::create([
+                    'factura_interna_id' => $factura->id,
+                    'impuesto_id' => $impuesto->id,
+                    'servicio_id' => $servicio->servicio_id,
+                    'descripcion' => $item['descripcion'] ?? 'Servicio especial',
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precioUnitario,
                     'subtotal' => $calc['subtotal'],
@@ -985,22 +1086,30 @@ class FacturacionService
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $ticket->loadMissing('ticketAsunto');
 
-        $periodoDesde = now()->startOfMonth()->toDateString();
-        $periodoHasta = now()->endOfMonth()->toDateString();
+        $esServicioEspecial = $ticket->esFacturaServicioEspecial();
+
+        $periodoDesde = $esServicioEspecial ? null : now()->startOfMonth()->toDateString();
+        $periodoHasta = $esServicioEspecial ? null : now()->endOfMonth()->toDateString();
         $fechaEmision = now()->toDateString();
-        $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
+        $fechaVencimiento = $esServicioEspecial ? null : now()->addDays($diasVencimiento)->toDateString();
 
         $asuntoNombre = $ticket->ticketAsunto?->nombre ?? 'Ticket';
         $descripcionLinea = sprintf('Cobro ticket #%d — %s', $ticket->id, $asuntoNombre);
-        $observaciones = sprintf('Factura por cobro de ticket #%d', $ticket->id);
+        $observaciones = $esServicioEspecial
+            ? sprintf('Factura servicio especial — ticket #%d (%s)', $ticket->id, $asuntoNombre)
+            : sprintf('Factura por cobro de ticket #%d', $ticket->id);
 
-        $factura = DB::transaction(function () use ($cliente, $ticket, $monto, $fechaEmision, $fechaVencimiento, $periodoDesde, $periodoHasta, $impuestoExento, $usuarioId, $descripcionLinea, $observaciones) {
+        $factura = DB::transaction(function () use ($cliente, $ticket, $monto, $fechaEmision, $fechaVencimiento, $periodoDesde, $periodoHasta, $impuestoExento, $usuarioId, $descripcionLinea, $observaciones, $esServicioEspecial) {
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
+                'tipo_factura' => $esServicioEspecial
+                    ? FacturaInterna::TIPO_SERVICIO_ESPECIAL
+                    : FacturaInterna::TIPO_SERVICIO,
                 'periodo_desde' => $periodoDesde,
                 'periodo_hasta' => $periodoHasta,
                 'fecha_emision' => $fechaEmision,
                 'fecha_vencimiento' => $fechaVencimiento,
+                'fecha_pago' => null,
                 'estado' => 'pendiente',
                 'moneda' => 'PYG',
                 'usuario_id' => $usuarioId,
@@ -1052,18 +1161,150 @@ class FacturacionService
      */
     public function sumarSaldoAFavorCliente(int $clienteId, float $monto, ?int $facturaInternaId = null): void
     {
+        $servicioId = $this->resolverServicioIdSaldoAFavor($clienteId, $facturaInternaId);
+        if ($servicioId && $monto > 0) {
+            Servicio::where('servicio_id', $servicioId)->increment('saldo_a_favor', $monto);
+        }
+    }
+
+    /**
+     * Descuenta saldo a favor al revertir un cobro que lo había generado (mínimo 0).
+     */
+    public function descontarSaldoAFavorCliente(int $clienteId, float $monto, ?int $facturaInternaId = null): void
+    {
+        $servicioId = $this->resolverServicioIdSaldoAFavor($clienteId, $facturaInternaId);
+        if (! $servicioId || $monto <= 0.009) {
+            return;
+        }
+
+        $servicio = Servicio::find($servicioId);
+        if (! $servicio) {
+            return;
+        }
+
+        $nuevo = max(0, round((float) $servicio->saldo_a_favor - $monto, 2));
+        $servicio->update(['saldo_a_favor' => $nuevo]);
+    }
+
+    private function resolverServicioIdSaldoAFavor(int $clienteId, ?int $facturaInternaId = null): ?int
+    {
         $servicioId = null;
         if ($facturaInternaId) {
             $servicioId = FacturaInternaDetalle::where('factura_interna_id', $facturaInternaId)
                 ->whereNotNull('servicio_id')
                 ->value('servicio_id');
         }
-        if (!$servicioId) {
+        if (! $servicioId) {
             $servicioId = Servicio::where('cliente_id', $clienteId)->value('servicio_id');
         }
-        if ($servicioId && $monto > 0) {
-            Servicio::where('servicio_id', $servicioId)->increment('saldo_a_favor', $monto);
+
+        return $servicioId ? (int) $servicioId : null;
+    }
+
+    /**
+     * Monto de saldo a favor que generó este cobro al registrarse (cobro adelantado o exceso sobre factura).
+     */
+    public function montoSaldoFavorGeneradoPorCobro(Cobro $cobro): float
+    {
+        $cobro->loadMissing(['facturaInternas', 'facturaInterna']);
+        $monto = (float) $cobro->monto;
+
+        if ($cobro->facturaInternas->isEmpty()) {
+            if (! $cobro->factura_interna_id) {
+                return round($monto, 2);
+            }
+
+            $factura = $cobro->facturaInterna;
+            if (! $factura) {
+                return 0.0;
+            }
+
+            return $this->calcularExcesoSaldoFavorEnFactura($factura, $monto, (int) $cobro->id);
         }
+
+        $saldoFavor = 0.0;
+        foreach ($cobro->facturaInternas as $factura) {
+            $pivotMonto = (float) ($factura->pivot->monto ?? 0);
+            $saldoFavor += $this->calcularExcesoSaldoFavorEnFactura($factura, $pivotMonto, (int) $cobro->id);
+        }
+
+        $sumaPivot = (float) $cobro->facturaInternas->sum(fn ($f) => (float) ($f->pivot->monto ?? 0));
+        if ($monto > $sumaPivot + 0.009) {
+            $saldoFavor += round($monto - $sumaPivot, 2);
+        }
+
+        return round($saldoFavor, 2);
+    }
+
+    private function calcularExcesoSaldoFavorEnFactura(FacturaInterna $factura, float $montoCobro, int $cobroId): float
+    {
+        if ($montoCobro <= 0.009) {
+            return 0.0;
+        }
+
+        $otrosCobros = (float) DB::table('cobro_factura_interna')
+            ->where('factura_interna_id', $factura->id)
+            ->where('cobro_id', '!=', $cobroId)
+            ->sum('monto');
+        $otrosCobros = min((float) $factura->total, $otrosCobros);
+        $notas = $factura->monto_notas_credito;
+        $saldoAntes = max(0, round((float) $factura->total - $otrosCobros - $notas, 2));
+        $aplicado = min($montoCobro, $saldoAntes);
+
+        return max(0, round($montoCobro - $aplicado, 2));
+    }
+
+    /**
+     * Al editar una factura ya cobrada y quitar líneas, el excedente pagado de esas líneas pasa a saldo a favor.
+     *
+     * @param  Collection<int, FacturaInternaDetalle>  $detallesEliminados
+     */
+    public function aplicarSaldoFavorPorDetallesEliminadosEnFacturaCobrada(
+        FacturaInterna $factura,
+        Collection $detallesEliminados,
+        float $montoCobradoAntes,
+        float $totalNuevo,
+        int $clienteId,
+    ): float {
+        if ($detallesEliminados->isEmpty()) {
+            return 0.0;
+        }
+
+        $exceso = max(0, round($montoCobradoAntes - $totalNuevo, 2));
+        if ($exceso <= 0.009) {
+            return 0.0;
+        }
+
+        $eliminadosFacturables = $detallesEliminados->filter(
+            fn (FacturaInternaDetalle $d) => (float) $d->total > 0.009
+                && $d->descripcion !== 'Saldo a favor aplicado'
+        );
+        $montoEliminado = round((float) $eliminadosFacturables->sum(fn (FacturaInternaDetalle $d) => (float) $d->total), 2);
+        if ($montoEliminado <= 0.009) {
+            return 0.0;
+        }
+
+        $montoAFavor = min($montoEliminado, $exceso);
+        $aplicado = 0.0;
+
+        foreach ($eliminadosFacturables as $detalle) {
+            if ($aplicado >= $montoAFavor - 0.009) {
+                break;
+            }
+            $parte = min((float) $detalle->total, $montoAFavor - $aplicado);
+            $parte = round($parte, 2);
+            if ($parte <= 0.009) {
+                continue;
+            }
+            if ($detalle->servicio_id) {
+                Servicio::where('servicio_id', $detalle->servicio_id)->increment('saldo_a_favor', $parte);
+            } else {
+                $this->sumarSaldoAFavorCliente($clienteId, $parte, $factura->id);
+            }
+            $aplicado += $parte;
+        }
+
+        return round($aplicado, 2);
     }
 
     /**
@@ -1135,17 +1376,29 @@ class FacturacionService
     /**
      * Elimina un cobro y revierte el estado de las facturas/servicios asociados.
      */
-    public function eliminarCobro(Cobro $cobro): void
+    public function eliminarCobro(Cobro $cobro): float
     {
         $clienteId = $cobro->cliente_id;
         $cobro->load(['facturaInternas', 'facturaInterna']);
-        app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, -1);
+        $montoSaldoFavor = $this->montoSaldoFavorGeneradoPorCobro($cobro);
+        $facturaReferenciaId = $cobro->facturaInternas->first()?->id ?? $cobro->factura_interna_id;
+
         $facturaIds = $cobro->facturaInternas()->pluck('factura_interna_id')->unique()->all();
         if (empty($facturaIds) && $cobro->factura_interna_id) {
             $facturaIds = [$cobro->factura_interna_id];
         }
 
-        DB::transaction(function () use ($cobro, $facturaIds) {
+        DB::transaction(function () use ($cobro, $facturaIds, $clienteId, $montoSaldoFavor, $facturaReferenciaId) {
+            app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, -1);
+
+            if ($montoSaldoFavor > 0.009) {
+                $this->descontarSaldoAFavorCliente(
+                    (int) $clienteId,
+                    $montoSaldoFavor,
+                    $facturaReferenciaId ? (int) $facturaReferenciaId : null,
+                );
+            }
+
             $cobro->delete();
 
             foreach ($facturaIds as $fid) {
@@ -1165,6 +1418,8 @@ class FacturacionService
         if ($cliente) {
             $this->recalcularCalificacionPagoCliente($cliente);
         }
+
+        return $montoSaldoFavor;
     }
 
     /**

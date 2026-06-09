@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\DB;
 class CobrosResumenService
 {
     /**
-     * Ajusta cobros_resumen al registrar o eliminar un cobro (incremental, sin escanear la tabla cobros).
+     * Ajusta cobros_resumen al registrar o eliminar un cobro (incremental).
+     * Solo modifica total_cobrado, pago_adelantado, pago_atrasado y total_pendiente del ciclo.
+     * No recalcula total_facturado (eso va por aplicarImpactoFactura / rebuild manual).
      */
     public function aplicarImpactoCobro(Cobro $cobro, int $signo = 1): void
     {
@@ -73,6 +75,133 @@ class CobrosResumenService
         }
 
         return $count;
+    }
+
+    /**
+     * Totales esperados del mes según cobros/facturas reales (sin escribir en cobros_resumen).
+     *
+     * @return array{
+     *     mes: string,
+     *     total_facturado: float,
+     *     total_pendiente: float,
+     *     total_cobrado: float,
+     *     pago_adelantado: float,
+     *     pago_atrasado: float
+     * }
+     */
+    public function totalesEsperadosMes(Carbon $mesReferencia): array
+    {
+        $mes = $mesReferencia->copy()->startOfMonth()->startOfDay();
+        $mesClave = $mes->toDateString();
+        $cobros = $this->calcularTotalesCobrosMes($mes);
+
+        return [
+            'mes' => $mesClave,
+            'total_facturado' => round(CobrosMesVentana::calcularTotalFacturadoMesReferencia($mes), 2),
+            'total_pendiente' => round(CobrosMesVentana::calcularTotalPendienteMesReferencia($mes), 2),
+            'total_cobrado' => round($cobros['total_cobrado'], 2),
+            'pago_adelantado' => round($cobros['pago_adelantado'], 2),
+            'pago_atrasado' => round($cobros['pago_atrasado'], 2),
+        ];
+    }
+
+    /**
+     * @return array{total_cobrado: float, pago_adelantado: float, pago_atrasado: float}
+     */
+    public function calcularTotalesCobrosMes(Carbon $mesReferencia): array
+    {
+        $mes = $mesReferencia->copy()->startOfMonth()->startOfDay();
+        $mesClave = $mes->toDateString();
+
+        $totalCobrado = 0.0;
+        $pagoAdelantado = 0.0;
+        $pagoAtrasado = 0.0;
+
+        $lineasPivot = DB::table('cobro_factura_interna as cfi')
+            ->join('cobros', 'cobros.id', '=', 'cfi.cobro_id')
+            ->join('factura_internas as fi', 'fi.id', '=', 'cfi.factura_interna_id')
+            ->select([
+                'cobros.fecha_pago',
+                'cfi.monto as pivot_monto',
+                'fi.created_at as factura_created_at',
+            ])
+            ->get();
+
+        foreach ($lineasPivot as $linea) {
+            $clasificado = CobrosMesVentana::clasificarLineaPivot(
+                Carbon::parse($linea->fecha_pago),
+                Carbon::parse($linea->factura_created_at),
+                (float) $linea->pivot_monto
+            );
+            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
+                $totalCobrado += $clasificado['total_cobrado'];
+                $pagoAdelantado += $clasificado['pago_adelantado'];
+                $pagoAtrasado += $clasificado['pago_atrasado'];
+            }
+        }
+
+        $legacyCobros = Cobro::query()
+            ->with('facturaInterna')
+            ->whereNotNull('factura_interna_id')
+            ->whereDoesntHave('facturaInternas')
+            ->get();
+
+        foreach ($legacyCobros as $cobro) {
+            if (! $cobro->facturaInterna) {
+                continue;
+            }
+            $clasificado = CobrosMesVentana::clasificarLineaPivot(
+                Carbon::parse($cobro->fecha_pago),
+                Carbon::parse($cobro->facturaInterna->created_at),
+                (float) $cobro->monto
+            );
+            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
+                $totalCobrado += $clasificado['total_cobrado'];
+                $pagoAdelantado += $clasificado['pago_adelantado'];
+                $pagoAtrasado += $clasificado['pago_atrasado'];
+            }
+        }
+
+        $sinFactura = Cobro::query()
+            ->whereNull('factura_interna_id')
+            ->whereDoesntHave('facturaInternas')
+            ->get();
+
+        foreach ($sinFactura as $cobro) {
+            $clasificado = CobrosMesVentana::clasificarCobroSinFactura(
+                Carbon::parse($cobro->fecha_pago),
+                (float) $cobro->monto
+            );
+            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
+                $totalCobrado += $clasificado['total_cobrado'];
+            }
+        }
+
+        $multicobroExceso = Cobro::query()
+            ->whereHas('facturaInternas')
+            ->with('facturaInternas')
+            ->get();
+
+        foreach ($multicobroExceso as $cobro) {
+            $sumaPivot = (float) $cobro->facturaInternas->sum(fn ($f) => (float) ($f->pivot->monto ?? 0));
+            $exceso = (float) $cobro->monto - $sumaPivot;
+            if ($exceso <= 0.009) {
+                continue;
+            }
+            $clasificado = CobrosMesVentana::clasificarCobroSinFactura(
+                Carbon::parse($cobro->fecha_pago),
+                $exceso
+            );
+            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
+                $totalCobrado += $clasificado['total_cobrado'];
+            }
+        }
+
+        return [
+            'total_cobrado' => round($totalCobrado, 2),
+            'pago_adelantado' => round($pagoAdelantado, 2),
+            'pago_atrasado' => round($pagoAtrasado, 2),
+        ];
     }
 
     /**
@@ -178,97 +307,14 @@ class CobrosResumenService
     {
         $mes = $mesReferencia->copy()->startOfMonth()->startOfDay();
         $mesClave = $mes->toDateString();
-
-        $totalCobrado = 0.0;
-        $pagoAdelantado = 0.0;
-        $pagoAtrasado = 0.0;
-
-        $lineasPivot = DB::table('cobro_factura_interna as cfi')
-            ->join('cobros', 'cobros.id', '=', 'cfi.cobro_id')
-            ->join('factura_internas as fi', 'fi.id', '=', 'cfi.factura_interna_id')
-            ->select([
-                'cobros.fecha_pago',
-                'cfi.monto as pivot_monto',
-                'fi.created_at as factura_created_at',
-            ])
-            ->get();
-
-        foreach ($lineasPivot as $linea) {
-            $clasificado = CobrosMesVentana::clasificarLineaPivot(
-                Carbon::parse($linea->fecha_pago),
-                Carbon::parse($linea->factura_created_at),
-                (float) $linea->pivot_monto
-            );
-            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
-                $totalCobrado += $clasificado['total_cobrado'];
-                $pagoAdelantado += $clasificado['pago_adelantado'];
-                $pagoAtrasado += $clasificado['pago_atrasado'];
-            }
-        }
-
-        $legacyCobros = Cobro::query()
-            ->with('facturaInterna')
-            ->whereNotNull('factura_interna_id')
-            ->whereDoesntHave('facturaInternas')
-            ->get();
-
-        foreach ($legacyCobros as $cobro) {
-            if (! $cobro->facturaInterna) {
-                continue;
-            }
-            $clasificado = CobrosMesVentana::clasificarLineaPivot(
-                Carbon::parse($cobro->fecha_pago),
-                Carbon::parse($cobro->facturaInterna->created_at),
-                (float) $cobro->monto
-            );
-            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
-                $totalCobrado += $clasificado['total_cobrado'];
-                $pagoAdelantado += $clasificado['pago_adelantado'];
-                $pagoAtrasado += $clasificado['pago_atrasado'];
-            }
-        }
-
-        $sinFactura = Cobro::query()
-            ->whereNull('factura_interna_id')
-            ->whereDoesntHave('facturaInternas')
-            ->get();
-
-        foreach ($sinFactura as $cobro) {
-            $clasificado = CobrosMesVentana::clasificarCobroSinFactura(
-                Carbon::parse($cobro->fecha_pago),
-                (float) $cobro->monto
-            );
-            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
-                $totalCobrado += $clasificado['total_cobrado'];
-            }
-        }
-
-        $multicobroExceso = Cobro::query()
-            ->whereHas('facturaInternas')
-            ->with('facturaInternas')
-            ->get();
-
-        foreach ($multicobroExceso as $cobro) {
-            $sumaPivot = (float) $cobro->facturaInternas->sum(fn ($f) => (float) ($f->pivot->monto ?? 0));
-            $exceso = (float) $cobro->monto - $sumaPivot;
-            if ($exceso <= 0.009) {
-                continue;
-            }
-            $clasificado = CobrosMesVentana::clasificarCobroSinFactura(
-                Carbon::parse($cobro->fecha_pago),
-                $exceso
-            );
-            if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
-                $totalCobrado += $clasificado['total_cobrado'];
-            }
-        }
+        $totales = $this->calcularTotalesCobrosMes($mes);
 
         CobroResumen::query()->updateOrCreate(
             ['mes' => $mesClave],
             [
-                'total_cobrado' => round($totalCobrado, 2),
-                'pago_adelantado' => round($pagoAdelantado, 2),
-                'pago_atrasado' => round($pagoAtrasado, 2),
+                'total_cobrado' => $totales['total_cobrado'],
+                'pago_adelantado' => $totales['pago_adelantado'],
+                'pago_atrasado' => $totales['pago_atrasado'],
             ]
         );
     }

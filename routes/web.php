@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoriaProductoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
+use App\Http\Controllers\CobroRendicionController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\SifenConfiguracionController;
@@ -264,6 +265,9 @@ Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
 Route::get('/facturacion/dashboard', [FacturacionDashboardController::class, 'index'])
     ->name('facturacion.dashboard')
     ->middleware(['auth', 'permiso:facturacion.ver']);
+Route::get('/facturacion/cobros-saldo-favor', [FacturacionDashboardController::class, 'cobrosSaldoFavor'])
+    ->name('facturacion.cobros-saldo-favor')
+    ->middleware(['auth', 'permiso:facturacion.ver']);
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas', [FacturaController::class, 'store'])->name('facturas.store');
     Route::post('/facturas/generar-interna', [FacturaController::class, 'storeGenerarInterna'])->name('facturas.store-generar-interna');
@@ -272,6 +276,8 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas/generar-interna-desde-servicios', [FacturaController::class, 'storeGenerarInternaDesdeServicios'])->name('facturas.store-generar-interna-desde-servicios');
     Route::get('/facturas/crear-interna-servicio/{servicio}', [FacturaController::class, 'crearInternaDesdeServicio'])->name('facturas.crear-interna-servicio');
     Route::post('/facturas/crear-interna-servicio/{servicio}', [FacturaController::class, 'storeCrearInternaDesdeServicio'])->name('facturas.store-crear-interna-servicio');
+    Route::get('/facturas/crear-interna-servicio-especial/{servicio}', [FacturaController::class, 'crearInternaServicioEspecial'])->name('facturas.crear-interna-servicio-especial');
+    Route::post('/facturas/crear-interna-servicio-especial/{servicio}', [FacturaController::class, 'storeCrearInternaServicioEspecial'])->name('facturas.store-crear-interna-servicio-especial');
     Route::get('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'crearInternaFraccionDeudaServicio'])->name('facturas.crear-interna-servicio-fraccion-deuda');
     Route::post('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'storeInternaFraccionDeudaServicio'])->name('facturas.store-interna-servicio-fraccion-deuda');
     Route::post('/facturas/suspender-falta-pago', [FacturaController::class, 'suspenderFaltaPago'])->name('facturas.suspender-falta-pago');
@@ -299,6 +305,14 @@ Route::middleware(['auth', 'permiso:cobros.ver'])->group(function () {
     Route::get('/cobros/pdf-resumen', [CobroController::class, 'pdfResumen'])->name('cobros.pdf-resumen');
     Route::get('/cobros/exportar-excel', [CobroController::class, 'exportarExcel'])->name('cobros.exportar-excel');
     Route::get('/cobros/multicobro/result', [CobroController::class, 'multicobroResult'])->name('cobros.multicobro-result');
+});
+Route::middleware(['auth', 'permiso:cobros-rendicion.ver'])->group(function () {
+    Route::get('/cobros/rendiciones', [CobroRendicionController::class, 'index'])->name('cobros-rendiciones.index');
+    Route::get('/cobros/rendiciones/pendientes/{usuario}', [CobroRendicionController::class, 'pendientesUsuario'])->name('cobros-rendiciones.pendientes-usuario');
+    Route::get('/cobros/rendiciones/{cobro_rendicion}', [CobroRendicionController::class, 'show'])->name('cobros-rendiciones.show');
+});
+Route::post('/cobros/rendiciones', [CobroRendicionController::class, 'store'])->name('cobros-rendiciones.store')->middleware(['auth', 'permiso:cobros-rendicion.crear']);
+Route::middleware(['auth', 'permiso:cobros.ver'])->group(function () {
     Route::get('/cobros/{cobro}/pdf', [CobroController::class, 'reciboPdf'])->name('cobros.recibo-pdf');
     Route::get('/cobros/{cobro}', [CobroController::class, 'show'])->name('cobros.show');
 });
@@ -375,6 +389,7 @@ Route::delete('/servicios/{servicio_id}', [ServicioController::class, 'destroy']
 // Cuentas TV (app streaming: hasta 3 clientes / dispositivos por cuenta)
 Route::middleware(['auth', 'permiso:tv.ver'])->group(function () {
     Route::get('/tv-cuentas/dashboard', [TvCuentaController::class, 'dashboard'])->name('tv-cuentas.dashboard');
+    Route::get('/tv-cuentas/exportar-excel', [TvCuentaController::class, 'exportarExcel'])->name('tv-cuentas.exportar-excel');
     Route::get('/tv-cuentas', [TvCuentaController::class, 'index'])->name('tv-cuentas.index');
 });
 Route::middleware(['auth', 'permiso:tv.editar'])->group(function () {

@@ -26,6 +26,7 @@ if (el) {
     urlDarBaja: cfg.urlDarBaja || '',
     urlSyncPppoe: cfg.urlSyncPppoe || '',
     urlCrearFacturaInterna: cfg.urlCrearFacturaInterna || '',
+    urlCrearFacturaServicioEspecial: cfg.urlCrearFacturaServicioEspecial || '',
     urlCrearFacturaFraccionDeuda: cfg.urlCrearFacturaFraccionDeuda || '',
     filtros: cfg.filtros || { buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' },
   });

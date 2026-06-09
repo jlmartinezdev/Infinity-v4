@@ -233254,6 +233254,10 @@ video {
   --tw-text-opacity: 1;
   color: rgb(253 186 116 / var(--tw-text-opacity));
 }
+.dark\:text-orange-400:is(.dark *) {
+  --tw-text-opacity: 1;
+  color: rgb(251 146 60 / var(--tw-text-opacity));
+}
 .dark\:text-purple-200:is(.dark *) {
   --tw-text-opacity: 1;
   color: rgb(233 213 255 / var(--tw-text-opacity));

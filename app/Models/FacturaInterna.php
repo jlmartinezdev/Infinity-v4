@@ -14,10 +14,15 @@ class FacturaInterna extends Model
 {
     use Auditable;
 
+    public const TIPO_SERVICIO = 'servicio';
+
+    public const TIPO_SERVICIO_ESPECIAL = 'servicio_especial';
+
     protected $table = 'factura_internas';
 
     protected $fillable = [
         'cliente_id',
+        'tipo_factura',
         'periodo_desde',
         'periodo_hasta',
         'fecha_emision',
@@ -46,6 +51,26 @@ class FacturaInterna extends Model
             'total' => 'decimal:2',
             'descuento' => 'decimal:2',
         ];
+    }
+
+    /** @return array<string, string> */
+    public static function tiposFactura(): array
+    {
+        return [
+            self::TIPO_SERVICIO => 'Servicio (período)',
+            self::TIPO_SERVICIO_ESPECIAL => 'Servicio especial',
+        ];
+    }
+
+    public function esServicioEspecial(): bool
+    {
+        return $this->tipo_factura === self::TIPO_SERVICIO_ESPECIAL;
+    }
+
+    public function etiquetaTipoFactura(): string
+    {
+        return self::tiposFactura()[$this->tipo_factura ?? self::TIPO_SERVICIO]
+            ?? ($this->tipo_factura ?? self::TIPO_SERVICIO);
     }
 
     public function cliente(): BelongsTo

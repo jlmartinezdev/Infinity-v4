@@ -648,6 +648,74 @@ class FacturaController extends Controller
     }
 
     /**
+     * Formulario: factura interna por servicio especial (sin período ni vencimiento).
+     */
+    public function crearInternaServicioEspecial(Servicio $servicio)
+    {
+        $servicio->load(['plan', 'cliente']);
+        if (! $servicio->cliente) {
+            return redirect()->route('servicios.index')->with('error', 'El servicio no tiene cliente asociado.');
+        }
+        if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+            return redirect()->route('servicios.index')->with('error', 'No se puede facturar un servicio cancelado.');
+        }
+
+        $impuestos = Impuesto::activos();
+        $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $fechaEmision = now()->toDateString();
+        $precioPlan = $servicio->plan ? (float) $servicio->plan->precio : 0;
+        $descripcion = $servicio->plan
+            ? sprintf('Servicio especial — %s', $servicio->plan->nombre)
+            : sprintf('Servicio especial #%d', $servicio->servicio_id);
+
+        return view('facturas.crear-interna-servicio-especial', compact(
+            'servicio',
+            'impuestos',
+            'impuestoExento',
+            'fechaEmision',
+            'precioPlan',
+            'descripcion',
+        ));
+    }
+
+    /**
+     * Guarda factura interna por servicio especial.
+     */
+    public function storeCrearInternaServicioEspecial(Request $request, Servicio $servicio, FacturacionService $facturacionService)
+    {
+        $validated = $request->validate([
+            'fecha_emision' => ['required', 'date'],
+            'descuento' => ['nullable', 'numeric', 'min:0'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.descripcion' => ['required', 'string', 'max:255'],
+            'items.*.cantidad' => ['required', 'numeric', 'min:0.0001'],
+            'items.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'items.*.impuesto_id' => ['nullable', 'exists:impuestos,id'],
+        ]);
+
+        $servicio->load(['plan', 'cliente']);
+
+        try {
+            $factura = $facturacionService->generarFacturaInternaServicioEspecial(
+                $servicio,
+                $validated['fecha_emision'],
+                (float) ($validated['descuento'] ?? 0),
+                $validated['items'],
+                $request->user()?->usuario_id,
+                $validated['observaciones'] ?? null
+            );
+
+            return redirect()->route('factura-internas.show', $factura)
+                ->with('success', 'Factura interna por servicio especial creada correctamente.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('facturas.crear-interna-servicio-especial', $servicio)
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * Ejecuta suspensión por falta de pago: servicios de clientes con facturas vencidas y saldo pendiente se marcan como suspendidos.
      */
     public function suspenderFaltaPago(FacturacionService $facturacionService)

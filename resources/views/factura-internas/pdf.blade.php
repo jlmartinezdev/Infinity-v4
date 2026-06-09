@@ -53,10 +53,16 @@
                     <p class="num">N.º {{ $factura_interna->id }}</p>
                     <p class="meta" style="margin-top: 8px;">
                         Emisión: {{ $factura_interna->fecha_emision->format('d/m/Y') }}<br>
-                        @if($factura_interna->fecha_vencimiento)
-                            Vencimiento: {{ $factura_interna->fecha_vencimiento->format('d/m/Y') }}<br>
+                        @if($factura_interna->esServicioEspecial())
+                            Tipo: Servicio especial (sin período ni vencimiento)<br>
+                        @else
+                            @if($factura_interna->fecha_vencimiento)
+                                Vencimiento: {{ $factura_interna->fecha_vencimiento->format('d/m/Y') }}<br>
+                            @endif
+                            @if($factura_interna->periodo_desde && $factura_interna->periodo_hasta)
+                                Período: {{ $factura_interna->periodo_desde->format('d/m/Y') }} – {{ $factura_interna->periodo_hasta->format('d/m/Y') }}
+                            @endif
                         @endif
-                        Período: {{ $factura_interna->periodo_desde->format('d/m/Y') }} – {{ $factura_interna->periodo_hasta->format('d/m/Y') }}
                     </p>
                 </td>
             </tr>

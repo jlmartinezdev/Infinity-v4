@@ -54,13 +54,20 @@
                 </div>
                 <div class="text-left sm:text-right shrink-0">
                     <p class="text-xs font-semibold tracking-widest text-gray-500 uppercase">Factura interna</p>
+                    @if($factura_interna->esServicioEspecial())
+                        <p class="text-xs font-medium text-amber-700 mt-1">Servicio especial</p>
+                    @endif
                     <p class="text-2xl font-bold text-gray-900 mt-1">#{{ $factura_interna->id }}</p>
                     <dl class="mt-3 text-sm text-gray-600 space-y-1">
                         <div><dt class="inline text-gray-500">Emisión:</dt> <dd class="inline">{{ $factura_interna->fecha_emision->format('d/m/Y') }}</dd></div>
                         @if($factura_interna->fecha_vencimiento)
                             <div><dt class="inline text-gray-500">Vencimiento:</dt> <dd class="inline">{{ $factura_interna->fecha_vencimiento->format('d/m/Y') }}</dd></div>
                         @endif
-                        <div><dt class="inline text-gray-500">Período:</dt> <dd class="inline">{{ $factura_interna->periodo_desde->format('d/m/Y') }} – {{ $factura_interna->periodo_hasta->format('d/m/Y') }}</dd></div>
+                        @if($factura_interna->periodo_desde && $factura_interna->periodo_hasta)
+                            <div><dt class="inline text-gray-500">Período:</dt> <dd class="inline">{{ $factura_interna->periodo_desde->format('d/m/Y') }} – {{ $factura_interna->periodo_hasta->format('d/m/Y') }}</dd></div>
+                        @elseif($factura_interna->esServicioEspecial())
+                            <div><dt class="inline text-gray-500">Tipo:</dt> <dd class="inline">Sin período ni vencimiento</dd></div>
+                        @endif
                     </dl>
                 </div>
             </header>

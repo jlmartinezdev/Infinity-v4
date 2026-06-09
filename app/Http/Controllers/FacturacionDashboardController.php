@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cobro;
 use App\Models\CobroResumen;
+use App\Support\CobrosMesVentana;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -92,6 +95,59 @@ class FacturacionDashboardController extends Controller
             'seriesCobroRealDia' => $seriesCobroRealDia,
             'seriesCobroRealMes' => $seriesCobroRealMes,
             'seriesAtrasadoFavor' => $seriesAtrasadoFavor,
+        ]);
+    }
+
+    public function cobrosSaldoFavor(Request $request): View
+    {
+        $user = auth()->user();
+        $esAdmin = $user && $user->rol && strtolower($user->rol->descripcion) === 'administrador';
+        abort_unless($esAdmin, 403, 'Solo administradores pueden acceder al dashboard de facturacion.');
+
+        $mesOpcion = trim((string) $request->query('mes', now()->format('Y-m')));
+        try {
+            $mesReferencia = Carbon::createFromFormat('Y-m', $mesOpcion)->startOfMonth();
+        } catch (\Throwable) {
+            $mesReferencia = now()->startOfMonth();
+            $mesOpcion = $mesReferencia->format('Y-m');
+        }
+
+        $desdeMes = $mesReferencia->copy()->startOfMonth()->startOfDay();
+        $hastaMes = $mesReferencia->copy()->endOfMonth()->endOfDay();
+
+        $sqlSaldoFavor = CobrosMesVentana::sqlMontoSaldoFavorRegistrado();
+
+        $baseQuery = Cobro::query()
+            ->with(['cliente', 'facturaInternas', 'usuario'])
+            ->whereBetween('fecha_pago', [$desdeMes, $hastaMes]);
+        CobrosMesVentana::scopeConSaldoFavorRegistrado($baseQuery);
+
+        $totalSaldoFavor = (float) (clone $baseQuery)
+            ->selectRaw('SUM('.$sqlSaldoFavor.') as total')
+            ->value('total');
+
+        $cobros = (clone $baseQuery)
+            ->select('cobros.*')
+            ->selectRaw($sqlSaldoFavor.' as monto_saldo_favor')
+            ->orderByDesc('fecha_pago')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        $opcionesMes = collect(range(0, 11))
+            ->map(fn (int $offset) => now()->copy()->startOfMonth()->subMonths($offset))
+            ->map(fn (Carbon $mes) => [
+                'valor' => $mes->format('Y-m'),
+                'etiqueta' => $mes->translatedFormat('F Y'),
+            ]);
+
+        return view('facturacion.cobros-saldo-favor', [
+            'cobros' => $cobros,
+            'mesSeleccionado' => $mesOpcion,
+            'mesEtiqueta' => $mesReferencia->translatedFormat('F Y'),
+            'opcionesMes' => $opcionesMes,
+            'totalSaldoFavor' => $totalSaldoFavor,
+            'totalCobros' => $cobros->total(),
         ]);
     }
 }

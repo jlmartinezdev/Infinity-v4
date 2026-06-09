@@ -80,6 +80,7 @@ return [
                 ['name' => 'promesas-pago', 'label' => 'Promesas de pago', 'path' => '/promesas-pago', 'permiso' => 'promesas-pago.ver'],
                 ['name' => 'cobros-servicios', 'label' => 'Cobros', 'path' => '/cobros/servicios', 'permiso' => 'cobros-servicios.ver'],
                 ['name' => 'cobros', 'label' => 'Cobros y recibos', 'path' => '/cobros', 'permiso' => 'cobros.ver'],
+                ['name' => 'cobros-rendicion', 'label' => 'Rendición de efectivo', 'path' => '/cobros/rendiciones', 'permiso' => 'cobros-rendicion.ver'],
             ],
         ],
         [

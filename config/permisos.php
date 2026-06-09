@@ -71,6 +71,8 @@ return [
         'cobros.ver' => ['cobros.ver', 'cobros-servicios.ver'],
         'cobros.crear' => ['cobros.crear', 'cobros-servicios.crear'],
         'cobros.eliminar' => ['cobros.eliminar', 'cobros-servicios.eliminar'],
+        'cobros-rendicion.ver' => ['cobros-rendicion.ver'],
+        'cobros-rendicion.crear' => ['cobros-rendicion.crear'],
         'inventario.ver' => [
             'inventario-productos.ver',
             'inventario-compras.ver',
@@ -249,6 +251,7 @@ return [
                 ['label' => 'Promesas de pago', 'base' => 'promesas-pago', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Cobros', 'base' => 'cobros-servicios', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Cobros y recibos', 'base' => 'cobros', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Rendición de efectivo', 'base' => 'cobros-rendicion', 'acciones' => ['ver', 'crear']],
             ],
         ],
         [

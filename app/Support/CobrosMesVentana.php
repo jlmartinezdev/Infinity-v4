@@ -376,6 +376,36 @@ final class CobrosMesVentana
     }
 
     /**
+     * Meses de cobros_resumen a recalcular tras registrar o eliminar un cobro.
+     *
+     * @return list<string> Fechas Y-m-01
+     */
+    public static function mesesResumenCompletosPorCobro(Cobro $cobro): array
+    {
+        $cobro->loadMissing(['facturaInternas', 'facturaInterna']);
+
+        $meses = self::mesesPosiblesAfectadosPorCobro($cobro);
+
+        foreach ($cobro->facturaInternas as $factura) {
+            if ($factura->created_at) {
+                $meses = array_merge(
+                    $meses,
+                    self::mesesReferenciaAfectadosPorFactura(Carbon::parse($factura->created_at))
+                );
+            }
+        }
+
+        if ($cobro->facturaInterna?->created_at) {
+            $meses = array_merge(
+                $meses,
+                self::mesesReferenciaAfectadosPorFactura(Carbon::parse($cobro->facturaInterna->created_at))
+            );
+        }
+
+        return array_values(array_unique($meses));
+    }
+
+    /**
      * Facturas del ciclo: mes M-1 completo + anticipadas de M (desde el día 20).
      *
      * @param  \Illuminate\Database\Query\Builder  $query
@@ -429,5 +459,53 @@ final class CobrosMesVentana
         }
 
         return array_values(array_unique($meses));
+    }
+
+    /** SQL (MySQL) para el monto del cobro registrado como saldo a favor. */
+    public static function sqlMontoSaldoFavorRegistrado(): string
+    {
+        return '(
+            CASE
+                WHEN EXISTS (SELECT 1 FROM cobro_factura_interna cfi WHERE cfi.cobro_id = cobros.id)
+                THEN GREATEST(cobros.monto - COALESCE((SELECT SUM(cfi2.monto) FROM cobro_factura_interna cfi2 WHERE cfi2.cobro_id = cobros.id), 0), 0)
+                WHEN cobros.factura_interna_id IS NULL
+                THEN cobros.monto
+                ELSE 0
+            END
+        )';
+    }
+
+    public static function montoSaldoFavorRegistrado(Cobro $cobro): float
+    {
+        $cobro->loadMissing('facturaInternas');
+        $monto = (float) $cobro->monto;
+
+        if ($cobro->facturaInternas->isNotEmpty()) {
+            $aplicado = (float) $cobro->facturaInternas->sum(fn ($f) => (float) ($f->pivot->monto ?? 0));
+
+            return max(0, round($monto - $aplicado, 2));
+        }
+
+        if ($cobro->factura_interna_id) {
+            return 0.0;
+        }
+
+        return round($monto, 2);
+    }
+
+    public static function tipoSaldoFavorRegistrado(Cobro $cobro): string
+    {
+        $cobro->loadMissing('facturaInternas');
+        if ($cobro->facturaInternas->isEmpty() && ! $cobro->factura_interna_id) {
+            return 'sin_factura';
+        }
+
+        return 'exceso';
+    }
+
+    /** @param  Builder<Cobro>  $query */
+    public static function scopeConSaldoFavorRegistrado(Builder $query): Builder
+    {
+        return $query->whereRaw(self::sqlMontoSaldoFavorRegistrado().' > 0.009');
     }
 }

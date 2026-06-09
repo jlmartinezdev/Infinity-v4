@@ -405,6 +405,14 @@
             Crear factura
           </a>
           <a
+            v-if="canCreateFactura && urlCrearFacturaServicioEspecial"
+            :href="urlCrearFacturaServicioEspecial.replace('__id__', servicioAcciones.servicio_id)"
+            class="block px-4 py-2.5 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center gap-2"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+            Factura servicio especial
+          </a>
+          <a
             v-if="canCreateFactura && urlCrearFacturaFraccionDeuda && Number(servicioAcciones.saldo_facturas_pendiente) > 0"
             :href="urlCrearFacturaFraccionDeuda.replace('__id__', servicioAcciones.servicio_id)"
             class="block px-4 py-2.5 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center gap-2"
@@ -598,6 +606,7 @@ const props = defineProps({
   urlDarBaja: { type: String, default: '' },
   urlSyncPppoe: { type: String, default: '' },
   urlCrearFacturaInterna: { type: String, default: '' },
+  urlCrearFacturaServicioEspecial: { type: String, default: '' },
   urlCrearFacturaFraccionDeuda: { type: String, default: '' },
   filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' }) },
 });

@@ -98,6 +98,8 @@ class FacturaInternaController extends Controller
                 'cliente_id' => $f->cliente_id,
                 'cliente_nombre' => trim(($f->cliente->nombre ?? '').' '.($f->cliente->apellido ?? '')),
                 'cliente_cedula' => $f->cliente->cedula ?? null,
+                'tipo_factura' => $f->tipo_factura ?? FacturaInterna::TIPO_SERVICIO,
+                'tipo_factura_etiqueta' => $f->etiquetaTipoFactura(),
                 'periodo_desde' => $f->periodo_desde?->format('Y-m-d'),
                 'periodo_hasta' => $f->periodo_hasta?->format('Y-m-d'),
                 'fecha_emision' => $f->fecha_emision?->format('Y-m-d'),
@@ -1061,13 +1063,16 @@ class FacturaInternaController extends Controller
     public function update(Request $request, FacturaInterna $factura_interna, FacturacionService $facturacionService)
     {
         $estadoAnterior = $factura_interna->estado;
+        $esEspecial = $factura_interna->esServicioEspecial();
 
         $validated = $request->validate([
             'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
-            'periodo_desde' => ['required', 'date'],
-            'periodo_hasta' => ['required', 'date', 'after_or_equal:periodo_desde'],
+            'periodo_desde' => $esEspecial ? ['nullable', 'date'] : ['required', 'date'],
+            'periodo_hasta' => $esEspecial
+                ? ['nullable', 'date']
+                : ['required', 'date', 'after_or_equal:periodo_desde'],
             'fecha_emision' => ['required', 'date'],
-            'fecha_vencimiento' => ['required', 'date'],
+            'fecha_vencimiento' => $esEspecial ? ['nullable', 'date'] : ['required', 'date'],
             'fecha_pago' => ['nullable', 'date'],
             'descuento' => ['nullable', 'numeric', 'min:0'],
             'estado' => ['required', 'string', 'in:emitida,anulada,pendiente,pagada,cancelada'],
@@ -1086,13 +1091,21 @@ class FacturaInternaController extends Controller
         $detallesRequest = $request->input('detalles', []);
         $idsEnRequest = collect($detallesRequest)->pluck('id')->filter()->values()->all();
 
-        DB::transaction(function () use ($factura_interna, $validated, $detallesRequest, $idsEnRequest, $estadoAnterior, $facturacionService) {
+        $montoCobradoAntes = (float) DB::table('cobro_factura_interna')
+            ->where('factura_interna_id', $factura_interna->id)
+            ->sum('monto');
+        $estabaCobrada = $montoCobradoAntes > 0.009 && $factura_interna->saldo_pendiente <= 0.009;
+        $detallesAntes = $factura_interna->detalles->keyBy('id');
+
+        $montoSaldoFavorGenerado = 0.0;
+
+        DB::transaction(function () use ($factura_interna, $validated, $detallesRequest, $idsEnRequest, $estadoAnterior, $facturacionService, $esEspecial, $estabaCobrada, $detallesAntes, $montoCobradoAntes, &$montoSaldoFavorGenerado) {
             $factura_interna->update([
                 'cliente_id' => $validated['cliente_id'],
-                'periodo_desde' => $validated['periodo_desde'],
-                'periodo_hasta' => $validated['periodo_hasta'],
+                'periodo_desde' => $esEspecial ? null : $validated['periodo_desde'],
+                'periodo_hasta' => $esEspecial ? null : $validated['periodo_hasta'],
                 'fecha_emision' => $validated['fecha_emision'],
-                'fecha_vencimiento' => $validated['fecha_vencimiento'],
+                'fecha_vencimiento' => $esEspecial ? null : $validated['fecha_vencimiento'],
                 'fecha_pago' => $validated['fecha_pago'] ?? null,
                 'estado' => $validated['estado'],
                 'moneda' => $validated['moneda'],
@@ -1156,6 +1169,17 @@ class FacturaInternaController extends Controller
                 'total' => $totalFinal,
             ]);
 
+            if ($estabaCobrada && ! empty($idsAEliminar)) {
+                $detallesEliminados = $detallesAntes->only($idsAEliminar)->values();
+                $montoSaldoFavorGenerado = $facturacionService->aplicarSaldoFavorPorDetallesEliminadosEnFacturaCobrada(
+                    $factura_interna,
+                    $detallesEliminados,
+                    $montoCobradoAntes,
+                    $totalFinal,
+                    (int) $validated['cliente_id'],
+                );
+            }
+
             if ($estadoAnterior === 'pagada' && $validated['estado'] !== 'pagada') {
                 $this->removerCobrosAlDejarDeEstarPagada($factura_interna, $facturacionService);
             }
@@ -1187,8 +1211,13 @@ class FacturaInternaController extends Controller
             }
         });
 
+        $mensaje = 'Factura interna actualizada.';
+        if ($montoSaldoFavorGenerado > 0.009) {
+            $mensaje .= ' Se registraron '.number_format($montoSaldoFavorGenerado, 0, ',', '.').' PYG como saldo a favor por líneas eliminadas.';
+        }
+
         return redirect()->route('factura-internas.index')
-            ->with('success', 'Factura interna actualizada.');
+            ->with('success', $mensaje);
     }
 
     public function destroy(Request $request, FacturaInterna $factura_interna, FacturacionService $facturacionService)
