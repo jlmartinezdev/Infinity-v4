@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<rDE xmlns="http://ekuatia.set.gov.py/sifen/xsd" xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-  <DE Id="123"/>
-  <ds:Signature>
-    <ds:SignedInfo/>
-    <ds:SignatureValue>abc</ds:SignatureValue>
-  </ds:Signature>
-</rDE>

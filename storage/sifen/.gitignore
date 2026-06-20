@@ -1,0 +1,29 @@
+# Certificados, DE emitidos y KuDE (runtime)
+cert/*
+!cert/.gitkeep
+xml/*
+!xml/.gitkeep
+pdf/*
+!pdf/.gitkeep
+
+# Logs de depuración SOAP / TLS
+logs/*
+!logs/.gitignore
+
+# Salidas de scripts de prueba
+test-sign-out.xml
+test-*.xml
+
+# Node: instalar con npm ci en storage/sifen/tools
+tools/node_modules/
+
+# Certificados y copias locales de trabajo
+tools/*.p12
+tools/*.pfx
+tools/active_client.p12
+
+# Temporales y XML de prueba en tools/
+tools/*.tmp
+tools/sif*.tmp
+tools/tmp_*.xml
+tools/test_req.xml

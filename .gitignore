@@ -18,12 +18,25 @@
 /public/storage
 /storage/*.key
 /storage/pail
+# SIFEN: ver storage/sifen/.gitignore (cert, xml, pdf, logs, node_modules, temporales)
 /storage/sifen/cert/*
 !/storage/sifen/cert/.gitkeep
 /storage/sifen/xml/*
 !/storage/sifen/xml/.gitkeep
 /storage/sifen/pdf/*
 !/storage/sifen/pdf/.gitkeep
+/storage/sifen/logs/*
+!/storage/sifen/logs/.gitignore
+/storage/sifen/test-sign-out.xml
+/storage/sifen/test-*.xml
+/storage/sifen/tools/node_modules/
+/storage/sifen/tools/*.p12
+/storage/sifen/tools/*.pfx
+/storage/sifen/tools/active_client.p12
+/storage/sifen/tools/*.tmp
+/storage/sifen/tools/sif*.tmp
+/storage/sifen/tools/tmp_*.xml
+/storage/sifen/tools/test_req.xml
 /vendor
 Homestead.json
 Homestead.yaml

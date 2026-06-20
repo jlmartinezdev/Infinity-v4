@@ -1,3 +1,0 @@
-<!-- HTTP 200 endpoint: https://sifen-test.set.gov.py/de/ws/sync/recibe.wsdl tls: setapi-tips -->
-<?xml version="1.0" encoding="UTF-8"?>
-<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"><env:Header/><env:Body><ns2:rRetEnviDe xmlns:ns2="http://ekuatia.set.gov.py/sifen/xsd"><ns2:rProtDe><ns2:Id>01052639347001001000007712026062011615748922</ns2:Id><ns2:dFecProc>2026-06-20T10:37:00-03:00</ns2:dFecProc><ns2:dDigVal>lZ653+7t2qrfXxQCKZQe7/pnaMFxE2IOZEj2QmDnwFI=</ns2:dDigVal><ns2:dEstRes>Aprobado</ns2:dEstRes><ns2:dProtAut>49601489</ns2:dProtAut><ns2:gResProc><ns2:dCodRes>0260</ns2:dCodRes><ns2:dMsgRes>Autorizaci&#243;n del DE satisfactoria</ns2:dMsgRes></ns2:gResProc></ns2:rProtDe></ns2:rRetEnviDe></env:Body></env:Envelope>
