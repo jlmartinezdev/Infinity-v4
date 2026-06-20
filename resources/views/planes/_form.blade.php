@@ -70,7 +70,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-            <label for="precio" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio *</label>
+            <label for="precio" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio (IVA incluido) *</label>
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <span class="text-gray-500 dark:text-gray-400 text-sm">$</span>
@@ -82,6 +82,7 @@
                     class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors"
                     required placeholder="0.00">
             </div>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Monto mensual final al cliente, con IVA 10% incluido.</p>
             @error('precio')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror

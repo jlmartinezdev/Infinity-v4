@@ -77,7 +77,7 @@
                         <p class="font-medium text-amber-800 dark:text-amber-200">Prorrateo aplicado</p>
                         <p class="mt-1 text-amber-700 dark:text-amber-300">
                             Instalado el {{ $prorrateoInfo['fecha_instalacion'] }} — {{ $prorrateoInfo['dias_restantes'] }} días restantes de {{ $prorrateoInfo['dias_en_mes'] }} en el mes.
-                            Plan: {{ number_format($prorrateoInfo['precio_plan'], 0, ',', '.') }} Gs. → Monto prorrateado: <strong>{{ number_format($prorrateoInfo['precio_prorrateado'], 0, ',', '.') }} Gs.</strong>
+                            Plan: {{ number_format($prorrateoInfo['precio_plan'], 0, ',', '.') }} Gs. (IVA incl.) → Monto prorrateado: <strong>{{ number_format($prorrateoInfo['precio_prorrateado'], 0, ',', '.') }} Gs.</strong>
                         </p>
                     </div>
                 @endif
@@ -88,7 +88,7 @@
                                 'descripcion' => $descripcion,
                                 'cantidad' => 1,
                                 'precio_unitario' => $precio,
-                                'impuesto_id' => $impuestoExento?->id ?? '',
+                                'impuesto_id' => $impuestoPlan?->id ?? '',
                             ],
                         ]);
                     @endphp

@@ -376,12 +376,7 @@ class MikroTikService
         $errors = [];
 
         $poolIds = $router->routerIpPools()->pluck('pool_id')->all();
-        $servicios = Servicio::with(['plan.perfilPppoe', 'pool', 'cliente'])
-            ->whereIn('pool_id', $poolIds)
-            ->where('estado', 'A')
-            ->whereNotNull('usuario_pppoe')
-            ->where('usuario_pppoe', '!=', '')
-            ->get();
+        $servicios = $this->serviciosPppoeActivosDelRouter($router, $poolIds);
 
         Log::info('[MikroTik] syncPppoeFromDatabase: iniciando', [
             'router' => $router->ip,
@@ -755,5 +750,123 @@ class MikroTikService
             }
         }
         return ['success' => false, 'error' => 'Usuario no encontrado en el router.'];
+    }
+
+    /**
+     * Servicios activos con usuario PPPoE asociados a los pools del router.
+     *
+     * @param  list<int|string>  $poolIds
+     * @return \Illuminate\Support\Collection<int, Servicio>
+     */
+    public function serviciosPppoeActivosDelRouter(Router $router, ?array $poolIds = null): \Illuminate\Support\Collection
+    {
+        $poolIds ??= $router->routerIpPools()->pluck('pool_id')->all();
+
+        if ($poolIds === []) {
+            return collect();
+        }
+
+        return Servicio::with(['plan.perfilPppoe', 'pool', 'cliente'])
+            ->whereIn('pool_id', $poolIds)
+            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->whereNotNull('usuario_pppoe')
+            ->where('usuario_pppoe', '!=', '')
+            ->orderBy('usuario_pppoe')
+            ->get();
+    }
+
+    /**
+     * Genera comandos RouterOS con usuarios PPPoE activos del router.
+     *
+     * @param  bool  $paraConsola  true: listo para pegar en terminal (sin comentarios, remove tolerante a error)
+     */
+    public function generarScriptPppoeExport(Router $router, bool $paraConsola = true): string
+    {
+        $router->loadMissing('nodo');
+        $servicios = $this->serviciosPppoeActivosDelRouter($router);
+        $localAddress = $router->ip_loopback ?: null;
+        $lineas = [];
+
+        if (! $paraConsola) {
+            $lineas = [
+                '# Infinity ISP - Export PPPoE',
+                '# Router: '.($router->nombre ?? '—').' ('.($router->ip ?? '—').')',
+                '# Nodo: '.($router->nodo?->descripcion ?? '—'),
+                '# Generado: '.now()->format('Y-m-d H:i:s'),
+                '# Usuarios: '.$servicios->count(),
+                '#',
+                '# Importar: /import file-name.rsc',
+                '',
+            ];
+        }
+
+        foreach ($servicios as $servicio) {
+            $usuario = trim((string) $servicio->usuario_pppoe);
+            if ($usuario === '') {
+                continue;
+            }
+
+            $profileName = $servicio->plan?->perfilPppoe?->nombre ?? $servicio->plan?->nombre ?? 'default';
+            $password = (string) ($servicio->password_pppoe ?? '');
+            $remoteAddress = $servicio->ip ?: null;
+            $nombreCliente = trim(($servicio->cliente?->nombre ?? '').' '.($servicio->cliente?->apellido ?? ''));
+
+            if ($paraConsola) {
+                $lineas[] = ':do { /ppp secret remove [find where name='.$this->escapeRouterOsValue($usuario).'] } on-error={}';
+            } else {
+                $lineas[] = '/ppp secret remove [find where name='.$this->escapeRouterOsValue($usuario).']';
+            }
+
+            $lineas[] = $this->construirComandoPppoeSecretAdd(
+                $usuario,
+                $password,
+                $profileName,
+                $remoteAddress,
+                $localAddress,
+                $nombreCliente !== '' ? $nombreCliente : null
+            );
+
+            if (! $paraConsola) {
+                $lineas[] = '';
+            }
+        }
+
+        return implode("\n", $lineas);
+    }
+
+    private function construirComandoPppoeSecretAdd(
+        string $name,
+        string $password,
+        string $profile,
+        ?string $remoteAddress,
+        ?string $localAddress,
+        ?string $comment
+    ): string {
+        $partes = [
+            '/ppp secret add',
+            'name='.$this->escapeRouterOsValue($name),
+            'password='.$this->escapeRouterOsValue($password),
+            'service=pppoe',
+            'profile='.$this->escapeRouterOsValue($profile),
+        ];
+
+        if ($remoteAddress !== null && $remoteAddress !== '') {
+            $partes[] = 'remote-address='.$remoteAddress;
+        }
+        if ($localAddress !== null && $localAddress !== '') {
+            $partes[] = 'local-address='.$localAddress;
+        }
+        if ($comment !== null && $comment !== '') {
+            $partes[] = 'comment='.$this->escapeRouterOsValue($comment);
+        }
+
+        return implode(' ', $partes);
+    }
+
+    private function escapeRouterOsValue(string $value): string
+    {
+        $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+
+        return '"'.$escaped.'"';
     }
 }

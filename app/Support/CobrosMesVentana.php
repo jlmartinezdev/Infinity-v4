@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Cobro;
+use App\Models\FacturaInterna;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -209,13 +210,24 @@ final class CobrosMesVentana
 
     /**
      * Clasifica un monto del pivote (cobro → factura) para el resumen mensual.
+     * Facturas especiales: el cobro suma siempre al mes de la fecha de pago (no siguen el ciclo mensual).
      *
      * @return array{mes: string, total_cobrado: float, reduccion_pendiente: float, pago_adelantado: float, pago_atrasado: float}|null
      */
-    public static function clasificarLineaPivot(Carbon $fechaPago, Carbon $facturaCreatedAt, float $monto): ?array
+    public static function clasificarLineaPivot(Carbon $fechaPago, Carbon $facturaCreatedAt, float $monto, bool $facturaEspecial = false): ?array
     {
         if ($monto <= 0) {
             return null;
+        }
+
+        if ($facturaEspecial) {
+            return [
+                'mes' => $fechaPago->copy()->startOfMonth()->startOfDay()->toDateString(),
+                'total_cobrado' => $monto,
+                'reduccion_pendiente' => 0.0,
+                'pago_adelantado' => 0.0,
+                'pago_atrasado' => 0.0,
+            ];
         }
 
         $mesReferencia = $fechaPago->copy()->startOfMonth()->startOfDay();
@@ -320,13 +332,20 @@ final class CobrosMesVentana
         if ($cobro->facturaInternas->isNotEmpty()) {
             foreach ($cobro->facturaInternas as $factura) {
                 $monto = (float) ($factura->pivot->monto ?? 0);
+                $esEspecial = $factura->esServicioEspecial();
                 $linea = self::clasificarLineaPivot(
                     $fechaPago,
                     Carbon::parse($factura->created_at),
-                    $monto
+                    $monto,
+                    $esEspecial
                 );
                 if ($linea !== null) {
                     $agregar($linea);
+                }
+                if ($esEspecial && $monto > 0) {
+                    foreach (self::lineasReduccionPendienteEspecial($factura, $monto) as $lineaPendiente) {
+                        $agregar($lineaPendiente);
+                    }
                 }
             }
 
@@ -343,13 +362,20 @@ final class CobrosMesVentana
         }
 
         if ($cobro->facturaInterna) {
+            $esEspecial = $cobro->facturaInterna->esServicioEspecial();
             $linea = self::clasificarLineaPivot(
                 $fechaPago,
                 Carbon::parse($cobro->facturaInterna->created_at),
-                (float) $cobro->monto
+                (float) $cobro->monto,
+                $esEspecial
             );
             if ($linea !== null) {
                 $agregar($linea);
+            }
+            if ($esEspecial && (float) $cobro->monto > 0) {
+                foreach (self::lineasReduccionPendienteEspecial($cobro->facturaInterna, (float) $cobro->monto) as $lineaPendiente) {
+                    $agregar($lineaPendiente);
+                }
             }
 
             return $porMes;
@@ -361,6 +387,33 @@ final class CobrosMesVentana
         }
 
         return $porMes;
+    }
+
+    /**
+     * Líneas de reducción de pendiente para una factura especial cobrada:
+     * el cobro suma al mes de pago, pero el pendiente se descuenta en los meses
+     * de ciclo donde la factura cuenta como facturado/pendiente.
+     *
+     * @return list<array{mes: string, total_cobrado: float, reduccion_pendiente: float, pago_adelantado: float, pago_atrasado: float}>
+     */
+    private static function lineasReduccionPendienteEspecial(FacturaInterna $factura, float $monto): array
+    {
+        if (! $factura->created_at) {
+            return [];
+        }
+
+        $lineas = [];
+        foreach (self::mesesReferenciaAfectadosPorFactura(Carbon::parse($factura->created_at)) as $mes) {
+            $lineas[] = [
+                'mes' => $mes,
+                'total_cobrado' => 0.0,
+                'reduccion_pendiente' => $monto,
+                'pago_adelantado' => 0.0,
+                'pago_atrasado' => 0.0,
+            ];
+        }
+
+        return $lineas;
     }
 
     /** Meses que pueden verse afectados al modificar o borrar un cobro. */

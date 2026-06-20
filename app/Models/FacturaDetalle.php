@@ -58,11 +58,51 @@ class FacturaDetalle extends Model
         $porcentaje = $impuesto ? (float) $impuesto->porcentaje : 0;
         $montoImpuesto = round($subtotal * ($porcentaje / 100), 2);
         $total = $subtotal + $montoImpuesto;
+
         return [
             'subtotal' => $subtotal,
             'porcentaje_impuesto' => $porcentaje,
             'monto_impuesto' => $montoImpuesto,
             'total' => $total,
         ];
+    }
+
+    /**
+     * Precio unitario con IVA incluido (ej. precio mensual del plan).
+     */
+    public static function calcularDesdePrecioIvaIncluido(float $cantidad, float $precioUnitarioConIva, ?Impuesto $impuesto): array
+    {
+        $total = round($cantidad * $precioUnitarioConIva, 2);
+        $porcentaje = $impuesto ? (float) $impuesto->porcentaje : 0;
+
+        if ($porcentaje > 0) {
+            $divisor = 1 + ($porcentaje / 100);
+            $subtotal = round($total / $divisor, 2);
+            $montoImpuesto = round($total - $subtotal, 2);
+        } else {
+            $subtotal = $total;
+            $montoImpuesto = 0.0;
+        }
+
+        return [
+            'subtotal' => $subtotal,
+            'porcentaje_impuesto' => $porcentaje,
+            'monto_impuesto' => $montoImpuesto,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Si el impuesto tiene tasa, el precio unitario se interpreta con IVA incluido.
+     */
+    public static function calcularLinea(float $cantidad, float $precioUnitario, ?Impuesto $impuesto): array
+    {
+        $porcentaje = $impuesto ? (float) $impuesto->porcentaje : 0;
+
+        if ($porcentaje > 0) {
+            return self::calcularDesdePrecioIvaIncluido($cantidad, $precioUnitario, $impuesto);
+        }
+
+        return self::calcularDesdePrecio($cantidad, $precioUnitario, $impuesto);
     }
 }

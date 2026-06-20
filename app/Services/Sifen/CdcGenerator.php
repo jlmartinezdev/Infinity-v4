@@ -59,4 +59,16 @@ class CdcGenerator
     {
         return (int) substr($cdc, -1);
     }
+
+    /** Fecha Ymd (8 dígitos) embebida en el CDC. */
+    public function extraerFechaEmision(string $cdc): string
+    {
+        $cdc = preg_replace('/\s+/', '', $cdc) ?? $cdc;
+
+        if (strlen($cdc) < 33) {
+            throw new \InvalidArgumentException('CDC inválido para extraer fecha de emisión.');
+        }
+
+        return substr($cdc, 25, 8);
+    }
 }

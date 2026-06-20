@@ -87,25 +87,8 @@
                     <p class="text-sm text-gray-600 dark:text-gray-300">Subtotal: <span class="font-medium text-gray-900 dark:text-gray-100">{{ number_format($factura->subtotal, 0, ',', '.') }} {{ $factura->moneda }}</span></p>
                     <p class="text-sm text-gray-600 dark:text-gray-300">Impuestos: <span class="font-medium text-gray-900 dark:text-gray-100">{{ number_format($factura->total_impuestos, 0, ',', '.') }} {{ $factura->moneda }}</span></p>
                     <p class="text-lg font-bold text-gray-900 dark:text-gray-100">Total: {{ number_format($factura->total, 0, ',', '.') }} {{ $factura->moneda }}</p>
-                    @if($factura->estado === 'emitida' && $factura->total > 0)
-                        <p class="text-sm text-green-600 dark:text-green-400 mt-2">Cobrado: <span class="font-medium">{{ number_format($factura->monto_pagado, 0, ',', '.') }} {{ $factura->moneda }}</span></p>
-                        <p class="text-sm {{ $factura->esta_pagada ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400' }}">Saldo: <span class="font-medium">{{ number_format($factura->saldo_pendiente, 0, ',', '.') }} {{ $factura->moneda }}</span> @if($factura->esta_pagada) <span class="text-green-600 dark:text-green-400">(Pagada)</span> @endif</p>
-                    @endif
                 </div>
             </div>
-            @if($factura->cobros->isNotEmpty())
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cobros aplicados</p>
-                    <ul class="space-y-1">
-                        @foreach($factura->cobros as $cobro)
-                            <li class="text-sm text-gray-900 dark:text-gray-100">
-                                <a href="{{ route('cobros.show', $cobro) }}" class="text-green-600 dark:text-green-400 hover:underline">{{ $cobro->numero_recibo }}</a>
-                                {{ $cobro->fecha_pago->format('d/m/Y H:i') }} · {{ number_format($cobro->monto, 0, ',', '.') }} {{ $factura->moneda }}
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
             @if($factura->observaciones)
                 <p class="mt-4 text-sm text-gray-600 dark:text-gray-300"><span class="font-medium">Observaciones:</span> {{ $factura->observaciones }}</p>
             @endif

@@ -4,10 +4,41 @@
 
 @section('content')
 <div class="max-w-5xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Nueva factura</h1>
+    <div class="mb-6">
+        <a href="{{ route('facturas.create') }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium">&larr; Cambiar cliente</a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Nueva factura electrónica</h1>
+        @isset($clienteSeleccionado)
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Cliente: <strong class="text-gray-800 dark:text-gray-200">{{ $clienteSeleccionado->nombre }} {{ $clienteSeleccionado->apellido }}</strong>
+                @if($clienteSeleccionado->cedula)
+                    · {{ $clienteSeleccionado->cedula }}
+                @endif
+            </p>
+        @endisset
+    </div>
+
+    @if(!empty($detallesIniciales))
+        <div class="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+            Datos cargados desde los servicios activos del cliente y la configuración SIFEN. Puede ajustar las líneas antes de crear el borrador.
+        </div>
+    @elseif(isset($sifenConfig) && $sifenConfig)
+        <div class="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+            Timbrado y vigencia tomados de la configuración SIFEN activa.
+        </div>
+    @elseif(isset($clienteSeleccionado) && empty($detallesIniciales))
+        <div class="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+            El cliente no tiene servicios activos con plan. Complete el detalle manualmente.
+        </div>
+    @endif
+
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
         <form action="{{ route('facturas.store') }}" method="POST">
-            @include('facturas._form', ['factura' => null])
+            @include('facturas._form', [
+                'factura' => null,
+                'clienteSeleccionado' => $clienteSeleccionado ?? null,
+                'prefill' => $prefill ?? [],
+                'detallesIniciales' => $detallesIniciales ?? [],
+            ])
         </form>
     </div>
 </div>

@@ -1,0 +1,6 @@
+endpoint: https://sifen-test.set.gov.py/de/ws/sync/recibe.wsdl
+http_code: 200
+length: 645
+tls_strategy: setapi-tips
+tls_attempts:
+  - setapi-tips: HTTP 200

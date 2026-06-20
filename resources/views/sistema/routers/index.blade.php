@@ -67,6 +67,10 @@
                                 <button type="button" class="router-sync-btn text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium mr-2"
                                     data-url="{{ route('sistema.routers.sync-pppoe', $r) }}" data-csrf="{{ csrf_token() }}"
                                     title="Sincronizar usuarios PPPoE al router">Sync PPPoE</button>
+                                <button type="button" class="router-export-script-btn text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 font-medium mr-2"
+                                    data-url="{{ route('sistema.routers.export-pppoe-script', ['router' => $r, 'formato' => 'json']) }}"
+                                    data-nombre="{{ $r->nombre }}"
+                                    title="Ver script para pegar en consola MikroTik">Exportar script</button>
                                 <a href="{{ route('sistema.routers.edit', $r) }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium mr-4">Editar</a>
                                 <form action="{{ route('sistema.routers.destroy', $r) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este router?');">
                                     @csrf
@@ -91,6 +95,33 @@
         @endif
     </div>
 </div>
+
+<div id="router-script-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true" role="dialog">
+    <div class="flex min-h-full items-end sm:items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50" id="router-script-modal-backdrop"></div>
+        <div class="relative w-full max-w-3xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+            <div class="flex items-start justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Script PPPoE para consola</h2>
+                    <p id="router-script-modal-subtitle" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></p>
+                </div>
+                <button type="button" id="router-script-modal-close" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    Copiá el contenido y pegalo en la terminal de Winbox, SSH o WebFig del MikroTik. Cada línea se ejecuta como un comando.
+                </p>
+                <textarea id="router-script-textarea" readonly rows="16"
+                    class="w-full font-mono text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/20"></textarea>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+                <a id="router-script-download" href="#" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:underline">Descargar .rsc</a>
+                <button type="button" id="router-script-copy" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">Copiar al portapapeles</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function() {
     var csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -122,6 +153,61 @@
                 .catch(function() { alert('Error de red.'); })
                 .finally(function() { btn.disabled = false; });
         });
+    });
+
+    var scriptModal = document.getElementById('router-script-modal');
+    var scriptTextarea = document.getElementById('router-script-textarea');
+    var scriptSubtitle = document.getElementById('router-script-modal-subtitle');
+    var scriptDownload = document.getElementById('router-script-download');
+    var scriptCopyBtn = document.getElementById('router-script-copy');
+
+    function closeScriptModal() {
+        if (scriptModal) scriptModal.classList.add('hidden');
+    }
+
+    function openScriptModal() {
+        if (scriptModal) scriptModal.classList.remove('hidden');
+    }
+
+    document.getElementById('router-script-modal-close')?.addEventListener('click', closeScriptModal);
+    document.getElementById('router-script-modal-backdrop')?.addEventListener('click', closeScriptModal);
+
+    document.querySelectorAll('.router-export-script-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var url = this.getAttribute('data-url');
+            var nombre = this.getAttribute('data-nombre') || 'Router';
+            btn.disabled = true;
+            fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    scriptTextarea.value = d.script || '';
+                    scriptSubtitle.textContent = (d.router?.nombre || nombre) + ' · ' + (d.usuarios || 0) + ' usuario(s)';
+                    if (d.download_url) scriptDownload.href = d.download_url;
+                    openScriptModal();
+                    scriptTextarea.focus();
+                    scriptTextarea.select();
+                })
+                .catch(function() { alert('No se pudo cargar el script.'); })
+                .finally(function() { btn.disabled = false; });
+        });
+    });
+
+    scriptCopyBtn?.addEventListener('click', function() {
+        var text = scriptTextarea.value;
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                alert('Script copiado al portapapeles.');
+            }).catch(function() {
+                scriptTextarea.select();
+                document.execCommand('copy');
+                alert('Script copiado al portapapeles.');
+            });
+        } else {
+            scriptTextarea.select();
+            document.execCommand('copy');
+            alert('Script copiado al portapapeles.');
+        }
     });
 })();
 </script>

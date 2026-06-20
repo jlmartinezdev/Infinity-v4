@@ -83,7 +83,9 @@ class SifenConfiguracionController extends Controller
         if ($request->hasFile('certificado_p12')) {
             $destino = config('sifen.certificado.path');
             File::ensureDirectoryExists(dirname($destino));
-            $request->file('certificado_p12')->move(dirname($destino), basename($destino));
+            File::put($destino, $request->file('certificado_p12')->get());
+            @chmod($destino, 0666);
+            app(SifenCertificadoService::class)->sincronizarP12Activo($destino);
         }
 
         $config->update($data);

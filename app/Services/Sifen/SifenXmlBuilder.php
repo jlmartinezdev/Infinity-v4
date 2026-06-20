@@ -59,12 +59,13 @@ class SifenXmlBuilder
         $condicionOperacion = $factura->tipo_documento === 'factura_credito' ? 2 : 1;
 
         $dom = new DOMDocument('1.0', 'UTF-8');
-        $dom->formatOutput = true;
+        $dom->formatOutput = false;
         $dom->preserveWhiteSpace = false;
 
         $rDE = $dom->createElementNS(self::NS, 'rDE');
         $dom->appendChild($rDE);
-        $rDE->setAttributeNS(self::NS_XSI, 'xsi:schemaLocation', self::NS.' DE_v150.xsd');
+        $rDE->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xsi', self::NS_XSI);
+        $rDE->setAttributeNS(self::NS_XSI, 'xsi:schemaLocation', self::NS.' siRecepDE_v150.xsd');
 
         $this->appendText($dom, $rDE, 'dVerFor', (string) config('sifen.version_formato', 150));
 
@@ -88,7 +89,11 @@ class SifenXmlBuilder
         $this->appendText($dom, $gTimb, 'dNumTim', $config->numero_timbrado);
         $this->appendText($dom, $gTimb, 'dEst', str_pad((string) $factura->establecimiento, 3, '0', STR_PAD_LEFT));
         $this->appendText($dom, $gTimb, 'dPunExp', str_pad((string) $factura->punto_emision, 3, '0', STR_PAD_LEFT));
-        $this->appendText($dom, $gTimb, 'dNumDoc', str_pad((string) $factura->numero, 7, '0', STR_PAD_LEFT));
+        $numeroDoc = (int) ($factura->numero ?? 0);
+        if ($numeroDoc < 1) {
+            throw new \RuntimeException('El número de documento (dNumDoc) no puede ser cero. Prepare el DE antes de emitir.');
+        }
+        $this->appendText($dom, $gTimb, 'dNumDoc', str_pad((string) $numeroDoc, 7, '0', STR_PAD_LEFT));
         if ($factura->set_serie) {
             $this->appendText($dom, $gTimb, 'dSerieNum', $factura->set_serie);
         }
@@ -134,7 +139,7 @@ class SifenXmlBuilder
             $this->appendText($dom, $gPaConEIni, 'dDesTiPag', 'Transferencia');
             $this->appendText($dom, $gPaConEIni, 'dMonTiPag', $this->formatNumero($totales['dTotGralOpe']));
             $this->appendText($dom, $gPaConEIni, 'cMoneTiPag', $factura->moneda ?: 'PYG');
-            $this->appendText($dom, $gPaConEIni, 'dDesMoneTiPag', $factura->moneda === 'USD' ? 'US Dollar' : 'Guarani');
+            $this->appendText($dom, $gPaConEIni, 'dDMoneTiPag', $factura->moneda === 'USD' ? 'US Dollar' : 'Guarani');
         } else {
             $gPagCred = $this->appendGroup($dom, $gCamCond, 'gPagCred');
             $this->appendText($dom, $gPagCred, 'iCondCred', '1');
@@ -165,19 +170,19 @@ class SifenXmlBuilder
         $this->appendText($dom, $gEmis, 'dRucEm', $config->ruc);
         $this->appendText($dom, $gEmis, 'dDVEmi', (string) $config->dv_ruc);
         $this->appendText($dom, $gEmis, 'iTipCont', (string) $config->tipo_contribuyente);
-        $this->appendText($dom, $gEmis, 'dNomEmi', $config->razon_social);
+        $this->appendText($dom, $gEmis, 'dNomEmi', $this->normalizarNombre($config->razon_social));
         if ($config->nombre_fantasia) {
-            $this->appendText($dom, $gEmis, 'dNomFanEmi', $config->nombre_fantasia);
+            $this->appendText($dom, $gEmis, 'dNomFanEmi', $this->normalizarNombre($config->nombre_fantasia));
         }
         $this->appendText($dom, $gEmis, 'dDirEmi', $config->direccion);
         $this->appendText($dom, $gEmis, 'dNumCas', $config->numero_casa ?: '0');
         $this->appendText($dom, $gEmis, 'cDepEmi', (string) $config->departamento);
-        $this->appendText($dom, $gEmis, 'dDesDepEmi', $config->departamento_descripcion);
+        $this->appendText($dom, $gEmis, 'dDesDepEmi', $this->normalizarDescripcionGeo($config->departamento_descripcion));
         $this->appendText($dom, $gEmis, 'cDisEmi', (string) $config->distrito);
-        $this->appendText($dom, $gEmis, 'dDesDisEmi', $config->distrito_descripcion);
+        $this->appendText($dom, $gEmis, 'dDesDisEmi', $this->normalizarDescripcionGeo($config->distrito_descripcion));
         $this->appendText($dom, $gEmis, 'cCiuEmi', (string) $config->ciudad);
-        $this->appendText($dom, $gEmis, 'dDesCiuEmi', $config->ciudad_descripcion);
-        $this->appendText($dom, $gEmis, 'dTelEmi', $config->telefono);
+        $this->appendText($dom, $gEmis, 'dDesCiuEmi', $this->normalizarDescripcionGeo($config->ciudad_descripcion));
+        $this->appendText($dom, $gEmis, 'dTelEmi', $this->normalizarTelefono($config->telefono));
         $this->appendText($dom, $gEmis, 'dEmailE', $config->email);
 
         if ($config->codigo_actividad_economica) {
@@ -208,7 +213,7 @@ class SifenXmlBuilder
             $this->appendText($dom, $gDatRec, 'dNumIDRec', (string) $receptor['dNumIDRec']);
         }
 
-        $this->appendText($dom, $gDatRec, 'dNomRec', $receptor['dNomRec']);
+        $this->appendText($dom, $gDatRec, 'dNomRec', $this->normalizarNombre($receptor['dNomRec']));
         $this->appendText($dom, $gDatRec, 'dCodCliente', str_pad((string) $clienteId, 3, '0', STR_PAD_LEFT));
     }
 
@@ -227,7 +232,9 @@ class SifenXmlBuilder
         $gValorItem = $this->appendGroup($dom, $gCamItem, 'gValorItem');
         $this->appendText($dom, $gValorItem, 'dPUniProSer', $this->formatNumero($item['dPUniProSer'], 8));
         $this->appendText($dom, $gValorItem, 'dTotBruOpeItem', $this->formatNumero($item['dTotBruOpeItem']));
-        $this->appendText($dom, $gValorItem, 'dTotOpeItem', $this->formatNumero($item['dTotOpeItem']));
+
+        $gValorRestaItem = $this->appendGroup($dom, $gValorItem, 'gValorRestaItem');
+        $this->appendText($dom, $gValorRestaItem, 'dTotOpeItem', $this->formatNumero($item['dTotOpeItem']));
 
         $gCamIVA = $this->appendGroup($dom, $gCamItem, 'gCamIVA');
         $this->appendText($dom, $gCamIVA, 'iAfecIVA', (string) $item['iAfecIVA']);
@@ -236,6 +243,7 @@ class SifenXmlBuilder
         $this->appendText($dom, $gCamIVA, 'dTasaIVA', (string) $item['dTasaIVA']);
         $this->appendText($dom, $gCamIVA, 'dBasGravIVA', $this->formatNumero($item['dBasGravIVA'], 8));
         $this->appendText($dom, $gCamIVA, 'dLiqIVAItem', $this->formatNumero($item['dLiqIVAItem'], 8));
+        $this->appendText($dom, $gCamIVA, 'dBasExe', $this->formatNumero($item['dBasExe'], 8));
     }
 
     /**
@@ -307,5 +315,30 @@ class SifenXmlBuilder
         $formatted = rtrim(rtrim($formatted, '0'), '.');
 
         return $formatted === '' ? '0' : $formatted;
+    }
+
+    /** Descripciones geo alineadas al catálogo SIFEN (mayúsculas). */
+    private function normalizarDescripcionGeo(string $valor): string
+    {
+        return mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
+    private function normalizarTelefono(string $telefono): string
+    {
+        $digitos = preg_replace('/\D+/', '', trim($telefono)) ?? '';
+
+        if ($digitos === '') {
+            return '000000';
+        }
+
+        return mb_substr($digitos, 0, 15);
+    }
+
+    private function normalizarNombre(string $nombre): string
+    {
+        $nombre = str_replace('_', ' ', trim($nombre));
+        $nombre = preg_replace('/\s+/u', ' ', $nombre) ?? $nombre;
+
+        return trim($nombre);
     }
 }

@@ -105,7 +105,9 @@ class SifenConfiguracion extends Model
 
     public function cscIdEfectivo(): string
     {
-        return $this->csc_id ?: config('sifen.csc.id', '0001');
+        $id = $this->csc_id ?: config('sifen.csc.id', '0001');
+
+        return str_pad((string) $id, 4, '0', STR_PAD_LEFT);
     }
 
     public function siguienteNumeroDocumento(): int

@@ -9,7 +9,22 @@ return [
     */
     'ambiente' => env('SIFEN_AMBIENTE', 'test'),
 
+    'debug_soap' => (bool) env('SIFEN_DEBUG_SOAP', false),
+
+    // Firma con facturacionelectronicapy-xmlsign (TIPS) vía Node.js — recomendado.
+    'firma_node' => filter_var(env('SIFEN_FIRMA_NODE', true), FILTER_VALIDATE_BOOL),
+
+    // Envío SOAP: Node.js usa el mismo P12 que la firma (más fiable en Windows).
+    'envio_node' => filter_var(env('SIFEN_ENVIO_NODE', true), FILTER_VALIDATE_BOOL),
+
+    'node_path' => env('SIFEN_NODE_PATH'),
+
     'version_formato' => 150,
+
+    'timezone' => env('SIFEN_TIMEZONE', 'America/Asuncion'),
+
+    // Margen de seguridad si el reloj del servidor va adelantado respecto a SIFEN (error 1004).
+    'clock_skew_seconds' => max(0, (int) env('SIFEN_CLOCK_SKEW', 120)),
 
     'namespace' => 'http://ekuatia.set.gov.py/sifen/xsd',
 

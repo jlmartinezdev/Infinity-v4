@@ -39,7 +39,9 @@
                     <div class="flex items-center gap-2 sm:gap-4">
                         @include('partials.theme-toggle')
                         @auth
-                            @include('partials.notifications')
+                            @if(auth()->user()->esAdministrador())
+                                @include('partials.notifications')
+                            @endif
                             <span class="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{{ auth()->user()->name }}</span>
                             <form action="{{ url('/api/logout') }}" method="POST" class="inline">
                                 @csrf

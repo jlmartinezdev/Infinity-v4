@@ -21,7 +21,7 @@ class SifenReceptorParser
      */
     public function parse(Cliente $cliente): array
     {
-        $nombre = trim($cliente->nombre.' '.$cliente->apellido);
+        $nombre = $this->normalizarNombre(trim($cliente->nombre.' '.$cliente->apellido));
         $documento = $this->normalizarDocumento((string) $cliente->cedula);
 
         if ($ruc = $this->parseRuc($documento)) {
@@ -75,5 +75,13 @@ class SifenReceptorParser
     private function inferirTipoContribuyente(string $ruc): int
     {
         return strlen($ruc) >= 8 ? 2 : 1;
+    }
+
+    private function normalizarNombre(string $nombre): string
+    {
+        $nombre = str_replace('_', ' ', trim($nombre));
+        $nombre = preg_replace('/\s+/u', ' ', $nombre) ?? $nombre;
+
+        return trim($nombre);
     }
 }

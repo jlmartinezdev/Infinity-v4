@@ -4,8 +4,9 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto">
-    <div class="mb-4">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <a href="{{ route('configuracion.index') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium">&larr; Configuración</a>
+        <a href="{{ route('configuracion.sifen.prueba') }}" class="text-sm font-medium text-green-600 dark:text-green-400 hover:underline">Ir a laboratorio de prueba →</a>
     </div>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Facturación electrónica (SIFEN)</h1>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Datos del emisor, timbrado, certificado digital y CSC para e-Kuatia.</p>

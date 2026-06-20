@@ -124,6 +124,11 @@ class User extends Authenticatable
         }
     }
 
+    public function esAdministrador(): bool
+    {
+        return $this->rol && strtolower($this->rol->descripcion) === 'administrador';
+    }
+
     /**
      * Verificar si el usuario tiene un permiso específico.
      * Administrador tiene todos. Si no, solo se consideran los permisos individuales (checkboxes) del usuario.
@@ -131,7 +136,7 @@ class User extends Authenticatable
      */
     public function tienePermiso($permiso): bool
     {
-        if ($this->rol && strtolower($this->rol->descripcion) === 'administrador') {
+        if ($this->esAdministrador()) {
             return true;
         }
         $permisosUsuario = is_array($this->permisos) ? $this->permisos : [];

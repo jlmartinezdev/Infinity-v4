@@ -107,6 +107,7 @@ return [
                 ['name' => 'config-ajustes', 'label' => 'Ajustes generales', 'path' => '/configuracion/ajustes', 'permiso' => 'configuracion-ajustes.ver'],
                 ['name' => 'config-facturacion', 'label' => 'Facturación y servicios', 'path' => '/configuracion/facturacion', 'permiso' => 'configuracion-facturacion.ver'],
                 ['name' => 'config-sifen', 'label' => 'SIFEN e-Kuatia', 'path' => '/configuracion/sifen', 'permiso' => 'configuracion-sifen.ver'],
+                ['name' => 'config-sifen-prueba', 'label' => 'Prueba SIFEN', 'path' => '/configuracion/sifen/prueba', 'permiso' => 'configuracion-sifen.ver'],
                 ['name' => 'config-tareas-periodicas', 'label' => 'Tareas periódicas', 'path' => '/configuracion/tareas-periodicas', 'permiso' => 'configuracion-tareas-periodicas.ver'],
                 ['name' => 'config-backup-bd', 'label' => 'Backup base de datos', 'path' => '/configuracion/backup-bd', 'permiso' => 'configuracion-backup.ver'],
             ],

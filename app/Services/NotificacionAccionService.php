@@ -10,13 +10,13 @@ use Illuminate\Support\Facades\Notification;
 class NotificacionAccionService
 {
     /**
-     * Notifica a todos los usuarios sobre la auditoría (incluido quien realizó la acción, para que vea su actividad en el dropdown).
+     * Notifica a los administradores sobre la auditoría (incluido quien realizó la acción, si es admin).
      */
     public function notificarAccion(Auditoria $auditoria): void
     {
         $auditoria->loadMissing('usuario');
 
-        $usuarios = User::all();
+        $usuarios = User::whereHas('rol', fn ($q) => $q->whereRaw('LOWER(descripcion) = ?', ['administrador']))->get();
 
         if ($usuarios->isEmpty()) {
             return;

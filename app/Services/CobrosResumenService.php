@@ -124,6 +124,7 @@ class CobrosResumenService
                 'cobros.fecha_pago',
                 'cfi.monto as pivot_monto',
                 'fi.created_at as factura_created_at',
+                'fi.tipo_factura as factura_tipo',
             ])
             ->get();
 
@@ -131,7 +132,8 @@ class CobrosResumenService
             $clasificado = CobrosMesVentana::clasificarLineaPivot(
                 Carbon::parse($linea->fecha_pago),
                 Carbon::parse($linea->factura_created_at),
-                (float) $linea->pivot_monto
+                (float) $linea->pivot_monto,
+                ($linea->factura_tipo ?? null) === FacturaInterna::TIPO_SERVICIO_ESPECIAL
             );
             if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
                 $totalCobrado += $clasificado['total_cobrado'];
@@ -153,7 +155,8 @@ class CobrosResumenService
             $clasificado = CobrosMesVentana::clasificarLineaPivot(
                 Carbon::parse($cobro->fecha_pago),
                 Carbon::parse($cobro->facturaInterna->created_at),
-                (float) $cobro->monto
+                (float) $cobro->monto,
+                $cobro->facturaInterna->esServicioEspecial()
             );
             if ($clasificado !== null && $clasificado['mes'] === $mesClave) {
                 $totalCobrado += $clasificado['total_cobrado'];

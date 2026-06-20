@@ -135,4 +135,44 @@ class RouterController extends Controller
             'errors' => $result['errors'],
         ]);
     }
+
+    /**
+     * Exporta script RouterOS con usuarios PPPoE activos del router.
+     * ?formato=consola (default) | archivo | json
+     */
+    public function exportPppoeScript(Request $request, $router, MikroTikService $mikrotik)
+    {
+        $router = Router::where('router_id', $router)->firstOrFail();
+        $formato = $request->get('formato', 'consola');
+        $paraConsola = $formato !== 'archivo';
+        $script = $mikrotik->generarScriptPppoeExport($router, $paraConsola);
+        $usuarios = $mikrotik->serviciosPppoeActivosDelRouter($router)->count();
+
+        if ($formato === 'json' || $request->wantsJson()) {
+            return response()->json([
+                'script' => $script,
+                'usuarios' => $usuarios,
+                'router' => [
+                    'id' => $router->router_id,
+                    'nombre' => $router->nombre,
+                    'ip' => $router->ip,
+                ],
+                'download_url' => route('sistema.routers.export-pppoe-script', [
+                    'router' => $router,
+                    'formato' => 'archivo',
+                ]),
+            ]);
+        }
+
+        $slug = preg_replace('/[^a-z0-9_-]+/i', '-', strtolower($router->nombre ?? 'router'));
+        $slug = trim($slug, '-') ?: 'router';
+        $extension = $paraConsola ? 'txt' : 'rsc';
+        $filename = 'pppoe-'.$slug.'-'.$router->router_id.'-'.now()->format('Y-m-d').'.'.$extension;
+
+        return response()->streamDownload(function () use ($script) {
+            echo $script;
+        }, $filename, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+        ]);
+    }
 }

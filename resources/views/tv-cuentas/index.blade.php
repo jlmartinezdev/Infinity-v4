@@ -50,22 +50,22 @@
     @endif
 
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <a href="{{ route('tv-cuentas.index', ['estado' => 'todos']) }}"
+        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'todos', 'q' => $busqueda])) }}"
             class="{{ $cardBase }} {{ $filtro === 'todos' ? $cardActive : 'hover:border-purple-300 dark:hover:border-purple-600' }}">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total cuentas</p>
             <p class="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $stats['total'] }}</p>
         </a>
-        <a href="{{ route('tv-cuentas.index', ['estado' => 'vencido']) }}"
+        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'vencido', 'q' => $busqueda])) }}"
             class="{{ $cardBase }} {{ $filtro === 'vencido' ? $cardActive : 'hover:border-red-400 dark:hover:border-red-500' }}">
             <p class="text-xs font-medium text-red-700 dark:text-red-300 uppercase tracking-wide">Vencidas</p>
             <p class="mt-1 text-3xl font-bold text-red-700 dark:text-red-300">{{ $stats['vencido'] }}</p>
         </a>
-        <a href="{{ route('tv-cuentas.index', ['estado' => 'por_vencer']) }}"
+        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'por_vencer', 'q' => $busqueda])) }}"
             class="{{ $cardBase }} {{ $filtro === 'por_vencer' ? $cardActive : 'hover:border-orange-400 dark:hover:border-orange-500' }}">
             <p class="text-xs font-medium text-orange-700 dark:text-orange-300 uppercase tracking-wide">Por vencer</p>
             <p class="mt-1 text-3xl font-bold text-orange-700 dark:text-orange-300">{{ $stats['por_vencer'] }}</p>
         </a>
-        <a href="{{ route('tv-cuentas.index', ['estado' => 'ok']) }}"
+        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'ok', 'q' => $busqueda])) }}"
             class="{{ $cardBase }} {{ $filtro === 'ok' ? $cardActive : 'hover:border-green-400 dark:hover:border-green-500' }}">
             <p class="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">Al día</p>
             <p class="mt-1 text-3xl font-bold text-green-700 dark:text-green-400">{{ $stats['ok'] }}</p>
@@ -77,9 +77,38 @@
         </div>
     </div>
 
-    @if($filtro !== 'todos')
+    <form method="GET" action="{{ route('tv-cuentas.index') }}" class="mb-4">
+        @if($filtro !== 'todos')
+            <input type="hidden" name="estado" value="{{ $filtro }}">
+        @endif
+        <div class="flex flex-col sm:flex-row gap-2 sm:max-w-xl">
+            <div class="relative flex-1">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
+                </svg>
+                <input type="text" name="q" value="{{ $busqueda }}"
+                    placeholder="Buscar por cuenta, usuario app, perfil, cliente o cédula…"
+                    class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 dark:placeholder-gray-500">
+            </div>
+            <div class="flex gap-2 shrink-0">
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">Buscar</button>
+                @if($busqueda !== '')
+                    <a href="{{ route('tv-cuentas.index', $filtro !== 'todos' ? ['estado' => $filtro] : []) }}"
+                        class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Limpiar</a>
+                @endif
+            </div>
+        </div>
+    </form>
+
+    @if($filtro !== 'todos' || $busqueda !== '')
         <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            Filtrando: <span class="font-medium">{{ $badgeLabels[$filtro] ?? $filtro }}</span>
+            @if($filtro !== 'todos')
+                Filtrando: <span class="font-medium">{{ $badgeLabels[$filtro] ?? $filtro }}</span>
+            @endif
+            @if($busqueda !== '')
+                @if($filtro !== 'todos') · @endif
+                Búsqueda: <span class="font-medium">"{{ $busqueda }}"</span>
+            @endif
             ({{ $cuentas->total() }} cuenta{{ $cuentas->total() === 1 ? '' : 's' }})
             · <a href="{{ route('tv-cuentas.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver todas</a>
         </p>
@@ -209,6 +238,8 @@
                                     @if(auth()->user()?->tienePermiso('tv.editar'))
                                         <a href="{{ route('tv-cuentas.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear una</a>
                                     @endif
+                                @elseif($busqueda !== '')
+                                    Ninguna cuenta coincide con la búsqueda "{{ $busqueda }}".
                                 @else
                                     Ninguna cuenta coincide con el filtro seleccionado.
                                 @endif

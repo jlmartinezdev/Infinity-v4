@@ -36,29 +36,37 @@ class SifenService
         }
 
         $config = $this->obtenerConfiguracion();
-        $preparado = $this->prepararDocumento($factura, false);
+        $fechaDe = $this->momentoEmision($factura);
+        $preparado = $this->prepararDocumento($factura, false, $fechaDe);
         $factura = $preparado['factura'];
 
-        $firmado = $this->xmlSigner->firmar($preparado['xml'], $preparado['cdc']);
+        $fechaFirma = $this->momentoEmision(
+            $factura,
+            $this->cdcGenerator->extraerFechaEmision($preparado['cdc']),
+        );
+        $xmlParaFirmar = SifenXmlManipulator::actualizarFechasDe($preparado['xml'], $fechaFirma);
 
-        $receptor = $this->receptorParser->parse($factura->cliente);
-        $fechaEmisionDe = Carbon::parse($factura->set_fecha_emision_de);
+        $firmado = $this->xmlSigner->firmar($xmlParaFirmar, $preparado['cdc']);
 
-        $qrUrl = $this->qrGenerator->construirUrl(
-            $preparado['cdc'],
-            $fechaEmisionDe,
-            $receptor,
-            (float) $preparado['totales']['dTotGralOpe'],
-            (float) $preparado['totales']['dTotIVA'],
-            $factura->detalles->count(),
-            $firmado['digest_value'],
+        $qrUrl = $this->qrGenerator->construirUrlDesdeXmlFirmado(
+            $firmado['xml'],
             $config,
         );
 
+        $this->assertQrUrlValida($qrUrl);
+
         $xmlFinal = $this->qrGenerator->insertarEnXml($firmado['xml'], $qrUrl);
+
+        SifenXmlManipulator::assertEstructuraFirmaValida($xmlFinal);
+
+        $domValidacion = new \DOMDocument;
+        if (! @$domValidacion->loadXML($xmlFinal)) {
+            throw new RuntimeException('El XML firmado generado no es válido. Revise certificado, firma y bloque QR.');
+        }
+
         $xmlPath = $this->guardarXml($factura, $preparado['cdc'], $xmlFinal, 'firmado');
 
-        $validacion = $this->xmlValidator->validar($xmlFinal);
+        $validacion = $this->xmlValidator->validar($xmlFinal, 'firmado');
 
         $respuestaSifen = null;
         $estadoEnvio = 'pendiente';
@@ -80,10 +88,15 @@ class SifenService
                     'set_qr_url' => $qrUrl,
                 ]);
 
-                throw new RuntimeException(
-                    'SIFEN rechazó el DE: ['.($respuestaSifen['codigo'] ?? '?').'] '
-                    .($respuestaSifen['mensaje'] ?? 'Sin mensaje')
-                );
+                $codigo = $respuestaSifen['codigo'] ?? '?';
+                $mensaje = $respuestaSifen['mensaje'] ?? 'Sin mensaje';
+                if ($codigo !== '?' && str_starts_with($mensaje, '['.$codigo.']')) {
+                    $textoError = 'SIFEN rechazó el DE: '.$mensaje;
+                } else {
+                    $textoError = 'SIFEN rechazó el DE: ['.$codigo.'] '.$mensaje;
+                }
+
+                throw new RuntimeException($textoError);
             }
         }
 
@@ -124,14 +137,14 @@ class SifenService
      *   totales: array<string, float>,
      * }
      */
-    public function prepararDocumento(Factura $factura, bool $validarXsd = true): array
+    public function prepararDocumento(Factura $factura, bool $validarXsd = true, ?Carbon $fechaEmisionDe = null): array
     {
         $config = $this->obtenerConfiguracion();
         $factura->loadMissing(['cliente', 'detalles.impuesto']);
 
         $this->assertFacturaLista($factura, $config);
 
-        $fechaEmisionDe = $this->resolverFechaEmision($factura);
+        $fechaEmisionDe ??= $this->momentoEmision($factura);
         $numeroDocumento = $this->resolverNumeroDocumento($factura, $config);
         $codigoSeg = $this->resolverCodigoSeguridad($factura, $numeroDocumento);
 
@@ -152,6 +165,9 @@ class SifenService
 
         $cdc = $this->cdcGenerator->generar($cdcParams);
 
+        // El XML usa $factura->numero en gTimb/dNumDoc; debe estar asignado antes de construir.
+        $factura->numero = $numeroDocumento;
+
         $resultado = $this->xmlBuilder->construir(
             $factura,
             $config,
@@ -164,7 +180,7 @@ class SifenService
 
         $validacion = ['valido' => true, 'errores' => []];
         if ($validarXsd) {
-            $validacion = $this->xmlValidator->validar($resultado['xml']);
+            $validacion = $this->xmlValidator->validar($resultado['xml'], 'borrador');
         }
 
         $factura->update([
@@ -233,15 +249,55 @@ class SifenService
         }
     }
 
-    private function resolverFechaEmision(Factura $factura): Carbon
+    /**
+     * Momento del DE: fecha contable + hora actual, nunca adelantada respecto a SIFEN (error 1004).
+     */
+    private function momentoEmision(Factura $factura, ?string $cdcFechaYmd = null): Carbon
     {
-        if ($factura->set_fecha_emision_de) {
-            return Carbon::parse($factura->set_fecha_emision_de);
+        $tz = config('sifen.timezone', 'America/Asuncion');
+        $skew = max(0, (int) config('sifen.clock_skew_seconds', 120));
+        $tope = Carbon::now($tz)->subSeconds($skew);
+
+        if (blank($factura->fecha_emision)) {
+            return $cdcFechaYmd ? $this->alinearFechaConCdc($tope, $cdcFechaYmd) : $tope;
         }
 
-        $fecha = Carbon::parse($factura->fecha_emision);
+        $fechaContable = Carbon::parse($factura->fecha_emision, $tz)->startOfDay();
 
-        return $fecha->setTimeFromTimeString(now()->format('H:i:s'));
+        if ($fechaContable->greaterThan($tope->copy()->startOfDay())) {
+            return $cdcFechaYmd ? $this->alinearFechaConCdc($tope, $cdcFechaYmd) : $tope;
+        }
+
+        $resultado = $tope->copy()->setDate(
+            (int) $fechaContable->format('Y'),
+            (int) $fechaContable->format('m'),
+            (int) $fechaContable->format('d'),
+        );
+
+        // setDate puede quedar adelantado cerca de medianoche; nunca superar $tope.
+        if ($resultado->greaterThan($tope)) {
+            $resultado = $tope->copy();
+        }
+
+        if ($cdcFechaYmd) {
+            $resultado = $this->alinearFechaConCdc($resultado, $cdcFechaYmd);
+            if ($resultado->greaterThan($tope)) {
+                $resultado = $this->alinearFechaConCdc($tope, $cdcFechaYmd);
+            }
+        }
+
+        return $resultado;
+    }
+
+    private function alinearFechaConCdc(Carbon $fecha, string $cdcYmd): Carbon
+    {
+        $tz = $fecha->getTimezone()->getName();
+
+        return Carbon::createFromFormat(
+            'Ymd H:i:s',
+            $cdcYmd.' '.$fecha->format('H:i:s'),
+            $tz
+        );
     }
 
     private function resolverNumeroDocumento(Factura $factura, SifenConfiguracion $config): int
@@ -290,6 +346,44 @@ class SifenService
         $rutaAbsoluta = $directorio.DIRECTORY_SEPARATOR.$nombre;
         File::put($rutaAbsoluta, $xml);
 
+        $verificado = File::get($rutaAbsoluta);
+        if (! str_ends_with(trim($verificado), '</rDE>')) {
+            File::delete($rutaAbsoluta);
+            throw new RuntimeException('El XML guardado está incompleto (falta cierre </rDE>).');
+        }
+
+        $dom = new \DOMDocument;
+        if (! @$dom->loadXML($verificado)) {
+            File::delete($rutaAbsoluta);
+            throw new RuntimeException('El XML guardado no es un documento XML válido.');
+        }
+
         return 'sifen/xml/'.$nombre;
+    }
+
+    private function assertQrUrlValida(string $qrUrl): void
+    {
+        $baseTest = 'https://ekuatia.set.gov.py/consultas-test/qr?';
+        $baseProd = 'https://ekuatia.set.gov.py/consultas/qr?';
+        $ambiente = config('sifen.ambiente', 'test');
+        $baseEsperada = $ambiente === 'production' ? $baseProd : $baseTest;
+
+        if (! str_starts_with($qrUrl, $baseEsperada)) {
+            throw new RuntimeException('URL QR inválida: base incorrecta para ambiente '.$ambiente.'.');
+        }
+
+        if (str_contains($qrUrl, 'dNumIdRec=')) {
+            throw new RuntimeException('URL QR inválida: el parámetro debe ser dNumIDRec (no dNumIdRec).');
+        }
+
+        if (! str_contains($qrUrl, 'dRucRec=') && ! str_contains($qrUrl, 'dNumIDRec=')) {
+            throw new RuntimeException('URL QR inválida: falta identificación del receptor (dRucRec o dNumIDRec).');
+        }
+
+        foreach (['nVersion=', 'Id=', 'dFeEmiDE=', 'dTotGralOpe=', 'dTotIVA=', 'cItems=', 'DigestValue=', 'IdCSC=', 'cHashQR='] as $param) {
+            if (! str_contains($qrUrl, $param)) {
+                throw new RuntimeException('URL QR inválida: falta parámetro '.$param);
+            }
+        }
     }
 }

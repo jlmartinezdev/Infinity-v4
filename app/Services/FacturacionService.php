@@ -158,6 +158,7 @@ class FacturacionService
 
         $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $impuestoPlan = $this->resolverImpuestoPlanes();
         $estadoFinal = $estado ?? 'pendiente';
         $baseVencimiento = $fechaEmision !== null && $fechaEmision !== ''
             ? Carbon::parse($fechaEmision)->startOfDay()
@@ -178,7 +179,7 @@ class FacturacionService
             $periodoDesdeEfectivo = $fechas->sortBy(fn ($c) => $c->format('Y-m-d'))->first()->copy();
         }
 
-        $factura = DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $usuarioId, $estadoFinal, $fechaVencimientoFinal, $fechaEmisionFinal) {
+        $factura = DB::transaction(function () use ($cliente, $servicios, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $impuestoExento, $impuestoPlan, $usuarioId, $estadoFinal, $fechaVencimientoFinal, $fechaEmisionFinal) {
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
                 'tipo_factura' => FacturaInterna::TIPO_SERVICIO,
@@ -211,11 +212,11 @@ class FacturacionService
                 $periodoStr = $desdeServicio . ' hasta ' . $periodoHasta->format('d/m/Y');
                 $descripcion = sprintf('%s - %s Gs. - Desde %s', $nombrePlan, $precioFormateado, $periodoStr);
 
-                $calc = FacturaDetalle::calcularDesdePrecio(1, $precio, $impuestoExento);
+                $calc = FacturaDetalle::calcularDesdePrecioIvaIncluido(1, $precio, $impuestoPlan);
 
                 FacturaInternaDetalle::create([
                     'factura_interna_id' => $factura->id,
-                    'impuesto_id' => $impuestoExento?->id,
+                    'impuesto_id' => $impuestoPlan?->id,
                     'servicio_id' => $servicio->servicio_id,
                     'descripcion' => $descripcion,
                     'cantidad' => 1,
@@ -235,11 +236,11 @@ class FacturacionService
                 if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
                     $precioAppFormateado = number_format($precioApp, 0, ',', '.');
                     $descripcionApp = sprintf('Servicio especial - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
-                    $calcApp = FacturaDetalle::calcularDesdePrecio(1, $precioApp, $impuestoExento);
+                    $calcApp = FacturaDetalle::calcularDesdePrecioIvaIncluido(1, $precioApp, $impuestoPlan);
 
                     FacturaInternaDetalle::create([
                         'factura_interna_id' => $factura->id,
-                        'impuesto_id' => $impuestoExento?->id,
+                        'impuesto_id' => $impuestoPlan?->id,
                         'servicio_id' => $servicio->servicio_id,
                         'descripcion' => $descripcionApp,
                         'cantidad' => 1,
@@ -308,6 +309,7 @@ class FacturacionService
         $porCliente = $servicios->groupBy('cliente_id');
         $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $impuestoPlan = $this->resolverImpuestoPlanes();
         $facturas = collect();
 
         foreach ($porCliente as $clienteId => $serviciosCliente) {
@@ -330,7 +332,7 @@ class FacturacionService
                 $periodoDesdeEfectivo = $fechas->sortBy(fn ($c) => $c->format('Y-m-d'))->first()->copy();
             }
 
-            $factura = DB::transaction(function () use ($serviciosCliente, $cliente, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $diasVencimiento, $impuestoExento, $usuarioId, $observacionesExtra) {
+            $factura = DB::transaction(function () use ($serviciosCliente, $cliente, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $diasVencimiento, $impuestoExento, $impuestoPlan, $usuarioId, $observacionesExtra) {
                 $fechaEmision = now()->toDateString();
                 $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
 
@@ -373,11 +375,11 @@ class FacturacionService
                     $periodoStr = $desdeServicio.' hasta '.$periodoHasta->format('d/m/Y');
                     $descripcion = sprintf('%s - %s Gs. - Desde %s', $nombrePlan, $precioFormateado, $periodoStr);
 
-                    $calc = FacturaDetalle::calcularDesdePrecio(1, $precio, $impuestoExento);
+                    $calc = FacturaDetalle::calcularDesdePrecioIvaIncluido(1, $precio, $impuestoPlan);
 
                     FacturaInternaDetalle::create([
                         'factura_interna_id' => $factura->id,
-                        'impuesto_id' => $impuestoExento?->id,
+                        'impuesto_id' => $impuestoPlan?->id,
                         'servicio_id' => $servicio->servicio_id,
                         'descripcion' => $descripcion,
                         'cantidad' => 1,
@@ -397,11 +399,11 @@ class FacturacionService
                     if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
                         $precioAppFormateado = number_format($precioApp, 0, ',', '.');
                         $descripcionApp = sprintf('Servicio especial - %s Gs. - Período %s', $precioAppFormateado, $periodoStr);
-                        $calcApp = FacturaDetalle::calcularDesdePrecio(1, $precioApp, $impuestoExento);
+                        $calcApp = FacturaDetalle::calcularDesdePrecioIvaIncluido(1, $precioApp, $impuestoPlan);
 
                         FacturaInternaDetalle::create([
                             'factura_interna_id' => $factura->id,
-                            'impuesto_id' => $impuestoExento?->id,
+                            'impuesto_id' => $impuestoPlan?->id,
                             'servicio_id' => $servicio->servicio_id,
                             'descripcion' => $descripcionApp,
                             'cantidad' => 1,
@@ -535,7 +537,7 @@ class FacturacionService
                 $impuesto = Impuesto::find($item['impuesto_id'] ?? null) ?? $impuestoExento;
                 $cantidad = (float) ($item['cantidad'] ?? 1);
                 $precioUnitario = (float) ($item['precio_unitario'] ?? 0);
-                $calc = FacturaDetalle::calcularDesdePrecio($cantidad, $precioUnitario, $impuesto);
+                $calc = FacturaDetalle::calcularLinea($cantidad, $precioUnitario, $impuesto);
 
                 FacturaInternaDetalle::create([
                     'factura_interna_id' => $factura->id,
@@ -633,7 +635,7 @@ class FacturacionService
                 $impuesto = Impuesto::find($item['impuesto_id'] ?? null) ?? $impuestoExento;
                 $cantidad = (float) ($item['cantidad'] ?? 1);
                 $precioUnitario = (float) ($item['precio_unitario'] ?? 0);
-                $calc = FacturaDetalle::calcularDesdePrecio($cantidad, $precioUnitario, $impuesto);
+                $calc = FacturaDetalle::calcularLinea($cantidad, $precioUnitario, $impuesto);
 
                 FacturaInternaDetalle::create([
                     'factura_interna_id' => $factura->id,
@@ -1482,6 +1484,7 @@ class FacturacionService
 
         $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $impuestoPlan = $this->resolverImpuestoPlanes();
         $cliente = $servicio->cliente;
         $inicioMes = $fechaCancelacion->copy()->startOfMonth();
         $nombrePlan = $servicio->plan?->nombre ?? 'N/A';
@@ -1494,7 +1497,7 @@ class FacturacionService
             $montoStr
         );
 
-        $factura = DB::transaction(function () use ($servicio, $cliente, $fechaCancelacion, $inicioMes, $monto, $diasVencimiento, $impuestoExento, $usuarioId, $descripcion) {
+        $factura = DB::transaction(function () use ($servicio, $cliente, $fechaCancelacion, $inicioMes, $monto, $diasVencimiento, $impuestoExento, $impuestoPlan, $usuarioId, $descripcion) {
             $fechaEmision = now()->toDateString();
             $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
 
@@ -1519,11 +1522,11 @@ class FacturacionService
                 ),
             ]);
 
-            $calc = FacturaDetalle::calcularDesdePrecio(1, $monto, $impuestoExento);
+            $calc = FacturaDetalle::calcularDesdePrecioIvaIncluido(1, $monto, $impuestoPlan);
 
             FacturaInternaDetalle::create([
                 'factura_interna_id' => $factura->id,
-                'impuesto_id' => $impuestoExento?->id,
+                'impuesto_id' => $impuestoPlan?->id,
                 'servicio_id' => $servicio->servicio_id,
                 'descripcion' => $descripcion,
                 'cantidad' => 1,
@@ -1647,6 +1650,7 @@ class FacturacionService
         $finMes = $fechaCambio->copy()->endOfMonth();
 
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $impuestoPlan = $this->resolverImpuestoPlanes();
         $mensajeFactura = '';
         $items = [];
 
@@ -1658,7 +1662,7 @@ class FacturacionService
                     : $inicioMes->format('d/m/Y');
                 $montoStr = number_format($pror['monto_plan_anterior'], 0, ',', '.');
                 $items[] = [
-                    'impuesto_id' => $impuestoExento?->id,
+                    'impuesto_id' => $impuestoPlan?->id,
                     'descripcion' => sprintf(
                         'Cambio de plan — %s prorr. (%s a %s) — %s Gs.',
                         $nombreViejo,
@@ -1675,7 +1679,7 @@ class FacturacionService
                 $hastaNuevo = $finMes->format('d/m/Y');
                 $montoStrN = number_format($pror['monto_plan_nuevo'], 0, ',', '.');
                 $items[] = [
-                    'impuesto_id' => $impuestoExento?->id,
+                    'impuesto_id' => $impuestoPlan?->id,
                     'descripcion' => sprintf(
                         'Cambio de plan — %s prorr. (%s a %s) — %s Gs.',
                         $nombreNuevo,
@@ -1709,7 +1713,7 @@ class FacturacionService
                             $impuesto = Impuesto::find($item['impuesto_id'] ?? null) ?? $impuestoExento;
                             $cantidad = (float) ($item['cantidad'] ?? 1);
                             $precioUnitario = (float) ($item['precio_unitario'] ?? 0);
-                            $calc = FacturaDetalle::calcularDesdePrecio($cantidad, $precioUnitario, $impuesto);
+                            $calc = FacturaDetalle::calcularLinea($cantidad, $precioUnitario, $impuesto);
 
                             FacturaInternaDetalle::create([
                                 'factura_interna_id' => $facturaActualizable->id,
@@ -1849,5 +1853,11 @@ class FacturacionService
 
             return $nota;
         });
+    }
+
+    private function resolverImpuestoPlanes(): ?Impuesto
+    {
+        return Impuesto::where('codigo', 'IVA10')->first()
+            ?? Impuesto::activos()->firstWhere('porcentaje', 10);
     }
 }

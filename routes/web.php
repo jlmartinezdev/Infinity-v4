@@ -13,6 +13,7 @@ use App\Http\Controllers\CobroRendicionController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\SifenConfiguracionController;
+use App\Http\Controllers\SifenPruebaController;
 use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EstadoPedidoController;
@@ -72,8 +73,8 @@ Route::prefix('api')->group(function () {
     Route::get('/dashboard/stats', [HomeController::class, 'stats'])->middleware(['auth', 'permiso:dashboard.ver']);
 });
 
-// Notificaciones (listado y marcar como leídas)
-Route::middleware('auth')->group(function () {
+// Notificaciones (solo administradores)
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/notificaciones', [NotificacionController::class, 'index'])->name('notificaciones.index');
     Route::post('/notificaciones/{id}/leer', [NotificacionController::class, 'markAsRead'])->name('notificaciones.leer');
     Route::post('/notificaciones/leer-todas', [NotificacionController::class, 'markAllAsRead'])->name('notificaciones.leer-todas');
@@ -109,6 +110,13 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::post('/configuracion/facturacion', [ConfiguracionController::class, 'storeFacturacion'])->name('configuracion.facturacion.store');
     Route::get('/configuracion/sifen', [SifenConfiguracionController::class, 'edit'])->name('configuracion.sifen');
     Route::post('/configuracion/sifen', [SifenConfiguracionController::class, 'update'])->name('configuracion.sifen.store');
+    Route::get('/configuracion/sifen/prueba', [SifenPruebaController::class, 'index'])->name('configuracion.sifen.prueba');
+    Route::post('/configuracion/sifen/prueba/factura', [SifenPruebaController::class, 'crearFactura'])->name('configuracion.sifen.prueba.factura');
+    Route::post('/configuracion/sifen/prueba/{factura}/preparar', [SifenPruebaController::class, 'preparar'])->name('configuracion.sifen.prueba.preparar');
+    Route::post('/configuracion/sifen/prueba/{factura}/emitir-local', [SifenPruebaController::class, 'emitirLocal'])->name('configuracion.sifen.prueba.emitir-local');
+    Route::post('/configuracion/sifen/prueba/tls', [SifenPruebaController::class, 'probarTls'])->name('configuracion.sifen.prueba.tls');
+    Route::post('/configuracion/sifen/prueba/{factura}/emitir', [SifenPruebaController::class, 'emitir'])->name('configuracion.sifen.prueba.emitir');
+    Route::post('/configuracion/sifen/prueba/limpiar', [SifenPruebaController::class, 'limpiarPruebas'])->name('configuracion.sifen.prueba.limpiar');
     Route::get('/configuracion/tareas-periodicas', [TareaPeriodicaController::class, 'index'])->name('tareas-periodicas.index');
     Route::get('/configuracion/tareas-periodicas/create', [TareaPeriodicaController::class, 'create'])->name('tareas-periodicas.create');
     Route::post('/configuracion/tareas-periodicas', [TareaPeriodicaController::class, 'store'])->name('tareas-periodicas.store');
@@ -261,6 +269,7 @@ Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
     Route::get('/facturas', [FacturaController::class, 'index'])->name('facturas.index');
     Route::get('/facturas/generar-interna', [FacturaController::class, 'generarInterna'])->name('facturas.generar-interna');
     Route::get('/facturas/create', [FacturaController::class, 'create'])->name('facturas.create')->middleware('permiso:facturas.crear');
+    Route::get('/facturas/create/cliente/{cliente}', [FacturaController::class, 'createParaCliente'])->name('facturas.create-cliente')->middleware('permiso:facturas.crear');
 });
 Route::get('/facturacion/dashboard', [FacturacionDashboardController::class, 'index'])
     ->name('facturacion.dashboard')
@@ -508,6 +517,7 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::get('importar-wisphub/exportar-excel', [WispHubImportController::class, 'exportarExcel'])->name('importar-wisphub.exportar-excel');
     Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->name('routers.test-connection');
     Route::post('routers/{router}/sync-pppoe', [RouterController::class, 'syncPppoe'])->name('routers.sync-pppoe');
+    Route::get('routers/{router}/export-pppoe-script', [RouterController::class, 'exportPppoeScript'])->name('routers.export-pppoe-script');
     Route::resource('routers', RouterController::class)->except(['show']);
     Route::resource('router-ip-pools', RouterIpPoolController::class)->except(['show']);
     Route::get('pool-ip-asignadas', [PoolIpAsignadaController::class, 'index'])->name('pool-ip-asignadas.index');

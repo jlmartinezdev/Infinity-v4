@@ -8,7 +8,9 @@ use App\Models\FacturaDetalle;
 use App\Models\FacturacionParametro;
 use App\Models\Impuesto;
 use App\Models\Servicio;
+use App\Models\SifenConfiguracion;
 use App\Services\FacturacionService;
+use App\Services\Sifen\SifenKudeService;
 use App\Services\Sifen\SifenService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -37,15 +39,197 @@ class FacturaController extends Controller
         $facturas = $query->paginate(15)->withQueryString();
         $clientes = Cliente::orderBy('nombre')->get();
 
-        return view('facturas.index', compact('facturas', 'clientes'));
+        $mesDashboard = now()->startOfMonth();
+        if ($request->filled('mes')) {
+            try {
+                $mesDashboard = Carbon::createFromFormat('Y-m', (string) $request->mes)->startOfMonth();
+            } catch (\Throwable) {
+                // Ignorar formato inválido; usar mes actual.
+            }
+        }
+
+        $statsEmitidasMes = Factura::query()
+            ->where('estado', 'emitida')
+            ->whereYear('fecha_emision', $mesDashboard->year)
+            ->whereMonth('fecha_emision', $mesDashboard->month)
+            ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total), 0) as monto_total, COALESCE(SUM(total_impuestos), 0) as monto_iva')
+            ->first();
+
+        $borradoresMes = Factura::query()
+            ->where('estado', 'borrador')
+            ->whereYear('fecha_emision', $mesDashboard->year)
+            ->whereMonth('fecha_emision', $mesDashboard->month)
+            ->count();
+
+        $montoBorradoresMes = (float) Factura::query()
+            ->where('estado', 'borrador')
+            ->whereYear('fecha_emision', $mesDashboard->year)
+            ->whereMonth('fecha_emision', $mesDashboard->month)
+            ->sum('total');
+
+        return view('facturas.index', [
+            'facturas' => $facturas,
+            'clientes' => $clientes,
+            'mesDashboard' => $mesDashboard,
+            'mesDashboardLabel' => $mesDashboard->locale('es')->isoFormat('MMMM YYYY'),
+            'statsEmitidasMes' => $statsEmitidasMes,
+            'borradoresMes' => $borradoresMes,
+            'montoBorradoresMes' => $montoBorradoresMes,
+        ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $mes = now();
+        $mesLabel = $mes->locale('es')->isoFormat('MMMM YYYY');
+
+        $emisionesMes = Factura::query()
+            ->where('estado', 'emitida')
+            ->whereYear('fecha_emision', $mes->year)
+            ->whereMonth('fecha_emision', $mes->month)
+            ->selectRaw('cliente_id, COUNT(*) as cantidad, MAX(id) as ultima_factura_id, MAX(fecha_emision) as ultima_fecha')
+            ->groupBy('cliente_id')
+            ->get()
+            ->keyBy('cliente_id');
+
+        $query = Cliente::query()
+            ->whereIn('estado', ['activo', 'inactivo'])
+            ->orderBy('nombre')
+            ->orderBy('apellido');
+
+        if ($request->filled('buscar')) {
+            $buscar = trim((string) $request->buscar);
+            $query->where(function ($q) use ($buscar) {
+                $q->where('nombre', 'like', '%'.$buscar.'%')
+                    ->orWhere('apellido', 'like', '%'.$buscar.'%')
+                    ->orWhere('cedula', 'like', '%'.$buscar.'%');
+            });
+        }
+
+        if ($request->boolean('solo_pendientes')) {
+            $query->whereNotIn('cliente_id', $emisionesMes->keys()->all());
+        }
+
+        $clientes = $query->paginate(25)->withQueryString();
+
+        $totalActivos = Cliente::whereIn('estado', ['activo', 'inactivo'])->count();
+        $emitidosMes = $emisionesMes->count();
+        $pendientesMes = max(0, $totalActivos - $emitidosMes);
+
+        return view('facturas.seleccionar-cliente', compact(
+            'clientes',
+            'emisionesMes',
+            'mesLabel',
+            'totalActivos',
+            'emitidosMes',
+            'pendientesMes',
+        ));
+    }
+
+    public function createParaCliente(Cliente $cliente)
+    {
+        if (blank($cliente->cedula)) {
+            return redirect()->route('facturas.create')
+                ->with('error', 'El cliente debe tener cédula o RUC para emitir factura electrónica SIFEN.');
+        }
+
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo'])->orderBy('nombre')->get();
         $impuestos = Impuesto::activos();
+        $clienteSeleccionado = $cliente;
 
-        return view('facturas.create', compact('clientes', 'impuestos'));
+        $sifenConfig = SifenConfiguracion::activa();
+        $prefill = $this->construirPrefillSifen($sifenConfig);
+        $detallesIniciales = $this->construirDetallesDesdeServiciosCliente($cliente);
+
+        return view('facturas.create', compact(
+            'clientes',
+            'impuestos',
+            'clienteSeleccionado',
+            'prefill',
+            'detallesIniciales',
+            'sifenConfig',
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function construirPrefillSifen(?SifenConfiguracion $config): array
+    {
+        if (! $config) {
+            return [
+                'numero_timbrado' => null,
+                'timbrado_vigencia_desde' => null,
+                'timbrado_vigencia_hasta' => null,
+                'establecimiento' => 1,
+                'punto_emision' => 1,
+            ];
+        }
+
+        return [
+            'numero_timbrado' => $config->numero_timbrado,
+            'timbrado_vigencia_desde' => $config->timbrado_vigencia_desde?->format('Y-m-d'),
+            'timbrado_vigencia_hasta' => $config->timbrado_vigencia_hasta?->format('Y-m-d'),
+            'establecimiento' => $config->establecimiento ?? 1,
+            'punto_emision' => $config->punto_expedicion ?? 1,
+        ];
+    }
+
+    /**
+     * @return list<array{descripcion: string, cantidad: float, precio_unitario: float, impuesto_id: int|null, servicio_id: int}>
+     */
+    private function construirDetallesDesdeServiciosCliente(Cliente $cliente): array
+    {
+        $impuestoIva = Impuesto::where('codigo', 'IVA10')->first() ?? Impuesto::activos()->firstWhere('porcentaje', '>', 0);
+        $periodoDesde = now()->startOfMonth();
+        $periodoHasta = now()->endOfMonth();
+        $periodoStr = $periodoDesde->format('d/m/Y').' a '.$periodoHasta->format('d/m/Y');
+
+        $servicios = Servicio::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->with('plan')
+            ->orderBy('servicio_id')
+            ->get();
+
+        $detalles = [];
+
+        foreach ($servicios as $servicio) {
+            $plan = $servicio->plan;
+            $precioPlan = (float) ($plan?->precio ?? 0);
+            if ($precioPlan <= 0) {
+                continue;
+            }
+
+            $precio = FacturacionService::calcularPrecioProrrateado(
+                $servicio,
+                $periodoDesde->copy(),
+                $periodoHasta->copy(),
+                $precioPlan
+            );
+
+            $nombrePlan = $plan?->nombre ?? 'Servicio de internet';
+            $detalles[] = [
+                'descripcion' => sprintf('%s - %s Gs. - Período %s', $nombrePlan, number_format($precio, 0, ',', '.'), $periodoStr),
+                'cantidad' => 1,
+                'precio_unitario' => $precio,
+                'impuesto_id' => $impuestoIva?->id,
+                'servicio_id' => $servicio->servicio_id,
+            ];
+
+            $precioApp = (float) ($servicio->precio_app ?? 0);
+            if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
+                $detalles[] = [
+                    'descripcion' => sprintf('Servicio especial - %s Gs. - Período %s', number_format($precioApp, 0, ',', '.'), $periodoStr),
+                    'cantidad' => 1,
+                    'precio_unitario' => $precioApp,
+                    'impuesto_id' => $impuestoIva?->id,
+                    'servicio_id' => $servicio->servicio_id,
+                ];
+            }
+        }
+
+        return $detalles;
     }
 
     public function store(Request $request)
@@ -67,6 +251,7 @@ class FacturaController extends Controller
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.0001'],
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             'detalles.*.impuesto_id' => ['nullable', 'integer', 'exists:impuestos,id'],
+            'detalles.*.servicio_id' => ['nullable', 'integer', 'exists:servicios,servicio_id'],
         ]);
 
         $factura = \DB::transaction(function () use ($validated, $request) {
@@ -91,7 +276,7 @@ class FacturaController extends Controller
 
             foreach ($validated['detalles'] as $item) {
                 $impuesto = isset($item['impuesto_id']) ? Impuesto::find($item['impuesto_id']) : null;
-                $calc = FacturaDetalle::calcularDesdePrecio(
+                $calc = FacturaDetalle::calcularLinea(
                     (float) $item['cantidad'],
                     (float) $item['precio_unitario'],
                     $impuesto
@@ -99,6 +284,7 @@ class FacturaController extends Controller
                 FacturaDetalle::create([
                     'factura_electronica_id' => $factura->id,
                     'impuesto_id' => $item['impuesto_id'] ?? null,
+                    'servicio_id' => $item['servicio_id'] ?? null,
                     'descripcion' => $item['descripcion'],
                     'cantidad' => $item['cantidad'],
                     'precio_unitario' => $item['precio_unitario'],
@@ -119,7 +305,7 @@ class FacturaController extends Controller
 
     public function show(Factura $factura)
     {
-        $factura->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros']);
+        $factura->load(['cliente', 'detalles.impuesto', 'usuario']);
 
         return view('facturas.show', compact('factura'));
     }
@@ -160,6 +346,7 @@ class FacturaController extends Controller
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.0001'],
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             'detalles.*.impuesto_id' => ['nullable', 'integer', 'exists:impuestos,id'],
+            'detalles.*.servicio_id' => ['nullable', 'integer', 'exists:servicios,servicio_id'],
         ]);
 
         \DB::transaction(function () use ($factura, $validated) {
@@ -180,7 +367,7 @@ class FacturaController extends Controller
             $factura->detalles()->delete();
             foreach ($validated['detalles'] as $item) {
                 $impuesto = isset($item['impuesto_id']) ? Impuesto::find($item['impuesto_id']) : null;
-                $calc = FacturaDetalle::calcularDesdePrecio(
+                $calc = FacturaDetalle::calcularLinea(
                     (float) $item['cantidad'],
                     (float) $item['precio_unitario'],
                     $impuesto
@@ -188,6 +375,7 @@ class FacturaController extends Controller
                 FacturaDetalle::create([
                     'factura_electronica_id' => $factura->id,
                     'impuesto_id' => $item['impuesto_id'] ?? null,
+                    'servicio_id' => $item['servicio_id'] ?? null,
                     'descripcion' => $item['descripcion'],
                     'cantidad' => $item['cantidad'],
                     'precio_unitario' => $item['precio_unitario'],
@@ -241,18 +429,28 @@ class FacturaController extends Controller
     /**
      * Descarga el KuDE PDF de una factura emitida.
      */
-    public function descargarKude(Factura $factura)
+    public function descargarKude(Factura $factura, SifenKudeService $kudeService)
     {
-        if (! $factura->pdf_path) {
+        if ($factura->estado !== 'emitida') {
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'No hay KuDE PDF generado para esta factura.');
+                ->with('error', 'Solo las facturas emitidas tienen KuDE PDF.');
         }
 
-        $ruta = storage_path($factura->pdf_path);
-        if (! is_file($ruta)) {
+        $config = SifenConfiguracion::activa();
+        if (! $config) {
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'Archivo KuDE no encontrado en el servidor.');
+                ->with('error', 'No hay configuración SIFEN activa.');
         }
+
+        try {
+            $pdfPath = $kudeService->generar($factura, $config, $factura->set_qr_url);
+            $factura->update(['pdf_path' => $pdfPath]);
+        } catch (\Throwable $e) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'No se pudo generar el KuDE PDF: '.$e->getMessage());
+        }
+
+        $ruta = storage_path($pdfPath);
 
         return response()->download($ruta, basename($ruta));
     }
@@ -267,14 +465,22 @@ class FacturaController extends Controller
                 ->with('error', 'No hay XML generado para esta factura.');
         }
 
+        if (str_contains($factura->xml_path, 'DE_borrador_')) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'El XML disponible es solo borrador (sin firma). Emita el documento antes de descargar el XML firmado.');
+        }
+
         $ruta = storage_path($factura->xml_path);
         if (! is_file($ruta)) {
             return redirect()->route('facturas.show', $factura)
                 ->with('error', 'Archivo XML no encontrado en el servidor.');
         }
 
-        return response()->download($ruta, basename($ruta), [
-            'Content-Type' => 'application/xml',
+        $nombre = basename($ruta);
+
+        return response()->file($ruta, [
+            'Content-Type' => 'application/xml; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
         ]);
     }
 
@@ -429,6 +635,7 @@ class FacturaController extends Controller
         $servicio->load(['plan', 'cliente']);
         $impuestos = Impuesto::activos();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $impuestoPlan = Impuesto::where('codigo', 'IVA10')->first() ?? $impuestoExento;
 
         $periodoDesde = now()->startOfMonth()->toDateString();
         $periodoHasta = now()->endOfMonth()->toDateString();
@@ -461,6 +668,7 @@ class FacturaController extends Controller
             'servicio',
             'impuestos',
             'impuestoExento',
+            'impuestoPlan',
             'periodoDesde',
             'periodoHasta',
             'fechaEmision',

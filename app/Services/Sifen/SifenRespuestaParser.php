@@ -4,6 +4,8 @@ namespace App\Services\Sifen;
 
 class SifenRespuestaParser
 {
+    private const NS_SIFEN = 'http://ekuatia.set.gov.py/sifen/xsd';
+
     /**
      * @return array{
      *   codigo: ?string,
@@ -12,6 +14,7 @@ class SifenRespuestaParser
      *   cdc: ?string,
      *   protocolo: ?string,
      *   aprobado: bool,
+     *   detalles: array<int, array{codigo: ?string, mensaje: ?string}>,
      *   raw: string,
      * }
      */
@@ -24,46 +27,159 @@ class SifenRespuestaParser
             'cdc' => null,
             'protocolo' => null,
             'aprobado' => false,
+            'detalles' => [],
             'raw' => $xmlRespuesta,
         ];
 
-        if (trim($xmlRespuesta) === '') {
+        $xmlRespuesta = trim($xmlRespuesta);
+        if ($xmlRespuesta === '') {
+            $resultado['mensaje'] = 'Respuesta vacía de SIFEN.';
+
             return $resultado;
         }
 
         $dom = new \DOMDocument;
         if (! @$dom->loadXML($xmlRespuesta)) {
+            $resultado['mensaje'] = 'La respuesta de SIFEN no es XML válido: '.$this->resumirTexto($xmlRespuesta);
+
             return $resultado;
         }
 
-        $resultado['codigo'] = $this->texto($dom, 'dCodRes');
-        $resultado['mensaje'] = $this->texto($dom, 'dMsgRes');
-        $resultado['estado'] = $this->texto($dom, 'dEstRes');
-        $resultado['cdc'] = $this->texto($dom, 'dCDC') ?? $this->atributo($dom, 'Id');
-        $resultado['protocolo'] = $this->texto($dom, 'dProtAut');
+        $xpath = new \DOMXPath($dom);
+        $xpath->registerNamespace('s', self::NS_SIFEN);
 
-        $codigo = $resultado['codigo'];
-        $resultado['aprobado'] = in_array($codigo, ['0260', '0261', '0300'], true)
-            || str_contains(strtolower((string) $resultado['estado']), 'aprobado');
+        $faultText = $this->xpathTexto($xpath, '//*[local-name()="Fault"]//*[local-name()="Text"]')
+            ?? $this->xpathTexto($xpath, '//*[local-name()="faultstring"]');
+
+        if ($faultText) {
+            $resultado['mensaje'] = 'SOAP Fault: '.$faultText;
+
+            return $resultado;
+        }
+
+        $resultado['estado'] = $this->xpathTexto($xpath, '//*[local-name()="dEstRes"]');
+        $resultado['protocolo'] = $this->xpathTexto($xpath, '//*[local-name()="dProtAut"]');
+        $resultado['cdc'] = $this->xpathTexto($xpath, '//*[local-name()="rProtDe"]/*[local-name()="Id"]')
+            ?? $this->xpathTexto($xpath, '//*[local-name()="DE"]/@Id');
+
+        foreach ($xpath->query('//*[local-name()="gResProc"]') as $grupo) {
+            if (! $grupo instanceof \DOMElement) {
+                continue;
+            }
+
+            $detalle = [
+                'codigo' => $this->textoHijo($grupo, 'dCodRes'),
+                'mensaje' => $this->textoHijo($grupo, 'dMsgRes'),
+            ];
+
+            if ($detalle['codigo'] || $detalle['mensaje']) {
+                $resultado['detalles'][] = $detalle;
+            }
+        }
+
+        if ($resultado['detalles'] === []) {
+            $codigoSueltos = $this->xpathTodos($xpath, '//*[local-name()="dCodRes"]');
+            $mensajeSueltos = $this->xpathTodos($xpath, '//*[local-name()="dMsgRes"]');
+
+            foreach ($codigoSueltos as $i => $codigo) {
+                $resultado['detalles'][] = [
+                    'codigo' => $codigo,
+                    'mensaje' => $mensajeSueltos[$i] ?? null,
+                ];
+            }
+        }
+
+        if ($resultado['detalles'] !== []) {
+            $resultado['codigo'] = $resultado['detalles'][0]['codigo'];
+            $partes = [];
+            foreach ($resultado['detalles'] as $detalle) {
+                $mensaje = trim((string) ($detalle['mensaje'] ?? ''));
+                if ($mensaje === '') {
+                    continue;
+                }
+                if ($detalle['codigo'] && str_starts_with($mensaje, '['.$detalle['codigo'].']')) {
+                    $partes[] = $mensaje;
+                } else {
+                    $partes[] = trim(($detalle['codigo'] ? '['.$detalle['codigo'].'] ' : '').$mensaje);
+                }
+            }
+            $resultado['mensaje'] = $partes !== [] ? implode(' · ', $partes) : null;
+        }
+
+        if (! $resultado['mensaje']) {
+            $resultado['mensaje'] = $this->xpathTexto($xpath, '//*[local-name()="dMsgRes"]');
+        }
+
+        if (! $resultado['codigo']) {
+            $resultado['codigo'] = $this->xpathTexto($xpath, '//*[local-name()="dCodRes"]');
+        }
+
+        $estado = strtolower((string) $resultado['estado']);
+        $codigos = array_filter(array_column($resultado['detalles'], 'codigo'));
+
+        $resultado['aprobado'] = in_array('0260', $codigos, true)
+            || in_array('0261', $codigos, true)
+            || ($resultado['codigo'] && in_array($resultado['codigo'], ['0260', '0261'], true))
+            || str_contains($estado, 'aprobado');
+
+        if (! $resultado['aprobado'] && ! $resultado['mensaje']) {
+            $resultado['mensaje'] = $this->resumirTexto($xmlRespuesta);
+        }
 
         return $resultado;
     }
 
-    private function texto(\DOMDocument $dom, string $tag): ?string
+    private function xpathTexto(\DOMXPath $xpath, string $query): ?string
     {
-        $nodes = $dom->getElementsByTagName($tag);
+        $nodes = $xpath->query($query);
+        if ($nodes === false || $nodes->length === 0) {
+            return null;
+        }
 
-        return $nodes->length > 0 ? trim($nodes->item(0)->textContent) : null;
+        $valor = trim($nodes->item(0)?->textContent ?? '');
+
+        return $valor !== '' ? $valor : null;
     }
 
-    private function atributo(\DOMDocument $dom, string $name): ?string
+    /**
+     * @return array<int, string>
+     */
+    private function xpathTodos(\DOMXPath $xpath, string $query): array
     {
-        foreach ($dom->getElementsByTagName('DE') as $node) {
-            if ($node->hasAttribute($name)) {
-                return $node->getAttribute($name);
+        $nodes = $xpath->query($query);
+        if ($nodes === false || $nodes->length === 0) {
+            return [];
+        }
+
+        $valores = [];
+        foreach ($nodes as $node) {
+            $texto = trim($node->textContent ?? '');
+            if ($texto !== '') {
+                $valores[] = $texto;
+            }
+        }
+
+        return $valores;
+    }
+
+    private function textoHijo(\DOMElement $parent, string $localName): ?string
+    {
+        foreach ($parent->childNodes as $child) {
+            if ($child instanceof \DOMElement && $child->localName === $localName) {
+                $texto = trim($child->textContent ?? '');
+
+                return $texto !== '' ? $texto : null;
             }
         }
 
         return null;
+    }
+
+    private function resumirTexto(string $texto): string
+    {
+        $limpio = trim(strip_tags($texto));
+        $limpio = preg_replace('/\s+/', ' ', $limpio) ?? $limpio;
+
+        return mb_substr($limpio, 0, 400).(mb_strlen($limpio) > 400 ? '…' : '');
     }
 }

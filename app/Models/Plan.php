@@ -49,7 +49,7 @@ class Plan extends Model
         'perfil_pppoe_id',
         'nombre',
         'velocidad',
-        'precio',
+        'precio', // Mensual con IVA incluido (PYG)
         'descripcion',
         'estado',
         'prioridad',

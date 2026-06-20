@@ -4,94 +4,156 @@ namespace App\Services\Sifen;
 
 use DOMDocument;
 use DOMElement;
+use DOMXPath;
+use RobRichards\XMLSecLibs\XMLSecurityDSig;
+use RobRichards\XMLSecLibs\XMLSecurityKey;
 use RuntimeException;
 
 class SifenXmlSigner
 {
-    private const NS_DSIG = 'http://www.w3.org/2000/09/xmldsig#';
+    private const NS_SIFEN = 'http://ekuatia.set.gov.py/sifen/xsd';
+
+    private const NS_DSIG = XMLSecurityDSig::XMLDSIGNS;
+
+    private const CANON_SIGNED_INFO = XMLSecurityDSig::EXC_C14N;
 
     public function __construct(
         private SifenCertificadoService $certificadoService,
+        private SifenNodeXmlSigner $nodeSigner,
     ) {}
+
+    public function motorFirmaActivo(): string
+    {
+        if ($this->nodeSigner->disponible()) {
+            return 'node-tips';
+        }
+
+        return 'php-xmlseclibs';
+    }
 
     /**
      * @return array{xml: string, digest_value: string}
      */
     public function firmar(string $xml, string $cdc): array
     {
+        if ($this->nodeSigner->disponible()) {
+            return $this->nodeSigner->firmar($xml, $cdc);
+        }
+
+        return $this->firmarConPhp($xml, $cdc);
+    }
+
+    /**
+     * @return array{xml: string, digest_value: string}
+     */
+    private function firmarConPhp(string $xml, string $cdc): array
+    {
         $material = $this->certificadoService->cargarDesdeP12();
 
         $dom = new DOMDocument('1.0', 'UTF-8');
         $dom->preserveWhiteSpace = false;
-        $dom->formatOutput = true;
+        $dom->formatOutput = false;
 
         if (! $dom->loadXML($xml)) {
             throw new RuntimeException('XML inválido para firmar.');
         }
 
-        $deNode = $dom->getElementsByTagName('DE')->item(0);
+        $rdeNode = $dom->documentElement;
+        if (! $rdeNode instanceof DOMElement) {
+            throw new RuntimeException('No se encontró el elemento rDE en el XML.');
+        }
+
+        $deNode = $dom->getElementsByTagNameNS(self::NS_SIFEN, 'DE')->item(0)
+            ?? $dom->getElementsByTagName('DE')->item(0);
         if (! $deNode instanceof DOMElement) {
             throw new RuntimeException('No se encontró el nodo DE en el XML.');
         }
 
         $deNode->setAttribute('Id', $cdc);
-        $deContenido = $deNode->C14N(true, false);
-        $digestValue = base64_encode(hash('sha256', $deContenido, true));
+        $deNode->setIdAttribute('Id', true);
 
-        $privateKey = openssl_pkey_get_private($material['pkey']);
-        if ($privateKey === false) {
-            throw new RuntimeException('Clave privada inválida en el certificado.');
+        $dsig = new XMLSecurityDSig('');
+        $dsig->sigNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', self::NS_DSIG);
+        $dsig->setCanonicalMethod(self::CANON_SIGNED_INFO);
+        $dsig->addReference(
+            $deNode,
+            XMLSecurityDSig::SHA256,
+            [
+                'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+                'http://www.w3.org/2001/10/xml-exc-c14n#',
+            ],
+            ['overwrite' => false]
+        );
+
+        $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
+        $objKey->loadKey($material['pkey'], false, false);
+
+        $dsig->appendSignature($rdeNode);
+        $sigNode = $rdeNode->lastChild;
+        if (! $sigNode instanceof DOMElement) {
+            throw new RuntimeException('No se pudo insertar el bloque Signature en el XML.');
         }
 
-        if (! openssl_sign($deContenido, $signatureRaw, $privateKey, OPENSSL_ALGO_SHA256)) {
-            throw new RuntimeException('Error al firmar el documento electrónico.');
-        }
+        $sigNode = SifenXmlManipulator::reescribirFirmaSinPrefijoEnDom($sigNode);
+        $dsig->sigNode = $sigNode;
 
-        $root = $dom->documentElement;
-        $signature = $dom->createElementNS(self::NS_DSIG, 'Signature');
-        $root->appendChild($signature);
+        $dsig->sign($objKey);
+        $dsig->add509Cert($material['cert'], true);
 
-        $signedInfo = $this->appendChildNs($dom, $signature, 'SignedInfo');
-        $canonicalizationMethod = $this->appendChildNs($dom, $signedInfo, 'CanonicalizationMethod');
-        $canonicalizationMethod->setAttribute('Algorithm', 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315');
+        $xmlFirmado = SifenXmlManipulator::compactar($dom->saveXML() ?: '');
+        $xmlFirmado = preg_replace('/ xmlns:default="[^"]*"/', '', $xmlFirmado) ?? $xmlFirmado;
 
-        $signatureMethod = $this->appendChildNs($dom, $signedInfo, 'SignatureMethod');
-        $signatureMethod->setAttribute('Algorithm', 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256');
-
-        $reference = $this->appendChildNs($dom, $signedInfo, 'Reference');
-        $reference->setAttribute('URI', '#'.$cdc);
-
-        $transforms = $this->appendChildNs($dom, $reference, 'Transforms');
-        $transform1 = $this->appendChildNs($dom, $transforms, 'Transform');
-        $transform1->setAttribute('Algorithm', 'http://www.w3.org/2000/09/xmldsig#enveloped-signature');
-        $transform2 = $this->appendChildNs($dom, $transforms, 'Transform');
-        $transform2->setAttribute('Algorithm', 'http://www.w3.org/2001/10/xml-exc-c14n#');
-
-        $digestMethod = $this->appendChildNs($dom, $reference, 'DigestMethod');
-        $digestMethod->setAttribute('Algorithm', 'http://www.w3.org/2001/04/xmlenc#sha256');
-
-        $this->appendChildNs($dom, $reference, 'DigestValue', $digestValue);
-
-        $this->appendChildNs($dom, $signature, 'SignatureValue', base64_encode($signatureRaw));
-
-        $keyInfo = $this->appendChildNs($dom, $signature, 'KeyInfo');
-        $x509Data = $this->appendChildNs($dom, $keyInfo, 'X509Data');
-        $this->appendChildNs($dom, $x509Data, 'X509Certificate', $material['x509_clean']);
+        self::verificarFirmaEstatica($xmlFirmado, $material['cert']);
+        SifenXmlManipulator::assertEstructuraFirmaValida($xmlFirmado);
 
         return [
-            'xml' => $dom->saveXML(),
-            'digest_value' => $digestValue,
+            'xml' => $xmlFirmado,
+            'digest_value' => $this->extraerDigestValue($xmlFirmado),
         ];
     }
 
-    private function appendChildNs(DOMDocument $dom, DOMElement $parent, string $name, ?string $value = null): DOMElement
+    private static function verificarFirmaEstatica(string $xml, string $certPem): void
     {
-        $element = $dom->createElementNS(self::NS_DSIG, $name);
-        if ($value !== null) {
-            $element->appendChild($dom->createTextNode($value));
+        $dom = new DOMDocument;
+        if (! @$dom->loadXML($xml)) {
+            throw new RuntimeException('XML firmado inválido para verificación.');
         }
-        $parent->appendChild($element);
 
-        return $element;
+        $objDSig = new XMLSecurityDSig('');
+        if (! $objDSig->locateSignature($dom)) {
+            throw new RuntimeException('No se encontró la firma en el XML.');
+        }
+
+        $objKey = $objDSig->locateKey($objDSig->sigNode);
+        if (! $objKey) {
+            throw new RuntimeException('No se pudo determinar el algoritmo de la firma.');
+        }
+
+        $objKey->loadKey($certPem, false, true);
+
+        if ($objDSig->verify($objKey) !== 1) {
+            throw new RuntimeException(
+                'La firma digital no supera verificación local. Revise certificado P12, contraseña y que la clave corresponda al certificado.'
+            );
+        }
+    }
+
+    private function extraerDigestValue(string $xml): string
+    {
+        $dom = new DOMDocument;
+        if (! @$dom->loadXML($xml)) {
+            throw new RuntimeException('XML firmado inválido al extraer DigestValue.');
+        }
+
+        $xpath = new DOMXPath($dom);
+        $valor = $xpath->evaluate(
+            'string(//*[local-name()="DigestValue" and namespace-uri()="'.self::NS_DSIG.'"])'
+        );
+
+        if (! is_string($valor) || $valor === '') {
+            throw new RuntimeException('No se pudo obtener DigestValue de la firma.');
+        }
+
+        return $valor;
     }
 }

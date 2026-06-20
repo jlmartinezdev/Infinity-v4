@@ -80,6 +80,7 @@ class TvCuentaController extends Controller
         if (! in_array($filtro, ['todos', 'vencido', 'por_vencer', 'ok'], true)) {
             $filtro = 'todos';
         }
+        $busqueda = trim((string) $request->get('q', ''));
 
         $todas = TvCuenta::query()
             ->withCount('asignaciones')
@@ -121,6 +122,33 @@ class TvCuentaController extends Controller
                 ->values();
         }
 
+        if ($busqueda !== '') {
+            $needle = mb_strtolower($busqueda);
+            $ordenadas = $ordenadas->filter(function (TvCuenta $c) use ($needle) {
+                $textos = [
+                    $c->nombre,
+                    $c->usuario_app,
+                    $c->perfil_1,
+                    $c->perfil_2,
+                    $c->perfil_3,
+                ];
+                foreach ($c->asignaciones as $asig) {
+                    $cliente = $asig->servicio?->cliente;
+                    if ($cliente) {
+                        $textos[] = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
+                        $textos[] = $cliente->cedula;
+                    }
+                }
+                foreach ($textos as $texto) {
+                    if ($texto !== null && $texto !== '' && str_contains(mb_strtolower((string) $texto), $needle)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })->values();
+        }
+
         $perPage = 20;
         $page = max(1, (int) $request->get('page', 1));
         $cuentas = new LengthAwarePaginator(
@@ -131,7 +159,7 @@ class TvCuentaController extends Controller
             ['path' => route('tv-cuentas.index'), 'query' => $request->query()]
         );
 
-        return view('tv-cuentas.index', compact('cuentas', 'stats', 'filtro'));
+        return view('tv-cuentas.index', compact('cuentas', 'stats', 'filtro', 'busqueda'));
     }
 
     /**

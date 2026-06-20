@@ -5,7 +5,7 @@
 @section('content')
 <div class="max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Facturación</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Facturas electrónicas</h1>
         <div class="flex flex-wrap gap-2">
             @can('facturas.crear')
           
@@ -16,8 +16,65 @@
         </div>
     </div>
 
+    <div class="mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Resumen del mes</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 capitalize">Facturas emitidas · {{ $mesDashboardLabel }}</p>
+            </div>
+            <form method="GET" action="{{ route('facturas.index') }}" class="flex flex-wrap items-end gap-2">
+                @foreach (request()->except(['mes', 'page']) as $key => $value)
+                    @if(is_array($value))
+                        @foreach ($value as $v)
+                            <input type="hidden" name="{{ $key }}[]" value="{{ $v }}">
+                        @endforeach
+                    @else
+                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                    @endif
+                @endforeach
+                <div>
+                    <label for="mes" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Mes</label>
+                    <input type="month" name="mes" id="mes" value="{{ $mesDashboard->format('Y-m') }}"
+                           class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
+                <button type="submit" class="px-3 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 rounded-lg text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-500">Ver</button>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-800/50 p-4 shadow-sm">
+                <p class="text-xs font-medium text-purple-700 dark:text-purple-400 uppercase tracking-wide">Monto emitido</p>
+                <p class="text-2xl font-bold text-purple-700 dark:text-purple-300 mt-1">
+                    {{ number_format((float) $statsEmitidasMes->monto_total, 0, ',', '.') }}
+                    <span class="text-sm font-semibold">PYG</span>
+                </p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-800/50 p-4 shadow-sm">
+                <p class="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">Facturas emitidas</p>
+                <p class="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">{{ number_format((int) $statsEmitidasMes->cantidad, 0, ',', '.') }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-800/50 p-4 shadow-sm">
+                <p class="text-xs font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">IVA emitido</p>
+                <p class="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">
+                    {{ number_format((float) $statsEmitidasMes->monto_iva, 0, ',', '.') }}
+                    <span class="text-sm font-semibold">PYG</span>
+                </p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 dark:border-amber-800/50 p-4 shadow-sm">
+                <p class="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">Borradores del mes</p>
+                <p class="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{{ number_format($borradoresMes, 0, ',', '.') }}</p>
+                @if($borradoresMes > 0)
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">{{ number_format($montoBorradoresMes, 0, ',', '.') }} PYG pendientes</p>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         <form method="GET" action="{{ route('facturas.index') }}" class="p-4 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+            @if(request('mes'))
+                <input type="hidden" name="mes" value="{{ request('mes') }}">
+            @endif
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                 <div class="sm:w-40">
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado</label>

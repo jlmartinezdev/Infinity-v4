@@ -6,12 +6,12 @@
         </svg>
         <span id="notifications-badge" class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-medium text-white hidden">0</span>
     </button>
-    <div id="notifications-dropdown" class="hidden absolute right-0 mt-2 w-120 max-h-[85vh] overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg z-50 flex flex-col" >
+    <div id="notifications-dropdown" class="hidden absolute right-0 mt-2 max-h-[85vh] overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg z-50 flex flex-col" >
         <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 shrink-0">
             <span class="font-semibold text-gray-900 dark:text-gray-100">Notificaciones</span>
             <button type="button" id="notifications-mark-all" class="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium text-left sm:text-right shrink-0">Marcar todas leídas</button>
         </div>
-        <div id="notifications-list" class="overflow-y-auto overflow-x-hidden w-full max-h-[50vh] sm:max-h-[55vh] overscroll-contain">
+        <div id="notifications-list" class="overflow-y-auto overflow-x-hidden max-h-[50vh] sm:max-h-[55vh] overscroll-contain" style="width: 400px;">
             <div id="notifications-loading" class="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">Cargando…</div>
             <div id="notifications-items"></div>
             <div id="notifications-empty" class="hidden p-4 text-center text-gray-500 dark:text-gray-400 text-sm">No hay notificaciones.</div>

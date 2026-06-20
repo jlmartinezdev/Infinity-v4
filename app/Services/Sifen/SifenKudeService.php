@@ -16,7 +16,7 @@ class SifenKudeService
 
     public function generar(Factura $factura, SifenConfiguracion $config, ?string $qrUrl = null): string
     {
-        $factura->loadMissing(['cliente', 'detalles']);
+        $factura->loadMissing(['cliente', 'detalles.impuesto', 'usuario']);
 
         $qrUrl = $qrUrl ?: $factura->set_qr_url;
         $qrImageUrl = $qrUrl ? $this->qrGenerator->urlImagenQr($qrUrl) : null;
@@ -30,15 +30,17 @@ class SifenKudeService
             );
         }
 
-        $pdf = Pdf::loadView('facturas.kude-pdf', [
+        $datos = $this->construirDatosVista($factura, $config, $ajustes);
+
+        $pdf = Pdf::loadView('facturas.kude-pdf', array_merge($datos, [
             'factura' => $factura,
             'config' => $config,
             'ajustes' => $ajustes,
             'logoBase64' => $logoBase64,
             'qrImageUrl' => $qrImageUrl,
             'cdcFormateado' => $this->formatearCdc($factura->set_cdc),
-        ])
-            ->setPaper('a4')
+        ]))
+            ->setPaper('a4', 'portrait')
             ->setOption('isRemoteEnabled', true);
 
         $directorio = config('sifen.paths.pdf');
@@ -54,6 +56,83 @@ class SifenKudeService
         File::put($rutaAbsoluta, $pdf->output());
 
         return 'sifen/pdf/'.$nombre;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function construirDatosVista(Factura $factura, SifenConfiguracion $config, ?AjustesGenerales $ajustes): array
+    {
+        $lineas = [];
+        $sumExentas = 0.0;
+        $sumGrav5 = 0.0;
+        $sumGrav10 = 0.0;
+        $iva5 = 0.0;
+        $iva10 = 0.0;
+
+        foreach ($factura->detalles as $index => $detalle) {
+            $porcentaje = (int) round((float) $detalle->porcentaje_impuesto);
+            $importeLinea = round((float) $detalle->cantidad * (float) $detalle->precio_unitario, 2);
+            $exentas = $porcentaje === 0 ? $importeLinea : 0.0;
+            $grav5 = $porcentaje === 5 ? $importeLinea : 0.0;
+            $grav10 = $porcentaje === 10 ? $importeLinea : 0.0;
+
+            $sumExentas += $exentas;
+            $sumGrav5 += $grav5;
+            $sumGrav10 += $grav10;
+
+            if ($porcentaje === 5) {
+                $iva5 += (float) $detalle->monto_impuesto;
+            } elseif ($porcentaje === 10) {
+                $iva10 += (float) $detalle->monto_impuesto;
+            }
+
+            $lineas[] = [
+                'codigo' => (string) ($detalle->servicio_id ?: ($index + 1)),
+                'descripcion' => $detalle->descripcion,
+                'unidad' => 'UNI',
+                'cantidad' => (float) $detalle->cantidad,
+                'precio_unitario' => (float) $detalle->precio_unitario,
+                'importe' => $importeLinea,
+                'descuento' => 0.0,
+                'anticipo' => 0.0,
+                'exentas' => $exentas,
+                'grav5' => $grav5,
+                'grav10' => $grav10,
+            ];
+        }
+
+        $filasVacias = max(0, 10 - count($lineas));
+
+        $fechaEmision = $factura->set_fecha_emision_de ?? $factura->fecha_emision;
+        $ambiente = config('sifen.ambiente', 'test');
+
+        return [
+            'lineas' => $lineas,
+            'filasVacias' => $filasVacias,
+            'sumExentas' => $sumExentas,
+            'sumGrav5' => $sumGrav5,
+            'sumGrav10' => $sumGrav10,
+            'iva5' => $iva5,
+            'iva10' => $iva10,
+            'totalIva' => $iva5 + $iva10,
+            'fechaEmisionFmt' => $fechaEmision->format('d-m-Y H:i:s'),
+            'vigenciaTimbradoFmt' => $factura->timbrado_vigencia_desde?->format('d-m-Y')
+                ?? $config->timbrado_vigencia_desde?->format('d-m-Y')
+                ?? '—',
+            'condicionVenta' => $factura->tipo_documento === 'factura_credito' ? 'Crédito' : 'Contado',
+            'tipoTransaccion' => 'Prestación de servicios',
+            'monedaDescripcion' => $factura->moneda === 'USD' ? 'Dólar' : 'Guarani',
+            'direccionEmisor' => trim($config->direccion.($config->ciudad_descripcion ? ', '.$config->ciudad_descripcion : '')),
+            'consultaUrl' => $ambiente === 'production'
+                ? 'https://ekuatia.set.gov.py/consultas'
+                : 'https://ekuatia.set.gov.py/consultas-test',
+            'vendedor' => $factura->usuario?->name,
+            'sitioWeb' => $ajustes?->sitio_web,
+            'barcodeUrl' => $factura->set_cdc
+                ? 'https://barcode.tec-it.com/barcode.ashx?data='.urlencode($factura->set_cdc).'&code=Code128&dpi=96'
+                : null,
+        ];
     }
 
     public function formatearCdc(?string $cdc): ?string

@@ -5,11 +5,17 @@
 
 @php
     $factura = $factura ?? null;
+    $prefill = $prefill ?? [];
+    $detallesIniciales = $detallesIniciales ?? [];
     $detalles = old('detalles');
     if ($detalles === null) {
-        $detalles = $factura && $factura->detalles->isNotEmpty()
-            ? $factura->detalles->all()
-            : [(object)['descripcion' => '', 'cantidad' => 1, 'precio_unitario' => 0, 'impuesto_id' => null]];
+        if ($factura && $factura->detalles->isNotEmpty()) {
+            $detalles = $factura->detalles->all();
+        } elseif ($detallesIniciales !== []) {
+            $detalles = array_map(fn ($d) => (object) $d, $detallesIniciales);
+        } else {
+            $detalles = [(object)['descripcion' => '', 'cantidad' => 1, 'precio_unitario' => 0, 'impuesto_id' => null]];
+        }
     }
     $detalles = is_array($detalles) ? $detalles : collect($detalles)->all();
 @endphp
@@ -17,13 +23,24 @@
 <div class="space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-            <label for="cliente_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente *</label>
-            <select name="cliente_id" id="cliente_id" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                <option value="">Seleccione cliente</option>
-                @foreach ($clientes as $c)
-                    <option value="{{ $c->cliente_id }}" {{ old('cliente_id', $factura?->cliente_id) == $c->cliente_id ? 'selected' : '' }}>{{ $c->nombre }} {{ $c->apellido }} ({{ $c->cedula }})</option>
-                @endforeach
-            </select>
+            @if(isset($clienteSeleccionado) && $clienteSeleccionado)
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
+                <p class="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100">
+                    {{ $clienteSeleccionado->nombre }} {{ $clienteSeleccionado->apellido }}
+                    @if($clienteSeleccionado->cedula)
+                        <span class="text-gray-500 dark:text-gray-400">({{ $clienteSeleccionado->cedula }})</span>
+                    @endif
+                </p>
+                <input type="hidden" name="cliente_id" value="{{ $clienteSeleccionado->cliente_id }}">
+            @else
+                <label for="cliente_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente *</label>
+                <select name="cliente_id" id="cliente_id" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">Seleccione cliente</option>
+                    @foreach ($clientes as $c)
+                        <option value="{{ $c->cliente_id }}" {{ old('cliente_id', $factura?->cliente_id) == $c->cliente_id ? 'selected' : '' }}>{{ $c->nombre }} {{ $c->apellido }} ({{ $c->cedula }})</option>
+                    @endforeach
+                </select>
+            @endif
             @error('cliente_id')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
         </div>
         <div>
@@ -58,26 +75,29 @@
         </div>
         <div>
             <label for="numero_timbrado" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Timbrado (SET)</label>
-            <input type="text" name="numero_timbrado" id="numero_timbrado" value="{{ old('numero_timbrado', $factura?->numero_timbrado) }}" maxlength="20" placeholder="Opcional" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500">
+            <input type="text" name="numero_timbrado" id="numero_timbrado" value="{{ old('numero_timbrado', $factura?->numero_timbrado ?? ($prefill['numero_timbrado'] ?? null)) }}" maxlength="20" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 {{ !empty($prefill['numero_timbrado']) ? 'bg-gray-50 dark:bg-gray-700/80' : 'bg-white dark:bg-gray-700' }} text-gray-900 dark:text-gray-100" {{ !empty($prefill['numero_timbrado']) ? 'readonly' : '' }}>
+            @if(!empty($prefill['numero_timbrado']))
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Desde configuración SIFEN</p>
+            @endif
         </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
             <label for="timbrado_vigencia_desde" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vigencia timbrado desde</label>
-            <input type="date" name="timbrado_vigencia_desde" id="timbrado_vigencia_desde" value="{{ old('timbrado_vigencia_desde', $factura?->timbrado_vigencia_desde?->format('Y-m-d')) }}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <input type="date" name="timbrado_vigencia_desde" id="timbrado_vigencia_desde" value="{{ old('timbrado_vigencia_desde', $factura?->timbrado_vigencia_desde?->format('Y-m-d') ?? ($prefill['timbrado_vigencia_desde'] ?? null)) }}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" {{ !empty($prefill['timbrado_vigencia_desde']) ? 'readonly' : '' }}>
         </div>
         <div>
             <label for="timbrado_vigencia_hasta" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vigencia timbrado hasta</label>
-            <input type="date" name="timbrado_vigencia_hasta" id="timbrado_vigencia_hasta" value="{{ old('timbrado_vigencia_hasta', $factura?->timbrado_vigencia_hasta?->format('Y-m-d')) }}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <input type="date" name="timbrado_vigencia_hasta" id="timbrado_vigencia_hasta" value="{{ old('timbrado_vigencia_hasta', $factura?->timbrado_vigencia_hasta?->format('Y-m-d') ?? ($prefill['timbrado_vigencia_hasta'] ?? null)) }}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" {{ !empty($prefill['timbrado_vigencia_hasta']) ? 'readonly' : '' }}>
         </div>
         <div>
             <label for="establecimiento" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Establecimiento</label>
-            <input type="number" name="establecimiento" id="establecimiento" value="{{ old('establecimiento', $factura?->establecimiento ?? 1) }}" min="1" max="255" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <input type="number" name="establecimiento" id="establecimiento" value="{{ old('establecimiento', $factura?->establecimiento ?? ($prefill['establecimiento'] ?? 1)) }}" min="1" max="255" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
         </div>
         <div>
             <label for="punto_emision" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Punto emisión</label>
-            <input type="number" name="punto_emision" id="punto_emision" value="{{ old('punto_emision', $factura?->punto_emision ?? 1) }}" min="1" max="255" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <input type="number" name="punto_emision" id="punto_emision" value="{{ old('punto_emision', $factura?->punto_emision ?? ($prefill['punto_emision'] ?? 1)) }}" min="1" max="255" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
         </div>
     </div>
 
@@ -106,7 +126,12 @@
                     @foreach ($detalles as $idx => $item)
                     @php $item = is_array($item) ? (object)$item : $item; @endphp
                     <tr class="detalle-row border-t border-gray-100 dark:border-gray-600">
-                        <td class="px-3 py-2"><input type="text" name="detalles[{{ $idx }}][descripcion]" value="{{ $item->descripcion ?? '' }}" required class="w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Descripción"></td>
+                        <td class="px-3 py-2">
+                            <input type="text" name="detalles[{{ $idx }}][descripcion]" value="{{ $item->descripcion ?? '' }}" required class="w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Descripción">
+                            @if(!empty($item->servicio_id))
+                                <input type="hidden" name="detalles[{{ $idx }}][servicio_id]" value="{{ $item->servicio_id }}">
+                            @endif
+                        </td>
                         <td class="px-3 py-2"><input type="number" name="detalles[{{ $idx }}][cantidad]" value="{{ $item->cantidad ?? 1 }}" min="0.0001" step="0.0001" class="w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-sm text-right detalle-cantidad bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></td>
                         <td class="px-3 py-2"><input type="number" name="detalles[{{ $idx }}][precio_unitario]" value="{{ $item->precio_unitario ?? 0 }}" min="0" step="0.01" class="w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-sm text-right detalle-precio bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></td>
                         <td class="px-3 py-2">

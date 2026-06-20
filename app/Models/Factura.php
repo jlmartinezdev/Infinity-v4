@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -75,30 +76,9 @@ class Factura extends Model
         return $this->hasMany(FacturaDetalle::class, 'factura_electronica_id')->orderBy('id');
     }
 
-    public function cobros(): HasMany
+    public function scopePruebaSifen(Builder $query): Builder
     {
-        return $this->hasMany(Cobro::class, 'factura_electronica_id');
-    }
-
-    /** Monto aplicado a esta factura (cap en total para sobrepagos que van a saldo a favor). */
-    public function getMontoPagadoAttribute(): float
-    {
-        $suma = $this->relationLoaded('cobros')
-            ? (float) $this->cobros->sum('monto')
-            : (float) $this->cobros()->sum('monto');
-        return min((float) $this->total, $suma);
-    }
-
-    /** Saldo pendiente (total - cobrado). */
-    public function getSaldoPendienteAttribute(): float
-    {
-        return max(0, (float) $this->total - $this->monto_pagado);
-    }
-
-    /** Si está totalmente pagada. */
-    public function getEstaPagadaAttribute(): bool
-    {
-        return $this->saldo_pendiente <= 0;
+        return $query->where('observaciones', 'like', 'PRUEBA SIFEN%');
     }
 
     /**
