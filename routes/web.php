@@ -115,6 +115,8 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::post('/configuracion/sifen/prueba/{factura}/preparar', [SifenPruebaController::class, 'preparar'])->name('configuracion.sifen.prueba.preparar');
     Route::post('/configuracion/sifen/prueba/{factura}/emitir-local', [SifenPruebaController::class, 'emitirLocal'])->name('configuracion.sifen.prueba.emitir-local');
     Route::post('/configuracion/sifen/prueba/tls', [SifenPruebaController::class, 'probarTls'])->name('configuracion.sifen.prueba.tls');
+    Route::post('/configuracion/sifen/prueba/api', [SifenPruebaController::class, 'probarApi'])->name('configuracion.sifen.prueba.api');
+    Route::post('/configuracion/sifen/prueba/api/tls', [SifenPruebaController::class, 'probarApiTls'])->name('configuracion.sifen.prueba.api.tls');
     Route::post('/configuracion/sifen/prueba/{factura}/emitir', [SifenPruebaController::class, 'emitir'])->name('configuracion.sifen.prueba.emitir');
     Route::post('/configuracion/sifen/prueba/limpiar', [SifenPruebaController::class, 'limpiarPruebas'])->name('configuracion.sifen.prueba.limpiar');
     Route::get('/configuracion/tareas-periodicas', [TareaPeriodicaController::class, 'index'])->name('tareas-periodicas.index');

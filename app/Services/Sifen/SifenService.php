@@ -22,6 +22,7 @@ class SifenService
         private SifenKudeService $kudeService,
         private SifenCertificadoService $certificadoService,
         private SifenReceptorParser $receptorParser,
+        private SifenApiBridge $apiBridge,
     ) {}
 
     /**
@@ -31,6 +32,10 @@ class SifenService
      */
     public function emitirDocumento(Factura $factura, bool $enviarSifen = true): array
     {
+        if ($this->apiBridge->activo()) {
+            return $this->apiBridge->emitirDocumento($factura, $enviarSifen);
+        }
+
         if ($factura->estado !== 'borrador') {
             throw new RuntimeException('Solo se pueden emitir facturas en estado borrador.');
         }
@@ -139,6 +144,10 @@ class SifenService
      */
     public function prepararDocumento(Factura $factura, bool $validarXsd = true, ?Carbon $fechaEmisionDe = null): array
     {
+        if ($this->apiBridge->activo()) {
+            return $this->apiBridge->prepararDocumento($factura, $validarXsd, $fechaEmisionDe);
+        }
+
         $config = $this->obtenerConfiguracion();
         $factura->loadMissing(['cliente', 'detalles.impuesto']);
 

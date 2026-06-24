@@ -46,3 +46,7 @@ Artisan::command('auditar-saldo-favor-recibos', function () {
 Artisan::command('auditar-monto-pagado-facturas', function () {
     return $this->call('cobros:auditar-monto-pagado-facturas', ['--solo-diferencias' => true]);
 })->purpose('Alias: audita monto pagado vs pivote en facturas internas.');
+
+Artisan::command('corregir-saldo-favor-facturas', function () {
+    return $this->call('facturas:corregir-saldo-favor-aplicado', ['--fix' => true]);
+})->purpose('Alias: corrige facturas con saldo a favor mal aplicado (sin IVA).');

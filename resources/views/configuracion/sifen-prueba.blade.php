@@ -23,6 +23,9 @@
         @else
             <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Ambiente PRODUCCIÓN</span>
         @endif
+        @if($estado['modo_api'] ?? false)
+            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">Modo API</span>
+        @endif
     </div>
 
     @if(session('success'))
@@ -30,6 +33,65 @@
     @endif
     @if(session('error'))
         <div class="mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm border border-red-200 dark:border-red-800">{{ session('error') }}</div>
+    @endif
+
+    @if($estado['modo_api'] ?? false)
+        <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-purple-200 dark:border-purple-800 overflow-hidden">
+            <div class="px-6 py-4 border-b border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
+                <h2 class="text-lg font-semibold text-purple-900 dark:text-purple-200">Conexión con sifen-api</h2>
+                <p class="text-sm text-purple-700 dark:text-purple-300 mt-0.5">Firma, envío SOAP y certificado se ejecutan en el microservicio.</p>
+            </div>
+            <div class="p-6 space-y-4 text-sm">
+                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">URL API</dt>
+                        <dd class="font-mono text-xs break-all text-gray-900 dark:text-gray-100">{{ $estado['api_url'] ?: '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">Estado</dt>
+                        <dd class="font-medium {{ ($estado['api_conectada'] ?? false) ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400' }}">
+                            {{ ($estado['api_conectada'] ?? false) ? 'Conectada' : 'Sin conexión / no configurada' }}
+                        </dd>
+                    </div>
+                    @if(!empty($estado['api_status']['emisor']))
+                        <div class="sm:col-span-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Emisor en API</dt>
+                            <dd class="text-gray-900 dark:text-gray-100">{{ $estado['api_status']['emisor'] }}</dd>
+                        </div>
+                    @endif
+                </dl>
+
+                @php $apiProbe = session('api_probe'); $apiTlsProbe = session('api_tls_probe'); @endphp
+                @if($apiProbe)
+                    <div class="p-3 rounded-lg text-xs {{ ($apiProbe['ok'] ?? false) ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200' }}">
+                        {{ $apiProbe['mensaje'] ?? '—' }}
+                        @if(!empty($apiProbe['latencia_ms'])) · {{ $apiProbe['latencia_ms'] }} ms @endif
+                    </div>
+                @endif
+                @if($apiTlsProbe)
+                    <div class="p-3 rounded-lg text-xs {{ ($apiTlsProbe['ok'] ?? false) ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200' : 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200' }}">
+                        mTLS: {{ $apiTlsProbe['mensaje'] ?? '—' }}
+                        @if(!empty($apiTlsProbe['sifen_http_code'])) · SIFEN HTTP {{ $apiTlsProbe['sifen_http_code'] }} @endif
+                    </div>
+                @endif
+
+                <div class="flex flex-wrap gap-2">
+                    <form method="POST" action="{{ route('configuracion.sifen.prueba.api') }}">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700">Probar conexión API</button>
+                    </form>
+                    @if($estado['ambiente'] === 'test')
+                        <form method="POST" action="{{ route('configuracion.sifen.prueba.api.tls') }}">
+                            @csrf
+                            <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-700">Probar mTLS vía API</button>
+                        </form>
+                    @endif
+                    @if(!empty($estado['api_panel_url']))
+                        <a href="{{ $estado['api_panel_url'] }}" target="_blank" rel="noopener" class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/30">Panel sifen-api</a>
+                    @endif
+                </div>
+            </div>
+        </div>
     @endif
 
     {{-- Resultado de última acción --}}
@@ -43,6 +105,18 @@
                         <a href="{{ route('facturas.show', $resultado['factura_id']) }}" class="text-green-600 dark:text-green-400 hover:underline">#{{ $resultado['factura_id'] }}</a>
                     </dd>
                 </div>
+                @if(!empty($resultado['sifen_api_documento_id']))
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">ID en sifen-api</dt>
+                        <dd class="font-medium text-gray-900 dark:text-gray-100">#{{ $resultado['sifen_api_documento_id'] }}</dd>
+                    </div>
+                @endif
+                @if(!empty($resultado['modo_api']))
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">Motor</dt>
+                        <dd class="font-medium text-purple-700 dark:text-purple-300">sifen-api (remoto)</dd>
+                    </div>
+                @endif
                 @if(!empty($resultado['cdc']))
                     <div class="sm:col-span-2">
                         <dt class="text-gray-500 dark:text-gray-400">CDC</dt>
@@ -147,7 +221,13 @@
                     <span class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold {{ $estado['certificado_configurado'] ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }}">{{ $estado['certificado_configurado'] ? '✓' : '!' }}</span>
                     <div>
                         <p class="font-medium text-gray-900 dark:text-gray-100">Certificado digital P12</p>
-                        <p class="text-gray-500 dark:text-gray-400">{{ $estado['certificado_configurado'] ? 'Certificado listo para firmar' : 'Suba el certificado y contraseña en configuración' }}</p>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            @if($estado['modo_api'] ?? false)
+                                {{ $estado['certificado_configurado'] ? 'Certificado listo en sifen-api' : 'Suba certificado y contraseña en el panel sifen-api' }}
+                            @else
+                                {{ $estado['certificado_configurado'] ? 'Certificado listo para firmar' : 'Suba el certificado y contraseña en configuración' }}
+                            @endif
+                        </p>
                     </div>
                 </li>
                 <li class="flex items-start gap-3">
@@ -182,6 +262,7 @@
                 $tlsProbe = session('tls_probe');
                 $diagCert = session('diagnostico_cert', $diagnosticoCert ?? []);
             @endphp
+            @if(!($estado['modo_api'] ?? false))
             <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Certificado y conexión mTLS</h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
@@ -234,6 +315,7 @@
                     </form>
                 @endif
             </div>
+            @endif
         </div>
     </div>
 
@@ -344,6 +426,9 @@
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">CDC</th>
+                            @if($estado['modo_api'] ?? false)
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">API ID</th>
+                            @endif
                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                         </tr>
                     </thead>
@@ -361,6 +446,9 @@
                                 <td class="px-4 py-3 text-xs font-mono text-gray-500 dark:text-gray-400 max-w-[120px] truncate" title="{{ $f->set_cdc }}">
                                     {{ $f->set_cdc ? Str::limit($f->set_cdc, 12) : '—' }}
                                 </td>
+                                @if($estado['modo_api'] ?? false)
+                                    <td class="px-4 py-3 text-xs text-gray-500">{{ $f->sifen_api_documento_id ? '#'.$f->sifen_api_documento_id : '—' }}</td>
+                                @endif
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex flex-wrap justify-end gap-1">
                                         <form action="{{ route('configuracion.sifen.prueba.preparar', $f) }}" method="POST" class="inline">

@@ -137,4 +137,16 @@ return [
         6 => 'Nota de débito electrónica',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Microservicio sifen-api (emisión remota)
+    |--------------------------------------------------------------------------
+    */
+    'api' => [
+        'enabled' => filter_var(env('SIFEN_API_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'url' => rtrim((string) env('SIFEN_API_URL', ''), '/'),
+        'token' => env('SIFEN_API_TOKEN'),
+        'timeout' => max(30, (int) env('SIFEN_API_TIMEOUT', 120)),
+    ],
+
 ];

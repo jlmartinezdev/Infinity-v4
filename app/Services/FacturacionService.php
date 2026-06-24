@@ -675,17 +675,33 @@ class FacturacionService
 
     /**
      * Aplica el saldo a favor de los servicios a la factura: añade línea de descuento y descuenta de los servicios.
-     * Modifica $subtotal y $total por referencia.
+     * El monto se compara contra el total con IVA; el descuento reparte proporcionalmente subtotal e impuestos.
+     * Modifica $subtotal, $totalImpuestos y $total por referencia.
      */
     private function aplicarSaldoAFavorEnFactura(FacturaInterna $factura, $servicios, float &$subtotal, float &$totalImpuestos, float &$total, ?Impuesto $impuestoExento): void
     {
         $saldoFavorTotal = $servicios->sum(fn (Servicio $s) => (float) ($s->saldo_a_favor ?? 0));
-        if ($saldoFavorTotal <= 0 || $subtotal <= 0) {
+        if ($saldoFavorTotal <= 0 || $total <= 0) {
             return;
         }
 
-        $montoAplicar = min($saldoFavorTotal, $subtotal);
+        $montoAplicar = min($saldoFavorTotal, $total);
         $montoAplicar = round($montoAplicar, 2);
+        if ($montoAplicar <= 0) {
+            return;
+        }
+
+        $descuentoSubtotal = $subtotal;
+        $descuentoImpuesto = $totalImpuestos;
+        if ($montoAplicar < $total - 0.009) {
+            $ratio = $montoAplicar / $total;
+            $descuentoSubtotal = round($subtotal * $ratio, 2);
+            $descuentoImpuesto = round($totalImpuestos * $ratio, 2);
+            $ajuste = round($montoAplicar - ($descuentoSubtotal + $descuentoImpuesto), 2);
+            if (abs($ajuste) >= 0.01) {
+                $descuentoImpuesto = round($descuentoImpuesto + $ajuste, 2);
+            }
+        }
 
         FacturaInternaDetalle::create([
             'factura_interna_id' => $factura->id,
@@ -694,14 +710,15 @@ class FacturacionService
             'descripcion' => 'Saldo a favor aplicado',
             'cantidad' => 1,
             'precio_unitario' => -$montoAplicar,
-            'subtotal' => -$montoAplicar,
+            'subtotal' => -$descuentoSubtotal,
             'porcentaje_impuesto' => 0,
-            'monto_impuesto' => 0,
+            'monto_impuesto' => -$descuentoImpuesto,
             'total' => -$montoAplicar,
         ]);
 
-        $subtotal -= $montoAplicar;
-        $total -= $montoAplicar;
+        $subtotal = max(0, round($subtotal - $descuentoSubtotal, 2));
+        $totalImpuestos = max(0, round($totalImpuestos - $descuentoImpuesto, 2));
+        $total = max(0, round($total - $montoAplicar, 2));
 
         $restante = $montoAplicar;
         foreach ($servicios as $servicio) {
@@ -717,6 +734,209 @@ class FacturacionService
             Servicio::where('servicio_id', $servicio->servicio_id)->decrement('saldo_a_favor', $aDeducir);
             $restante -= $aDeducir;
         }
+    }
+
+    /**
+     * Facturas con línea «Saldo a favor aplicado» sin reparto de IVA (bug: tope en subtotal).
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function listarFacturasSaldoFavorMalAplicado(?int $facturaId = null, ?int $clienteId = null): Collection
+    {
+        $query = FacturaInterna::query()
+            ->whereNotIn('estado', ['anulada', 'cancelada'])
+            ->whereHas('detalles', fn ($q) => $q->where('descripcion', 'Saldo a favor aplicado'))
+            ->with(['detalles', 'cliente'])
+            ->orderBy('id');
+
+        if ($facturaId) {
+            $query->where('id', $facturaId);
+        }
+        if ($clienteId) {
+            $query->where('cliente_id', $clienteId);
+        }
+
+        return $query->get()
+            ->map(fn (FacturaInterna $f) => $this->analizarSaldoFavorMalAplicado($f))
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function analizarSaldoFavorMalAplicado(FacturaInterna $factura): ?array
+    {
+        $factura->loadMissing(['detalles', 'cliente']);
+
+        $saldoDet = $factura->detalles->first(fn (FacturaInternaDetalle $d) => $d->descripcion === 'Saldo a favor aplicado');
+        if (! $saldoDet) {
+            return null;
+        }
+
+        if (abs((float) $saldoDet->monto_impuesto) > 0.009) {
+            return null;
+        }
+
+        $lineasPositivas = $factura->detalles->filter(
+            fn (FacturaInternaDetalle $d) => $d->id !== $saldoDet->id && (float) $d->total > 0.009
+        );
+        if ($lineasPositivas->isEmpty()) {
+            return null;
+        }
+
+        $brutoSubtotal = round((float) $lineasPositivas->sum(fn (FacturaInternaDetalle $d) => (float) $d->subtotal), 2);
+        $brutoImpuesto = round((float) $lineasPositivas->sum(fn (FacturaInternaDetalle $d) => (float) $d->monto_impuesto), 2);
+        $brutoTotal = round((float) $lineasPositivas->sum(fn (FacturaInternaDetalle $d) => (float) $d->total), 2);
+
+        if ($brutoImpuesto <= 0.009 || $brutoTotal <= 0.009) {
+            return null;
+        }
+
+        $aplicadoSaldo = round(abs((float) $saldoDet->total), 2);
+        $totalActual = round((float) $factura->total, 2);
+
+        if ($totalActual <= 0.009) {
+            return null;
+        }
+
+        if (abs($totalActual + $aplicadoSaldo - $brutoTotal) > 0.02) {
+            return null;
+        }
+
+        // Bug IVA: el saldo cubrió el subtotal y quedó pendiente solo el impuesto.
+        if (abs($aplicadoSaldo - $brutoSubtotal) > 0.02 || abs($totalActual - $brutoImpuesto) > 0.02) {
+            return null;
+        }
+
+        $deltaImpuesto = round($brutoImpuesto, 2);
+        $deltaTotal = $totalActual;
+        $montoPagado = round((float) $factura->monto_pagado, 2);
+        $deducirSaldo = round(max(0, $deltaTotal - $montoPagado), 2);
+
+        $servicioIds = $lineasPositivas->pluck('servicio_id')->filter()->unique()->values()->all();
+        $saldoServicios = $servicioIds !== []
+            ? round((float) Servicio::whereIn('servicio_id', $servicioIds)->sum('saldo_a_favor'), 2)
+            : round((float) Servicio::where('cliente_id', $factura->cliente_id)->sum('saldo_a_favor'), 2);
+
+        $motivoSkip = null;
+        if ($deducirSaldo > 0.009 && $saldoServicios + 0.009 < $deducirSaldo) {
+            $motivoSkip = 'Saldo a favor insuficiente en servicios ('.number_format($saldoServicios, 0, ',', '.').' < '.number_format($deducirSaldo, 0, ',', '.').')';
+        }
+
+        return [
+            'factura_id' => (int) $factura->id,
+            'cliente_id' => (int) $factura->cliente_id,
+            'cliente' => trim(($factura->cliente?->nombre ?? '').' '.($factura->cliente?->apellido ?? '')),
+            'estado' => $factura->estado,
+            'bruto_total' => $brutoTotal,
+            'aplicado_saldo' => $aplicadoSaldo,
+            'total_actual' => $totalActual,
+            'total_corregido' => 0.0,
+            'delta_total' => $deltaTotal,
+            'delta_impuesto' => $deltaImpuesto,
+            'monto_pagado' => $montoPagado,
+            'deducir_saldo_servicio' => $deducirSaldo,
+            'saldo_servicios_disponible' => $saldoServicios,
+            'motivo_skip' => $motivoSkip,
+            'detalle_saldo_id' => (int) $saldoDet->id,
+        ];
+    }
+
+    /**
+     * Corrige una factura afectada por saldo a favor mal aplicado (sin IVA en el descuento).
+     *
+     * @return array{ok: bool, message: string, analisis?: array<string, mixed>}
+     */
+    public function corregirSaldoFavorMalAplicado(FacturaInterna $factura): array
+    {
+        $analisis = $this->analizarSaldoFavorMalAplicado($factura);
+        if (! $analisis) {
+            return ['ok' => false, 'message' => 'La factura #'.$factura->id.' no requiere corrección o ya fue corregida.'];
+        }
+        if ($analisis['motivo_skip']) {
+            return ['ok' => false, 'message' => 'Factura #'.$factura->id.': '.$analisis['motivo_skip'], 'analisis' => $analisis];
+        }
+
+        DB::transaction(function () use ($factura, $analisis) {
+            $saldoDet = FacturaInternaDetalle::query()->lockForUpdate()->find($analisis['detalle_saldo_id']);
+            if (! $saldoDet) {
+                throw new \RuntimeException('Detalle de saldo a favor no encontrado.');
+            }
+
+            $nuevoTotalLinea = round((float) $saldoDet->total - $analisis['delta_total'], 2);
+            $nuevoImpuestoLinea = round((float) $saldoDet->monto_impuesto - $analisis['delta_impuesto'], 2);
+
+            $saldoDet->update([
+                'precio_unitario' => $nuevoTotalLinea,
+                'monto_impuesto' => $nuevoImpuestoLinea,
+                'total' => $nuevoTotalLinea,
+            ]);
+
+            $factura->refresh()->load('detalles');
+            $subtotal = round((float) $factura->detalles->sum(fn (FacturaInternaDetalle $d) => (float) $d->subtotal), 2);
+            $totalImpuestos = round((float) $factura->detalles->sum(fn (FacturaInternaDetalle $d) => (float) $d->monto_impuesto), 2);
+            $total = round((float) $factura->detalles->sum(fn (FacturaInternaDetalle $d) => (float) $d->total), 2);
+
+            $updates = [
+                'subtotal' => max(0, $subtotal),
+                'total_impuestos' => max(0, $totalImpuestos),
+                'total' => max(0, $total),
+            ];
+
+            if ($updates['total'] <= 0.009) {
+                $updates['estado'] = 'pagada';
+            }
+
+            $factura->update($updates);
+
+            $deducir = (float) $analisis['deducir_saldo_servicio'];
+            if ($deducir > 0.009) {
+                $servicioIds = FacturaInternaDetalle::query()
+                    ->where('factura_interna_id', $factura->id)
+                    ->whereNotNull('servicio_id')
+                    ->pluck('servicio_id')
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $servicios = $servicioIds !== []
+                    ? Servicio::whereIn('servicio_id', $servicioIds)->orderBy('servicio_id')->get()
+                    : Servicio::where('cliente_id', $factura->cliente_id)->orderBy('servicio_id')->get();
+
+                $restante = $deducir;
+                foreach ($servicios as $servicio) {
+                    if ($restante <= 0.009) {
+                        break;
+                    }
+                    $saldoServicio = (float) ($servicio->saldo_a_favor ?? 0);
+                    if ($saldoServicio <= 0) {
+                        continue;
+                    }
+                    $aDeducir = min($saldoServicio, $restante);
+                    $aDeducir = round($aDeducir, 2);
+                    Servicio::where('servicio_id', $servicio->servicio_id)->decrement('saldo_a_favor', $aDeducir);
+                    $restante -= $aDeducir;
+                }
+
+                if ($restante > 0.009) {
+                    throw new \RuntimeException('No se pudo descontar todo el saldo a favor requerido.');
+                }
+            }
+
+            if ($factura->fresh()->saldo_pendiente <= 0.009) {
+                $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pagado');
+            }
+        });
+
+        $factura->refresh();
+        $this->sincronizarResumenPorFactura($factura);
+
+        return [
+            'ok' => true,
+            'message' => 'Factura #'.$factura->id.' corregida. Total: '.number_format((float) $factura->total, 0, ',', '.').' Gs.',
+            'analisis' => $analisis,
+        ];
     }
 
     /**

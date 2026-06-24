@@ -8,6 +8,7 @@ use App\Models\FacturaDetalle;
 use App\Models\Impuesto;
 use App\Models\SifenConfiguracion;
 use App\Services\Sifen\SifenCertificadoService;
+use App\Services\Sifen\SifenApiClient;
 use App\Services\Sifen\SifenRespuestaParser;
 use App\Services\Sifen\SifenService;
 use App\Services\Sifen\SifenXmlSigner;
@@ -21,9 +22,10 @@ class SifenPruebaController extends Controller
         SifenService $sifenService,
         SifenCertificadoService $certificadoService,
         SifenXmlSigner $xmlSigner,
+        SifenApiClient $apiClient,
     ) {
         $config = SifenConfiguracion::activa();
-        $estado = $this->construirEstado($config, $certificadoService, $xmlSigner);
+        $estado = $this->construirEstado($config, $certificadoService, $xmlSigner, $apiClient);
         $listo = $this->prerrequisitosCompletos($estado);
 
         $referenciaAprobada = storage_path('sifen/xml/DE_firmado_01052639347001001000006012026061910307565956_20260619172933.xml');
@@ -212,6 +214,10 @@ class SifenPruebaController extends Controller
 
     public function probarTls(SifenCertificadoService $certificadoService)
     {
+        if (config('sifen.api.enabled')) {
+            return back()->with('error', 'En modo API use «Probar mTLS vía API» (el certificado está en sifen-api).');
+        }
+
         if (config('sifen.ambiente') !== 'test') {
             return back()->with('error', 'La prueba TLS solo está habilitada con SIFEN_AMBIENTE=test.');
         }
@@ -246,6 +252,40 @@ class SifenPruebaController extends Controller
             ->with('diagnostico_cert', $diagnostico);
     }
 
+    public function probarApi(SifenApiClient $apiClient)
+    {
+        $resultado = $apiClient->probarConexion();
+
+        if ($resultado['ok'] ?? false) {
+            return back()
+                ->with('success', $resultado['mensaje'].(isset($resultado['latencia_ms']) ? ' ('.$resultado['latencia_ms'].' ms)' : ''))
+                ->with('api_probe', $resultado);
+        }
+
+        return back()
+            ->with('error', 'Conexión API falló: '.($resultado['mensaje'] ?? 'Error'))
+            ->with('api_probe', $resultado);
+    }
+
+    public function probarApiTls(SifenApiClient $apiClient)
+    {
+        if (config('sifen.ambiente') !== 'test') {
+            return back()->with('error', 'La prueba mTLS vía API solo está habilitada en ambiente TEST.');
+        }
+
+        $resultado = $apiClient->probarTlsRemoto();
+
+        if ($resultado['ok'] ?? false) {
+            return back()
+                ->with('success', $resultado['mensaje'])
+                ->with('api_tls_probe', $resultado);
+        }
+
+        return back()
+            ->with('error', 'mTLS vía API falló: '.($resultado['mensaje'] ?? 'Error'))
+            ->with('api_tls_probe', $resultado);
+    }
+
     public function emitir(Factura $factura, SifenService $sifenService)
     {
         if ($factura->estado !== 'borrador') {
@@ -268,7 +308,9 @@ class SifenPruebaController extends Controller
                 ->with('error', 'SIFEN rechazó o falló el envío: '.$e->getMessage())
                 ->with('resultado', [
                     'accion' => 'emitir_fallido',
+                    'modo_api' => config('sifen.api.enabled'),
                     'factura_id' => $factura->id,
+                    'sifen_api_documento_id' => $factura->sifen_api_documento_id,
                     'cdc' => $factura->set_cdc,
                     'estado_envio' => $factura->set_estado_envio,
                     'sifen' => $sifenParseado,
@@ -280,7 +322,9 @@ class SifenPruebaController extends Controller
             ->with('success', 'Documento enviado y autorizado por SIFEN (ambiente de prueba).')
             ->with('resultado', [
                 'accion' => 'emitir',
+                'modo_api' => config('sifen.api.enabled'),
                 'factura_id' => $resultado['factura']->id,
+                'sifen_api_documento_id' => $resultado['factura']->sifen_api_documento_id,
                 'cdc' => $resultado['cdc'],
                 'xml_path' => $resultado['xml_path'],
                 'pdf_path' => $resultado['pdf_path'],
@@ -296,19 +340,48 @@ class SifenPruebaController extends Controller
         ?SifenConfiguracion $config,
         SifenCertificadoService $certificadoService,
         SifenXmlSigner $xmlSigner,
+        SifenApiClient $apiClient,
     ): array {
+        $modoApi = (bool) config('sifen.api.enabled');
+        $apiStatus = null;
+        $apiConectada = false;
+
+        if ($modoApi && $apiClient->isConfigured()) {
+            try {
+                $apiStatus = $apiClient->status();
+                $apiConectada = (bool) ($apiStatus['config_activa'] ?? false);
+            } catch (\Throwable) {
+                $apiConectada = false;
+            }
+        }
+
         return [
             'ambiente' => config('sifen.ambiente', 'test'),
             'endpoint' => config('sifen.ws.'.config('sifen.ambiente', 'test').'.recepcion_de_endpoint'),
+            'modo_api' => $modoApi,
+            'api_url' => config('sifen.api.url'),
+            'api_configurada' => $apiClient->isConfigured(),
+            'api_conectada' => $apiConectada,
+            'api_status' => $apiStatus,
+            'api_panel_url' => $apiClient->isConfigured() ? $apiClient->urlPanelConfiguracion() : null,
             'config_activa' => $config !== null,
             'emisor' => $config ? ($config->razon_social.' (RUC '.$config->ruc.'-'.$config->dv_ruc.')') : null,
             'timbrado' => $config?->numero_timbrado,
             'siguiente_numero' => $config?->siguienteNumeroDocumento(),
-            'certificado_configurado' => $certificadoService->disponible(),
+            'certificado_configurado' => $modoApi
+                ? (bool) ($apiStatus['certificado_configurado'] ?? false)
+                : $certificadoService->disponible(),
             'certificado_existe' => File::exists(config('sifen.certificado.path')),
-            'csc_configurado' => filled($config?->cscTokenEfectivo()),
+            'csc_configurado' => $modoApi
+                ? (bool) ($apiStatus['csc_configurado'] ?? false)
+                : filled($config?->cscTokenEfectivo()),
             'csc_id' => $config?->cscIdEfectivo(),
-            'motor_firma' => $xmlSigner->motorFirmaActivo(),
+            'motor_firma' => $modoApi
+                ? ($apiStatus['motor_firma'] ?? 'sifen-api')
+                : $xmlSigner->motorFirmaActivo(),
+            'actividad_economica_configurada' => $modoApi
+                ? (bool) ($apiStatus['actividad_economica_configurada'] ?? false)
+                : filled($config?->codigo_actividad_economica),
         ];
     }
 
@@ -317,6 +390,14 @@ class SifenPruebaController extends Controller
      */
     private function prerrequisitosCompletos(array $estado): bool
     {
+        if ($estado['modo_api'] ?? false) {
+            return ($estado['api_configurada'] ?? false)
+                && ($estado['api_conectada'] ?? false)
+                && ($estado['certificado_configurado'] ?? false)
+                && ($estado['csc_configurado'] ?? false)
+                && ($estado['actividad_economica_configurada'] ?? false);
+        }
+
         return $estado['config_activa']
             && $estado['certificado_configurado']
             && $estado['csc_configurado'];

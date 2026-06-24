@@ -27,6 +27,13 @@
         </div>
     @endif
 
+    @if(config('sifen.api.enabled'))
+        <div class="mb-4 p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-sm text-purple-900 dark:text-purple-200">
+            <strong>Modo API activo.</strong> La firma y el envío a SIFEN se realizan en <strong>sifen-api</strong>.
+            El certificado P12 de esta pantalla no se usa para emitir; configúrelo en el panel del microservicio.
+        </div>
+    @endif
+
     {{-- Estado del sistema --}}
     <div class="mb-6 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Estado actual</h2>

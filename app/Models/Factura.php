@@ -43,6 +43,7 @@ class Factura extends Model
         'set_xml_respuesta',
         'xml_path',
         'pdf_path',
+        'sifen_api_documento_id',
     ];
 
     protected function casts(): array
