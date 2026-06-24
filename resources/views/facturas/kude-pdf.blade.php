@@ -71,7 +71,7 @@
         .firma-table .lbl-firma { font-size: 8px; padding-top: 2px; height: auto; border-top: none; }
         .barcode img { max-width: 130px; height: 36px; }
         .pagina { font-size: 9px; text-align: right; margin-top: 4px; }
-        .info-adicional { font-size: 9px; padding: 4px 5px; border: 1px solid #000; border-top: none; min-height: 18px; }
+        .info-adicional { font-size: 9px; padding: 4px 5px; min-height: 18px; }
     </style>
 </head>
 <body>
@@ -85,7 +85,7 @@
                 @endif
             </td>
             <td style="width: 30%; padding: 0 8px;">
-                <p class="titulo-kude">KuDE de Factura electrónica</p>
+                <p class="titulo-kude">{{ $factura->tituloKude() }}</p>
                 <p class="razon-social upper">{{ $config->razon_social }}</p>
                 @if($config->descripcion_actividad_economica)
                     <p class="actividad upper">{{ $config->descripcion_actividad_economica }}</p>
@@ -98,7 +98,8 @@
                     <div><span class="bold">RUC:</span> {{ $config->ruc }}-{{ $config->dv_ruc }}</div>
                     <div><span class="bold">Timbrado Nº:</span> {{ $factura->numero_timbrado ?? $config->numero_timbrado }}</div>
                     <div><span class="bold">Inicio de vigencia:</span> {{ $vigenciaTimbradoFmt }}</div>
-                    <div class="doc-tipo">Factura electrónica</div>
+                    <div class="doc-tipo">{{ $factura->descripcionTipoDocumentoSifen() }}</div>
+                    <div class="meta">Tipo DE (iTiDE): {{ $factura->codigoTipoDocumentoSifen() }}</div>
                     <div class="doc-num">Nº: {{ $factura->numero_completo ?? '—' }}</div>
                 </div>
             </td>
@@ -112,11 +113,16 @@
                 <span class="lbl">Fecha de emisión:</span> {{ $fechaEmisionFmt }}<br>
                 <span class="lbl">RUC/documento de identidad:</span> {{ $factura->cliente->cedula }}<br>
                 <span class="lbl">Nombre o razón social:</span> {{ trim($factura->cliente->nombre.' '.$factura->cliente->apellido) }}<br>
-                <span class="lbl">Tipo de transacción:</span> {{ $tipoTransaccion }}<br>
+                <span class="lbl">Tipo de transacción:</span> {{ $factura->tipoTransaccionKude() }}<br>
+                @foreach($factura->lineasComplementariasKude() as $linea)
+                    <span class="lbl">{{ $linea['label'] }}:</span> {{ $linea['value'] }}<br>
+                @endforeach
         
             </td>
             <td style="width: 50%;">
-                <span class="lbl">Condición de venta:</span> {{ $condicionVenta }}<br>
+                @if($factura->esFacturaComercial())
+                    <span class="lbl">Condición de venta:</span> {{ $condicionVenta }}<br>
+                @endif
             
                 <span class="lbl">Moneda:</span> {{ $monedaDescripcion }}<br>
                 <span class="lbl">Dirección:</span> {{ $factura->cliente->direccion ?: '—' }}<br>

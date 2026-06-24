@@ -14,6 +14,9 @@
                     <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">Emitir e-Kuatia</button>
                 </form>
             @endif
+            @if($factura->estado === 'emitida' && $factura->set_cdc)
+                <a href="{{ route('facturas.kude-pos', $factura) }}" target="_blank" rel="noopener" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700">KuDE POS 80 mm</a>
+            @endif
             @if($factura->pdf_path)
                 <a href="{{ route('facturas.kude', $factura) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">KuDE PDF</a>
             @endif

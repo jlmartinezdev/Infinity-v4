@@ -48,9 +48,10 @@ class SifenApiBridge
         }
 
         $respuesta = $this->client->preparar($documentoId);
-        $data = is_array($respuesta['data'] ?? null) ? $respuesta['data'] : [];
+        $data = $this->normalizarRespuestaDocumento($respuesta);
 
         $this->sincronizarFacturaDesdeApi($factura, $data);
+        $this->sincronizarContadorDesdeApi();
 
         return [
             'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
@@ -86,7 +87,9 @@ class SifenApiBridge
         }
 
         try {
-            $respuesta = $this->client->emitir($documentoId, $enviarSifen);
+            $enviarCorreo = $this->resolverEnviarCorreoApi($factura);
+            $receptorCorreo = $this->construirReceptorCorreoPayload($factura);
+            $respuesta = $this->client->emitir($documentoId, $enviarSifen, $enviarCorreo, $receptorCorreo);
         } catch (RuntimeException $e) {
             if (
                 str_contains($e->getMessage(), 'borrador')
@@ -117,11 +120,12 @@ class SifenApiBridge
             throw $e;
         }
 
-        $data = is_array($respuesta['data'] ?? null) ? $respuesta['data'] : [];
+        $data = $this->normalizarRespuestaDocumento($respuesta);
         $this->sincronizarFacturaDesdeApi($factura, $data);
         $factura->refresh();
 
         $this->descargarArchivosLocales($factura, $documentoId);
+        $this->sincronizarContadorDesdeApi();
 
         $sifen = is_array($respuesta['sifen'] ?? null)
             ? $respuesta['sifen']
@@ -155,7 +159,47 @@ class SifenApiBridge
                 'total' => (float) $factura->total,
             ],
             'sifen' => $sifen,
+            'correo' => is_array($respuesta['correo'] ?? null) ? $respuesta['correo'] : null,
         ];
+    }
+
+    private function resolverEnviarCorreoApi(Factura $factura): ?bool
+    {
+        if (! config('sifen.enviar_correo_emision', true)) {
+            return false;
+        }
+
+        return $this->emailClienteValido($factura) ? true : false;
+    }
+
+    /**
+     * @return array<string, string|null>|null
+     */
+    private function construirReceptorCorreoPayload(Factura $factura): ?array
+    {
+        $factura->loadMissing('cliente');
+        $cliente = $factura->cliente;
+        if (! $cliente) {
+            return null;
+        }
+
+        $email = trim((string) ($cliente->email ?? ''));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        return [
+            'nombre' => trim($cliente->nombre.' '.$cliente->apellido),
+            'documento' => preg_replace('/\D/', '', (string) $cliente->cedula),
+            'direccion' => $cliente->direccion,
+            'email' => $email,
+            'telefono' => $cliente->telefono,
+        ];
+    }
+
+    private function emailClienteValido(Factura $factura): bool
+    {
+        return $this->construirReceptorCorreoPayload($factura) !== null;
     }
 
     private function resolverDocumentoRemoto(Factura $factura): int
@@ -188,11 +232,6 @@ class SifenApiBridge
      */
     private function construirPayloadDocumento(Factura $factura): array
     {
-        $cliente = $factura->cliente;
-        if (! $cliente || blank($cliente->cedula)) {
-            throw new RuntimeException('La factura requiere cliente con cédula o RUC.');
-        }
-
         $items = [];
         foreach ($factura->detalles as $index => $detalle) {
             $items[] = [
@@ -210,14 +249,43 @@ class SifenApiBridge
             'fecha_emision' => $factura->fecha_emision?->toDateString() ?? now()->toDateString(),
             'moneda' => $factura->moneda ?? 'PYG',
             'observaciones' => $factura->observaciones,
-            'receptor' => [
-                'nombre' => trim($cliente->nombre.' '.$cliente->apellido),
-                'documento' => preg_replace('/\D/', '', (string) $cliente->cedula),
-                'direccion' => $cliente->direccion,
-                'email' => $cliente->email,
-                'telefono' => $cliente->telefono,
-            ],
+            'receptor' => $this->construirReceptorPayload($factura),
             'items' => $items,
+            'datos_complementarios' => $factura->datos_complementarios,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function construirReceptorPayload(Factura $factura): array
+    {
+        if ($factura->tipo_documento === 'autofactura') {
+            $config = SifenConfiguracion::activa();
+            if (! $config) {
+                throw new RuntimeException('Configure el emisor SIFEN para autofactura.');
+            }
+
+            return [
+                'nombre' => $config->razon_social,
+                'documento' => $config->ruc.'-'.$config->dv_ruc,
+                'direccion' => $config->direccion,
+                'email' => $config->email,
+                'telefono' => $config->telefono,
+            ];
+        }
+
+        $cliente = $factura->cliente;
+        if (! $cliente || blank($cliente->cedula)) {
+            throw new RuntimeException('La factura requiere cliente con cédula o RUC.');
+        }
+
+        return [
+            'nombre' => trim($cliente->nombre.' '.$cliente->apellido),
+            'documento' => preg_replace('/\D/', '', (string) $cliente->cedula),
+            'direccion' => $cliente->direccion,
+            'email' => $cliente->email,
+            'telefono' => $cliente->telefono,
         ];
     }
 
@@ -229,17 +297,27 @@ class SifenApiBridge
         $sifen = is_array($data['sifen'] ?? null) ? $data['sifen'] : [];
         $numeracion = $this->parseNumeroCompleto($data['numero_completo'] ?? null);
 
+        $numero = $numeracion['numero'] ?? (isset($data['numero']) ? (int) $data['numero'] : null);
+        $establecimiento = $numeracion['establecimiento']
+            ?? (isset($data['establecimiento']) ? (int) $data['establecimiento'] : null);
+        $puntoEmision = $numeracion['punto_emision']
+            ?? (isset($data['punto_emision']) ? (int) $data['punto_emision'] : null);
+
         $actualizar = array_filter([
             'estado' => $data['estado'] ?? null,
-            'numero' => $numeracion['numero'],
-            'establecimiento' => $numeracion['establecimiento'],
-            'punto_emision' => $numeracion['punto_emision'],
-            'set_cdc' => $sifen['cdc'] ?? null,
+            'numero' => $numero,
+            'establecimiento' => $establecimiento,
+            'punto_emision' => $puntoEmision,
+            'set_cdc' => $sifen['cdc'] ?? ($data['cdc'] ?? null),
             'set_qr_url' => $sifen['qr_url'] ?? null,
             'set_estado_envio' => $sifen['estado_envio'] ?? null,
             'set_fecha_autorizacion' => ! empty($sifen['fecha_autorizacion'])
                 ? Carbon::parse($sifen['fecha_autorizacion'])
                 : null,
+            'set_fecha_emision_de' => ! empty($sifen['fecha_emision_de'])
+                ? Carbon::parse($sifen['fecha_emision_de'])
+                : null,
+            'set_xml_respuesta' => $data['set_xml_respuesta'] ?? null,
             'sifen_api_documento_id' => $data['id'] ?? $factura->sifen_api_documento_id,
         ], fn ($v) => $v !== null);
 
@@ -247,10 +325,38 @@ class SifenApiBridge
             $factura->update($actualizar);
         }
 
-        if ($numeracion['numero'] !== null) {
+        if ($numero !== null) {
             $config = SifenConfiguracion::activa();
-            $config?->registrarNumeroEmitido((int) $numeracion['numero']);
+            $config?->registrarNumeroEmitido($numero);
         }
+    }
+
+    private function sincronizarContadorDesdeApi(): void
+    {
+        $ultimoRemoto = $this->client->obtenerUltimoNumeroRemoto();
+        if ($ultimoRemoto === null) {
+            return;
+        }
+
+        $config = SifenConfiguracion::activa();
+        $config?->registrarNumeroEmitido($ultimoRemoto);
+    }
+
+    /**
+     * @param  array<string, mixed>  $respuesta
+     * @return array<string, mixed>
+     */
+    private function normalizarRespuestaDocumento(array $respuesta): array
+    {
+        $data = is_array($respuesta['data'] ?? null) ? $respuesta['data'] : [];
+
+        if (! empty($respuesta['cdc'])) {
+            $sifen = is_array($data['sifen'] ?? null) ? $data['sifen'] : [];
+            $data['sifen'] = array_merge($sifen, ['cdc' => $respuesta['cdc']]);
+            $data['cdc'] = $respuesta['cdc'];
+        }
+
+        return $data;
     }
 
     /**
@@ -268,6 +374,7 @@ class SifenApiBridge
         $this->sincronizarFacturaDesdeApi($factura, $remoto);
         $factura->refresh();
         $this->descargarArchivosLocales($factura, $documentoId);
+        $this->sincronizarContadorDesdeApi();
 
         $sifen = $this->construirSifenDesdeRemoto($remoto);
         $estadoEnvio = $factura->set_estado_envio;
@@ -296,14 +403,38 @@ class SifenApiBridge
             'xml_path' => $factura->xml_path,
             'pdf_path' => $factura->pdf_path,
             'qr_url' => $factura->set_qr_url,
-            'validacion' => ['valido' => true, 'errores' => [], 'aviso' => 'Documento ya emitido en sifen-api; datos sincronizados.'],
+            'validacion' => [
+                'valido' => true,
+                'errores' => [],
+                'aviso' => $this->mensajeSincronizacionRemota($remoto),
+            ],
             'totales' => [
                 'subtotal' => (float) $factura->subtotal,
                 'total_impuestos' => (float) $factura->total_impuestos,
                 'total' => (float) $factura->total,
             ],
             'sifen' => $sifen,
+            'sincronizado_desde_api' => true,
+            'siguiente_numero_remoto' => $this->client->obtenerSiguienteNumeroRemoto(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $remoto
+     */
+    private function mensajeSincronizacionRemota(array $remoto): string
+    {
+        $numero = $remoto['numero'] ?? '?';
+        $siguiente = $this->client->obtenerSiguienteNumeroRemoto();
+
+        $texto = 'Este documento ya estaba emitido en sifen-api (nº '.$numero.'). '
+            .'Se sincronizaron CDC, XML y estado local; no se envió un DE nuevo a SIFEN.';
+
+        if ($siguiente !== null) {
+            $texto .= ' Para probar el siguiente número ('.$siguiente.'), cree un nuevo borrador de prueba.';
+        }
+
+        return $texto;
     }
 
     /**
@@ -315,18 +446,46 @@ class SifenApiBridge
         $sifen = is_array($remoto['sifen'] ?? null) ? $remoto['sifen'] : [];
         $estadoEnvio = $sifen['estado_envio'] ?? null;
 
-        if ($estadoEnvio === null && ($remoto['estado'] ?? '') === 'emitida') {
-            $estadoEnvio = 'autorizado';
+        if (filled($sifen['codigo'] ?? null) || filled($sifen['mensaje'] ?? null) || filled($sifen['protocolo'] ?? null)) {
+            return [
+                'codigo' => $sifen['codigo'] ?? null,
+                'mensaje' => $sifen['mensaje'] ?? null,
+                'estado' => $sifen['estado'] ?? null,
+                'cdc' => $sifen['cdc'] ?? null,
+                'protocolo' => $sifen['protocolo'] ?? null,
+                'aprobado' => (bool) ($sifen['aprobado'] ?? ($estadoEnvio === 'autorizado')),
+                'sincronizado_desde_api' => true,
+                'raw' => '',
+            ];
         }
 
-        return [
-            'codigo' => $estadoEnvio === 'autorizado' ? '0260' : null,
-            'mensaje' => $estadoEnvio === 'autorizado' ? '[0260] Documento ya autorizado en sifen-api' : null,
-            'estado' => $estadoEnvio === 'autorizado' ? 'Aprobado' : null,
-            'cdc' => $sifen['cdc'] ?? null,
-            'aprobado' => $estadoEnvio === 'autorizado',
-            'raw' => '',
-        ];
+        if ($estadoEnvio === 'pendiente' && ($remoto['estado'] ?? '') === 'emitida') {
+            return [
+                'codigo' => null,
+                'mensaje' => 'Documento emitido en sifen-api sin respuesta de SIFEN. Revise el panel de sifen-api.',
+                'estado' => null,
+                'cdc' => $sifen['cdc'] ?? null,
+                'protocolo' => null,
+                'aprobado' => false,
+                'sincronizado_desde_api' => true,
+                'raw' => '',
+            ];
+        }
+
+        if ($estadoEnvio === 'autorizado') {
+            return [
+                'codigo' => null,
+                'mensaje' => 'Documento ya autorizado en sifen-api (sincronizado; no es un envío nuevo a SIFEN).',
+                'estado' => 'Aprobado',
+                'cdc' => $sifen['cdc'] ?? null,
+                'protocolo' => null,
+                'aprobado' => true,
+                'sincronizado_desde_api' => true,
+                'raw' => '',
+            ];
+        }
+
+        return null;
     }
 
     private function descargarArchivosLocales(Factura $factura, int $documentoId): void
@@ -345,6 +504,11 @@ class SifenApiBridge
             $rutaRelXml = 'sifen/xml/'.$nombreXml;
             File::put(storage_path($rutaRelXml), $xml);
             $factura->update(['xml_path' => $rutaRelXml]);
+
+            $fechaDe = SifenXmlManipulator::extraerFechaEmisionDe($xml);
+            if ($fechaDe) {
+                $factura->update(['set_fecha_emision_de' => $fechaDe]);
+            }
         } catch (\Throwable) {
             // XML puede no existir si solo se preparó
         }

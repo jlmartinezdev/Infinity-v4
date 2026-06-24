@@ -16,30 +16,9 @@ class SifenKudeService
 
     public function generar(Factura $factura, SifenConfiguracion $config, ?string $qrUrl = null): string
     {
-        $factura->loadMissing(['cliente', 'detalles.impuesto', 'usuario']);
+        $vista = $this->datosParaVista($factura, $config, $qrUrl);
 
-        $qrUrl = $qrUrl ?: $factura->set_qr_url;
-        $qrImageUrl = $qrUrl ? $this->qrGenerator->urlImagenQr($qrUrl) : null;
-
-        $ajustes = AjustesGenerales::obtener();
-        $logoBase64 = null;
-        if ($ajustes?->logo && File::exists(public_path('storage/'.$ajustes->logo))) {
-            $mime = mime_content_type(public_path('storage/'.$ajustes->logo)) ?: 'image/png';
-            $logoBase64 = 'data:'.$mime.';base64,'.base64_encode(
-                File::get(public_path('storage/'.$ajustes->logo))
-            );
-        }
-
-        $datos = $this->construirDatosVista($factura, $config, $ajustes);
-
-        $pdf = Pdf::loadView('facturas.kude-pdf', array_merge($datos, [
-            'factura' => $factura,
-            'config' => $config,
-            'ajustes' => $ajustes,
-            'logoBase64' => $logoBase64,
-            'qrImageUrl' => $qrImageUrl,
-            'cdcFormateado' => $this->formatearCdc($factura->set_cdc),
-        ]))
+        $pdf = Pdf::loadView('facturas.kude-pdf', $vista)
             ->setPaper('a4', 'portrait')
             ->setOption('isRemoteEnabled', true);
 
@@ -56,6 +35,38 @@ class SifenKudeService
         File::put($rutaAbsoluta, $pdf->output());
 
         return 'sifen/pdf/'.$nombre;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function datosParaVista(Factura $factura, SifenConfiguracion $config, ?string $qrUrl = null): array
+    {
+        $factura->loadMissing(['cliente', 'detalles.impuesto', 'usuario']);
+
+        $qrUrl = $qrUrl ?: $factura->set_qr_url;
+        $qrImageUrl = $qrUrl ? $this->qrGenerator->urlImagenQr($qrUrl) : null;
+
+        $ajustes = AjustesGenerales::obtener();
+        $logoBase64 = null;
+        if ($ajustes?->logo && File::exists(public_path('storage/'.$ajustes->logo))) {
+            $mime = mime_content_type(public_path('storage/'.$ajustes->logo)) ?: 'image/png';
+            $logoBase64 = 'data:'.$mime.';base64,'.base64_encode(
+                File::get(public_path('storage/'.$ajustes->logo))
+            );
+        }
+
+        $fantasia = trim((string) ($config->nombre_fantasia ?? ''));
+
+        return array_merge($this->construirDatosVista($factura, $config, $ajustes), [
+            'factura' => $factura,
+            'config' => $config,
+            'ajustes' => $ajustes,
+            'logoBase64' => $logoBase64,
+            'qrImageUrl' => $qrImageUrl,
+            'cdcFormateado' => $this->formatearCdc($factura->set_cdc),
+            'nombreEmisor' => $fantasia !== '' ? $fantasia : trim((string) $config->razon_social),
+        ]);
     }
 
     /**
@@ -104,7 +115,7 @@ class SifenKudeService
 
         $filasVacias = max(0, 10 - count($lineas));
 
-        $fechaEmision = $factura->set_fecha_emision_de ?? $factura->fecha_emision;
+        $fechaEmision = $factura->fechaEmisionDeEfectiva();
         $ambiente = config('sifen.ambiente', 'test');
 
         return [

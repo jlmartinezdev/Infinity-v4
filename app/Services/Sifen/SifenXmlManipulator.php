@@ -196,4 +196,23 @@ class SifenXmlManipulator
 
         return $xml;
     }
+
+    /**
+     * Lee dFeEmiDE del XML del DE (fecha y hora de emisión SIFEN).
+     */
+    public static function extraerFechaEmisionDe(string $xml): ?\Carbon\Carbon
+    {
+        if (! preg_match('/<dFeEmiDE>([^<]+)<\/dFeEmiDE>/', $xml, $coincidencias)) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse(
+                $coincidencias[1],
+                config('sifen.timezone', 'America/Asuncion')
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 }

@@ -16,7 +16,7 @@
     <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Laboratorio de prueba SIFEN</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Cree una factura de prueba y ejecute el flujo paso a paso antes de usar producción.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Cree borradores de prueba y ejecútelos vía motor local o sifen-api (modo API).</p>
         </div>
         @if($estado['ambiente'] === 'test')
             <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">Ambiente TEST</span>
@@ -59,6 +59,12 @@
                             <dd class="text-gray-900 dark:text-gray-100">{{ $estado['api_status']['emisor'] }}</dd>
                         </div>
                     @endif
+                    @if(!empty($estado['api_status']['siguiente_numero']))
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Próximo número (API)</dt>
+                            <dd class="font-medium text-purple-700 dark:text-purple-300">{{ $estado['api_status']['siguiente_numero'] }}</dd>
+                        </div>
+                    @endif
                 </dl>
 
                 @php $apiProbe = session('api_probe'); $apiTlsProbe = session('api_tls_probe'); @endphp
@@ -96,13 +102,27 @@
 
     {{-- Resultado de última acción --}}
     @if($resultado)
-        <div class="mb-6 p-5 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10">
-            <h2 class="text-sm font-semibold text-green-900 dark:text-green-200 mb-3">Resultado de la operación</h2>
+        @php
+            $esSincronizacion = !empty($resultado['sincronizado_desde_api']);
+            $resultadoClases = $esSincronizacion
+                ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10'
+                : 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10';
+            $resultadoTituloClases = $esSincronizacion
+                ? 'text-amber-900 dark:text-amber-200'
+                : 'text-green-900 dark:text-green-200';
+        @endphp
+        <div class="mb-6 p-5 rounded-xl border {{ $resultadoClases }}">
+            <h2 class="text-sm font-semibold {{ $resultadoTituloClases }} mb-3">
+                {{ $esSincronizacion ? 'Sincronización desde sifen-api' : 'Resultado de la operación' }}
+            </h2>
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                     <dt class="text-gray-500 dark:text-gray-400">Factura</dt>
                     <dd class="font-medium text-gray-900 dark:text-gray-100">
                         <a href="{{ route('facturas.show', $resultado['factura_id']) }}" class="text-green-600 dark:text-green-400 hover:underline">#{{ $resultado['factura_id'] }}</a>
+                        @if(!empty($resultado['tipo_documento']))
+                            <span class="text-xs text-gray-500 dark:text-gray-400">· {{ App\Models\Factura::tiposDocumento()[$resultado['tipo_documento']] ?? $resultado['tipo_documento'] }}</span>
+                        @endif
                     </dd>
                 </div>
                 @if(!empty($resultado['sifen_api_documento_id']))
@@ -134,7 +154,13 @@
                 @if(!empty($resultado['validacion']['aviso']))
                     <div class="sm:col-span-2">
                         <dt class="text-gray-500 dark:text-gray-400">Nota</dt>
-                        <dd class="text-xs text-blue-700 dark:text-blue-300">{{ $resultado['validacion']['aviso'] }}</dd>
+                        <dd class="text-xs {{ $esSincronizacion ? 'text-amber-800 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300' }}">{{ $resultado['validacion']['aviso'] }}</dd>
+                    </div>
+                @endif
+                @if(!empty($resultado['siguiente_numero_remoto']))
+                    <div>
+                        <dt class="text-gray-500 dark:text-gray-400">Próximo nº en API</dt>
+                        <dd class="font-medium text-purple-700 dark:text-purple-300">{{ $resultado['siguiente_numero_remoto'] }}</dd>
                     </div>
                 @endif
                 @if(!empty($resultado['validacion']['errores']))
@@ -211,7 +237,13 @@
                     <div>
                         <p class="font-medium text-gray-900 dark:text-gray-100">Configuración emisor activa</p>
                         @if($estado['emisor'])
-                            <p class="text-gray-500 dark:text-gray-400">{{ $estado['emisor'] }} · Timbrado {{ $estado['timbrado'] }} · Próximo nº {{ $estado['siguiente_numero'] }}</p>
+                            <p class="text-gray-500 dark:text-gray-400">
+                                {{ $estado['emisor'] }} · Timbrado {{ $estado['timbrado'] }}
+                                · Próximo nº {{ $estado['siguiente_numero'] }}
+                                @if($estado['numeracion_en_api'] ?? false)
+                                    <span class="text-purple-600 dark:text-purple-400">(contador en sifen-api)</span>
+                                @endif
+                            </p>
                         @else
                             <p class="text-gray-500 dark:text-gray-400"><a href="{{ route('configuracion.sifen') }}" class="text-green-600 hover:underline">Complete la configuración SIFEN</a></p>
                         @endif
@@ -320,16 +352,102 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {{-- Crear factura de prueba --}}
+        {{-- Crear documento de prueba --}}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">1. Crear factura de prueba</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Genera un borrador con un ítem simple en PYG.</p>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">1. Crear documento de prueba</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    @if($estado['modo_api'] ?? false)
+                        Facturas, notas, autofactura y remisión se envían a sifen-api al preparar/emitir.
+                    @else
+                        Solo facturas al contado/crédito en motor local. Active modo API para más tipos.
+                    @endif
+                </p>
             </div>
-            <form action="{{ route('configuracion.sifen.prueba.factura') }}" method="POST" class="p-6 space-y-4">
+            <form action="{{ route('configuracion.sifen.prueba.factura') }}" method="POST" class="p-6 space-y-4" id="form-prueba-sifen">
                 @csrf
                 <div>
-                    <label for="cliente_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cliente (con cédula/RUC)</label>
+                    <label for="tipo_documento" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de documento</label>
+                    <select name="tipo_documento" id="tipo_documento" required
+                            class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 dark:text-gray-100">
+                        @foreach($tiposDocumentoLab as $codigo => $nombre)
+                            <option value="{{ $codigo }}" {{ old('tipo_documento', 'factura_contado') === $codigo ? 'selected' : '' }}>{{ $nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div id="campos-nota" class="hidden space-y-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <p class="text-xs text-amber-800 dark:text-amber-200">Nota de crédito/débito: referencia obligatoria a factura autorizada (CDC).</p>
+                    <div>
+                        <label for="factura_referencia_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Factura asociada</label>
+                        <select name="factura_referencia_id" id="factura_referencia_id"
+                                class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                            <option value="">Seleccione factura con CDC…</option>
+                            @foreach($facturasReferencia as $ref)
+                                <option value="{{ $ref->id }}" {{ old('factura_referencia_id') == $ref->id ? 'selected' : '' }}>
+                                    #{{ $ref->id }} · {{ $ref->numero_completo ?? 's/n' }} · {{ Str::limit($ref->set_cdc, 20) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @if($facturasReferencia->isEmpty())
+                            <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">No hay facturas autorizadas. Emita una factura de prueba primero.</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label for="motivo_emision" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Motivo de emisión</label>
+                        <select name="motivo_emision" id="motivo_emision"
+                                class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                            @foreach(config('sifen.motivos_emision_nc_nd', []) as $cod => $desc)
+                                <option value="{{ $cod }}" {{ (int) old('motivo_emision', 2) === (int) $cod ? 'selected' : '' }}>{{ $desc }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div id="campos-autofactura" class="hidden p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <p class="text-xs text-blue-800 dark:text-blue-200">Autofactura: el cliente seleccionado es el <strong>vendedor</strong> no contribuyente. El receptor en API será su empresa (emisor configurado).</p>
+                </div>
+                <div id="campos-remision" class="hidden space-y-3 p-4 rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800">
+                    <p class="text-xs text-sky-800 dark:text-sky-200">Nota de remisión: el cliente es el destinatario del traslado.</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="motivo_traslado" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Motivo traslado</label>
+                            <select name="motivo_traslado" id="motivo_traslado"
+                                    class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                                @foreach(config('sifen.motivos_traslado_remision', []) as $cod => $desc)
+                                    <option value="{{ $cod }}" {{ (int) old('motivo_traslado', 1) === (int) $cod ? 'selected' : '' }}>{{ $desc }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="kilometros" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Kilómetros</label>
+                            <input type="number" name="kilometros" id="kilometros" min="1" max="99999" value="{{ old('kilometros', 10) }}"
+                                   class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label for="transportista_nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Transportista</label>
+                            <input type="text" name="transportista_nombre" id="transportista_nombre" maxlength="255" placeholder="Transportes SA"
+                                   value="{{ old('transportista_nombre') }}"
+                                   class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                        </div>
+                        <div>
+                            <label for="chofer_nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Chofer</label>
+                            <input type="text" name="chofer_nombre" id="chofer_nombre" maxlength="255"
+                                   value="{{ old('chofer_nombre') }}"
+                                   class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                        </div>
+                        <div>
+                            <label for="chofer_documento" class="block text-sm font-medium text-gray-700 dark:text-gray-300">CI chofer</label>
+                            <input type="text" name="chofer_documento" id="chofer_documento" maxlength="20"
+                                   value="{{ old('chofer_documento') }}"
+                                   class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label for="cliente_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <span id="label-cliente">Cliente (con cédula/RUC)</span>
+                    </label>
                     <select name="cliente_id" id="cliente_id" required
                             class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 dark:text-gray-100"
                             {{ $clientes->isEmpty() ? 'disabled' : '' }}>
@@ -385,7 +503,7 @@
                 <ol class="space-y-4 text-sm text-gray-700 dark:text-gray-300">
                     <li class="flex gap-3">
                         <span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 flex items-center justify-center text-xs font-bold">1</span>
-                        <span><strong>Crear borrador</strong> con un cliente que tenga cédula o RUC válido.</span>
+                        <span><strong>Crear borrador</strong> — factura, nota, autofactura o remisión (modo API).</span>
                     </li>
                     <li class="flex gap-3">
                         <span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 flex items-center justify-center text-xs font-bold">2</span>
@@ -397,9 +515,15 @@
                     </li>
                     <li class="flex gap-3">
                         <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold">4</span>
-                        <span><strong>Enviar a SIFEN</strong> — solo en ambiente TEST. Autoriza el documento en e-Kuatia de prueba.</span>
+                        <span><strong>Enviar a SIFEN</strong> — en modo API delega firma y SOAP a sifen-api.</span>
                     </li>
                 </ol>
+                @if($estado['modo_api'] ?? false)
+                    <div class="mt-4 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200">
+                        <strong>Modo API activo:</strong> preparar y emitir sincronizan con sifen-api (<code>infinity-fe-{id}</code>).
+                        Notas requieren una factura autorizada previa.
+                    </div>
+                @endif
                 @if(!$listo)
                     <div class="mt-5 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
                         Complete los prerrequisitos antes de emitir. Puede preparar el DE sin certificado.
@@ -423,6 +547,7 @@
                     <thead class="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">CDC</th>
@@ -437,6 +562,9 @@
                             <tr>
                                 <td class="px-4 py-3 text-sm">
                                     <a href="{{ route('facturas.show', $f) }}" class="text-green-600 dark:text-green-400 hover:underline">#{{ $f->id }}</a>
+                                </td>
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                                    {{ App\Models\Factura::tiposDocumento()[$f->tipo_documento] ?? $f->tipo_documento }}
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                                     {{ $f->cliente?->nombre }} {{ $f->cliente?->apellido }}
@@ -455,17 +583,17 @@
                                             @csrf
                                             <button type="submit" class="px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600" title="Generar XML y CDC">Preparar</button>
                                         </form>
-                                        @if($listo)
+                                        @if($listo && ! $f->requiereApi())
                                             <form action="{{ route('configuracion.sifen.prueba.emitir-local', $f) }}" method="POST" class="inline" onsubmit="return confirm('¿Firmar y generar KuDE sin enviar a SIFEN?');">
                                                 @csrf
                                                 <button type="submit" class="px-2 py-1 text-xs rounded bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 hover:bg-purple-200">Local</button>
                                             </form>
-                                            @if($estado['ambiente'] === 'test')
-                                                <form action="{{ route('configuracion.sifen.prueba.emitir', $f) }}" method="POST" class="inline" onsubmit="return confirm('¿Enviar a SIFEN ambiente de PRUEBA?');">
-                                                    @csrf
-                                                    <button type="submit" class="px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200">SIFEN</button>
-                                                </form>
-                                            @endif
+                                        @endif
+                                        @if($listo && $estado['ambiente'] === 'test')
+                                            <form action="{{ route('configuracion.sifen.prueba.emitir', $f) }}" method="POST" class="inline" onsubmit="return confirm('¿Enviar a SIFEN ambiente de PRUEBA?');">
+                                                @csrf
+                                                <button type="submit" class="px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200">SIFEN</button>
+                                            </form>
                                         @endif
                                     </div>
                                 </td>
@@ -531,4 +659,32 @@
         </div>
     @endif
 </div>
+
+<script>
+(function () {
+    const tipo = document.getElementById('tipo_documento');
+    const camposNota = document.getElementById('campos-nota');
+    const camposAutofactura = document.getElementById('campos-autofactura');
+    const camposRemision = document.getElementById('campos-remision');
+    const labelCliente = document.getElementById('label-cliente');
+    const refSelect = document.getElementById('factura_referencia_id');
+
+    function actualizarCampos() {
+        const v = tipo?.value || 'factura_contado';
+        const esNota = v === 'nota_credito' || v === 'nota_debito';
+        camposNota?.classList.toggle('hidden', !esNota);
+        camposAutofactura?.classList.toggle('hidden', v !== 'autofactura');
+        camposRemision?.classList.toggle('hidden', v !== 'nota_remision');
+        if (refSelect) refSelect.required = esNota;
+        if (labelCliente) {
+            labelCliente.textContent = v === 'autofactura'
+                ? 'Vendedor (no contribuyente, con cédula)'
+                : (v === 'nota_remision' ? 'Destinatario / cliente' : 'Cliente (con cédula/RUC)');
+        }
+    }
+
+    tipo?.addEventListener('change', actualizarCampos);
+    actualizarCampos();
+})();
+</script>
 @endsection

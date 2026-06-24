@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Services\Sifen\SifenXmlManipulator;
 use App\Traits\Auditable;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +34,7 @@ class Factura extends Model
         'total_impuestos',
         'total',
         'observaciones',
+        'datos_complementarios',
         'usuario_id',
         'set_cdc',
         'set_codigo_seguridad',
@@ -59,6 +62,7 @@ class Factura extends Model
             'total_impuestos' => 'decimal:2',
             'total' => 'decimal:2',
             'tipo_cambio' => 'decimal:4',
+            'datos_complementarios' => 'array',
         ];
     }
 
@@ -105,7 +109,120 @@ class Factura extends Model
             'factura_credito' => 'Factura a crédito',
             'nota_credito' => 'Nota de crédito',
             'nota_debito' => 'Nota de débito',
+            'autofactura' => 'Autofactura',
+            'nota_remision' => 'Nota de remisión',
         ];
+    }
+
+    /** Tipos que requieren sifen-api (datos complementarios SIFEN). */
+    public static function tiposSoloApi(): array
+    {
+        return ['autofactura', 'nota_remision'];
+    }
+
+    public static function tiposConDocumentoAsociado(): array
+    {
+        return ['nota_credito', 'nota_debito'];
+    }
+
+    public function requiereApi(): bool
+    {
+        return in_array($this->tipo_documento, array_merge(
+            self::tiposSoloApi(),
+            self::tiposConDocumentoAsociado()
+        ), true);
+    }
+
+    public function codigoTipoDocumentoSifen(): int
+    {
+        return (int) config('sifen.tipos_documento.'.$this->tipo_documento, 1);
+    }
+
+    public function descripcionTipoDocumentoSifen(): string
+    {
+        $codigo = $this->codigoTipoDocumentoSifen();
+
+        return config('sifen.descripciones_tipo_documento.'.$codigo, 'Factura electrónica');
+    }
+
+    public function tituloKude(): string
+    {
+        return 'KuDE de '.$this->descripcionTipoDocumentoSifen();
+    }
+
+    public function esFacturaComercial(): bool
+    {
+        return in_array($this->tipo_documento, ['factura_contado', 'factura_credito'], true);
+    }
+
+    public function tipoTransaccionKude(): string
+    {
+        return match ($this->tipo_documento) {
+            'nota_remision' => 'Traslado de mercaderías',
+            'nota_credito' => 'Nota de crédito electrónica',
+            'nota_debito' => 'Nota de débito electrónica',
+            'autofactura' => 'Autofactura electrónica',
+            default => 'Prestación de servicios',
+        };
+    }
+
+    /**
+     * @return array<int, array{label: string, value: string}>
+     */
+    public function lineasComplementariasKude(): array
+    {
+        $datos = $this->datos_complementarios ?? [];
+        $lineas = [];
+
+        if (in_array($this->tipo_documento, ['nota_credito', 'nota_debito'], true)) {
+            $motivo = (int) ($datos['motivo_emision'] ?? 0);
+            if ($motivo > 0) {
+                $lineas[] = [
+                    'label' => 'Motivo de emisión',
+                    'value' => config('sifen.motivos_emision_nc_nd.'.$motivo, (string) $motivo),
+                ];
+            }
+            $cdcRef = $datos['documento_asociado']['cdc'] ?? null;
+            if ($cdcRef) {
+                $lineas[] = [
+                    'label' => 'CDC documento asociado',
+                    'value' => $cdcRef,
+                ];
+            }
+        }
+
+        if ($this->tipo_documento === 'autofactura') {
+            $vendedor = $datos['vendedor'] ?? [];
+            if (! empty($vendedor['nombre'])) {
+                $lineas[] = ['label' => 'Vendedor', 'value' => (string) $vendedor['nombre']];
+            }
+            if (! empty($vendedor['numero_documento'])) {
+                $lineas[] = ['label' => 'Documento vendedor', 'value' => (string) $vendedor['numero_documento']];
+            }
+            $lugar = $datos['lugar_provision']['direccion'] ?? null;
+            if ($lugar) {
+                $lineas[] = ['label' => 'Lugar de provisión', 'value' => $lugar];
+            }
+        }
+
+        if ($this->tipo_documento === 'nota_remision') {
+            $remision = $datos['remision'] ?? [];
+            $motivo = (int) ($remision['motivo_traslado'] ?? 0);
+            if ($motivo > 0) {
+                $lineas[] = [
+                    'label' => 'Motivo de traslado',
+                    'value' => config('sifen.motivos_traslado_remision.'.$motivo, (string) $motivo),
+                ];
+            }
+            if (! empty($remision['kilometros'])) {
+                $lineas[] = [
+                    'label' => 'Kilómetros estimados',
+                    'value' => (string) $remision['kilometros'].' km',
+                ];
+            }
+        }
+
+        return $lineas;
     }
 
     public static function estados(): array
@@ -115,6 +232,34 @@ class Factura extends Model
             'emitida' => 'Emitida',
             'anulada' => 'Anulada',
         ];
+    }
+
+    /**
+     * Fecha/hora del DE para KuDE y pantallas (prioriza set_fecha_emision_de y XML firmado).
+     */
+    public function fechaEmisionDeEfectiva(): Carbon
+    {
+        $tz = config('sifen.timezone', 'America/Asuncion');
+
+        if ($this->set_fecha_emision_de) {
+            return $this->set_fecha_emision_de->copy()->timezone($tz);
+        }
+
+        if ($this->xml_path) {
+            $ruta = storage_path($this->xml_path);
+            if (is_file($ruta)) {
+                $desdeXml = SifenXmlManipulator::extraerFechaEmisionDe((string) file_get_contents($ruta));
+                if ($desdeXml) {
+                    return $desdeXml->timezone($tz);
+                }
+            }
+        }
+
+        if ($this->set_fecha_autorizacion) {
+            return $this->set_fecha_autorizacion->copy()->timezone($tz);
+        }
+
+        return Carbon::parse($this->fecha_emision, $tz)->startOfDay();
     }
 
     /**

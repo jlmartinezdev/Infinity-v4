@@ -422,6 +422,9 @@ class FacturaController extends Controller
         if ($resultado['sifen'] && ($resultado['sifen']['protocolo'] ?? null)) {
             $mensaje .= ' · Protocolo: '.$resultado['sifen']['protocolo'];
         }
+        if (($resultado['correo']['enviado'] ?? false) && ($resultado['correo']['destinatario'] ?? null)) {
+            $mensaje .= ' · Correo enviado a '.$resultado['correo']['destinatario'];
+        }
 
         return redirect()->route('facturas.show', $factura)->with('success', $mensaje);
     }
@@ -453,6 +456,30 @@ class FacturaController extends Controller
         $ruta = storage_path($pdfPath);
 
         return response()->download($ruta, basename($ruta));
+    }
+
+    /**
+     * Vista KuDE formato ticket POS 80 mm (impresión térmica).
+     */
+    public function verKudePos(Factura $factura, SifenKudeService $kudeService)
+    {
+        if ($factura->estado !== 'emitida') {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Solo las facturas emitidas tienen KuDE.');
+        }
+
+        if (! $factura->set_cdc) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'La factura no tiene CDC; no se puede generar el KuDE.');
+        }
+
+        $config = SifenConfiguracion::activa();
+        if (! $config) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'No hay configuración SIFEN activa.');
+        }
+
+        return view('facturas.kude-pos-80', $kudeService->datosParaVista($factura, $config, $factura->set_qr_url));
     }
 
     /**

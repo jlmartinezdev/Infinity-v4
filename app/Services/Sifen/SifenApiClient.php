@@ -131,6 +131,42 @@ class SifenApiClient
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function catalogoTiposDocumento(): array
+    {
+        return $this->json('GET', '/catalogo/tipos-documento');
+    }
+
+    public function obtenerUltimoNumeroRemoto(): ?int
+    {
+        try {
+            $respuesta = $this->json('GET', '/sifen/config');
+
+            if (! isset($respuesta['data']['ultimo_numero_factura'])) {
+                return null;
+            }
+
+            return (int) $respuesta['data']['ultimo_numero_factura'];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function obtenerSiguienteNumeroRemoto(): ?int
+    {
+        try {
+            $status = $this->status();
+
+            return isset($status['siguiente_numero'])
+                ? (int) $status['siguiente_numero']
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
@@ -158,21 +194,32 @@ class SifenApiClient
     }
 
     /**
+     * @param  array<string, mixed>|null  $receptor
      * @return array<string, mixed>
      */
-    public function emitir(int $documentoId, bool $enviarSifen = true): array
-    {
+    public function emitir(
+        int $documentoId,
+        bool $enviarSifen = true,
+        ?bool $enviarCorreo = null,
+        ?array $receptor = null,
+    ): array {
         if (! $this->isConfigured()) {
             throw new RuntimeException('API SIFEN no configurada (SIFEN_API_ENABLED, URL y TOKEN).');
+        }
+
+        $payload = ['enviar_sifen' => $enviarSifen];
+        if ($enviarCorreo !== null) {
+            $payload['enviar_correo'] = $enviarCorreo;
+        }
+        if ($receptor !== null && $receptor !== []) {
+            $payload['receptor'] = $receptor;
         }
 
         try {
             $response = Http::withToken($this->token)
                 ->timeout($this->timeout)
                 ->acceptJson()
-                ->post($this->baseUrl.'/documentos/'.$documentoId.'/emitir', [
-                    'enviar_sifen' => $enviarSifen,
-                ]);
+                ->post($this->baseUrl.'/documentos/'.$documentoId.'/emitir', $payload);
         } catch (ConnectionException $e) {
             throw new RuntimeException('No se pudo conectar con sifen-api: '.$e->getMessage(), 0, $e);
         }
@@ -202,11 +249,23 @@ class SifenApiClient
         $bloque = $respuesta['data'] ?? [];
 
         if (isset($bloque['data']) && is_array($bloque['data']) && isset($bloque['data'][0])) {
-            return $bloque['data'][0];
+            $doc = $bloque['data'][0];
+
+            if (($doc['referencia_externa'] ?? '') === $referencia) {
+                return $doc;
+            }
+
+            return null;
         }
 
         if (is_array($bloque) && isset($bloque[0]) && is_array($bloque[0])) {
-            return $bloque[0];
+            $doc = $bloque[0];
+
+            if (($doc['referencia_externa'] ?? '') === $referencia) {
+                return $doc;
+            }
+
+            return null;
         }
 
         return null;

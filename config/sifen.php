@@ -127,14 +127,35 @@ return [
     'tipos_documento' => [
         'factura_contado' => 1,
         'factura_credito' => 1,
+        'autofactura' => 4,
         'nota_credito' => 5,
         'nota_debito' => 6,
+        'nota_remision' => 7,
     ],
 
     'descripciones_tipo_documento' => [
         1 => 'Factura electrónica',
+        4 => 'Autofactura electrónica',
         5 => 'Nota de crédito electrónica',
         6 => 'Nota de débito electrónica',
+        7 => 'Nota de remisión electrónica',
+    ],
+
+    'motivos_emision_nc_nd' => [
+        1 => 'Devolución y Ajuste de precios',
+        2 => 'Devolución',
+        3 => 'Descuento',
+        4 => 'Bonificación',
+        5 => 'Crédito incobrable',
+        6 => 'Recupero de costo',
+        7 => 'Recupero de gasto',
+        8 => 'Ajuste de precio',
+    ],
+
+    'motivos_traslado_remision' => [
+        1 => 'Traslado por ventas',
+        7 => 'Traslado entre locales de la empresa',
+        99 => 'Otro',
     ],
 
     /*
@@ -148,5 +169,8 @@ return [
         'token' => env('SIFEN_API_TOKEN'),
         'timeout' => max(30, (int) env('SIFEN_API_TIMEOUT', 120)),
     ],
+
+    // En modo API: solicitar a sifen-api el envío de XML + KuDE al email del cliente.
+    'enviar_correo_emision' => filter_var(env('SIFEN_ENVIAR_CORREO', true), FILTER_VALIDATE_BOOL),
 
 ];

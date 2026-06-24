@@ -15,6 +15,7 @@ use App\Services\Sifen\SifenXmlSigner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\Rule;
 
 class SifenPruebaController extends Controller
 {
@@ -58,6 +59,31 @@ class SifenPruebaController extends Controller
         $impuestoDefault = Impuesto::where('codigo', 'IVA10')->first()
             ?? Impuesto::activos()->first();
 
+        $facturasReferencia = Factura::query()
+            ->where('estado', 'emitida')
+            ->whereNotNull('set_cdc')
+            ->where('set_estado_envio', 'autorizado')
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get(['id', 'tipo_documento', 'numero', 'establecimiento', 'punto_emision', 'set_cdc', 'total', 'cliente_id']);
+
+        $catalogoApi = null;
+        if (($estado['modo_api'] ?? false) && $apiClient->isConfigured()) {
+            try {
+                $catalogoApi = $apiClient->catalogoTiposDocumento();
+            } catch (\Throwable) {
+                $catalogoApi = null;
+            }
+        }
+
+        $tiposDocumentoLab = Factura::tiposDocumento();
+        if (! ($estado['modo_api'] ?? false)) {
+            $tiposDocumentoLab = array_diff_key(
+                $tiposDocumentoLab,
+                array_flip(array_merge(Factura::tiposSoloApi(), Factura::tiposConDocumentoAsociado()))
+            );
+        }
+
         return view('configuracion.sifen-prueba', compact(
             'config',
             'estado',
@@ -68,6 +94,9 @@ class SifenPruebaController extends Controller
             'totalPruebas',
             'impuestoDefault',
             'diagnosticoCert',
+            'facturasReferencia',
+            'catalogoApi',
+            'tiposDocumentoLab',
         ));
     }
 
@@ -101,12 +130,43 @@ class SifenPruebaController extends Controller
 
     public function crearFactura(Request $request)
     {
+        $modoApi = (bool) config('sifen.api.enabled');
+        $tiposPermitidos = $modoApi
+            ? array_keys(Factura::tiposDocumento())
+            : array_keys(array_diff_key(
+                Factura::tiposDocumento(),
+                array_flip(array_merge(Factura::tiposSoloApi(), Factura::tiposConDocumentoAsociado()))
+            ));
+
         $validated = $request->validate([
+            'tipo_documento' => ['required', Rule::in($tiposPermitidos)],
             'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
             'monto' => ['required', 'numeric', 'min:1000'],
             'descripcion' => ['required', 'string', 'max:255'],
             'impuesto_id' => ['nullable', 'integer', 'exists:impuestos,id'],
+            'factura_referencia_id' => [
+                Rule::requiredIf(in_array($request->input('tipo_documento'), Factura::tiposConDocumentoAsociado(), true)),
+                'nullable',
+                'integer',
+                'exists:factura_electronicas,id',
+            ],
+            'motivo_emision' => ['nullable', 'integer', 'between:1,8'],
+            'motivo_traslado' => ['nullable', 'integer'],
+            'kilometros' => ['nullable', 'integer', 'between:1,99999'],
+            'transportista_nombre' => ['nullable', 'string', 'max:255'],
+            'chofer_nombre' => ['nullable', 'string', 'max:255'],
+            'chofer_documento' => ['nullable', 'string', 'max:20'],
         ]);
+
+        $tipoDocumento = $validated['tipo_documento'];
+
+        if (in_array($tipoDocumento, Factura::tiposSoloApi(), true) && ! $modoApi) {
+            return back()->with('error', 'Autofactura y nota de remisión requieren modo API (SIFEN_API_ENABLED=true).');
+        }
+
+        if (in_array($tipoDocumento, Factura::tiposConDocumentoAsociado(), true) && ! $modoApi) {
+            return back()->with('error', 'Notas de crédito/débito en laboratorio requieren modo API.');
+        }
 
         $cliente = Cliente::find($validated['cliente_id']);
         if (blank($cliente?->cedula)) {
@@ -118,16 +178,39 @@ class SifenPruebaController extends Controller
             ? Impuesto::find($validated['impuesto_id'])
             : (Impuesto::where('codigo', 'IVA10')->first() ?? Impuesto::activos()->first());
 
-        $factura = DB::transaction(function () use ($validated, $config, $impuesto, $request) {
+        $facturaReferencia = null;
+        if (! empty($validated['factura_referencia_id'])) {
+            $facturaReferencia = Factura::find($validated['factura_referencia_id']);
+            if (blank($facturaReferencia?->set_cdc)) {
+                return back()->with('error', 'La factura de referencia debe estar autorizada y tener CDC.');
+            }
+        }
+
+        try {
+            $datosComplementarios = $this->construirDatosComplementarios(
+                $tipoDocumento,
+                $cliente,
+                $config,
+                $facturaReferencia,
+                $validated,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $etiquetaTipo = Factura::tiposDocumento()[$tipoDocumento] ?? $tipoDocumento;
+
+        $factura = DB::transaction(function () use ($validated, $config, $impuesto, $request, $tipoDocumento, $datosComplementarios, $etiquetaTipo) {
             $factura = Factura::create([
                 'cliente_id' => $validated['cliente_id'],
-                'tipo_documento' => 'factura_contado',
+                'tipo_documento' => $tipoDocumento,
                 'estado' => 'borrador',
                 'fecha_emision' => now()->toDateString(),
                 'moneda' => 'PYG',
                 'establecimiento' => $config?->establecimiento ?? 1,
                 'punto_emision' => $config?->punto_expedicion ?? 1,
-                'observaciones' => 'PRUEBA SIFEN - '.($request->user()?->name ?? 'sistema').' - '.now()->format('d/m/Y H:i'),
+                'observaciones' => 'PRUEBA SIFEN - '.$etiquetaTipo.' - '.($request->user()?->name ?? 'sistema').' - '.now()->format('d/m/Y H:i'),
+                'datos_complementarios' => $datosComplementarios,
                 'usuario_id' => $request->user()?->usuario_id,
                 'subtotal' => 0,
                 'total_impuestos' => 0,
@@ -155,9 +238,10 @@ class SifenPruebaController extends Controller
         });
 
         return redirect()->route('configuracion.sifen.prueba')
-            ->with('success', 'Factura de prueba #'.$factura->id.' creada en borrador.')
+            ->with('success', $etiquetaTipo.' de prueba #'.$factura->id.' creada en borrador.')
             ->with('resultado', [
                 'accion' => 'crear',
+                'tipo_documento' => $tipoDocumento,
                 'factura_id' => $factura->id,
                 'total' => (float) $factura->total,
             ]);
@@ -169,21 +253,35 @@ class SifenPruebaController extends Controller
             return back()->with('error', 'Solo se puede preparar un documento en borrador.');
         }
 
+        if ($factura->requiereApi() && ! config('sifen.api.enabled')) {
+            return back()->with('error', 'Este tipo de documento solo se puede preparar con modo API activo.');
+        }
+
         try {
             $resultado = $sifenService->prepararDocumento($factura, true);
         } catch (\Throwable $e) {
             return back()->with('error', 'Error al preparar DE: '.$e->getMessage());
         }
 
+        $sincronizado = (bool) ($resultado['sincronizado_desde_api'] ?? false);
+
         return redirect()->route('configuracion.sifen.prueba')
-            ->with('success', 'Documento electrónico preparado (XML + CDC).')
+            ->with('success', $sincronizado
+                ? 'Documento ya emitido en sifen-api: se sincronizó en Infinity (sin número nuevo).'
+                : 'Documento electrónico preparado (XML + CDC).')
             ->with('resultado', [
                 'accion' => 'preparar',
+                'tipo_documento' => $factura->tipo_documento,
+                'modo_api' => config('sifen.api.enabled'),
                 'factura_id' => $resultado['factura']->id,
+                'sifen_api_documento_id' => $resultado['factura']->sifen_api_documento_id,
                 'cdc' => $resultado['cdc'],
                 'xml_path' => $resultado['xml_path'],
                 'validacion' => $resultado['validacion'],
                 'totales' => $resultado['totales'],
+                'sincronizado_desde_api' => $resultado['sincronizado_desde_api'] ?? false,
+                'siguiente_numero_remoto' => $resultado['siguiente_numero_remoto'] ?? null,
+                'sifen' => $resultado['sifen'] ?? null,
             ]);
     }
 
@@ -191,6 +289,10 @@ class SifenPruebaController extends Controller
     {
         if ($factura->estado !== 'borrador') {
             return back()->with('error', 'Solo se puede emitir una factura en borrador.');
+        }
+
+        if ($factura->requiereApi() && ! config('sifen.api.enabled')) {
+            return back()->with('error', 'Este tipo de documento solo se emite con modo API activo.');
         }
 
         try {
@@ -296,6 +398,10 @@ class SifenPruebaController extends Controller
             return back()->with('error', 'El envío a SIFEN desde pruebas solo está habilitado con SIFEN_AMBIENTE=test.');
         }
 
+        if ($factura->requiereApi() && ! config('sifen.api.enabled')) {
+            return back()->with('error', 'Este tipo de documento solo se envía a SIFEN con modo API activo.');
+        }
+
         try {
             $resultado = $sifenService->emitirDocumento($factura, true);
         } catch (\Throwable $e) {
@@ -318,10 +424,18 @@ class SifenPruebaController extends Controller
                 ]);
         }
 
+        $sincronizado = (bool) ($resultado['sincronizado_desde_api'] ?? false);
+        $mensajeExito = $sincronizado
+            ? 'Documento ya emitido en sifen-api: datos sincronizados en Infinity (no se generó un número nuevo).'
+            : 'Documento enviado y autorizado por SIFEN (ambiente de prueba).';
+        if (($resultado['correo']['enviado'] ?? false) && ($resultado['correo']['destinatario'] ?? null)) {
+            $mensajeExito .= ' Correo enviado a '.$resultado['correo']['destinatario'].'.';
+        }
+
         return redirect()->route('configuracion.sifen.prueba')
-            ->with('success', 'Documento enviado y autorizado por SIFEN (ambiente de prueba).')
+            ->with('success', $mensajeExito)
             ->with('resultado', [
-                'accion' => 'emitir',
+                'accion' => $sincronizado ? 'sincronizar_api' : 'emitir',
                 'modo_api' => config('sifen.api.enabled'),
                 'factura_id' => $resultado['factura']->id,
                 'sifen_api_documento_id' => $resultado['factura']->sifen_api_documento_id,
@@ -329,7 +443,11 @@ class SifenPruebaController extends Controller
                 'xml_path' => $resultado['xml_path'],
                 'pdf_path' => $resultado['pdf_path'],
                 'qr_url' => $resultado['qr_url'],
+                'validacion' => $resultado['validacion'] ?? null,
                 'sifen' => $resultado['sifen'],
+                'correo' => $resultado['correo'] ?? null,
+                'sincronizado_desde_api' => $sincronizado,
+                'siguiente_numero_remoto' => $resultado['siguiente_numero_remoto'] ?? null,
             ]);
     }
 
@@ -367,7 +485,13 @@ class SifenPruebaController extends Controller
             'config_activa' => $config !== null,
             'emisor' => $config ? ($config->razon_social.' (RUC '.$config->ruc.'-'.$config->dv_ruc.')') : null,
             'timbrado' => $config?->numero_timbrado,
-            'siguiente_numero' => $config?->siguienteNumeroDocumento(),
+            'ultimo_numero' => $modoApi && isset($apiStatus['siguiente_numero'])
+                ? max(0, (int) $apiStatus['siguiente_numero'] - 1)
+                : (int) ($config?->ultimo_numero_factura ?? 0),
+            'siguiente_numero' => $modoApi && isset($apiStatus['siguiente_numero'])
+                ? (int) $apiStatus['siguiente_numero']
+                : ($config?->siguienteNumeroDocumento() ?? 1),
+            'numeracion_en_api' => $modoApi,
             'certificado_configurado' => $modoApi
                 ? (bool) ($apiStatus['certificado_configurado'] ?? false)
                 : $certificadoService->disponible(),
@@ -450,5 +574,104 @@ class SifenPruebaController extends Controller
         }
 
         return $eliminados;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>|null
+     */
+    private function construirDatosComplementarios(
+        string $tipoDocumento,
+        Cliente $cliente,
+        ?SifenConfiguracion $config,
+        ?Factura $facturaReferencia,
+        array $input,
+    ): ?array {
+        if (! in_array($tipoDocumento, array_merge(
+            Factura::tiposConDocumentoAsociado(),
+            Factura::tiposSoloApi()
+        ), true)) {
+            return null;
+        }
+
+        if (in_array($tipoDocumento, Factura::tiposConDocumentoAsociado(), true)) {
+            if (! $facturaReferencia || blank($facturaReferencia->set_cdc)) {
+                throw new \InvalidArgumentException('Seleccione una factura autorizada como referencia para la nota.');
+            }
+
+            return [
+                'motivo_emision' => (int) ($input['motivo_emision'] ?? 2),
+                'documento_asociado' => [
+                    'tipo' => 1,
+                    'cdc' => $facturaReferencia->set_cdc,
+                ],
+            ];
+        }
+
+        if ($tipoDocumento === 'autofactura') {
+            if (! $config) {
+                throw new \InvalidArgumentException('Configure el emisor SIFEN antes de probar autofactura.');
+            }
+
+            $documento = preg_replace('/\D/', '', (string) $cliente->cedula) ?: '0';
+
+            return [
+                'vendedor' => [
+                    'naturaleza' => 1,
+                    'tipo_documento' => 1,
+                    'numero_documento' => $documento,
+                    'nombre' => trim($cliente->nombre.' '.$cliente->apellido),
+                    'direccion' => $cliente->direccion ?: $config->direccion,
+                    'numero_casa' => '0',
+                    'departamento' => (int) $config->departamento,
+                    'departamento_descripcion' => $config->departamento_descripcion,
+                    'distrito' => (int) $config->distrito,
+                    'distrito_descripcion' => $config->distrito_descripcion,
+                    'ciudad' => (int) $config->ciudad,
+                    'ciudad_descripcion' => $config->ciudad_descripcion,
+                ],
+                'lugar_provision' => [
+                    'direccion' => $config->direccion,
+                    'departamento' => (int) $config->departamento,
+                    'departamento_descripcion' => $config->departamento_descripcion,
+                    'distrito' => (int) $config->distrito,
+                    'distrito_descripcion' => $config->distrito_descripcion,
+                    'ciudad' => (int) $config->ciudad,
+                    'ciudad_descripcion' => $config->ciudad_descripcion,
+                ],
+            ];
+        }
+
+        if ($tipoDocumento === 'nota_remision') {
+            $nombreTransportista = trim((string) ($input['transportista_nombre'] ?? ''));
+            if ($nombreTransportista === '') {
+                $nombreTransportista = $config?->razon_social ?? 'Transporte propio';
+            }
+
+            return [
+                'remision' => [
+                    'motivo_traslado' => (int) ($input['motivo_traslado'] ?? 1),
+                    'kilometros' => (int) ($input['kilometros'] ?? 10),
+                    'responsable_emision' => 1,
+                ],
+                'transporte' => [
+                    'modalidad' => 1,
+                    'responsable_flete' => 1,
+                    'transportista' => [
+                        'naturaleza' => 1,
+                        'nombre' => $nombreTransportista,
+                        'numero_documento_chofer' => preg_replace(
+                            '/\D/',
+                            '',
+                            (string) ($input['chofer_documento'] ?? $cliente->cedula)
+                        ),
+                        'nombre_chofer' => trim((string) ($input['chofer_nombre'] ?? $cliente->nombre.' '.$cliente->apellido)),
+                        'domicilio_fiscal' => $cliente->direccion ?: ($config?->direccion ?? 'Asunción'),
+                    ],
+                ],
+            ];
+        }
+
+        return null;
     }
 }

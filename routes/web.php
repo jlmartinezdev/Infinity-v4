@@ -296,6 +296,7 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
 });
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::get('/facturas/{factura}/kude', [FacturaController::class, 'descargarKude'])->name('facturas.kude');
+    Route::get('/facturas/{factura}/kude-pos', [FacturaController::class, 'verKudePos'])->name('facturas.kude-pos');
     Route::get('/facturas/{factura}/xml', [FacturaController::class, 'descargarXml'])->name('facturas.xml');
     Route::get('/facturas/{factura}', [FacturaController::class, 'show'])->name('facturas.show');
     Route::get('/facturas/{factura}/edit', [FacturaController::class, 'edit'])->name('facturas.edit');
