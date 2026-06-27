@@ -245,12 +245,21 @@ class SifenService
             throw new RuntimeException('La factura no tiene ítems.');
         }
 
-        if (! $factura->cliente) {
-            throw new RuntimeException('La factura no tiene cliente asociado.');
-        }
+        if ($factura->esOcasional()) {
+            if (blank($factura->receptor_documento)) {
+                throw new RuntimeException('La factura ocasional debe tener documento del receptor.');
+            }
+            if (blank($factura->receptor_nombre)) {
+                throw new RuntimeException('La factura ocasional debe tener nombre del receptor.');
+            }
+        } else {
+            if (! $factura->cliente) {
+                throw new RuntimeException('La factura no tiene cliente asociado.');
+            }
 
-        if (blank($factura->cliente->cedula)) {
-            throw new RuntimeException('El cliente debe tener cédula o RUC informado.');
+            if (blank($factura->cliente->cedula)) {
+                throw new RuntimeException('El cliente debe tener cédula o RUC informado.');
+            }
         }
 
         if (blank($config->ruc) || blank($config->numero_timbrado)) {

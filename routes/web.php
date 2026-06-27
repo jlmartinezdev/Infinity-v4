@@ -140,6 +140,7 @@ Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
     Route::get('/clientes/dashboard', [ClienteDashboardController::class, 'index'])->name('clientes.dashboard');
     Route::get('/clientes/buscar', [ClienteController::class, 'buscar'])->name('clientes.buscar');
     Route::get('/clientes/buscar-temp', [ClienteController::class, 'buscarTemp'])->name('clientes.buscar-temp');
+    Route::get('/clientes/consultar-ruc', [ClienteController::class, 'consultarRuc'])->name('clientes.consultar-ruc');
     Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
     Route::get('/clientes/mapa-activos', [ClienteController::class, 'mapaActivos'])->name('clientes.mapa-activos');
     Route::get('/clientes/{cliente}/detalle', [ClienteController::class, 'detalle'])->name('clientes.detalle');
@@ -271,6 +272,7 @@ Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
     Route::get('/facturas', [FacturaController::class, 'index'])->name('facturas.index');
     Route::get('/facturas/generar-interna', [FacturaController::class, 'generarInterna'])->name('facturas.generar-interna');
     Route::get('/facturas/create', [FacturaController::class, 'create'])->name('facturas.create')->middleware('permiso:facturas.crear');
+    Route::get('/facturas/create/manual', [FacturaController::class, 'createManual'])->name('facturas.create-manual')->middleware('permiso:facturas.crear');
     Route::get('/facturas/create/cliente/{cliente}', [FacturaController::class, 'createParaCliente'])->name('facturas.create-cliente')->middleware('permiso:facturas.crear');
 });
 Route::get('/facturacion/dashboard', [FacturacionDashboardController::class, 'index'])
@@ -280,6 +282,8 @@ Route::get('/facturacion/cobros-saldo-favor', [FacturacionDashboardController::c
     ->name('facturacion.cobros-saldo-favor')
     ->middleware(['auth', 'permiso:facturacion.ver']);
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
+    Route::post('/facturas/consultar-padron-receptor', [FacturaController::class, 'consultarPadronReceptor'])->name('facturas.consultar-padron-receptor');
+    Route::post('/facturas/verificar-receptor-documento', [FacturaController::class, 'verificarReceptorDocumento'])->name('facturas.verificar-receptor-documento');
     Route::post('/facturas', [FacturaController::class, 'store'])->name('facturas.store');
     Route::post('/facturas/generar-interna', [FacturaController::class, 'storeGenerarInterna'])->name('facturas.store-generar-interna');
     Route::post('/facturas/preparar-interna-desde-servicios', [FacturaController::class, 'prepararInternaDesdeServicios'])->name('facturas.preparar-interna-desde-servicios');

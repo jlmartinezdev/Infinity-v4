@@ -111,8 +111,8 @@
         <tr>
             <td style="width: 50%;">
                 <span class="lbl">Fecha de emisión:</span> {{ $fechaEmisionFmt }}<br>
-                <span class="lbl">RUC/documento de identidad:</span> {{ $factura->cliente->cedula }}<br>
-                <span class="lbl">Nombre o razón social:</span> {{ trim($factura->cliente->nombre.' '.$factura->cliente->apellido) }}<br>
+                <span class="lbl">RUC/documento de identidad:</span> {{ $factura->receptorDocumentoEfectivo() }}<br>
+                <span class="lbl">Nombre o razón social:</span> {{ $factura->receptorNombreCompleto() }}<br>
                 <span class="lbl">Tipo de transacción:</span> {{ $factura->tipoTransaccionKude() }}<br>
                 @foreach($factura->lineasComplementariasKude() as $linea)
                     <span class="lbl">{{ $linea['label'] }}:</span> {{ $linea['value'] }}<br>
@@ -125,12 +125,12 @@
                 @endif
             
                 <span class="lbl">Moneda:</span> {{ $monedaDescripcion }}<br>
-                <span class="lbl">Dirección:</span> {{ $factura->cliente->direccion ?: '—' }}<br>
-                @if($factura->cliente->email)
-                    <span class="lbl">Correo electrónico:</span> {{ $factura->cliente->email }}<br>
+                <span class="lbl">Dirección:</span> {{ $factura->receptorDireccionEfectiva() ?: '—' }}<br>
+                @if($factura->receptorEmailEfectivo())
+                    <span class="lbl">Correo electrónico:</span> {{ $factura->receptorEmailEfectivo() }}<br>
                 @endif
-                @if($factura->cliente->telefono)
-                    <span class="lbl">Teléfono:</span> {{ $factura->cliente->telefono }}
+                @if($factura->receptorTelefonoEfectivo())
+                    <span class="lbl">Teléfono:</span> {{ $factura->receptorTelefonoEfectivo() }}
                 @endif
             </td>
         </tr>

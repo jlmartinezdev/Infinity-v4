@@ -31,11 +31,14 @@
         <div class="p-6 border-b border-gray-200 dark:border-gray-600">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Cliente</p>
-                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ $factura->cliente->nombre }} {{ $factura->cliente->apellido }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ $factura->cliente->cedula }}</p>
-                    @if($factura->cliente->direccion)
-                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ $factura->cliente->direccion }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $factura->esOcasional() ? 'Receptor (factura ocasional)' : 'Cliente' }}</p>
+                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ $factura->receptorNombreCompleto() }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ $factura->receptorDocumentoEfectivo() }}</p>
+                    @if($factura->receptorDireccionEfectiva())
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ $factura->receptorDireccionEfectiva() }}</p>
+                    @endif
+                    @if($factura->esOcasional())
+                        <span class="inline-flex mt-2 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">Ocasional</span>
                     @endif
                 </div>
                 <div class="text-right">

@@ -4,10 +4,15 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto">
-    <div class="mb-6">
-        <a href="{{ route('facturas.index') }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium">&larr; Volver a facturas</a>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Nueva factura electrónica</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Seleccione el cliente para emitir el documento SIFEN. Período: <strong class="capitalize">{{ $mesLabel }}</strong>.</p>
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+            <a href="{{ route('facturas.index') }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium">&larr; Volver a facturas</a>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Nueva factura electrónica</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Seleccione el cliente para emitir el documento SIFEN. Período: <strong class="capitalize">{{ $mesLabel }}</strong>.</p>
+        </div>
+        <a href="{{ route('facturas.create-manual') }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 text-sm shrink-0">
+            Datos manuales
+        </a>
     </div>
 
     @if(session('error'))

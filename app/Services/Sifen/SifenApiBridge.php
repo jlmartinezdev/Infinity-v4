@@ -177,6 +177,21 @@ class SifenApiBridge
      */
     private function construirReceptorCorreoPayload(Factura $factura): ?array
     {
+        if ($factura->esOcasional()) {
+            $email = trim((string) ($factura->receptor_email ?? ''));
+            if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return null;
+            }
+
+            return [
+                'nombre' => $factura->receptorNombreCompleto(),
+                'documento' => preg_replace('/\D/', '', (string) $factura->receptor_documento),
+                'direccion' => $factura->receptor_direccion,
+                'email' => $email,
+                'telefono' => $factura->receptor_telefono,
+            ];
+        }
+
         $factura->loadMissing('cliente');
         $cliente = $factura->cliente;
         if (! $cliente) {
@@ -272,6 +287,20 @@ class SifenApiBridge
                 'direccion' => $config->direccion,
                 'email' => $config->email,
                 'telefono' => $config->telefono,
+            ];
+        }
+
+        if ($factura->esOcasional()) {
+            if (blank($factura->receptor_documento)) {
+                throw new RuntimeException('La factura ocasional requiere documento del receptor.');
+            }
+
+            return [
+                'nombre' => $factura->receptorNombreCompleto(),
+                'documento' => preg_replace('/\D/', '', (string) $factura->receptor_documento),
+                'direccion' => $factura->receptor_direccion,
+                'email' => $factura->receptor_email,
+                'telefono' => $factura->receptor_telefono,
             ];
         }
 

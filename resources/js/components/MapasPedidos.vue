@@ -15,10 +15,16 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { aprobarEstadoPedido } from '@/pedidos/aprobarEstadoPedido';
 
 const props = defineProps({
   apiKey: { type: String, default: '' },
   pedidos: { type: Array, default: () => [] },
+  nodos: { type: Array, default: () => [] },
+  planes: { type: Array, default: () => [] },
+  tiposTecnologia: { type: Array, default: () => [] },
+  aprobarEstadoUrl: { type: String, default: '' },
+  urlOpcionesNodoAprobacion: { type: String, default: '' },
 });
 
 const mapContainer = ref(null);
@@ -27,6 +33,16 @@ const error = ref('');
 let map = null;
 let markers = [];
 let infoWindows = [];
+const pedidosById = new Map();
+let aprobandoKey = null;
+
+const aprobarConfig = () => ({
+  nodos: props.nodos,
+  planes: props.planes,
+  tiposTecnologia: props.tiposTecnologia,
+  aprobarEstadoUrl: props.aprobarEstadoUrl,
+  urlOpcionesNodoAprobacion: props.urlOpcionesNodoAprobacion,
+});
 
 function isGpon(desc) {
   if (!desc || typeof desc !== 'string') return false;
@@ -94,6 +110,159 @@ function loadGoogleMaps() {
   });
 }
 
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function estadoBadgeStyle(estado) {
+  if (estado === 'A') return 'background:#dcfce7;color:#166534;';
+  if (estado === 'D') return 'background:#fee2e2;color:#991b1b;';
+  if (estado === 'P') return 'background:#fef9c3;color:#854d0e;';
+  return 'background:#f3f4f6;color:#374151;';
+}
+
+function buildAnalisisBlock(titulo, analisis, campos) {
+  const rows = [];
+  if (analisis) {
+    rows.push(`<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;${estadoBadgeStyle(analisis.estado)}">${escapeHtml(analisis.resolucion)}</span>`);
+    if (analisis.fecha) rows.push(`<div><strong>Fecha:</strong> ${escapeHtml(analisis.fecha)}</div>`);
+    if (analisis.usuario) rows.push(`<div><strong>Por:</strong> ${escapeHtml(analisis.usuario)}</div>`);
+    campos.forEach(({ label, value }) => {
+      if (value) rows.push(`<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</div>`);
+    });
+    if (analisis.notas) rows.push(`<div style="margin-top:4px;font-style:italic;color:#6b7280;">${escapeHtml(analisis.notas)}</div>`);
+  } else {
+    rows.push('<div style="color:#9ca3af;font-style:italic;">Sin registro</div>');
+  }
+
+  return `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;">
+      <div style="font-size:12px;font-weight:700;color:#111827;margin-bottom:6px;">${escapeHtml(titulo)}</div>
+      <div style="font-size:12px;color:#374151;line-height:1.45;display:flex;flex-direction:column;gap:3px;">
+        ${rows.join('')}
+      </div>
+    </div>
+  `;
+}
+
+function mapsUrlForPedido(pedido) {
+  if (pedido.maps_url) return pedido.maps_url;
+  const lat = pedido.lat != null && pedido.lat !== '' ? Number(pedido.lat) : NaN;
+  const lon = pedido.lon != null && pedido.lon !== '' ? Number(pedido.lon) : NaN;
+  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+    return `https://www.google.com/maps?q=${lat},${lon}`;
+  }
+  const gps = (pedido.maps_gps || '').toString().trim();
+  if (!gps) return null;
+  if (/^https?:\/\//i.test(gps)) return gps;
+  const parts = gps.split(/[,;\s]+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const la = Number(parts[0]);
+    const lo = Number(parts[1]);
+    if (Number.isFinite(la) && Number.isFinite(lo)) {
+      return `https://www.google.com/maps?q=${la},${lo}`;
+    }
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gps)}`;
+}
+
+function buildAprobarBlock(pedido) {
+  if (!props.aprobarEstadoUrl || !pedido.estados_pendientes?.length) return '';
+  const buttons = pedido.estados_pendientes.map((est) => {
+    const label = escapeHtml(est.descripcion || `Estado #${est.estado_id}`);
+    const parametro = escapeHtml(est.parametro || '');
+    return `
+      <button type="button"
+        class="mapas-pedidos-iw-aprobar"
+        data-pedido-id="${pedido.pedido_id}"
+        data-estado-id="${est.estado_id}"
+        data-parametro="${parametro}"
+        style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-right:6px;padding:6px 10px;font-size:12px;font-weight:600;color:#fff;background:#16a34a;border:none;border-radius:6px;cursor:pointer;">
+        Aprobar: ${label}
+      </button>`;
+  }).join('');
+  return `
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e5e7eb;">
+      <div style="font-size:12px;font-weight:700;color:#111827;margin-bottom:4px;">Acciones</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">${buttons}</div>
+    </div>`;
+}
+
+function buildInfoWindowContent(pedido) {
+  const factibilidad = buildAnalisisBlock('Análisis de factibilidad', pedido.analisis_factibilidad, [
+    { label: 'Nodo', value: pedido.analisis_factibilidad?.nodo },
+    { label: 'Tecnología', value: pedido.analisis_factibilidad?.tecnologia },
+  ]);
+  const confirmacion = buildAnalisisBlock('Confirmación de plan', pedido.confirmacion_plan, [
+    { label: 'Plan', value: pedido.confirmacion_plan?.plan || pedido.plan },
+  ]);
+  const mapsUrl = mapsUrlForPedido(pedido);
+
+  return `
+    <div class="mapas-pedidos-iw" style="padding:12px;min-width:220px;max-width:340px;font-family:system-ui,sans-serif;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px;">
+        <div style="font-weight:600;font-size:14px;color:#111827;line-height:1.3;">Pedido #${pedido.pedido_id}</div>
+        <button type="button" class="mapas-pedidos-iw-close" aria-label="Cerrar" title="Cerrar"
+          style="flex-shrink:0;width:24px;height:24px;margin:0;border:1px solid #d1d5db;border-radius:4px;background:#f9fafb;color:#374151;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          &times;
+        </button>
+      </div>
+      ${pedido.cliente ? `<div style="font-size:13px;color:#374151;">${escapeHtml(pedido.cliente)}</div>` : ''}
+      ${pedido.tecnologia_descripcion ? `<div style="font-size:11px;color:#4f46e5;margin-top:2px;">${escapeHtml(pedido.tecnologia_descripcion)}</div>` : ''}
+      ${pedido.ubicacion ? `<div style="font-size:12px;color:#4b5563;margin-top:6px;">${escapeHtml(pedido.ubicacion)}</div>` : ''}
+      ${pedido.fecha_pedido ? `<div style="font-size:11px;color:#6b7280;margin-top:4px;">Pedido: ${escapeHtml(pedido.fecha_pedido)}</div>` : ''}
+      ${factibilidad}
+      ${confirmacion}
+      ${buildAprobarBlock(pedido)}
+      ${mapsUrl ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:10px;font-size:12px;color:#2563eb;text-decoration:underline;">Abrir en Google Maps</a>` : ''}
+    </div>
+  `;
+}
+
+async function handleAprobarClick(btn) {
+  const pedidoId = Number(btn.dataset.pedidoId);
+  const estadoId = Number(btn.dataset.estadoId);
+  const parametro = btn.dataset.parametro || '';
+  const pedido = pedidosById.get(pedidoId);
+  if (!pedido || !estadoId) return;
+
+  const key = `${pedidoId}-${estadoId}`;
+  if (aprobandoKey === key) return;
+  aprobandoKey = key;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+
+  try {
+    await aprobarEstadoPedido(aprobarConfig(), pedido, estadoId, parametro, { reloadOnSuccess: true });
+  } catch (_e) {
+    aprobandoKey = null;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+function attachInfoWindowHandlers(infoWindow) {
+  infoWindow.addListener('domready', () => {
+    document.querySelectorAll('.mapas-pedidos-iw-close').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        infoWindow.close();
+      };
+    });
+    document.querySelectorAll('.mapas-pedidos-iw-aprobar').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleAprobarClick(btn);
+      };
+    });
+  });
+}
+
 function initMap(google) {
   if (!mapContainer.value) return;
 
@@ -113,6 +282,7 @@ function initMap(google) {
   const bounds = new google.maps.LatLngBounds();
 
   props.pedidos.forEach((pedido) => {
+    pedidosById.set(pedido.pedido_id, pedido);
     const position = { lat: pedido.lat, lng: pedido.lon };
     const iconConfig = getMarkerIcon(google, pedido.tecnologia_descripcion);
     const marker = new google.maps.Marker({
@@ -122,19 +292,10 @@ function initMap(google) {
       ...(iconConfig && { icon: iconConfig }),
     });
 
-    const content = `
-      <div class="p-2 min-w-[200px] max-w-[320px]">
-        <div class="font-semibold text-gray-900">Pedido #${pedido.pedido_id}</div>
-        ${pedido.cliente ? `<div class="text-sm text-gray-700">${escapeHtml(pedido.cliente)}</div>` : ''}
-        ${pedido.tecnologia_descripcion ? `<div class="text-xs text-indigo-600 mt-0.5">${escapeHtml(pedido.tecnologia_descripcion)}</div>` : ''}
-        ${pedido.ubicacion ? `<div class="text-sm text-gray-600 mt-1">${escapeHtml(pedido.ubicacion)}</div>` : ''}
-        ${pedido.plan ? `<div class="text-xs text-gray-500 mt-1">Plan: ${escapeHtml(pedido.plan)}</div>` : ''}
-        ${pedido.fecha_pedido ? `<div class="text-xs text-gray-500">${pedido.fecha_pedido}</div>` : ''}
-        ${pedido.maps_gps ? `<a href="${escapeHtml(pedido.maps_gps)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir en Google Maps</a>` : ''}
-      </div>
-    `;
+    const content = buildInfoWindowContent(pedido);
 
     const infoWindow = new google.maps.InfoWindow({ content });
+    attachInfoWindowHandlers(infoWindow);
 
     marker.addListener('click', () => {
       infoWindows.forEach((iw) => iw.close());
@@ -149,13 +310,6 @@ function initMap(google) {
   if (props.pedidos.length > 1) {
     map.fitBounds(bounds);
   }
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 onMounted(async () => {
@@ -182,3 +336,17 @@ onBeforeUnmount(() => {
   map = null;
 });
 </script>
+
+<style>
+/* Un solo botón cerrar: ocultamos el de Google Maps y usamos el del contenido */
+.gm-style .gm-style-iw-chr {
+  display: none !important;
+}
+.gm-style .gm-style-iw-c {
+  padding: 0 !important;
+}
+.gm-style .gm-style-iw-d {
+  overflow: auto !important;
+  max-height: 360px !important;
+}
+</style>

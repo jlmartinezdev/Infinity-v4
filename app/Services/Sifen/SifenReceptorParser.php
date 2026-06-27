@@ -24,6 +24,24 @@ class SifenReceptorParser
         $nombre = $this->normalizarNombre(trim($cliente->nombre.' '.$cliente->apellido));
         $documento = $this->normalizarDocumento((string) $cliente->cedula);
 
+        return $this->parseDocumento($documento, $nombre);
+    }
+
+    /**
+     * @return array{
+     *   iNatRec: int,
+     *   iTiOpe: int,
+     *   iTiContRec: ?int,
+     *   dRucRec: ?string,
+     *   dDVRec: ?int,
+     *   iTipIDRec: ?int,
+     *   dDTipIDRec: ?string,
+     *   dNumIDRec: ?string,
+     *   dNomRec: string,
+     * }
+     */
+    private function parseDocumento(string $documento, string $nombre): array
+    {
         if ($ruc = $this->parseRuc($documento)) {
             return [
                 'iNatRec' => 1,
@@ -49,6 +67,24 @@ class SifenReceptorParser
             'dNumIDRec' => $documento,
             'dNomRec' => $nombre,
         ];
+    }
+
+    /**
+     * @return array{
+     *   iNatRec: int,
+     *   iTiOpe: int,
+     *   iTiContRec: ?int,
+     *   dRucRec: ?string,
+     *   dDVRec: ?int,
+     *   iTipIDRec: ?int,
+     *   dDTipIDRec: ?string,
+     *   dNumIDRec: ?string,
+     *   dNomRec: string,
+     * }
+     */
+    public function parseDesdeDocumento(string $documento, string $nombre): array
+    {
+        return $this->parseDocumento($this->normalizarDocumento($documento), $this->normalizarNombre($nombre));
     }
 
     private function normalizarDocumento(string $documento): string

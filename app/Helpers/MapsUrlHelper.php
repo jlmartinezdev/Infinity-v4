@@ -153,4 +153,30 @@ class MapsUrlHelper
     {
         return $lat >= -90 && $lat <= 90 && $lon >= -180 && $lon <= 180;
     }
+
+    /**
+     * URL absoluta de Google Maps a partir de coordenadas o texto/URL guardado en pedido.
+     */
+    public static function toGoogleMapsUrl(?string $mapsGps = null, ?float $lat = null, ?float $lon = null): ?string
+    {
+        if ($lat !== null && $lon !== null && self::isValidLatLon($lat, $lon)) {
+            return 'https://www.google.com/maps?q='.$lat.','.$lon;
+        }
+
+        $gps = trim((string) ($mapsGps ?? ''));
+        if ($gps === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $gps)) {
+            return $gps;
+        }
+
+        $extracted = self::extractLatLonFromMapsUrl($gps, false);
+        if ($extracted['lat'] !== null && $extracted['lon'] !== null) {
+            return 'https://www.google.com/maps?q='.$extracted['lat'].','.$extracted['lon'];
+        }
+
+        return 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($gps);
+    }
 }

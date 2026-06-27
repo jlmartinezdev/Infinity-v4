@@ -8,9 +8,10 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Facturas electrónicas</h1>
         <div class="flex flex-wrap gap-2">
             @can('facturas.crear')
-          
+            <a href="{{ route('facturas.create-manual') }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">Datos manuales</a>
             <a href="{{ route('facturas.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">Nueva factura</a>      
             @else
+            <a href="{{ route('facturas.create-manual') }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700">Datos manuales</a>
             <a href="{{ route('facturas.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">Nueva factura</a>
             @endcan
         </div>
@@ -127,7 +128,14 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $f->id }}</td>
                             <td class="px-4 py-3 text-sm">
-                                <a href="{{ route('clientes.edit', $f->cliente) }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ $f->cliente->nombre }} {{ $f->cliente->apellido }}</a>
+                                @if($f->esOcasional())
+                                    <span class="text-gray-900 dark:text-gray-100">{{ $f->receptorNombreCompleto() }}</span>
+                                    <span class="block text-xs text-purple-600 dark:text-purple-400">Ocasional</span>
+                                @elseif($f->cliente)
+                                    <a href="{{ route('clientes.edit', $f->cliente) }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ $f->cliente->nombre }} {{ $f->cliente->apellido }}</a>
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td class="px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100">{{ $f->numero_completo ?? '—' }}</td>
                             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $f->fecha_emision->format('d/m/Y') }}</td>

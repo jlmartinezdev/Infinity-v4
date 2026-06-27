@@ -13,7 +13,7 @@
         <div id="mapas-pedidos-app" class="w-full h-full min-h-[300px]"></div>
     </div>
 
-    @if ($pedidos->isEmpty())
+    @if ($pedidosMapa->isEmpty())
         <div class="mt-4 px-4 py-6 text-center text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
             No hay pedidos pendientes de instalación con coordenadas (lat/lon).
         </div>
@@ -24,24 +24,19 @@
 @php
     $mapasConfig = [
         'apiKey' => $googleMapsApiKey,
-        'pedidos' => $pedidos->map(function ($p) {
-            $ultimoConTecnologia = $p->estadoPedidoDetalles
-                ->whereNotNull('tecnologia_id')
-                ->sortByDesc('created_at')
-                ->first();
-            $tecnologiaDesc = $ultimoConTecnologia?->tipoTecnologia?->descripcion ?? null;
-            return [
-                'pedido_id' => $p->pedido_id,
-                'lat' => (float) $p->lat,
-                'lon' => (float) $p->lon,
-                'ubicacion' => $p->ubicacion,
-                'maps_gps' => $p->maps_gps,
-                'fecha_pedido' => $p->fecha_pedido ? $p->fecha_pedido->toDateString() : null,
-                'cliente' => $p->cliente ? $p->cliente->nombre . ' ' . $p->cliente->apellido : null,
-                'plan' => $p->plan ? $p->plan->nombre : null,
-                'tecnologia_descripcion' => $tecnologiaDesc,
-            ];
-        })->values()->all(),
+        'pedidos' => $pedidosMapa->values()->all(),
+        'nodos' => ($nodos ?? collect())->map(fn ($n) => $n->toArraySelect())->values()->all(),
+        'planes' => ($planes ?? collect())->map(fn ($p) => [
+            'plan_id' => $p->plan_id,
+            'nombre' => $p->nombre,
+            'tecnologia_id' => $p->tecnologia_id,
+        ])->values()->all(),
+        'tiposTecnologia' => ($tiposTecnologia ?? collect())->map(fn ($t) => [
+            'tecnologia_id' => $t->tecnologia_id,
+            'descripcion' => $t->descripcion,
+        ])->values()->all(),
+        'aprobarEstadoUrl' => ($puedeAprobar ?? false) ? route('pedidos.aprobar-estado', ':pedido') : '',
+        'urlOpcionesNodoAprobacion' => ($puedeAprobar ?? false) ? url('pedidos/nodos') . '/__id__/opciones-aprobacion' : '',
     ];
 @endphp
 <script>

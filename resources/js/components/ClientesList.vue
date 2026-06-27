@@ -164,6 +164,23 @@
               </svg>
             </a>
             <button
+              v-if="urlConsultarRuc"
+              type="button"
+              class="p-2 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
+              title="Consultar RUC"
+              aria-label="Consultar RUC"
+              :disabled="consultaRucLoadingId === c.cliente_id"
+              @click.stop="consultarRucCliente(c)"
+            >
+              <svg v-if="consultaRucLoadingId !== c.cliente_id" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </button>
+            <button
               v-if="puedeEditar"
               type="button"
               class="p-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
@@ -328,6 +345,56 @@
       </div>
     </div>
   </Teleport>
+
+  <!-- Modal consulta RUC -->
+  <Teleport to="body">
+    <div
+      v-if="modalRucVisible"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      @click.self="cerrarModalRuc"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Consulta RUC</h3>
+          <button type="button" class="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" @click="cerrarModalRuc" aria-label="Cerrar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="p-4 overflow-y-auto flex-1 space-y-3">
+          <p v-if="modalRucCliente" class="text-sm text-gray-600 dark:text-gray-400">
+            Cliente: <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalRucCliente.nombre }} {{ modalRucCliente.apellido }}</span><br>
+            Documento consultado: <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalRucTermino || '—' }}</span>
+          </p>
+          <p v-if="modalRucLoading" class="text-sm text-gray-600 dark:text-gray-400">Consultando...</p>
+          <p v-else-if="modalRucError" class="text-sm text-red-600 dark:text-red-400">{{ modalRucError }}</p>
+          <p v-else-if="modalRucResultados.length === 0" class="text-sm text-gray-600 dark:text-gray-400">
+            No se encontró RUC registrado para este documento.
+          </p>
+          <div v-else class="space-y-3">
+            <div
+              v-for="(r, idx) in modalRucResultados"
+              :key="idx"
+              class="p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40"
+            >
+              <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ r.ruc || '—' }}</div>
+              <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">{{ r.razon_social || '—' }}</div>
+              <div v-if="r.estado" class="mt-2">
+                <span
+                  class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
+                  :class="r.estado === 'ACTIVO' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'"
+                >
+                  {{ r.estado }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <button type="button" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700" @click="cerrarModalRuc">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -343,6 +410,7 @@ const props = defineProps({
   urlEditServicioBase: { type: String, default: '' },
   urlCreateServicioBase: { type: String, default: '' },
   urlBuscarTemp: { type: String, default: '' },
+  urlConsultarRuc: { type: String, default: '' },
   urlActualizarDesdeTempBase: { type: String, default: '' },
   urlDetalleClienteBase: { type: String, default: '' },
   urlAccionesClienteBase: { type: String, default: '' },
@@ -363,6 +431,13 @@ const modalTempSeleccionado = ref(null);
 const modalTempActualizando = ref(false);
 const modalTempCliente = ref(null);
 const modalTempBuscar = ref('');
+const modalRucVisible = ref(false);
+const modalRucLoading = ref(false);
+const modalRucResultados = ref([]);
+const modalRucError = ref('');
+const modalRucCliente = ref(null);
+const modalRucTermino = ref('');
+const consultaRucLoadingId = ref(null);
 
 function toggle(clienteId) {
   const i = openedIds.value.indexOf(clienteId);
@@ -494,6 +569,53 @@ function getMapsUrl(cliente) {
     return 'https://www.google.com/maps?q=' + coordMatch[1] + ',' + coordMatch[2];
   }
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(raw);
+}
+
+function normalizarTerminoRuc(documento) {
+  return (documento || '').toString().replace(/\D+/g, '');
+}
+
+async function consultarRucCliente(cliente) {
+  if (!props.urlConsultarRuc) return;
+  const termino = normalizarTerminoRuc(cliente.cedula);
+  if (!termino || termino.length < 5) {
+    alert('El cliente no tiene cédula/RUC válido para consultar (mínimo 5 dígitos).');
+    return;
+  }
+
+  modalRucCliente.value = cliente;
+  modalRucTermino.value = termino;
+  modalRucVisible.value = true;
+  modalRucLoading.value = true;
+  modalRucResultados.value = [];
+  modalRucError.value = '';
+  consultaRucLoadingId.value = cliente.cliente_id;
+
+  try {
+    const url = props.urlConsultarRuc + '?termino=' + encodeURIComponent(termino);
+    const r = await fetch(url, {
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      modalRucError.value = data.message || 'No se pudo consultar el RUC.';
+      return;
+    }
+    modalRucResultados.value = data.resultados || [];
+  } catch (e) {
+    modalRucError.value = 'Error de conexión al consultar RUC.';
+  } finally {
+    modalRucLoading.value = false;
+    consultaRucLoadingId.value = null;
+  }
+}
+
+function cerrarModalRuc() {
+  modalRucVisible.value = false;
+  modalRucCliente.value = null;
+  modalRucTermino.value = '';
+  modalRucResultados.value = [];
+  modalRucError.value = '';
 }
 
 async function ejecutarBuscarTemp(nombre) {

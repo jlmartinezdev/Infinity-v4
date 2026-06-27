@@ -18,6 +18,13 @@ class Factura extends Model
 
     protected $fillable = [
         'cliente_id',
+        'es_ocasional',
+        'receptor_documento',
+        'receptor_nombre',
+        'receptor_apellido',
+        'receptor_direccion',
+        'receptor_email',
+        'receptor_telefono',
         'tipo_documento',
         'estado',
         'numero_timbrado',
@@ -63,7 +70,67 @@ class Factura extends Model
             'total' => 'decimal:2',
             'tipo_cambio' => 'decimal:4',
             'datos_complementarios' => 'array',
+            'es_ocasional' => 'boolean',
         ];
+    }
+
+    public function esOcasional(): bool
+    {
+        return (bool) $this->es_ocasional;
+    }
+
+    public function receptorNombreCompleto(): string
+    {
+        if ($this->esOcasional()) {
+            return trim(($this->receptor_nombre ?? '').' '.($this->receptor_apellido ?? ''));
+        }
+
+        return trim(($this->cliente?->nombre ?? '').' '.($this->cliente?->apellido ?? ''));
+    }
+
+    public function receptorDocumentoEfectivo(): ?string
+    {
+        if ($this->esOcasional()) {
+            return $this->receptor_documento;
+        }
+
+        return $this->cliente?->cedula;
+    }
+
+    public function receptorDireccionEfectiva(): ?string
+    {
+        if ($this->esOcasional()) {
+            return $this->receptor_direccion;
+        }
+
+        return $this->cliente?->direccion;
+    }
+
+    public function receptorEmailEfectivo(): ?string
+    {
+        if ($this->esOcasional()) {
+            return $this->receptor_email;
+        }
+
+        return $this->cliente?->email;
+    }
+
+    public function receptorTelefonoEfectivo(): ?string
+    {
+        if ($this->esOcasional()) {
+            return $this->receptor_telefono;
+        }
+
+        return $this->cliente?->telefono;
+    }
+
+    public function codigoClienteSifen(): int
+    {
+        if ($this->esOcasional()) {
+            return (int) $this->id;
+        }
+
+        return (int) ($this->cliente_id ?? 0);
     }
 
     public function cliente(): BelongsTo

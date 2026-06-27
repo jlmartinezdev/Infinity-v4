@@ -13,6 +13,7 @@ use App\Models\Ticket;
 use App\Services\MikroTikService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 
 class ClienteController extends Controller
@@ -214,6 +215,63 @@ class ClienteController extends Controller
             return response()->json(['encontrados' => [], 'error' => 'Tabla temp no disponible']);
         }
         return response()->json(['encontrados' => $registros]);
+    }
+
+    /**
+     * Consultar si un documento tiene RUC en ruc.com.py (proxy para evitar CORS).
+     */
+    public function consultarRuc(Request $request)
+    {
+        $request->validate([
+            'termino' => ['required', 'string', 'max:50'],
+        ]);
+
+        $termino = preg_replace('/\D+/', '', trim($request->input('termino')));
+        if ($termino === '' || strlen($termino) < 5) {
+            return response()->json([
+                'encontrado' => false,
+                'resultados' => [],
+                'message' => 'Ingrese un documento válido (mínimo 5 dígitos).',
+            ], 422);
+        }
+
+        try {
+            $response = Http::timeout(12)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'User-Agent' => 'Infinity-v4/1.0',
+                ])
+                ->get('https://ruc.com.py/api/consulta-ruc', [
+                    'termino' => $termino,
+                ]);
+
+            if (! $response->successful()) {
+                return response()->json([
+                    'encontrado' => false,
+                    'resultados' => [],
+                    'message' => 'No se pudo consultar el servicio de RUC (HTTP '.$response->status().').',
+                ], 502);
+            }
+
+            $data = $response->json();
+            $resultados = is_array($data) ? array_values(array_filter($data, 'is_array')) : [];
+
+            return response()->json([
+                'encontrado' => count($resultados) > 0,
+                'termino' => $termino,
+                'resultados' => array_map(static fn (array $row) => [
+                    'ruc' => $row['ruc'] ?? null,
+                    'razon_social' => $row['razon_social'] ?? null,
+                    'estado' => $row['estado'] ?? null,
+                ], $resultados),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'encontrado' => false,
+                'resultados' => [],
+                'message' => 'Error al consultar RUC: '.$e->getMessage(),
+            ], 502);
+        }
     }
 
     /**

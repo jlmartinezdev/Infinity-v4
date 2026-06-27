@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\CedulaPadron;
 use App\Models\Factura;
 use App\Models\FacturaDetalle;
 use App\Models\FacturacionParametro;
@@ -126,6 +127,30 @@ class FacturaController extends Controller
         ));
     }
 
+    public function createManual()
+    {
+        $clientes = Cliente::query()
+            ->whereIn('estado', ['activo', 'inactivo'])
+            ->whereNotNull('cedula')
+            ->where('cedula', '!=', '')
+            ->orderBy('nombre')
+            ->orderBy('apellido')
+            ->get();
+        $impuestos = Impuesto::activos();
+        $sifenConfig = SifenConfiguracion::activa();
+        $prefill = $this->construirPrefillSifen($sifenConfig);
+
+        return view('facturas.create', [
+            'clientes' => $clientes,
+            'impuestos' => $impuestos,
+            'clienteSeleccionado' => null,
+            'prefill' => $prefill,
+            'detallesIniciales' => [],
+            'sifenConfig' => $sifenConfig,
+            'modoManual' => true,
+        ]);
+    }
+
     public function createParaCliente(Cliente $cliente)
     {
         if (blank($cliente->cedula)) {
@@ -234,8 +259,7 @@ class FacturaController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
+        $reglasBase = [
             'tipo_documento' => ['required', 'string', 'in:factura_contado,factura_credito,nota_credito,nota_debito'],
             'fecha_emision' => ['required', 'date'],
             'fecha_vencimiento' => ['nullable', 'date'],
@@ -252,11 +276,46 @@ class FacturaController extends Controller
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             'detalles.*.impuesto_id' => ['nullable', 'integer', 'exists:impuestos,id'],
             'detalles.*.servicio_id' => ['nullable', 'integer', 'exists:servicios,servicio_id'],
-        ]);
+        ];
 
-        $factura = \DB::transaction(function () use ($validated, $request) {
-            $factura = Factura::create([
-                'cliente_id' => $validated['cliente_id'],
+        if ($request->input('tipo_receptor') === 'ocasional') {
+            $validated = $request->validate(array_merge($reglasBase, [
+                'tipo_receptor' => ['required', 'in:ocasional'],
+                'receptor_cedula' => ['required', 'string', 'max:30'],
+                'receptor_nombre' => ['required', 'string', 'max:100'],
+                'receptor_apellido' => ['nullable', 'string', 'max:100'],
+                'receptor_direccion' => ['nullable', 'string', 'max:255'],
+                'receptor_email' => ['nullable', 'email', 'max:100'],
+                'receptor_telefono' => ['nullable', 'string', 'max:30'],
+            ]));
+            $datosReceptor = [
+                'cliente_id' => null,
+                'es_ocasional' => true,
+                'receptor_documento' => trim((string) $validated['receptor_cedula']),
+                'receptor_nombre' => trim((string) $validated['receptor_nombre']),
+                'receptor_apellido' => filled($validated['receptor_apellido'] ?? null) ? trim((string) $validated['receptor_apellido']) : null,
+                'receptor_direccion' => filled($validated['receptor_direccion'] ?? null) ? trim((string) $validated['receptor_direccion']) : null,
+                'receptor_email' => filled($validated['receptor_email'] ?? null) ? trim((string) $validated['receptor_email']) : null,
+                'receptor_telefono' => filled($validated['receptor_telefono'] ?? null) ? trim((string) $validated['receptor_telefono']) : null,
+            ];
+        } else {
+            $validated = $request->validate(array_merge($reglasBase, [
+                'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
+            ]));
+            $datosReceptor = [
+                'cliente_id' => (int) $validated['cliente_id'],
+                'es_ocasional' => false,
+                'receptor_documento' => null,
+                'receptor_nombre' => null,
+                'receptor_apellido' => null,
+                'receptor_direccion' => null,
+                'receptor_email' => null,
+                'receptor_telefono' => null,
+            ];
+        }
+
+        $factura = \DB::transaction(function () use ($validated, $request, $datosReceptor) {
+            $factura = Factura::create(array_merge([
                 'tipo_documento' => $validated['tipo_documento'],
                 'estado' => 'borrador',
                 'fecha_emision' => $validated['fecha_emision'],
@@ -272,7 +331,7 @@ class FacturaController extends Controller
                 'subtotal' => 0,
                 'total_impuestos' => 0,
                 'total' => 0,
-            ]);
+            ], $datosReceptor));
 
             foreach ($validated['detalles'] as $item) {
                 $impuesto = isset($item['impuesto_id']) ? Impuesto::find($item['impuesto_id']) : null;
@@ -303,6 +362,56 @@ class FacturaController extends Controller
         return redirect()->route('facturas.show', $factura)->with('success', 'Factura creada correctamente.');
     }
 
+    public function verificarReceptorDocumento(Request $request)
+    {
+        $request->validate(['cedula' => ['required', 'string']]);
+
+        $cliente = Cliente::where('cedula', $request->cedula)->first();
+        if (! $cliente) {
+            return response()->json(['existe' => false]);
+        }
+
+        return response()->json([
+            'existe' => true,
+            'cliente' => [
+                'cliente_id' => $cliente->cliente_id,
+                'cedula' => $cliente->cedula,
+                'nombre' => $cliente->nombre,
+                'apellido' => $cliente->apellido,
+            ],
+        ]);
+    }
+
+    public function consultarPadronReceptor(Request $request)
+    {
+        $request->validate(['cedula' => ['required', 'string']]);
+
+        try {
+            $cedula = CedulaPadron::buscarPorCedula($request->cedula);
+        } catch (\Exception $e) {
+            return response()->json([
+                'encontrado' => false,
+                'error' => 'Error al consultar el padrón: '.$e->getMessage(),
+            ], 500);
+        }
+
+        if (! $cedula) {
+            return response()->json([
+                'encontrado' => false,
+                'mensaje' => 'No se encontró en el padrón',
+            ], 404);
+        }
+
+        return response()->json([
+            'encontrado' => true,
+            'cedula' => $cedula->NRODOC,
+            'nombre' => trim($cedula->NOMBRE ?? ''),
+            'apellido' => trim($cedula->APELLIDO ?? ''),
+            'direccion' => trim($cedula->DIREC ?? ''),
+            'domicilio' => trim($cedula->DOMIC ?? ''),
+        ]);
+    }
+
     public function show(Factura $factura)
     {
         $factura->load(['cliente', 'detalles.impuesto', 'usuario']);
@@ -320,7 +429,12 @@ class FacturaController extends Controller
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo'])->orderBy('nombre')->get();
         $impuestos = Impuesto::activos();
 
-        return view('facturas.edit', compact('factura', 'clientes', 'impuestos'));
+        return view('facturas.edit', [
+            'factura' => $factura,
+            'clientes' => $clientes,
+            'impuestos' => $impuestos,
+            'modoManual' => $factura->esOcasional(),
+        ]);
     }
 
     public function update(Request $request, Factura $factura)
@@ -329,8 +443,7 @@ class FacturaController extends Controller
             return redirect()->route('facturas.show', $factura)->with('error', 'Solo se pueden editar facturas en borrador.');
         }
 
-        $validated = $request->validate([
-            'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
+        $reglasBase = [
             'tipo_documento' => ['required', 'string', 'in:factura_contado,factura_credito,nota_credito,nota_debito'],
             'fecha_emision' => ['required', 'date'],
             'fecha_vencimiento' => ['nullable', 'date'],
@@ -347,11 +460,39 @@ class FacturaController extends Controller
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             'detalles.*.impuesto_id' => ['nullable', 'integer', 'exists:impuestos,id'],
             'detalles.*.servicio_id' => ['nullable', 'integer', 'exists:servicios,servicio_id'],
-        ]);
+        ];
 
-        \DB::transaction(function () use ($factura, $validated) {
-            $factura->update([
-                'cliente_id' => $validated['cliente_id'],
+        if ($factura->esOcasional()) {
+            $validated = $request->validate(array_merge($reglasBase, [
+                'receptor_cedula' => ['required', 'string', 'max:30'],
+                'receptor_nombre' => ['required', 'string', 'max:100'],
+                'receptor_apellido' => ['nullable', 'string', 'max:100'],
+                'receptor_direccion' => ['nullable', 'string', 'max:255'],
+                'receptor_email' => ['nullable', 'email', 'max:100'],
+                'receptor_telefono' => ['nullable', 'string', 'max:30'],
+            ]));
+            $datosReceptor = [
+                'cliente_id' => null,
+                'es_ocasional' => true,
+                'receptor_documento' => trim((string) $validated['receptor_cedula']),
+                'receptor_nombre' => trim((string) $validated['receptor_nombre']),
+                'receptor_apellido' => filled($validated['receptor_apellido'] ?? null) ? trim((string) $validated['receptor_apellido']) : null,
+                'receptor_direccion' => filled($validated['receptor_direccion'] ?? null) ? trim((string) $validated['receptor_direccion']) : null,
+                'receptor_email' => filled($validated['receptor_email'] ?? null) ? trim((string) $validated['receptor_email']) : null,
+                'receptor_telefono' => filled($validated['receptor_telefono'] ?? null) ? trim((string) $validated['receptor_telefono']) : null,
+            ];
+        } else {
+            $validated = $request->validate(array_merge($reglasBase, [
+                'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
+            ]));
+            $datosReceptor = [
+                'cliente_id' => (int) $validated['cliente_id'],
+                'es_ocasional' => false,
+            ];
+        }
+
+        \DB::transaction(function () use ($factura, $validated, $datosReceptor) {
+            $factura->update(array_merge([
                 'tipo_documento' => $validated['tipo_documento'],
                 'fecha_emision' => $validated['fecha_emision'],
                 'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
@@ -362,7 +503,7 @@ class FacturaController extends Controller
                 'establecimiento' => $validated['establecimiento'] ?? 1,
                 'punto_emision' => $validated['punto_emision'] ?? 1,
                 'observaciones' => $validated['observaciones'] ?? null,
-            ]);
+            ], $datosReceptor));
 
             $factura->detalles()->delete();
             foreach ($validated['detalles'] as $item) {

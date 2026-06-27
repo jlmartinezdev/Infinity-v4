@@ -18,11 +18,29 @@
         }
     }
     $detalles = is_array($detalles) ? $detalles : collect($detalles)->all();
+    $modoManual = !empty($modoManual);
+    $tipoReceptor = old('tipo_receptor', ($factura && $factura->esOcasional()) ? 'ocasional' : 'registrado');
 @endphp
 
 <div class="space-y-6">
+    @if($modoManual)
+        <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-700/30">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Receptor de la factura</p>
+            <div class="flex flex-wrap gap-4 text-sm">
+                <label class="inline-flex items-center gap-2 cursor-pointer text-gray-800 dark:text-gray-200">
+                    <input type="radio" name="tipo_receptor" value="registrado" class="text-purple-600 focus:ring-purple-500" {{ $tipoReceptor === 'registrado' ? 'checked' : '' }}>
+                    Cliente registrado
+                </label>
+                <label class="inline-flex items-center gap-2 cursor-pointer text-gray-800 dark:text-gray-200">
+                    <input type="radio" name="tipo_receptor" value="ocasional" class="text-purple-600 focus:ring-purple-500" {{ $tipoReceptor === 'ocasional' ? 'checked' : '' }}>
+                    Factura ocasional (sin cliente)
+                </label>
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+        <div @if($modoManual) id="bloque-cliente-registrado" @endif class="{{ $modoManual && $tipoReceptor === 'ocasional' ? 'hidden' : '' }}">
             @if(isset($clienteSeleccionado) && $clienteSeleccionado)
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
                 <p class="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100">
@@ -34,7 +52,7 @@
                 <input type="hidden" name="cliente_id" value="{{ $clienteSeleccionado->cliente_id }}">
             @else
                 <label for="cliente_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente *</label>
-                <select name="cliente_id" id="cliente_id" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <select name="cliente_id" id="cliente_id" @unless($modoManual) required @endunless class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     <option value="">Seleccione cliente</option>
                     @foreach ($clientes as $c)
                         <option value="{{ $c->cliente_id }}" {{ old('cliente_id', $factura?->cliente_id) == $c->cliente_id ? 'selected' : '' }}>{{ $c->nombre }} {{ $c->apellido }} ({{ $c->cedula }})</option>
@@ -52,6 +70,56 @@
             </select>
         </div>
     </div>
+
+    @if($modoManual)
+        <div id="bloque-receptor-nuevo" class="{{ $tipoReceptor === 'ocasional' ? '' : 'hidden' }} rounded-lg border border-purple-200 dark:border-purple-800/50 p-4 space-y-4 bg-purple-50/40 dark:bg-purple-900/10">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Datos del receptor para factura ocasional. No se crea ni modifica ningún cliente. Puede consultar el padrón para autocompletar.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2 flex flex-col sm:flex-row gap-2 sm:items-end">
+                    <div class="flex-1">
+                        <label for="receptor_cedula" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula / RUC *</label>
+                        <input type="text" name="receptor_cedula" id="receptor_cedula" value="{{ old('receptor_cedula', $factura?->receptor_documento) }}" maxlength="30"
+                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        @error('receptor_cedula')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                    </div>
+                    <button type="button" id="btn-buscar-padron-factura" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm whitespace-nowrap disabled:opacity-50">
+                        Buscar en padrón
+                    </button>
+                </div>
+                <div>
+                    <label for="receptor_nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
+                    <input type="text" name="receptor_nombre" id="receptor_nombre" value="{{ old('receptor_nombre', $factura?->receptor_nombre) }}" maxlength="100"
+                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('receptor_nombre')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label for="receptor_apellido" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apellido</label>
+                    <input type="text" name="receptor_apellido" id="receptor_apellido" value="{{ old('receptor_apellido', $factura?->receptor_apellido) }}" maxlength="100"
+                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('receptor_apellido')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+                <div class="md:col-span-2">
+                    <label for="receptor_direccion" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección</label>
+                    <input type="text" name="receptor_direccion" id="receptor_direccion" value="{{ old('receptor_direccion', $factura?->receptor_direccion) }}" maxlength="255"
+                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('receptor_direccion')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label for="receptor_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo</label>
+                    <input type="email" name="receptor_email" id="receptor_email" value="{{ old('receptor_email', $factura?->receptor_email) }}" maxlength="100"
+                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('receptor_email')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label for="receptor_telefono" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
+                    <input type="text" name="receptor_telefono" id="receptor_telefono" value="{{ old('receptor_telefono', $factura?->receptor_telefono) }}" maxlength="30"
+                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('receptor_telefono')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+            </div>
+            <p id="receptor-padron-msg" class="text-sm hidden"></p>
+        </div>
+    @endif
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -73,10 +141,15 @@
                 <option value="USD" {{ old('moneda', $factura?->moneda) == 'USD' ? 'selected' : '' }}>Dólares (USD)</option>
             </select>
         </div>
+        @php
+            $timbradoBloqueado = ! empty($prefill['numero_timbrado']);
+            $claseTimbrado = 'w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 read-only:bg-gray-100 read-only:dark:bg-gray-800 read-only:text-gray-600 read-only:dark:text-gray-300 read-only:cursor-default';
+            $claseTimbradoFecha = $claseTimbrado.' dark:[color-scheme:dark]';
+        @endphp
         <div>
             <label for="numero_timbrado" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Timbrado (SET)</label>
-            <input type="text" name="numero_timbrado" id="numero_timbrado" value="{{ old('numero_timbrado', $factura?->numero_timbrado ?? ($prefill['numero_timbrado'] ?? null)) }}" maxlength="20" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 {{ !empty($prefill['numero_timbrado']) ? 'bg-gray-50 dark:bg-gray-700/80' : 'bg-white dark:bg-gray-700' }} text-gray-900 dark:text-gray-100" {{ !empty($prefill['numero_timbrado']) ? 'readonly' : '' }}>
-            @if(!empty($prefill['numero_timbrado']))
+            <input type="text" name="numero_timbrado" id="numero_timbrado" value="{{ old('numero_timbrado', $factura?->numero_timbrado ?? ($prefill['numero_timbrado'] ?? null)) }}" maxlength="20" class="{{ $claseTimbrado }}" {{ $timbradoBloqueado ? 'readonly' : '' }}>
+            @if($timbradoBloqueado)
                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Desde configuración SIFEN</p>
             @endif
         </div>
@@ -85,11 +158,11 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
             <label for="timbrado_vigencia_desde" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vigencia timbrado desde</label>
-            <input type="date" name="timbrado_vigencia_desde" id="timbrado_vigencia_desde" value="{{ old('timbrado_vigencia_desde', $factura?->timbrado_vigencia_desde?->format('Y-m-d') ?? ($prefill['timbrado_vigencia_desde'] ?? null)) }}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" {{ !empty($prefill['timbrado_vigencia_desde']) ? 'readonly' : '' }}>
+            <input type="date" name="timbrado_vigencia_desde" id="timbrado_vigencia_desde" value="{{ old('timbrado_vigencia_desde', $factura?->timbrado_vigencia_desde?->format('Y-m-d') ?? ($prefill['timbrado_vigencia_desde'] ?? null)) }}" class="{{ $claseTimbradoFecha }}" {{ $timbradoBloqueado ? 'readonly' : '' }}>
         </div>
         <div>
             <label for="timbrado_vigencia_hasta" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vigencia timbrado hasta</label>
-            <input type="date" name="timbrado_vigencia_hasta" id="timbrado_vigencia_hasta" value="{{ old('timbrado_vigencia_hasta', $factura?->timbrado_vigencia_hasta?->format('Y-m-d') ?? ($prefill['timbrado_vigencia_hasta'] ?? null)) }}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" {{ !empty($prefill['timbrado_vigencia_hasta']) ? 'readonly' : '' }}>
+            <input type="date" name="timbrado_vigencia_hasta" id="timbrado_vigencia_hasta" value="{{ old('timbrado_vigencia_hasta', $factura?->timbrado_vigencia_hasta?->format('Y-m-d') ?? ($prefill['timbrado_vigencia_hasta'] ?? null)) }}" class="{{ $claseTimbradoFecha }}" {{ $timbradoBloqueado ? 'readonly' : '' }}>
         </div>
         <div>
             <label for="establecimiento" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Establecimiento</label>
@@ -205,4 +278,114 @@
         }
     });
 })();
+
+@if($modoManual)
+(function() {
+    var bloqueRegistrado = document.getElementById('bloque-cliente-registrado');
+    var bloqueNuevo = document.getElementById('bloque-receptor-nuevo');
+    var selectCliente = document.getElementById('cliente_id');
+    var radios = document.querySelectorAll('input[name="tipo_receptor"]');
+    var btnPadron = document.getElementById('btn-buscar-padron-factura');
+    var msgEl = document.getElementById('receptor-padron-msg');
+    var consultarPadronUrl = @json(route('facturas.consultar-padron-receptor'));
+    var verificarCedulaUrl = @json(route('facturas.verificar-receptor-documento'));
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+
+    function tipoActual() {
+        var checked = document.querySelector('input[name="tipo_receptor"]:checked');
+        return checked ? checked.value : 'registrado';
+    }
+
+    function actualizarBloques() {
+        var esOcasional = tipoActual() === 'ocasional';
+        if (bloqueRegistrado) bloqueRegistrado.classList.toggle('hidden', esOcasional);
+        if (bloqueNuevo) bloqueNuevo.classList.toggle('hidden', !esOcasional);
+        if (selectCliente) {
+            if (esOcasional) {
+                selectCliente.removeAttribute('required');
+                selectCliente.value = '';
+            } else {
+                selectCliente.setAttribute('required', 'required');
+            }
+        }
+        ['receptor_cedula', 'receptor_nombre'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (esOcasional) el.setAttribute('required', 'required');
+            else el.removeAttribute('required');
+        });
+    }
+
+    radios.forEach(function(r) { r.addEventListener('change', actualizarBloques); });
+    actualizarBloques();
+
+    function showMsg(text, isError) {
+        if (!msgEl) return;
+        msgEl.textContent = text;
+        msgEl.classList.remove('hidden', 'text-green-700', 'dark:text-green-400', 'text-amber-700', 'dark:text-amber-400', 'text-red-600', 'dark:text-red-400');
+        msgEl.classList.add(isError ? 'text-amber-700' : 'text-green-700', isError ? 'dark:text-amber-400' : 'dark:text-green-400');
+    }
+
+    if (btnPadron) {
+        btnPadron.addEventListener('click', function() {
+            var cedula = (document.getElementById('receptor_cedula') || {}).value;
+            cedula = cedula ? cedula.trim() : '';
+            if (!cedula) {
+                showMsg('Ingrese la cédula o RUC.', true);
+                return;
+            }
+            btnPadron.disabled = true;
+            fetch(verificarCedulaUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf ? csrf.content : ''
+                },
+                body: JSON.stringify({ cedula: cedula })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.existe && data.cliente) {
+                    showMsg('Este documento ya está registrado como cliente. Seleccione «Cliente registrado» si desea facturarle como cliente.', true);
+                    document.getElementById('receptor_nombre').value = data.cliente.nombre || '';
+                    document.getElementById('receptor_apellido').value = data.cliente.apellido || '';
+                    return null;
+                }
+                return fetch(consultarPadronUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf ? csrf.content : ''
+                    },
+                    body: JSON.stringify({ cedula: cedula })
+                });
+            })
+            .then(function(res) {
+                if (!res) return;
+                return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+            })
+            .then(function(result) {
+                if (!result) return;
+                if (!result.ok || !result.data.encontrado) {
+                    showMsg(result.data.mensaje || result.data.error || 'No encontrado en padrón. Complete nombre y datos manualmente.', true);
+                    return;
+                }
+                var d = result.data;
+                document.getElementById('receptor_cedula').value = d.cedula || cedula;
+                document.getElementById('receptor_nombre').value = d.nombre || '';
+                document.getElementById('receptor_apellido').value = d.apellido || '';
+                var dir = [d.direccion, d.domicilio].filter(Boolean).join(' ').trim();
+                if (dir) document.getElementById('receptor_direccion').value = dir;
+                showMsg('Datos cargados desde el padrón.', false);
+            })
+            .catch(function() {
+                showMsg('Error al consultar. Complete los datos manualmente.', true);
+            })
+            .finally(function() { btnPadron.disabled = false; });
+        });
+    }
+})();
+@endif
 </script>

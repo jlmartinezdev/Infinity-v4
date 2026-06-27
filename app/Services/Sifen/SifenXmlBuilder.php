@@ -55,7 +55,12 @@ class SifenXmlBuilder
         }
 
         $totales = $this->ivaCalculator->calcularTotales($itemsCalculados);
-        $receptor = $this->receptorParser->parse($factura->cliente);
+        $receptor = $factura->esOcasional()
+            ? $this->receptorParser->parseDesdeDocumento(
+                (string) $factura->receptor_documento,
+                $factura->receptorNombreCompleto(),
+            )
+            : $this->receptorParser->parse($factura->cliente);
         $condicionOperacion = $factura->tipo_documento === 'factura_credito' ? 2 : 1;
 
         $dom = new DOMDocument('1.0', 'UTF-8');
@@ -118,7 +123,7 @@ class SifenXmlBuilder
         }
 
         $this->appendEmisor($dom, $gDatGralOpe, $config);
-        $this->appendReceptor($dom, $gDatGralOpe, $receptor, $factura->cliente_id);
+        $this->appendReceptor($dom, $gDatGralOpe, $receptor, $factura->codigoClienteSifen());
 
         $gDtipDE = $this->appendGroup($dom, $de, 'gDtipDE');
 

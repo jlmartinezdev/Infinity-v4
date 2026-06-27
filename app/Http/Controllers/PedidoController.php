@@ -72,7 +72,15 @@ class PedidoController extends Controller
      */
     public function mapasPedidos()
     {
-        $pedidos = Pedido::with(['cliente', 'plan', 'estadoPedidoDetalles.tipoTecnologia'])
+        $pedidos = Pedido::with([
+            'cliente',
+            'plan',
+            'estadoPedidoDetalles.estadoPedido',
+            'estadoPedidoDetalles.usuario',
+            'estadoPedidoDetalles.nodo',
+            'estadoPedidoDetalles.tipoTecnologia',
+            'estadoPedidoDetalles.plan',
+        ])
             ->whereNotNull('lat')
             ->whereNotNull('lon')
             ->where('estado_instalado', false)
@@ -80,9 +88,18 @@ class PedidoController extends Controller
             ->orderBy('fecha_pedido', 'desc')
             ->get();
 
+        $planes = Plan::where('estado', 'activo')->orderBy('nombre')->get();
+        $nodos = Nodo::orderBy('descripcion')->get();
+        $tiposTecnologia = TipoTecnologia::orderBy('descripcion')->get();
+        $puedeAprobar = Auth::user()?->tienePermiso('pedidos.editar') ?? false;
+
         return view('clientes.mapas-pedidos', [
-            'pedidos' => $pedidos,
+            'pedidosMapa' => $pedidos->map(fn (Pedido $p) => $this->pedidoParaMapa($p))->values(),
             'googleMapsApiKey' => config('services.google.maps_key'),
+            'nodos' => $nodos,
+            'planes' => $planes,
+            'tiposTecnologia' => $tiposTecnologia,
+            'puedeAprobar' => $puedeAprobar,
         ]);
     }
 
@@ -1312,5 +1329,71 @@ class PedidoController extends Controller
             'P' => 'Pendiente',
             default => $estado ?? '',
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function mapEstadoDetalleParaMapa(?EstadoPedidoDetalle $detalle): ?array
+    {
+        if (! $detalle) {
+            return null;
+        }
+
+        return [
+            'titulo' => $detalle->estadoPedido?->descripcion ?? '',
+            'resolucion' => $this->etiquetaEstadoDetalle($detalle->estado),
+            'estado' => $detalle->estado,
+            'fecha' => $detalle->fecha?->timezone(config('app.timezone'))->format('d/m/Y H:i'),
+            'usuario' => $detalle->usuario?->name ?? $detalle->usuario?->email ?? null,
+            'notas' => $detalle->notas,
+            'nodo' => $detalle->nodo?->descripcion,
+            'tecnologia' => $detalle->tipoTecnologia?->descripcion,
+            'plan' => $detalle->plan?->nombre,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function pedidoParaMapa(Pedido $pedido): array
+    {
+        $detalles = $pedido->estadoPedidoDetalles->keyBy('estado_id');
+        $ultimoConTecnologia = $pedido->estadoPedidoDetalles
+            ->whereNotNull('tecnologia_id')
+            ->sortByDesc('created_at')
+            ->first();
+        $tecnologiaDesc = $ultimoConTecnologia?->tipoTecnologia?->descripcion ?? null;
+        $estadosPendientes = $pedido->estadoPedidoDetalles
+            ->where('estado', 'P')
+            ->sortBy('estado_id')
+            ->map(fn (EstadoPedidoDetalle $d) => [
+                'estado_id' => $d->estado_id,
+                'descripcion' => $d->estadoPedido?->descripcion,
+                'parametro' => $d->estadoPedido?->parametro,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'pedido_id' => $pedido->pedido_id,
+            'lat' => (float) $pedido->lat,
+            'lon' => (float) $pedido->lon,
+            'ubicacion' => $pedido->ubicacion,
+            'maps_gps' => $pedido->maps_gps,
+            'maps_url' => MapsUrlHelper::toGoogleMapsUrl(
+                $pedido->maps_gps,
+                $pedido->lat !== null ? (float) $pedido->lat : null,
+                $pedido->lon !== null ? (float) $pedido->lon : null
+            ),
+            'fecha_pedido' => $pedido->fecha_pedido ? $pedido->fecha_pedido->toDateString() : null,
+            'cliente' => $pedido->cliente ? $pedido->cliente->nombre.' '.$pedido->cliente->apellido : null,
+            'plan' => $pedido->plan ? $pedido->plan->nombre : null,
+            'tecnologia_descripcion' => $tecnologiaDesc,
+            'tecnologia_id_seleccionado' => $ultimoConTecnologia?->tecnologia_id,
+            'estados_pendientes' => $estadosPendientes,
+            'analisis_factibilidad' => $this->mapEstadoDetalleParaMapa($detalles->get(1)),
+            'confirmacion_plan' => $this->mapEstadoDetalleParaMapa($detalles->get(2)),
+        ];
     }
 }

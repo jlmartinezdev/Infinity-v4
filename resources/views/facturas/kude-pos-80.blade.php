@@ -11,7 +11,7 @@
         </button>
     </div>
 
-    <div id="kude-pos-contenido" class="kude-pos-ticket bg-white text-black mx-auto shadow border border-gray-300 dark:border-gray-600 rounded-lg print:shadow-none print:border-0 print:rounded-none">
+    <div id="kude-pos-contenido" class="kude-pos-ticket bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 mx-auto shadow border border-gray-300 dark:border-gray-600 rounded-lg print:shadow-none print:border-0 print:rounded-none">
         @if(!empty($logoBase64))
             <div class="text-center mb-2">
                 <img src="{{ $logoBase64 }}" alt="Logo" class="kude-pos-logo inline-block">
@@ -38,10 +38,10 @@
         <div class="kude-pos-sep"></div>
 
         <p class="text-xs"><span class="font-semibold">Fecha:</span> {{ $fechaEmisionFmt }}</p>
-        <p class="text-xs"><span class="font-semibold">Cliente:</span> {{ trim($factura->cliente->nombre.' '.$factura->cliente->apellido) }}</p>
-        <p class="text-xs"><span class="font-semibold">RUC/CI:</span> {{ $factura->cliente->cedula }}</p>
-        @if($factura->cliente->direccion)
-            <p class="text-xs"><span class="font-semibold">Dir.:</span> {{ $factura->cliente->direccion }}</p>
+        <p class="text-xs"><span class="font-semibold">Cliente:</span> {{ $factura->receptorNombreCompleto() }}</p>
+        <p class="text-xs"><span class="font-semibold">RUC/CI:</span> {{ $factura->receptorDocumentoEfectivo() }}</p>
+        @if($factura->receptorDireccionEfectiva())
+            <p class="text-xs"><span class="font-semibold">Dir.:</span> {{ $factura->receptorDireccionEfectiva() }}</p>
         @endif
         @if($factura->esFacturaComercial())
             <p class="text-xs"><span class="font-semibold">Condición:</span> {{ $condicionVenta }}</p>
@@ -102,16 +102,12 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 11px;
     line-height: 1.35;
-    color: #000 !important;
-}
-#kude-pos-contenido,
-#kude-pos-contenido * {
-    color: #000 !important;
 }
 .kude-pos-logo { max-height: 48px; max-width: 120px; }
 .kude-pos-qr { width: 150px; height: 150px; }
 .kude-pos-sep {
-    border-top: 1px dashed #000;
+    border-top: 1px dashed currentColor;
+    opacity: 0.45;
     margin: 8px 0;
 }
 .kude-pos-item + .kude-pos-item { margin-top: 6px; }
@@ -140,6 +136,7 @@
         background: #fff !important;
     }
     #kude-pos-contenido * { color: #000 !important; }
+    .kude-pos-sep { border-color: #000; opacity: 1; }
 }
 </style>
 @endsection

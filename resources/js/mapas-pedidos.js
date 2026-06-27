@@ -9,6 +9,11 @@ if (el) {
   const app = createApp(MapasPedidos, {
     apiKey: cfg.apiKey || '',
     pedidos: Array.isArray(cfg.pedidos) ? cfg.pedidos : [],
+    nodos: cfg.nodos || [],
+    planes: cfg.planes || [],
+    tiposTecnologia: cfg.tiposTecnologia || [],
+    aprobarEstadoUrl: cfg.aprobarEstadoUrl || '',
+    urlOpcionesNodoAprobacion: cfg.urlOpcionesNodoAprobacion || '',
   });
   app.mount(el);
 }

@@ -35,6 +35,7 @@
                 'urlEditServicioBase' => url('servicios') . '/__servicio_id__/edit',
                 'urlCreateServicioBase' => url('servicios') . '/create?cliente_id=__cliente_id__',
                 'urlBuscarTemp' => route('clientes.buscar-temp'),
+                'urlConsultarRuc' => route('clientes.consultar-ruc'),
                 'urlActualizarDesdeTempBase' => url('clientes') . '/__id__/actualizar-desde-temp',
                 'urlDetalleClienteBase' => url('clientes') . '/__id__/detalle',
                 'urlAccionesClienteBase' => url('clientes') . '/__id__/acciones',
