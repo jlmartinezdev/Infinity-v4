@@ -207,7 +207,11 @@ class SifenApiClient
             throw new RuntimeException('API SIFEN no configurada (SIFEN_API_ENABLED, URL y TOKEN).');
         }
 
-        $payload = ['enviar_sifen' => $enviarSifen];
+        $payload = [
+            'enviar_sifen' => $enviarSifen,
+            // Requerido por sifen-api en ambiente production (el usuario ya confirmó en Infinity).
+            'confirmar_produccion' => $enviarSifen,
+        ];
         if ($enviarCorreo !== null) {
             $payload['enviar_correo'] = $enviarCorreo;
         }
@@ -220,6 +224,43 @@ class SifenApiClient
                 ->timeout($this->timeout)
                 ->acceptJson()
                 ->post($this->baseUrl.'/documentos/'.$documentoId.'/emitir', $payload);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException('No se pudo conectar con sifen-api: '.$e->getMessage(), 0, $e);
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            throw new RuntimeException('Respuesta inválida de sifen-api (HTTP '.$response->status().').');
+        }
+
+        if ($response->failed() && ! isset($json['data'])) {
+            throw new RuntimeException($json['message'] ?? 'Error en sifen-api (HTTP '.$response->status().').');
+        }
+
+        return $json;
+    }
+
+    /**
+     * Consulta resultado de lote asíncrono en sifen-api.
+     *
+     * @return array<string, mixed>
+     */
+    public function consultarLote(int $documentoId, ?bool $enviarCorreo = null): array
+    {
+        if (! $this->isConfigured()) {
+            throw new RuntimeException('API SIFEN no configurada (SIFEN_API_ENABLED, URL y TOKEN).');
+        }
+
+        $payload = [];
+        if ($enviarCorreo !== null) {
+            $payload['enviar_correo'] = $enviarCorreo;
+        }
+
+        try {
+            $response = Http::withToken($this->token)
+                ->timeout($this->timeout)
+                ->acceptJson()
+                ->post($this->baseUrl.'/documentos/'.$documentoId.'/consultar-lote', $payload);
         } catch (ConnectionException $e) {
             throw new RuntimeException('No se pudo conectar con sifen-api: '.$e->getMessage(), 0, $e);
         }

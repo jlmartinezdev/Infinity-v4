@@ -34,9 +34,10 @@ class MikroTikService
      */
     public function connect(Router $router): Client
     {
-        $port = $router->api_port ?: config('mikrotik.port', 8728);
+        $port = (int) ($router->api_port ?: config('mikrotik.port', 8728));
+        $ssl = $this->ssl || $port === 8729;
 
-        Log::info('[MikroTik] Conectando', ['router' => $router->ip, 'port' => $port]);
+        Log::info('[MikroTik] Conectando', ['router' => $router->ip, 'port' => $port, 'ssl' => $ssl]);
 
         $config = new Config([
             'host' => $router->ip,
@@ -45,7 +46,7 @@ class MikroTikService
             'port' => $port,
             'timeout' => $this->timeout,
             'socket_timeout' => $this->socketTimeout,
-            'ssl' => $this->ssl,
+            'ssl' => $ssl,
         ]);
 
         $this->client = new Client($config);
@@ -95,18 +96,24 @@ class MikroTikService
     }
 
     /**
-     * Lista los secretos PPPoE en el router (/ppp/secret con service=pppoe).
+     * Lista los secretos PPP en el router (/ppp/secret).
+     *
+     * @param  string|null  $service  p.ej. pppoe; null = todos los servicios
      */
-    public function getPppoeSecrets(Router $router): array
+    public function getPppoeSecrets(Router $router, ?string $service = null): array
     {
-        Log::info('[MikroTik] getPppoeSecrets: iniciando', ['router' => $router->ip]);
+        Log::info('[MikroTik] getPppoeSecrets: iniciando', ['router' => $router->ip, 'service' => $service]);
         $client = $this->connect($router);
-        $query = (new Query('/ppp/secret/print'))->where('service', 'pppoe');
+        $query = new Query('/ppp/secret/print');
+        if ($service !== null && $service !== '') {
+            $query->where('service', $service);
+        }
         Log::info('[MikroTik] getPppoeSecrets: enviando query, esperando respuesta...', ['router' => $router->ip]);
         $response = $client->query($query)->read();
         $count = is_array($response) ? count($response) : 0;
         Log::info('[MikroTik] getPppoeSecrets: OK', ['router' => $router->ip, 'secrets_count' => $count]);
         $this->disconnect();
+
         return is_array($response) ? $response : [];
     }
 
@@ -118,9 +125,7 @@ class MikroTikService
     {
         Log::info('[MikroTik] getPppoeSecretByName: iniciando', ['router' => $router->ip, 'name' => $name]);
         $client = $this->connect($router);
-        $query = (new Query('/ppp/secret/print'))
-            ->where('service', 'pppoe')
-            ->where('name', $name);
+        $query = (new Query('/ppp/secret/print'))->where('name', $name);
         Log::info('[MikroTik] getPppoeSecretByName: enviando query...', ['router' => $router->ip, 'name' => $name]);
         $response = $client->query($query)->read();
         $this->disconnect();
@@ -375,92 +380,73 @@ class MikroTikService
         $removed = 0;
         $errors = [];
 
-        $poolIds = $router->routerIpPools()->pluck('pool_id')->all();
-        $servicios = $this->serviciosPppoeActivosDelRouter($router, $poolIds);
+        $servicios = $this->serviciosPppoeActivosDelRouter($router);
+        $usernamesFromDb = [];
 
         Log::info('[MikroTik] syncPppoeFromDatabase: iniciando', [
             'router' => $router->ip,
+            'router_id' => $router->router_id,
             'servicios_count' => $servicios->count(),
         ]);
 
-        $usernamesFromDb = [];
-        $secrets = $this->getPppoeSecrets($router);
-        $secretsByName = [];
-        foreach ($secrets as $s) {
-            $name = $s['name'] ?? null;
-            if ($name) {
-                $secretsByName[$name] = $s;
-            }
-        }
-
-        $localAddress = $router->ip_loopback ?: null;
-
         foreach ($servicios as $servicio) {
-            $usernamesFromDb[] = $servicio->usuario_pppoe;
-            $profileName = $servicio->plan?->perfilPppoe?->nombre ?? $servicio->plan?->nombre ?? 'default';
-            $password = $servicio->password_pppoe ?? '';
-            $remoteAddress = $servicio->ip ?: null;
-            $nombreCliente = trim(($servicio->cliente?->nombre ?? '') . ' ' . ($servicio->cliente?->apellido ?? ''));
-            $existing = $secretsByName[$servicio->usuario_pppoe] ?? null;
-
-            try {
-                if ($existing) {
-                    $attrs = [];
-                    if ($localAddress !== null && $localAddress !== '') {
-                        $attrs['local-address'] = $localAddress;
-                    }
-                    if ($remoteAddress !== null) {
-                        $attrs['remote-address'] = $remoteAddress;
-                    }
-                    $attrs['profile'] = $profileName;
-                    if ($password !== '') {
-                        $attrs['password'] = $password;
-                    }
-                    if ($nombreCliente !== '') {
-                        $attrs['comment'] = $nombreCliente;
-                    }
-                    if (! empty($attrs)) {
-                        $this->setPppoeSecret($router, $existing['.id'], $attrs);
-                        $updated++;
-                    }
-                    $servicio->update(['pppoe_synced' => now(), 'pppoe_status' => 'synced']);
-                } else {
-                    $this->addPppoeSecret($router, $servicio->usuario_pppoe, $password, $remoteAddress, $profileName, $localAddress, $nombreCliente ?: null);
-                    $added++;
-                    $servicio->update(['pppoe_synced' => now(), 'pppoe_status' => 'synced']);
-                }
-            } catch (Throwable $e) {
-                $errors[] = $servicio->usuario_pppoe . ': ' . $e->getMessage();
-                Log::error('[MikroTik] syncPppoeFromDatabase: error por servicio', [
-                    'router' => $router->ip,
-                    'servicio' => $servicio->usuario_pppoe,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
+            $usuario = trim((string) $servicio->usuario_pppoe);
+            if ($usuario === '') {
+                continue;
             }
+
+            $usernamesFromDb[] = $usuario;
+
+            $result = $this->syncPppoeServicioEnRouter($servicio, $router, true);
+            if ($result['success'] ?? false) {
+                if (($result['action'] ?? '') === 'added') {
+                    $added++;
+                } else {
+                    $updated++;
+                }
+
+                continue;
+            }
+
+            $errors[] = $usuario.': '.($result['error'] ?? 'error desconocido');
         }
 
         if ($removeOrphans) {
-            $secrets = $this->getPppoeSecrets($router);
-            foreach ($secrets as $s) {
-                $name = $s['name'] ?? null;
-                if ($name && ! in_array($name, $usernamesFromDb, true)) {
-                    try {
-                        $this->removePppoeSecret($router, $s['.id']);
-                        $removed++;
-                    } catch (Throwable $e) {
-                        $errors[] = "remove {$name}: " . $e->getMessage();
+            try {
+                foreach ($this->getPppoeSecrets($router) as $s) {
+                    $name = $s['name'] ?? null;
+                    if ($name && ! in_array($name, $usernamesFromDb, true)) {
+                        try {
+                            $this->removePppoeSecret($router, $s['.id']);
+                            $removed++;
+                        } catch (Throwable $e) {
+                            $errors[] = "remove {$name}: ".$e->getMessage();
+                        }
                     }
                 }
+            } catch (Throwable $e) {
+                $errors[] = 'listar secretos: '.$e->getMessage();
             }
+        }
+
+        $message = null;
+        if ($servicios->isEmpty()) {
+            $poolCount = $router->routerIpPools()->where(function ($q) {
+                $q->where('activo', true)->orWhereNull('activo');
+            })->count();
+            $message = $poolCount === 0
+                ? 'Este router no tiene pools de IP activos. Creá pools en Sistema → Pools de IP.'
+                : 'No hay servicios activos con usuario PPPoE en los pools de este router.';
         }
 
         return [
             'success' => empty($errors),
+            'servicios_total' => $servicios->count(),
             'added' => $added,
             'updated' => $updated,
             'removed' => $removed,
             'errors' => $errors,
+            'message' => $message,
         ];
     }
 
@@ -517,7 +503,7 @@ class MikroTikService
 
         try {
             if ($existing) {
-                $attrs = ['profile' => $profileName];
+                $attrs = ['profile' => $profileName, 'service' => 'pppoe', 'disabled' => 'no'];
                 if ($localAddress !== null && $localAddress !== '') {
                     $attrs['local-address'] = $localAddress;
                 }
@@ -530,7 +516,6 @@ class MikroTikService
                 if ($nombreCliente !== '') {
                     $attrs['comment'] = $nombreCliente;
                 }
-                $attrs['disabled'] = 'no';
                 $this->setPppoeSecret($router, $existing['.id'], $attrs);
             } else {
                 $this->addPppoeSecret($router, $servicio->usuario_pppoe, $password, $remoteAddress, $profileName, $localAddress, $nombreCliente ?: null);
@@ -539,7 +524,8 @@ class MikroTikService
                 $servicio->update(['pppoe_synced' => now(), 'pppoe_status' => 'synced']);
             }
             Log::info('[MikroTik] syncPppoeServicio: completado OK', ['router' => $router->ip, 'usuario' => $servicio->usuario_pppoe]);
-            return ['success' => true];
+
+            return ['success' => true, 'action' => $existing ? 'updated' : 'added'];
         } catch (Throwable $e) {
             Log::error('[MikroTik] syncPppoeServicio: error en add/set', [
                 'router' => $router->ip,
@@ -760,7 +746,12 @@ class MikroTikService
      */
     public function serviciosPppoeActivosDelRouter(Router $router, ?array $poolIds = null): \Illuminate\Support\Collection
     {
-        $poolIds ??= $router->routerIpPools()->pluck('pool_id')->all();
+        $poolIds ??= $router->routerIpPools()
+            ->where(function ($q) {
+                $q->where('activo', true)->orWhereNull('activo');
+            })
+            ->pluck('pool_id')
+            ->all();
 
         if ($poolIds === []) {
             return collect();

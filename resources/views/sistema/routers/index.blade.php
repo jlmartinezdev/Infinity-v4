@@ -144,10 +144,13 @@
             var token = this.getAttribute('data-csrf') || csrf;
             this.disabled = true;
             fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ remove_orphans: false }) })
-                .then(function(r) { return r.json(); })
-                .then(function(d) {
-                    var msg = 'Añadidos: ' + (d.added || 0) + ', Actualizados: ' + (d.updated || 0) + ', Eliminados: ' + (d.removed || 0);
-                    if (d.errors && d.errors.length) msg += '\nErrores: ' + d.errors.join(', ');
+                .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+                .then(function(res) {
+                    var d = res.data;
+                    var msg = (d.message ? d.message + '\n\n' : '');
+                    msg += 'Servicios en BD: ' + (d.servicios_total ?? 0);
+                    msg += '\nAñadidos: ' + (d.added || 0) + ', Actualizados: ' + (d.updated || 0) + ', Eliminados: ' + (d.removed || 0);
+                    if (d.errors && d.errors.length) msg += '\nErrores:\n' + d.errors.join('\n');
                     alert(msg);
                 })
                 .catch(function() { alert('Error de red.'); })

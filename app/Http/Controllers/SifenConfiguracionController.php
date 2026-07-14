@@ -23,7 +23,24 @@ class SifenConfiguracionController extends Controller
             'csc_env' => filled(config('sifen.csc.token')),
             'password_env' => filled(config('sifen.certificado.password')),
             'password_db' => filled($config->certificado_password),
+            'api_envio_modo' => null,
+            'api_envio_endpoint' => null,
+            'api_ambiente' => null,
         ];
+
+        if (config('sifen.api.enabled')) {
+            try {
+                $apiStatus = app(\App\Services\Sifen\SifenApiClient::class)->status();
+                $estado['api_envio_modo'] = $apiStatus['envio_modo'] ?? null;
+                $estado['api_envio_endpoint'] = $apiStatus['envio_endpoint'] ?? null;
+                $estado['api_ambiente'] = $apiStatus['ambiente'] ?? null;
+                if (! empty($apiStatus['ambiente'])) {
+                    $estado['ambiente'] = $apiStatus['ambiente'];
+                }
+            } catch (\Throwable) {
+                // Sin conexión a sifen-api: no bloquear la pantalla de configuración.
+            }
+        }
 
         return view('configuracion.sifen', compact('config', 'estado'));
     }

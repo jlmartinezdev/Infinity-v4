@@ -40,6 +40,15 @@ class SifenService
             throw new RuntimeException('Solo se pueden emitir facturas en estado borrador.');
         }
 
+        // Lote async pendiente: consultar en lugar de re-preparar/enviar.
+        if (
+            $enviarSifen
+            && $this->usarEnvioAsincrono()
+            && $factura->lotePendienteSifen()
+        ) {
+            return $this->consultarResultadoLoteLocal($factura);
+        }
+
         $config = $this->obtenerConfiguracion();
         $fechaDe = $this->momentoEmision($factura);
         $preparado = $this->prepararDocumento($factura, false, $fechaDe);
@@ -81,14 +90,33 @@ class SifenService
                 throw new RuntimeException('Certificado SIFEN no configurado. No se puede enviar a e-Kuatia.');
             }
 
+            if ($this->usarEnvioAsincrono()) {
+                // No bloquea esperando DNIT: el lote se consulta después (UI «Consultar lote SIFEN»).
+                $respuestaSifen = $this->enviarLoteLocal($factura, $xmlFinal, $xmlPath, $qrUrl);
+
+                return [
+                    'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
+                    'cdc' => $preparado['cdc'],
+                    'xml' => $xmlFinal,
+                    'xml_path' => $xmlPath,
+                    'pdf_path' => null,
+                    'qr_url' => $qrUrl,
+                    'validacion' => $validacion,
+                    'totales' => $preparado['totales'],
+                    'sifen' => $respuestaSifen,
+                    'lote_pendiente' => true,
+                ];
+            }
+
             $rawRespuesta = $this->soapClient->enviarDocumento($xmlFinal);
             $respuestaSifen = $this->respuestaParser->parsear($rawRespuesta);
+
             $estadoEnvio = $respuestaSifen['aprobado'] ? 'autorizado' : 'rechazado';
 
             if (! $respuestaSifen['aprobado']) {
                 $factura->update([
                     'set_estado_envio' => $estadoEnvio,
-                    'set_xml_respuesta' => $rawRespuesta,
+                    'set_xml_respuesta' => $respuestaSifen['raw'] ?? null,
                     'xml_path' => $xmlPath,
                     'set_qr_url' => $qrUrl,
                 ]);
@@ -127,6 +155,211 @@ class SifenService
             'validacion' => $validacion,
             'totales' => $preparado['totales'],
             'sifen' => $respuestaSifen,
+            'lote_pendiente' => false,
+        ];
+    }
+
+    /**
+     * Consulta resultado de lote asíncrono (API o motor local).
+     *
+     * @return array<string, mixed>
+     */
+    public function consultarResultadoLote(Factura $factura): array
+    {
+        if ($this->apiBridge->activo()) {
+            return $this->apiBridge->consultarResultadoLote($factura);
+        }
+
+        return $this->consultarResultadoLoteLocal($factura);
+    }
+
+    private function usarEnvioAsincrono(): bool
+    {
+        return config('sifen.envio_modo', 'sync') === 'async';
+    }
+
+    /**
+     * Envía el DE en lote async y deja el resultado para consulta posterior.
+     *
+     * @return array<string, mixed>
+     */
+    private function enviarLoteLocal(
+        Factura $factura,
+        string $xmlFinal,
+        string $xmlPath,
+        string $qrUrl,
+    ): array {
+        $rawRecepcion = $this->soapClient->enviarLote([$xmlFinal]);
+        $recepcion = $this->respuestaParser->parsearRecepcionLote($rawRecepcion);
+
+        if (! $recepcion['aceptado']) {
+            $codigo = $recepcion['codigo'] ?? '?';
+            $mensaje = $recepcion['mensaje'] ?? 'Lote no aceptado';
+            $factura->update([
+                'set_estado_envio' => 'rechazado',
+                'set_xml_respuesta' => $rawRecepcion,
+                'xml_path' => $xmlPath,
+                'set_qr_url' => $qrUrl,
+            ]);
+
+            throw new RuntimeException('SIFEN rechazó el lote: ['.$codigo.'] '.$mensaje);
+        }
+
+        $nroLote = (string) $recepcion['protocolo_lote'];
+        $factura->update([
+            'set_nro_lote' => $nroLote,
+            'set_estado_envio' => 'en_proceso',
+            'set_xml_respuesta' => $rawRecepcion,
+            'xml_path' => $xmlPath,
+            'set_qr_url' => $qrUrl,
+        ]);
+
+        return [
+            'aprobado' => false,
+            'en_proceso' => true,
+            'codigo' => $recepcion['codigo'] ?? '0300',
+            'mensaje' => 'Lote aceptado. Pendiente de procesamiento en SIFEN.',
+            'protocolo_lote' => $nroLote,
+            'raw' => $rawRecepcion,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function consultarResultadoLoteLocal(Factura $factura): array
+    {
+        if ($factura->estado === 'emitida' && $factura->set_estado_envio === 'autorizado') {
+            return [
+                'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
+                'cdc' => $factura->set_cdc,
+                'xml' => '',
+                'xml_path' => $factura->xml_path,
+                'pdf_path' => $factura->pdf_path,
+                'qr_url' => $factura->set_qr_url,
+                'validacion' => ['valido' => true, 'errores' => []],
+                'totales' => [
+                    'subtotal' => (float) $factura->subtotal,
+                    'total_impuestos' => (float) $factura->total_impuestos,
+                    'total' => (float) $factura->total,
+                ],
+                'sifen' => [
+                    'aprobado' => true,
+                    'codigo' => '0260',
+                    'mensaje' => 'Documento ya autorizado',
+                    'raw' => $factura->set_xml_respuesta,
+                ],
+                'lote_pendiente' => false,
+            ];
+        }
+
+        if ($factura->estado !== 'borrador') {
+            throw new RuntimeException('Solo se puede consultar lote de un documento en borrador.');
+        }
+
+        $nroLote = trim((string) $factura->set_nro_lote);
+        if ($nroLote === '') {
+            throw new RuntimeException('El documento no tiene número de lote SIFEN.');
+        }
+
+        if (blank($factura->set_qr_url) || blank($factura->set_cdc)) {
+            throw new RuntimeException('Falta QR/CDC del documento para finalizar el lote.');
+        }
+
+        // Una sola consulta rápida: si aún procesa, el usuario reintenta desde la UI.
+        $respuestaSifen = $this->esperarResultadoLoteLocal($factura, $nroLote, pollInmediato: true, maxIntentosOverride: 1);
+
+        if (! $respuestaSifen['aprobado']) {
+            $factura->update([
+                'set_estado_envio' => ($respuestaSifen['en_proceso'] ?? false) ? 'en_proceso' : 'rechazado',
+                'set_xml_respuesta' => $respuestaSifen['raw'] ?? null,
+            ]);
+
+            if ($respuestaSifen['en_proceso'] ?? false) {
+                throw new RuntimeException(
+                    'Lote '.$nroLote.' aún en procesamiento en SIFEN. Reintente la consulta en 1–2 minutos.'
+                );
+            }
+
+            $codigo = $respuestaSifen['codigo'] ?? '?';
+            $mensaje = $respuestaSifen['mensaje'] ?? 'Sin mensaje';
+            throw new RuntimeException('SIFEN rechazó el DE: ['.$codigo.'] '.$mensaje);
+        }
+
+        $config = $this->obtenerConfiguracion();
+        $qrUrl = (string) $factura->set_qr_url;
+        $pdfPath = $this->kudeService->generar($factura, $config, $qrUrl);
+
+        $factura->update([
+            'estado' => 'emitida',
+            'set_estado_envio' => 'autorizado',
+            'set_fecha_autorizacion' => now(),
+            'set_xml_respuesta' => $respuestaSifen['raw'] ?? null,
+            'pdf_path' => $pdfPath,
+        ]);
+
+        return [
+            'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
+            'cdc' => $factura->set_cdc,
+            'xml' => '',
+            'xml_path' => $factura->xml_path,
+            'pdf_path' => $pdfPath,
+            'qr_url' => $qrUrl,
+            'validacion' => ['valido' => true, 'errores' => []],
+            'totales' => [
+                'subtotal' => (float) $factura->subtotal,
+                'total_impuestos' => (float) $factura->total_impuestos,
+                'total' => (float) $factura->total,
+            ],
+            'sifen' => $respuestaSifen,
+            'lote_pendiente' => false,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function esperarResultadoLoteLocal(
+        Factura $factura,
+        string $nroLote,
+        bool $pollInmediato = false,
+        ?int $maxIntentosOverride = null,
+    ): array {
+        $esperaInicial = (int) config('sifen.lote_espera_inicial', 30);
+        $intervalo = (int) config('sifen.lote_intervalo', 20);
+        $maxIntentos = $maxIntentosOverride ?? (int) config('sifen.lote_max_intentos', 30);
+
+        if (! $pollInmediato && $esperaInicial > 0) {
+            sleep($esperaInicial);
+        }
+
+        for ($i = 0; $i < $maxIntentos; $i++) {
+            if ($i > 0) {
+                sleep($intervalo);
+            }
+
+            $raw = $this->soapClient->consultarLote($nroLote);
+            $resultado = $this->respuestaParser->parsearResultadoLote($raw, $factura->set_cdc);
+            $factura->update(['set_xml_respuesta' => $raw]);
+
+            if ($resultado['lote_inexistente'] ?? false) {
+                return $resultado;
+            }
+
+            if ($resultado['en_proceso'] ?? false) {
+                continue;
+            }
+
+            return $resultado;
+        }
+
+        return [
+            'aprobado' => false,
+            'en_proceso' => true,
+            'lote_inexistente' => false,
+            'codigo' => '0362',
+            'mensaje' => 'Lote en procesamiento',
+            'raw' => $factura->set_xml_respuesta,
         ];
     }
 

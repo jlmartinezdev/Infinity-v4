@@ -31,6 +31,7 @@
         <div class="mb-4 p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-sm text-purple-900 dark:text-purple-200">
             <strong>Modo API activo.</strong> La firma y el envío a SIFEN se realizan en <strong>sifen-api</strong>.
             El certificado P12 de esta pantalla no se usa para emitir; configúrelo en el panel del microservicio.
+            <a href="{{ route('configuracion.sifen.prueba') }}" class="underline font-medium ml-1">Ver tipo de envío en laboratorio →</a>
         </div>
     @endif
 
@@ -47,6 +48,29 @@
                         <span class="text-blue-600 dark:text-blue-400">Prueba (test)</span>
                     @endif
                     <span class="text-xs text-gray-400 block">Definido en SIFEN_AMBIENTE (.env)</span>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-gray-500 dark:text-gray-400">Tipo de envío</dt>
+                <dd class="font-medium text-gray-900 dark:text-gray-100">
+                    @php
+                        $modoEnvio = $estado['api_envio_modo'] ?? config('sifen.envio_modo', 'sync');
+                        $endpointEnvio = $estado['api_envio_endpoint']
+                            ?? (config('sifen.envio_modo') === 'async'
+                                ? config('sifen.ws.'.config('sifen.ambiente').'.recepcion_lote')
+                                : config('sifen.ws.'.config('sifen.ambiente').'.recepcion_de'));
+                    @endphp
+                    @if($modoEnvio === 'async')
+                        <span class="text-indigo-700 dark:text-indigo-300">Asíncrono (lote)</span>
+                    @else
+                        Síncrono
+                    @endif
+                    <span class="text-xs text-gray-400 block">
+                        {{ !empty($estado['api_envio_modo']) ? 'sifen-api · SIFEN_ENVIO_MODO' : 'Local · SIFEN_ENVIO_MODO (.env)' }}
+                    </span>
+                    @if($endpointEnvio)
+                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400 break-all block mt-0.5">{{ $endpointEnvio }}</span>
+                    @endif
                 </dd>
             </div>
             <div>

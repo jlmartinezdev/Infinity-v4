@@ -140,93 +140,136 @@
         </td>
         <td class="px-4 py-3">
           <div class="flex items-center justify-end gap-1">
-            <a
-              v-if="urlAccionesCliente"
-              :href="urlAccionesCliente(c.cliente_id)"
-              class="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-              title="Acciones del cliente"
+            <div
+              class="relative"
+              :data-menu-acciones="c.cliente_id"
               @click.stop
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </a>
-            <a
-              v-if="urlDetalleCliente"
-              :href="urlDetalleCliente(c.cliente_id)"
-              class="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              title="Ver detalle general"
-              @click.stop
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            </a>
-            <button
-              v-if="urlConsultarRuc"
-              type="button"
-              class="p-2 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
-              title="Consultar RUC"
-              aria-label="Consultar RUC"
-              :disabled="consultaRucLoadingId === c.cliente_id"
-              @click.stop="consultarRucCliente(c)"
-            >
-              <svg v-if="consultaRucLoadingId !== c.cliente_id" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </button>
-            <button
-              v-if="puedeEditar"
-              type="button"
-              class="p-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-              title="Buscar en temp"
-              aria-label="Buscar en temp"
-              @click.stop="buscarTemp(c)"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-            <a
-              v-if="urlCreateServicioBase && (!c.servicios || c.servicios.length === 0)"
-              :href="urlCreateServicio(c.cliente_id)"
-              class="p-2 rounded-lg text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-              @click.stop
-              title="Crear servicio"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </a>
-            <a :href="urlEditCliente(c.cliente_id)" class="p-2 rounded-lg text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors" @click.stop title="Editar">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </a>
-            <form :action="urlDestroyCliente(c.cliente_id)" method="POST" class="inline" @submit.prevent="confirmDestroy($event)" @click.stop>
-              <input type="hidden" name="_token" :value="csrfToken" />
-              <input type="hidden" name="_method" value="DELETE" />
-              <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <button
+                type="button"
+                class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                :class="{ 'bg-gray-100 dark:bg-gray-700': menuAccionesAbiertoId === c.cliente_id }"
+                title="Acciones"
+                aria-label="Acciones del cliente"
+                aria-haspopup="true"
+                :aria-expanded="menuAccionesAbiertoId === c.cliente_id"
+                @click.stop="toggleMenuAcciones(c.cliente_id)"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.75" />
+                  <circle cx="12" cy="12" r="1.75" />
+                  <circle cx="12" cy="19" r="1.75" />
                 </svg>
               </button>
-            </form>
-            <span
+              <div
+                v-show="menuAccionesAbiertoId === c.cliente_id"
+                class="absolute right-0 top-full mt-1 z-30 min-w-[12.5rem] py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/5 dark:ring-white/10"
+                role="menu"
+              >
+                <a
+                  v-if="urlAccionesCliente"
+                  :href="urlAccionesCliente(c.cliente_id)"
+                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                  role="menuitem"
+                  @click="cerrarMenuAcciones"
+                >
+                  <svg class="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                  Acciones del cliente
+                </a>
+                <a
+                  v-if="urlDetalleCliente"
+                  :href="urlDetalleCliente(c.cliente_id)"
+                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                  role="menuitem"
+                  @click="cerrarMenuAcciones"
+                >
+                  <svg class="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Ver detalle
+                </a>
+                <button
+                  v-if="urlConsultarRuc"
+                  type="button"
+                  class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80 disabled:opacity-50"
+                  role="menuitem"
+                  :disabled="consultaRucLoadingId === c.cliente_id"
+                  @click="accionConsultarRuc(c)"
+                >
+                  <svg v-if="consultaRucLoadingId !== c.cliente_id" class="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <svg v-else class="w-4 h-4 shrink-0 animate-spin text-amber-700 dark:text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ consultaRucLoadingId === c.cliente_id ? 'Consultando RUC…' : 'Consultar RUC' }}
+                </button>
+                <button
+                  v-if="puedeEditar"
+                  type="button"
+                  class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                  role="menuitem"
+                  @click="accionBuscarTemp(c)"
+                >
+                  <svg class="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Buscar en temp
+                </button>
+                <a
+                  v-if="urlCreateServicioBase && (!c.servicios || c.servicios.length === 0)"
+                  :href="urlCreateServicio(c.cliente_id)"
+                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                  role="menuitem"
+                  @click="cerrarMenuAcciones"
+                >
+                  <svg class="w-4 h-4 shrink-0 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Crear servicio
+                </a>
+                <a
+                  :href="urlEditCliente(c.cliente_id)"
+                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                  role="menuitem"
+                  @click="cerrarMenuAcciones"
+                >
+                  <svg class="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Editar
+                </a>
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-gray-200 dark:border-gray-600 mt-1 pt-2.5"
+                  role="menuitem"
+                  @click="eliminarCliente(c)"
+                >
+                  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Eliminar
+                </button>
+              </div>
+            </div>
+            <button
               v-if="c.servicios && c.servicios.length > 0"
-              class="inline-flex items-center justify-center w-8 h-8 ml-2 rounded text-gray-500 dark:text-gray-400 transition-transform"
+              type="button"
+              class="inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-transform"
               :class="{ 'rotate-180': openedIds.includes(c.cliente_id) }"
+              title="Ver servicios"
+              aria-label="Ver servicios"
+              @click.stop="toggle(c.cliente_id)"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
-            </span>
-            <span v-else class="inline-flex items-center justify-center w-8 h-8 ml-2 rounded text-gray-500 dark:text-gray-400">—</span>
+            </button>
+            <span v-else class="inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 dark:text-gray-400">—</span>
           </div>
         </td>
       </tr>
@@ -398,7 +441,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   clientes: { type: Array, default: () => [] },
@@ -438,6 +481,65 @@ const modalRucError = ref('');
 const modalRucCliente = ref(null);
 const modalRucTermino = ref('');
 const consultaRucLoadingId = ref(null);
+const menuAccionesAbiertoId = ref(null);
+
+function toggleMenuAcciones(clienteId) {
+  menuAccionesAbiertoId.value = menuAccionesAbiertoId.value === clienteId ? null : clienteId;
+}
+
+function cerrarMenuAcciones() {
+  menuAccionesAbiertoId.value = null;
+}
+
+function handleClickOutsideMenuAcciones(e) {
+  if (menuAccionesAbiertoId.value == null) return;
+  const openMenu = document.querySelector(`[data-menu-acciones="${menuAccionesAbiertoId.value}"]`);
+  if (openMenu && !openMenu.contains(e.target)) {
+    cerrarMenuAcciones();
+  }
+}
+
+function accionConsultarRuc(cliente) {
+  cerrarMenuAcciones();
+  consultarRucCliente(cliente);
+}
+
+function accionBuscarTemp(cliente) {
+  cerrarMenuAcciones();
+  buscarTemp(cliente);
+}
+
+function eliminarCliente(cliente) {
+  cerrarMenuAcciones();
+  if (!window.confirm('¿Eliminar este cliente?')) return;
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = urlDestroyCliente(cliente.cliente_id);
+
+  const token = document.createElement('input');
+  token.type = 'hidden';
+  token.name = '_token';
+  token.value = props.csrfToken;
+  form.appendChild(token);
+
+  const method = document.createElement('input');
+  method.type = 'hidden';
+  method.name = '_method';
+  method.value = 'DELETE';
+  form.appendChild(method);
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutsideMenuAcciones);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutsideMenuAcciones);
+});
 
 function toggle(clienteId) {
   const i = openedIds.value.indexOf(clienteId);
@@ -546,11 +648,6 @@ const clientesFiltrados = computed(() => {
   });
 });
 
-function confirmDestroy(ev) {
-  if (window.confirm('¿Eliminar este cliente?')) {
-    ev.target.closest('form').submit();
-  }
-}
 
 function formatDocument(document) {
   if (!document) return '—';

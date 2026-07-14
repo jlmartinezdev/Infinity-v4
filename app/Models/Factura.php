@@ -50,6 +50,7 @@ class Factura extends Model
         'set_qr_url',
         'set_fecha_autorizacion',
         'set_estado_envio',
+        'set_nro_lote',
         'set_xml_respuesta',
         'xml_path',
         'pdf_path',
@@ -77,6 +78,21 @@ class Factura extends Model
     public function esOcasional(): bool
     {
         return (bool) $this->es_ocasional;
+    }
+
+    public function lotePendienteSifen(): bool
+    {
+        return $this->estado === 'borrador'
+            && filled($this->set_nro_lote)
+            && in_array($this->set_estado_envio, ['en_proceso', 'pendiente'], true);
+    }
+
+    public function scopeLotePendienteSifen($query)
+    {
+        return $query->where('estado', 'borrador')
+            ->whereNotNull('set_nro_lote')
+            ->where('set_nro_lote', '!=', '')
+            ->whereIn('set_estado_envio', ['en_proceso', 'pendiente']);
     }
 
     public function receptorNombreCompleto(): string

@@ -73,6 +73,8 @@
             </div>
         </div>
 
+        @include('olts._gestion_fields', ['olt' => null])
+
         <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Capacidad y estado</h2>
         </div>

@@ -5,9 +5,12 @@ return [
     /*
     |--------------------------------------------------------------------------
     | Ambiente SIFEN (test | production)
+    | Acepta también el alias "prod" → se normaliza a "production".
     |--------------------------------------------------------------------------
     */
-    'ambiente' => env('SIFEN_AMBIENTE', 'test'),
+    'ambiente' => in_array(strtolower((string) env('SIFEN_AMBIENTE', 'test')), ['production', 'prod'], true)
+        ? 'production'
+        : 'test',
 
     'debug_soap' => (bool) env('SIFEN_DEBUG_SOAP', false),
 
@@ -16,6 +19,21 @@ return [
 
     // Envío SOAP: Node.js usa el mismo P12 que la firma (más fiable en Windows).
     'envio_node' => filter_var(env('SIFEN_ENVIO_NODE', true), FILTER_VALIDATE_BOOL),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Modo de envío local a SIFEN: sync | async
+    | async = recibe-lote + consulta-lote (útil si el RUC no tiene servicio síncrono / 1264).
+    | En modo API este valor lo define sifen-api (SIFEN_ENVIO_MODO allí).
+    |--------------------------------------------------------------------------
+    */
+    'envio_modo' => in_array(strtolower((string) env('SIFEN_ENVIO_MODO', 'sync')), ['async', 'asincrono', 'lote'], true)
+        ? 'async'
+        : 'sync',
+
+    'lote_espera_inicial' => max(5, (int) env('SIFEN_LOTE_ESPERA_INICIAL', 30)),
+    'lote_intervalo' => max(5, (int) env('SIFEN_LOTE_INTERVALO', 20)),
+    'lote_max_intentos' => max(1, (int) env('SIFEN_LOTE_MAX_INTENTOS', 30)),
 
     'node_path' => env('SIFEN_NODE_PATH'),
 
@@ -46,6 +64,7 @@ return [
             'consulta_de' => 'https://sifen-test.set.gov.py/de/ws/consultas/consulta.wsdl',
             'consulta_de_endpoint' => 'https://sifen-test.set.gov.py/de/ws/consultas/consulta',
             'consulta_lote' => 'https://sifen-test.set.gov.py/de/ws/consultas/consulta-lote.wsdl',
+            'consulta_lote_endpoint' => 'https://sifen-test.set.gov.py/de/ws/consultas/consulta-lote',
             'consulta_ruc' => 'https://sifen-test.set.gov.py/de/ws/consultas/consulta-ruc.wsdl',
             'qr_base' => 'https://ekuatia.set.gov.py/consultas-test/qr',
         ],
@@ -59,6 +78,7 @@ return [
             'consulta_de' => 'https://sifen.set.gov.py/de/ws/consultas/consulta.wsdl',
             'consulta_de_endpoint' => 'https://sifen.set.gov.py/de/ws/consultas/consulta',
             'consulta_lote' => 'https://sifen.set.gov.py/de/ws/consultas/consulta-lote.wsdl',
+            'consulta_lote_endpoint' => 'https://sifen.set.gov.py/de/ws/consultas/consulta-lote',
             'consulta_ruc' => 'https://sifen.set.gov.py/de/ws/consultas/consulta-ruc.wsdl',
             'qr_base' => 'https://ekuatia.set.gov.py/consultas/qr',
         ],
@@ -167,7 +187,7 @@ return [
         'enabled' => filter_var(env('SIFEN_API_ENABLED', false), FILTER_VALIDATE_BOOL),
         'url' => rtrim((string) env('SIFEN_API_URL', ''), '/'),
         'token' => env('SIFEN_API_TOKEN'),
-        'timeout' => max(30, (int) env('SIFEN_API_TIMEOUT', 120)),
+        'timeout' => max(30, (int) env('SIFEN_API_TIMEOUT', 900)),
     ],
 
     // En modo API: solicitar a sifen-api el envío de XML + KuDE al email del cliente.

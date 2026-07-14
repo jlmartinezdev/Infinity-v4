@@ -375,10 +375,19 @@ class TvCuentaController extends Controller
             unset($validated['vencimiento_pago']);
         }
 
+        $slotsModificados = $this->slotsConPrecioModificado($tv_cuenta, $validated);
+
         $tv_cuenta->update($validated);
 
+        $asignacionesActualizadas = $this->propagarPreciosAsignaciones($tv_cuenta, $slotsModificados);
+
+        $mensaje = 'Cuenta TV actualizada.';
+        if ($asignacionesActualizadas > 0) {
+            $mensaje .= ' Se actualizó el precio aplicado en '.$asignacionesActualizadas.' asignación(es) del mismo perfil/pantalla.';
+        }
+
         return redirect()->route('tv-cuentas.edit', $tv_cuenta)
-            ->with('success', 'Cuenta TV actualizada.');
+            ->with('success', $mensaje);
     }
 
     public function renovar(Request $request, TvCuenta $tv_cuenta)
@@ -496,6 +505,78 @@ class TvCuentaController extends Controller
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<int, int>
+     */
+    private function slotsConPrecioModificado(TvCuenta $cuenta, array $validated): array
+    {
+        $esLumix = ($validated['aplicacion'] ?? $cuenta->aplicacion) === TvCuenta::APP_LUMIX;
+        $max = $esLumix ? TvCuenta::MAX_LUMIX : TvCuenta::MAX_NEBULA;
+        $modificados = [];
+
+        for ($numero = 1; $numero <= $max; $numero++) {
+            $campo = $esLumix ? "precio_pantalla_{$numero}" : "precio_perfil_{$numero}";
+            if (! array_key_exists($campo, $validated)) {
+                continue;
+            }
+
+            if ($this->precioNormalizado($cuenta->getAttribute($campo)) !== $this->precioNormalizado($validated[$campo])) {
+                $modificados[] = $numero;
+            }
+        }
+
+        return $modificados;
+    }
+
+    /**
+     * @param  array<int, int>  $slotsModificados
+     */
+    private function propagarPreciosAsignaciones(TvCuenta $cuenta, array $slotsModificados): int
+    {
+        if ($slotsModificados === [] || ! Schema::hasColumn('tv_cuenta_asignaciones', 'precio_aplicado')) {
+            return 0;
+        }
+
+        $cuenta->refresh();
+        $serviciosAfectados = [];
+        $actualizadas = 0;
+
+        $asignaciones = $cuenta->asignaciones()
+            ->whereIn('perfil_numero', $slotsModificados)
+            ->get();
+
+        foreach ($asignaciones as $asignacion) {
+            if ($asignacion->es_promo || ! $asignacion->perfil_numero) {
+                continue;
+            }
+
+            $nuevoPrecio = (float) ($cuenta->precioSlot((int) $asignacion->perfil_numero) ?? 0);
+            if ($this->precioNormalizado($asignacion->precio_aplicado) === $this->precioNormalizado($nuevoPrecio)) {
+                continue;
+            }
+
+            $asignacion->update(['precio_aplicado' => $nuevoPrecio]);
+            $actualizadas++;
+            $serviciosAfectados[(int) $asignacion->servicio_id] = true;
+        }
+
+        foreach (array_keys($serviciosAfectados) as $servicioId) {
+            $this->sincronizarAppTvEnServicio($servicioId);
+        }
+
+        return $actualizadas;
+    }
+
+    private function precioNormalizado(mixed $valor): ?float
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        return round((float) $valor, 2);
+    }
+
     private function reglasCuentaTv(Request $request, ?TvCuenta $cuenta = null): array
     {
         $aplicacion = $request->input('aplicacion', $cuenta?->aplicacion ?? TvCuenta::APP_NEBULA);

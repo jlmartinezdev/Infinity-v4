@@ -13,6 +13,7 @@ class SifenSoapClient
 
     public function __construct(
         private SifenCertificadoService $certificadoService,
+        private SifenLoteBuilder $loteBuilder,
     ) {}
 
     public function enviarDocumento(string $xmlFirmado, ?int $dId = null): string
@@ -30,17 +31,68 @@ class SifenSoapClient
         $this->guardarSoapDepuracion($envelope);
         $endpoint = $this->endpointRecepcion();
 
+        return $this->enviarEnvelopeAlEndpoint($endpoint, $envelope, $dId, $xmlFirmado);
+    }
+
+    /**
+     * @param  array<int, string>  $xmlsFirmados
+     */
+    public function enviarLote(array $xmlsFirmados, ?int $dId = null): string
+    {
+        if (! $this->certificadoService->disponible()) {
+            throw new RuntimeException('Certificado SIFEN no configurado para envío de lote.');
+        }
+
+        $dId = $dId ?? (int) now()->format('YmdHis');
+        $xDeZip = $this->loteBuilder->construirBase64Zip($xmlsFirmados);
+        $envelope = $this->construirEnvelopeLote($dId, $xDeZip);
+        $this->guardarSoapDepuracion($envelope);
+        $endpoint = $this->endpointRecepcionLote();
+
+        return $this->enviarEnvelopeAlEndpoint($endpoint, $envelope);
+    }
+
+    public function consultarLote(string $protocoloLote, ?int $dId = null): string
+    {
+        if (! $this->certificadoService->disponible()) {
+            throw new RuntimeException('Certificado SIFEN no configurado para consulta de lote.');
+        }
+
+        $protocoloLote = preg_replace('/\D/', '', $protocoloLote) ?? '';
+        if ($protocoloLote === '') {
+            throw new RuntimeException('Número de lote inválido para consulta SIFEN.');
+        }
+
+        $dId = $dId ?? (int) now()->format('YmdHis');
+        $envelope = $this->construirEnvelopeConsultaLote($dId, $protocoloLote);
+        $this->guardarSoapDepuracion($envelope);
+        $endpoint = $this->endpointConsultaLote();
+
+        return $this->enviarEnvelopeAlEndpoint($endpoint, $envelope);
+    }
+
+    private function enviarEnvelopeAlEndpoint(
+        string $endpoint,
+        string $envelope,
+        ?int $dId = null,
+        ?string $xmlFirmadoParaTips = null,
+    ): string {
         $certPass = $this->certificadoService->obtenerPassword();
         if ($certPass === null || $certPass === '') {
             throw new RuntimeException('Contraseña del certificado P12 no configurada (configuración SIFEN o SIFEN_CERT_PASSWORD).');
         }
 
         $p12Path = $this->certificadoService->materializarP12Temporal();
-
         $intentos = [];
 
-        if (config('sifen.envio_node', true) && $this->certificadoService->nodeDisponible()) {
-            $resultado = $this->enviarConTips($endpoint, $envelope, $dId, $xmlFirmado, $p12Path, $certPass);
+        if (
+            $xmlFirmadoParaTips !== null
+            && $dId !== null
+            && config('sifen.envio_node', true)
+            && $this->certificadoService->nodeDisponible()
+            && str_contains($endpoint, '/sync/recibe')
+        ) {
+            $resultado = $this->enviarConTips($endpoint, $envelope, $dId, $xmlFirmadoParaTips, $p12Path, $certPass);
             $intentos[] = 'setapi-tips: HTTP '.$resultado['http_code']
                 .($resultado['redirect_url'] !== '' ? ' -> '.$resultado['redirect_url'] : '');
             if ($this->esRespuestaUtil($resultado)) {
@@ -48,7 +100,9 @@ class SifenSoapClient
 
                 return $resultado['body'];
             }
+        }
 
+        if (config('sifen.envio_node', true) && $this->certificadoService->nodeDisponible()) {
             $resultado = $this->enviarConNode($endpoint, $envelope, $p12Path, $certPass);
             $intentos[] = 'node-forge-chain: HTTP '.$resultado['http_code']
                 .($resultado['redirect_url'] !== '' ? ' -> '.$resultado['redirect_url'] : '');
@@ -62,7 +116,7 @@ class SifenSoapClient
         $resultado = $this->enviarConCurl($endpoint, $envelope, $p12Path, $certPass);
         $intentos[] = 'curl-p12-temp: HTTP '.$resultado['http_code']
             .($resultado['redirect_url'] !== '' ? ' -> '.$resultado['redirect_url'] : '');
-        if ($resultado['curl_error'] !== '') {
+        if (($resultado['curl_error'] ?? '') !== '') {
             $intentos[count($intentos) - 1] .= ' ('.$resultado['curl_error'].')';
         }
 
@@ -355,10 +409,46 @@ class SifenSoapClient
         return SifenXmlManipulator::compactar($envelope);
     }
 
+    private function construirEnvelopeLote(int $dId, string $xDeBase64): string
+    {
+        $envelope = '<?xml version="1.0" encoding="UTF-8"?>'
+            .'<env:Envelope xmlns:env="'.self::NS_SOAP.'">'
+            .'<env:Header/>'
+            .'<env:Body>'
+            .'<rEnvioLote xmlns="'.self::NS_SIFEN.'">'
+            .'<dId>'.$dId.'</dId>'
+            .'<xDE>'.$xDeBase64.'</xDE>'
+            .'</rEnvioLote>'
+            .'</env:Body>'
+            .'</env:Envelope>';
+
+        return SifenXmlManipulator::compactar($envelope);
+    }
+
+    private function construirEnvelopeConsultaLote(int $dId, string $protocoloLote): string
+    {
+        $envelope = '<?xml version="1.0" encoding="UTF-8"?>'
+            .'<env:Envelope xmlns:env="'.self::NS_SOAP.'">'
+            .'<env:Header/>'
+            .'<env:Body>'
+            .'<rEnviConsLoteDe xmlns="'.self::NS_SIFEN.'">'
+            .'<dId>'.$dId.'</dId>'
+            .'<dProtConsLote>'.$protocoloLote.'</dProtConsLote>'
+            .'</rEnviConsLoteDe>'
+            .'</env:Body>'
+            .'</env:Envelope>';
+
+        return SifenXmlManipulator::compactar($envelope);
+    }
+
     private function esRespuestaSifen(string $response): bool
     {
         return str_contains($response, 'rRetEnviDe')
             || str_contains($response, 'rProtDe')
+            || str_contains($response, 'rResEnviLoteDe')
+            || str_contains($response, 'rResEnviConsLoteDe')
+            || str_contains($response, 'dProtConsLote')
+            || str_contains($response, 'dCodResLot')
             || str_contains($response, 'dCodRes');
     }
 
@@ -366,9 +456,24 @@ class SifenSoapClient
     {
         $ambiente = config('sifen.ambiente', 'test');
 
-        // TIPS/setapi publica contra la URL .wsdl (no /recibe sin sufijo).
         return config("sifen.ws.{$ambiente}.recepcion_de")
             ?: config("sifen.ws.{$ambiente}.recepcion_de_endpoint");
+    }
+
+    private function endpointRecepcionLote(): string
+    {
+        $ambiente = config('sifen.ambiente', 'test');
+
+        return config("sifen.ws.{$ambiente}.recepcion_lote")
+            ?: config("sifen.ws.{$ambiente}.recepcion_lote_endpoint");
+    }
+
+    private function endpointConsultaLote(): string
+    {
+        $ambiente = config('sifen.ambiente', 'test');
+
+        return config("sifen.ws.{$ambiente}.consulta_lote")
+            ?: config("sifen.ws.{$ambiente}.consulta_lote_endpoint");
     }
 
     private function limpiarXmlEntrada(string $xml): string

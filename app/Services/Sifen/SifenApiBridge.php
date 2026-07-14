@@ -86,6 +86,19 @@ class SifenApiBridge
             return $this->restaurarDesdeRemoto($factura, $remoto, $documentoId, $enviarSifen);
         }
 
+        // Lote async pendiente: consultar resultado en lugar de reenviar.
+        $estadoEnvioRemoto = $remoto['sifen']['estado_envio'] ?? null;
+        $nroLoteRemoto = $remoto['sifen']['nro_lote'] ?? null;
+        if (
+            $enviarSifen
+            && filled($nroLoteRemoto)
+            && in_array($estadoEnvioRemoto, ['en_proceso', 'pendiente'], true)
+        ) {
+            $this->sincronizarFacturaDesdeApi($factura, $remoto);
+
+            return $this->consultarResultadoLote($factura);
+        }
+
         try {
             $enviarCorreo = $this->resolverEnviarCorreoApi($factura);
             $receptorCorreo = $this->construirReceptorCorreoPayload($factura);
@@ -105,16 +118,16 @@ class SifenApiBridge
                 }
             }
 
-            $factura->refresh();
-            if ($factura->sifen_api_documento_id) {
-                try {
-                    $remoto = $this->client->buscarPorReferencia($this->referenciaExterna($factura));
-                    if ($remoto) {
-                        $this->sincronizarFacturaDesdeApi($factura, $remoto);
-                    }
-                } catch (\Throwable) {
-                    // ignorar error de sincronización post-fallo
-                }
+            $this->sincronizarTrasError($factura);
+
+            // Mensaje de lote pendiente: mantener sync local y relanzar como pendiente.
+            if ($this->esErrorLotePendiente($e->getMessage())) {
+                $factura->refresh();
+                throw new RuntimeException(
+                    'El lote fue enviado a SIFEN y sigue en procesamiento'
+                    .($factura->set_nro_lote ? ' (nº '.$factura->set_nro_lote.')' : '')
+                    .'. Use «Consultar lote» en unos minutos.'
+                );
             }
 
             throw $e;
@@ -124,12 +137,21 @@ class SifenApiBridge
         $this->sincronizarFacturaDesdeApi($factura, $data);
         $factura->refresh();
 
-        $this->descargarArchivosLocales($factura, $documentoId);
-        $this->sincronizarContadorDesdeApi();
-
         $sifen = is_array($respuesta['sifen'] ?? null)
             ? $respuesta['sifen']
             : ($data['sifen'] ?? null);
+
+        // Si quedó en proceso sin autorización, no descargar como emitida.
+        if ($enviarSifen && $factura->lotePendienteSifen()) {
+            throw new RuntimeException(
+                'El lote fue enviado a SIFEN y sigue en procesamiento'
+                .($factura->set_nro_lote ? ' (nº '.$factura->set_nro_lote.')' : '')
+                .'. Use «Consultar lote» en unos minutos.'
+            );
+        }
+
+        $this->descargarArchivosLocales($factura, $documentoId);
+        $this->sincronizarContadorDesdeApi();
 
         if ($enviarSifen && is_array($sifen) && ! ($sifen['aprobado'] ?? false)) {
             $codigo = $sifen['codigo'] ?? '?';
@@ -160,7 +182,120 @@ class SifenApiBridge
             ],
             'sifen' => $sifen,
             'correo' => is_array($respuesta['correo'] ?? null) ? $respuesta['correo'] : null,
+            'lote_pendiente' => false,
         ];
+    }
+
+    /**
+     * Consulta el resultado de un lote async pendiente en sifen-api.
+     *
+     * @return array<string, mixed>
+     */
+    public function consultarResultadoLote(Factura $factura): array
+    {
+        if (! $factura->sifen_api_documento_id) {
+            throw new RuntimeException('La factura no tiene documento remoto en sifen-api.');
+        }
+
+        $enviarCorreo = $this->resolverEnviarCorreoApi($factura);
+
+        try {
+            $respuesta = $this->client->consultarLote((int) $factura->sifen_api_documento_id, $enviarCorreo);
+        } catch (RuntimeException $e) {
+            $this->sincronizarTrasError($factura);
+
+            if ($this->esErrorLotePendiente($e->getMessage())) {
+                throw new RuntimeException(
+                    'El lote sigue en procesamiento'
+                    .($factura->fresh()->set_nro_lote ? ' (nº '.$factura->fresh()->set_nro_lote.')' : '')
+                    .'. Reintente más tarde.'
+                );
+            }
+
+            throw $e;
+        }
+
+        $data = $this->normalizarRespuestaDocumento($respuesta);
+        $this->sincronizarFacturaDesdeApi($factura, $data);
+        $factura->refresh();
+
+        if ($factura->lotePendienteSifen()) {
+            throw new RuntimeException(
+                'El lote sigue en procesamiento'
+                .($factura->set_nro_lote ? ' (nº '.$factura->set_nro_lote.')' : '')
+                .'. Reintente más tarde.'
+            );
+        }
+
+        if ($factura->estado !== 'emitida') {
+            $sifen = is_array($respuesta['sifen'] ?? null) ? $respuesta['sifen'] : ($data['sifen'] ?? []);
+            $codigo = is_array($sifen) ? ($sifen['codigo'] ?? '?') : '?';
+            $mensaje = is_array($sifen) ? ($sifen['mensaje'] ?? ($respuesta['message'] ?? 'Sin autorización')) : 'Sin autorización';
+            throw new RuntimeException('SIFEN no autorizó el DE: ['.$codigo.'] '.$mensaje);
+        }
+
+        $this->descargarArchivosLocales($factura, (int) $factura->sifen_api_documento_id);
+        $this->sincronizarContadorDesdeApi();
+
+        $sifen = is_array($respuesta['sifen'] ?? null)
+            ? $respuesta['sifen']
+            : ($data['sifen'] ?? null);
+
+        return [
+            'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
+            'cdc' => $respuesta['cdc'] ?? $factura->set_cdc,
+            'xml' => $factura->xml_path ? (string) File::get(storage_path($factura->xml_path)) : '',
+            'xml_path' => $factura->xml_path,
+            'pdf_path' => $factura->pdf_path,
+            'qr_url' => $respuesta['qr_url'] ?? $factura->set_qr_url,
+            'validacion' => ['valido' => true, 'errores' => []],
+            'totales' => [
+                'subtotal' => (float) $factura->subtotal,
+                'total_impuestos' => (float) $factura->total_impuestos,
+                'total' => (float) $factura->total,
+            ],
+            'sifen' => $sifen,
+            'correo' => is_array($respuesta['correo'] ?? null) ? $respuesta['correo'] : null,
+            'lote_pendiente' => false,
+        ];
+    }
+
+    private function sincronizarTrasError(Factura $factura): void
+    {
+        $factura->refresh();
+        if (! $factura->sifen_api_documento_id) {
+            try {
+                $remoto = $this->client->buscarPorReferencia($this->referenciaExterna($factura));
+                if ($remoto) {
+                    $this->sincronizarFacturaDesdeApi($factura, $remoto);
+                }
+            } catch (\Throwable) {
+            }
+
+            return;
+        }
+
+        try {
+            $remoto = $this->client->obtenerDocumento((int) $factura->sifen_api_documento_id);
+            $this->sincronizarFacturaDesdeApi($factura, $remoto);
+        } catch (\Throwable) {
+            try {
+                $remoto = $this->client->buscarPorReferencia($this->referenciaExterna($factura));
+                if ($remoto) {
+                    $this->sincronizarFacturaDesdeApi($factura, $remoto);
+                }
+            } catch (\Throwable) {
+            }
+        }
+    }
+
+    private function esErrorLotePendiente(string $mensaje): bool
+    {
+        $mensaje = mb_strtolower($mensaje);
+
+        return str_contains($mensaje, 'en procesamiento')
+            || str_contains($mensaje, 'consultar-lote')
+            || str_contains($mensaje, 'consultar lote');
     }
 
     private function resolverEnviarCorreoApi(Factura $factura): ?bool
@@ -340,6 +475,7 @@ class SifenApiBridge
             'set_cdc' => $sifen['cdc'] ?? ($data['cdc'] ?? null),
             'set_qr_url' => $sifen['qr_url'] ?? null,
             'set_estado_envio' => $sifen['estado_envio'] ?? null,
+            'set_nro_lote' => $sifen['nro_lote'] ?? null,
             'set_fecha_autorizacion' => ! empty($sifen['fecha_autorizacion'])
                 ? Carbon::parse($sifen['fecha_autorizacion'])
                 : null,

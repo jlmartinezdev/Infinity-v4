@@ -59,6 +59,25 @@
                             <dd class="text-gray-900 dark:text-gray-100">{{ $estado['api_status']['emisor'] }}</dd>
                         </div>
                     @endif
+                    @if(!empty($estado['api_status']['ambiente']))
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Ambiente (API)</dt>
+                            <dd class="font-medium {{ ($estado['api_status']['ambiente'] ?? '') === 'production' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400' }}">
+                                {{ ($estado['api_status']['ambiente'] ?? '') === 'production' ? 'Producción' : 'Prueba' }}
+                            </dd>
+                        </div>
+                    @endif
+                    @if(!empty($estado['api_status']['envio_modo']))
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Tipo de envío (API)</dt>
+                            <dd class="font-medium {{ ($estado['api_status']['envio_modo'] ?? '') === 'async' ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-gray-100' }}">
+                                {{ ($estado['api_status']['envio_modo'] ?? '') === 'async' ? 'Asíncrono (lote)' : 'Síncrono' }}
+                            </dd>
+                            @if(!empty($estado['api_status']['envio_endpoint']))
+                                <dd class="text-xs font-mono text-gray-500 dark:text-gray-400 break-all mt-0.5">{{ $estado['api_status']['envio_endpoint'] }}</dd>
+                            @endif
+                        </div>
+                    @endif
                     @if(!empty($estado['api_status']['siguiente_numero']))
                         <div>
                             <dt class="text-gray-500 dark:text-gray-400">Próximo número (API)</dt>

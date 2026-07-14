@@ -6,6 +6,7 @@ use App\Models\Router;
 use App\Models\Nodo;
 use App\Services\MikroTikService;
 use Illuminate\Http\Request;
+use Throwable;
 
 class RouterController extends Controller
 {
@@ -125,15 +126,30 @@ class RouterController extends Controller
     {
         $router = Router::where('router_id', $router)->firstOrFail();
         $removeOrphans = $request->boolean('remove_orphans', false);
-        $result = $mikrotik->syncPppoeFromDatabase($router, $removeOrphans);
+
+        try {
+            $result = $mikrotik->syncPppoeFromDatabase($router, $removeOrphans);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'servicios_total' => 0,
+                'added' => 0,
+                'updated' => 0,
+                'removed' => 0,
+                'errors' => [$e->getMessage()],
+            ], 422);
+        }
 
         return response()->json([
             'success' => $result['success'],
+            'message' => $result['message'] ?? null,
+            'servicios_total' => $result['servicios_total'] ?? 0,
             'added' => $result['added'],
             'updated' => $result['updated'],
             'removed' => $result['removed'],
             'errors' => $result['errors'],
-        ]);
+        ], ($result['success'] ?? false) ? 200 : 422);
     }
 
     /**

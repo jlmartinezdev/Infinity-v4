@@ -40,33 +40,12 @@ class SifenReceptorParser
      *   dNomRec: string,
      * }
      */
-    private function parseDocumento(string $documento, string $nombre): array
+    public function parseDesdeDocumento(string $documento, string $nombre): array
     {
-        if ($ruc = $this->parseRuc($documento)) {
-            return [
-                'iNatRec' => 1,
-                'iTiOpe' => 1,
-                'iTiContRec' => $this->inferirTipoContribuyente($ruc['ruc']),
-                'dRucRec' => $ruc['ruc'],
-                'dDVRec' => $ruc['dv'],
-                'iTipIDRec' => null,
-                'dDTipIDRec' => null,
-                'dNumIDRec' => null,
-                'dNomRec' => $nombre,
-            ];
-        }
-
-        return [
-            'iNatRec' => 2,
-            'iTiOpe' => 2,
-            'iTiContRec' => null,
-            'dRucRec' => null,
-            'dDVRec' => null,
-            'iTipIDRec' => 1,
-            'dDTipIDRec' => 'Cédula paraguaya',
-            'dNumIDRec' => $documento,
-            'dNomRec' => $nombre,
-        ];
+        return $this->parseDocumento(
+            $this->normalizarDocumento($documento),
+            $this->normalizarNombre($nombre),
+        );
     }
 
     /**
@@ -82,9 +61,86 @@ class SifenReceptorParser
      *   dNomRec: string,
      * }
      */
-    public function parseDesdeDocumento(string $documento, string $nombre): array
+    private function parseDocumento(string $documento, string $nombre): array
     {
-        return $this->parseDocumento($this->normalizarDocumento($documento), $this->normalizarNombre($nombre));
+        if ($this->esDocumentoConsumidorFinal($documento)) {
+            return $this->receptorB2C(
+                $nombre,
+                $this->numeroDocumentoConsumidorFinal($documento),
+            );
+        }
+
+        if ($ruc = $this->parseRuc($documento)) {
+            return [
+                'iNatRec' => 1,
+                'iTiOpe' => 1,
+                'iTiContRec' => $this->inferirTipoContribuyente($ruc['ruc']),
+                'dRucRec' => $ruc['ruc'],
+                'dDVRec' => $ruc['dv'],
+                'iTipIDRec' => null,
+                'dDTipIDRec' => null,
+                'dNumIDRec' => null,
+                'dNomRec' => $nombre,
+            ];
+        }
+
+        return $this->receptorB2C($nombre, $documento);
+    }
+
+    /**
+     * @return array{
+     *   iNatRec: int,
+     *   iTiOpe: int,
+     *   iTiContRec: ?int,
+     *   dRucRec: ?string,
+     *   dDVRec: ?int,
+     *   iTipIDRec: ?int,
+     *   dDTipIDRec: ?string,
+     *   dNumIDRec: ?string,
+     *   dNomRec: string,
+     * }
+     */
+    private function receptorB2C(string $nombre, string $dNumIDRec): array
+    {
+        return [
+            'iNatRec' => 2,
+            'iTiOpe' => 2,
+            'iTiContRec' => null,
+            'dRucRec' => null,
+            'dDVRec' => null,
+            'iTipIDRec' => 1,
+            'dDTipIDRec' => 'Cédula paraguaya',
+            'dNumIDRec' => $dNumIDRec !== '' ? $dNumIDRec : '0',
+            'dNomRec' => $nombre,
+        ];
+    }
+
+    /**
+     * RUC genéricos usados como “sin RUC / consumidor final” (no son contribuyentes).
+     * Si se envían como B2B, SIFEN suele rechazar por RUC inexistente (ej. 1306).
+     */
+    private function esDocumentoConsumidorFinal(string $documento): bool
+    {
+        $normalizado = strtoupper(str_replace(['.', ' '], '', $documento));
+
+        return in_array($normalizado, [
+            '9999999-9',
+            '99999999-9',
+            '9999999',
+            '99999999',
+            '999999999',
+        ], true);
+    }
+
+    private function numeroDocumentoConsumidorFinal(string $documento): string
+    {
+        if ($ruc = $this->parseRuc($documento)) {
+            return $ruc['ruc'];
+        }
+
+        $soloDigitos = preg_replace('/\D+/', '', $documento) ?? '';
+
+        return $soloDigitos !== '' ? $soloDigitos : '0';
     }
 
     private function normalizarDocumento(string $documento): string

@@ -3,6 +3,12 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
+Artisan::command('importar-olt-onus', function () {
+    $this->call('olt:import-onus', [
+        '--all' => true,
+    ]);
+})->purpose('Importar ONUs de todos los OLTs VSOL con credenciales');
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');

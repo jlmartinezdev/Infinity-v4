@@ -285,6 +285,7 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas/consultar-padron-receptor', [FacturaController::class, 'consultarPadronReceptor'])->name('facturas.consultar-padron-receptor');
     Route::post('/facturas/verificar-receptor-documento', [FacturaController::class, 'verificarReceptorDocumento'])->name('facturas.verificar-receptor-documento');
     Route::post('/facturas', [FacturaController::class, 'store'])->name('facturas.store');
+    Route::post('/facturas/masivo', [FacturaController::class, 'storeMasivo'])->name('facturas.store-masivo');
     Route::post('/facturas/generar-interna', [FacturaController::class, 'storeGenerarInterna'])->name('facturas.store-generar-interna');
     Route::post('/facturas/preparar-interna-desde-servicios', [FacturaController::class, 'prepararInternaDesdeServicios'])->name('facturas.preparar-interna-desde-servicios');
     Route::get('/facturas/generar-interna-desde-servicios', [FacturaController::class, 'generarInternaDesdeServicios'])->name('facturas.generar-interna-desde-servicios');
@@ -297,6 +298,8 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'storeInternaFraccionDeudaServicio'])->name('facturas.store-interna-servicio-fraccion-deuda');
     Route::post('/facturas/suspender-falta-pago', [FacturaController::class, 'suspenderFaltaPago'])->name('facturas.suspender-falta-pago');
     Route::post('/facturas/{factura}/emitir', [FacturaController::class, 'emitir'])->name('facturas.emitir');
+    Route::post('/facturas/{factura}/consultar-lote', [FacturaController::class, 'consultarLote'])->name('facturas.consultar-lote');
+    Route::post('/facturas/consultar-lotes', [FacturaController::class, 'consultarLotesPendientes'])->name('facturas.consultar-lotes');
 });
 Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::get('/facturas/{factura}/kude', [FacturaController::class, 'descargarKude'])->name('facturas.kude');
@@ -559,6 +562,11 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::resource('salida-pons', SalidaPonController::class)->except(['show']);
     Route::resource('olt-marcas', OltMarcaController::class);
     Route::resource('olts', OltController::class);
+    Route::get('olts/{olt}/pon/{ponPort}', [OltController::class, 'showPonOnus'])->whereNumber('ponPort')->name('olts.pon-onus');
+    Route::post('olts/{olt}/test-gestion', [OltController::class, 'testGestion'])->name('olts.test-gestion')->middleware('permiso:ftth-olts.editar');
+    Route::post('olts/{olt}/import-onus', [OltController::class, 'importOnus'])->name('olts.import-onus')->middleware('permiso:ftth-olts.editar');
+    Route::post('olts/{olt}/refresh-onu-detalles', [OltController::class, 'refreshOnuDetalles'])->name('olts.refresh-onu-detalles')->middleware('permiso:ftth-olts.editar');
+    Route::post('olts/{olt}/pon/{ponPort}/refresh-onu-detalles', [OltController::class, 'refreshOnuDetallesPon'])->whereNumber('ponPort')->name('olts.refresh-onu-detalles-pon')->middleware('permiso:ftth-olts.editar');
     Route::get('olts/{olt}/olt-puertos/create', [OltPuertoController::class, 'create'])->name('olt-puertos.create');
     Route::post('olts/{olt}/olt-puertos', [OltPuertoController::class, 'store'])->name('olt-puertos.store');
     Route::get('olt-puertos/{oltPuerto}/edit', [OltPuertoController::class, 'edit'])->name('olt-puertos.edit');

@@ -5,7 +5,7 @@
     "/js/register.js": "/js/register.js?id=1656f2b86f839521a82f06649f81c8d8",
     "/js/pedido-form.js": "/js/pedido-form.js?id=22fde407dcd5a1cc1434a3b5ce98f732",
     "/js/pedidos-list.js": "/js/pedidos-list.js?id=3c8398a7299ec3be8a7ee5e3da017900",
-    "/js/clientes-list.js": "/js/clientes-list.js?id=90f48d99a56bd658e48813a7d6f995a1",
+    "/js/clientes-list.js": "/js/clientes-list.js?id=7fcb9c225a5f2ecc27f3b505a7ca4090",
     "/js/cliente-form-mapa.js": "/js/cliente-form-mapa.js?id=5dedd6f1782a97a01a977926f7d9f24f",
     "/js/recibo-copy-image.js": "/js/recibo-copy-image.js?id=87d2e19f23ea98c886e492ce409b8f8c",
     "/js/recibo-modo-local.js": "/js/recibo-modo-local.js?id=7a60c897dacc8961e2ec3d7616d5d512",
@@ -23,5 +23,5 @@
     "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=6945036c683c8e68782122e60254eaa8",
     "/js/nodo-migrar-pppoe.js": "/js/nodo-migrar-pppoe.js?id=8c6950226daa34aff2aada2e9793678b",
     "/js/tareas-dashboard.js": "/js/tareas-dashboard.js?id=fd848509656e9675b8971d93d221104a",
-    "/css/app.css": "/css/app.css?id=d3837f4ee2d281cd29bec098be9c7e0b"
+    "/css/app.css": "/css/app.css?id=f054a36a58005ae61e77ddbeda5e7ee9"
 }

@@ -129,6 +129,125 @@ class SifenRespuestaParser
         return $resultado;
     }
 
+    /**
+     * @return array{
+     *   codigo: ?string,
+     *   mensaje: ?string,
+     *   protocolo_lote: ?string,
+     *   aceptado: bool,
+     *   raw: string,
+     * }
+     */
+    public function parsearRecepcionLote(string $xmlRespuesta): array
+    {
+        $resultado = [
+            'codigo' => null,
+            'mensaje' => null,
+            'protocolo_lote' => null,
+            'aceptado' => false,
+            'raw' => $xmlRespuesta,
+        ];
+
+        $xmlRespuesta = trim($xmlRespuesta);
+        if ($xmlRespuesta === '') {
+            $resultado['mensaje'] = 'Respuesta vacía de recepción de lote SIFEN.';
+
+            return $resultado;
+        }
+
+        $dom = new \DOMDocument;
+        if (! @$dom->loadXML($xmlRespuesta)) {
+            $resultado['mensaje'] = 'La respuesta de lote no es XML válido: '.$this->resumirTexto($xmlRespuesta);
+
+            return $resultado;
+        }
+
+        $xpath = new \DOMXPath($dom);
+        $resultado['codigo'] = $this->xpathTexto($xpath, '//*[local-name()="dCodRes"]');
+        $resultado['mensaje'] = $this->xpathTexto($xpath, '//*[local-name()="dMsgRes"]');
+        $resultado['protocolo_lote'] = $this->xpathTexto($xpath, '//*[local-name()="dProtConsLote"]');
+        $resultado['aceptado'] = $resultado['codigo'] === '0300' && filled($resultado['protocolo_lote']);
+
+        if (! $resultado['aceptado'] && ! $resultado['mensaje']) {
+            $resultado['mensaje'] = $this->resumirTexto($xmlRespuesta);
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * @return array{
+     *   codigo: ?string,
+     *   mensaje: ?string,
+     *   estado: ?string,
+     *   cdc: ?string,
+     *   protocolo: ?string,
+     *   aprobado: bool,
+     *   en_proceso: bool,
+     *   lote_inexistente: bool,
+     *   detalles: array<int, array{codigo: ?string, mensaje: ?string}>,
+     *   raw: string,
+     * }
+     */
+    public function parsearResultadoLote(string $xmlRespuesta, ?string $cdcEsperado = null): array
+    {
+        $base = $this->parsear($xmlRespuesta);
+        $base['en_proceso'] = false;
+        $base['lote_inexistente'] = false;
+
+        $dom = new \DOMDocument;
+        if (! @$dom->loadXML(trim($xmlRespuesta))) {
+            return $base;
+        }
+
+        $xpath = new \DOMXPath($dom);
+        $codLote = $this->xpathTexto($xpath, '//*[local-name()="dCodResLot"]')
+            ?? $this->xpathTexto($xpath, '//*[local-name()="dCodRes"]');
+        $msgLote = $this->xpathTexto($xpath, '//*[local-name()="dMsgResLot"]')
+            ?? $this->xpathTexto($xpath, '//*[local-name()="dMsgRes"]');
+
+        if ($codLote === '0361') {
+            $base['en_proceso'] = true;
+            $base['aprobado'] = false;
+            $base['codigo'] = $codLote;
+            $base['mensaje'] = $msgLote ?? 'Lote en procesamiento';
+
+            return $base;
+        }
+
+        if ($codLote === '0360') {
+            $base['lote_inexistente'] = true;
+            $base['aprobado'] = false;
+            $base['codigo'] = $codLote;
+            $base['mensaje'] = $msgLote ?? 'Número de lote inexistente';
+
+            return $base;
+        }
+
+        // 0362 u otros: buscar protocolo del DE (por CDC si se indica).
+        if ($cdcEsperado) {
+            $prot = $xpath->query(
+                '//*[local-name()="rProtDe" and (@Id="'.$cdcEsperado.'" or *[local-name()="Id"]="'.$cdcEsperado.'")]'
+            );
+            if ($prot !== false && $prot->length > 0) {
+                $fragmento = $dom->saveXML($prot->item(0));
+                if (is_string($fragmento) && $fragmento !== '') {
+                    $parcial = $this->parsear('<?xml version="1.0"?><root>'.$fragmento.'</root>');
+                    $parcial['raw'] = $xmlRespuesta;
+                    $parcial['en_proceso'] = false;
+                    $parcial['lote_inexistente'] = false;
+
+                    return $parcial;
+                }
+            }
+        }
+
+        $base['codigo'] = $base['codigo'] ?: $codLote;
+        $base['mensaje'] = $base['mensaje'] ?: $msgLote;
+
+        return $base;
+    }
+
     private function xpathTexto(\DOMXPath $xpath, string $query): ?string
     {
         $nodes = $xpath->query($query);

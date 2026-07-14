@@ -6,13 +6,20 @@
 <div class="max-w-4xl mx-auto">
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Factura {{ $factura->numero_completo ?? '#' . $factura->id }}</h1>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
             @if($factura->estado === 'borrador')
-                <a href="{{ route('facturas.edit', $factura) }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">Editar</a>
-                <form action="{{ route('facturas.emitir', $factura) }}" method="POST" class="inline" onsubmit="return confirm('¿Emitir factura electrónica y enviar a SIFEN?');">
-                    @csrf
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">Emitir e-Kuatia</button>
-                </form>
+                @if($factura->lotePendienteSifen())
+                    <form action="{{ route('facturas.consultar-lote', $factura) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">Consultar lote SIFEN</button>
+                    </form>
+                @else
+                    <a href="{{ route('facturas.edit', $factura) }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">Editar</a>
+                    <form action="{{ route('facturas.emitir', $factura) }}" method="POST" class="inline" onsubmit="return confirm('¿Emitir factura electrónica y enviar a SIFEN?');">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">Emitir e-Kuatia</button>
+                    </form>
+                @endif
             @endif
             @if($factura->estado === 'emitida' && $factura->set_cdc)
                 <a href="{{ route('facturas.kude-pos', $factura) }}" target="_blank" rel="noopener" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700">KuDE POS 80 mm</a>
@@ -98,15 +105,28 @@
             @if($factura->observaciones)
                 <p class="mt-4 text-sm text-gray-600 dark:text-gray-300"><span class="font-medium">Observaciones:</span> {{ $factura->observaciones }}</p>
             @endif
+            @if($factura->lotePendienteSifen())
+                <div class="mt-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-sm">
+                    <p class="font-medium text-indigo-900 dark:text-indigo-200 mb-1">Lote asíncrono pendiente</p>
+                    <p class="text-xs text-indigo-800 dark:text-indigo-300">
+                        Número de lote: <span class="font-mono font-semibold">{{ $factura->set_nro_lote }}</span>
+                        · Estado: {{ ucfirst($factura->set_estado_envio) }}
+                    </p>
+                    <p class="text-xs text-indigo-700 dark:text-indigo-400 mt-1">DNIT puede demorar varios minutos. Use «Consultar lote SIFEN» para obtener la autorización.</p>
+                </div>
+            @endif
             @if($factura->set_cdc)
                 <div class="mt-4 p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 text-sm">
                     <p class="font-medium text-gray-700 dark:text-gray-300 mb-1">Factura electrónica (SIFEN)</p>
                     <p class="text-xs text-gray-600 dark:text-gray-400 break-all">CDC: {{ $factura->set_cdc }}</p>
+                    @if($factura->set_nro_lote)
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Lote: <span class="font-mono">{{ $factura->set_nro_lote }}</span></p>
+                    @endif
                     @if($factura->set_estado_envio)
                         <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">
                             Estado SIFEN:
-                            <span class="font-medium @if($factura->set_estado_envio === 'autorizado') text-green-700 dark:text-green-400 @elseif($factura->set_estado_envio === 'rechazado') text-red-700 dark:text-red-400 @else text-amber-700 dark:text-amber-400 @endif">
-                                {{ ucfirst($factura->set_estado_envio) }}
+                            <span class="font-medium @if($factura->set_estado_envio === 'autorizado') text-green-700 dark:text-green-400 @elseif($factura->set_estado_envio === 'rechazado') text-red-700 dark:text-red-400 @elseif($factura->set_estado_envio === 'en_proceso') text-indigo-700 dark:text-indigo-400 @else text-amber-700 dark:text-amber-400 @endif">
+                                {{ ucfirst(str_replace('_', ' ', $factura->set_estado_envio)) }}
                             </span>
                             @if($factura->set_fecha_autorizacion)
                                 · {{ $factura->set_fecha_autorizacion->format('d/m/Y H:i') }}

@@ -21,16 +21,25 @@ class Olt extends Model
         'codigo',
         'modelo',
         'ip',
+        'gestion_usuario',
+        'gestion_password',
+        'gestion_protocolo',
+        'gestion_puerto',
+        'gestion_enable_password',
         'cantidad_puerto',
         'tipo_pon',
         'estado',
         'notas',
+        'onus_synced_at',
+        'onus_sync_error',
     ];
 
     protected function casts(): array
     {
         return [
             'cantidad_puerto' => 'integer',
+            'gestion_puerto' => 'integer',
+            'onus_synced_at' => 'datetime',
         ];
     }
 
@@ -47,6 +56,32 @@ class Olt extends Model
     public function salidaPons(): HasMany
     {
         return $this->hasMany(SalidaPon::class, 'olt_id', 'olt_id');
+    }
+
+    public function onus(): HasMany
+    {
+        return $this->hasMany(OltOnu::class, 'olt_id', 'olt_id');
+    }
+
+    public function gestionPuertoEfectivo(): int
+    {
+        if ($this->gestion_puerto) {
+            return (int) $this->gestion_puerto;
+        }
+
+        return ($this->gestion_protocolo ?? 'telnet') === 'ssh'
+            ? (int) config('olt.vsol.default_ssh_port', 22)
+            : (int) config('olt.vsol.default_telnet_port', 23);
+    }
+
+    public function gestionUsuarioEfectivo(): string
+    {
+        return trim((string) ($this->gestion_usuario ?: config('olt.vsol.default_user', 'admin')));
+    }
+
+    public function tieneCredencialesGestion(): bool
+    {
+        return filled($this->ip) && filled($this->gestion_password);
     }
 
     public function getRouteKeyName(): string

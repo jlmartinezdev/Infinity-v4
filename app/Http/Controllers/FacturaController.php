@@ -27,6 +27,9 @@ class FacturaController extends Controller
         if ($request->filled('estado')) {
             $query->where('estado', $request->estado);
         }
+        if ($request->boolean('lote_pendiente')) {
+            $query->lotePendienteSifen();
+        }
         if ($request->filled('cliente_id')) {
             $query->where('cliente_id', $request->cliente_id);
         }
@@ -68,6 +71,8 @@ class FacturaController extends Controller
             ->whereMonth('fecha_emision', $mesDashboard->month)
             ->sum('total');
 
+        $lotesPendientesCount = Factura::query()->lotePendienteSifen()->count();
+
         return view('facturas.index', [
             'facturas' => $facturas,
             'clientes' => $clientes,
@@ -76,18 +81,32 @@ class FacturaController extends Controller
             'statsEmitidasMes' => $statsEmitidasMes,
             'borradoresMes' => $borradoresMes,
             'montoBorradoresMes' => $montoBorradoresMes,
+            'lotesPendientesCount' => $lotesPendientesCount,
         ]);
     }
 
     public function create(Request $request)
     {
-        $mes = now();
-        $mesLabel = $mes->locale('es')->isoFormat('MMMM YYYY');
+        $periodo = $this->resolverPeriodoFacturacion($request->input('periodo'));
+        $mes = $periodo['desde'];
+        $mesLabel = $periodo['label'];
+        $periodoYm = $periodo['ym'];
+        $marcadorPeriodo = $periodo['marcador'];
 
         $emisionesMes = Factura::query()
             ->where('estado', 'emitida')
-            ->whereYear('fecha_emision', $mes->year)
-            ->whereMonth('fecha_emision', $mes->month)
+            ->where(function ($q) use ($mes, $marcadorPeriodo) {
+                $q->where(function ($q2) use ($marcadorPeriodo) {
+                    $q2->whereNotNull('observaciones')
+                        ->where('observaciones', 'like', '%'.$marcadorPeriodo.'%');
+                })->orWhere(function ($q2) use ($mes) {
+                    $q2->where(function ($q3) {
+                        $q3->whereNull('observaciones')->orWhere('observaciones', 'not like', '%Período facturación:%');
+                    })
+                        ->whereYear('fecha_emision', $mes->year)
+                        ->whereMonth('fecha_emision', $mes->month);
+                });
+            })
             ->selectRaw('cliente_id, COUNT(*) as cantidad, MAX(id) as ultima_factura_id, MAX(fecha_emision) as ultima_fecha')
             ->groupBy('cliente_id')
             ->get()
@@ -111,16 +130,20 @@ class FacturaController extends Controller
             $query->whereNotIn('cliente_id', $emisionesMes->keys()->all());
         }
 
-        $clientes = $query->paginate(25)->withQueryString();
+        $clientes = $query->paginate(50)->withQueryString();
 
         $totalActivos = Cliente::whereIn('estado', ['activo', 'inactivo'])->count();
         $emitidosMes = $emisionesMes->count();
         $pendientesMes = max(0, $totalActivos - $emitidosMes);
 
+        $periodosOpciones = $this->opcionesPeriodoFacturacion();
+
         return view('facturas.seleccionar-cliente', compact(
             'clientes',
             'emisionesMes',
             'mesLabel',
+            'periodoYm',
+            'periodosOpciones',
             'totalActivos',
             'emitidosMes',
             'pendientesMes',
@@ -151,20 +174,25 @@ class FacturaController extends Controller
         ]);
     }
 
-    public function createParaCliente(Cliente $cliente)
+    public function createParaCliente(Request $request, Cliente $cliente)
     {
         if (blank($cliente->cedula)) {
             return redirect()->route('facturas.create')
                 ->with('error', 'El cliente debe tener cédula o RUC para emitir factura electrónica SIFEN.');
         }
 
+        $periodo = $this->resolverPeriodoFacturacion($request->input('periodo'));
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo'])->orderBy('nombre')->get();
         $impuestos = Impuesto::activos();
         $clienteSeleccionado = $cliente;
 
         $sifenConfig = SifenConfiguracion::activa();
         $prefill = $this->construirPrefillSifen($sifenConfig);
-        $detallesIniciales = $this->construirDetallesDesdeServiciosCliente($cliente);
+        $detallesIniciales = $this->construirDetallesDesdeServiciosCliente(
+            $cliente,
+            $periodo['desde'],
+            $periodo['hasta'],
+        );
 
         return view('facturas.create', compact(
             'clientes',
@@ -201,13 +229,67 @@ class FacturaController extends Controller
     }
 
     /**
+     * @return array{desde: Carbon, hasta: Carbon, label: string, ym: string, marcador: string}
+     */
+    private function resolverPeriodoFacturacion(null|string $periodoYm = null): array
+    {
+        $mes = now()->startOfMonth();
+
+        if (filled($periodoYm)) {
+            try {
+                $mes = Carbon::createFromFormat('Y-m', (string) $periodoYm)->startOfMonth();
+            } catch (\Throwable) {
+                // Formato inválido: usar mes actual.
+            }
+        }
+
+        $desde = $mes->copy()->startOfMonth();
+        $hasta = $mes->copy()->endOfMonth();
+
+        return [
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'label' => $desde->copy()->locale('es')->isoFormat('MMMM YYYY'),
+            'ym' => $desde->format('Y-m'),
+            'marcador' => 'Período facturación: '.$desde->format('Y-m'),
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function opcionesPeriodoFacturacion(): array
+    {
+        $opciones = [];
+        $cursor = now()->startOfMonth();
+
+        for ($i = 0; $i < 6; $i++) {
+            $mes = $cursor->copy()->subMonths($i);
+            $suffix = match ($i) {
+                0 => ' (mes actual)',
+                1 => ' (mes anterior)',
+                default => '',
+            };
+            $opciones[] = [
+                'value' => $mes->format('Y-m'),
+                'label' => ucfirst($mes->copy()->locale('es')->isoFormat('MMMM YYYY')).$suffix,
+            ];
+        }
+
+        return $opciones;
+    }
+
+    /**
      * @return list<array{descripcion: string, cantidad: float, precio_unitario: float, impuesto_id: int|null, servicio_id: int}>
      */
-    private function construirDetallesDesdeServiciosCliente(Cliente $cliente): array
-    {
+    private function construirDetallesDesdeServiciosCliente(
+        Cliente $cliente,
+        ?Carbon $periodoDesde = null,
+        ?Carbon $periodoHasta = null,
+    ): array {
         $impuestoIva = Impuesto::where('codigo', 'IVA10')->first() ?? Impuesto::activos()->firstWhere('porcentaje', '>', 0);
-        $periodoDesde = now()->startOfMonth();
-        $periodoHasta = now()->endOfMonth();
+        $periodoDesde = ($periodoDesde ?? now())->copy()->startOfMonth();
+        $periodoHasta = ($periodoHasta ?? now())->copy()->endOfMonth();
         $periodoStr = $periodoDesde->format('d/m/Y').' a '.$periodoHasta->format('d/m/Y');
 
         $servicios = Servicio::query()
@@ -360,6 +442,185 @@ class FacturaController extends Controller
         });
 
         return redirect()->route('facturas.show', $factura)->with('success', 'Factura creada correctamente.');
+    }
+
+    /**
+     * Crea borradores (y opcionalmente envía a SIFEN) para varios clientes a la vez.
+     */
+    public function storeMasivo(Request $request, SifenService $sifenService)
+    {
+        $validated = $request->validate([
+            'cliente_ids' => ['required', 'array', 'min:1', 'max:50'],
+            'cliente_ids.*' => ['integer', 'exists:clientes,cliente_id'],
+            'emitir' => ['nullable', 'boolean'],
+            'periodo' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],
+        ]);
+
+        $periodo = $this->resolverPeriodoFacturacion($validated['periodo'] ?? null);
+        $emitir = $request->boolean('emitir');
+        $sifenConfig = SifenConfiguracion::activa();
+        $prefill = $this->construirPrefillSifen($sifenConfig);
+
+        $clientes = Cliente::query()
+            ->whereIn('cliente_id', $validated['cliente_ids'])
+            ->get()
+            ->keyBy('cliente_id');
+
+        $creadas = [];
+        $enviadas = [];
+        $errores = [];
+
+        if ($emitir) {
+            @set_time_limit(0);
+        }
+
+        foreach ($validated['cliente_ids'] as $clienteId) {
+            $cliente = $clientes->get($clienteId);
+            $etiqueta = $cliente
+                ? trim($cliente->nombre.' '.$cliente->apellido)
+                : 'Cliente #'.$clienteId;
+
+            if (! $cliente) {
+                $errores[] = $etiqueta.': no encontrado.';
+                continue;
+            }
+
+            if (blank($cliente->cedula)) {
+                $errores[] = $etiqueta.': sin cédula/RUC.';
+                continue;
+            }
+
+            $detalles = $this->construirDetallesDesdeServiciosCliente(
+                $cliente,
+                $periodo['desde'],
+                $periodo['hasta'],
+            );
+            if ($detalles === []) {
+                $errores[] = $etiqueta.': sin servicios activos con precio.';
+                continue;
+            }
+
+            try {
+                $factura = $this->crearBorradorElectronico(
+                    $cliente,
+                    $detalles,
+                    $prefill,
+                    $request->user()?->usuario_id,
+                    $periodo['marcador'].' ('.$periodo['label'].')',
+                );
+
+                $creadas[] = $factura->id;
+
+                if ($emitir) {
+                    $resultado = $sifenService->emitirDocumento($factura->fresh(), true);
+                    if ($resultado['lote_pendiente'] ?? false) {
+                        $enviadas[] = $factura->id;
+                    } elseif ($resultado['sifen']['aprobado'] ?? false) {
+                        $enviadas[] = $factura->id;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $errores[] = $etiqueta.': '.$e->getMessage();
+            }
+        }
+
+        $partes = [];
+        if ($creadas !== []) {
+            $partes[] = count($creadas).' borrador(es) creado(s) · período '.$periodo['label'];
+        }
+        if ($emitir && $enviadas !== []) {
+            $partes[] = count($enviadas).' enviado(s) a SIFEN';
+        }
+        if ($errores !== []) {
+            $partes[] = count($errores).' con error';
+        }
+
+        $mensaje = $partes !== []
+            ? implode(' · ', $partes).'.'
+            : 'No se procesó ningún cliente.';
+
+        if ($errores !== []) {
+            $mensaje .= ' Detalle: '.implode(' | ', array_slice($errores, 0, 8));
+            if (count($errores) > 8) {
+                $mensaje .= ' … (+'.(count($errores) - 8).')';
+            }
+        }
+
+        $tipo = $errores !== [] && $creadas === [] ? 'error' : ($errores !== [] ? 'warning' : 'success');
+
+        if ($emitir && $enviadas !== []) {
+            return redirect()
+                ->route('facturas.index', ['estado' => 'borrador'])
+                ->with($tipo, $mensaje.' Use «Consultar lote SIFEN» en cada factura en proceso.');
+        }
+
+        if ($creadas !== [] && count($creadas) === 1 && ! $emitir) {
+            return redirect()->route('facturas.show', $creadas[0])->with($tipo, $mensaje);
+        }
+
+        return redirect()
+            ->route('facturas.index', $creadas !== [] ? ['estado' => 'borrador'] : [])
+            ->with($tipo, $mensaje);
+    }
+
+    /**
+     * @param  list<array{descripcion: string, cantidad: float, precio_unitario: float, impuesto_id: int|null, servicio_id: int}>  $detalles
+     * @param  array<string, mixed>  $prefill
+     */
+    private function crearBorradorElectronico(
+        Cliente $cliente,
+        array $detalles,
+        array $prefill,
+        ?int $usuarioId,
+        ?string $observaciones = null,
+    ): Factura {
+        return \DB::transaction(function () use ($cliente, $detalles, $prefill, $usuarioId, $observaciones) {
+            $factura = Factura::create([
+                'cliente_id' => $cliente->cliente_id,
+                'es_ocasional' => false,
+                'tipo_documento' => 'factura_contado',
+                'estado' => 'borrador',
+                'fecha_emision' => now()->toDateString(),
+                'fecha_vencimiento' => null,
+                'moneda' => 'PYG',
+                'numero_timbrado' => $prefill['numero_timbrado'] ?? null,
+                'timbrado_vigencia_desde' => $prefill['timbrado_vigencia_desde'] ?? null,
+                'timbrado_vigencia_hasta' => $prefill['timbrado_vigencia_hasta'] ?? null,
+                'establecimiento' => $prefill['establecimiento'] ?? 1,
+                'punto_emision' => $prefill['punto_emision'] ?? 1,
+                'observaciones' => $observaciones,
+                'usuario_id' => $usuarioId,
+                'subtotal' => 0,
+                'total_impuestos' => 0,
+                'total' => 0,
+            ]);
+
+            foreach ($detalles as $item) {
+                $impuesto = isset($item['impuesto_id']) ? Impuesto::find($item['impuesto_id']) : null;
+                $calc = FacturaDetalle::calcularLinea(
+                    (float) $item['cantidad'],
+                    (float) $item['precio_unitario'],
+                    $impuesto
+                );
+                FacturaDetalle::create([
+                    'factura_electronica_id' => $factura->id,
+                    'impuesto_id' => $item['impuesto_id'] ?? null,
+                    'servicio_id' => $item['servicio_id'] ?? null,
+                    'descripcion' => $item['descripcion'],
+                    'cantidad' => $item['cantidad'],
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal' => $calc['subtotal'],
+                    'porcentaje_impuesto' => $calc['porcentaje_impuesto'],
+                    'monto_impuesto' => $calc['monto_impuesto'],
+                    'total' => $calc['total'],
+                ]);
+            }
+
+            $factura->load('detalles');
+            $factura->recalcularTotales();
+
+            return $factura;
+        });
     }
 
     public function verificarReceptorDocumento(Request $request)
@@ -555,8 +816,24 @@ class FacturaController extends Controller
         try {
             $resultado = $sifenService->emitirDocumento($factura, true);
         } catch (\Throwable $e) {
+            $factura->refresh();
+            $tipo = $factura->lotePendienteSifen() ? 'warning' : 'error';
+            $prefijo = $factura->lotePendienteSifen()
+                ? ''
+                : 'Error al emitir factura electrónica: ';
+
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'Error al emitir factura electrónica: '.$e->getMessage());
+                ->with($tipo, $prefijo.$e->getMessage());
+        }
+
+        if ($resultado['lote_pendiente'] ?? false) {
+            $nroLote = $resultado['sifen']['protocolo_lote'] ?? $factura->fresh()->set_nro_lote;
+
+            return redirect()->route('facturas.show', $factura)->with(
+                'warning',
+                'Lote enviado a SIFEN (n.º '.$nroLote.'). CDC: '.$resultado['cdc']
+                .'. Espere 1–2 minutos y use «Consultar lote SIFEN».'
+            );
         }
 
         $mensaje = 'Factura electrónica emitida. CDC: '.$resultado['cdc'];
@@ -568,6 +845,125 @@ class FacturaController extends Controller
         }
 
         return redirect()->route('facturas.show', $factura)->with('success', $mensaje);
+    }
+
+    /**
+     * Consulta el resultado de un lote SIFEN asíncrono pendiente.
+     */
+    public function consultarLote(Factura $factura, SifenService $sifenService)
+    {
+        if (! $factura->lotePendienteSifen() && $factura->estado !== 'borrador') {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Esta factura no tiene un lote pendiente de consulta.');
+        }
+
+        if (! $factura->lotePendienteSifen() && blank($factura->set_nro_lote)) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', 'Esta factura no tiene número de lote SIFEN.');
+        }
+
+        try {
+            $resultado = $sifenService->consultarResultadoLote($factura);
+        } catch (\Throwable $e) {
+            $factura->refresh();
+            $tipo = $factura->lotePendienteSifen() ? 'warning' : 'error';
+
+            return redirect()->route('facturas.show', $factura)
+                ->with($tipo, $e->getMessage());
+        }
+
+        $mensaje = 'Lote consultado. Factura autorizada. CDC: '.$resultado['cdc'];
+        if (($resultado['correo']['enviado'] ?? false) && ($resultado['correo']['destinatario'] ?? null)) {
+            $mensaje .= ' · Correo enviado a '.$resultado['correo']['destinatario'];
+        }
+
+        return redirect()->route('facturas.show', $factura)->with('success', $mensaje);
+    }
+
+    /**
+     * Consulta varios lotes SIFEN pendientes (seleccionados o todos).
+     */
+    public function consultarLotesPendientes(Request $request, SifenService $sifenService)
+    {
+        $validated = $request->validate([
+            'factura_ids' => ['nullable', 'array', 'max:50'],
+            'factura_ids.*' => ['integer', 'exists:factura_electronicas,id'],
+            'todos' => ['nullable', 'boolean'],
+        ]);
+
+        $query = Factura::query()->lotePendienteSifen()->orderBy('id');
+
+        if ($request->boolean('todos') || empty($validated['factura_ids'] ?? [])) {
+            $facturas = $query->limit(50)->get();
+        } else {
+            $facturas = $query->whereIn('id', $validated['factura_ids'])->limit(50)->get();
+        }
+
+        if ($facturas->isEmpty()) {
+            return redirect()->route('facturas.index', ['lote_pendiente' => 1])
+                ->with('warning', 'No hay lotes SIFEN pendientes para consultar.');
+        }
+
+        @set_time_limit(0);
+
+        $autorizadas = 0;
+        $aunProceso = 0;
+        $rechazadas = 0;
+        $errores = [];
+
+        foreach ($facturas as $factura) {
+            $etiqueta = '#'.$factura->id;
+            if ($factura->numero_completo) {
+                $etiqueta .= ' '.$factura->numero_completo;
+            }
+
+            try {
+                $sifenService->consultarResultadoLote($factura->fresh());
+                $factura->refresh();
+
+                if ($factura->estado === 'emitida') {
+                    $autorizadas++;
+                } elseif ($factura->lotePendienteSifen()) {
+                    $aunProceso++;
+                } else {
+                    $rechazadas++;
+                }
+            } catch (\Throwable $e) {
+                $factura->refresh();
+                if ($factura->lotePendienteSifen()) {
+                    $aunProceso++;
+                    $errores[] = $etiqueta.': aún en proceso';
+                } elseif ($factura->set_estado_envio === 'rechazado') {
+                    $rechazadas++;
+                    $errores[] = $etiqueta.': '.$e->getMessage();
+                } else {
+                    $errores[] = $etiqueta.': '.$e->getMessage();
+                }
+            }
+        }
+
+        $partes = [
+            'Consultadas: '.$facturas->count(),
+            'autorizadas: '.$autorizadas,
+            'aún en proceso: '.$aunProceso,
+            'rechazadas: '.$rechazadas,
+        ];
+        $mensaje = implode(' · ', $partes).'.';
+
+        if ($errores !== []) {
+            $mensaje .= ' Detalle: '.implode(' | ', array_slice($errores, 0, 6));
+            if (count($errores) > 6) {
+                $mensaje .= ' … (+'.(count($errores) - 6).')';
+            }
+        }
+
+        $tipo = $rechazadas > 0 || $errores !== []
+            ? ($autorizadas > 0 || $aunProceso > 0 ? 'warning' : 'error')
+            : ($aunProceso > 0 ? 'warning' : 'success');
+
+        return redirect()
+            ->route('facturas.index', $aunProceso > 0 ? ['lote_pendiente' => 1] : [])
+            ->with($tipo, $mensaje);
     }
 
     /**
