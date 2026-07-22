@@ -59,11 +59,68 @@
             @endif
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Saldo a favor</p>
+            <div class="flex items-start justify-between gap-3">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Saldo a favor</p>
+                @if($esAdministrador && $cliente->servicios->isNotEmpty())
+                    <button type="button" id="btn-toggle-saldo-favor"
+                        class="text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline shrink-0">
+                        Ajustar manualmente
+                    </button>
+                @endif
+            </div>
             <p class="mt-2 text-2xl font-bold {{ ($totalSaldoFavor ?? 0) > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-gray-900 dark:text-gray-100' }}">
                 {{ number_format((float) ($totalSaldoFavor ?? 0), 0, ',', '.') }} PYG
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Crédito por cobros adelantados en servicios</p>
+
+            @if($cliente->servicios->count() > 1)
+                <ul class="mt-3 space-y-1 text-xs text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
+                    @foreach($cliente->servicios as $sSaldo)
+                        <li class="flex justify-between gap-2">
+                            <span>Servicio #{{ $sSaldo->servicio_id }} · {{ $sSaldo->plan?->nombre ?? 'Sin plan' }}</span>
+                            <span class="font-medium tabular-nums text-gray-900 dark:text-gray-100">{{ number_format((float) ($sSaldo->saldo_a_favor ?? 0), 0, ',', '.') }} PYG</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            @if($esAdministrador && $cliente->servicios->isNotEmpty())
+                <form id="form-saldo-favor" action="{{ route('clientes.actualizar-saldo-a-favor', $cliente) }}" method="POST"
+                    class="hidden mt-4 rounded-lg border border-purple-200 dark:border-purple-800/50 bg-purple-50/50 dark:bg-purple-900/10 p-4 space-y-3">
+                    @csrf
+                    @method('PUT')
+                    <p class="text-xs font-semibold text-purple-800 dark:text-purple-200">Ajuste manual (solo administrador)</p>
+                    @foreach($cliente->servicios as $sSaldo)
+                        <div>
+                            <label for="saldo_servicio_{{ $sSaldo->servicio_id }}" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                Servicio #{{ $sSaldo->servicio_id }} — {{ $sSaldo->plan?->nombre ?? 'Sin plan' }}
+                            </label>
+                            <input type="number" name="saldos[{{ $sSaldo->servicio_id }}]" id="saldo_servicio_{{ $sSaldo->servicio_id }}"
+                                value="{{ old('saldos.'.$sSaldo->servicio_id, (float) ($sSaldo->saldo_a_favor ?? 0)) }}"
+                                min="0" step="1"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                        </div>
+                    @endforeach
+                    <div>
+                        <label for="motivo_saldo_favor" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Motivo del ajuste (opcional)</label>
+                        <input type="text" name="motivo" id="motivo_saldo_favor" value="{{ old('motivo') }}" maxlength="500"
+                            placeholder="Ej: corrección por cobro mal aplicado"
+                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                    </div>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <button type="submit"
+                            class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                            Guardar saldo a favor
+                        </button>
+                        <button type="button" id="btn-cancel-saldo-favor"
+                            class="inline-flex items-center px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg text-xs font-medium hover:bg-gray-300 dark:hover:bg-gray-600">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            @elseif($esAdministrador)
+                <p class="mt-3 text-xs text-amber-700 dark:text-amber-400">No hay servicios asociados para asignar saldo a favor.</p>
+            @endif
         </div>
     </div>
 
@@ -119,6 +176,7 @@
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Instalación</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PPPoE</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Saldo a favor</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
                             @if(auth()->user()?->tienePermiso('servicios.crear'))
                                 <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
@@ -133,6 +191,9 @@
                                 <td class="px-4 py-2 text-gray-600 dark:text-gray-400">{{ $s->fecha_instalacion?->format('d/m/Y') ?? '—' }}</td>
                                 <td class="px-4 py-2 text-gray-700 dark:text-gray-300 font-mono text-xs">{{ $s->ip ?? '—' }}</td>
                                 <td class="px-4 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs">{{ $s->usuario_pppoe ?? '—' }}</td>
+                                <td class="px-4 py-2 text-right text-gray-900 dark:text-gray-100 whitespace-nowrap tabular-nums">
+                                    {{ number_format((float) ($s->saldo_a_favor ?? 0), 0, ',', '.') }} PYG
+                                </td>
                                 <td class="px-4 py-2">{{ $estadosServicio[$s->estado] ?? $s->estado }}</td>
                                 @if(auth()->user()?->tienePermiso('servicios.crear'))
                                     <td class="px-4 py-2 text-right">
@@ -289,4 +350,33 @@
         </div>
     </div>
 </div>
+
+@if($esAdministrador && $cliente->servicios->isNotEmpty())
+<script>
+(function() {
+    var form = document.getElementById('form-saldo-favor');
+    var toggleBtn = document.getElementById('btn-toggle-saldo-favor');
+    var cancelBtn = document.getElementById('btn-cancel-saldo-favor');
+    var shouldOpen = {{ $errors->has('saldos.*') || $errors->has('saldos') || old('motivo') ? 'true' : 'false' }};
+
+    function setOpen(open) {
+        if (!form) return;
+        form.classList.toggle('hidden', !open);
+        if (toggleBtn) {
+            toggleBtn.textContent = open ? 'Ocultar ajuste' : 'Ajustar manualmente';
+        }
+    }
+
+    toggleBtn?.addEventListener('click', function() {
+        setOpen(form.classList.contains('hidden'));
+    });
+    cancelBtn?.addEventListener('click', function() {
+        setOpen(false);
+    });
+    if (shouldOpen) {
+        setOpen(true);
+    }
+})();
+</script>
+@endif
 @endsection

@@ -279,13 +279,24 @@ class FacturaController extends Controller
         return $opciones;
     }
 
+    private function resolverMontoFijoMasivo(?string $modo, mixed $montoOtro): ?float
+    {
+        return match ($modo) {
+            '500000' => 500000.0,
+            '1000000' => 1000000.0,
+            'otro' => filled($montoOtro) ? (float) $montoOtro : null,
+            default => null,
+        };
+    }
+
     /**
-     * @return list<array{descripcion: string, cantidad: float, precio_unitario: float, impuesto_id: int|null, servicio_id: int}>
+     * @return list<array{descripcion: string, cantidad: float, precio_unitario: float, impuesto_id: int|null, servicio_id: int|null}>
      */
     private function construirDetallesDesdeServiciosCliente(
         Cliente $cliente,
         ?Carbon $periodoDesde = null,
         ?Carbon $periodoHasta = null,
+        ?float $montoFijo = null,
     ): array {
         $impuestoIva = Impuesto::where('codigo', 'IVA10')->first() ?? Impuesto::activos()->firstWhere('porcentaje', '>', 0);
         $periodoDesde = ($periodoDesde ?? now())->copy()->startOfMonth();
@@ -298,6 +309,27 @@ class FacturaController extends Controller
             ->with('plan')
             ->orderBy('servicio_id')
             ->get();
+
+        if ($montoFijo !== null && $montoFijo > 0) {
+            $servicioPrincipal = $servicios->first(function ($servicio) {
+                return (float) ($servicio->plan?->precio ?? 0) > 0;
+            }) ?? $servicios->first();
+
+            $nombrePlan = $servicioPrincipal?->plan?->nombre ?? 'Servicio de internet';
+
+            return [[
+                'descripcion' => sprintf(
+                    '%s - %s Gs. - Período %s',
+                    $nombrePlan,
+                    number_format($montoFijo, 0, ',', '.'),
+                    $periodoStr
+                ),
+                'cantidad' => 1,
+                'precio_unitario' => $montoFijo,
+                'impuesto_id' => $impuestoIva?->id,
+                'servicio_id' => $servicioPrincipal?->servicio_id,
+            ]];
+        }
 
         $detalles = [];
 
@@ -454,9 +486,21 @@ class FacturaController extends Controller
             'cliente_ids.*' => ['integer', 'exists:clientes,cliente_id'],
             'emitir' => ['nullable', 'boolean'],
             'periodo' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],
+            'monto_modo' => ['nullable', 'string', 'in:plan,500000,1000000,otro'],
+            'monto_fijo' => [
+                'nullable',
+                'numeric',
+                'min:1',
+                'max:999999999',
+                'required_if:monto_modo,otro',
+            ],
         ]);
 
         $periodo = $this->resolverPeriodoFacturacion($validated['periodo'] ?? null);
+        $montoFijo = $this->resolverMontoFijoMasivo(
+            $validated['monto_modo'] ?? 'plan',
+            $validated['monto_fijo'] ?? null,
+        );
         $emitir = $request->boolean('emitir');
         $sifenConfig = SifenConfiguracion::activa();
         $prefill = $this->construirPrefillSifen($sifenConfig);
@@ -494,6 +538,7 @@ class FacturaController extends Controller
                 $cliente,
                 $periodo['desde'],
                 $periodo['hasta'],
+                $montoFijo,
             );
             if ($detalles === []) {
                 $errores[] = $etiqueta.': sin servicios activos con precio.';
@@ -501,12 +546,17 @@ class FacturaController extends Controller
             }
 
             try {
+                $obs = $periodo['marcador'].' ('.$periodo['label'].')';
+                if ($montoFijo !== null) {
+                    $obs .= ' · Monto fijo '.number_format($montoFijo, 0, ',', '.').' Gs.';
+                }
+
                 $factura = $this->crearBorradorElectronico(
                     $cliente,
                     $detalles,
                     $prefill,
                     $request->user()?->usuario_id,
-                    $periodo['marcador'].' ('.$periodo['label'].')',
+                    $obs,
                 );
 
                 $creadas[] = $factura->id;
@@ -527,6 +577,9 @@ class FacturaController extends Controller
         $partes = [];
         if ($creadas !== []) {
             $partes[] = count($creadas).' borrador(es) creado(s) · período '.$periodo['label'];
+            if ($montoFijo !== null) {
+                $partes[] = 'monto '.number_format($montoFijo, 0, ',', '.').' Gs.';
+            }
         }
         if ($emitir && $enviadas !== []) {
             $partes[] = count($enviadas).' enviado(s) a SIFEN';

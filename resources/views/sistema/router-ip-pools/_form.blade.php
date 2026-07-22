@@ -26,6 +26,27 @@
     </div>
 
     <div>
+        <label for="olt_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">OLT (fibra)</label>
+        <select name="olt_id" id="olt_id"
+            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors">
+            <option value="">-- Sin OLT (usar nodo del router) --</option>
+            @foreach(($olts ?? []) as $olt)
+                <option value="{{ $olt->olt_id }}" {{ (string) old('olt_id', $pool?->olt_id) === (string) $olt->olt_id ? 'selected' : '' }}>
+                    {{ $olt->codigo ?? ('OLT-'.$olt->olt_id) }}
+                    @if($olt->ip) — {{ $olt->ip }}@endif
+                    @if($olt->nodo) — {{ $olt->nodo->descripcion }}@endif
+                </option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Si el router atiende clientes de otro nodo, asociá acá la OLT correcta de ese pool.
+        </p>
+        @error('olt_id')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <div>
         <label for="ip_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rango IP *</label>
         <input type="text" name="ip_range" id="ip_range" value="{{ old('ip_range', $pool?->ip_range) }}"
             class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors"

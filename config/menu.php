@@ -30,6 +30,7 @@ return [
             'submenu' => [
                 ['name' => 'clientes-dashboard', 'label' => 'Dashboard', 'path' => '/clientes/dashboard', 'permiso' => 'clientes-dashboard.ver'],
                 ['name' => 'lista-clientes', 'label' => 'Lista clientes', 'path' => '/clientes', 'permiso' => 'clientes-lista.ver'],
+                ['name' => 'solicitudes-acceso', 'label' => 'Solicitudes app', 'path' => '/solicitudes-acceso', 'permiso' => 'clientes-lista.ver'],
                 ['name' => 'lista-pedidos', 'label' => 'Lista pedidos', 'path' => '/pedidos', 'permiso' => 'clientes-pedidos.ver'],
                 ['name' => 'agenda', 'label' => 'Agenda', 'path' => '/agenda', 'permiso' => 'clientes-agenda.ver'],
                 ['name' => 'mapas-pedidos', 'label' => 'Mapas de pedidos', 'path' => '/clientes/mapas-pedidos', 'permiso' => 'clientes-mapa-pedidos.ver'],
@@ -93,9 +94,12 @@ return [
         [
             'name' => 'usuarios',
             'label' => 'Usuarios',
-            'path' => '/usuarios',
             'icon' => 'user-group',
             'permiso' => 'usuarios.ver',
+            'submenu' => [
+                ['name' => 'usuarios-lista', 'label' => 'Personal y clientes', 'path' => '/usuarios', 'permiso' => 'usuarios.ver'],
+                ['name' => 'usuarios-sesiones', 'label' => 'Sesiones activas', 'path' => '/usuarios/sesiones', 'permiso' => 'usuarios.ver'],
+            ],
         ],
         [
             'name' => 'configuracion',
@@ -118,6 +122,7 @@ return [
             'icon' => 'server',
             'submenu' => [
                 ['name' => 'olts', 'label' => 'OLTs', 'path' => '/sistema/olts', 'permiso' => 'ftth-olts.ver'],
+                ['name' => 'olt-modelos', 'label' => 'Catálogo OLT', 'path' => '/sistema/olt-modelos', 'permiso' => 'ftth-olts.ver'],
                 ['name' => 'olt-marcas', 'label' => 'Marcas OLT', 'path' => '/sistema/olt-marcas', 'permiso' => 'ftth-marcas-olt.ver'],
                 ['name' => 'cajas-nap', 'label' => 'Cajas NAP', 'path' => '/sistema/cajas-nap', 'permiso' => 'ftth-cajas-nap.ver'],
                 ['name' => 'cajas-nap-mapa', 'label' => 'Mapa infraestructura óptica', 'path' => '/sistema/cajas-nap/mapa', 'permiso' => 'ftth-mapa-optico.ver'],
@@ -132,6 +137,7 @@ return [
             'submenu' => [
                 ['name' => 'auditoria', 'label' => 'Auditoría', 'path' => '/sistema/auditoria', 'permiso' => 'sistema-routers.ver'],
                 ['name' => 'routers', 'label' => 'Routers', 'path' => '/sistema/routers', 'permiso' => 'sistema-routers.ver'],
+                ['name' => 'router-modelos', 'label' => 'Catálogo MikroTik', 'path' => '/sistema/router-modelos', 'permiso' => 'sistema-routers.ver'],
                 ['name' => 'router-ip-pools', 'label' => 'Pools de IP', 'path' => '/sistema/router-ip-pools', 'permiso' => 'sistema-pools-ip.ver'],
                 ['name' => 'importar-wisphub', 'label' => 'Importar WispHub', 'path' => '/sistema/importar-wisphub', 'permiso' => 'sistema-routers.ver'],
                 ['name' => 'mikrotik-pendientes', 'label' => 'MikroTik pendientes', 'path' => '/sistema/mikrotik-pendientes', 'permiso' => 'sistema-mikrotik-pendientes.ver'],

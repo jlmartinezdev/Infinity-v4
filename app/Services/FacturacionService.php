@@ -22,10 +22,15 @@ use App\Models\TicketAsunto;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class FacturacionService
 {
     private const SALTO_REDONDEO = 5000;
+
+    /** @var list<string> Avisos MikroTik tras el último registrarCobro (p. ej. router apagado). */
+    public array $avisosUltimoCobro = [];
 
     /**
      * Calcula el precio prorrateado cuando la instalación es en medio del mes.
@@ -954,6 +959,7 @@ class FacturacionService
      */
     public function registrarCobro(array $data, ?int $usuarioId = null): Cobro
     {
+        $this->avisosUltimoCobro = [];
         $items = $data['factura_interna_items'] ?? null;
         if (empty($items) && !empty($data['factura_interna_id'])) {
             $items = [['id' => (int) $data['factura_interna_id'], 'monto' => (float) ($data['monto'] ?? 0)]];
@@ -1039,16 +1045,31 @@ class FacturacionService
                 }
             }
 
-            $cliente = Cliente::find($data['cliente_id']);
-            if ($cliente) {
-                if (! empty($items)) {
+            $clienteIdCobro = (int) $data['cliente_id'];
+            if (! empty($items)) {
+                $cliente = Cliente::find($clienteIdCobro);
+                if ($cliente) {
                     $this->recalcularCalificacionPagoCliente($cliente);
                 }
-                $this->revisarActivacionServicios($cliente);
             }
 
             return $cobro;
         });
+
+        $cliente = Cliente::find($data['cliente_id']);
+        if ($cliente) {
+            try {
+                $this->avisosUltimoCobro = $this->revisarActivacionServicios($cliente);
+            } catch (Throwable $e) {
+                Log::warning('[Cobro] Error al reactivar servicios en MikroTik', [
+                    'cliente_id' => $cliente->cliente_id,
+                    'error' => $e->getMessage(),
+                ]);
+                $this->avisosUltimoCobro = [
+                    'El cobro se registró correctamente, pero no se pudo conectar al router MikroTik para reactivar el servicio. Quedó en cola de reintento.',
+                ];
+            }
+        }
 
         $cobro->load(['cliente', 'facturaInternas', 'facturaInterna', 'usuario']);
         app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, 1);
@@ -1082,9 +1103,12 @@ class FacturacionService
     /**
      * Si el cliente tiene servicios suspendidos por falta de pago y ya no tiene facturas vencidas con saldo pendiente,
      * reactiva en BD y habilita PPPoE en MikroTik (igual que la acción manual «Activar servicio»).
+     *
+     * @return list<string> Avisos para mostrar al usuario si MikroTik no respondió.
      */
-    public function revisarActivacionServicios(Cliente $cliente): void
+    public function revisarActivacionServicios(Cliente $cliente): array
     {
+        $avisos = [];
         $facturasVencidasConSaldo = FacturaInterna::where('cliente_id', $cliente->cliente_id)
             ->whereIn('estado', ['pendiente', 'emitida'])
             ->where('fecha_vencimiento', '<', now()->toDateString())
@@ -1099,7 +1123,7 @@ class FacturacionService
                 ->get();
 
             if ($servicios->isEmpty()) {
-                return;
+                return $avisos;
             }
 
             $mikrotik = app(MikroTikService::class);
@@ -1107,6 +1131,7 @@ class FacturacionService
             foreach ($servicios as $servicio) {
                 $servicio->activar();
                 if ($servicio->usuario_pppoe && $servicio->pool?->router) {
+                    $router = $servicio->pool->router;
                     $r = $mikrotik->setPppoeDisabledEnRouter($servicio, false);
                     if (! $r['success']) {
                         MikrotikOperacionPendiente::registrarSiFallo(
@@ -1115,10 +1140,15 @@ class FacturacionService
                             $r['error'] ?? 'Error',
                             'facturacion.registrar-cobro.reactivar'
                         );
+                        $routerEtiqueta = $router->nombre ?: $router->ip;
+                        $avisos[] = 'El cobro se registró y el servicio quedó activo en el sistema, pero no se pudo habilitar PPPoE en el router «'
+                            .$routerEtiqueta.'»: '.($r['error'] ?? 'sin conexión').'. Quedó en cola de reintento automático.';
                     }
                 }
             }
         }
+
+        return $avisos;
     }
 
     /**

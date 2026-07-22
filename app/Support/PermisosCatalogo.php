@@ -48,6 +48,76 @@ class PermisosCatalogo
     }
 
     /**
+     * @return list<array{label: string, items: list<array{label: string, base: string, acciones: list<string>}>}>
+     */
+    public static function gruposPortal(): array
+    {
+        return config('permisos_portal.grupos', []);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function todosCodigosPortal(): array
+    {
+        $codigos = [];
+        foreach (self::gruposPortal() as $grupo) {
+            foreach ($grupo['items'] as $item) {
+                foreach ($item['acciones'] as $accion) {
+                    $codigos[] = self::codigo($item['base'], $accion);
+                }
+            }
+        }
+
+        return array_values(array_unique($codigos));
+    }
+
+    /**
+     * Códigos de staff + portal (para seed de tabla permisos).
+     *
+     * @return list<string>
+     */
+    public static function todosCodigosConPortal(): array
+    {
+        return array_values(array_unique(array_merge(self::todosCodigos(), self::todosCodigosPortal())));
+    }
+
+    /**
+     * Árbol UI de permisos del portal cliente.
+     *
+     * @return list<array{label: string, items: list<array{label: string, base: string, acciones: list<string>, permisos: list<array{codigo: string, accion: string, etiqueta: string}>}>}>
+     */
+    public static function arbolPortalParaUi(): array
+    {
+        $arbol = [];
+        foreach (self::gruposPortal() as $grupo) {
+            $items = [];
+            foreach ($grupo['items'] as $item) {
+                $permisos = [];
+                foreach ($item['acciones'] as $accion) {
+                    $permisos[] = [
+                        'codigo' => self::codigo($item['base'], $accion),
+                        'accion' => $accion,
+                        'etiqueta' => self::etiquetasAccion()[$accion] ?? ucfirst($accion),
+                    ];
+                }
+                $items[] = [
+                    'label' => $item['label'],
+                    'base' => $item['base'],
+                    'acciones' => $item['acciones'],
+                    'permisos' => $permisos,
+                ];
+            }
+            $arbol[] = [
+                'label' => $grupo['label'],
+                'items' => $items,
+            ];
+        }
+
+        return $arbol;
+    }
+
+    /**
      * Filas para PermisoSeeder.
      *
      * @return list<array{codigo: string, nombre: string, categoria: string, orden: int}>
@@ -57,6 +127,19 @@ class PermisosCatalogo
         $filas = [];
         $orden = 0;
         foreach (self::grupos() as $grupo) {
+            foreach ($grupo['items'] as $item) {
+                foreach ($item['acciones'] as $accion) {
+                    $orden++;
+                    $filas[] = [
+                        'codigo' => self::codigo($item['base'], $accion),
+                        'nombre' => $item['label'].' — '.(self::etiquetasAccion()[$accion] ?? ucfirst($accion)),
+                        'categoria' => $grupo['label'],
+                        'orden' => $orden,
+                    ];
+                }
+            }
+        }
+        foreach (self::gruposPortal() as $grupo) {
             foreach ($grupo['items'] as $item) {
                 foreach ($item['acciones'] as $accion) {
                     $orden++;

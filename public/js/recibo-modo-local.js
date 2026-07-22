@@ -1,1 +1,46 @@
-(()=>{var o="reciboModo",e=["con_grafico","sin_grafico","sin_grafico_linea"];function t(){try{var e=localStorage.getItem(o);return"sin_grafico"===e||"sin_grafico_linea"===e?e:"con_grafico"}catch(o){return"con_grafico"}}function n(o){var t=e.includes(o)?o:"con_grafico";document.querySelectorAll(".recibo-modo-wrapper").forEach(function(o){o.setAttribute("data-recibo-modo",t)}),document.querySelectorAll("a.js-recibo-pdf-link").forEach(function(o){var e=o.getAttribute("data-pdf-base");if(e){var n=e.includes("?")?"&":"?";o.setAttribute("href",e+n+"recibo_modo="+encodeURIComponent(t))}})}function r(){n(t()),window.addEventListener("storage",function(e){e.key===o&&n(t())})}"loading"===document.readyState?document.addEventListener("DOMContentLoaded",r):r()})();
+/******/ (() => { // webpackBootstrap
+/*!*******************************************!*\
+  !*** ./resources/js/recibo-modo-local.js ***!
+  \*******************************************/
+/**
+ * Modo de recibo desde localStorage (clave reciboModo):
+ * con_grafico | sin_grafico | sin_grafico_linea
+ */
+var STORAGE_KEY = 'reciboModo';
+var MODOS_VALIDOS = ['con_grafico', 'sin_grafico', 'sin_grafico_linea'];
+function leerModo() {
+  try {
+    var v = localStorage.getItem(STORAGE_KEY);
+    if (v === 'sin_grafico' || v === 'sin_grafico_linea') {
+      return v;
+    }
+    return 'con_grafico';
+  } catch (e) {
+    return 'con_grafico';
+  }
+}
+function aplicarModo(modo) {
+  var m = MODOS_VALIDOS.includes(modo) ? modo : 'con_grafico';
+  document.querySelectorAll('.recibo-modo-wrapper').forEach(function (w) {
+    w.setAttribute('data-recibo-modo', m);
+  });
+  document.querySelectorAll('a.js-recibo-pdf-link').forEach(function (a) {
+    var base = a.getAttribute('data-pdf-base');
+    if (!base) return;
+    var sep = base.includes('?') ? '&' : '?';
+    a.setAttribute('href', base + sep + 'recibo_modo=' + encodeURIComponent(m));
+  });
+}
+function init() {
+  aplicarModo(leerModo());
+  window.addEventListener('storage', function (e) {
+    if (e.key === STORAGE_KEY) aplicarModo(leerModo());
+  });
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+/******/ })()
+;

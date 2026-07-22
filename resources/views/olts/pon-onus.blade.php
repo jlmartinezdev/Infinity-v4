@@ -3,6 +3,7 @@
 @section('title', 'PON ' . $ponPort . ' — OLT ' . ($olt->codigo ?? $olt->ip ?? $olt->olt_id))
 
 @section('content')
+@include('olts._consulta_async')
 <div class="max-w-5xl mx-auto">
     <div class="mb-6">
         <a href="{{ route('sistema.olts.show', ['olt' => $olt, 'sin_sync' => 1]) }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; Volver al OLT</a>
@@ -22,7 +23,11 @@
 
     <div class="mb-4 flex flex-wrap gap-2">
         @if($olt->tieneCredencialesGestion())
-            <form action="{{ route('sistema.olts.refresh-onu-detalles-pon', [$olt, $ponPort]) }}" method="POST" class="inline" onsubmit="return confirm('¿Consultar descripción y RX de las ONUs en PON 0/{{ $ponPort }}?');">
+            <form action="{{ route('sistema.olts.refresh-onu-detalles-pon', [$olt, $ponPort]) }}" method="POST"
+                  class="inline js-olt-consulta"
+                  data-confirm="¿Consultar descripción y RX de las ONUs en PON 0/{{ $ponPort }}?"
+                  data-loading="Consultando PON 0/{{ $ponPort }}…"
+                  data-reload="{{ route('sistema.olts.pon-onus', [$olt, $ponPort]) }}">
                 @csrf
                 <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
                     Consultar desde OLT
@@ -58,9 +63,13 @@
                                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $onu->onu_index }}</td>
                                 <td class="px-4 py-3 text-sm font-mono text-gray-700 dark:text-gray-300">{{ $onu->serial ?? '—' }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                    <span class="block">{{ $onu->etiquetaDescripcion() }}</span>
-                                    @if($onu->modelo && $onu->descripcion && $onu->descripcion !== $onu->modelo)
+                                    @if($onu->descripcion && $onu->modelo && strcasecmp((string) $onu->descripcion, (string) $onu->modelo) !== 0)
+                                        <span class="block font-medium text-gray-900 dark:text-gray-100">{{ $onu->descripcion }}</span>
                                         <span class="text-xs text-gray-400 dark:text-gray-500">{{ $onu->modelo }}</span>
+                                    @elseif($onu->descripcion)
+                                        <span class="block font-medium text-gray-900 dark:text-gray-100">{{ $onu->descripcion }}</span>
+                                    @else
+                                        <span class="block">{{ $onu->modelo ?: '—' }}</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">

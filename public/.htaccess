@@ -1,7 +1,26 @@
-RewriteEngine On
-# Si el archivo o carpeta existe realmente, que lo abra
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
 
-# Si no existe, que mande todo al index.php
-RewriteRule ^ index.php [L]
+    RewriteEngine On
+
+    # Handle Authorization Header (necesario para tokens Bearer / Sanctum en Apache)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Fallback si el servidor pasa el header como REDIRECT_HTTP_AUTHORIZATION
+    RewriteCond %{HTTP:Authorization} ^$
+    RewriteCond %{REDIRECT_HTTP_AUTHORIZATION} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{REDIRECT_HTTP_AUTHORIZATION}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>

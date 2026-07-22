@@ -1,17 +1,29 @@
 @extends('layouts.app')
 
-@section('title', 'OLT: ' . ($olt->codigo ?? $olt->ip ?? $olt->modelo ?? $olt->olt_id))
+@php
+    $modeloNombre = \App\Support\OltModelosCatalogo::nombre($olt->modelo) ?: ($olt->modelo ?? null);
+    $modeloImagen = \App\Support\OltModelosCatalogo::imagenUrl($olt->modelo);
+    $autoConsultar = $autoConsultar ?? false;
+@endphp
+
+@section('title', 'OLT: ' . ($olt->codigo ?? $olt->ip ?? $modeloNombre ?? $olt->olt_id))
 
 @section('content')
-<div class="max-w-4xl mx-auto">
-    <div class="mb-6">
-        <a href="{{ route('sistema.olts.index') }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; Volver a OLTs</a>
-        <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-            OLT {{ $olt->codigo ?? $olt->ip ?? $olt->modelo ?? '#' . $olt->olt_id }}
-        </h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {{ $olt->marca ?? '—' }}{{ $olt->modelo ? ' — ' . $olt->modelo : '' }} · {{ $olt->nodo?->descripcion ?? '—' }}
-        </p>
+@include('olts._consulta_async')
+<div class="max-w-4xl mx-auto" @if($autoConsultar) data-olt-auto-sync="{{ route('sistema.olts.sync-vista', $olt) }}" @endif>
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <a href="{{ route('sistema.olts.index') }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; Volver a OLTs</a>
+            <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+                OLT {{ $olt->codigo ?? $olt->ip ?? $modeloNombre ?? '#' . $olt->olt_id }}
+            </h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ $olt->marca ?? '—' }}{{ $modeloNombre ? ' — ' . $modeloNombre : '' }} · {{ $olt->nodo?->descripcion ?? '—' }}
+            </p>
+        </div>
+        <div class="shrink-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <img src="{{ $modeloImagen }}" alt="{{ $modeloNombre ?? 'OLT' }}" class="h-20 w-36 object-contain">
+        </div>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -30,12 +42,25 @@
                         <dd class="text-gray-900 dark:text-gray-100">{{ $olt->nodo?->descripcion ?? '—' }}</dd>
                     </div>
                     <div class="flex flex-wrap gap-x-2 gap-y-0.5">
+                        <dt class="shrink-0 text-gray-500 dark:text-gray-400">Pools</dt>
+                        <dd class="text-gray-900 dark:text-gray-100">
+                            @forelse($olt->pools as $pool)
+                                <span class="block">
+                                    {{ $pool->descripcion ?: $pool->ip_range }}
+                                    <span class="text-xs text-gray-500">({{ $pool->router?->nombre ?? 'sin router' }})</span>
+                                </span>
+                            @empty
+                                <span class="text-gray-400">Ninguno asociado</span>
+                            @endforelse
+                        </dd>
+                    </div>
+                    <div class="flex flex-wrap gap-x-2 gap-y-0.5">
                         <dt class="shrink-0 text-gray-500 dark:text-gray-400">Marca</dt>
                         <dd class="text-gray-900 dark:text-gray-100">{{ $olt->marca ?? '—' }}</dd>
                     </div>
                     <div class="flex flex-wrap gap-x-2 gap-y-0.5">
                         <dt class="shrink-0 text-gray-500 dark:text-gray-400">Modelo</dt>
-                        <dd class="text-gray-900 dark:text-gray-100">{{ $olt->modelo ?? '—' }}</dd>
+                        <dd class="text-gray-900 dark:text-gray-100">{{ $modeloNombre ?? '—' }}</dd>
                     </div>
                     <div class="flex flex-wrap gap-x-2 gap-y-0.5">
                         <dt class="shrink-0 text-gray-500 dark:text-gray-400">IP</dt>
@@ -102,7 +127,10 @@
                                         <a href="{{ route('sistema.olts.pon-onus', [$olt, $p->numero]) }}" class="font-medium text-gray-700 hover:underline dark:text-gray-300">Ver ONUs</a>
                                     @endif
                                     @if($olt->tieneCredencialesGestion())
-                                        <form action="{{ route('sistema.olts.refresh-onu-detalles-pon', [$olt, $p->numero]) }}" method="POST" class="inline" onsubmit="return confirm('¿Consultar descripción y RX de las ONUs en PON 0/{{ $p->numero }}?');">
+                                        <form action="{{ route('sistema.olts.refresh-onu-detalles-pon', [$olt, $p->numero]) }}" method="POST"
+                                              class="inline js-olt-consulta"
+                                              data-confirm="¿Consultar descripción y RX de las ONUs en PON 0/{{ $p->numero }}?"
+                                              data-loading="Consultando PON 0/{{ $p->numero }}…">
                                             @csrf
                                             <button type="submit" class="font-medium text-purple-600 hover:underline dark:text-purple-400">Consultar</button>
                                         </form>
@@ -158,7 +186,7 @@
             <div>
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">ONUs (importadas desde OLT)</h2>
                 @if($olt->tieneCredencialesGestion())
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Importá la lista completa y consultá desc/RX por puerto PON desde la sección de arriba.</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">La vista carga al instante; las consultas al equipo corren en segundo plano.</p>
                 @endif
                 @if($olt->onus_synced_at)
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -179,13 +207,18 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 @if($olt->tieneCredencialesGestion())
-                    <form action="{{ route('sistema.olts.test-gestion', $olt) }}" method="POST" class="inline">
+                    <form action="{{ route('sistema.olts.test-gestion', $olt) }}" method="POST" class="inline js-olt-consulta"
+                          data-loading="Probando conexión…"
+                          data-reload="{{ route('sistema.olts.show', ['olt' => $olt, 'sin_sync' => 1]) }}">
                         @csrf
                         <button type="submit" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                             Probar conexión
                         </button>
                     </form>
-                    <form action="{{ route('sistema.olts.import-onus', $olt) }}" method="POST" class="inline" onsubmit="return confirm('¿Importar lista completa de ONUs desde el OLT? Puede tardar un minuto.');">
+                    <form action="{{ route('sistema.olts.import-onus', $olt) }}" method="POST" class="inline js-olt-consulta"
+                          data-confirm="¿Importar lista completa de ONUs desde el OLT? Puede tardar un minuto."
+                          data-loading="Importando ONUs…"
+                          data-reload="{{ route('sistema.olts.show', ['olt' => $olt, 'sin_sync' => 1]) }}">
                         @csrf
                         <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700">
                             Importar ONUs

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\MikrotikModelosCatalogo;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,12 +22,14 @@ class Router extends Model
     protected $fillable = [
         'nodo_id',
         'nombre',
+        'modelo',
         'ip',
         'ip_loopback',
         'hotspot_servidor',
         'api_port',
         'usuario',
         'password',
+        'webhook_token',
         'estado',
     ];
 
@@ -56,5 +59,23 @@ class Router extends Model
     {
         $field = $field ?: $this->getRouteKeyName();
         return $this->where($field, $value)->first();
+    }
+
+    /**
+     * @return array{nombre: string, serie: string, imagen: string, descripcion: string, slug: string, imagen_url?: string}|null
+     */
+    public function modeloCatalogo(): ?array
+    {
+        return MikrotikModelosCatalogo::find($this->modelo);
+    }
+
+    public function modeloEtiqueta(): string
+    {
+        return $this->modeloCatalogo()['nombre'] ?? ($this->modelo ?: 'Sin modelo');
+    }
+
+    public function imagenUrl(): string
+    {
+        return MikrotikModelosCatalogo::imagenUrl($this->modelo);
     }
 }

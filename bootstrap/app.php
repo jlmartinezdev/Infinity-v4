@@ -17,15 +17,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permiso' => \App\Http\Middleware\CheckPermiso::class,
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'api.staff' => \App\Http\Middleware\EnsureStaffApi::class,
+            'api.cliente' => \App\Http\Middleware\EnsureClientePortalApi::class,
         ]);
         // Usuario ya autenticado que visita /login → inicio según permisos
         $middleware->redirectUsersTo(function () {
             $user = auth()->user();
+            if ($user && $user->esClientePortal()) {
+                return '/login';
+            }
             if ($user && $user->tienePermiso('dashboard.ver')) {
                 return '/';
             }
 
             return '/inicio';
+        });
+        $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return null;
+            }
+
+            return '/login';
         });
     })
     ->withSchedule(function (Schedule $schedule): void {
@@ -61,7 +73,18 @@ return Application::configure(basePath: dirname(__DIR__))
             ->before(function () {
                 Log::info('Tarea iniciado: mikrotik:procesar-pendientes');
             });
+
+        if (config('monitoreo.habilitado', true)) {
+            $schedule->command('monitoreo:ping-servicios')
+                ->everyFiveMinutes()
+                ->withoutOverlapping(10)
+                ->before(function () {
+                    Log::info('Tarea iniciado: monitoreo:ping-servicios');
+                });
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {
+            return $request->is('api/*') || $request->expectsJson();
+        });
     })->create();

@@ -7,15 +7,17 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Auditoria;
 use App\Models\Rol;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use Auditable, HasFactory, Notifiable;
+    use Auditable, HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The primary key for the model.
@@ -41,8 +43,11 @@ class User extends Authenticatable
         'email',
         'contrasena',
         'rol_id',
+        'cliente_id',
         'permisos',
         'estado',
+        'ultimo_acceso_at',
+        'ultimo_acceso_ip',
         'notas',
         'remember_token',
     ];
@@ -76,10 +81,19 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'ultimo_acceso_at' => 'datetime',
             'permisos' => 'array',
             // No usar 'hashed' cast aquí porque interfiere con Auth::attempt()
             // La contraseña se hashea manualmente al crear/actualizar
         ];
+    }
+
+    public function registrarAcceso(?string $ip = null): void
+    {
+        $this->forceFill([
+            'ultimo_acceso_at' => now(),
+            'ultimo_acceso_ip' => $ip,
+        ])->save();
     }
 
     /**
@@ -90,9 +104,37 @@ class User extends Authenticatable
         return $this->belongsTo(Rol::class, 'rol_id', 'rol_id');
     }
 
+    /**
+     * Cliente vinculado cuando el usuario es de portal app.
+     */
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id', 'cliente_id');
+    }
+
     public function auditorias(): HasMany
     {
         return $this->hasMany(Auditoria::class, 'usuario_id', 'usuario_id');
+    }
+
+    public function esClientePortal(): bool
+    {
+        return $this->cliente_id !== null;
+    }
+
+    public function esStaff(): bool
+    {
+        return ! $this->esClientePortal();
+    }
+
+    public function scopeStaff(Builder $query): Builder
+    {
+        return $query->whereNull('cliente_id');
+    }
+
+    public function scopeActivos(Builder $query): Builder
+    {
+        return $query->where('estado', 'activo');
     }
 
     /**
@@ -139,7 +181,18 @@ class User extends Authenticatable
         if ($this->esAdministrador()) {
             return true;
         }
+
         $permisosUsuario = is_array($this->permisos) ? $this->permisos : [];
+
+        // Clientes portal: solo códigos portal.* (paquete global aplicado a todos)
+        if ($this->esClientePortal()) {
+            if (! str_starts_with((string) $permiso, 'portal.')) {
+                return false;
+            }
+
+            return in_array($permiso, $permisosUsuario, true);
+        }
+
         if (in_array($permiso, $permisosUsuario, true)) {
             return true;
         }

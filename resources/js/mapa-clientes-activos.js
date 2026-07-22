@@ -10,6 +10,10 @@ if (el) {
     apiKey: cfg.apiKey || '',
     puntos: Array.isArray(cfg.puntos) ? cfg.puntos : [],
     urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
+    urlPingEstados: cfg.urlPingEstados || '',
+    pingRefrescoSegundos: Number(cfg.pingRefrescoSegundos) || 60,
+    nodoId: cfg.nodoId || null,
+    pingEstadoFiltro: cfg.pingEstadoFiltro || '',
   });
   app.mount(el);
 }

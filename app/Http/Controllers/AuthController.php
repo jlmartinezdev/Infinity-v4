@@ -85,11 +85,24 @@ class AuthController extends Controller
             ])->onlyInput('email');
         }
 
+        // Usuarios de portal cliente solo pueden ingresar por la API móvil
+        if ($user->esClientePortal()) {
+            if ($request->expectsJson() || $request->ajax()) {
+                throw ValidationException::withMessages([
+                    'email' => ['Esta cuenta es de cliente. Use la aplicación móvil.'],
+                ]);
+            }
+            return back()->withErrors([
+                'email' => 'Esta cuenta es de cliente. Use la aplicación móvil.',
+            ])->onlyInput('email');
+        }
+
         $remember = $request->boolean('remember', false);
 
         // Iniciar sesión manualmente (SessionGuard ya regenera la sesión en login(); no llamar regenerate() otra vez
         // o la cookie remember_web_* puede quedar desalineada con la sesión en algunos entornos).
         Auth::login($user, $remember);
+        $user->registrarAcceso($request->ip());
 
         // Si es una petición AJAX o espera JSON, devolver JSON
         if ($request->expectsJson() || $request->ajax()) {

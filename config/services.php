@@ -50,4 +50,9 @@ return [
         'sandbox_url' => 'https://sandbox-api.wisphub.net',
     ],
 
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY'),
+        'staff_topic' => env('FCM_STAFF_TOPIC', 'staff'),
+    ],
+
 ];

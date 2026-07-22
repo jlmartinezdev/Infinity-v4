@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Cliente extends Model
 {
@@ -38,6 +39,7 @@ class Cliente extends Model
      */
     protected $fillable = [
         'cedula',
+        'ruc_consultado',
         'nombre',
         'apellido',
         'email',
@@ -46,6 +48,11 @@ class Cliente extends Model
         'url_ubicacion',
         'estado',
         'calificacion_pago',
+        'ultimo_ingreso',
+        'dispositivo',
+        'app_version',
+        'app_activa',
+        'fecha_activacion_app',
     ];
 
     public const CALIFICACION_MALO = 'malo';
@@ -75,7 +82,12 @@ class Cliente extends Model
      */
     protected function casts(): array
     {
-        return [];
+        return [
+            'ruc_consultado' => 'boolean',
+            'ultimo_ingreso' => 'datetime',
+            'app_activa' => 'boolean',
+            'fecha_activacion_app' => 'datetime',
+        ];
     }
 
     public function servicios(): HasMany
@@ -111,5 +123,10 @@ class Cliente extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'cliente_id', 'cliente_id');
+    }
+
+    public function usuarioPortal(): HasOne
+    {
+        return $this->hasOne(User::class, 'cliente_id', 'cliente_id');
     }
 }

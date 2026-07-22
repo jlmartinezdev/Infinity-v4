@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class MapsUrlHelper
@@ -26,48 +27,137 @@ class MapsUrlHelper
      */
     public static function resolveShortMapsUrl(string $url): ?string
     {
-        try {
-            $response = Http::withOptions([
-                'allow_redirects' => true,
-                'timeout' => 15,
-            ])
-                ->withUserAgent(self::USER_AGENT)
-                ->withHeaders(['Accept' => 'text/html,application/xhtml+xml'])
-                ->get($url);
-
-            $uri = $response->effectiveUri();
-            return $uri !== null ? (string) $uri : null;
-        } catch (\Throwable $e) {
+        $url = trim($url);
+        if ($url === '') {
             return null;
         }
+
+        return Cache::remember('maps_short_url:'.md5($url), 86400, function () use ($url) {
+            try {
+                $response = Http::withOptions([
+                    'allow_redirects' => true,
+                    'timeout' => 15,
+                ])
+                    ->withUserAgent(self::USER_AGENT)
+                    ->withHeaders(['Accept' => 'text/html,application/xhtml+xml'])
+                    ->get($url);
+
+                $uri = $response->effectiveUri();
+
+                return $uri !== null ? (string) $uri : null;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Extrae lat/lon de una URL corta de Google Maps (maps.app.goo.gl, goo.gl/maps).
+     * Sigue la redirección HTTP (con caché) y parsea coordenadas de la URL final.
+     *
+     * @return array{lat: float|null, lon: float|null, resolved_url: string|null}
+     */
+    public static function extractLatLonFromShortMapsUrl(?string $url): array
+    {
+        $vacío = ['lat' => null, 'lon' => null, 'resolved_url' => null];
+        $url = trim((string) $url);
+
+        if ($url === '' || ! self::isShortMapsUrl($url)) {
+            return $vacío;
+        }
+
+        $resolved = self::resolveShortMapsUrl($url);
+        if ($resolved === null) {
+            return $vacío;
+        }
+
+        $coords = self::parseLatLonFromUrlString($resolved);
+
+        return [
+            'lat' => $coords['lat'],
+            'lon' => $coords['lon'],
+            'resolved_url' => $resolved,
+        ];
     }
 
     /**
      * Extrae latitud y longitud de una URL de Google Maps (o texto con coordenadas).
-     * Soporta formatos:
-     * - https://maps.app.goo.gl/XXXX (URL corta; se resuelve por redirección)
-     * - https://www.google.com/maps?q=-25.123,-54.456
-     * - https://www.google.com/maps/@-25.123,-54.456,15z
-     * - https://maps.google.com/?q=-25.123,-54.456
-     * - https://www.google.com/maps/place/.../@-25.123,-54.456,17z
-     * - Texto simple: -25.123, -54.456
+     * Si $resolveShortUrl es true y la URL es corta, delega en extractLatLonFromShortMapsUrl().
      *
      * @return array{lat: float|null, lon: float|null}
      */
     public static function extractLatLonFromMapsUrl(?string $url, bool $resolveShortUrl = true): array
     {
-        $result = ['lat' => null, 'lon' => null];
         if ($url === null || trim($url) === '') {
-            return $result;
+            return ['lat' => null, 'lon' => null];
         }
 
         $url = trim($url);
 
-        // URL corta: resolver redirección y extraer de la URL final
         if ($resolveShortUrl && self::isShortMapsUrl($url)) {
-            $resolved = self::resolveShortMapsUrl($url);
-            if ($resolved !== null) {
-                $url = $resolved;
+            $fromShort = self::extractLatLonFromShortMapsUrl($url);
+
+            return [
+                'lat' => $fromShort['lat'],
+                'lon' => $fromShort['lon'],
+            ];
+        }
+
+        return self::parseLatLonFromUrlString($url);
+    }
+
+    /**
+     * Intenta obtener coordenadas: parse directo y, si falla, resolución de URL corta.
+     *
+     * @return array{lat: float|null, lon: float|null}
+     */
+    public static function extractLatLon(?string $url): array
+    {
+        $url = trim((string) $url);
+        if ($url === '') {
+            return ['lat' => null, 'lon' => null];
+        }
+
+        $coords = self::parseLatLonFromUrlString($url);
+        if ($coords['lat'] !== null && $coords['lon'] !== null) {
+            return $coords;
+        }
+
+        if (self::isShortMapsUrl($url)) {
+            $fromShort = self::extractLatLonFromShortMapsUrl($url);
+
+            return [
+                'lat' => $fromShort['lat'],
+                'lon' => $fromShort['lon'],
+            ];
+        }
+
+        return $coords;
+    }
+
+    /**
+     * Parsea coordenadas de una URL ya resuelta o texto "lat, lon" (sin seguir redirecciones).
+     *
+     * @return array{lat: float|null, lon: float|null}
+     */
+    private static function parseLatLonFromUrlString(string $url): array
+    {
+        $result = ['lat' => null, 'lon' => null];
+        $url = trim($url);
+
+        if ($url === '') {
+            return $result;
+        }
+
+        // Formato ?ll=lat,lon o &ll=lat,lon
+        if (preg_match('/[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
+            $lat = (float) $m[1];
+            $lon = (float) $m[2];
+            if (self::isValidLatLon($lat, $lon)) {
+                $result['lat'] = $lat;
+                $result['lon'] = $lon;
+
+                return $result;
             }
         }
 
@@ -78,6 +168,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -89,6 +180,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -100,6 +192,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -111,6 +204,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -122,6 +216,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -131,6 +226,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -142,6 +238,7 @@ class MapsUrlHelper
             if (self::isValidLatLon($lat, $lon)) {
                 $result['lat'] = $lat;
                 $result['lon'] = $lon;
+
                 return $result;
             }
         }
@@ -172,7 +269,7 @@ class MapsUrlHelper
             return $gps;
         }
 
-        $extracted = self::extractLatLonFromMapsUrl($gps, false);
+        $extracted = self::extractLatLon($gps);
         if ($extracted['lat'] !== null && $extracted['lon'] !== null) {
             return 'https://www.google.com/maps?q='.$extracted['lat'].','.$extracted['lon'];
         }

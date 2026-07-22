@@ -10,7 +10,7 @@ class RouterIpPoolController extends Controller
 {
     public function index(Request $request)
     {
-        $query = RouterIpPool::with('router.nodo')->orderBy('pool_id');
+        $query = RouterIpPool::with(['router.nodo', 'olt'])->orderBy('pool_id');
 
         if ($request->filled('buscar')) {
             $q = $request->buscar;
@@ -36,20 +36,24 @@ class RouterIpPoolController extends Controller
     public function create(Request $request)
     {
         $routers = Router::with('nodo')->orderBy('nombre')->get();
+        $olts = \App\Models\Olt::with('nodo')->orderBy('codigo')->get();
         $routerId = $request->get('router_id');
-        return view('sistema.router-ip-pools.create', compact('routers', 'routerId'));
+
+        return view('sistema.router-ip-pools.create', compact('routers', 'olts', 'routerId'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'router_id' => ['required', 'integer', 'exists:routers,router_id'],
+            'olt_id' => ['nullable', 'integer', 'exists:olts,olt_id'],
             'ip_range' => ['required', 'string', 'max:64'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'activo' => ['nullable', 'boolean'],
         ]);
 
         $validated['activo'] = $request->boolean('activo', true);
+        $validated['olt_id'] = $validated['olt_id'] ?? null;
 
         RouterIpPool::create($validated);
 
@@ -60,7 +64,9 @@ class RouterIpPoolController extends Controller
     {
         $pool = RouterIpPool::where('pool_id', $pool)->firstOrFail();
         $routers = Router::with('nodo')->orderBy('nombre')->get();
-        return view('sistema.router-ip-pools.edit', compact('pool', 'routers'));
+        $olts = \App\Models\Olt::with('nodo')->orderBy('codigo')->get();
+
+        return view('sistema.router-ip-pools.edit', compact('pool', 'routers', 'olts'));
     }
 
     public function update(Request $request, $pool)
@@ -69,12 +75,14 @@ class RouterIpPoolController extends Controller
 
         $validated = $request->validate([
             'router_id' => ['required', 'integer', 'exists:routers,router_id'],
+            'olt_id' => ['nullable', 'integer', 'exists:olts,olt_id'],
             'ip_range' => ['required', 'string', 'max:64'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'activo' => ['nullable', 'boolean'],
         ]);
 
         $validated['activo'] = $request->boolean('activo', true);
+        $validated['olt_id'] = $validated['olt_id'] ?? null;
 
         $pool->update($validated);
 

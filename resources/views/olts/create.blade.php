@@ -8,7 +8,7 @@
 @endphp
 
 @section('content')
-<div class="max-w-2xl mx-auto">
+<div class="max-w-4xl mx-auto">
     <div class="mb-6">
         <a href="{{ route('sistema.olts.index') }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; Volver a OLTs</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">Nuevo OLT</h1>
@@ -37,6 +37,10 @@
         <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Identificación del equipo</h2>
         </div>
+        @php
+            $modelosPorMarca = $modelosPorMarca ?? [];
+            $modeloSeleccionado = old('modelo', 'otro');
+        @endphp
         <div class="grid gap-5 p-6 sm:grid-cols-2">
             <div>
                 <label for="marca" class="{{ $lb }}">Marca <span class="text-red-500">*</span></label>
@@ -49,8 +53,33 @@
                 @error('codigo')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
             <div class="sm:col-span-2">
-                <label for="modelo" class="{{ $lb }}">Modelo</label>
-                <input type="text" name="modelo" id="modelo" value="{{ old('modelo') }}" maxlength="50" class="{{ $fc }}" placeholder="C320, MA5608T, SmartAX…">
+                <label class="{{ $lb }}">Modelo</label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Seleccioná del <a href="{{ route('sistema.olt-modelos.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">catálogo OLT</a>.
+                </p>
+                <input type="hidden" name="modelo" id="modelo" value="{{ $modeloSeleccionado }}">
+                @if($modelosPorMarca !== [])
+                    <div class="space-y-4 max-h-[420px] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-600 p-3 bg-gray-50/50 dark:bg-gray-900/30">
+                        @foreach($modelosPorMarca as $marcaGrupo => $modelos)
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">{{ $marcaGrupo }}</p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                    @foreach($modelos as $slug => $m)
+                                        <button type="button"
+                                            class="olt-modelo-btn rounded-lg border-2 p-2 text-left transition-all hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 {{ $modeloSeleccionado === $slug ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 ring-2 ring-purple-500/20' : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800' }}"
+                                            data-slug="{{ $slug }}"
+                                            data-marca="{{ $m['marca'] ?? '' }}">
+                                            <img src="{{ $m['imagen_url'] ?? asset('images/olts/olt-generic.svg') }}" alt="{{ $m['nombre'] }}" class="mx-auto h-16 w-full object-contain mb-2" loading="lazy">
+                                            <span class="block text-xs font-semibold text-gray-900 dark:text-gray-100 leading-tight">{{ $m['nombre'] }}</span>
+                                            <span class="block text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{{ $m['descripcion'] }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+                @error('modelo')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
         </div>
 
@@ -111,4 +140,5 @@
         </div>
     </form>
 </div>
+@include('olts._modelo_selector_script')
 @endsection

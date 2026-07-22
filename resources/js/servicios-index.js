@@ -25,6 +25,7 @@ if (el) {
     urlCancelar: cfg.urlCancelar || '',
     urlDarBaja: cfg.urlDarBaja || '',
     urlSyncPppoe: cfg.urlSyncPppoe || '',
+    urlHerramientasRed: cfg.urlHerramientasRed || '',
     urlCrearFacturaInterna: cfg.urlCrearFacturaInterna || '',
     urlCrearFacturaServicioEspecial: cfg.urlCrearFacturaServicioEspecial || '',
     urlCrearFacturaFraccionDeuda: cfg.urlCrearFacturaFraccionDeuda || '',

@@ -6,6 +6,7 @@ use App\Traits\Auditable;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Servicio extends Model
@@ -152,6 +153,22 @@ class Servicio extends Model
     public function cajaNapPuertoActivo(): HasOne
     {
         return $this->hasOne(CajaNapPuertoActivo::class, 'servicio_id', 'servicio_id');
+    }
+
+    /**
+     * Servicios cuyo router (pool) o caja NAP pertenece al nodo indicado.
+     */
+    public function scopeEnNodo($query, int $nodoId)
+    {
+        return $query->where(function ($q) use ($nodoId) {
+            $q->whereHas('pool.router', fn ($r) => $r->where('nodo_id', $nodoId))
+                ->orWhereHas('cajaNapPuertoActivo.cajaNap', fn ($c) => $c->where('nodo_id', $nodoId));
+        });
+    }
+
+    public function conexionEventos(): HasMany
+    {
+        return $this->hasMany(ServicioConexionEvento::class, 'servicio_id', 'servicio_id');
     }
 
     public function estaActivo(): bool

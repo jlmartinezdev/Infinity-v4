@@ -724,18 +724,51 @@ class MikroTikService
         if (! $servicio->usuario_pppoe || ! $servicio->pool?->router) {
             return ['success' => false, 'error' => 'Servicio sin usuario PPPoE o sin router asociado.'];
         }
+
         $router = $servicio->pool->router;
-        $existing = $this->getPppoeSecretByName($router, $servicio->usuario_pppoe);
-        if ($existing && isset($existing['.id'])) {
-            try {
+
+        try {
+            $existing = $this->getPppoeSecretByName($router, $servicio->usuario_pppoe);
+            if ($existing && isset($existing['.id'])) {
                 $this->setPppoeSecret($router, $existing['.id'], ['disabled' => $disabled ? 'yes' : 'no']);
+
                 return ['success' => true];
-            } catch (Throwable $e) {
-                Log::error('[MikroTik] setPppoeDisabled error', ['servicio' => $servicio->usuario_pppoe, 'error' => $e->getMessage()]);
-                return ['success' => false, 'error' => $e->getMessage()];
             }
+
+            return ['success' => false, 'error' => 'Usuario no encontrado en el router.'];
+        } catch (Throwable $e) {
+            Log::error('[MikroTik] setPppoeDisabledEnRouter error', [
+                'servicio' => $servicio->servicio_id,
+                'usuario' => $servicio->usuario_pppoe,
+                'router' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'error' => $this->mensajeErrorConexion($e, $router)];
         }
-        return ['success' => false, 'error' => 'Usuario no encontrado en el router.'];
+    }
+
+    /**
+     * Mensaje legible cuando el router no responde (apagado, sin red, credenciales, etc.).
+     */
+    public function mensajeErrorConexion(Throwable $e, ?Router $router = null): string
+    {
+        $detalle = trim($e->getMessage());
+        $routerEtiqueta = $router ? ($router->nombre ?: $router->ip) : 'router';
+
+        if ($detalle === '') {
+            return "No se pudo conectar al router «{$routerEtiqueta}». Verificá que esté encendido y accesible por API.";
+        }
+
+        $lower = strtolower($detalle);
+        if (str_contains($lower, 'timed out') || str_contains($lower, 'timeout')) {
+            return "El router «{$routerEtiqueta}» no respondió a tiempo (puede estar apagado o inaccesible).";
+        }
+        if (str_contains($lower, 'connection refused') || str_contains($lower, 'could not connect')) {
+            return "No se pudo conectar al router «{$routerEtiqueta}» (conexión rechazada o sin respuesta).";
+        }
+
+        return "No se pudo conectar al router «{$routerEtiqueta}»: {$detalle}";
     }
 
     /**
@@ -823,6 +856,367 @@ class MikroTikService
         }
 
         return implode("\n", $lineas);
+    }
+
+    /**
+     * Consulta MAC y tráfico del cliente en el router (ARP / PPP active / DHCP / queue).
+     *
+     * @return array{
+     *   success: bool,
+     *   message: string,
+     *   router?: string,
+     *   mac?: string|null,
+     *   mac_fuente?: string|null,
+     *   online?: bool,
+     *   bytes_in?: int|null,
+     *   bytes_out?: int|null,
+     *   download_humano?: string|null,
+     *   upload_humano?: string|null,
+     *   trafico_fuente?: string|null,
+     *   uptime?: string|null,
+     *   detalle?: array<string, mixed>
+     * }
+     */
+    public function consultarClienteRed(Router $router, ?string $ip, ?string $usuarioPppoe = null): array
+    {
+        $ip = trim((string) $ip);
+        $usuarioPppoe = trim((string) $usuarioPppoe);
+
+        if ($ip === '' && $usuarioPppoe === '') {
+            return [
+                'success' => false,
+                'message' => 'El servicio no tiene IP ni usuario PPPoE para consultar en MikroTik.',
+            ];
+        }
+
+        try {
+            $client = $this->connect($router);
+
+            $mac = null;
+            $macFuente = null;
+            $online = false;
+            $bytesIn = null;
+            $bytesOut = null;
+            $traficoFuente = null;
+            $uptime = null;
+            $detalle = [];
+
+            if ($usuarioPppoe !== '') {
+                $query = (new Query('/ppp/active/print'))->where('name', $usuarioPppoe);
+                $activos = $client->query($query)->read();
+                $activo = is_array($activos) && $activos !== [] ? $activos[0] : null;
+
+                if (is_array($activo)) {
+                    $online = true;
+                    $callerId = trim((string) ($activo['caller-id'] ?? ''));
+                    if ($callerId !== '' && $this->pareceMac($callerId)) {
+                        $mac = $this->normalizarMac($callerId);
+                        $macFuente = 'ppp/active (caller-id)';
+                    }
+                    $bytesIn = $this->parseBytes($activo['bytes-in'] ?? $activo['bytes_in'] ?? null);
+                    $bytesOut = $this->parseBytes($activo['bytes-out'] ?? $activo['bytes_out'] ?? null);
+                    if ($bytesIn !== null || $bytesOut !== null) {
+                        $traficoFuente = 'ppp/active (sesión actual)';
+                    }
+                    $uptime = (string) ($activo['uptime'] ?? '') ?: null;
+                    $detalle['ppp_active'] = [
+                        'name' => $activo['name'] ?? $usuarioPppoe,
+                        'address' => $activo['address'] ?? null,
+                        'caller-id' => $activo['caller-id'] ?? null,
+                        'service' => $activo['service'] ?? null,
+                        'uptime' => $uptime,
+                        'bytes-in' => $activo['bytes-in'] ?? null,
+                        'bytes-out' => $activo['bytes-out'] ?? null,
+                    ];
+                }
+            }
+
+            if ($ip !== '') {
+                $queryArp = (new Query('/ip/arp/print'))->where('address', $ip);
+                $arps = $client->query($queryArp)->read();
+                $arp = is_array($arps) && $arps !== [] ? $arps[0] : null;
+                if (is_array($arp)) {
+                    $detalle['arp'] = [
+                        'address' => $arp['address'] ?? $ip,
+                        'mac-address' => $arp['mac-address'] ?? null,
+                        'interface' => $arp['interface'] ?? null,
+                        'complete' => $arp['complete'] ?? null,
+                    ];
+                    $macArp = trim((string) ($arp['mac-address'] ?? ''));
+                    if ($mac === null && $macArp !== '' && $this->pareceMac($macArp)) {
+                        $mac = $this->normalizarMac($macArp);
+                        $macFuente = 'ip/arp';
+                    }
+                }
+
+                try {
+                    $queryDhcp = (new Query('/ip/dhcp-server/lease/print'))->where('address', $ip);
+                    $leases = $client->query($queryDhcp)->read();
+                    $lease = is_array($leases) && $leases !== [] ? $leases[0] : null;
+                    if (is_array($lease)) {
+                        $detalle['dhcp_lease'] = [
+                            'address' => $lease['address'] ?? $ip,
+                            'mac-address' => $lease['mac-address'] ?? null,
+                            'status' => $lease['status'] ?? null,
+                            'host-name' => $lease['host-name'] ?? null,
+                        ];
+                        $macDhcp = trim((string) ($lease['mac-address'] ?? ''));
+                        if ($mac === null && $macDhcp !== '' && $this->pareceMac($macDhcp)) {
+                            $mac = $this->normalizarMac($macDhcp);
+                            $macFuente = 'dhcp-server/lease';
+                        }
+                    }
+                } catch (Throwable $e) {
+                    Log::debug('[MikroTik] dhcp lease omitido', ['error' => $e->getMessage()]);
+                }
+            }
+
+            // Tráfico: colas dinámicas PPPoE se llaman <pppoe-USUARIO> (no por IP en target).
+            if ($bytesIn === null && $bytesOut === null) {
+                $trafico = $this->buscarTraficoCliente($client, $ip, $usuarioPppoe);
+                if ($trafico !== null) {
+                    $bytesIn = $trafico['bytes_in'];
+                    $bytesOut = $trafico['bytes_out'];
+                    $traficoFuente = $trafico['fuente'];
+                    $detalle['queue'] = $trafico['detalle'];
+                }
+            }
+
+            $this->disconnect();
+
+            $partesMsg = [];
+            if ($mac) {
+                $partesMsg[] = 'MAC '.$mac;
+            }
+            if ($bytesOut !== null || $bytesIn !== null) {
+                $partesMsg[] = 'tráfico leído';
+            }
+            if ($partesMsg === [] && ! $online) {
+                return [
+                    'success' => true,
+                    'message' => 'No se encontró sesión activa ni ARP/DHCP para este cliente en el MikroTik.',
+                    'router' => $router->ip,
+                    'mac' => null,
+                    'mac_fuente' => null,
+                    'online' => false,
+                    'bytes_in' => null,
+                    'bytes_out' => null,
+                    'download_humano' => null,
+                    'upload_humano' => null,
+                    'trafico_fuente' => null,
+                    'uptime' => null,
+                    'detalle' => $detalle,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => $partesMsg !== []
+                    ? 'Consulta MikroTik OK: '.implode(', ', $partesMsg).'.'
+                    : 'Consulta MikroTik OK.',
+                'router' => $router->ip,
+                'mac' => $mac,
+                'mac_fuente' => $macFuente,
+                'online' => $online,
+                'bytes_in' => $bytesIn,
+                'bytes_out' => $bytesOut,
+                // En PPP: bytes-out = hacia el cliente (download), bytes-in = desde el cliente (upload)
+                'download_humano' => $bytesOut !== null ? $this->formatoBytes($bytesOut) : null,
+                'upload_humano' => $bytesIn !== null ? $this->formatoBytes($bytesIn) : null,
+                'trafico_fuente' => $traficoFuente,
+                'uptime' => $uptime,
+                'detalle' => $detalle,
+            ];
+        } catch (Throwable $e) {
+            $this->disconnect();
+            Log::warning('[MikroTik] consultarClienteRed failed', [
+                'router' => $router->router_id,
+                'ip' => $ip,
+                'pppoe' => $usuarioPppoe,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Error al consultar MikroTik: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Busca tráfico en queue/simple dinámica (<pppoe-USER>) o interface PPPoE.
+     *
+     * @return array{bytes_in: ?int, bytes_out: ?int, fuente: string, detalle: array<string, mixed>}|null
+     */
+    private function buscarTraficoCliente(Client $client, string $ip, string $usuarioPppoe): ?array
+    {
+        $nombresQueue = [];
+        if ($usuarioPppoe !== '') {
+            $nombresQueue[] = '<pppoe-'.$usuarioPppoe.'>';
+            $nombresQueue[] = 'pppoe-'.$usuarioPppoe;
+            $nombresQueue[] = '<'.$usuarioPppoe.'>';
+            $nombresQueue[] = $usuarioPppoe;
+        }
+
+        try {
+            $queues = $client->query(new Query('/queue/simple/print'))->read();
+            if (is_array($queues)) {
+                foreach ($queues as $q) {
+                    $name = (string) ($q['name'] ?? '');
+                    $target = (string) ($q['target'] ?? '');
+                    $match = false;
+
+                    foreach ($nombresQueue as $candidato) {
+                        if ($name === $candidato || strcasecmp($name, $candidato) === 0) {
+                            $match = true;
+                            break;
+                        }
+                    }
+
+                    // Match flexible: nombre contiene pppoe-USUARIO o el usuario
+                    if (! $match && $usuarioPppoe !== '') {
+                        $nameNorm = strtolower($name);
+                        $userNorm = strtolower($usuarioPppoe);
+                        if (str_contains($nameNorm, 'pppoe-'.$userNorm) || str_contains($nameNorm, '<pppoe-'.$userNorm)) {
+                            $match = true;
+                        }
+                    }
+
+                    if (! $match && $ip !== '' && ($target !== '' && str_contains($target, $ip))) {
+                        $match = true;
+                    }
+
+                    if (! $match) {
+                        continue;
+                    }
+
+                    $bytesRaw = (string) ($q['bytes'] ?? '');
+                    $bytesIn = null;
+                    $bytesOut = null;
+                    if (str_contains($bytesRaw, '/')) {
+                        // En queue/simple: bytes = upload/download (desde→hacia / hacia→cliente)
+                        [$up, $down] = array_pad(explode('/', $bytesRaw, 2), 2, '0');
+                        $bytesIn = $this->parseBytes($up);
+                        $bytesOut = $this->parseBytes($down);
+                    } else {
+                        $bytesOut = $this->parseBytes($bytesRaw);
+                    }
+
+                    if ($bytesIn === null && $bytesOut === null) {
+                        continue;
+                    }
+
+                    return [
+                        'bytes_in' => $bytesIn,
+                        'bytes_out' => $bytesOut,
+                        'fuente' => 'queue/simple ('.$name.')',
+                        'detalle' => [
+                            'name' => $name,
+                            'target' => $target !== '' ? $target : null,
+                            'bytes' => $bytesRaw,
+                            'max-limit' => $q['max-limit'] ?? null,
+                            'dynamic' => $q['dynamic'] ?? null,
+                        ],
+                    ];
+                }
+            }
+        } catch (Throwable $e) {
+            Log::debug('[MikroTik] queue simple omitido', ['error' => $e->getMessage()]);
+        }
+
+        // Respaldo: contadores de la interface dinámica <pppoe-USER>
+        if ($usuarioPppoe !== '') {
+            $ifNames = ['<pppoe-'.$usuarioPppoe.'>', 'pppoe-'.$usuarioPppoe];
+            try {
+                $ifs = $client->query(new Query('/interface/print'))->read();
+                if (is_array($ifs)) {
+                    foreach ($ifs as $iface) {
+                        $ifName = (string) ($iface['name'] ?? '');
+                        $ok = false;
+                        foreach ($ifNames as $candidato) {
+                            if ($ifName === $candidato || strcasecmp($ifName, $candidato) === 0) {
+                                $ok = true;
+                                break;
+                            }
+                        }
+                        if (! $ok && str_contains(strtolower($ifName), 'pppoe-'.strtolower($usuarioPppoe))) {
+                            $ok = true;
+                        }
+                        if (! $ok) {
+                            continue;
+                        }
+
+                        // Interface: rx-byte = recibido del cliente (upload), tx-byte = enviado al cliente (download)
+                        $bytesIn = $this->parseBytes($iface['rx-byte'] ?? $iface['rx-bytes'] ?? null);
+                        $bytesOut = $this->parseBytes($iface['tx-byte'] ?? $iface['tx-bytes'] ?? null);
+                        if ($bytesIn === null && $bytesOut === null) {
+                            continue;
+                        }
+
+                        return [
+                            'bytes_in' => $bytesIn,
+                            'bytes_out' => $bytesOut,
+                            'fuente' => 'interface ('.$ifName.')',
+                            'detalle' => [
+                                'name' => $ifName,
+                                'type' => $iface['type'] ?? null,
+                                'rx-byte' => $iface['rx-byte'] ?? null,
+                                'tx-byte' => $iface['tx-byte'] ?? null,
+                            ],
+                        ];
+                    }
+                }
+            } catch (Throwable $e) {
+                Log::debug('[MikroTik] interface omitido', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return null;
+    }
+
+    private function pareceMac(string $value): bool
+    {
+        return (bool) preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', trim($value));
+    }
+
+    private function normalizarMac(string $mac): string
+    {
+        $hex = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $mac) ?? '');
+        if (strlen($hex) !== 12) {
+            return strtoupper(str_replace('-', ':', $mac));
+        }
+
+        return implode(':', str_split($hex, 2));
+    }
+
+    private function parseBytes(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+        $s = trim((string) $value);
+        if (preg_match('/^(\d+)/', $s, $m)) {
+            return (int) $m[1];
+        }
+
+        return null;
+    }
+
+    private function formatoBytes(int $bytes): string
+    {
+        $bytes = max(0, $bytes);
+        $unidades = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $i = 0;
+        $n = (float) $bytes;
+        while ($n >= 1024 && $i < count($unidades) - 1) {
+            $n /= 1024;
+            $i++;
+        }
+
+        return ($i === 0 ? (string) (int) $n : number_format($n, 2, '.', '')).' '.$unidades[$i];
     }
 
     private function construirComandoPppoeSecretAdd(

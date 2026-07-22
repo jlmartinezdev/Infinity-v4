@@ -45,12 +45,19 @@ class VsolOnuOutputParser
             return null;
         }
 
-        if ($desc = $this->extractDescription($output)) {
-            return $desc;
+        if (preg_match('/(?:description|desc(?:ription)?)\s*[:=]\s*(.+)$/im', $output, $m)) {
+            $desc = $this->limpiarDescripcion(trim($m[1]));
+            if ($desc !== null) {
+                return $desc;
+            }
         }
 
-        if (preg_match('/(?:description|desc(?:ription)?)\s*[:=]\s*(.+)$/im', $output, $m)) {
-            return trim($m[1]);
+        // VSOL suele responder: "desc PEDRO_CIBILS" (sin ':')
+        if (preg_match('/^\s*desc(?:ription)?\s+(.+)$/im', $output, $m)) {
+            $desc = $this->limpiarDescripcion(trim($m[1]));
+            if ($desc !== null) {
+                return $desc;
+            }
         }
 
         foreach (preg_split('/\r\n|\r|\n/', $output) ?: [] as $line) {
@@ -58,14 +65,27 @@ class VsolOnuOutputParser
             if ($line === '' || $this->isSeparatorLine($line)) {
                 continue;
             }
-            if (preg_match('/^(show onu|gpon-olt|configure|interface|\s*desc\b)/i', $line)) {
+            if (preg_match('/^(show\s+onu|gpon-olt|configure|interface)\b/i', $line)) {
                 continue;
             }
-            if (preg_match('/^(none|null|n\/a|empty)$/i', $line)) {
-                return null;
+            if (preg_match('/^\s*desc(?:ription)?\s+(.+)$/i', $line, $m)) {
+                $desc = $this->limpiarDescripcion(trim($m[1]));
+                if ($desc !== null) {
+                    return $desc;
+                }
+                continue;
+            }
+            if (preg_match('/^(none|null|n\/a|empty|desc(?:ription)?)$/i', $line)) {
+                continue;
             }
 
-            return $line;
+            // Una sola palabra/línea de descripción (evitar tokens de comando: show, onu…)
+            if ($this->tokenPareceDescripcion($line) || str_contains($line, ' ') || str_contains($line, '_')) {
+                $desc = $this->limpiarDescripcion($line);
+                if ($desc !== null && ! preg_match('/^(show|onu|optical|info|interface|gpon)\b/i', $desc)) {
+                    return $desc;
+                }
+            }
         }
 
         return null;
@@ -274,11 +294,15 @@ class VsolOnuOutputParser
      */
     private function ingestGponSegment(string $line, int $slot, int $port, int $onuIndex, array &$onus): void
     {
+        $tokens = $this->tokenize($line);
+        $serial = $this->extractSerial($line);
+        $modelo = $this->extractModelo($line);
+
         $data = array_filter([
-            'serial' => $this->extractSerial($line),
-            'modelo' => $this->extractModelo($line),
-            'descripcion' => $this->extractDescription($line),
-            'estado' => $this->extractEstadoFromTokens($this->tokenize($line)),
+            'serial' => $serial,
+            'modelo' => $modelo,
+            'descripcion' => $this->extractDescriptionFromTokens($tokens, $serial, $modelo),
+            'estado' => $this->extractEstadoFromTokens($tokens),
             'rx_power_dbm' => $this->extractRxPower($line),
             'tx_power_dbm' => $this->extractTxPower($line),
         ], fn ($v) => $v !== null && $v !== '');
@@ -383,32 +407,13 @@ class VsolOnuOutputParser
         $port = $parsed['port'];
 
         $serial = $this->extractSerial($line);
+        $modelo = $this->extractModelo($line);
         $estado = $this->extractEstadoFromTokens($tokens);
-        $descripcion = null;
-
-        foreach ($tokens as $i => $token) {
-            if ($i === 0) {
-                continue;
-            }
-            if ($serial !== null && strcasecmp($token, $serial) === 0) {
-                continue;
-            }
-            if ($this->tokenEsEstado($token)) {
-                continue;
-            }
-            if (preg_match('/^(enable|disable|enabled|disabled|succeeded|failed|initial|match|mismatch|\d+\(gpon\))$/i', $token)) {
-                continue;
-            }
-            if (strlen($token) >= 3 && ! preg_match('/^\d+(\.\d+)?$/', $token)) {
-                $descripcion = $token;
-                break;
-            }
-        }
 
         $data = array_filter([
             'serial' => $serial,
-            'modelo' => $this->extractModelo($line),
-            'descripcion' => $descripcion,
+            'modelo' => $modelo,
+            'descripcion' => $this->extractDescriptionFromTokens($tokens, $serial, $modelo),
             'estado' => $estado,
             'rx_power_dbm' => $this->extractRxPower($line),
         ], fn ($v) => $v !== null && $v !== '');
@@ -589,17 +594,95 @@ class VsolOnuOutputParser
     private function extractDescription(string $line): ?string
     {
         if (preg_match('/(?:name|desc(?:ription)?)\s*[:=]\s*([^,|]+)/i', $line, $m)) {
-            return trim($m[1]);
+            return $this->limpiarDescripcion(trim($m[1]));
         }
 
-        if (preg_match('/(?:GPON\d+\/\d+:\d+|\d+\/\d+\/\d+:\d+)\s+(\S+)/i', $line, $m)) {
-            $first = $m[1];
-            if (preg_match('/^[A-Z0-9][A-Z0-9_]{2,}$/i', $first) && str_contains($first, '_')) {
-                return $first;
+        $serial = $this->extractSerial($line);
+        $modelo = $this->extractModelo($line);
+
+        return $this->extractDescriptionFromTokens($this->tokenize($line), $serial, $modelo);
+    }
+
+    /**
+     * Busca descripción en tokens (formato web/CLI: Status Descriptions Model Profile Mode AuthInfo).
+     * Ej: GPON0/1:1 Online PEDRO_CIBILS AN5506-01-A default Sn FHTT...
+     *
+     * @param  array<int, string>  $tokens
+     */
+    private function extractDescriptionFromTokens(array $tokens, ?string $serial, ?string $modelo): ?string
+    {
+        foreach ($tokens as $i => $token) {
+            if ($i === 0 && preg_match('/(?:GPON|\d+\/\d+)/i', $token)) {
+                continue;
             }
+            if ($serial !== null && strcasecmp($token, $serial) === 0) {
+                continue;
+            }
+            if ($modelo !== null && strcasecmp($token, $modelo) === 0) {
+                continue;
+            }
+            if ($this->tokenEsEstado($token)) {
+                continue;
+            }
+            if ($this->tokenEsRuidoDescripcion($token)) {
+                continue;
+            }
+            if (! $this->tokenPareceDescripcion($token)) {
+                continue;
+            }
+
+            return $token;
         }
 
         return null;
+    }
+
+    private function tokenEsRuidoDescripcion(string $token): bool
+    {
+        return (bool) preg_match(
+            '/^(enable|disable|enabled|disabled|succeeded|failed|initial|match|mismatch|default|sn|profile|mode|authinfo|onu_profile(_\d+)?|show|onu|optical|info|interface|gpon|desc|description|\d+\(gpon\))$/i',
+            $token
+        );
+    }
+
+    private function tokenPareceDescripcion(string $token): bool
+    {
+        if (strlen($token) < 3 || preg_match('/^\d+(\.\d+)?$/', $token)) {
+            return false;
+        }
+        if ($this->tokenEsRuidoDescripcion($token) || $this->tokenEsEstado($token)) {
+            return false;
+        }
+
+        // Nombres tipo PEDRO_CIBILS / Cliente_X
+        if (preg_match('/^[A-Z0-9][A-Z0-9_-]{2,}$/i', $token) && (str_contains($token, '_') || str_contains($token, '-'))) {
+            // Evitar confundir con modelos AN5506-01-A / EG8145V5
+            if (preg_match('/^(EG|HS|HG|AN|MA|V)\d+/i', $token)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Descripción alfanumérica sin guion bajo (menos fiable): exigir longitud mayor
+        if (preg_match('/^[A-Za-z][A-Za-z0-9]{5,}$/', $token) && ! preg_match('/^(EG|HS|HG|AN|MA|V)\d+/i', $token)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function limpiarDescripcion(string $desc): ?string
+    {
+        $desc = trim($desc, " \t\"'");
+        if ($desc === '' || preg_match('/^(none|null|n\/a|empty)$/i', $desc)) {
+            return null;
+        }
+        if ($this->tokenEsEstado($desc) || $this->tokenEsRuidoDescripcion($desc)) {
+            return null;
+        }
+
+        return $desc;
     }
 
     private function extractRxPower(string $line): ?float
@@ -710,6 +793,244 @@ class VsolOnuOutputParser
         }
 
         return $e !== '' ? $e : 'unknown';
+    }
+
+    /**
+     * Parsea salida de: show mac address-table address FC1B:D1C2:8C15
+     *
+     * VLAN: 199
+     * MAC Address: fc1b:d1c2:8c15
+     * Type: Dynamic
+     * Port: GPON0/07
+     * ONU ID: 7
+     *
+     * @return array{mac: string, vlan: ?int, pon_port: ?int, onu_index: ?int, type: ?string, raw: string}|null
+     */
+    public function parseMacAddressLookup(string $output, ?string $macEsperada = null): ?array
+    {
+        $output = $this->stripAnsi($output);
+        if (trim($output) === '') {
+            return null;
+        }
+
+        // Espacios unicode / NBSP / tabs → espacio; dos puntos fullwidth → :
+        $normalized = preg_replace('/[\x{00A0}\x{2000}-\x{200B}\x{202F}\x{205F}\x{3000}\t]+/u', ' ', $output) ?? $output;
+        $normalized = str_replace(["\xEF\xBC\x9A", '：'], ':', $normalized);
+        // Solo colapsar relleno INMEDIATAMENTE antes de ':': "ONU ID         : 7" → "ONU ID: 7"
+        // (no usar espacios como separador suelto: rompería "ONU ID" → "ONU: ID")
+        $normalized = preg_replace('/^(\s*[A-Za-z][A-Za-z0-9 ]*?)\s*[.\s]*:\s*/m', '$1: ', $normalized) ?? $normalized;
+
+        $vlan = null;
+        $mac = null;
+        $type = null;
+        $ponPort = null;
+        $onuIndex = null;
+
+        if (preg_match('/VLAN\s*:\s*(\d+)/i', $normalized, $m)) {
+            $vlan = (int) $m[1];
+        }
+        if (preg_match('/MAC\s*Address\s*:\s*([0-9A-Fa-f:.\-]+)/i', $normalized, $m)) {
+            $mac = $this->normalizarMacHex($m[1]);
+        } elseif (preg_match('/\b([0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4})\b/', $normalized, $m)) {
+            $mac = $this->normalizarMacHex($m[1]);
+        } elseif (preg_match('/([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}/', $normalized, $m)) {
+            $mac = $this->normalizarMacHex($m[0]);
+        }
+        if (preg_match('/Type\s*:\s*(\S+)/i', $normalized, $m)) {
+            $type = $m[1];
+        }
+
+        // Port … GPON0/1:29  (algunas firmwares incluyen ONU en Port)
+        if (preg_match('/Port[^\n\r]*?GPON\s*0\s*[\/]\s*0*(\d+)\s*:\s*(\d+)/i', $normalized, $m)
+            || preg_match('/\bGPON\s*0\s*[\/]\s*0*(\d+)\s*:\s*(\d+)\b/i', $normalized, $m)) {
+            $ponPort = (int) $m[1];
+            $onuIndex = (int) $m[2];
+        } elseif (preg_match('/Port[^\n\r]*?GPON\s*0\s*[\/]\s*0*(\d+)/i', $normalized, $m)
+            || preg_match('/\bGPON\s*0\s*[\/]\s*0*(\d+)\b/i', $normalized, $m)
+            || preg_match('/Port\s*:\s*0\s*[\/]\s*0*(\d+)/i', $normalized, $m)) {
+            // Port: GPON0/1  (sin ONU ID — firmwares viejos)
+            $ponPort = (int) $m[1];
+        }
+
+        // ONU ID … 7 (no exigir ':' exacto: tolerar basura entre etiqueta y número)
+        if ($onuIndex === null) {
+            if (preg_match('/ONU\s*ID[^\d\n\r]{0,40}(\d+)/i', $normalized, $m)
+                || preg_match('/Onu\s*Id[^\d\n\r]{0,40}(\d+)/i', $normalized, $m)) {
+                $onuIndex = (int) $m[1];
+            }
+        }
+
+        // Fila tabular: … GPON0/07  7
+        if (($ponPort === null || $onuIndex === null)
+            && preg_match('/GPON\s*0\s*[\/]\s*0*(\d+)\s+(\d+)\b/i', $normalized, $mTab)) {
+            $ponPort = $ponPort ?? (int) $mTab[1];
+            $onuIndex = $onuIndex ?? (int) $mTab[2];
+        }
+
+        if ($mac === null && $macEsperada !== null) {
+            $mac = $this->normalizarMacHex($macEsperada);
+        }
+
+        if ($ponPort === null && $onuIndex === null) {
+            return null;
+        }
+
+        return [
+            'mac' => $mac ?? ($macEsperada ? $this->normalizarMacHex($macEsperada) : ''),
+            'vlan' => $vlan,
+            'pon_port' => $ponPort,
+            'onu_index' => $onuIndex,
+            'type' => $type,
+            'raw' => trim($output),
+        ];
+    }
+
+    public function normalizarMacHex(string $mac): string
+    {
+        $hex = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $mac) ?? '');
+        if (strlen($hex) === 12) {
+            return implode(':', str_split($hex, 2));
+        }
+
+        return strtoupper(str_replace(['-', '.'], ':', $mac));
+    }
+
+    /**
+     * Parsea "show mac address-table" / PON MAC table (listado completo).
+     * Soporta fila en una línea o Telnet que parte columnas en varias líneas:
+     *   fc1b.d1cc.35f0
+     *   199
+     *   Dynamic
+     *   GPON0/1:2
+     *
+     * @return array<int, array{mac: string, vlan: ?int, pon_port: ?int, onu_index: ?int, type: ?string, raw: string}>
+     */
+    public function parseMacAddressTable(string $output): array
+    {
+        $lookup = $this->parseMacAddressLookup($output);
+        if ($lookup !== null && ($lookup['pon_port'] !== null || $lookup['onu_index'] !== null)
+            && preg_match('/ONU\s*ID/i', $output)) {
+            return [$lookup];
+        }
+
+        $output = $this->stripAnsi($output);
+        $lines = [];
+        foreach (preg_split('/\r\n|\r|\n/', $output) ?: [] as $line) {
+            $line = trim($line);
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+
+        $filas = [];
+        $count = count($lines);
+
+        for ($i = 0; $i < $count; $i++) {
+            $line = $lines[$i];
+
+            if (preg_match('/^(vlan|mac\s*address|type|port|onu\s*id|mac address table|----)/i', $line)
+                && ! preg_match('/GPON\s*0\s*\/\s*\d+/i', $line)
+                && ! $this->extraerMacDeLinea($line)) {
+                continue;
+            }
+            if (preg_match('/^(mac|index|total|pon\s*mac|gem_|addresses\s+of|the\s+pon\s+found)/i', $line)
+                && ! $this->extraerMacDeLinea($line)) {
+                continue;
+            }
+
+            $macMatch = $this->extraerMacDeLinea($line);
+            if ($macMatch === null) {
+                continue;
+            }
+
+            $mac = $this->normalizarMacHex($macMatch);
+            $ventana = $line;
+            $rawParts = [$line];
+            for ($j = 1; $j <= 8 && ($i + $j) < $count; $j++) {
+                $next = $lines[$i + $j];
+                if ($this->extraerMacDeLinea($next) !== null) {
+                    break;
+                }
+                $ventana .= ' '.$next;
+                $rawParts[] = $next;
+            }
+
+            $vlan = null;
+            $ponPort = null;
+            $onuIndex = null;
+            $type = null;
+
+            if (preg_match('/GPON\s*0\s*\/\s*0*(\d+)\s*:\s*(\d+)/i', $ventana, $mG)) {
+                $ponPort = (int) $mG[1];
+                $onuIndex = (int) $mG[2];
+            } elseif (preg_match('/GPON\s*0\s*\/\s*0*(\d+)/i', $ventana, $mG)) {
+                $ponPort = (int) $mG[1];
+            }
+
+            if (preg_match('/\b(dynamic|static|secure)\b/i', $ventana, $mType)) {
+                $type = ucfirst(strtolower($mType[1]));
+            }
+
+            // VLAN: número entre la MAC y Dynamic/Static (evitar hex de la propia MAC, p.ej. …1632)
+            if (preg_match(
+                '/(?:[0-9A-Fa-f]{4}[.:][0-9A-Fa-f]{4}[.:][0-9A-Fa-f]{4}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})\s+(\d{1,4})\s+(?:dynamic|static|secure)\b/i',
+                $ventana,
+                $mVlan
+            )) {
+                $vlan = (int) $mVlan[1];
+            } elseif (preg_match('/\bvlan\s*[:=]?\s*(\d{1,4})\b/i', $ventana, $mVlan)) {
+                $vlan = (int) $mVlan[1];
+            }
+
+            if ($onuIndex === null && preg_match('/ONU\s*(?:ID)?\s*[:=]?\s*(\d+)/i', $ventana, $mO)) {
+                $onuIndex = (int) $mO[1];
+            }
+
+            // Sin PON/ONU no es una fila útil de tabla (evita confundir "MAC Address: xx" del lookup).
+            if ($ponPort === null && $onuIndex === null) {
+                continue;
+            }
+
+            $filas[] = [
+                'mac' => $mac,
+                'vlan' => $vlan,
+                'pon_port' => $ponPort,
+                'onu_index' => $onuIndex,
+                'type' => $type,
+                'raw' => implode(' | ', $rawParts),
+            ];
+        }
+
+        return $filas;
+    }
+
+    private function extraerMacDeLinea(string $line): ?string
+    {
+        if (preg_match('/([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}/', $line, $mMac)) {
+            return $mMac[0];
+        }
+        if (preg_match('/\b([0-9A-Fa-f]{4}[.:][0-9A-Fa-f]{4}[.:][0-9A-Fa-f]{4})\b/', $line, $mMac)) {
+            return $mMac[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, array{mac: string, vlan: ?int, pon_port: ?int, onu_index: ?int, type: ?string, raw: string}>  $filas
+     * @return array{mac: string, vlan: ?int, pon_port: ?int, onu_index: ?int, type: ?string, raw: string}|null
+     */
+    public function buscarMacEnTabla(array $filas, string $mac): ?array
+    {
+        $objetivo = $this->normalizarMacHex($mac);
+
+        foreach ($filas as $fila) {
+            if (strcasecmp($fila['mac'], $objetivo) === 0) {
+                return $fila;
+            }
+        }
+
+        return null;
     }
 
     private function stripAnsi(string $text): string

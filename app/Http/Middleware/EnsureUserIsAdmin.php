@@ -12,6 +12,12 @@ class EnsureUserIsAdmin
     {
         $user = $request->user();
         if (! $user || ! $user->rol || strtolower($user->rol->descripcion) !== 'administrador') {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Acceso solo para administradores.',
+                ], 403);
+            }
             abort(403);
         }
 

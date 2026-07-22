@@ -8,7 +8,7 @@
 @endphp
 
 @section('content')
-<div class="max-w-2xl mx-auto">
+<div class="max-w-4xl mx-auto">
     <div class="mb-6">
         <a href="{{ route('sistema.olts.show', $olt) }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; Volver al OLT</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">Editar OLT</h1>
@@ -37,6 +37,10 @@
         <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Identificación del equipo</h2>
         </div>
+        @php
+            $modelosPorMarca = $modelosPorMarca ?? [];
+            $modeloSeleccionado = old('modelo', $olt->modelo ?: 'otro');
+        @endphp
         <div class="grid gap-5 p-6 sm:grid-cols-2">
             <div>
                 <label for="marca" class="{{ $lb }}">Marca <span class="text-red-500">*</span></label>
@@ -49,8 +53,33 @@
                 @error('codigo')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
             <div class="sm:col-span-2">
-                <label for="modelo" class="{{ $lb }}">Modelo</label>
-                <input type="text" name="modelo" id="modelo" value="{{ old('modelo', $olt->modelo) }}" maxlength="50" class="{{ $fc }}" placeholder="C320, MA5608T, SmartAX…">
+                <label class="{{ $lb }}">Modelo</label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Seleccioná del <a href="{{ route('sistema.olt-modelos.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">catálogo OLT</a>.
+                </p>
+                <input type="hidden" name="modelo" id="modelo" value="{{ $modeloSeleccionado }}">
+                @if($modelosPorMarca !== [])
+                    <div class="space-y-4 max-h-[420px] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-600 p-3 bg-gray-50/50 dark:bg-gray-900/30">
+                        @foreach($modelosPorMarca as $marcaGrupo => $modelos)
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">{{ $marcaGrupo }}</p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                    @foreach($modelos as $slug => $m)
+                                        <button type="button"
+                                            class="olt-modelo-btn rounded-lg border-2 p-2 text-left transition-all hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 {{ $modeloSeleccionado === $slug ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 ring-2 ring-purple-500/20' : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800' }}"
+                                            data-slug="{{ $slug }}"
+                                            data-marca="{{ $m['marca'] ?? '' }}">
+                                            <img src="{{ $m['imagen_url'] ?? asset('images/olts/olt-generic.svg') }}" alt="{{ $m['nombre'] }}" class="mx-auto h-16 w-full object-contain mb-2" loading="lazy">
+                                            <span class="block text-xs font-semibold text-gray-900 dark:text-gray-100 leading-tight">{{ $m['nombre'] }}</span>
+                                            <span class="block text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{{ $m['descripcion'] }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+                @error('modelo')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
         </div>
 
@@ -74,6 +103,44 @@
         </div>
 
         @include('olts._gestion_fields', ['olt' => $olt])
+
+        <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Pools de IP asociados</h2>
+        </div>
+        <div class="p-6">
+            <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                Marcá los pools que deben consultar esta OLT (útil cuando un router atiende clientes de otro nodo y se diferencian por pool).
+            </p>
+            @php
+                $poolIdsSeleccionados = collect($poolIdsSeleccionados ?? [])->map(fn ($id) => (string) $id)->all();
+            @endphp
+            @if(($pools ?? collect())->isEmpty())
+                <p class="text-sm text-gray-500">No hay pools cargados.</p>
+            @else
+                <div class="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-3 dark:border-gray-600">
+                    @foreach($pools as $pool)
+                        <label class="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            <input type="checkbox" name="pool_ids[]" value="{{ $pool->pool_id }}"
+                                class="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                {{ in_array((string) $pool->pool_id, $poolIdsSeleccionados, true) ? 'checked' : '' }}>
+                            <span class="text-sm text-gray-800 dark:text-gray-100">
+                                <span class="font-medium">{{ $pool->descripcion ?: $pool->ip_range }}</span>
+                                <span class="block text-xs text-gray-500">
+                                    {{ $pool->ip_range }}
+                                    · Router {{ $pool->router?->nombre ?? '—' }}
+                                    @if($pool->router?->nodo) ({{ $pool->router->nodo->descripcion }}) @endif
+                                    @if($pool->olt_id && (int) $pool->olt_id !== (int) $olt->olt_id)
+                                        · <span class="text-amber-600">hoy en otra OLT</span>
+                                    @endif
+                                </span>
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+            @endif
+            @error('pool_ids')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+            @error('pool_ids.*')<p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+        </div>
 
         <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Capacidad y estado</h2>
@@ -111,4 +178,5 @@
         </div>
     </form>
 </div>
+@include('olts._modelo_selector_script')
 @endsection

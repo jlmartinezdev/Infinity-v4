@@ -275,7 +275,7 @@ class CobroController extends Controller
             $mensaje .= ' El monto se registró como saldo a favor del servicio.';
         }
 
-        return redirect()->route('cobros.show', $cobro)->with('success', $mensaje);
+        return $this->redirectTrasCobro($cobro, $mensaje);
     }
 
     /**
@@ -347,7 +347,7 @@ class CobroController extends Controller
         ], $usuarioId);
 
         $mensaje = 'Cobro registrado. Recibo: ' . $cobro->numero_recibo;
-        return redirect()->route('cobros.show', $cobro)->with('success', $mensaje);
+        return $this->redirectTrasCobro($cobro, $mensaje);
     }
 
     /**
@@ -432,6 +432,7 @@ class CobroController extends Controller
         $facturasPorCliente = $facturas->groupBy('cliente_id');
 
         $cobrosCreados = [];
+        $avisosMikrotik = [];
 
         foreach ($facturasPorCliente as $clienteId => $facturasCliente) {
             $facturasCliente = $facturasCliente->values();
@@ -477,6 +478,7 @@ class CobroController extends Controller
                 'factura_interna_items' => $items,
             ], $usuarioId);
             $cobrosCreados[] = $cobro;
+            $avisosMikrotik = array_merge($avisosMikrotik, $this->facturacionService->avisosUltimoCobro);
         }
 
         if (empty($cobrosCreados)) {
@@ -489,12 +491,39 @@ class CobroController extends Controller
             : count($cobrosCreados) . ' cobros registrados (recibos: ' . collect($cobrosCreados)->pluck('numero_recibo')->join(', ') . ').';
 
         if (count($cobrosCreados) > 1) {
-            return redirect()->route('cobros.multicobro-result')
+            $redirect = redirect()->route('cobros.multicobro-result')
                 ->with('success', $mensaje)
                 ->with('cobros_multicobro_ids', collect($cobrosCreados)->pluck('id')->all());
+            $warning = implode(' ', array_unique(array_filter($avisosMikrotik)));
+            if ($warning !== '') {
+                $redirect->with('warning', $warning);
+            }
+
+            return $redirect;
         }
 
-        return redirect()->route('cobros.show', $primero)->with('success', $mensaje);
+        return $this->redirectTrasCobro($primero, $mensaje);
+    }
+
+    /**
+     * Redirige al recibo y muestra aviso si MikroTik no respondió al reactivar el servicio.
+     */
+    protected function redirectTrasCobro(Cobro $cobro, string $mensajeExito): \Illuminate\Http\RedirectResponse
+    {
+        $redirect = redirect()->route('cobros.show', $cobro)->with('success', $mensajeExito);
+        $avisos = $this->avisosMikrotikUltimoCobro();
+        if ($avisos !== '') {
+            $redirect->with('warning', $avisos);
+        }
+
+        return $redirect;
+    }
+
+    protected function avisosMikrotikUltimoCobro(): string
+    {
+        $avisos = $this->facturacionService->avisosUltimoCobro ?? [];
+
+        return implode(' ', array_unique(array_filter($avisos)));
     }
 
     /**

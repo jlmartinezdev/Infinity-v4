@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\FacturacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
@@ -41,7 +42,7 @@ class TicketController extends Controller
     {
         $asuntos = TicketAsunto::orderBy('nombre')->get();
         $clientes = Cliente::orderBy('nombre')->get();
-        $tecnicos = User::where('estado', 'activo')->orderBy('name')->get();
+        $tecnicos = User::staff()->activos()->orderBy('name')->get();
         $pedidos = Pedido::with('cliente')->orderBy('fecha_pedido', 'desc')->limit(200)->get();
         $clientePresetId = $request->filled('cliente_id') ? (int) $request->cliente_id : null;
 
@@ -58,7 +59,7 @@ class TicketController extends Controller
             'estado' => ['nullable', 'string', 'in:pendiente,en_proceso,resuelto,cerrado,cancelado'],
             'prioridad' => ['nullable', 'string', 'in:baja,media,alta'],
             'reportado_desde' => ['nullable', 'string', 'max:50'],
-            'asignado_id' => ['nullable', 'integer', 'exists:users,usuario_id'],
+            'asignado_id' => ['nullable', 'integer', Rule::exists('users', 'usuario_id')->whereNull('cliente_id')],
             'observaciones' => ['nullable', 'string'],
             'imagen' => ['nullable', 'image', 'max:2048'],
         ]);
@@ -108,7 +109,7 @@ class TicketController extends Controller
         $ticket->load(['cliente', 'pedido', 'ticketAsunto', 'usuario', 'asignado']);
         $asuntos = TicketAsunto::orderBy('nombre')->get();
         $clientes = Cliente::orderBy('nombre')->get();
-        $tecnicos = User::where('estado', 'activo')->orderBy('name')->get();
+        $tecnicos = User::staff()->activos()->orderBy('name')->get();
         $pedidos = Pedido::with('cliente')->orderBy('fecha_pedido', 'desc')->limit(200)->get();
 
         return view('tickets.edit', compact('ticket', 'asuntos', 'clientes', 'tecnicos', 'pedidos'));
@@ -124,7 +125,7 @@ class TicketController extends Controller
             'estado' => ['required', 'string', 'in:pendiente,en_proceso,resuelto,cerrado,cancelado'],
             'prioridad' => ['required', 'string', 'in:baja,media,alta'],
             'reportado_desde' => ['nullable', 'string', 'max:50'],
-            'asignado_id' => ['nullable', 'integer', 'exists:users,usuario_id'],
+            'asignado_id' => ['nullable', 'integer', Rule::exists('users', 'usuario_id')->whereNull('cliente_id')],
             'observaciones' => ['nullable', 'string'],
             'imagen' => ['nullable', 'image', 'max:2048'],
         ]);

@@ -22,6 +22,7 @@ class RouterIpPool extends Model
 
     protected $fillable = [
         'router_id',
+        'olt_id',
         'ip_range',
         'descripcion',
         'activo',
@@ -39,6 +40,11 @@ class RouterIpPool extends Model
     public function router(): BelongsTo
     {
         return $this->belongsTo(Router::class, 'router_id', 'router_id');
+    }
+
+    public function olt(): BelongsTo
+    {
+        return $this->belongsTo(Olt::class, 'olt_id', 'olt_id');
     }
 
     public function poolIpAsignadas(): HasMany

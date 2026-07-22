@@ -77,24 +77,46 @@
             <input type="hidden" name="periodo" id="input-periodo" value="{{ $periodoYm }}">
             <div id="cliente-ids-persistidos"></div>
 
-            <div id="barra-masivo" class="hidden sticky top-0 z-10 px-4 py-3 border-b border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p class="text-sm text-purple-900 dark:text-purple-100">
-                    <span id="contador-seleccion" class="font-semibold">0</span> cliente(s) seleccionado(s)
-                    <span class="text-xs text-purple-700 dark:text-purple-300"> · período <span class="capitalize">{{ $mesLabel }}</span> · se mantiene al cambiar de página · máx. 50</span>
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    <button type="button" id="btn-limpiar-seleccion"
-                            class="px-3 py-2 text-sm font-medium rounded-lg text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/50">
-                        Limpiar
-                    </button>
-                    <button type="submit" name="accion" value="borrador"
-                            class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-300 dark:border-purple-600 text-purple-800 dark:text-purple-100 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/50">
-                        Crear borradores
-                    </button>
-                    <button type="submit" name="accion" value="emitir"
-                            class="px-4 py-2 text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700">
-                        Crear y enviar a SIFEN
-                    </button>
+            <div id="barra-masivo" class="hidden sticky top-0 z-10 px-4 py-3 border-b border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30 flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p class="text-sm text-purple-900 dark:text-purple-100">
+                        <span id="contador-seleccion" class="font-semibold">0</span> cliente(s) seleccionado(s)
+                        <span class="text-xs text-purple-700 dark:text-purple-300"> · período <span class="capitalize">{{ $mesLabel }}</span> · se mantiene al cambiar de página · máx. 50</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" id="btn-limpiar-seleccion"
+                                class="px-3 py-2 text-sm font-medium rounded-lg text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/50">
+                            Limpiar
+                        </button>
+                        <button type="submit" name="accion" value="borrador"
+                                class="px-4 py-2 text-sm font-medium rounded-lg border border-purple-300 dark:border-purple-600 text-purple-800 dark:text-purple-100 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/50">
+                            Crear borradores
+                        </button>
+                        <button type="submit" name="accion" value="emitir"
+                                class="px-4 py-2 text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700">
+                            Crear y enviar a SIFEN
+                        </button>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-end gap-3 pt-1 border-t border-purple-200/70 dark:border-purple-800/70">
+                    <div class="sm:w-56">
+                        <label for="monto_modo" class="block text-xs font-medium text-purple-800 dark:text-purple-200 mb-1">Monto por cliente</label>
+                        <select name="monto_modo" id="monto_modo"
+                                class="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-600 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                            <option value="plan">Precio del plan (normal)</option>
+                            <option value="500000">500.000 Gs.</option>
+                            <option value="1000000">1.000.000 Gs.</option>
+                            <option value="otro">Otro monto…</option>
+                        </select>
+                    </div>
+                    <div id="wrap-monto-otro" class="hidden sm:w-44">
+                        <label for="monto_fijo" class="block text-xs font-medium text-purple-800 dark:text-purple-200 mb-1">Monto (Gs.)</label>
+                        <input type="number" name="monto_fijo" id="monto_fijo" min="1" step="1" placeholder="Ej. 750000"
+                               class="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-600 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <p class="text-xs text-purple-700 dark:text-purple-300 pb-2 sm:max-w-md">
+                        Con monto fijo se usa la misma descripción (plan + período), pero el importe por cliente es el elegido.
+                    </p>
                 </div>
             </div>
 
@@ -215,6 +237,32 @@
     const todos = document.getElementById('seleccionar-todos');
     const inputEmitir = document.getElementById('input-emitir');
     const contenedorHidden = document.getElementById('cliente-ids-persistidos');
+    const montoModo = document.getElementById('monto_modo');
+    const wrapMontoOtro = document.getElementById('wrap-monto-otro');
+    const montoFijoInput = document.getElementById('monto_fijo');
+
+    function etiquetaMonto() {
+        if (!montoModo) return 'precio del plan';
+        if (montoModo.value === '500000') return '500.000 Gs.';
+        if (montoModo.value === '1000000') return '1.000.000 Gs.';
+        if (montoModo.value === 'otro') {
+            const v = Number(montoFijoInput && montoFijoInput.value ? montoFijoInput.value : 0);
+            return v > 0 ? (v.toLocaleString('es-PY') + ' Gs.') : 'otro monto';
+        }
+        return 'precio del plan';
+    }
+
+    function toggleMontoOtro() {
+        if (!montoModo || !wrapMontoOtro) return;
+        const show = montoModo.value === 'otro';
+        wrapMontoOtro.classList.toggle('hidden', !show);
+        if (!show && montoFijoInput) montoFijoInput.value = '';
+    }
+
+    if (montoModo) {
+        montoModo.addEventListener('change', toggleMontoOtro);
+        toggleMontoOtro();
+    }
 
     // Si cambió el período, limpiar selección previa de otro mes.
     try {
@@ -355,12 +403,20 @@
             alert('Máximo ' + MAX + ' clientes por tanda.');
             return false;
         }
+        if (montoModo && montoModo.value === 'otro') {
+            const v = Number(montoFijoInput && montoFijoInput.value ? montoFijoInput.value : 0);
+            if (!v || v < 1) {
+                alert('Ingrese el monto fijo en guaraníes.');
+                return false;
+            }
+        }
         const submitter = event.submitter;
         const emitir = submitter && submitter.value === 'emitir';
         inputEmitir.value = emitir ? '1' : '0';
+        const montoTxt = etiquetaMonto();
         const msg = emitir
-            ? '¿Crear y enviar a SIFEN ' + n + ' factura(s) del período ' + periodoLabel + '?'
-            : '¿Crear ' + n + ' borrador(es) del período ' + periodoLabel + '?';
+            ? '¿Crear y enviar a SIFEN ' + n + ' factura(s) del período ' + periodoLabel + ' con monto ' + montoTxt + '?'
+            : '¿Crear ' + n + ' borrador(es) del período ' + periodoLabel + ' con monto ' + montoTxt + '?';
         if (!confirm(msg)) {
             return false;
         }

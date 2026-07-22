@@ -33,6 +33,7 @@
         'urlCancelar' => url('servicios') . '/__id__/cancelar',
         'urlDarBaja' => url('servicios') . '/__id__/dar-baja',
         'urlSyncPppoe' => url('servicios') . '/__id__/sync-pppoe',
+        'urlHerramientasRed' => url('servicios') . '/__id__/herramientas-red',
         'urlCrearFacturaInterna' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio', ['servicio' => '__id__']) : '',
         'urlCrearFacturaServicioEspecial' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-especial', ['servicio' => '__id__']) : '',
         'urlCrearFacturaFraccionDeuda' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-fraccion-deuda', ['servicio' => '__id__']) : '',

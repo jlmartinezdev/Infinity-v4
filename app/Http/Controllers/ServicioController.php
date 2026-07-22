@@ -12,6 +12,7 @@ use App\Models\MikrotikOperacionPendiente;
 use App\Models\PoolIpAsignada;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\NetworkPingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -609,6 +610,441 @@ class ServicioController extends Controller
         }
 
         return redirect()->back()->with('success', 'Servicio suspendido correctamente.');
+    }
+
+    /**
+     * Ping ICMP a la IP del servicio (CPE/ONU).
+     */
+    public function ping($servicio_id, NetworkPingService $pingService)
+    {
+        $servicio = Servicio::with(['cliente'])->findOrFail($servicio_id);
+        $ip = trim((string) ($servicio->ip ?? ''));
+
+        if ($ip === '') {
+            return response()->json([
+                'success' => false,
+                'alive' => false,
+                'ip' => null,
+                'message' => 'El servicio no tiene IP asignada para hacer ping.',
+                'output' => '',
+            ], 422);
+        }
+
+        try {
+            $result = $pingService->ping($ip, 4);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'alive' => false,
+                'ip' => $ip,
+                'message' => $e->getMessage(),
+                'output' => '',
+            ], 422);
+        }
+
+        $cliente = trim(($servicio->cliente?->nombre ?? '').' '.($servicio->cliente?->apellido ?? ''));
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+            'cliente' => $cliente !== '' ? $cliente : null,
+        ]);
+    }
+
+    /**
+     * Vista de herramientas de red (ping, MAC, tráfico MikroTik).
+     */
+    public function herramientasRed($servicio_id)
+    {
+        $servicio = Servicio::with([
+            'cliente',
+            'pool.olt',
+            'pool.router.nodo',
+            'plan',
+            'cajaNapPuertoActivo.cajaNap.salidaPon.olt',
+        ])->findOrFail($servicio_id);
+
+        $esFibra = $this->servicioEsFibra($servicio);
+        $conexionEventos = \App\Models\ServicioConexionEvento::query()
+            ->where('servicio_id', $servicio->servicio_id)
+            ->orderByDesc('ocurrio_at')
+            ->orderByDesc('servicio_conexion_evento_id')
+            ->limit(30)
+            ->get();
+
+        return view('servicios.herramientas-red', compact('servicio', 'esFibra', 'conexionEventos'));
+    }
+
+    /**
+     * Consulta MAC y tráfico (download/upload) en MikroTik para el servicio.
+     */
+    public function herramientasRedMikrotik($servicio_id, MikroTikService $mikrotik)
+    {
+        $servicio = Servicio::with(['pool.router', 'cliente'])->findOrFail($servicio_id);
+        $router = $servicio->pool?->router;
+
+        if (! $router) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El servicio no tiene router MikroTik asociado (pool).',
+            ], 422);
+        }
+
+        $result = $mikrotik->consultarClienteRed(
+            $router,
+            $servicio->ip,
+            $servicio->usuario_pppoe
+        );
+
+        if ($result['success'] ?? false) {
+            try {
+                \App\Models\ServicioConexionEvento::registrarPppoeSiCambio(
+                    $servicio,
+                    (bool) ($result['online'] ?? false),
+                    [
+                        'usuario_pppoe' => $servicio->usuario_pppoe,
+                        'ip' => $servicio->ip,
+                        'mac' => $result['mac'] ?? $servicio->mac_address,
+                        'router_id' => $router->router_id,
+                        'uptime' => $result['uptime'] ?? null,
+                        'payload' => [
+                            'mac_fuente' => $result['mac_fuente'] ?? null,
+                            'trafico_fuente' => $result['trafico_fuente'] ?? null,
+                        ],
+                    ]
+                );
+
+                if (isset($result['antena_signal_dbm']) || isset($result['signal_dbm'])) {
+                    \App\Models\ServicioConexionEvento::registrarSenalAntena($servicio, [
+                        'router_id' => $router->router_id,
+                        'ip' => $servicio->ip,
+                        'mac' => $result['mac'] ?? null,
+                        'antena_signal_dbm' => $result['antena_signal_dbm'] ?? $result['signal_dbm'] ?? null,
+                        'antena_snr_db' => $result['antena_snr_db'] ?? $result['snr_db'] ?? null,
+                        'antena_radio_iface' => $result['antena_radio_iface'] ?? null,
+                    ]);
+                }
+            } catch (\Throwable) {
+                // No bloquear la consulta si falla el historial
+            }
+        }
+
+        $cliente = trim(($servicio->cliente?->nombre ?? '').' '.($servicio->cliente?->apellido ?? ''));
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+            'cliente' => $cliente !== '' ? $cliente : null,
+            'ip' => $servicio->ip,
+            'usuario_pppoe' => $servicio->usuario_pppoe,
+            'mac_sistema' => $servicio->mac_address,
+        ], $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * Flujo fibra: MAC (MikroTik o sistema) → tabla MAC OLT → PON/ONU → desc/RX.
+     */
+    public function herramientasRedOlt(
+        $servicio_id,
+        MikroTikService $mikrotik,
+        \App\Services\Olt\VsolGponClient $vsol
+    ) {
+        $servicio = Servicio::with([
+            'plan',
+            'pool.olt',
+            'pool.router.nodo',
+            'cajaNapPuertoActivo.cajaNap.salidaPon.olt',
+        ])->findOrFail($servicio_id);
+
+        $esFibra = $this->servicioEsFibra($servicio);
+        if (! $esFibra) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este servicio no parece fibra/GPON (nodo sin GPON ni caja NAP). La consulta OLT aplica a planes de fibra.',
+                'es_fibra' => false,
+            ], 422);
+        }
+
+        $mac = null;
+        $macFuente = null;
+        $router = $servicio->pool?->router;
+        if ($router) {
+            $mk = $mikrotik->consultarClienteRed($router, $servicio->ip, $servicio->usuario_pppoe);
+            if (! empty($mk['mac'])) {
+                $mac = $mk['mac'];
+                $macFuente = $mk['mac_fuente'] ?? 'mikrotik';
+            }
+        }
+        if (! $mac && filled($servicio->mac_address)) {
+            $mac = strtoupper(str_replace('-', ':', (string) $servicio->mac_address));
+            $macFuente = 'sistema';
+        }
+
+        if (! $mac) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay MAC para buscar: consultá primero MAC en MikroTik o cargá MAC en el servicio.',
+                'es_fibra' => true,
+            ], 422);
+        }
+
+        $olts = $this->oltsCandidatosParaServicio($servicio);
+        if ($olts->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay OLT con credenciales Telnet asociada (caja NAP → salida PON, o OLTs del nodo).',
+                'mac' => $mac,
+                'mac_fuente' => $macFuente,
+                'es_fibra' => true,
+            ], 422);
+        }
+
+        $ultimoError = null;
+        $ultimoRaw = null;
+        $ultimoComando = null;
+        foreach ($olts as $olt) {
+            try {
+                @set_time_limit(180);
+                $r = $vsol->localizarMacYConsultarOnu($olt, $mac, true);
+                if ($r['success'] && ($r['pon_port'] ?? null) !== null && ($r['onu_index'] ?? null) !== null) {
+                    try {
+                        \App\Models\ServicioConexionEvento::registrarSenalOptica($servicio, [
+                            'mac' => $mac,
+                            'olt_id' => $olt->olt_id,
+                            'pon_port' => $r['pon_port'],
+                            'onu_index' => $r['onu_index'],
+                            'rx_power_dbm' => $r['rx_power_dbm'] ?? null,
+                            'tx_power_dbm' => $r['tx_power_dbm'] ?? null,
+                            'estado' => $r['estado'] ?? null,
+                            'descripcion' => $r['descripcion'] ?? null,
+                            'payload' => [
+                                'mac_fuente' => $macFuente,
+                                'vlan' => $r['vlan'] ?? null,
+                                'comando' => $r['comando'] ?? null,
+                            ],
+                        ]);
+                    } catch (\Throwable) {
+                        // No bloquear la consulta si falla el historial
+                    }
+
+                    return response()->json([
+                        ...$r,
+                        'es_fibra' => true,
+                        'mac_fuente' => $macFuente,
+                        'olt_id' => $olt->olt_id,
+                        'olt' => $olt->codigo ?? $olt->ip,
+                    ]);
+                }
+                $ultimoError = $r['message'] ?? 'MAC no encontrada';
+                $ultimoRaw = $r['raw_match'] ?? null;
+                $ultimoComando = $r['comando'] ?? null;
+            } catch (\Throwable $e) {
+                $ultimoError = $e->getMessage();
+                $ultimoRaw = null;
+                $ultimoComando = null;
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => $ultimoError ?: 'No se pudo localizar la MAC en las OLTs candidatas.',
+            'mac' => $mac,
+            'mac_fuente' => $macFuente,
+            'es_fibra' => true,
+            'comando' => $ultimoComando ?? null,
+            'raw_match' => isset($ultimoRaw) ? mb_substr((string) $ultimoRaw, 0, 4000) : null,
+            'olts_probadas' => $olts->map(fn ($o) => $o->codigo ?? $o->ip)->values()->all(),
+        ], 422);
+    }
+
+    /**
+     * Localiza la ONU por MAC y escribe description = usuario_pppoe (nombre_id del servicio).
+     */
+    public function herramientasRedOltDesc(
+        $servicio_id,
+        MikroTikService $mikrotik,
+        \App\Services\Olt\VsolGponClient $vsol
+    ) {
+        $servicio = Servicio::with([
+            'cliente',
+            'plan',
+            'pool.olt',
+            'pool.router.nodo',
+            'cajaNapPuertoActivo.cajaNap.salidaPon.olt',
+        ])->findOrFail($servicio_id);
+
+        if (! $this->servicioEsFibra($servicio)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este servicio no parece fibra/GPON.',
+            ], 422);
+        }
+
+        $desc = $this->descripcionOnuDesdeServicio($servicio, $vsol);
+        if ($desc === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'El servicio no tiene usuario PPPoE ni nombre de cliente para usar como descripción.',
+            ], 422);
+        }
+
+        $mac = null;
+        $macFuente = null;
+        $router = $servicio->pool?->router;
+        if ($router) {
+            $mk = $mikrotik->consultarClienteRed($router, $servicio->ip, $servicio->usuario_pppoe);
+            if (! empty($mk['mac'])) {
+                $mac = $mk['mac'];
+                $macFuente = $mk['mac_fuente'] ?? 'mikrotik';
+            }
+        }
+        if (! $mac && filled($servicio->mac_address)) {
+            $mac = strtoupper(str_replace('-', ':', (string) $servicio->mac_address));
+            $macFuente = 'sistema';
+        }
+        if (! $mac) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay MAC para localizar la ONU.',
+                'descripcion' => $desc,
+            ], 422);
+        }
+
+        $olts = $this->oltsCandidatosParaServicio($servicio);
+        if ($olts->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay OLT candidata con credenciales Telnet.',
+                'descripcion' => $desc,
+                'mac' => $mac,
+            ], 422);
+        }
+
+        $ultimoError = null;
+        foreach ($olts as $olt) {
+            try {
+                @set_time_limit(180);
+                $loc = $vsol->localizarMacYConsultarOnu($olt, $mac, false);
+                if (! ($loc['success'] ?? false)
+                    || ($loc['pon_port'] ?? null) === null
+                    || ($loc['onu_index'] ?? null) === null) {
+                    $ultimoError = $loc['message'] ?? 'MAC no localizada';
+                    continue;
+                }
+
+                $pon = (int) $loc['pon_port'];
+                $onu = (int) $loc['onu_index'];
+                $escrito = $vsol->configurarOnuDescripcion($olt, $pon, $onu, $desc);
+
+                if ($escrito['success']) {
+                    \App\Models\OltOnu::query()
+                        ->where('olt_id', $olt->olt_id)
+                        ->where('pon_port', $pon)
+                        ->where('onu_index', $onu)
+                        ->update(['descripcion' => $escrito['descripcion']]);
+                }
+
+                return response()->json([
+                    ...$escrito,
+                    'mac' => $mac,
+                    'mac_fuente' => $macFuente,
+                    'olt' => $olt->codigo ?? $olt->ip,
+                    'olt_id' => $olt->olt_id,
+                    'descripcion_solicitada' => $desc,
+                ], $escrito['success'] ? 200 : 422);
+            } catch (\Throwable $e) {
+                $ultimoError = $e->getMessage();
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => $ultimoError ?: 'No se pudo escribir la descripción en la OLT.',
+            'descripcion' => $desc,
+            'mac' => $mac,
+            'mac_fuente' => $macFuente,
+        ], 422);
+    }
+
+    /**
+     * Identificador del servicio para desc ONU: usuario_pppoe (NOMBRE_APELLIDO).
+     */
+    private function descripcionOnuDesdeServicio(Servicio $servicio, \App\Services\Olt\VsolGponClient $vsol): string
+    {
+        $pppoe = trim((string) ($servicio->usuario_pppoe ?? ''));
+        if ($pppoe !== '') {
+            return $vsol->sanitizarDescripcionOnu($pppoe);
+        }
+
+        $cliente = $servicio->cliente;
+        $nombre = trim(($cliente?->nombre ?? '').' '.($cliente?->apellido ?? ''));
+        if ($nombre !== '') {
+            return $vsol->sanitizarDescripcionOnu($nombre);
+        }
+
+        return $vsol->sanitizarDescripcionOnu('SERVICIO_'.$servicio->servicio_id);
+    }
+
+    private function servicioEsFibra(Servicio $servicio): bool
+    {
+        if ($servicio->cajaNapPuertoActivo) {
+            return true;
+        }
+        if ($servicio->pool?->olt_id) {
+            return true;
+        }
+        if ($servicio->pool?->router?->nodo?->manejaGpon()) {
+            return true;
+        }
+        $planNombre = strtolower((string) ($servicio->plan?->nombre ?? ''));
+        if (str_contains($planNombre, 'fibra') || str_contains($planNombre, 'gpon') || str_contains($planNombre, 'ftth')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Prioridad: caja NAP → OLT del pool → OLTs del nodo (solo si el pool no tiene OLT).
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Olt>
+     */
+    private function oltsCandidatosParaServicio(Servicio $servicio)
+    {
+        $olts = collect();
+
+        $oltCaja = $servicio->cajaNapPuertoActivo?->cajaNap?->salidaPon?->olt;
+        if ($oltCaja && $oltCaja->tieneCredencialesGestion()) {
+            $olts->push($oltCaja);
+        }
+
+        $oltPool = $servicio->pool?->olt;
+        if ($oltPool && $oltPool->tieneCredencialesGestion() && ! $olts->contains('olt_id', $oltPool->olt_id)) {
+            $olts->push($oltPool);
+        }
+
+        // Si el pool ya indica OLT, no mezclar con todas las del nodo del router
+        // (caso: un router atiende clientes de otro nodo diferenciados por pool).
+        if ($servicio->pool?->olt_id) {
+            return $olts->values();
+        }
+
+        $nodoId = $servicio->pool?->router?->nodo_id
+            ?? $servicio->cajaNapPuertoActivo?->cajaNap?->nodo_id;
+
+        if ($nodoId) {
+            \App\Models\Olt::query()
+                ->where('nodo_id', $nodoId)
+                ->orderBy('codigo')
+                ->get()
+                ->each(function ($olt) use ($olts) {
+                    if ($olt->tieneCredencialesGestion() && ! $olts->contains('olt_id', $olt->olt_id)) {
+                        $olts->push($olt);
+                    }
+                });
+        }
+
+        return $olts->values();
     }
 
     /**

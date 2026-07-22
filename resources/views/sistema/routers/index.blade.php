@@ -5,20 +5,37 @@
 @section('content')
 <div class="max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Routers</h1>
-        <a href="{{ route('sistema.routers.create') }}"
-            class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
-            Nuevo router
-        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Routers</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Equipos MikroTik por nodo — RB, CCR, hAP y CHR</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('sistema.router-modelos.index') }}"
+                class="inline-flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none">
+                Catálogo MikroTik
+            </a>
+            <a href="{{ route('sistema.routers.create') }}"
+                class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                Nuevo router
+            </a>
+        </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
         <form method="GET" action="{{ route('sistema.routers.index') }}" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex flex-col lg:flex-row gap-3">
                 <div class="flex-1">
                     <input type="text" name="buscar" value="{{ request('buscar') }}"
-                        placeholder="Buscar por nombre, IP o estado..."
+                        placeholder="Buscar por nombre, IP, modelo..."
                         class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
+                <div class="sm:w-44">
+                    <select name="serie" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        <option value="todas">Todas las series</option>
+                        @foreach($series as $serie)
+                            <option value="{{ $serie }}" {{ request('serie') == $serie ? 'selected' : '' }}>{{ $serie }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="sm:w-48">
                     <select name="nodo_id" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -31,69 +48,120 @@
                     </select>
                 </div>
                 <button type="submit" class="inline-flex items-center justify-center px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
-                    Buscar
+                    Filtrar
                 </button>
             </div>
         </form>
+    </div>
 
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ID</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nodo</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP Loopback</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Puerto API</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    @forelse($routers as $r)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $r->router_id }}</td>
-                            <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $r->nombre }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $r->nodo?->descripcion ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $r->ip }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $r->ip_loopback ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $r->api_port ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $r->estado ?? '—' }}</td>
-                            <td class="px-4 py-3 text-right text-sm">
-                                <button type="button" class="router-test-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium mr-2"
-                                    data-url="{{ route('sistema.routers.test-connection', $r) }}" data-csrf="{{ csrf_token() }}"
-                                    title="Probar conexión MikroTik API">Probar</button>
-                                <button type="button" class="router-sync-btn text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium mr-2"
-                                    data-url="{{ route('sistema.routers.sync-pppoe', $r) }}" data-csrf="{{ csrf_token() }}"
-                                    title="Sincronizar usuarios PPPoE al router">Sync PPPoE</button>
-                                <button type="button" class="router-export-script-btn text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 font-medium mr-2"
-                                    data-url="{{ route('sistema.routers.export-pppoe-script', ['router' => $r, 'formato' => 'json']) }}"
-                                    data-nombre="{{ $r->nombre }}"
-                                    title="Ver script para pegar en consola MikroTik">Exportar script</button>
-                                <a href="{{ route('sistema.routers.edit', $r) }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium mr-4">Editar</a>
-                                <form action="{{ route('sistema.routers.destroy', $r) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este router?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium">Eliminar</button>
-                                </form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay routers. <a href="{{ route('sistema.routers.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    @if($routers->isEmpty())
+        <div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-12 text-center">
+            <img src="{{ asset('images/routers/mikrotik-generic.svg') }}" alt="" class="mx-auto h-24 w-48 object-contain opacity-60 mb-4">
+            <p class="text-gray-500 dark:text-gray-400">No hay routers registrados.</p>
+            <a href="{{ route('sistema.routers.create') }}" class="mt-3 inline-block text-purple-600 dark:text-purple-400 hover:underline font-medium">Crear el primero</a>
+        </div>
+    @else
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+            @foreach($routers as $r)
+                @php
+                    $cat = $r->modeloCatalogo();
+                    $serie = $cat['serie'] ?? 'MikroTik';
+                    $stats = $statsClientes[$r->router_id] ?? ['registrados' => 0, 'activos' => 0];
+                    $pctActivos = $stats['registrados'] > 0
+                        ? min(100, round(($stats['activos'] / $stats['registrados']) * 100))
+                        : 0;
+                @endphp
+                <article class="group flex flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700 transition-all">
+                    <div class="relative bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900/60 dark:to-gray-800 px-4 pt-5 pb-3">
+                        <span class="absolute top-3 left-3 inline-flex rounded-full bg-white/90 dark:bg-gray-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                            {{ $serie }}
+                        </span>
+                        <span class="absolute top-3 right-3 text-xs text-gray-400 font-mono">#{{ $r->router_id }}</span>
+                        <img src="{{ $r->imagenUrl() }}" alt="{{ $r->modeloEtiqueta() }}"
+                            class="mx-auto h-28 w-full max-w-[220px] object-contain drop-shadow-sm group-hover:scale-[1.02] transition-transform duration-200">
+                    </div>
+
+                    <div class="flex flex-1 flex-col p-4">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 truncate" title="{{ $r->nombre }}">{{ $r->nombre }}</h2>
+                        <p class="text-sm font-medium text-purple-700 dark:text-purple-300">{{ $r->modeloEtiqueta() }}</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">{{ $r->nodo?->descripcion ?? 'Sin nodo' }}</p>
+
+                        <div class="mt-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 p-3">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Clientes en sistema</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 px-2 py-2 text-center">
+                                    <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{{ number_format($stats['registrados']) }}</p>
+                                    <p class="text-[10px] leading-tight text-gray-500 dark:text-gray-400 mt-0.5">Registrados</p>
+                                </div>
+                                <div class="rounded-lg bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-800/60 px-2 py-2 text-center">
+                                    <p class="text-xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{{ number_format($stats['activos']) }}</p>
+                                    <p class="text-[10px] leading-tight text-gray-500 dark:text-gray-400 mt-0.5">Activos</p>
+                                </div>
+                            </div>
+                            @if($stats['registrados'] > 0)
+                                <div class="mt-2">
+                                    <div class="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                                        <span>Activos / registrados</span>
+                                        <span>{{ $pctActivos }}%</span>
+                                    </div>
+                                    <div class="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                        <div class="h-full rounded-full bg-emerald-500 transition-all" style="width: {{ $pctActivos }}%"></div>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+
+                        <dl class="mt-3 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                            <div class="flex justify-between gap-2">
+                                <dt>IP gestión</dt>
+                                <dd class="font-mono text-gray-900 dark:text-gray-100">{{ $r->ip }}</dd>
+                            </div>
+                            @if($r->ip_loopback)
+                                <div class="flex justify-between gap-2">
+                                    <dt>Loopback</dt>
+                                    <dd class="font-mono">{{ $r->ip_loopback }}</dd>
+                                </div>
+                            @endif
+                            <div class="flex justify-between gap-2">
+                                <dt>API</dt>
+                                <dd class="font-mono">{{ $r->api_port ?? 8728 }}</dd>
+                            </div>
+                            <div class="flex justify-between gap-2">
+                                <dt>Pools</dt>
+                                <dd>{{ $r->router_ip_pools_count ?? 0 }}</dd>
+                            </div>
+                            <div class="flex justify-between gap-2">
+                                <dt>Estado</dt>
+                                <dd>{{ $r->estado ?? '—' }}</dd>
+                            </div>
+                        </dl>
+
+                        <div class="mt-4 flex flex-wrap gap-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
+                            <button type="button" class="router-test-btn rounded-md px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+                                data-url="{{ route('sistema.routers.test-connection', $r) }}" data-csrf="{{ csrf_token() }}">Probar</button>
+                            <button type="button" class="router-sync-btn rounded-md px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300"
+                                data-url="{{ route('sistema.routers.sync-pppoe', $r) }}" data-csrf="{{ csrf_token() }}">Sync PPPoE</button>
+                            <button type="button" class="router-export-script-btn rounded-md px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300"
+                                data-url="{{ route('sistema.routers.export-pppoe-script', ['router' => $r, 'formato' => 'json']) }}"
+                                data-nombre="{{ $r->nombre }}">Script</button>
+                            <a href="{{ route('sistema.routers.edit', $r) }}" class="rounded-md px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300">Editar</a>
+                            <form action="{{ route('sistema.routers.destroy', $r) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este router?{{ $r->router_ip_pools_count > 0 ? ' También se eliminarán sus pools de IP ('.$r->router_ip_pools_count.').' : '' }}');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="rounded-md px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">Eliminar</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            @endforeach
         </div>
 
         @if($routers->hasPages())
-            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div class="mt-6">
                 {{ $routers->links() }}
             </div>
         @endif
-    </div>
+    @endif
 </div>
 
 <div id="router-script-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true" role="dialog">
@@ -109,7 +177,7 @@
             </div>
             <div class="p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    Copiá el contenido y pegalo en la terminal de Winbox, SSH o WebFig del MikroTik. Cada línea se ejecuta como un comando.
+                    Copiá el contenido y pegalo en la terminal de Winbox, SSH o WebFig del MikroTik.
                 </p>
                 <textarea id="router-script-textarea" readonly rows="16"
                     class="w-full font-mono text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/20"></textarea>

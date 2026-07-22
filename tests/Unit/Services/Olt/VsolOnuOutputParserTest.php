@@ -308,6 +308,246 @@ TXT);
         $this->assertSame('FHTT10A02568', $onus[0]['serial']);
     }
 
+    public function test_parse_descripcion_con_status_online_delante(): void
+    {
+        $output = <<<'TXT'
+OnuIndex Status Descriptions Model Profile Mode AuthInfo
+GPON0/1:1 Online PEDRO_CIBILS AN5506-01-A default Sn FHTT10A02568
+GPON0/1:2 Online NELSON_CIBILS AN5506-01-A default Sn FHTT10A025B8
+GPON0/1:9 Online SABINA_LOPEZ_DE_ARAUJO EG8145V5 onu_profile_2 Sn HWTCD4A0A29E
+TXT;
+
+        $parser = new VsolOnuOutputParser();
+        $onus = $parser->parse($output, '');
+
+        $this->assertCount(3, $onus);
+        $this->assertSame('PEDRO_CIBILS', $onus[0]['descripcion']);
+        $this->assertSame('working', $onus[0]['estado']);
+        $this->assertSame('NELSON_CIBILS', $onus[1]['descripcion']);
+        $this->assertSame('SABINA_LOPEZ_DE_ARAUJO', $onus[2]['descripcion']);
+        $this->assertSame('working', $onus[2]['estado']);
+        $this->assertSame('EG8145V5', $onus[2]['modelo']);
+    }
+
+    public function test_parse_onu_desc_formato_vsol_desc_nombre(): void
+    {
+        $parser = new VsolOnuOutputParser();
+
+        $this->assertSame('PEDRO_CIBILS', $parser->parseOnuDescOutput('desc PEDRO_CIBILS'));
+        $this->assertSame('PEDRO_CIBILS', $parser->parseOnuDescOutput("show onu 1 desc\ndesc PEDRO_CIBILS"));
+        $this->assertSame('PEDRO_CIBILS', $parser->parseOnuDescOutput('  desc PEDRO_CIBILS'));
+        $this->assertSame('PEDRO_CIBILS', $parser->parseOnuDescOutput("show onu 1 desc\nPEDRO_CIBILS"));
+    }
+
+    public function test_parse_onu_desc_comando_primero_firmware(): void
+    {
+        $parser = new VsolOnuOutputParser();
+
+        // Firmware: show onu desc 1 → "onu 1 Description: NOMBRE"
+        $this->assertSame(
+            'NELSON_RAMON_GAUTO_MARTINEZ',
+            $parser->parseOnuDescOutput("show onu desc 1\nonu 1 Description: NELSON_RAMON_GAUTO_MARTINEZ")
+        );
+    }
+
+    public function test_info_online_prevalece_sobre_phase_los(): void
+    {
+        $info = 'GPON0/1:9 Online SABINA_LOPEZ_DE_ARAUJO EG8145V5 onu_profile_2 Sn HWTCD4A0A29E';
+        $state = "OnuIndex Admin OMCC OMT Phase state\nGPON0/1:9 enable enable enable LOS";
+
+        $parser = new VsolOnuOutputParser();
+        // Simula merge del sync: state primero, info después
+        $fromState = $parser->parse('', $state);
+        $fromInfo = $parser->parse($info, '');
+        $merged = array_replace_recursive(
+            [$fromState[0]['pon_key'].':'.$fromState[0]['onu_index'] => $fromState[0]],
+            [$fromInfo[0]['pon_key'].':'.$fromInfo[0]['onu_index'] => array_merge($fromState[0], $fromInfo[0])]
+        );
+        $row = array_values($merged)[0];
+
+        $this->assertSame('working', $row['estado']);
+        $this->assertSame('SABINA_LOPEZ_DE_ARAUJO', $row['descripcion']);
+    }
+
+    public function test_parse_mac_address_lookup_formato_vsol(): void
+    {
+        $output = <<<'TXT'
+VLAN: 199
+MAC Address: fc1b:d1c2:8c15
+Type: Dynamic
+Port: GPON0/07
+ONU ID: 7
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $hit = $parser->parseMacAddressLookup($output, 'FC:1B:D1:C2:8C:15');
+
+        $this->assertNotNull($hit);
+        $this->assertSame(199, $hit['vlan']);
+        $this->assertSame('FC:1B:D1:C2:8C:15', $hit['mac']);
+        $this->assertSame(7, $hit['pon_port']);
+        $this->assertSame(7, $hit['onu_index']);
+        $this->assertSame('Dynamic', $hit['type']);
+    }
+
+    public function test_parse_mac_address_lookup_con_puntos_en_etiquetas(): void
+    {
+        $output = <<<'TXT'
+VLAN............: 199
+MAC Address.....: fc1b:d1c2:8c15
+Type............: Dynamic
+Port............: GPON0/07
+ONU ID..........: 7
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $hit = $parser->parseMacAddressLookup($output, 'FC:1B:D1:C2:8C:15');
+
+        $this->assertNotNull($hit);
+        $this->assertSame(7, $hit['pon_port']);
+        $this->assertSame(7, $hit['onu_index']);
+        $this->assertSame('FC:1B:D1:C2:8C:15', $hit['mac']);
+    }
+
+    public function test_parse_mac_address_lookup_espacios_alineados_vsol(): void
+    {
+        $output = "VLAN           : 199\nMAC Address    : fc1b:d1c2:8c15\nType           : Dynamic\nPort           : GPON0/07\nONU ID         : 7\n";
+
+        $parser = new VsolOnuOutputParser;
+        $hit = $parser->parseMacAddressLookup($output, 'FC:1B:D1:C2:8C:15');
+
+        $this->assertNotNull($hit);
+        $this->assertSame(199, $hit['vlan']);
+        $this->assertSame(7, $hit['pon_port']);
+        $this->assertSame(7, $hit['onu_index']);
+    }
+
+    public function test_parse_mac_address_lookup_dos_puntos_fullwidth(): void
+    {
+        $colon = "\u{FF1A}";
+        $output = "VLAN           {$colon} 199\nMAC Address    {$colon} fc1b:d1c2:8c15\nType           {$colon} Dynamic\nPort           {$colon} GPON0/07\nONU ID         {$colon} 7\n";
+
+        $parser = new VsolOnuOutputParser;
+        $hit = $parser->parseMacAddressLookup($output, 'FC:1B:D1:C2:8C:15');
+
+        $this->assertNotNull($hit);
+        $this->assertSame(7, $hit['pon_port']);
+        $this->assertSame(7, $hit['onu_index']);
+    }
+
+    public function test_parse_mac_address_lookup_sin_onu_id_solo_pon(): void
+    {
+        $output = <<<'TXT'
+VLAN           : 199
+MAC Address    : 48f8:dbd2:c791
+Type           : Dynamic
+Port           : GPON0/1
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $hit = $parser->parseMacAddressLookup($output, '48:F8:DB:D2:C7:91');
+
+        $this->assertNotNull($hit);
+        $this->assertSame(1, $hit['pon_port']);
+        $this->assertNull($hit['onu_index']);
+    }
+
+    public function test_parse_mac_address_table_formato_gpon_slot_pon_onu(): void
+    {
+        $output = <<<'TXT'
+Mac Address      Vlan        Type         GPON Slot/Pon:Onu       Gem_index         Gem_id
+---------------------------------------------------------------------------------------------
+28de.e52d.17de     199         Dynamic      GPON0/1:29            2                  202
+084f.0a8a.1e1c     199         Dynamic      GPON0/1:16            2                  176
+48f8.dbd2.c791     199         Dynamic      GPON0/1:31            2                  206
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $filas = $parser->parseMacAddressTable($output);
+        $hit = $parser->buscarMacEnTabla($filas, '48:F8:DB:D2:C7:91');
+
+        $this->assertNotNull($hit);
+        $this->assertSame(1, $hit['pon_port']);
+        $this->assertSame(31, $hit['onu_index']);
+        $this->assertSame(199, $hit['vlan']);
+    }
+
+    public function test_parse_mac_address_table_formato_con_info_serial(): void
+    {
+        $output = <<<'TXT'
+Mac Address      Vlan        Type         GPON0/Pon:Onu       Gem_index           Gem_id         Info
+-----------------------------------------------------------------------------------------------------------
+Addresses of all pons Found: 348
+The pon Found: 36
+
+fc1b.d1cc.1632     199         Dynamic      GPON0/1:39            2                  222        HWTCa29ef6a3
+fc1b.d1cc.9b13     199         Dynamic      GPON0/1:18            2                  180        HWTCa2a6c7a3
+5825.7536.41a0     199         Dynamic      GPON0/1:3             2                  150        HWTCa9307ca3
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $filas = $parser->parseMacAddressTable($output);
+        $hit = $parser->buscarMacEnTabla($filas, 'FC:1B:D1:CC:16:32');
+
+        $this->assertCount(3, $filas);
+        $this->assertNotNull($hit);
+        $this->assertSame(1, $hit['pon_port']);
+        $this->assertSame(39, $hit['onu_index']);
+        $this->assertSame(199, $hit['vlan']);
+    }
+
+    public function test_parse_mac_address_table_telnet_multilinea(): void
+    {
+        $output = <<<'TXT'
+Mac Address Table
+Mac Address      Vlan        Type         GPON Slot/Pon:Onu       Gem_index         Gem_id
+---------------------------------------------------------------------------------------------
+28de.e52d.17de
+199
+Dynamic
+GPON0/1:29
+2
+202
+fc1b.d1cc.35f0
+199
+Dynamic
+GPON0/1:2
+2
+148
+fc1b.d1c2.6c46
+199
+Dynamic
+GPON0/1:4
+2
+150
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $filas = $parser->parseMacAddressTable($output);
+        $hit = $parser->buscarMacEnTabla($filas, 'FC:1B:D1:CC:35:F0');
+
+        $this->assertCount(3, $filas);
+        $this->assertNotNull($hit);
+        $this->assertSame(1, $hit['pon_port']);
+        $this->assertSame(2, $hit['onu_index']);
+        $this->assertSame(199, $hit['vlan']);
+    }
+
+    public function test_parse_mac_address_table_no_usa_solo_linea_mac_address(): void
+    {
+        $output = <<<'TXT'
+VLAN: 199
+MAC Address: fc1b:d1c2:8c15
+Type: Dynamic
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $filas = $parser->parseMacAddressTable($output);
+        $hit = $parser->buscarMacEnTabla($filas, 'FC:1B:D1:C2:8C:15');
+
+        $this->assertNull($hit);
+    }
+
     public function test_no_crea_onus_sin_pon_ni_estado(): void
     {
         $output = <<<'TXT'

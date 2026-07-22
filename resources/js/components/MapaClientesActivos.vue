@@ -30,6 +30,10 @@ const props = defineProps({
   apiKey: { type: String, default: '' },
   puntos: { type: Array, default: () => [] },
   urlDetalleClienteBase: { type: String, default: '' },
+  urlPingEstados: { type: String, default: '' },
+  pingRefrescoSegundos: { type: Number, default: 60 },
+  nodoId: { type: [Number, String], default: null },
+  pingEstadoFiltro: { type: String, default: '' },
 });
 
 const mapContainer = ref(null);
@@ -39,15 +43,19 @@ const puntosProcesados = ref(0);
 const totalPuntos = ref(0);
 const error = ref('');
 let map = null;
+let googleRef = null;
 let markers = [];
+let markerMeta = [];
+let puntosByClienteId = {};
 let sharedInfoWindow = null;
+let pingPollTimer = null;
+const iconCache = new Map();
 const progressPercent = computed(() => {
   if (!totalPuntos.value) return 0;
   return Math.round((puntosProcesados.value / totalPuntos.value) * 100);
 });
 
 function getHomeMarkerIcon(google, color = '#9333ea') {
-  // Lienzo con margen transparente: sin esto Maps suele rasterizar el SVG mal y recorta un lateral.
   const w = 48;
   const h = 48;
   const size = new google.maps.Size(w, h);
@@ -76,11 +84,30 @@ function getHomeMarkerIcon(google, color = '#9333ea') {
   };
 }
 
-function markerColorByPlan(plan, tecnologia) {
-  const text = `${tecnologia || ''} ${plan || ''}`.toLowerCase();
-  if (text.includes('gpon')) return '#16a34a'; // verde
-  if (text.includes('wireless')) return '#2563eb'; // azul
-  return '#9333ea'; // por defecto
+function markerColorByPingEstado(estado) {
+  switch (estado) {
+    case 'online':
+      return '#16a34a';
+    case 'offline':
+      return '#dc2626';
+    case 'mixed':
+      return '#f97316';
+    default:
+      return '#9ca3af';
+  }
+}
+
+function pingEstadoLabel(estado) {
+  switch (estado) {
+    case 'online':
+      return 'Online';
+    case 'offline':
+      return 'Sin respuesta';
+    case 'mixed':
+      return 'Parcial';
+    default:
+      return 'Sin ping';
+  }
 }
 
 function loadGoogleMaps() {
@@ -117,8 +144,86 @@ function urlDetalle(clienteId) {
   return props.urlDetalleClienteBase.replace('__id__', String(clienteId));
 }
 
+function formatVerificadoAt(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function buildInfoWindowContent(p) {
+  const titulo = p.nombre || `Cliente #${p.cliente_id}`;
+  const detalleHref = urlDetalle(p.cliente_id);
+  const pingLabel = pingEstadoLabel(p.ping_estado);
+  const pingColor = markerColorByPingEstado(p.ping_estado);
+  const latencia =
+    p.ping_latencia_ms != null && p.ping_latencia_ms !== ''
+      ? `${Math.round(Number(p.ping_latencia_ms))} ms`
+      : '—';
+  const serviciosPing =
+    p.ping_total > 0 ? `${p.ping_en_linea ?? 0} / ${p.ping_total} servicios` : 'Sin IP pinguable';
+
+  return `
+    <div class="p-2 min-w-[200px] max-w-[320px]">
+      <div class="font-semibold text-gray-900">${escapeHtml(titulo)}</div>
+      ${p.plan ? `<div class="text-sm text-gray-700 mt-1">Plan: ${escapeHtml(p.plan)}</div>` : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>'}
+      <div class="mt-2 text-sm flex items-center gap-1.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${pingColor}"></span>
+        <span class="text-gray-800">${escapeHtml(pingLabel)}</span>
+      </div>
+      <div class="text-xs text-gray-600 mt-1">Latencia: ${escapeHtml(latencia)} · ${escapeHtml(serviciosPing)}</div>
+      <div class="text-xs text-gray-500 mt-0.5">Último ping: ${escapeHtml(formatVerificadoAt(p.ping_verificado_at))}</div>
+      ${p.url_ubicacion ? `<a href="${escapeHtml(p.url_ubicacion)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir ubicación</a>` : ''}
+      ${detalleHref ? `<a href="${escapeHtml(detalleHref)}" class="inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline">Ver cliente</a>` : ''}
+    </div>
+  `;
+}
+
+function markerIconForPunto(google, punto) {
+  const color = markerColorByPingEstado(punto.ping_estado);
+  if (!iconCache.has(color)) {
+    iconCache.set(color, getHomeMarkerIcon(google, color));
+  }
+  return iconCache.get(color);
+}
+
+function pasaFiltroPingEstado(punto) {
+  if (!props.pingEstadoFiltro) return true;
+  return (punto.ping_estado || 'unknown') === props.pingEstadoFiltro;
+}
+
+function syncMarkerVisibility() {
+  if (!map || !googleRef) return;
+
+  const bounds = new google.maps.LatLngBounds();
+  let visibleCount = 0;
+
+  markerMeta.forEach(({ marker, clienteId }) => {
+    const punto = puntosByClienteId[clienteId];
+    const visible = Boolean(punto && pasaFiltroPingEstado(punto));
+    marker.setMap(visible ? map : null);
+    if (visible && marker.getPosition()) {
+      bounds.extend(marker.getPosition());
+      visibleCount++;
+    }
+  });
+
+  if (visibleCount > 1) {
+    map.fitBounds(bounds);
+  } else if (visibleCount === 1) {
+    map.setCenter(bounds.getCenter());
+    map.setZoom(14);
+  }
+}
+
 async function initMap(google) {
   if (!mapContainer.value) return;
+
+  googleRef = google;
+  puntosByClienteId = {};
+  props.puntos.forEach((p) => {
+    puntosByClienteId[p.cliente_id] = { ...p };
+  });
 
   const center = props.puntos.length
     ? { lat: props.puntos[0].lat, lng: props.puntos[0].lon }
@@ -134,7 +239,6 @@ async function initMap(google) {
   });
 
   const bounds = new google.maps.LatLngBounds();
-  const iconCache = new Map();
   sharedInfoWindow = new google.maps.InfoWindow();
   totalPuntos.value = props.puntos.length;
   puntosProcesados.value = 0;
@@ -151,43 +255,37 @@ async function initMap(google) {
       const titulo = p.nombre || `Cliente #${p.cliente_id}`;
       const marker = new google.maps.Marker({
         position,
-        map,
+        map: pasaFiltroPingEstado(p) ? map : null,
         title: titulo,
-        icon: (() => {
-          const color = markerColorByPlan(p.plan, p.tecnologia);
-          if (!iconCache.has(color)) {
-            iconCache.set(color, getHomeMarkerIcon(google, color));
-          }
-          return iconCache.get(color);
-        })(),
+        icon: markerIconForPunto(google, p),
         optimized: true,
       });
 
-      const detalleHref = urlDetalle(p.cliente_id);
-      const content = `
-        <div class="p-2 min-w-[200px] max-w-[320px]">
-          <div class="font-semibold text-gray-900">${escapeHtml(titulo)}</div>
-          ${p.plan ? `<div class="text-sm text-gray-700 mt-1">Plan: ${escapeHtml(p.plan)}</div>` : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>'}
-          ${p.url_ubicacion ? `<a href="${escapeHtml(p.url_ubicacion)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir ubicación</a>` : ''}
-          ${detalleHref ? `<a href="${escapeHtml(detalleHref)}" class="inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline">Ver cliente</a>` : ''}
-        </div>
-      `;
-
       marker.addListener('click', () => {
-        sharedInfoWindow.setContent(content);
+        const punto = puntosByClienteId[p.cliente_id] || p;
+        sharedInfoWindow.setContent(buildInfoWindowContent(punto));
         sharedInfoWindow.open(map, marker);
       });
 
       markers.push(marker);
-      bounds.extend(position);
+      markerMeta.push({ marker, clienteId: p.cliente_id });
+      if (pasaFiltroPingEstado(p)) {
+        bounds.extend(position);
+      }
     });
 
     puntosProcesados.value = Math.min(i + batch.length, totalPuntos.value);
     await new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
-  if (props.puntos.length > 1) {
+  if (props.puntos.filter(pasaFiltroPingEstado).length > 1) {
     map.fitBounds(bounds);
+  } else if (props.puntos.filter(pasaFiltroPingEstado).length === 1) {
+    const visible = props.puntos.find(pasaFiltroPingEstado);
+    if (visible) {
+      map.setCenter({ lat: visible.lat, lng: visible.lon });
+      map.setZoom(14);
+    }
   }
 }
 
@@ -198,6 +296,71 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function updateUltimaActualizacionLabel(isoString) {
+  const el = document.getElementById('mapa-ping-ultima-actualizacion');
+  if (!el) return;
+  el.textContent = `Ping actualizado: ${formatVerificadoAt(isoString)}`;
+  el.classList.remove('hidden');
+}
+
+function applyPingEstados(estados, actualizadoAt) {
+  if (!googleRef || !estados) return;
+
+  markerMeta.forEach(({ marker, clienteId }) => {
+    const ping = estados[clienteId];
+    if (!ping) return;
+
+    const punto = puntosByClienteId[clienteId];
+    if (!punto) return;
+
+    punto.ping_estado = ping.estado ?? 'unknown';
+    punto.ping_en_linea = ping.en_linea ?? 0;
+    punto.ping_total = ping.total ?? 0;
+    punto.ping_latencia_ms = ping.latencia_ms ?? null;
+    punto.ping_verificado_at = ping.verificado_at ?? null;
+
+    marker.setIcon(markerIconForPunto(googleRef, punto));
+    const titulo = punto.nombre || `Cliente #${clienteId}`;
+    marker.setTitle(`${titulo} · ${pingEstadoLabel(punto.ping_estado)}`);
+  });
+
+  syncMarkerVisibility();
+
+  if (actualizadoAt) {
+    updateUltimaActualizacionLabel(actualizadoAt);
+  }
+}
+
+async function refrescarPingEstados() {
+  if (!props.urlPingEstados || !props.puntos.length) return;
+
+  const ids = props.puntos.map((p) => p.cliente_id).filter(Boolean);
+  if (!ids.length) return;
+
+  const params = new URLSearchParams();
+  ids.forEach((id) => params.append('cliente_ids[]', String(id)));
+  if (props.nodoId) {
+    params.append('nodo_id', String(props.nodoId));
+  }
+
+  try {
+    const response = await fetch(`${props.urlPingEstados}?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyPingEstados(data.estados, data.actualizado_at);
+  } catch (_) {
+    // Silencioso: el mapa sigue mostrando el último estado conocido.
+  }
+}
+
+function startPingPolling() {
+  if (!props.urlPingEstados || props.pingRefrescoSegundos < 15) return;
+  pingPollTimer = window.setInterval(refrescarPingEstados, props.pingRefrescoSegundos * 1000);
+}
+
 onMounted(async () => {
   if (!props.apiKey) {
     loading.value = false;
@@ -206,6 +369,8 @@ onMounted(async () => {
   try {
     const google = await loadGoogleMaps();
     await initMap(google);
+    startPingPolling();
+    window.__mapaClientesActivosRefrescarPing__ = refrescarPingEstados;
   } catch (e) {
     error.value = e.message || 'Error al cargar el mapa';
   } finally {
@@ -214,10 +379,19 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (window.__mapaClientesActivosRefrescarPing__ === refrescarPingEstados) {
+    delete window.__mapaClientesActivosRefrescarPing__;
+  }
+  if (pingPollTimer) {
+    clearInterval(pingPollTimer);
+    pingPollTimer = null;
+  }
   sharedInfoWindow?.close();
   markers.forEach((m) => m.setMap(null));
   markers = [];
+  markerMeta = [];
   sharedInfoWindow = null;
   map = null;
+  googleRef = null;
 });
 </script>

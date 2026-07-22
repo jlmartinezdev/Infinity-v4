@@ -19,7 +19,7 @@ class OltOnuSyncService
     /**
      * @return array{success: bool, imported: int, online: int, offline: int, message: string}
      */
-    public function importarDesdeOlt(Olt $olt): array
+    public function importarDesdeOlt(Olt $olt, bool $conDetalleIndividual = true): array
     {
         if (! $olt->tieneCredencialesGestion()) {
             throw new RuntimeException('Configure IP y contraseña de gestión en el OLT antes de importar ONUs.');
@@ -72,7 +72,7 @@ class OltOnuSyncService
                             'serial' => $row['serial'] ?? null,
                             'vendor_id' => $row['vendor_id'] ?? null,
                             'modelo' => $row['modelo'] ?? null,
-                            'descripcion' => $row['descripcion'] ?? ($row['modelo'] ?? null),
+                            'descripcion' => $this->descripcionValida($row['descripcion'] ?? null, $row['modelo'] ?? null),
                             'estado' => $row['estado'] ?? 'unknown',
                             'rx_power_dbm' => $row['rx_power_dbm'] ?? null,
                             'tx_power_dbm' => $row['tx_power_dbm'] ?? null,
@@ -103,7 +103,10 @@ class OltOnuSyncService
                 'onus_sync_error' => null,
             ]);
 
-            $detalle = $this->actualizarDetalleOnusIndividuales($olt);
+            $detalle = 0;
+            if ($conDetalleIndividual) {
+                $detalle = $this->actualizarDetalleOnusIndividuales($olt);
+            }
             $mensajeDetalle = $detalle > 0 ? " Detalle (desc/RX) en {$detalle} ONU(s)." : '';
 
             return [
@@ -129,17 +132,17 @@ class OltOnuSyncService
     }
 
     /**
-     * Consulta el OLT al abrir la vista de detalle (estados si ya hay ONUs, importación completa si no).
+     * Consulta el OLT (estados si ya hay ONUs, importación completa si no).
      *
      * @return array{success: bool, imported?: int, online?: int, offline?: int, updated?: int, message: string}|null
      */
-    public function sincronizarAlVisualizar(Olt $olt): ?array
+    public function sincronizarAlVisualizar(Olt $olt, bool $forzar = false): ?array
     {
         if (! $olt->tieneCredencialesGestion()) {
             return null;
         }
 
-        if (request()->boolean('sin_sync')) {
+        if (! $forzar && request()->boolean('sin_sync')) {
             return null;
         }
 
@@ -150,10 +153,10 @@ class OltOnuSyncService
 
         try {
             if (! $olt->onus()->exists()) {
-                return $this->importarDesdeOlt($olt);
+                return $this->importarDesdeOlt($olt, conDetalleIndividual: false);
             }
 
-            return $this->actualizarEstadosDesdeOlt($olt);
+            return $this->actualizarEstadosDesdeOlt($olt, conDetalleIndividual: false);
         } catch (Throwable $e) {
             Log::warning('OLT sync on show failed', [
                 'olt_id' => $olt->olt_id,
@@ -175,15 +178,17 @@ class OltOnuSyncService
     /**
      * @return array{success: bool, updated: int, online: int, offline: int, message: string}
      */
-    public function actualizarEstadosDesdeOlt(Olt $olt): array
+    public function actualizarEstadosDesdeOlt(Olt $olt, bool $conDetalleIndividual = true): array
     {
         if (! $olt->tieneCredencialesGestion()) {
             throw new RuntimeException('Configure IP y contraseña de gestión en el OLT antes de consultar ONUs.');
         }
 
         $syncStarted = now();
-        $stateBlob = $this->client->fetchOnuStates($olt);
-        $infoBlob = $this->client->fetchOnuInfo($olt);
+        // Una sola sesión: evita abrir Telnet dos veces seguidas (corta el OLT en Windows).
+        $bundle = $this->client->fetchOnuList($olt);
+        $stateBlob = (string) ($bundle['onu_state'] ?? '');
+        $infoBlob = (string) ($bundle['onu_info'] ?? '');
 
         $parsed = $this->filtrarOnusRegistradas($this->mergeFilasOnuParsed(
             $this->parser->parse('', $stateBlob),
@@ -233,7 +238,7 @@ class OltOnuSyncService
                     'serial' => $row['serial'] ?? null,
                     'vendor_id' => $row['vendor_id'] ?? null,
                     'modelo' => $row['modelo'] ?? null,
-                    'descripcion' => $row['descripcion'] ?? ($row['modelo'] ?? null),
+                    'descripcion' => $this->descripcionValida($row['descripcion'] ?? null, $row['modelo'] ?? null),
                     'estado' => $row['estado'] ?? 'unknown',
                     'rx_power_dbm' => $row['rx_power_dbm'] ?? null,
                     'tx_power_dbm' => $row['tx_power_dbm'] ?? null,
@@ -257,7 +262,10 @@ class OltOnuSyncService
             'onus_sync_error' => null,
         ]);
 
-        $detalle = $this->actualizarDetalleOnusIndividuales($olt);
+        $detalle = 0;
+        if ($conDetalleIndividual) {
+            $detalle = $this->actualizarDetalleOnusIndividuales($olt);
+        }
         $mensajeDetalle = $detalle > 0 ? " Desc/RX consultados en {$detalle} ONU(s)." : '';
 
         return [
@@ -270,7 +278,7 @@ class OltOnuSyncService
     }
 
     /**
-     * Consulta show onu N desc y show onu N optical_info por cada ONU.
+     * Consulta show onu N desc / show onu desc N y optical_info por cada ONU.
      *
      * @return int Cantidad de ONUs actualizadas
      */
@@ -293,7 +301,10 @@ class OltOnuSyncService
 
             $onus = $olt->onus()->get()->sortBy(function (OltOnu $onu) {
                 $faltaRx = $onu->rx_power_dbm === null ? 0 : 1;
-                $faltaDesc = trim((string) ($onu->descripcion ?: $onu->modelo)) === '' ? 0 : 1;
+                $faltaDesc = trim((string) ($onu->descripcion ?? '')) === ''
+                    || $this->descripcionEsModelo((string) $onu->descripcion, $onu->modelo)
+                    ? 0
+                    : 1;
                 $online = $onu->estadoEsOnline() ? 0 : 1;
 
                 return [$online, $faltaRx + $faltaDesc, $onu->pon_port, $onu->onu_index];
@@ -323,20 +334,56 @@ class OltOnuSyncService
             $bloque = $raw[$key];
             $row = [];
 
-            if (! $this->client->salidaEsInvalida($bloque['desc'])) {
+            if (! $this->client->salidaEsInvalida($bloque['desc'] ?? '')) {
                 $desc = $this->parser->parseOnuDescOutput($bloque['desc']);
-                if ($desc !== null && $desc !== '') {
+                if ($desc !== null && $desc !== '' && ! $this->descripcionEsModelo($desc, $onu->modelo)) {
                     $row['descripcion'] = $desc;
                 }
             }
 
-            if (! $this->client->salidaEsInvalida($bloque['optical'])) {
+            // Respaldo descripción desde show onu info del puerto (útil si falló show onu 1 desc)
+            if (! isset($row['descripcion']) && ! empty($bloque['onu_info'])) {
+                foreach ($this->parser->parse($bloque['onu_info'], '') as $infoRow) {
+                    if ((int) ($infoRow['onu_index'] ?? 0) !== (int) $onu->onu_index) {
+                        continue;
+                    }
+                    if ((int) ($infoRow['pon_port'] ?? $onu->pon_port) !== (int) $onu->pon_port) {
+                        continue;
+                    }
+                    $desc = trim((string) ($infoRow['descripcion'] ?? ''));
+                    if ($desc !== '' && ! $this->descripcionEsModelo($desc, $onu->modelo)) {
+                        $row['descripcion'] = $desc;
+                    }
+                    break;
+                }
+            }
+
+            if (! $this->client->salidaEsInvalida($bloque['optical'] ?? '')) {
                 $optical = $this->parser->parseOnuOpticalInfoOutput($bloque['optical']);
                 if (isset($optical['rx_power_dbm'])) {
                     $row['rx_power_dbm'] = $optical['rx_power_dbm'];
                 }
                 if (isset($optical['tx_power_dbm'])) {
                     $row['tx_power_dbm'] = $optical['tx_power_dbm'];
+                }
+            }
+
+            // Respaldo RX desde opm-diag del puerto si optical_info individual falló
+            if (! isset($row['rx_power_dbm']) && ! empty($bloque['opm_diag'])) {
+                foreach ($this->parser->parseOptical($bloque['opm_diag']) as $opmRow) {
+                    if ((int) ($opmRow['onu_index'] ?? 0) !== (int) $onu->onu_index) {
+                        continue;
+                    }
+                    if ((int) ($opmRow['pon_port'] ?? $onu->pon_port) !== (int) $onu->pon_port) {
+                        continue;
+                    }
+                    if (isset($opmRow['rx_power_dbm'])) {
+                        $row['rx_power_dbm'] = $opmRow['rx_power_dbm'];
+                    }
+                    if (isset($opmRow['tx_power_dbm'])) {
+                        $row['tx_power_dbm'] = $opmRow['tx_power_dbm'];
+                    }
+                    break;
                 }
             }
 
@@ -418,6 +465,8 @@ class OltOnuSyncService
         $updated = $this->actualizarDetalleOnusIndividuales($olt, null, $onus);
 
         $this->corregirRxInvalidos($olt, $ponPort);
+        $this->corregirEstadoLosConRx($olt, $ponPort);
+        $this->limpiarDescripcionesQueSonModelo($olt, $ponPort);
 
         $olt->update(['onus_synced_at' => now(), 'onus_sync_error' => null]);
 
@@ -436,9 +485,10 @@ class OltOnuSyncService
         $raw = $this->client->fetchOnuDataForPort($olt, $ponPort);
         $syncStarted = now();
 
+        // Estado de show onu info (Status/Online) debe prevalecer sobre Phase state (a veces LOS obsoleto).
         $parsed = $this->filtrarOnusRegistradas($this->mergeFilasOnuParsed(
-            $this->parser->parse($raw['onu_info'] ?? '', ''),
             $this->parser->parse('', $raw['onu_state'] ?? ''),
+            $this->parser->parse($raw['onu_info'] ?? '', ''),
         ));
 
         $clavesValidas = [];
@@ -471,7 +521,7 @@ class OltOnuSyncService
                 'serial' => $row['serial'] ?? null,
                 'vendor_id' => $row['vendor_id'] ?? null,
                 'modelo' => $row['modelo'] ?? null,
-                'descripcion' => $row['descripcion'] ?? ($row['modelo'] ?? null),
+                'descripcion' => $this->descripcionValida($row['descripcion'] ?? null, $row['modelo'] ?? null),
                 'estado' => $row['estado'] ?? 'unknown',
                 'rx_power_dbm' => $row['rx_power_dbm'] ?? null,
                 'tx_power_dbm' => $row['tx_power_dbm'] ?? null,
@@ -582,10 +632,8 @@ class OltOnuSyncService
         if (! empty($row['modelo'])) {
             $updates['modelo'] = $row['modelo'];
         }
-        if (! empty($row['descripcion'])) {
+        if (! empty($row['descripcion']) && ! $this->descripcionEsModelo((string) $row['descripcion'], $row['modelo'] ?? $onu->modelo)) {
             $updates['descripcion'] = $row['descripcion'];
-        } elseif (! empty($row['modelo']) && empty($onu->descripcion)) {
-            $updates['descripcion'] = $row['modelo'];
         }
         if (array_key_exists('rx_power_dbm', $row) && $row['rx_power_dbm'] !== null) {
             $rx = (float) $row['rx_power_dbm'];
@@ -597,7 +645,65 @@ class OltOnuSyncService
             $updates['tx_power_dbm'] = $row['tx_power_dbm'];
         }
 
+        // LOS con potencia RX válida suele ser Phase state obsoleto; el Status real es Online.
+        $estadoFinal = $updates['estado'] ?? $onu->estado;
+        $rxFinal = array_key_exists('rx_power_dbm', $updates) ? $updates['rx_power_dbm'] : $onu->rx_power_dbm;
+        if (strtolower((string) $estadoFinal) === 'los' && $rxFinal !== null && (float) $rxFinal <= 0 && (float) $rxFinal >= -40) {
+            $updates['estado'] = 'working';
+        }
+
         $onu->update($updates);
+    }
+
+    private function descripcionValida(mixed $descripcion, mixed $modelo): ?string
+    {
+        $descripcion = trim((string) ($descripcion ?? ''));
+        if ($descripcion === '' || $this->descripcionEsModelo($descripcion, $modelo)) {
+            return null;
+        }
+
+        return $descripcion;
+    }
+
+    private function descripcionEsModelo(string $descripcion, mixed $modelo): bool
+    {
+        $descripcion = trim($descripcion);
+        $modelo = trim((string) ($modelo ?? ''));
+
+        if ($descripcion === '' || $modelo === '') {
+            return false;
+        }
+
+        return strcasecmp($descripcion, $modelo) === 0;
+    }
+
+    private function corregirEstadoLosConRx(Olt $olt, ?int $ponPort = null): void
+    {
+        $query = OltOnu::query()
+            ->where('olt_id', $olt->olt_id)
+            ->whereRaw('LOWER(estado) = ?', ['los'])
+            ->whereNotNull('rx_power_dbm')
+            ->where('rx_power_dbm', '<=', 0)
+            ->where('rx_power_dbm', '>=', -40);
+
+        if ($ponPort !== null) {
+            $query->where('pon_port', $ponPort);
+        }
+
+        $query->update(['estado' => 'working']);
+    }
+
+    private function limpiarDescripcionesQueSonModelo(Olt $olt, ?int $ponPort = null): void
+    {
+        $query = OltOnu::query()->where('olt_id', $olt->olt_id);
+        if ($ponPort !== null) {
+            $query->where('pon_port', $ponPort);
+        }
+
+        $query->whereNotNull('descripcion')
+            ->whereNotNull('modelo')
+            ->whereColumn('descripcion', 'modelo')
+            ->update(['descripcion' => null]);
     }
 
     /**

@@ -42,6 +42,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ID</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Router</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">OLT</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rango IP</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Descripción</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Activo</th>
@@ -53,6 +54,16 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $p->pool_id }}</td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $p->router?->nombre ?? '—' }} ({{ $p->router?->ip ?? '—' }})</td>
+                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                @if($p->olt)
+                                    <span class="font-medium">{{ $p->olt->codigo ?? ('OLT-'.$p->olt->olt_id) }}</span>
+                                    @if($p->olt->nodo)
+                                        <span class="block text-xs text-gray-500">{{ $p->olt->nodo->descripcion }}</span>
+                                    @endif
+                                @else
+                                    <span class="text-gray-400">—</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $p->ip_range }}</td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $p->descripcion ?? '—' }}</td>
                             <td class="px-4 py-3 text-sm">
@@ -72,7 +83,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay pools. <a href="{{ route('sistema.router-ip-pools.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay pools. <a href="{{ route('sistema.router-ip-pools.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
                         </tr>
                     @endforelse
                 </tbody>

@@ -16,7 +16,7 @@ if (el) {
     urlEditServicioBase: cfg.urlEditServicioBase || '',
     urlCreateServicioBase: cfg.urlCreateServicioBase || '',
     urlBuscarTemp: cfg.urlBuscarTemp || '',
-    urlConsultarRuc: cfg.urlConsultarRuc || '',
+    urlConsultarRucBase: cfg.urlConsultarRucBase || '',
     urlActualizarDesdeTempBase: cfg.urlActualizarDesdeTempBase || '',
     urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
     urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',

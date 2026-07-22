@@ -387,6 +387,14 @@
         :style="dropdownPos ? { top: dropdownPos.top + 'px', left: dropdownPos.left + 'px' } : {}"
       >
         <template v-if="servicioAcciones">
+          <a
+            v-if="urlHerramientasRed"
+            :href="urlHerramientasRed.replace('__id__', servicioAcciones.servicio_id)"
+            class="block px-4 py-2.5 text-sm text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30 flex items-center gap-2"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
+            Herramientas de red
+          </a>
           <button
             v-if="servicioAcciones.usuario_pppoe"
             type="button"
@@ -605,6 +613,7 @@ const props = defineProps({
   urlCancelar: { type: String, default: '' },
   urlDarBaja: { type: String, default: '' },
   urlSyncPppoe: { type: String, default: '' },
+  urlHerramientasRed: { type: String, default: '' },
   urlCrearFacturaInterna: { type: String, default: '' },
   urlCrearFacturaServicioEspecial: { type: String, default: '' },
   urlCrearFacturaFraccionDeuda: { type: String, default: '' },

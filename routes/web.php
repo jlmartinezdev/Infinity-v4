@@ -32,6 +32,7 @@ use App\Http\Controllers\NodoController;
 use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\OltController;
 use App\Http\Controllers\OltMarcaController;
+use App\Http\Controllers\OltModeloController;
 use App\Http\Controllers\OltPuertoController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PedidoController;
@@ -44,8 +45,10 @@ use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\RouterController;
 use App\Http\Controllers\RouterIpPoolController;
+use App\Http\Controllers\RouterModeloController;
 use App\Http\Controllers\SalidaPonController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\SolicitudAccesoWebController;
 use App\Http\Controllers\SplitterPrimarioController;
 use App\Http\Controllers\SplitterSecundarioController;
 use App\Http\Controllers\TareaController;
@@ -55,6 +58,7 @@ use App\Http\Controllers\TicketAsuntoController;
 use App\Http\Controllers\TipoTecnologiaController;
 use App\Http\Controllers\TvCuentaController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\WispHubImportController;
 use Illuminate\Support\Facades\Route;
@@ -140,10 +144,12 @@ Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
     Route::get('/clientes/dashboard', [ClienteDashboardController::class, 'index'])->name('clientes.dashboard');
     Route::get('/clientes/buscar', [ClienteController::class, 'buscar'])->name('clientes.buscar');
     Route::get('/clientes/buscar-temp', [ClienteController::class, 'buscarTemp'])->name('clientes.buscar-temp');
-    Route::get('/clientes/consultar-ruc', [ClienteController::class, 'consultarRuc'])->name('clientes.consultar-ruc');
     Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
     Route::get('/clientes/mapa-activos', [ClienteController::class, 'mapaActivos'])->name('clientes.mapa-activos');
+    Route::get('/clientes/mapa-activos/ping-estados', [ClienteController::class, 'mapaActivosPingEstados'])->name('clientes.mapa-activos.ping-estados');
+    Route::post('/clientes/mapa-activos/ejecutar-ping', [ClienteController::class, 'mapaActivosEjecutarPing'])->name('clientes.mapa-activos.ejecutar-ping');
     Route::get('/clientes/{cliente}/detalle', [ClienteController::class, 'detalle'])->name('clientes.detalle');
+    Route::put('/clientes/{cliente}/saldo-a-favor', [ClienteController::class, 'actualizarSaldoAFavor'])->name('clientes.actualizar-saldo-a-favor');
     Route::get('/clientes/{cliente}/acciones', [ClienteController::class, 'acciones'])->name('clientes.acciones');
     Route::get('/clientes/create', [ClienteController::class, 'create'])->name('clientes.create')->middleware('permiso:clientes.crear');
 });
@@ -158,9 +164,20 @@ Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
     Route::get('/clientes/{cliente}/edit', [ClienteController::class, 'edit'])->name('clientes.edit');
     Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
     Route::post('/clientes/{cliente}/actualizar-desde-temp', [ClienteController::class, 'actualizarDesdeTemp'])->name('clientes.actualizar-desde-temp');
+    Route::post('/clientes/{cliente}/consultar-ruc', [ClienteController::class, 'consultarRuc'])->name('clientes.consultar-ruc');
 });
 Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy')->middleware(['auth', 'permiso:clientes.eliminar']);
 Route::get('/clientes/mapas-pedidos', [PedidoController::class, 'mapasPedidos'])->name('clientes.mapas-pedidos')->middleware(['auth', 'permiso:pedidos.ver']);
+
+// Solicitudes de acceso (App móvil)
+Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
+    Route::get('/solicitudes-acceso', [SolicitudAccesoWebController::class, 'index'])->name('solicitudes-acceso.index');
+    Route::get('/solicitudes-acceso/{solicitud}', [SolicitudAccesoWebController::class, 'show'])->name('solicitudes-acceso.show');
+});
+Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
+    Route::post('/solicitudes-acceso/{solicitud}/aprobar', [SolicitudAccesoWebController::class, 'aprobar'])->name('solicitudes-acceso.aprobar');
+    Route::post('/solicitudes-acceso/{solicitud}/rechazar', [SolicitudAccesoWebController::class, 'rechazar'])->name('solicitudes-acceso.rechazar');
+});
 
 // Estados de pedidos, tipos tecnologías, perfiles PPPoE, nodos, roles (Referenciales)
 Route::middleware(['auth', 'permiso:referenciales.ver'])->group(function () {
@@ -388,6 +405,11 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::get('/servicios', [ServicioController::class, 'index'])->name('servicios.index');
     Route::get('/servicios/create', [ServicioController::class, 'create'])->name('servicios.create')->middleware('permiso:servicios.crear');
     Route::get('/servicios/ips-disponibles', [ServicioController::class, 'ipsDisponibles'])->name('servicios.ips-disponibles')->middleware('permiso:servicios.crear');
+    Route::post('/servicios/{servicio_id}/ping', [ServicioController::class, 'ping'])->name('servicios.ping');
+    Route::get('/servicios/{servicio_id}/herramientas-red', [ServicioController::class, 'herramientasRed'])->name('servicios.herramientas-red');
+    Route::post('/servicios/{servicio_id}/herramientas-red/mikrotik', [ServicioController::class, 'herramientasRedMikrotik'])->name('servicios.herramientas-red.mikrotik');
+    Route::post('/servicios/{servicio_id}/herramientas-red/olt', [ServicioController::class, 'herramientasRedOlt'])->name('servicios.herramientas-red.olt');
+    Route::post('/servicios/{servicio_id}/herramientas-red/olt-desc', [ServicioController::class, 'herramientasRedOltDesc'])->name('servicios.herramientas-red.olt-desc');
 });
 Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::post('/servicios', [ServicioController::class, 'store'])->name('servicios.store');
@@ -507,11 +529,14 @@ Route::middleware(['auth', 'permiso:inventario.ver'])->group(function () {
 // Usuarios (CRUD y gestión de permisos)
 Route::middleware(['auth', 'permiso:usuarios.ver'])->group(function () {
     Route::get('/usuarios', [UsuarioController::class, 'index'])->name('usuarios.index');
+    Route::get('/usuarios/sesiones', [UsuarioSesionController::class, 'index'])->name('usuarios.sesiones');
+    Route::delete('/usuarios/sesiones/{session}', [UsuarioSesionController::class, 'destroy'])->name('usuarios.sesiones.destroy')->middleware('permiso:usuarios.editar');
     Route::post('/usuarios', [UsuarioController::class, 'store'])->name('usuarios.store')->middleware('permiso:usuarios.crear');
     Route::put('/usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update')->middleware('permiso:usuarios.editar');
     Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])->name('usuarios.destroy')->middleware('permiso:usuarios.eliminar');
     Route::get('/usuarios/{usuario}/edit-data', [UsuarioController::class, 'editData'])->name('usuarios.edit-data')->middleware('permiso:usuarios.editar');
     Route::post('/usuarios/{usuario}/permisos', [UsuarioController::class, 'updatePermisos'])->name('usuarios.update-permisos')->middleware('permiso:usuarios.permisos');
+    Route::post('/usuarios/permisos-clientes', [UsuarioController::class, 'updatePermisosClientes'])->name('usuarios.update-permisos-clientes')->middleware('permiso:usuarios.permisos');
     Route::post('/usuarios/{usuario}/aprobar', [UsuarioController::class, 'aprobar'])->name('usuarios.aprobar');
 });
 
@@ -529,6 +554,7 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::post('routers/{router}/sync-pppoe', [RouterController::class, 'syncPppoe'])->name('routers.sync-pppoe');
     Route::get('routers/{router}/export-pppoe-script', [RouterController::class, 'exportPppoeScript'])->name('routers.export-pppoe-script');
     Route::resource('routers', RouterController::class)->except(['show']);
+    Route::resource('router-modelos', RouterModeloController::class)->except(['show']);
     Route::resource('router-ip-pools', RouterIpPoolController::class)->except(['show']);
     Route::get('pool-ip-asignadas', [PoolIpAsignadaController::class, 'index'])->name('pool-ip-asignadas.index');
     Route::get('pool-ip-asignadas/create', [PoolIpAsignadaController::class, 'create'])->name('pool-ip-asignadas.create');
@@ -561,8 +587,10 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::resource('lineas-cable', LineaCableController::class)->except(['show']);
     Route::resource('salida-pons', SalidaPonController::class)->except(['show']);
     Route::resource('olt-marcas', OltMarcaController::class);
+    Route::resource('olt-modelos', OltModeloController::class)->except(['show']);
     Route::resource('olts', OltController::class);
     Route::get('olts/{olt}/pon/{ponPort}', [OltController::class, 'showPonOnus'])->whereNumber('ponPort')->name('olts.pon-onus');
+    Route::post('olts/{olt}/sync-vista', [OltController::class, 'syncVista'])->name('olts.sync-vista');
     Route::post('olts/{olt}/test-gestion', [OltController::class, 'testGestion'])->name('olts.test-gestion')->middleware('permiso:ftth-olts.editar');
     Route::post('olts/{olt}/import-onus', [OltController::class, 'importOnus'])->name('olts.import-onus')->middleware('permiso:ftth-olts.editar');
     Route::post('olts/{olt}/refresh-onu-detalles', [OltController::class, 'refreshOnuDetalles'])->name('olts.refresh-onu-detalles')->middleware('permiso:ftth-olts.editar');
