@@ -25,6 +25,8 @@ class ServicioConexionEvento extends Model
 
     public const FUENTE_OLT_CONSULTA = 'olt_consulta';
 
+    public const FUENTE_UBNT_SSH = 'ubnt_ssh';
+
     public const FUENTE_CRON = 'cron';
 
     public const FUENTE_MANUAL = 'manual';
@@ -94,6 +96,47 @@ class ServicioConexionEvento extends Model
             self::TIPO_SNAPSHOT => 'Snapshot',
             default => $this->tipo,
         };
+    }
+
+    public function esPppoeConexion(): bool
+    {
+        return $this->tipo === self::TIPO_PPPOE_UP;
+    }
+
+    public function etiquetaFuente(): string
+    {
+        return match ($this->fuente) {
+            self::FUENTE_WEBHOOK => 'Webhook MikroTik',
+            self::FUENTE_MIKROTIK_CONSULTA => 'Consulta MikroTik',
+            self::FUENTE_OLT_CONSULTA => 'Consulta OLT',
+            self::FUENTE_UBNT_SSH => 'SSH Ubiquiti',
+            self::FUENTE_CRON => 'Cron',
+            self::FUENTE_MANUAL => 'Manual',
+            default => $this->fuente ?? '—',
+        };
+    }
+
+    /** @param  \Illuminate\Database\Eloquent\Builder<self>  $query */
+    public function scopePppoe($query)
+    {
+        return $query->whereIn('tipo', [self::TIPO_PPPOE_UP, self::TIPO_PPPOE_DOWN]);
+    }
+
+    /** @param  \Illuminate\Database\Eloquent\Builder<self>  $query */
+    public function scopeFuenteMikrotik($query)
+    {
+        return $query->whereIn('fuente', [self::FUENTE_WEBHOOK, self::FUENTE_MIKROTIK_CONSULTA]);
+    }
+
+    /** @return array<string, string> */
+    public static function fuentesPppoeFiltro(): array
+    {
+        return [
+            'mikrotik' => 'MikroTik (webhook + consulta)',
+            self::FUENTE_WEBHOOK => 'Solo webhook',
+            self::FUENTE_MIKROTIK_CONSULTA => 'Solo consulta MikroTik',
+            'todas' => 'Todas las fuentes',
+        ];
     }
 
     /**

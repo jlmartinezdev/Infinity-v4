@@ -76,12 +76,13 @@
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     @forelse ($tickets as $ticket)
                         @php
-                            $ipClienteTicket = $ticket->cliente
+                            $servicioConIp = $ticket->cliente
                                 ? $ticket->cliente->servicios
                                     ->filter(fn ($s) => filled($s->ip))
                                     ->sortBy(fn ($s) => $s->estado === \App\Models\Servicio::ESTADO_ACTIVO ? 0 : 1)
-                                    ->first()?->ip
+                                    ->first()
                                 : null;
+                            $ipClienteTicket = $servicioConIp?->ip;
                         @endphp
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ $ticket->id }}</td>
@@ -150,6 +151,7 @@
                                         'ip_cliente' => $ipClienteTicket,
                                         'pedido_id' => $ticket->pedido_id,
                                         'descripcion' => $ticket->descripcion,
+                                        'diagnostico_vista' => (new \App\Support\TicketDiagnosticoPresenter($ticket->datos_diagnostico))->secciones(),
                                         'observaciones' => $ticket->observaciones,
                                         'estado' => $_est[$ticket->estado] ?? $ticket->estado,
                                         'prioridad' => $_pri[$ticket->prioridad ?? 'media'] ?? $ticket->prioridad,
@@ -162,6 +164,7 @@
                                         'fecha_cierre' => $ticket->fecha_cierre?->format('d/m/Y H:i'),
                                     ];
                                     $canServicioCrear = auth()->user()?->tienePermiso('servicios.crear') ?? false;
+                                    $canServiciosVer = auth()->user()?->tienePermiso('servicios.ver') ?? false;
                                     $canFacturaInternaCrear = auth()->user()?->tienePermiso('factura-interna.crear') ?? false;
                                     $serviciosCliente = $ticket->cliente?->servicios ?? collect();
                                     $servicioMigrar = $canServicioCrear
@@ -178,6 +181,9 @@
                                         'puede_marcar_resuelto' => ! in_array($ticket->estado, ['resuelto', 'cerrado', 'cancelado'], true),
                                         'migrar_url' => $servicioMigrar
                                             ? route('servicios.migrar', $servicioMigrar)
+                                            : null,
+                                        'herramientas_red_url' => ($canServiciosVer && $servicioConIp)
+                                            ? route('servicios.herramientas-red', $servicioConIp).'?ticket_id='.$ticket->id
                                             : null,
                                         'puede_facturar_ticket' => $canFacturaInternaCrear && $ticket->cliente_id && ! $ticket->factura_interna_id,
                                         'facturar_url' => $canFacturaInternaCrear ? route('tickets.facturar', $ticket) : '',
@@ -223,6 +229,7 @@
 <div id="ticket-acciones-dropdown" class="fixed z-[9999] hidden py-1 min-w-[220px] bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg" role="menu" aria-hidden="true"></div>
 
 @push('scripts')
+@include('partials.ticket-diagnostico-app-styles')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function() {
@@ -274,6 +281,50 @@
         return '<div class="flex flex-col sm:flex-row sm:gap-2 py-1.5 border-b ' + b + ' last:border-0"><span class="' + lbl + ' shrink-0 min-w-[7rem]">' + escapeHtml(etiqueta) + '</span><span class="' + val + ' break-words">' + escapeHtml(valor) + '</span></div>';
     }
 
+    function toneClass(tone) {
+        if (tone === 'good') return 'diag-app-metric__value--good';
+        if (tone === 'ok') return 'diag-app-metric__value--ok';
+        if (tone === 'warn') return 'diag-app-metric__value--warn';
+        if (tone === 'bad') return 'diag-app-metric__value--bad';
+        return '';
+    }
+
+    function renderDiagnosticoApp(secciones) {
+        if (!Array.isArray(secciones) || secciones.length === 0) return '';
+        var html = '<div class="diag-app-panel mt-3"><div class="diag-app-panel__head"><div><p class="diag-app-panel__title">Diagnóstico app cliente</p><p class="diag-app-panel__sub">Telemetría capturada al reportar el problema</p></div></div><div class="diag-app-panel__body">';
+        secciones.forEach(function(sec) {
+            html += '<div><p class="diag-app-section__title">' + escapeHtml(sec.titulo || '') + '</p>';
+            if (sec.tipo === 'metricas' && Array.isArray(sec.items)) {
+                html += '<div class="diag-app-metrics diag-app-metrics--wide">';
+                sec.items.forEach(function(item) {
+                    html += '<div class="diag-app-metric"><p class="diag-app-metric__label">' + escapeHtml(item.label) + '</p><p class="diag-app-metric__value ' + toneClass(item.tone) + '">' + escapeHtml(item.value) + '</p></div>';
+                });
+                html += '</div>';
+            } else if (sec.tipo === 'ping' && Array.isArray(sec.items)) {
+                html += '<div class="diag-app-ping-grid">';
+                sec.items.forEach(function(item) {
+                    html += '<div class="diag-app-ping"><p class="diag-app-ping__label">' + escapeHtml(item.label) + '</p><p class="diag-app-ping__value">' + escapeHtml(item.value) + '</p></div>';
+                });
+                html += '</div>';
+            } else if (sec.tipo === 'traceroute' && Array.isArray(sec.filas)) {
+                html += '<div class="diag-app-table-wrap"><table class="diag-app-table"><thead><tr><th>Salto</th><th>Destino</th><th>Latencia</th><th>Red</th><th>Estado</th></tr></thead><tbody>';
+                sec.filas.forEach(function(f) {
+                    html += '<tr class="' + (f.alcanzado ? 'diag-app-table__destino' : '') + '"><td class="font-mono">' + escapeHtml(f.ttl) + '</td><td class="break-all">' + escapeHtml(f.destino) + '</td><td>' + escapeHtml(f.latencia) + '</td><td>' + escapeHtml(f.marca) + '</td><td>' + (f.alcanzado ? '<span class="diag-app-badge diag-app-badge--destino">Destino</span>' : '<span class="diag-app-badge diag-app-badge--transito">Tránsito</span>') + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            } else if (sec.tipo === 'ubicacion') {
+                html += '<div class="diag-app-location"><p class="diag-app-location__coords">' + escapeHtml(sec.texto) + '</p>';
+                if (sec.maps_url) {
+                    html += '<a href="' + escapeHtml(sec.maps_url) + '" target="_blank" rel="noopener" class="diag-app-link">Abrir en Google Maps →</a>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div></div>';
+        return html;
+    }
+
     function abrirDetalleTicketDesdeB64(raw) {
         if (!raw) return;
         var t;
@@ -303,6 +354,7 @@
         html += filaDetalle('Última actualización', t.updated_at, isDark);
         if (t.fecha_cierre) html += filaDetalle('Cierre', t.fecha_cierre, isDark);
         html += filaDetalle('Descripción', t.descripcion, isDark);
+        html += renderDiagnosticoApp(t.diagnostico_vista);
         html += filaDetalle('Observaciones', t.observaciones, isDark);
         if (t.imagen_url) {
             var bt2 = isDark ? 'border-gray-600' : 'border-gray-200';
@@ -313,7 +365,7 @@
         Swal.fire({
             title: 'Ticket #' + t.id,
             html: html,
-            width: '36rem',
+            width: (Array.isArray(t.diagnostico_vista) && t.diagnostico_vista.length) ? '42rem' : '36rem',
             confirmButtonText: 'Cerrar',
             confirmButtonColor: '#9333ea',
             background: isDark ? '#1f2937' : '#ffffff',
@@ -372,8 +424,12 @@
         var icImg = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
         var icTrash = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         var icCheck = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        var icWifi = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>';
         var baseBtn = 'w-full px-4 py-2.5 text-left text-sm flex items-center gap-2';
         var h = '';
+        if (cfg.herramientas_red_url) {
+            h += '<a href="' + escapeHtml(cfg.herramientas_red_url) + '" class="block ' + baseBtn + ' text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30">' + icWifi + ' Herramientas de red</a>';
+        }
         h += '<button type="button" class="' + baseBtn + ' text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 ticket-menu-item" data-accion="estado" data-url="' + escapeHtml(cfg.update_estado_url) + '" data-estado="' + escapeHtml(cfg.estado) + '">' + icLista + ' Cambiar estado</button>';
         if (cfg.puede_facturar_ticket && cfg.facturar_url) {
             h += '<button type="button" class="' + baseBtn + ' text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 ticket-menu-item" data-accion="facturar-ticket" data-facturar-url="' + escapeHtml(cfg.facturar_url) + '">' + icDoc + ' Crear factura por ticket</button>';

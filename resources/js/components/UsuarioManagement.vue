@@ -33,6 +33,14 @@
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono WhatsApp</label>
+                            <input v-model="formCrear.telefono"
+                                   type="text"
+                                   name="telefono"
+                                   placeholder="0981..."
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña *</label>
                             <input v-model="formCrear.password" 
                                    type="password" 
@@ -114,6 +122,14 @@
                                    type="email" 
                                    name="email" 
                                    required
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono WhatsApp</label>
+                            <input v-model="formEditar.telefono"
+                                   type="text"
+                                   name="telefono"
+                                   placeholder="0981..."
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         </div>
                         <div>
@@ -248,6 +264,7 @@ const showModalAprobar = ref(false);
 const formCrear = ref({
     name: '',
     email: '',
+    telefono: '',
     password: '',
     rol_id: '',
     estado: 'activo'
@@ -257,6 +274,7 @@ const formEditar = ref({
     usuario_id: null,
     name: '',
     email: '',
+    telefono: '',
     password: '',
     rol_id: '',
     estado: 'activo'
@@ -278,6 +296,7 @@ const abrirModalCrear = (event) => {
     formCrear.value = {
         name: '',
         email: '',
+        telefono: '',
         password: '',
         rol_id: '',
         estado: 'activo'
@@ -305,6 +324,7 @@ const abrirModalEditar = async (usuarioId, event) => {
             usuario_id: usuarioId,
             name: data.name,
             email: data.email,
+            telefono: data.telefono || '',
             password: '',
             rol_id: data.rol_id,
             estado: data.estado
@@ -351,6 +371,7 @@ const crearUsuario = async () => {
         const response = await axios.post(props.storeUrl, {
             name: formCrear.value.name,
             email: formCrear.value.email,
+            telefono: formCrear.value.telefono || null,
             password: formCrear.value.password,
             rol_id: formCrear.value.rol_id,
             estado: formCrear.value.estado,
@@ -393,6 +414,7 @@ const actualizarUsuario = async () => {
         const data = {
             name: formEditar.value.name,
             email: formEditar.value.email,
+            telefono: formEditar.value.telefono || null,
             rol_id: formEditar.value.rol_id,
             estado: formEditar.value.estado,
         };

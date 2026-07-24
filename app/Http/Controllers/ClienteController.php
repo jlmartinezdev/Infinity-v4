@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
+use App\Support\ListaClienteServicioViewData;
 
 class ClienteController extends Controller
 {
@@ -26,14 +27,7 @@ class ClienteController extends Controller
      */
     public function index(Request $request)
     {
-        // Cargamos el listado completo para que Vue haga el filtrado incremental en cliente.
-        $clientes = Cliente::query()
-            ->whereIn('estado', ['activo', 'inactivo', 'suspendido'])
-            ->with(['servicios.plan', 'servicios.pool'])
-            ->orderBy('cliente_id', 'desc')
-            ->get();
-
-        return view('clientes.index', compact('clientes'));
+        return view('listas.cliente-servicio', ListaClienteServicioViewData::forPage('clientes'));
     }
 
     /**
@@ -359,6 +353,8 @@ class ClienteController extends Controller
 
         $esAdministrador = (bool) auth()->user()?->esAdministrador();
 
+        $whatsappVista = (new \App\Support\ClienteWhatsappPresenter($cliente))->toArray(auth()->user());
+
         return view('clientes.detalle', compact(
             'cliente',
             'cobros',
@@ -367,6 +363,7 @@ class ClienteController extends Controller
             'totalSaldoFavor',
             'facturasInternas',
             'esAdministrador',
+            'whatsappVista',
         ));
     }
 

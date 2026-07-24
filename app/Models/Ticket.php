@@ -17,6 +17,7 @@ class Ticket extends Model
         'pedido_id',
         'ticket_asunto_id',
         'descripcion',
+        'datos_diagnostico',
         'estado',
         'prioridad',
         'reportado_desde',
@@ -34,6 +35,7 @@ class Ticket extends Model
         return [
             'fecha_cierre' => 'datetime',
             'monto_cobro_ticket' => 'decimal:2',
+            'datos_diagnostico' => 'array',
         ];
     }
 

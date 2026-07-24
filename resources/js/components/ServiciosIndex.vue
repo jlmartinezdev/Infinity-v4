@@ -2,11 +2,8 @@
   <div class="max-w-7xl mx-auto">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-visible mb-6">
       <form class="p-4 flex flex-wrap items-center gap-3 overflow-visible" @submit.prevent>
-        <!-- Título -->
-        
-
-        <!-- Grupo búsqueda: input + botón con icono -->
-        <div class="flex flex-1 min-w-[400px] max-w-xl">
+        <!-- Filtros: Dropdown Estado -->
+        <div v-if="!hideSearchBar" class="flex flex-1 min-w-[400px] max-w-xl">
           <input
             v-model="filtros.buscar"
             type="text"
@@ -24,7 +21,7 @@
         </div>
 
         <!-- Filtros: Dropdown Estado -->
-        <div class="flex-1 min-w-[1rem]"></div>
+        <div :class="hideSearchBar ? '' : 'flex-1 min-w-[1rem]'"></div>
         <div class="relative shrink-0" ref="dropdownEstadoRef">
           <button
             type="button"
@@ -272,14 +269,42 @@
                 <span class="text-gray-600 dark:text-gray-400 text-xs">{{ s.fecha_instalacion_formatted ?? '—' }}</span>
               </td>
               <td class="px-4 py-3 text-sm">
-                <a v-if="s.ip" :href="'http://' + s.ip" target="_blank">
-                  <span class="text-gray-600 dark:text-gray-300 font-medium">{{ s.pool?.router?.nombre ?? '—' }}</span><br>
-                  <span class="text-gray-600 dark:text-gray-400 text-xs">{{ s.ip ?? '—' }}</span>
-                </a>
-                <template v-else>
-                  <span class="text-gray-600 dark:text-gray-300 font-medium">—</span><br>
-                  <span class="text-gray-600 dark:text-gray-400 text-xs">—</span>
-                </template>
+                <div class="inline-flex items-start gap-1.5">
+                  <span
+                    v-if="s.tecnologia === 'fibra'"
+                    class="inline-flex shrink-0 mt-0.5 text-cyan-600 dark:text-cyan-400"
+                    title="Fibra óptica"
+                    aria-label="Fibra óptica"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="3" y="17" width="5" height="4" rx="0.75"/>
+                      <rect x="9.5" y="2" width="5" height="4" rx="0.75"/>
+                      <rect x="16" y="17" width="5" height="4" rx="0.75"/>
+                      <path d="M5.5 17v-3.5a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3V17"/>
+                      <path d="M12 11.5V6"/>
+                    </svg>
+                  </span>
+                  <span
+                    v-else-if="s.tecnologia === 'antena'"
+                    class="inline-flex shrink-0 mt-0.5 text-sky-600 dark:text-sky-400"
+                    title="Antena / wireless"
+                    aria-label="Antena wireless"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                    </svg>
+                  </span>
+                  <div class="min-w-0">
+                    <a v-if="s.ip" :href="'http://' + s.ip" target="_blank" class="block">
+                      <span class="text-gray-600 dark:text-gray-300 font-medium">{{ s.pool?.router?.nombre ?? '—' }}</span><br>
+                      <span class="text-gray-600 dark:text-gray-400 text-xs">{{ s.ip ?? '—' }}</span>
+                    </a>
+                    <template v-else>
+                      <span class="text-gray-600 dark:text-gray-300 font-medium">{{ s.pool?.router?.nombre ?? '—' }}</span><br>
+                      <span class="text-gray-600 dark:text-gray-400 text-xs">—</span>
+                    </template>
+                  </div>
+                </div>
               </td>
               
               <td class="px-4 py-3">
@@ -387,6 +412,24 @@
         :style="dropdownPos ? { top: dropdownPos.top + 'px', left: dropdownPos.left + 'px' } : {}"
       >
         <template v-if="servicioAcciones">
+          <a
+            v-if="urlAccionesClienteBase && servicioAcciones.cliente?.cliente_id"
+            :href="urlAccionesCliente(servicioAcciones.cliente.cliente_id)"
+            class="block px-4 py-2.5 text-sm text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            Acciones del cliente
+          </a>
+          <a
+            v-if="getMapsUrl(servicioAcciones.cliente)"
+            :href="getMapsUrl(servicioAcciones.cliente)"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block px-4 py-2.5 text-sm text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 flex items-center gap-2"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Ver ubicación del cliente
+          </a>
           <a
             v-if="urlHerramientasRed"
             :href="urlHerramientasRed.replace('__id__', servicioAcciones.servicio_id)"
@@ -614,17 +657,42 @@ const props = defineProps({
   urlDarBaja: { type: String, default: '' },
   urlSyncPppoe: { type: String, default: '' },
   urlHerramientasRed: { type: String, default: '' },
+  urlAccionesClienteBase: { type: String, default: '' },
+  canVerClientes: { type: Boolean, default: false },
   urlCrearFacturaInterna: { type: String, default: '' },
   urlCrearFacturaServicioEspecial: { type: String, default: '' },
   urlCrearFacturaFraccionDeuda: { type: String, default: '' },
   filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' }) },
+  sharedBuscar: { type: Object, default: null },
+  hideSearchBar: { type: Boolean, default: false },
 });
 
 const STORAGE_KEY_BUSCAR = 'servicios_index_buscar';
 
-function getBuscarInicial() {
+function esRecargaPagina() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY_BUSCAR);
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav?.type === 'reload') return true;
+    if (performance.navigation?.type === 1) return true;
+  } catch (e) {}
+  return false;
+}
+
+function getBuscarInicial() {
+  if (props.sharedBuscar) {
+    return props.sharedBuscar.text ?? props.filtros?.buscar ?? '';
+  }
+  try {
+    localStorage.removeItem(STORAGE_KEY_BUSCAR);
+  } catch (e) {}
+  if (!esRecargaPagina()) {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY_BUSCAR);
+    } catch (e) {}
+    return props.filtros?.buscar ?? '';
+  }
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY_BUSCAR);
     if (stored !== null && typeof stored === 'string') return stored;
   } catch (e) {}
   return props.filtros?.buscar ?? '';
@@ -643,6 +711,22 @@ const filtros = ref({
   fecha_desde: props.filtros?.fecha_desde ?? '',
   fecha_hasta: props.filtros?.fecha_hasta ?? '',
 });
+
+if (props.sharedBuscar) {
+  watch(() => props.sharedBuscar.text, (val) => {
+    const next = val ?? '';
+    if (filtros.value.buscar !== next) {
+      filtros.value.buscar = next;
+    }
+  });
+
+  watch(() => filtros.value.buscar, (val) => {
+    const next = val ?? '';
+    if (props.sharedBuscar.text !== next) {
+      props.sharedBuscar.text = next;
+    }
+  });
+}
 const dropdownEstadoOpen = ref(false);
 const dropdownEstadoPagoOpen = ref(false);
 const dropdownNodoOpen = ref(false);
@@ -871,15 +955,17 @@ const visiblePages = computed(() => {
 
 watch(filtros, () => { currentPage.value = 1; }, { deep: true });
 
-watch(() => filtros.value.buscar, (val) => {
-  try {
-    if (val != null && val !== '') {
-      localStorage.setItem(STORAGE_KEY_BUSCAR, String(val));
-    } else {
-      localStorage.removeItem(STORAGE_KEY_BUSCAR);
-    }
-  } catch (e) {}
-}, { immediate: true });
+if (!props.sharedBuscar) {
+  watch(() => filtros.value.buscar, (val) => {
+    try {
+      if (val != null && val !== '') {
+        sessionStorage.setItem(STORAGE_KEY_BUSCAR, String(val));
+      } else {
+        sessionStorage.removeItem(STORAGE_KEY_BUSCAR);
+      }
+    } catch (e) {}
+  }, { immediate: true });
+}
 
 function goToPage(page) {
   const p = Math.max(1, Math.min(page, totalPages.value));
@@ -932,6 +1018,24 @@ function toggleSelectAll() {
 function fmtGs(n) {
   const x = Math.round(Number(n) || 0);
   return `${x.toLocaleString('es-PY')} Gs.`;
+}
+
+function urlAccionesCliente(clienteId) {
+  if (!props.urlAccionesClienteBase || !clienteId) return '';
+  return props.urlAccionesClienteBase.replace('__id__', String(clienteId));
+}
+
+function getMapsUrl(cliente) {
+  if (!cliente) return null;
+  const raw = (cliente.url_ubicacion || '').toString().trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^\/\//.test(raw)) return 'https:' + raw;
+  const coordMatch = raw.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (coordMatch) {
+    return 'https://www.google.com/maps?q=' + coordMatch[1] + ',' + coordMatch[2];
+  }
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(raw);
 }
 
 function formatCedula(cedula) {

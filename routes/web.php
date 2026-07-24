@@ -48,7 +48,11 @@ use App\Http\Controllers\RouterIpPoolController;
 use App\Http\Controllers\RouterModeloController;
 use App\Http\Controllers\SalidaPonController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\ServicioPppoeEventoController;
 use App\Http\Controllers\SolicitudAccesoWebController;
+use App\Http\Controllers\AvisoPushWebController;
+use App\Http\Controllers\WhatsAppAsuntoController;
+use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\SplitterPrimarioController;
 use App\Http\Controllers\SplitterSecundarioController;
 use App\Http\Controllers\TareaController;
@@ -177,6 +181,51 @@ Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
 Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
     Route::post('/solicitudes-acceso/{solicitud}/aprobar', [SolicitudAccesoWebController::class, 'aprobar'])->name('solicitudes-acceso.aprobar');
     Route::post('/solicitudes-acceso/{solicitud}/rechazar', [SolicitudAccesoWebController::class, 'rechazar'])->name('solicitudes-acceso.rechazar');
+    Route::post('/solicitudes-acceso/{solicitud}/reenviar-clave', [SolicitudAccesoWebController::class, 'reenviarClave'])->name('solicitudes-acceso.reenviar-clave');
+});
+
+// WhatsApp Cloud API (panel)
+Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
+    Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
+    Route::get('/whatsapp/mensajes', [WhatsAppWebController::class, 'mensajes'])->name('whatsapp.mensajes');
+    Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
+    Route::get('/whatsapp/hilo', [WhatsAppWebController::class, 'hiloJson'])->name('whatsapp.hilo');
+    Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
+    Route::get('/whatsapp/contactos', [WhatsAppWebController::class, 'contactos'])->name('whatsapp.contactos');
+    Route::get('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'index'])->name('whatsapp.asuntos.index');
+    Route::get('/whatsapp/asuntos-json', [WhatsAppWebController::class, 'asuntosJson'])->name('whatsapp.asuntos.json');
+});
+Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
+    Route::get('/whatsapp/enviar', [WhatsAppWebController::class, 'enviarForm'])->name('whatsapp.enviar');
+    Route::post('/whatsapp/enviar', [WhatsAppWebController::class, 'enviar'])->name('whatsapp.enviar.store');
+    Route::post('/whatsapp/mensajes/{mensaje}/reintentar', [WhatsAppWebController::class, 'reintentar'])->name('whatsapp.reintentar');
+    Route::post('/whatsapp/marcar-leidos', [WhatsAppWebController::class, 'marcarLeidos'])->name('whatsapp.marcar-leidos');
+    Route::post('/whatsapp/conversacion/asunto', [WhatsAppWebController::class, 'asignarAsunto'])->name('whatsapp.asignar-asunto');
+    Route::get('/whatsapp/asuntos/create', [WhatsAppAsuntoController::class, 'create'])->name('whatsapp.asuntos.create');
+    Route::post('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'store'])->name('whatsapp.asuntos.store');
+    Route::get('/whatsapp/asuntos/{asunto}/edit', [WhatsAppAsuntoController::class, 'edit'])->name('whatsapp.asuntos.edit');
+    Route::put('/whatsapp/asuntos/{asunto}', [WhatsAppAsuntoController::class, 'update'])->name('whatsapp.asuntos.update');
+    Route::delete('/whatsapp/asuntos/{asunto}', [WhatsAppAsuntoController::class, 'destroy'])->name('whatsapp.asuntos.destroy');
+});
+
+// Avisos push voluntarios a app cliente
+Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
+    Route::get('/avisos-push', [AvisoPushWebController::class, 'index'])->name('avisos-push.index');
+    Route::get('/avisos-push/buscar', [AvisoPushWebController::class, 'buscar'])->name('avisos-push.buscar');
+});
+Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
+    Route::post('/avisos-push', [AvisoPushWebController::class, 'store'])->name('avisos-push.store');
+    Route::post('/avisos-push/{aviso}/reenviar', [AvisoPushWebController::class, 'reenviar'])->name('avisos-push.reenviar');
+    Route::delete('/avisos-push/{aviso}', [AvisoPushWebController::class, 'destroy'])->name('avisos-push.destroy');
+});
+
+// Gestión avanzada de acceso app (solo Administrador) — sobre solicitudes de la app
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::put('/solicitudes-acceso/{solicitud}/acceso', [SolicitudAccesoWebController::class, 'actualizarAcceso'])->name('solicitudes-acceso.actualizar-acceso');
+    Route::post('/solicitudes-acceso/{solicitud}/suspender-acceso', [SolicitudAccesoWebController::class, 'suspenderAcceso'])->name('solicitudes-acceso.suspender-acceso');
+    Route::post('/solicitudes-acceso/{solicitud}/reactivar-acceso', [SolicitudAccesoWebController::class, 'reactivarAcceso'])->name('solicitudes-acceso.reactivar-acceso');
+    Route::delete('/solicitudes-acceso/{solicitud}/acceso', [SolicitudAccesoWebController::class, 'eliminarAcceso'])->name('solicitudes-acceso.eliminar-acceso');
+    Route::delete('/solicitudes-acceso/{solicitud}', [SolicitudAccesoWebController::class, 'destroy'])->name('solicitudes-acceso.destroy');
 });
 
 // Estados de pedidos, tipos tecnologías, perfiles PPPoE, nodos, roles (Referenciales)
@@ -403,11 +452,14 @@ Route::post('/tickets/{ticket}/facturar', [TicketController::class, 'facturar'])
 // Servicios (CRUD, servicio_id auto-increment como PK)
 Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::get('/servicios', [ServicioController::class, 'index'])->name('servicios.index');
+    Route::get('/servicios/pppoe-eventos', [ServicioPppoeEventoController::class, 'index'])->name('servicios.pppoe-eventos.index');
     Route::get('/servicios/create', [ServicioController::class, 'create'])->name('servicios.create')->middleware('permiso:servicios.crear');
     Route::get('/servicios/ips-disponibles', [ServicioController::class, 'ipsDisponibles'])->name('servicios.ips-disponibles')->middleware('permiso:servicios.crear');
     Route::post('/servicios/{servicio_id}/ping', [ServicioController::class, 'ping'])->name('servicios.ping');
     Route::get('/servicios/{servicio_id}/herramientas-red', [ServicioController::class, 'herramientasRed'])->name('servicios.herramientas-red');
     Route::post('/servicios/{servicio_id}/herramientas-red/mikrotik', [ServicioController::class, 'herramientasRedMikrotik'])->name('servicios.herramientas-red.mikrotik');
+    Route::post('/servicios/{servicio_id}/herramientas-red/antena', [ServicioController::class, 'herramientasRedAntena'])->name('servicios.herramientas-red.antena');
+    Route::post('/servicios/{servicio_id}/herramientas-red/antena-dhcp', [ServicioController::class, 'herramientasRedAntenaDhcp'])->name('servicios.herramientas-red.antena-dhcp');
     Route::post('/servicios/{servicio_id}/herramientas-red/olt', [ServicioController::class, 'herramientasRedOlt'])->name('servicios.herramientas-red.olt');
     Route::post('/servicios/{servicio_id}/herramientas-red/olt-desc', [ServicioController::class, 'herramientasRedOltDesc'])->name('servicios.herramientas-red.olt-desc');
 });
@@ -432,6 +484,9 @@ Route::middleware(['auth', 'permiso:tv.ver'])->group(function () {
     Route::get('/tv-cuentas/dashboard', [TvCuentaController::class, 'dashboard'])->name('tv-cuentas.dashboard');
     Route::get('/tv-cuentas/exportar-excel', [TvCuentaController::class, 'exportarExcel'])->name('tv-cuentas.exportar-excel');
     Route::get('/tv-cuentas', [TvCuentaController::class, 'index'])->name('tv-cuentas.index');
+});
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::put('/tv-cuentas/aviso-config', [TvCuentaController::class, 'updateAvisoConfig'])->name('tv-cuentas.aviso-config');
 });
 Route::middleware(['auth', 'permiso:tv.editar'])->group(function () {
     Route::get('/tv-cuentas/create', [TvCuentaController::class, 'create'])->name('tv-cuentas.create');

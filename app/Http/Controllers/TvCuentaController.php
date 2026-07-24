@@ -6,6 +6,8 @@ use App\Models\Cliente;
 use App\Models\Servicio;
 use App\Models\TvCuenta;
 use App\Models\TvCuentaAsignacion;
+use App\Models\User;
+use App\Support\TvAvisoConfig;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -159,7 +161,53 @@ class TvCuentaController extends Controller
             ['path' => route('tv-cuentas.index'), 'query' => $request->query()]
         );
 
-        return view('tv-cuentas.index', compact('cuentas', 'stats', 'filtro', 'busqueda'));
+        $tvAviso = [
+            'enabled' => TvAvisoConfig::enabled(),
+            'dias_antes' => TvAvisoConfig::diasAntes(),
+            'hora' => TvAvisoConfig::hora(),
+            'usuario_ids' => TvAvisoConfig::usuarioIds(),
+        ];
+        $staffAviso = User::staff()->activos()->orderBy('name')->get(['usuario_id', 'name', 'telefono']);
+        $esAdmin = (bool) auth()->user()?->esAdministrador();
+
+        return view('tv-cuentas.index', compact(
+            'cuentas',
+            'stats',
+            'filtro',
+            'busqueda',
+            'tvAviso',
+            'staffAviso',
+            'esAdmin'
+        ));
+    }
+
+    /**
+     * Configuración de avisos WhatsApp por vencimiento TV (solo administrador).
+     */
+    public function updateAvisoConfig(Request $request)
+    {
+        if (! $request->user()?->esAdministrador()) {
+            abort(403, 'Solo administradores pueden configurar avisos TV.');
+        }
+
+        $validated = $request->validate([
+            'enabled' => ['nullable', 'boolean'],
+            'dias_antes' => ['required', 'integer', 'min:0', 'max:60'],
+            'hora' => ['required', 'date_format:H:i'],
+            'usuario_ids' => ['nullable', 'array'],
+            'usuario_ids.*' => ['integer', Rule::exists('users', 'usuario_id')->whereNull('cliente_id')],
+        ]);
+
+        TvAvisoConfig::guardar(
+            $request->boolean('enabled'),
+            (int) $validated['dias_antes'],
+            (string) $validated['hora'],
+            $validated['usuario_ids'] ?? []
+        );
+
+        return redirect()
+            ->route('tv-cuentas.index')
+            ->with('success', 'Configuración de avisos TV guardada.');
     }
 
     /**

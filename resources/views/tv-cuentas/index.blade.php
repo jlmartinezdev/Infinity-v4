@@ -23,10 +23,22 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cuentas TV (streaming)</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Nebula: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta. Los badges indican vencimiento (por vencer en {{ \App\Models\TvCuenta::DIAS_AVISO_POR_VENCER }} días o menos, vencido).
+                Nebula: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta. Los badges indican vencimiento (por vencer en {{ $tvAviso['dias_antes'] ?? \App\Models\TvCuenta::diasAvisoPorVencer() }} días o menos, vencido).
+                @if(!empty($tvAviso['enabled']))
+                    <span class="inline-flex items-center gap-1 ml-1 text-emerald-600 dark:text-emerald-400">· Avisos WA activos a las {{ $tvAviso['hora'] }}</span>
+                @endif
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
+            @if(!empty($esAdmin))
+            <button type="button" onclick="document.getElementById('tv-aviso-modal').showModal()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-600 text-purple-800 dark:text-purple-200 rounded-lg font-medium hover:bg-purple-50 dark:hover:bg-purple-900/20 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                Avisos WhatsApp
+            </button>
+            @endif
             <a href="{{ route('tv-cuentas.exportar-excel', request()->query()) }}"
                 class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors">
                 <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,6 +53,69 @@
             @endif
         </div>
     </div>
+
+    @if(!empty($esAdmin))
+    <dialog id="tv-aviso-modal" class="rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-0 w-[min(100%,32rem)] backdrop:bg-black/40">
+        <form method="POST" action="{{ route('tv-cuentas.aviso-config') }}" class="p-5 space-y-4">
+            @csrf
+            @method('PUT')
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold">Avisos WhatsApp — vencimiento TV</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Solo administradores. Se notifica una vez por cuenta y fecha de vencimiento a los usuarios elegidos (deben tener teléfono WhatsApp).</p>
+                </div>
+                <button type="button" onclick="document.getElementById('tv-aviso-modal').close()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">&times;</button>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="enabled" value="1" @checked(!empty($tvAviso['enabled']))
+                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                Activar avisos automáticos
+            </label>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Días de anticipación</label>
+                    <input type="number" name="dias_antes" min="0" max="60" required
+                        value="{{ old('dias_antes', $tvAviso['dias_antes'] ?? 7) }}"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Hora de envío</label>
+                    <input type="time" name="hora" required
+                        value="{{ old('hora', $tvAviso['hora'] ?? '09:00') }}"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-2">Usuarios que reciben el aviso</label>
+                <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700">
+                    @forelse($staffAviso as $u)
+                        <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
+                            <input type="checkbox" name="usuario_ids[]" value="{{ $u->usuario_id }}"
+                                @checked(in_array((int) $u->usuario_id, $tvAviso['usuario_ids'] ?? [], true))
+                                class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                            <span class="flex-1">{{ $u->name }}</span>
+                            <span class="text-xs text-gray-400">{{ $u->telefono ?: 'sin teléfono' }}</span>
+                        </label>
+                    @empty
+                        <p class="px-3 py-2 text-sm text-gray-500">No hay personal activo.</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-1">
+                <button type="button" onclick="document.getElementById('tv-aviso-modal').close()"
+                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>
+                <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-medium">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+    @if($errors->any())
+        <script>document.addEventListener('DOMContentLoaded', () => document.getElementById('tv-aviso-modal')?.showModal());</script>
+    @endif
+    @endif
 
     @if(session('success'))
         <div class="mb-4 p-4 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-sm">{{ session('success') }}</div>

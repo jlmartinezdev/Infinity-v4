@@ -45,12 +45,9 @@ class OltController extends Controller
         foreach (['address' => 'mac_cmds_address', 'tabla' => 'mac_cmds_tabla', 'pon' => 'mac_cmds_pon', 'interface' => 'mac_cmds_interface'] as $key => $field) {
             $texto = $validated[$field] ?? '';
             unset($validated[$field]);
-            $lista = $this->parsearLineasComandoCli(is_string($texto) ? $texto : '');
-            if ($lista !== []) {
-                $macCli[$key] = $lista;
-            }
+            $macCli[$key] = $this->parsearLineasComandoCli(is_string($texto) ? $texto : '');
         }
-        $validated['mac_cli_comandos'] = $macCli !== [] ? $macCli : null;
+        $validated['mac_cli_comandos'] = $macCli;
 
         return $validated;
     }

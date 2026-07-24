@@ -1,5 +1,5 @@
 {
-    "version": "1.0.2",
-    "url": "https://infinityisppro.net/descargas/app-release.apk",
-    "changelog": "- Interfaz moderna (Botones actualizados)\n- Modo oscuro completo\n- Gestor Inteligente OTA Integrado"
+  "version": "1.1.1",
+  "url": "https://infinityisppro.net/descargas/InfinityStaff_v1.1.1.apk",
+  "changelog": "- Historial de notificaciones en la campanilla.\n- El detalle de solicitudes se adaptó para una mejor visualización de los datos.\n- Zoom habilitado al tocar la foto de cédula en detalles del pedido.\n- Perfil de usuario dinámico adaptado a las credenciales.\n- Corregido error 422 al rechazar solicitudes sin motivo.\n- Corrección: Las notificaciones recibidas en segundo plano ahora se guardan en el historial."
 }

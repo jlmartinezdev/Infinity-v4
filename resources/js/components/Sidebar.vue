@@ -54,7 +54,7 @@
           @click.prevent="handleMenuClick(item)"
           :class="[
             'flex items-center min-w-0 px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors group gap-2',
-            isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''
+            isMenuItemActive(item) ? 'bg-purple-900/20 text-purple-400' : ''
           ]"
         >
           <component :is="iconComponent(item.icon)" class="w-5 h-5 flex-shrink-0" />
@@ -147,7 +147,7 @@
           @click.prevent="handleMenuClick(item)"
           :class="[
             'flex items-center min-w-0 gap-2 px-3 py-2.5 rounded-lg text-gray-200 hover:bg-gray-800 transition-colors',
-            isActive(item.path) ? 'bg-purple-900/20 text-purple-400' : ''
+            isMenuItemActive(item) ? 'bg-purple-900/20 text-purple-400' : ''
           ]"
         >
           <component :is="iconComponent(item.icon)" class="w-5 h-5 flex-shrink-0" />
@@ -318,6 +318,7 @@ const ClipboardListIcon = { template: `<svg fill="none" stroke="currentColor" vi
 const CubeIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>` };
 const TvIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>` };
 const BoltIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>` };
+const ChatIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>` };
 
 const iconMap = {
   home: HomeIcon,
@@ -333,6 +334,7 @@ const iconMap = {
   cube: CubeIcon,
   tv: TvIcon,
   bolt: BoltIcon,
+  chat: ChatIcon,
 };
 
 function iconComponent(icon) {
@@ -379,6 +381,16 @@ function isActive(path) {
     return p === '/' || p === '/inicio';
   }
   return p === path;
+}
+
+function isMenuItemActive(item) {
+  if (typeof window === 'undefined') return false;
+  const prefix = item.activePrefix;
+  if (prefix) {
+    const p = window.location.pathname;
+    return p === prefix || p.startsWith(prefix + '/');
+  }
+  return isActive(item.path);
 }
 
 function isSubmenuActive(item) {

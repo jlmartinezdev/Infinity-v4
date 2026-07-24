@@ -57,6 +57,8 @@ return [
         ],
         'tv.ver' => ['tv.ver'],
         'tv.editar' => ['tv.crear', 'tv.editar', 'tv.eliminar'],
+        'whatsapp.ver' => ['whatsapp.ver'],
+        'whatsapp.editar' => ['whatsapp.editar'],
         'facturacion.ver' => ['facturacion-dashboard.ver'],
         'facturas.ver' => ['facturas.ver'],
         'facturas.crear' => ['facturas.crear', 'facturas.editar'],
@@ -226,6 +228,12 @@ return [
             'label' => 'TV streaming',
             'items' => [
                 ['label' => 'TV streaming', 'base' => 'tv', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'WhatsApp',
+            'items' => [
+                ['label' => 'WhatsApp', 'base' => 'whatsapp', 'acciones' => ['ver', 'editar']],
             ],
         ],
         [

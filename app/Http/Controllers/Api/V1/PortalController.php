@@ -119,14 +119,42 @@ class PortalController extends ApiController
         $validated = $request->validate([
             'ticket_asunto_id' => ['required', 'integer', 'exists:ticket_asuntos,id'],
             'descripcion' => ['required', 'string', 'max:5000'],
-            'prioridad' => ['nullable', 'string', 'in:baja,media,alta'],
+            'prioridad' => ['nullable', 'string', 'in:baja,media,alta,Baja,Media,Alta'],
+            'datos_diagnostico' => ['nullable', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value === null || $value === '') {
+                    return;
+                }
+
+                if (is_array($value)) {
+                    return;
+                }
+
+                if (is_string($value)) {
+                    json_decode($value);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        $fail('El campo datos_diagnostico debe ser un JSON válido.');
+                    }
+
+                    return;
+                }
+
+                $fail('El campo datos_diagnostico debe ser un JSON válido.');
+            }],
         ]);
+
+        $prioridad = strtolower((string) ($validated['prioridad'] ?? 'media'));
+        $datosDiagnostico = null;
+        if (array_key_exists('datos_diagnostico', $validated) && $validated['datos_diagnostico'] !== null && $validated['datos_diagnostico'] !== '') {
+            $raw = $validated['datos_diagnostico'];
+            $datosDiagnostico = is_string($raw) ? json_decode($raw, true) : $raw;
+        }
 
         $ticket = Ticket::create([
             'cliente_id' => $request->user()->cliente_id,
             'ticket_asunto_id' => $validated['ticket_asunto_id'],
             'descripcion' => trim($validated['descripcion']),
-            'prioridad' => $validated['prioridad'] ?? 'media',
+            'datos_diagnostico' => $datosDiagnostico,
+            'prioridad' => $prioridad,
             'estado' => 'pendiente',
             'reportado_desde' => 'app',
             'usuario_id' => $request->user()->usuario_id,

@@ -31,10 +31,19 @@ return [
                 ['name' => 'clientes-dashboard', 'label' => 'Dashboard', 'path' => '/clientes/dashboard', 'permiso' => 'clientes-dashboard.ver'],
                 ['name' => 'lista-clientes', 'label' => 'Lista clientes', 'path' => '/clientes', 'permiso' => 'clientes-lista.ver'],
                 ['name' => 'solicitudes-acceso', 'label' => 'Solicitudes app', 'path' => '/solicitudes-acceso', 'permiso' => 'clientes-lista.ver'],
+                ['name' => 'avisos-push', 'label' => 'Avisos push', 'path' => '/avisos-push', 'permiso' => 'clientes-lista.ver'],
                 ['name' => 'lista-pedidos', 'label' => 'Lista pedidos', 'path' => '/pedidos', 'permiso' => 'clientes-pedidos.ver'],
                 ['name' => 'agenda', 'label' => 'Agenda', 'path' => '/agenda', 'permiso' => 'clientes-agenda.ver'],
                 ['name' => 'mapas-pedidos', 'label' => 'Mapas de pedidos', 'path' => '/clientes/mapas-pedidos', 'permiso' => 'clientes-mapa-pedidos.ver'],
             ],
+        ],
+        [
+            'name' => 'whatsapp',
+            'label' => 'WhatsApp',
+            'path' => '/whatsapp/mensajes',
+            'icon' => 'chat',
+            'permiso' => 'whatsapp.ver',
+            'activePrefix' => '/whatsapp',
         ],
         [
             'name' => 'servicios',
@@ -42,6 +51,7 @@ return [
             'icon' => 'wifi',
             'submenu' => [
                 ['name' => 'lista-servicios', 'label' => 'Lista servicios', 'path' => '/servicios', 'permiso' => 'servicios-lista.ver'],
+                ['name' => 'pppoe-eventos', 'label' => 'Eventos PPPoE MikroTik', 'path' => '/servicios/pppoe-eventos', 'permiso' => 'servicios-lista.ver'],
                 ['name' => 'hotspot-dashboard', 'label' => 'Hotspot - Clientes activos', 'path' => '/hotspot/dashboard', 'permiso' => 'servicios-hotspot.ver'],
                 ['name' => 'hotspot-usuarios', 'label' => 'Usuarios Hotspot', 'path' => '/hotspot', 'permiso' => 'servicios-hotspot-usuarios.ver'],
                 ['name' => 'hotspot-perfiles', 'label' => 'Perfiles Hotspot', 'path' => '/hotspot/perfiles', 'permiso' => 'servicios-hotspot-perfiles.ver'],

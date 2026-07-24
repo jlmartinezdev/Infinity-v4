@@ -51,8 +51,16 @@ return [
     ],
 
     'fcm' => [
-        'server_key' => env('FCM_SERVER_KEY'),
+        /** Ruta al JSON de cuenta de servicio (HTTP v1). Relativa a base_path o absoluta. */
+        'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH'),
+        'project_id' => env('FCM_PROJECT_ID'),
         'staff_topic' => env('FCM_STAFF_TOPIC', 'staff'),
+        /** Canal Android staff (debe coincidir con el creado en la app staff) */
+        'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'staff'),
+        /** Canal Android app cliente */
+        'client_android_channel_id' => env('FCM_CLIENT_ANDROID_CHANNEL_ID', 'clientes'),
+        /** Obsoleto: API legacy /fcm/send ya no funciona (404). */
+        'server_key' => env('FCM_SERVER_KEY'),
     ],
 
 ];

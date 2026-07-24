@@ -31,8 +31,9 @@ return [
                 'show mac address-table address {mac_vsol}',
             ],
             'tabla' => [],
-            // Principal: se prueba en PON 1..N hasta hallar la MAC
+            // Principal: barrer PON 1..N (probar variantes de firmware)
             'pon' => [
+                'show address-table gpon 0/{pon}',
                 'show mac address-table gpon 0/{pon}',
             ],
             'interface' => [],

@@ -10,6 +10,8 @@ class SolicitudAcceso extends Model
 {
     protected $table = 'solicitudes_acceso';
 
+    public const ESTADO_PENDIENTE_VERIFICACION = 'pendiente_verificacion';
+
     public const ESTADO_PENDIENTE = 'pendiente';
 
     public const ESTADO_APROBADA = 'aprobada';
@@ -25,6 +27,10 @@ class SolicitudAcceso extends Model
         'longitud',
         'frente_path',
         'estado',
+        'codigo_verificacion',
+        'telefono_verificado',
+        'telefono_verificado_at',
+        'whatsapp_from',
         'cliente_id',
         'aprobado_por',
         'aprobado_at',
@@ -36,6 +42,8 @@ class SolicitudAcceso extends Model
             'latitud' => 'float',
             'longitud' => 'float',
             'aprobado_at' => 'datetime',
+            'telefono_verificado' => 'boolean',
+            'telefono_verificado_at' => 'datetime',
         ];
     }
 
@@ -52,6 +60,7 @@ class SolicitudAcceso extends Model
     public static function estados(): array
     {
         return [
+            self::ESTADO_PENDIENTE_VERIFICACION => 'Pendiente verificación (legacy)',
             self::ESTADO_PENDIENTE => 'Pendiente',
             self::ESTADO_APROBADA => 'Aprobada',
             self::ESTADO_RECHAZADA => 'Rechazada',
@@ -61,6 +70,14 @@ class SolicitudAcceso extends Model
     public function scopePendientes($query)
     {
         return $query->where('estado', self::ESTADO_PENDIENTE);
+    }
+
+    public function scopeAbiertas($query)
+    {
+        return $query->whereIn('estado', [
+            self::ESTADO_PENDIENTE_VERIFICACION,
+            self::ESTADO_PENDIENTE,
+        ]);
     }
 
     public function getFrenteUrlAttribute(): ?string

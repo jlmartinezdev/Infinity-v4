@@ -36,6 +36,7 @@ class PermisoSeeder extends Seeder
             'servicios-lista.ver', 'servicios-lista.crear', 'servicios-lista.editar',
             'servicios-hotspot.ver', 'servicios-hotspot-usuarios.ver', 'servicios-hotspot-perfiles.ver',
             'tv.ver', 'tv.crear', 'tv.editar', 'tv.eliminar',
+            'whatsapp.ver', 'whatsapp.editar',
             'tickets.ver', 'tickets.crear', 'tickets.editar',
             'planes.ver',
             'tipos-tecnologia.ver', 'perfiles-pppoe.ver', 'nodos.ver', 'ticket-asuntos.ver',

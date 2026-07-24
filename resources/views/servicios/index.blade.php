@@ -34,6 +34,8 @@
         'urlDarBaja' => url('servicios') . '/__id__/dar-baja',
         'urlSyncPppoe' => url('servicios') . '/__id__/sync-pppoe',
         'urlHerramientasRed' => url('servicios') . '/__id__/herramientas-red',
+        'urlAccionesClienteBase' => auth()->user()?->tienePermiso('clientes.ver') ? url('clientes') . '/__id__/acciones' : '',
+        'canVerClientes' => auth()->user()?->tienePermiso('clientes.ver') ?? false,
         'urlCrearFacturaInterna' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio', ['servicio' => '__id__']) : '',
         'urlCrearFacturaServicioEspecial' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-especial', ['servicio' => '__id__']) : '',
         'urlCrearFacturaFraccionDeuda' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-fraccion-deuda', ['servicio' => '__id__']) : '',

@@ -10,25 +10,30 @@ use App\Http\Controllers\Api\V1\ServicioController;
 use App\Http\Controllers\Api\V1\SolicitudAccesoController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
+use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API móvil v1
+| API mÃ³vil v1
 |--------------------------------------------------------------------------
 | Auth: Bearer token (Sanctum)
-| Staff: email + contraseña
+| Staff: email + contraseÃ±a
 | Cliente: documento + clave PLUS**** (o documento legacy)
 */
 
 Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
-    // Onboarding público (sin token)
+    // Onboarding pÃºblico (sin token)
     Route::post('/portal/solicitud-alta', [SolicitudAccesoController::class, 'store']);
 
     // Webhooks MikroTik (auth por webhook_token del router, no Sanctum)
     Route::post('/webhooks/mikrotik/pppoe', [MikrotikWebhookController::class, 'pppoe']);
+
+    // Webhooks WhatsApp Cloud API (verify_token + firma App Secret)
+    Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
+    Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -48,6 +53,7 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permiso:portal.tickets.crear');
             Route::get('/ticket-asuntos', [PortalController::class, 'asuntosTicket'])
                 ->middleware('permiso:portal.tickets.ver');
+            Route::post('/save-push-token', [AuthController::class, 'savePushToken']);
         });
 
         // Personal / staff
@@ -59,10 +65,16 @@ Route::prefix('v1')->group(function () {
                 Route::get('/solicitudes', [SolicitudAccesoController::class, 'index']);
                 Route::get('/solicitudes/{id}', [SolicitudAccesoController::class, 'show'])
                     ->whereNumber('id');
+                Route::get('/clientes/buscar', [SolicitudAccesoController::class, 'buscarClientes']);
             });
             Route::post('/staff/solicitudes/{id}/aprobar', [SolicitudAccesoController::class, 'aprobar'])
                 ->whereNumber('id')
                 ->middleware('permiso:clientes.editar');
+            Route::post('/staff/solicitudes/{id}/rechazar', [SolicitudAccesoController::class, 'rechazar'])
+                ->whereNumber('id')
+                ->middleware('permiso:clientes.editar');
+
+            Route::post('/staff/save-push-token', [AuthController::class, 'savePushToken']);
 
             Route::get('/staff/auditoria', [SolicitudAccesoController::class, 'auditoria'])
                 ->middleware('admin');

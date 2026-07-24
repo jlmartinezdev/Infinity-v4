@@ -277,6 +277,8 @@ class FacturacionService
 
         $this->sincronizarResumenPorFactura($factura);
 
+        $this->avisarWhatsAppFactura($factura);
+
         return $factura;
     }
 
@@ -439,6 +441,7 @@ class FacturacionService
             });
 
             $this->sincronizarResumenPorFactura($factura);
+            $this->avisarWhatsAppFactura($factura);
             $facturas->push($factura);
         }
 
@@ -576,6 +579,7 @@ class FacturacionService
         });
 
         $this->sincronizarResumenPorFactura($factura);
+        $this->avisarWhatsAppFactura($factura);
 
         return $factura;
     }
@@ -674,6 +678,7 @@ class FacturacionService
         });
 
         $this->sincronizarResumenPorFactura($factura);
+        $this->avisarWhatsAppFactura($factura);
 
         return $factura;
     }
@@ -1404,6 +1409,7 @@ class FacturacionService
         });
 
         $this->sincronizarResumenPorFactura($factura);
+        $this->avisarWhatsAppFactura($factura);
 
         return $factura;
     }
@@ -1805,6 +1811,7 @@ class FacturacionService
         });
 
         $this->sincronizarResumenPorFactura($factura);
+        $this->avisarWhatsAppFactura($factura);
 
         return $factura;
     }
@@ -2109,5 +2116,24 @@ class FacturacionService
     {
         return Impuesto::where('codigo', 'IVA10')->first()
             ?? Impuesto::activos()->firstWhere('porcentaje', 10);
+    }
+
+    private function avisarWhatsAppFactura(FacturaInterna $factura): void
+    {
+        try {
+            app(\App\Services\WhatsApp\WhatsAppOutboundNotifier::class)->facturaGenerada($factura);
+        } catch (Throwable $e) {
+            Log::warning('[WhatsApp] Aviso factura omitido: '.$e->getMessage(), [
+                'factura_id' => $factura->id ?? null,
+            ]);
+        }
+
+        try {
+            app(\App\Services\ClientePushNotifier::class)->facturaGenerada($factura->fresh() ?? $factura);
+        } catch (Throwable $e) {
+            Log::warning('[FCM] Aviso factura omitido: '.$e->getMessage(), [
+                'factura_id' => $factura->id ?? null,
+            ]);
+        }
     }
 }

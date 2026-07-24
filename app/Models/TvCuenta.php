@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TvAvisoConfig;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -19,8 +20,17 @@ class TvCuenta extends Model
     /** @deprecated Usar maxAsignaciones() según aplicación */
     public const MAX_ASIGNACIONES = self::MAX_NEBULA;
 
-    /** Días antes del vencimiento mensual para marcar «por vencer». */
+    /** Fallback si no hay config de avisos TV. */
     public const DIAS_AVISO_POR_VENCER = 7;
+
+    public static function diasAvisoPorVencer(): int
+    {
+        try {
+            return TvAvisoConfig::diasAntes();
+        } catch (\Throwable) {
+            return self::DIAS_AVISO_POR_VENCER;
+        }
+    }
 
     protected $table = 'tv_cuentas';
 
@@ -197,7 +207,7 @@ class TvCuenta extends Model
      */
     public function estadoVencimiento(?int $diasPorVencer = null): string
     {
-        $diasPorVencer = $diasPorVencer ?? self::DIAS_AVISO_POR_VENCER;
+        $diasPorVencer = $diasPorVencer ?? self::diasAvisoPorVencer();
         $hoy = Carbon::today();
         $vencimiento = $this->fechaVencimientoReferencia($hoy);
 

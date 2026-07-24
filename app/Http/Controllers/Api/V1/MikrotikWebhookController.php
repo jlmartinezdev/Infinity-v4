@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Router;
 use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
+use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -107,6 +108,16 @@ class MikrotikWebhookController extends ApiController
             ]);
 
             return $this->fail('No se pudo registrar el evento: '.$e->getMessage(), 500);
+        }
+
+        if ($eventoModelo && ! $online) {
+            try {
+                app(WhatsAppOutboundNotifier::class)->enlaceCaido($servicio);
+            } catch (\Throwable $e) {
+                Log::warning('[WhatsApp] Aviso enlace caído omitido: '.$e->getMessage(), [
+                    'servicio_id' => $servicio->servicio_id,
+                ]);
+            }
         }
 
         return $this->ok([

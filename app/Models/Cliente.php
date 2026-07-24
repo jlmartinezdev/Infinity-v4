@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -32,6 +33,11 @@ class Cliente extends Model
      */
     public $incrementing = true;
 
+    public function getRouteKeyName(): string
+    {
+        return 'cliente_id';
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -53,6 +59,8 @@ class Cliente extends Model
         'app_version',
         'app_activa',
         'fecha_activacion_app',
+        'fecha_otorgamiento',
+        'aprobado_por',
     ];
 
     public const CALIFICACION_MALO = 'malo';
@@ -87,6 +95,7 @@ class Cliente extends Model
             'ultimo_ingreso' => 'datetime',
             'app_activa' => 'boolean',
             'fecha_activacion_app' => 'datetime',
+            'fecha_otorgamiento' => 'datetime',
         ];
     }
 
@@ -128,5 +137,10 @@ class Cliente extends Model
     public function usuarioPortal(): HasOne
     {
         return $this->hasOne(User::class, 'cliente_id', 'cliente_id');
+    }
+
+    public function aprobador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'aprobado_por', 'usuario_id');
     }
 }

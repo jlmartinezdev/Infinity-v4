@@ -82,6 +82,23 @@ return Application::configure(basePath: dirname(__DIR__))
                     Log::info('Tarea iniciado: monitoreo:ping-servicios');
                 });
         }
+
+        // Avisos WhatsApp vencimiento cuentas TV (hora configurable en panel TV)
+        $horaTvAviso = \App\Support\TvAvisoConfig::hora();
+        $schedule->command('tv:avisar-vencimientos')
+            ->dailyAt($horaTvAviso)
+            ->withoutOverlapping()
+            ->before(function () {
+                Log::info('Tarea iniciado: tv:avisar-vencimientos');
+            });
+
+        // Push FCM: facturas internas por vencer (días = notificacion_dias_antes)
+        $schedule->command('fcm:avisar-facturas-por-vencer')
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
+            ->before(function () {
+                Log::info('Tarea iniciado: fcm:avisar-facturas-por-vencer');
+            });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {

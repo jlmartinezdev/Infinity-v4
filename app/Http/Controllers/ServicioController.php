@@ -7,9 +7,11 @@ use App\Models\Nodo;
 use App\Models\Servicio;
 use App\Models\Cliente;
 use App\Models\Plan;
+use App\Models\Ticket;
 use App\Models\RouterIpPool;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\PoolIpAsignada;
+use App\Support\PppoeTimeline12h;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\NetworkPingService;
@@ -17,71 +19,22 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Support\ListaClienteServicioViewData;
 
 class ServicioController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Servicio::with(['cliente', 'plan', 'pool.router.nodo'])
-            ->orderBy('servicio_id', 'desc');
-
-        // Cargar todos los servicios; Vue hace filtrado y paginación en el cliente
-        $servicios = $query->get();
-        $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])
-            ->orderBy('nombre')
-            ->get(['cliente_id', 'cedula', 'nombre', 'apellido']);
-
-        $saldoFacturasPorCliente = app(FacturacionService::class)->mapSaldoPendienteInternasPorClienteIds(
-            $servicios->pluck('cliente_id')->unique()->filter()->values()->all()
-        );
-
-        $serviciosParaVue = $servicios->map(function ($s) use ($saldoFacturasPorCliente) {
-            $cid = $s->cliente_id ? (int) $s->cliente_id : null;
-
-            return [
-                'servicio_id' => $s->servicio_id,
-                'saldo_facturas_pendiente' => $cid ? (float) ($saldoFacturasPorCliente[$cid] ?? 0) : 0,
-                'cliente' => $s->cliente ? ['cliente_id' => $s->cliente->cliente_id, 'nombre' => $s->cliente->nombre, 'apellido' => $s->cliente->apellido, 'cedula' => $s->cliente->cedula] : null,
-                'plan' => $s->plan ? ['nombre' => $s->plan->nombre] : null,
-                'pool' => $s->pool ? [
-                    'router' => $s->pool->router ? [
-                        'nombre' => $s->pool->router->nombre,
-                        'ip' => $s->pool->router->ip,
-                        'nodo' => $s->pool->router->nodo ? [
-                            'nodo_id' => $s->pool->router->nodo->nodo_id,
-                            'descripcion' => $s->pool->router->nodo->descripcion,
-                        ] : null,
-                    ] : null,
-                ] : null,
-                'ip' => $s->ip,
-                'usuario_pppoe' => $s->usuario_pppoe,
-                'password_pppoe' => $s->password_pppoe,
-                'fecha_instalacion' => $s->fecha_instalacion?->format('Y-m-d'),
-                'fecha_instalacion_formatted' => $s->fecha_instalacion?->format('d/m/Y'),
-                'estado' => $s->estado ?? 'P',
-                'estado_pago' => $s->estado_pago ?? null,
-                'app_tv' => (bool) ($s->app_tv ?? false),
-                'acuerdo_tipo' => $s->acuerdo_tipo ?? 'ninguno',
-                'acuerdo_meses' => $s->acuerdo_meses,
-                'acuerdo_desde' => $s->acuerdo_desde?->format('Y-m-d'),
-            ];
-        })->values()->all();
-
-        $nodos = Nodo::orderBy('descripcion')->get();
-
         if ($request->wantsJson() || $request->ajax()) {
+            $payload = ListaClienteServicioViewData::serviciosPayload();
+
             return response()->json([
-                'servicios' => $serviciosParaVue,
-                'nodos' => $nodos->map(fn (Nodo $n) => $n->toArraySelect())->values()->all(),
+                'servicios' => $payload['serviciosParaVue'],
+                'nodos' => $payload['nodos']->map(fn (Nodo $n) => $n->toArraySelect())->values()->all(),
             ]);
         }
 
-        return view('servicios.index', [
-            'servicios' => $servicios,
-            'clientes' => $clientes,
-            'serviciosParaVue' => $serviciosParaVue,
-            'nodos' => $nodos,
-        ]);
+        return view('listas.cliente-servicio', ListaClienteServicioViewData::forPage('servicios'));
     }
 
     /**
@@ -665,6 +618,7 @@ class ServicioController extends Controller
         ])->findOrFail($servicio_id);
 
         $esFibra = $this->servicioEsFibra($servicio);
+        $esAntena = $this->servicioEsAntena($servicio);
         $conexionEventos = \App\Models\ServicioConexionEvento::query()
             ->where('servicio_id', $servicio->servicio_id)
             ->orderByDesc('ocurrio_at')
@@ -672,7 +626,158 @@ class ServicioController extends Controller
             ->limit(30)
             ->get();
 
-        return view('servicios.herramientas-red', compact('servicio', 'esFibra', 'conexionEventos'));
+        $pppoeTimeline12h = PppoeTimeline12h::construir($servicio->servicio_id);
+
+        $ultimaSenalOptica = \App\Models\ServicioConexionEvento::query()
+            ->where('servicio_id', $servicio->servicio_id)
+            ->where('tipo', \App\Models\ServicioConexionEvento::TIPO_SENAL_OPTICA)
+            ->orderByDesc('ocurrio_at')
+            ->orderByDesc('servicio_conexion_evento_id')
+            ->first();
+
+        $ultimaSenalAntena = \App\Models\ServicioConexionEvento::query()
+            ->where('servicio_id', $servicio->servicio_id)
+            ->where('tipo', \App\Models\ServicioConexionEvento::TIPO_SENAL_ANTENA)
+            ->orderByDesc('ocurrio_at')
+            ->orderByDesc('servicio_conexion_evento_id')
+            ->first();
+
+        $ticketOrigen = null;
+        $ticketId = (int) request()->query('ticket_id');
+        if ($ticketId > 0 && $servicio->cliente_id) {
+            $ticketOrigen = Ticket::query()
+                ->whereKey($ticketId)
+                ->where('cliente_id', $servicio->cliente_id)
+                ->first(['id', 'descripcion', 'datos_diagnostico', 'created_at', 'prioridad', 'reportado_desde']);
+        }
+
+        return view('servicios.herramientas-red', compact(
+            'servicio',
+            'esFibra',
+            'esAntena',
+            'conexionEventos',
+            'pppoeTimeline12h',
+            'ultimaSenalOptica',
+            'ultimaSenalAntena',
+            'ticketOrigen',
+        ));
+    }
+
+    /**
+     * SSH a antena Ubiquiti del cliente (IP del servicio) → wstalist.
+     */
+    public function herramientasRedAntena(
+        $servicio_id,
+        MikroTikService $mikrotik,
+        \App\Services\Ubnt\UbntAntenaService $ubnt
+    ) {
+        @set_time_limit(60);
+
+        $servicio = Servicio::with(['cliente', 'pool.router'])->findOrFail($servicio_id);
+
+        if ($this->servicioEsFibra($servicio)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La consulta wstalist aplica a clientes wireless/antena, no a fibra/GPON.',
+            ], 422);
+        }
+
+        $ip = trim((string) ($servicio->ip ?? ''));
+        if ($ip === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'El servicio no tiene IP para conectar por SSH a la antena.',
+            ], 422);
+        }
+
+        $macEsperada = null;
+        $router = $servicio->pool?->router;
+        if ($router) {
+            $mk = $mikrotik->consultarClienteRed($router, $servicio->ip, $servicio->usuario_pppoe);
+            if (! empty($mk['mac'])) {
+                $macEsperada = $mk['mac'];
+            }
+        }
+        if (! $macEsperada && filled($servicio->mac_address)) {
+            $macEsperada = strtoupper(str_replace('-', ':', (string) $servicio->mac_address));
+        }
+
+        $result = $ubnt->consultarWstalist($ip, $macEsperada);
+
+        if ($result['success'] ?? false) {
+            try {
+                \App\Models\ServicioConexionEvento::registrarSenalAntena(
+                    $servicio,
+                    [
+                        'ip' => $ip,
+                        'mac' => $result['mac_remota'] ?? $macEsperada,
+                        'router_id' => $router?->router_id,
+                        'antena_signal_dbm' => $result['signal_dbm'] ?? null,
+                        'antena_snr_db' => $result['snr_db'] ?? null,
+                        'antena_radio_iface' => 'wstalist',
+                        'payload' => [
+                            'host' => $ip,
+                            'comando' => $result['comando'] ?? 'wstalist',
+                            'noise_floor_dbm' => $result['noise_floor_dbm'] ?? null,
+                            'ccq' => $result['ccq'] ?? null,
+                            'tx_rx_rate' => $result['tx_rx_rate'] ?? null,
+                            'capacity' => $result['capacity'] ?? null,
+                            'distance' => $result['distance'] ?? null,
+                            'mac_remota' => $result['mac_remota'] ?? null,
+                            'ap_mac' => $result['ap_mac'] ?? null,
+                            'ap_name' => $result['ap_name'] ?? null,
+                            'signal_chains' => $result['signal_chains'] ?? null,
+                            'chain_delta' => $result['chain_delta'] ?? null,
+                            'dl_linkscore' => $result['stations'][0]['dl_linkscore'] ?? null,
+                            'ul_linkscore' => $result['stations'][0]['ul_linkscore'] ?? null,
+                        ],
+                    ],
+                    \App\Models\ServicioConexionEvento::FUENTE_UBNT_SSH
+                );
+            } catch (\Throwable) {
+                // No bloquear la consulta si falla el historial
+            }
+        }
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+            'ip' => $ip,
+            'mac_esperada' => $macEsperada,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
+
+    /**
+     * SSH a antena Ubiquiti del cliente → cat /tmp/dhcpd.leases.
+     */
+    public function herramientasRedAntenaDhcp($servicio_id, \App\Services\Ubnt\UbntAntenaService $ubnt)
+    {
+        @set_time_limit(60);
+
+        $servicio = Servicio::with(['cliente'])->findOrFail($servicio_id);
+
+        if ($this->servicioEsFibra($servicio)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La consulta DHCP leases aplica a clientes wireless/antena, no a fibra/GPON.',
+            ], 422);
+        }
+
+        $ip = trim((string) ($servicio->ip ?? ''));
+        if ($ip === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'El servicio no tiene IP para conectar por SSH a la antena.',
+            ], 422);
+        }
+
+        $result = $ubnt->consultarDhcpLeases($ip);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+            'ip' => $ip,
+        ], ($result['success'] ?? false) ? 200 : 422);
     }
 
     /**
@@ -1002,6 +1107,28 @@ class ServicioController extends Controller
         }
 
         return false;
+    }
+
+    private function servicioEsAntena(Servicio $servicio): bool
+    {
+        if ($this->servicioEsFibra($servicio)) {
+            return false;
+        }
+
+        if (trim((string) ($servicio->ip ?? '')) === '') {
+            return false;
+        }
+
+        if ($servicio->pool?->router?->nodo?->manejaWireless()) {
+            return true;
+        }
+
+        $planNombre = strtolower((string) ($servicio->plan?->nombre ?? ''));
+        if (str_contains($planNombre, 'wireless') || str_contains($planNombre, 'antena') || str_contains($planNombre, 'radio')) {
+            return true;
+        }
+
+        return $servicio->pool?->router !== null;
     }
 
     /**

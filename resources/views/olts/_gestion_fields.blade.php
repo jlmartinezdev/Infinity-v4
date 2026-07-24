@@ -54,7 +54,7 @@
     <div class="sm:col-span-2">
         <label for="mac_cmds_pon" class="{{ $lb }}">1) Tabla por PON <span class="font-normal text-emerald-700 dark:text-emerald-400">(principal)</span></label>
         <textarea name="mac_cmds_pon" id="mac_cmds_pon" rows="3" class="{{ $fc }} font-mono text-xs" placeholder="{{ implode("\n", $macDefaults['pon'] ?? []) }}">{{ $macPonVal }}</textarea>
-        <p class="mt-1 text-xs text-gray-500">Ej.: <span class="font-mono">show mac address-table gpon 0/{pon}</span> — se barre todos los puertos del OLT.</p>
+        <p class="mt-1 text-xs text-gray-500">Ej.: <span class="font-mono">show address-table gpon 0/{pon}</span> — se barre todos los puertos del OLT. Dejá vacío «Por dirección MAC» si no querés el fallback <span class="font-mono">show mac address-table address …</span>.</p>
     </div>
     <div>
         <label for="mac_cmds_address" class="{{ $lb }}">2) Por dirección MAC <span class="font-normal text-gray-500">(opcional)</span></label>

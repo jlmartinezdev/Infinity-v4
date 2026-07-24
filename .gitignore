@@ -17,6 +17,7 @@
 /public/hot
 /public/storage
 /storage/*.key
+/storage/app/firebase-service-account.json
 /storage/pail
 # SIFEN: ver storage/sifen/.gitignore (cert, xml, pdf, logs, node_modules, temporales)
 /storage/sifen/cert/*

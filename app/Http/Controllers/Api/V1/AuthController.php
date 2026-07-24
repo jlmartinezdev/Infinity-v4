@@ -28,6 +28,8 @@ class AuthController extends ApiController
             'tipo' => ['nullable', 'string', 'in:staff,cliente'],
             'device_name' => ['nullable', 'string', 'max:100'],
             'app_version' => ['nullable', 'string', 'max:40'],
+            'push_token' => ['nullable', 'string', 'max:512'],
+            'device_type' => ['nullable', 'string', 'max:40'],
         ]);
 
         $tipo = $validated['tipo'] ?? null;
@@ -52,6 +54,14 @@ class AuthController extends ApiController
         }
 
         $user->registrarAcceso($request->ip());
+
+        if (! empty($validated['push_token'])) {
+            $user->push_token = $validated['push_token'];
+            if (! empty($validated['device_type'])) {
+                $user->device_type = strtolower(trim((string) $validated['device_type']));
+            }
+            $user->save();
+        }
 
         if ($tipo === 'cliente' && $user->cliente_id) {
             $cliente = $user->cliente ?: $user->cliente()->first();
@@ -83,12 +93,44 @@ class AuthController extends ApiController
 
     public function logout(Request $request)
     {
-        $token = $request->user()?->currentAccessToken();
+        $user = $request->user();
+        if ($user) {
+            // Evita seguir notificando un dispositivo que cerró sesión
+            $user->push_token = null;
+            $user->save();
+        }
+
+        $token = $user?->currentAccessToken();
         if ($token) {
             $token->delete();
         }
 
         return $this->ok(null, 'Sesión cerrada');
+    }
+
+    /**
+     * POST /api/v1/portal/save-push-token  (cliente)
+     * POST /api/v1/staff/save-push-token   (staff) — mismo body
+     */
+    public function savePushToken(Request $request)
+    {
+        $validated = $request->validate([
+            'push_token' => ['required', 'string', 'max:512'],
+            'device_type' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $user = $request->user();
+        $user->push_token = $validated['push_token'];
+        $user->device_type = isset($validated['device_type'])
+            ? strtolower(trim((string) $validated['device_type']))
+            : $user->device_type;
+        $user->save();
+
+        return $this->ok([
+            'usuario_id' => $user->usuario_id,
+            'cliente_id' => $user->cliente_id,
+            'device_type' => $user->device_type,
+        ], 'Push token guardado');
     }
 
     private function autenticarStaff(string $usuario, string $password): ?User

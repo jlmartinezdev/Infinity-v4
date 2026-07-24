@@ -2,8 +2,8 @@
 
 Documento para el equipo de desarrollo de la app móvil.
 
-**Versión:** 1.0 (Fase 1)  
-**Fecha:** 2026-07-15  
+**Versión:** 1.1 (Fase 1 + FCM cliente)  
+**Fecha:** 2026-07-22  
 **Auth:** Laravel Sanctum (Bearer Token)  
 **Base path:** `/api/v1`
 
@@ -275,17 +275,19 @@ Los permisos del cliente se gestionan de forma **global** en el panel web: **Usu
 {
   "ticket_asunto_id": 3,
   "descripcion": "Sin internet desde esta mañana",
-  "prioridad": "media"
+  "prioridad": "media",
+  "datos_diagnostico": "{\"ssid\":\"MiRed\",\"rssi\":-59,\"speed\":32.02}"
 }
 ```
 
 | Campo | Obligatorio | Valores |
 |-------|-------------|---------|
 | `ticket_asunto_id` | sí | ID de `/portal/ticket-asuntos` |
-| `descripcion` | sí | texto |
+| `descripcion` | sí | texto (sin JSON de telemetría) |
 | `prioridad` | no | `baja` \| `media` \| `alta` (default `media`) |
+| `datos_diagnostico` | no | JSON crudo (string) u objeto con telemetría de red |
 
-El ticket se crea con `estado: pendiente` y `reportado_desde: app`.
+El ticket se crea con `estado: pendiente` y `reportado_desde: app`. Al crearlo, el backend envía push FCM al topic staff (`FCM_STAFF_TOPIC`, default `staff`).
 
 ---
 
@@ -401,6 +403,8 @@ Antes de cobrar, usar `GET /cobros/facturas-pendientes?cliente_id=6` para mostra
 | PATCH | `/tickets/{id}/estado` | `tickets.crear` |
 
 **Filtros listado:** `estado`, `ocultar_cerrados=1`, `cliente_id`, `asignado_id`, `per_page`, `page`.
+
+Cada ticket incluye `datos_diagnostico` (objeto JSON o `null`) cuando la app cliente envió telemetría de red al crear el reporte.
 
 **Crear**
 
@@ -526,23 +530,65 @@ Authorization: Bearer 8|xxxxxxxxxxxxxxxx
 
 Respuesta: `{ "success": true, "data": { "id": 1, "estado": "pendiente" } }`
 
-Al crear: notificación database a staff + FCM al tópico `staff` si hay `FCM_SERVER_KEY` en `.env`.
+Al crear: notificación database a staff + FCM al tópico `staff` si hay cuenta de servicio FCM (HTTP v1) en `.env`.
 
-### Staff — listar / detalle / aprobar
+El backend envía a FCM **HTTP v1** un payload con bloque **`notification`** (obligatorio para que Android suene con pantalla bloqueada) + `data` + `android.priority: HIGH` + `sound: default`. Sin JSON de cuenta de servicio el push se omite. Prueba: `php artisan fcm:probar-staff`.
+
+### Staff — listar / detalle / aprobar / auditoría / push
 
 | Método | Ruta | Permiso |
 |--------|------|---------|
-| GET | `/staff/solicitudes` | `clientes.ver` |
+| GET | `/staff/solicitudes?status=pendientes\|aprobado\|historial` | `clientes.ver` |
 | GET | `/staff/solicitudes/{id}` | `clientes.ver` |
 | POST | `/staff/solicitudes/{id}/aprobar` | `clientes.editar` |
+| POST | `/staff/solicitudes/{id}/rechazar` | `clientes.editar` |
+| GET | `/staff/clientes/buscar?q=` (mín. 3 chars) | `clientes.ver` |
+| POST | `/staff/save-push-token` | staff autenticado |
 | GET | `/staff/auditoria` | Administrador |
 
-Detalle incluye `coincide_bd` (si la cédula ya existe en `clientes`) y `frente` (URL pública de la foto).
+`status` aliases: `pendientes` (default) → `pendiente`; `aprobado` → `aprobada`; `historial` → todas.
 
-Al **aprobar**:
-1. Crea o actualiza el cliente
-2. Genera clave `PLUS` + 4 dígitos (ej. `PLUS5685`) y la asigna al usuario portal
-3. Devuelve `{ "clave": "PLUS5685" }` (mostrarla una vez al staff)
+**Detalle (`GET …/solicitudes/{id}`)** incluye pre-aprobación:
+
+```json
+{
+  "coincide_bd": true,
+  "cliente_actual": { "id": 1504, "telefono": "0981…", "direccion": "…", "url_ubicacion": "…" },
+  "solicitud_propuesta": { "telefono": "0972…", "direccion": "…", "latitud": -25.2, "longitud": -57.6 },
+  "requiere_confirmacion_actualizacion": true,
+  "cambios_sugeridos": { "telefono": true, "ubicacion": false }
+}
+```
+
+**Aprobar** — body:
+
+```json
+{
+  "cliente_id_vinculacion": 1504,
+  "documento_corregido": "1234568",
+  "nombre_corregido": "Juan Carlos",
+  "actualizar_telefono": true,
+  "actualizar_ubicacion": false
+}
+```
+
+- Por defecto **no** actualiza celular/ubicación del cliente existente (hay que confirmar en app).
+- Cliente nuevo: sí usa datos de la solicitud.
+- Genera `PLUS####`, guarda `fecha_otorgamiento` / `aprobado_por`.
+- Envía WhatsApp al número de la **solicitud** con la clave.
+
+**Rechazar** — body opcional `{ "motivo": "…" }` → WhatsApp al número de la solicitud.
+
+**Push token staff:** `{ "push_token": "…", "device_type": "android" }`
+
+```env
+WHATSAPP_EVENT_ACCESO_APROBADO=true
+WHATSAPP_EVENT_ACCESO_RECHAZADO=true
+```
+
+```bash
+php artisan portal:avisar-acceso-aprobado {solicitud_id} --clave=PLUS5685
+```
 
 ### Login cliente (telemetría)
 
@@ -559,6 +605,176 @@ Al **aprobar**:
 Tras login OK se actualizan en `clientes`: `ultimo_ingreso`, `dispositivo`, `app_version`, y si `app_activa` era false → `true` + `fecha_activacion_app`.
 
 Compatibilidad: si aún no se aprobó con PLUS, sigue aceptando documento como contraseña (legacy).
+
+Opcional en el mismo login (recomendado):
+
+```json
+{
+  "usuario": "1234567",
+  "password": "PLUS5685",
+  "tipo": "cliente",
+  "device_name": "Android App",
+  "app_version": "1.0.0",
+  "push_token": "d1KDHH_dSN…",
+  "device_type": "android"
+}
+```
+
+### Push FCM — App cliente
+
+| Método | Ruta | Auth |
+|--------|------|------|
+| POST | `/portal/save-push-token` | Bearer cliente |
+| POST | `/logout` | limpia `push_token` del usuario |
+
+Body:
+
+```json
+{
+  "push_token": "TOKEN_FCM_DEL_DISPOSITIVO",
+  "device_type": "android"
+}
+```
+
+Respuesta: `{ "success": true, "data": { "usuario_id": …, "cliente_id": …, "device_type": "android" } }`
+
+---
+
+## ORDEN PARA PROGRAMADOR — Adaptar APK cliente (FCM)
+
+**Objetivo:** que la app del **cliente** registre su token FCM en Infinity y pueda recibir avisos (factura, ticket, etc.) aunque la pantalla esté bloqueada.
+
+### 0. Firebase (crítico)
+
+Hoy el backend envía con el proyecto **`isp-staff-panel`** (mismo que la app staff).
+
+- Si la APK **cliente** usa **el mismo** `google-services.json` / mismo `project_id` → OK, no hace falta nada más en Firebase del servidor.
+- Si la APK cliente es **otro proyecto Firebase** → avisar a backend: hay que cargar su `*-firebase-adminsdk-*.json` (no alcanza con `google-services.json`). Los tokens de un proyecto **no** llegan con la cuenta de servicio de otro.
+
+### 1. Dependencias Android
+
+- Firebase Messaging (FCM) ya integrado.
+- Pedir permiso de notificaciones (Android 13+): `POST_NOTIFICATIONS`.
+- Crear canal de notificación id **`clientes`** (prioridad alta, sonido default).  
+  Debe coincidir con `FCM_CLIENT_ANDROID_CHANNEL_ID` del backend (default `clientes`).
+
+### 2. Cuándo registrar el token
+
+1. Tras **login exitoso** (tiene Bearer token).
+2. Cada vez que FCM renueva el token (`onNewToken`).
+3. Al volver a primer plano si el token cambió.
+
+**No** suscribirse al topic `staff` (eso es solo app staff). El cliente recibe push **por token individual** guardado en su usuario portal.
+
+### 3. API a llamar
+
+**Opción A (recomendada):** incluir en `POST /login`:
+
+```json
+"push_token": "<fcmToken>",
+"device_type": "android"
+```
+
+**Opción B:** después del login:
+
+```http
+POST /api/v1/portal/save-push-token
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "push_token": "<fcmToken>",
+  "device_type": "android"
+}
+```
+
+### 4. Logout
+
+```http
+POST /api/v1/logout
+Authorization: Bearer {token}
+```
+
+El backend **borra** el `push_token` del usuario. En la app: borrar token local / desregistrar FCM si corresponde.
+
+### 5. Payload que llega al dispositivo
+
+El backend manda bloque `notification` + `data` (Android suena en background). Ejemplo de `data`:
+
+| Key | Ejemplo | Uso |
+|-----|---------|-----|
+| `tipo` | `prueba_fcm_cliente`, `factura`, `ticket`, … | Navegar en la app |
+| `title` | texto | eco del título |
+| `body` | texto | eco del cuerpo |
+
+Manejar tap de la notificación: leer `tipo` (+ ids futuros) y abrir la pantalla correcta.
+
+### 6. Checklist de prueba
+
+- [ ] Login cliente + token guardado (200 en save-push-token o login con push_token)
+- [ ] App en background / pantalla bloqueada → llega sonido + bandeja
+- [ ] Tap abre la app
+- [ ] Logout → ya no llegan pushes a ese dispositivo
+- [ ] Re-login en otro celular → el token nuevo pisa el anterior (1 token por usuario portal)
+
+### 7. Prueba desde backend (cuando el token ya esté guardado)
+
+```bash
+php artisan fcm:probar-cliente {documento_o_cliente_id}
+```
+
+### 8. Fuera de esta orden (backend lo engancha después)
+
+Eventos concretos (factura vencida, ticket respondido, corte, etc.) se activan en Infinity una vez la app registre tokens. Esta orden solo adapta el APK para **registrar / renovar / limpiar** el token y mostrar notificaciones.
+
+---
+
+## 7c. Verificación WhatsApp — OTP invertido
+
+Flujo:
+1. App abre `wa.me` al número corporativo con el texto: `Quiero mi código de verificación`.
+2. Meta entrega el mensaje al webhook `POST /api/v1/webhooks/whatsapp`.
+3. Backend genera un PIN de 4 dígitos, lo guarda en caché (~15 min) asociado al `from`, y responde:
+   `¡Hola! Tu código de verificación para la aplicación es: 5599`
+4. App llama `POST /api/v1/portal/solicitud-alta` con `whatsapp` + `codigo_otp`.
+5. Si el OTP es válido → solicitud en `pendiente` con `telefono_verificado=true` y se notifica al staff.
+6. Si es inválido/expirado → `400` con mensaje `Código de verificación inválido o expirado`.
+
+**Body de alta (campos nuevos):**
+
+```json
+{
+  "cedula": "1234567",
+  "nombre": "Juan Pérez",
+  "whatsapp": "0981123456",
+  "codigo_otp": "5599",
+  "frente": "data:image/jpeg;base64,..."
+}
+```
+
+**Respuesta OK:**
+
+```json
+{
+  "success": true,
+  "message": "Solicitud recibida correctamente.",
+  "data": {
+    "id": 1,
+    "estado": "pendiente",
+    "telefono_verificado": true
+  }
+}
+```
+
+Al aprobar/rechazar, el backend envía automáticamente el texto por Meta API (ventana 24h ya abierta).
+
+Env (opcional):
+
+```env
+WHATSAPP_SOLICITUD_DESTINO=595971714322
+WHATSAPP_REGISTRO_OTP_TTL=15
+WHATSAPP_REGISTRO_OTP_TEXT="¡Hola! Tu código de verificación para la aplicación es: {codigo}"
+```
 
 ---
 
@@ -585,9 +801,18 @@ php artisan clientes:sync-portal-users
 php artisan clientes:sync-portal-users --reset-passwords
 ```
 
-FCM (opcional):
+FCM HTTP v1 (necesario para push; la API legacy ya no funciona):
+
+1. Firebase Console → Project settings → Service accounts → **Generate new private key**
+2. Guardar el JSON fuera del web root, ej. `storage/app/firebase-service-account.json`
+3. En `.env`:
 
 ```env
-FCM_SERVER_KEY=...
+FCM_SERVICE_ACCOUNT_PATH=storage/app/firebase-service-account.json
+FCM_PROJECT_ID=tu-project-id
 FCM_STAFF_TOPIC=staff
+FCM_ANDROID_CHANNEL_ID=staff
+FCM_CLIENT_ANDROID_CHANNEL_ID=clientes
 ```
+
+Luego: `php artisan config:clear`, `php artisan fcm:probar-staff` y `php artisan fcm:probar-cliente {documento}`.

@@ -351,8 +351,8 @@ class VsolGponClient
                 $blob = $scan['raw'];
             }
 
-            // 2) Opcional: lookup directo por MAC (si está configurado en el OLT)
-            if ($hit === null || (($hit['onu_index'] ?? null) === null)) {
+            // 2) Opcional: lookup directo por MAC (solo si está configurado en el OLT)
+            if (($hit === null || (($hit['onu_index'] ?? null) === null)) && $cmds['address'] !== []) {
                 foreach ($cmds['address'] as $tpl) {
                     $cmd = $this->expandirPlantillaMac($tpl, $macNorm, $macVsol);
                     $out = $session->exec($cmd, min($timeout, 45));
@@ -395,6 +395,25 @@ class VsolGponClient
                 }
             }
 
+            // 2b) Si tenemos PON pero falta ONU ID, reintentar tabla por ese PON (+ interface)
+            if ($hit !== null && ($hit['onu_index'] ?? null) === null && ($hit['pon_port'] ?? null) !== null) {
+                $resuelto = $this->resolverOnuEnPon(
+                    $session,
+                    $parser,
+                    $cmds,
+                    $macNorm,
+                    $macVsol,
+                    (int) $hit['pon_port'],
+                    $timeout
+                );
+                if ($resuelto !== null) {
+                    $hit['onu_index'] = $resuelto['onu_index'];
+                    $hit['vlan'] = $hit['vlan'] ?? $resuelto['vlan'] ?? null;
+                    $hit['raw'] = $resuelto['raw'] ?? $hit['raw'] ?? null;
+                    $comandoUsado = ($comandoUsado !== '' ? $comandoUsado.' → ' : '').($resuelto['comando'] ?? 'resolver pon');
+                }
+            }
+
             // 3) Tabla global (si está configurada)
             if ($hit === null) {
                 foreach ($cmds['tabla'] as $tpl) {
@@ -434,7 +453,7 @@ class VsolGponClient
             $onuIndex = $hit['onu_index'] ?? null;
 
             $result = [
-                'success' => true,
+                'success' => ($ponPort !== null && $onuIndex !== null),
                 'message' => ($ponPort !== null && $onuIndex !== null)
                     ? "MAC localizada en PON {$ponPort} ONU {$onuIndex}."
                     : 'MAC encontrada, pero no se pudo interpretar Port/ONU ID.',
@@ -501,22 +520,18 @@ class VsolGponClient
     ): array {
         $plantillasPon = $plantillasPon !== []
             ? $plantillasPon
-            : ['show mac address-table gpon 0/{pon}'];
+            : ['show address-table gpon 0/{pon}', 'show mac address-table gpon 0/{pon}'];
 
         $from = $soloPuerto ?? 1;
         $to = $soloPuerto ?? $maxPort;
-        $tplUsada = null;
 
         for ($port = $from; $port <= $to; $port++) {
-            $tpls = $tplUsada !== null ? [$tplUsada] : $plantillasPon;
-            foreach ($tpls as $tpl) {
+            foreach ($plantillasPon as $tpl) {
                 $cmd = $this->expandirPlantillaMac($tpl, $macNorm, $macVsol, $port);
                 $out = $session->exec($cmd, min($timeout, 90));
                 if ($this->salidaInvalida($out)) {
                     continue;
                 }
-                // Recordar el comando que este firmware acepta (para el resto de PONes)
-                $tplUsada = $tpl;
                 $hit = $this->buscarMacEnSalidaTabla($parser, $out, $macNorm);
                 if ($hit !== null && ($hit['onu_index'] ?? null) !== null) {
                     return [
@@ -525,12 +540,78 @@ class VsolGponClient
                         'raw' => $out,
                     ];
                 }
-                // Comando válido pero MAC no está en este PON → siguiente puerto
-                break;
             }
         }
 
         return ['hit' => null, 'comando' => '', 'raw' => ''];
+    }
+
+    /**
+     * Dado PON conocido, obtiene ONU ID desde tabla por PON o comandos en interface gpon.
+     *
+     * @return array{onu_index: int, vlan: ?int, comando: string, raw: string}|null
+     */
+    private function resolverOnuEnPon(
+        VsolTelnetSession $session,
+        VsolOnuOutputParser $parser,
+        array $cmds,
+        string $macNorm,
+        string $macVsol,
+        int $ponPort,
+        int $timeout
+    ): ?array {
+        $scan = $this->barrerMacPorPones(
+            $session,
+            $parser,
+            $cmds['pon'],
+            $macNorm,
+            $macVsol,
+            $ponPort,
+            $timeout,
+            $ponPort
+        );
+        if ($scan['hit'] !== null && ($scan['hit']['onu_index'] ?? null) !== null) {
+            return [
+                'onu_index' => (int) $scan['hit']['onu_index'],
+                'vlan' => $scan['hit']['vlan'] ?? null,
+                'comando' => $scan['comando'],
+                'raw' => $scan['raw'],
+            ];
+        }
+
+        $plantillasIface = $cmds['interface'] !== []
+            ? $cmds['interface']
+            : ['show address-table', 'show mac address-table'];
+
+        try {
+            $session->exec("interface gpon 0/{$ponPort}", 15);
+            foreach ($plantillasIface as $tpl) {
+                $cmd = $this->expandirPlantillaMac($tpl, $macNorm, $macVsol, $ponPort);
+                $out = $session->exec($cmd, min($timeout, 60));
+                if ($this->salidaInvalida($out)) {
+                    continue;
+                }
+                $hit = $this->buscarMacEnSalidaTabla($parser, $out, $macNorm);
+                if ($hit !== null && ($hit['onu_index'] ?? null) !== null) {
+                    $session->exec('exit', 10);
+
+                    return [
+                        'onu_index' => (int) $hit['onu_index'],
+                        'vlan' => $hit['vlan'] ?? null,
+                        'comando' => "interface gpon 0/{$ponPort} → {$cmd}",
+                        'raw' => $hit['raw'] ?? $out,
+                    ];
+                }
+            }
+            $session->exec('exit', 10);
+        } catch (\Throwable) {
+            try {
+                $session->exec('exit', 10);
+            } catch (\Throwable) {
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -655,7 +736,7 @@ class VsolGponClient
             return $hit;
         }
 
-        // Respaldo: buscar GPON0/X:Y en la misma línea que la MAC (puntos o dos puntos)
+        // Respaldo: buscar GPON0/X:Y o GPON0/X + ONU en líneas cercanas a la MAC
         $hex = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $macNorm) ?? '');
         if (strlen($hex) !== 12) {
             return null;
@@ -664,22 +745,56 @@ class VsolGponClient
         $macColon = strtolower(substr($hex, 0, 4).':'.substr($hex, 4, 4).':'.substr($hex, 8, 4));
         $macCisco = strtolower(implode(':', str_split($hex, 2)));
 
-        foreach (preg_split('/\r\n|\r|\n/', $output) ?: [] as $line) {
+        $lines = preg_split('/\r\n|\r|\n/', $output) ?: [];
+        $count = count($lines);
+        for ($i = 0; $i < $count; $i++) {
+            $line = $lines[$i];
             $lineLower = strtolower($line);
             if (! str_contains($lineLower, $macDot)
                 && ! str_contains($lineLower, $macColon)
                 && ! str_contains($lineLower, $macCisco)) {
                 continue;
             }
-            if (preg_match('/GPON\s*0\s*\/\s*0*(\d+)\s*:\s*(\d+)/i', $line, $m)) {
+
+            $ventana = $line;
+            for ($j = 1; $j <= 6 && ($i + $j) < $count; $j++) {
+                $ventana .= ' '.$lines[$i + $j];
+            }
+
+            if (preg_match('/GPON\s*0\s*\/\s*0*(\d+)\s*:\s*(\d+)/i', $ventana, $m)) {
                 return [
                     'mac' => $macNorm,
                     'vlan' => null,
                     'pon_port' => (int) $m[1],
                     'onu_index' => (int) $m[2],
                     'type' => null,
-                    'raw' => trim($line),
+                    'raw' => trim($ventana),
                 ];
+            }
+            if (preg_match('/GPON\s*0\s*\/\s*0*(\d+)\s+(\d+)/i', $ventana, $m)) {
+                return [
+                    'mac' => $macNorm,
+                    'vlan' => null,
+                    'pon_port' => (int) $m[1],
+                    'onu_index' => (int) $m[2],
+                    'type' => null,
+                    'raw' => trim($ventana),
+                ];
+            }
+            if (preg_match('/GPON\s*0\s*\/\s*0*(\d+)/i', $ventana, $mPon)) {
+                for ($j = 1; $j <= 4 && ($i + $j) < $count; $j++) {
+                    $next = trim($lines[$i + $j]);
+                    if (preg_match('/^\d{1,3}$/', $next)) {
+                        return [
+                            'mac' => $macNorm,
+                            'vlan' => null,
+                            'pon_port' => (int) $mPon[1],
+                            'onu_index' => (int) $next,
+                            'type' => null,
+                            'raw' => trim($line.' | '.$next),
+                        ];
+                    }
+                }
             }
         }
 

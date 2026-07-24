@@ -23,6 +23,14 @@ class ClientePortalUserService
         return preg_replace('/\D+/', '', trim((string) $documento)) ?? '';
     }
 
+    /**
+     * Quita separadores típicos (espacios, puntos, guiones) sin borrar letras.
+     */
+    public static function documentoSinSeparadores(?string $documento): string
+    {
+        return preg_replace('/[\s.\-\/]+/', '', trim((string) $documento)) ?? '';
+    }
+
     public function emailPortalParaDocumento(string $documentoNormalizado): string
     {
         return $documentoNormalizado.'@'.self::EMAIL_DOMAIN;
@@ -36,13 +44,16 @@ class ClientePortalUserService
     }
 
     /**
-     * Busca cliente por documento (exacto o solo dígitos).
+     * Busca cliente por documento.
+     * - Match exacto del texto ingresado.
+     * - Si solo hay dígitos/separadores: match por dígitos (mín. 5) para CI con puntos/guiones.
+     * - Si el documento trae letras (ej. 1234tt), NO se cruza por solo dígitos
+     *   (evita vincular 1234tt → cliente con cédula 1234).
      */
     public function buscarClientePorDocumento(string $documento): ?Cliente
     {
         $raw = trim($documento);
-        $digits = self::normalizarDocumento($raw);
-        if ($digits === '') {
+        if ($raw === '') {
             return null;
         }
 
@@ -51,8 +62,36 @@ class ClientePortalUserService
             return $cliente;
         }
 
+        $sinSep = self::documentoSinSeparadores($raw);
+        if ($sinSep !== '' && strcasecmp($sinSep, $raw) !== 0) {
+            $cliente = Cliente::query()
+                ->whereRaw(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(cedula, '.', ''), '-', ''), ' ', ''), '/', '') = ?",
+                    [$sinSep]
+                )
+                ->first();
+            if ($cliente) {
+                return $cliente;
+            }
+        }
+
+        // Documento con letras: no usar fallback solo-dígitos.
+        if (preg_match('/[A-Za-z]/', $sinSep)) {
+            return null;
+        }
+
+        $digits = self::normalizarDocumento($raw);
+        // CI muy cortas no deben matchear solo por dígitos (evita cruces ambiguos).
+        if (strlen($digits) < 5) {
+            return null;
+        }
+
+        // Cédula en BD con separadores (1.234.567) vs dígitos puros.
         return Cliente::query()
-            ->whereRaw("REPLACE(REPLACE(REPLACE(cedula, '.', ''), '-', ''), ' ', '') = ?", [$digits])
+            ->whereRaw(
+                "REPLACE(REPLACE(REPLACE(REPLACE(cedula, '.', ''), '-', ''), ' ', ''), '/', '') = ?",
+                [$digits]
+            )
             ->first();
     }
 
@@ -123,7 +162,7 @@ class ClientePortalUserService
             if ($actuales === []) {
                 $user->permisos = $permisosPortal;
             }
-            $user->estado = $this->estadoUsuarioDesdeCliente($cliente);
+            // No pisar estado: el admin gestiona alta/baja de acceso app por separado.
 
             if ($resetPassword) {
                 $user->contrasena = Hash::make($digits);
@@ -299,5 +338,89 @@ class ClientePortalUserService
         }
 
         return null;
+    }
+
+    /**
+     * Asigna clave PLUS al usuario portal del cliente (crea usuario si no existe).
+     *
+     * @return array{user: User, clave: string, created: bool}
+     */
+    public function otorgarAccesoConClavePlus(Cliente $cliente, ?string $clave = null): array
+    {
+        $clave = $clave ?: $this->generarClavePlus();
+        $sync = $this->syncParaCliente($cliente, false);
+        $user = $sync['user'];
+        $user->contrasena = Hash::make($clave);
+        $user->estado = 'activo';
+        $user->save();
+
+        if (! $cliente->fecha_otorgamiento) {
+            $cliente->fecha_otorgamiento = now();
+            $cliente->save();
+        }
+
+        return [
+            'user' => $user->fresh(['rol', 'cliente']),
+            'clave' => $clave,
+            'created' => $sync['created'],
+        ];
+    }
+
+    /**
+     * Suspende acceso app: no puede loguear; cierra tokens Sanctum y push.
+     */
+    public function suspenderAcceso(User $user): User
+    {
+        if (! $user->esClientePortal()) {
+            throw new \InvalidArgumentException('Solo usuarios portal.');
+        }
+
+        $user->estado = 'suspendido';
+        $user->push_token = null;
+        $user->save();
+        $user->tokens()->delete();
+
+        if ($user->cliente_id) {
+            Cliente::where('cliente_id', $user->cliente_id)->update(['app_activa' => false]);
+        }
+
+        return $user->fresh(['cliente']);
+    }
+
+    /**
+     * Reactiva acceso app (independiente del estado del cliente ISP).
+     */
+    public function reactivarAcceso(User $user): User
+    {
+        if (! $user->esClientePortal()) {
+            throw new \InvalidArgumentException('Solo usuarios portal.');
+        }
+
+        $user->estado = 'activo';
+        $user->save();
+
+        return $user->fresh(['cliente']);
+    }
+
+    /**
+     * Elimina por completo el usuario portal (el cliente ISP permanece).
+     */
+    public function eliminarAcceso(User $user): void
+    {
+        if (! $user->esClientePortal()) {
+            throw new \InvalidArgumentException('Solo usuarios portal.');
+        }
+
+        $clienteId = $user->cliente_id;
+        $user->tokens()->delete();
+        $user->delete();
+
+        if ($clienteId) {
+            Cliente::where('cliente_id', $clienteId)->update([
+                'app_activa' => false,
+                'fecha_otorgamiento' => null,
+                'aprobado_por' => null,
+            ]);
+        }
     }
 }

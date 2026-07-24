@@ -104,13 +104,15 @@ class Olt extends Model
     public function macCliComandosEfectivos(): array
     {
         $defaults = config('olt.vsol.mac_cli_comandos', []);
-        $custom = is_array($this->mac_cli_comandos) ? $this->mac_cli_comandos : [];
+        $custom = is_array($this->mac_cli_comandos) ? $this->mac_cli_comandos : null;
 
         $out = [];
         foreach (['address', 'tabla', 'pon', 'interface'] as $key) {
-            $lista = $custom[$key] ?? null;
-            if (is_array($lista) && $lista !== []) {
-                $out[$key] = array_values(array_filter(array_map('strval', $lista), fn ($c) => trim($c) !== ''));
+            if ($custom !== null) {
+                $lista = $custom[$key] ?? [];
+                $out[$key] = is_array($lista)
+                    ? array_values(array_filter(array_map('strval', $lista), fn ($c) => trim($c) !== ''))
+                    : [];
             } else {
                 $out[$key] = array_values($defaults[$key] ?? []);
             }

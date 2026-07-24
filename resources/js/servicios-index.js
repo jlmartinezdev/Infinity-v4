@@ -26,6 +26,8 @@ if (el) {
     urlDarBaja: cfg.urlDarBaja || '',
     urlSyncPppoe: cfg.urlSyncPppoe || '',
     urlHerramientasRed: cfg.urlHerramientasRed || '',
+    urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',
+    canVerClientes: cfg.canVerClientes ?? false,
     urlCrearFacturaInterna: cfg.urlCrearFacturaInterna || '',
     urlCrearFacturaServicioEspecial: cfg.urlCrearFacturaServicioEspecial || '',
     urlCrearFacturaFraccionDeuda: cfg.urlCrearFacturaFraccionDeuda || '',

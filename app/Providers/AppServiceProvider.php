@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Ticket;
+use App\Observers\TicketObserver;
 use App\Services\MikroTikService;
 use App\Session\CustomDatabaseSessionHandler;
 use Illuminate\Cookie\CookieJar;
@@ -30,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Ticket::observe(TicketObserver::class);
+
         $appUrl = (string) config('app.url', '');
         if ($appUrl !== '' && str_starts_with($appUrl, 'https://')) {
             URL::forceScheme('https');

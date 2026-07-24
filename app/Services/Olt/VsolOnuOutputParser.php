@@ -928,7 +928,7 @@ class VsolOnuOutputParser
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
 
-            if (preg_match('/^(vlan|mac\s*address|type|port|onu\s*id|mac address table|----)/i', $line)
+            if (preg_match('/^(vlan|mac\s*address|type|port|onu\s*id|mac address table|address[\s-]*table|----)/i', $line)
                 && ! preg_match('/GPON\s*0\s*\/\s*\d+/i', $line)
                 && ! $this->extraerMacDeLinea($line)) {
                 continue;
@@ -963,6 +963,10 @@ class VsolOnuOutputParser
             if (preg_match('/GPON\s*0\s*\/\s*0*(\d+)\s*:\s*(\d+)/i', $ventana, $mG)) {
                 $ponPort = (int) $mG[1];
                 $onuIndex = (int) $mG[2];
+            } elseif (preg_match('/GPON\s*0\s*\/\s*0*(\d+)\s+(\d+)\b/i', $ventana, $mG)) {
+                // GPON0/1 2 (show address-table — ONU en columna aparte)
+                $ponPort = (int) $mG[1];
+                $onuIndex = (int) $mG[2];
             } elseif (preg_match('/GPON\s*0\s*\/\s*0*(\d+)/i', $ventana, $mG)) {
                 $ponPort = (int) $mG[1];
             }
@@ -986,8 +990,23 @@ class VsolOnuOutputParser
                 $onuIndex = (int) $mO[1];
             }
 
+            if ($ponPort !== null && $onuIndex === null) {
+                foreach ($rawParts as $part) {
+                    $part = trim($part);
+                    if (preg_match('/^\d{1,3}$/', $part)) {
+                        $onuIndex = (int) $part;
+                        break;
+                    }
+                }
+            }
+
             // Sin PON/ONU no es una fila útil de tabla (evita confundir "MAC Address: xx" del lookup).
             if ($ponPort === null && $onuIndex === null) {
+                continue;
+            }
+
+            // Solo PON sin ONU: fila incompleta para localizar ONU
+            if ($ponPort !== null && $onuIndex === null) {
                 continue;
             }
 

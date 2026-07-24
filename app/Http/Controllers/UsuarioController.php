@@ -116,6 +116,7 @@ class UsuarioController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'telefono' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', 'min:6'],
             'rol_id' => ['required', 'integer', 'exists:roles,rol_id'],
             'estado' => ['required', 'string', 'in:activo,pendiente_aprobacion,suspendido'],
@@ -129,6 +130,7 @@ class UsuarioController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'telefono' => $validated['telefono'] ?? null,
             'contrasena' => Hash::make($validated['password']),
             'rol_id' => $validated['rol_id'],
             'estado' => $validated['estado'],
@@ -158,9 +160,14 @@ class UsuarioController extends Controller
     {
         $user = User::findOrFail($usuario);
 
+        if ($user->esClientePortal() && ! $this->esAdministradorActual()) {
+            return back()->with('error', 'Solo un administrador puede editar acceso de clientes app. Usá Solicitudes app.');
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->usuario_id.',usuario_id'],
+            'telefono' => ['nullable', 'string', 'max:30'],
             'password' => ['nullable', 'string', 'min:6'],
             'rol_id' => ['required', 'integer', 'exists:roles,rol_id'],
             'estado' => ['required', 'string', 'in:activo,pendiente_aprobacion,suspendido'],
@@ -179,6 +186,7 @@ class UsuarioController extends Controller
         $updateData = [
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'telefono' => $validated['telefono'] ?? null,
             'rol_id' => $validated['rol_id'],
             'estado' => $validated['estado'],
         ];
@@ -209,11 +217,28 @@ class UsuarioController extends Controller
     public function destroy($usuario)
     {
         $user = User::findOrFail($usuario);
+
+        if ($user->esClientePortal() && ! $this->esAdministradorActual()) {
+            return redirect()->route('usuarios.index', ['tipo' => self::TIPO_CLIENTES])
+                ->with('error', 'Solo un administrador puede eliminar usuarios portal. Usá Solicitudes app.');
+        }
+
         $tipo = $user->esClientePortal() ? self::TIPO_CLIENTES : self::TIPO_SISTEMA;
-        $user->delete();
+        if ($user->esClientePortal()) {
+            app(ClientePortalUserService::class)->eliminarAcceso($user);
+        } else {
+            $user->delete();
+        }
 
         return redirect()->route('usuarios.index', ['tipo' => $tipo])
             ->with('success', 'Usuario eliminado correctamente.');
+    }
+
+    private function esAdministradorActual(): bool
+    {
+        $u = Auth::user();
+
+        return $u && $u->rol && strtolower($u->rol->descripcion) === 'administrador';
     }
 
     /**
@@ -226,6 +251,7 @@ class UsuarioController extends Controller
         return response()->json([
             'name' => $user->name,
             'email' => $user->email,
+            'telefono' => $user->telefono,
             'rol_id' => $user->rol_id,
             'estado' => $user->estado,
             'es_cliente_portal' => $user->esClientePortal(),
