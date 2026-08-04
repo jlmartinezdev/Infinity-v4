@@ -94,12 +94,16 @@ class SifenService
                 // No bloquea esperando DNIT: el lote se consulta después (UI «Consultar lote SIFEN»).
                 $respuestaSifen = $this->enviarLoteLocal($factura, $xmlFinal, $xmlPath, $qrUrl);
 
+                // KuDE imprimible mientras se espera la autorización.
+                $pdfPath = $this->kudeService->generar($factura->fresh(), $config, $qrUrl);
+                $factura->update(['pdf_path' => $pdfPath]);
+
                 return [
                     'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
                     'cdc' => $preparado['cdc'],
                     'xml' => $xmlFinal,
                     'xml_path' => $xmlPath,
-                    'pdf_path' => null,
+                    'pdf_path' => $pdfPath,
                     'qr_url' => $qrUrl,
                     'validacion' => $validacion,
                     'totales' => $preparado['totales'],

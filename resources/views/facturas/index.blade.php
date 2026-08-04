@@ -178,10 +178,13 @@
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                     @forelse ($facturas as $f)
-                        @php $pendienteLote = $f->lotePendienteSifen(); @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 {{ $pendienteLote ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : '' }}">
+                        @php
+                            $pendienteLote = $f->lotePendienteSifen();
+                            $enCola = $f->enColaSifen();
+                        @endphp
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 {{ $pendienteLote || $enCola ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : '' }}">
                             <td class="px-4 py-3">
-                                @if($pendienteLote)
+                                @if($pendienteLote && $f->set_estado_envio !== 'consultando')
                                     <input type="checkbox" name="factura_ids[]" value="{{ $f->id }}" form="form-consultar-lotes"
                                            class="chk-lote rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500">
                                 @endif
@@ -208,7 +211,15 @@
                                     @else bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 @endif">
                                     {{ $estados[$f->estado] ?? $f->estado }}
                                 </span>
-                                @if($pendienteLote)
+                                @if($f->set_estado_envio === 'en_cola')
+                                    <span class="mt-1 inline-flex px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                                        Emitiendo…
+                                    </span>
+                                @elseif($f->set_estado_envio === 'consultando')
+                                    <span class="mt-1 inline-flex px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                                        Consultando lote…
+                                    </span>
+                                @elseif($pendienteLote)
                                     <span class="mt-1 inline-flex px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300">
                                         Lote pendiente
                                     </span>
@@ -221,12 +232,12 @@
                             <td class="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{{ number_format($f->total, 0, ',', '.') }} {{ $f->moneda }}</td>
                             <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <a href="{{ route('facturas.show', $f) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">Ver</a>
-                                @if($pendienteLote)
+                                @if($pendienteLote && $f->set_estado_envio !== 'consultando')
                                     <form action="{{ route('facturas.consultar-lote', $f) }}" method="POST" class="inline ml-2">
                                         @csrf
                                         <button type="submit" class="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">Consultar lote</button>
                                     </form>
-                                @elseif($f->estado === 'borrador')
+                                @elseif($f->estado === 'borrador' && ! $enCola && ! $pendienteLote)
                                     <a href="{{ route('facturas.edit', $f) }}" class="ml-2 text-gray-600 dark:text-gray-400 hover:underline text-sm">Editar</a>
                                 @endif
                             </td>

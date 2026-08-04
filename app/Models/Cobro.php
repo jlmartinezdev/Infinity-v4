@@ -134,4 +134,38 @@ class Cobro extends Model
 
         return $result;
     }
+
+    /**
+     * Token HMAC para descarga pública del PDF (WhatsApp / enlace sin login).
+     */
+    public function tokenPublico(): string
+    {
+        $payload = $this->id.'|'.(string) ($this->numero_recibo ?? '');
+
+        return substr(hash_hmac('sha256', $payload, (string) config('app.key')), 0, 40);
+    }
+
+    public function tokenPublicoValido(string $token): bool
+    {
+        $esperado = $this->tokenPublico();
+
+        return $token !== '' && hash_equals($esperado, $token);
+    }
+
+    /**
+     * Sufijo dinámico para botón URL de plantilla Meta:
+     * URL plantilla = https://dominio/recibo/{{1}} → parámetro = "{id}/{token}"
+     */
+    public function urlPublicaSufijo(): string
+    {
+        return $this->id.'/'.$this->tokenPublico();
+    }
+
+    public function urlPublicaPdf(): string
+    {
+        return route('recibo.publico', [
+            'cobro' => $this->id,
+            'token' => $this->tokenPublico(),
+        ]);
+    }
 }

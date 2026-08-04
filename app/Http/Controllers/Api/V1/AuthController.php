@@ -18,7 +18,7 @@ class AuthController extends ApiController
     /**
      * Login unificado.
      * - staff: usuario = email, password = contraseña
-     * - cliente: usuario = documento, password = PLUS**** (o documento legacy)
+     * - cliente: usuario = documento, password = clave otorgada (PLUS****)
      */
     public function login(Request $request)
     {

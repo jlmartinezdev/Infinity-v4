@@ -70,13 +70,24 @@
                 <div>
                     <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Plantilla</label>
                     @if(count($aprobadas))
-                        <select name="plantilla" class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-gray-200 dark:bg-gray-900/40 dark:ring-gray-600">
+                        <select name="plantilla" id="wa-plantilla" class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-gray-200 dark:bg-gray-900/40 dark:ring-gray-600">
                             <option value="">Elegir plantilla aprobada…</option>
                             @foreach($aprobadas as $t)
+                                @php
+                                    $bodyParams = array_values(array_filter(
+                                        $t['params'] ?? [],
+                                        static fn ($p) => ($p['component'] ?? '') === 'body'
+                                    ));
+                                    $metaTpl = [
+                                        'lang' => $t['language'] ?? '',
+                                        'body' => $t['body_text'] ?? '',
+                                        'params' => $bodyParams,
+                                    ];
+                                @endphp
                                 <option value="{{ $t['name'] }}"
-                                        data-lang="{{ $t['language'] }}"
-                                        @selected(old('plantilla') === $t['name'])>
-                                    {{ $t['name'] }} ({{ $t['language'] }} · {{ $t['category'] }})
+                                        data-meta="{{ e(json_encode($metaTpl, JSON_UNESCAPED_UNICODE)) }}"
+                                        @selected(old('plantilla', $plantillaPrefill ?? '') === $t['name'])>
+                                    {{ $t['name'] }} ({{ $t['language'] }} · {{ count($bodyParams) }} param{{ count($bodyParams) === 1 ? '' : 's' }})
                                 </option>
                             @endforeach
                         </select>
@@ -92,12 +103,16 @@
                     <input type="text" name="lang" id="wa-lang" value="{{ old('lang', $defaultLang) }}" maxlength="10"
                            class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-gray-200 dark:bg-gray-900/40 dark:ring-gray-600">
                 </div>
-                <div>
-                    <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Parámetros (uno por línea)</label>
-                    <textarea name="params" rows="3"
-                              class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 font-mono text-sm ring-1 ring-gray-200 dark:bg-gray-900/40 dark:ring-gray-600"
-                              placeholder="parametro 1&#10;parametro 2">{{ old('params') }}</textarea>
+
+                <div id="wa-preview-plantilla" class="hidden rounded-xl border border-emerald-200/70 bg-emerald-50/50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/20">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Texto de la plantilla</p>
+                    <p id="wa-preview-body" class="mt-1 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200"></p>
                 </div>
+
+                <div id="wa-params-fields" class="space-y-2 hidden"></div>
+                <textarea name="params" id="wa-params" rows="3" class="hidden"
+                          placeholder="parametro 1&#10;parametro 2">{{ old('params') }}</textarea>
+                <p id="wa-params-hint" class="text-xs text-gray-400 hidden">Completá cada variable en el orden que aparece en el body.</p>
 
                 @if(count($pendientes))
                     <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400">
@@ -129,23 +144,101 @@
     var bloqueTexto = document.getElementById('wa-bloque-texto');
     var bloquePlantilla = document.getElementById('wa-bloque-plantilla');
     var lang = document.getElementById('wa-lang');
+    var sel = document.getElementById('wa-plantilla');
+    var paramsBox = document.getElementById('wa-params-fields');
+    var paramsHidden = document.getElementById('wa-params');
+    var paramsHint = document.getElementById('wa-params-hint');
+    var preview = document.getElementById('wa-preview-plantilla');
+    var previewBody = document.getElementById('wa-preview-body');
+    var oldParams = (paramsHidden && paramsHidden.value) ? paramsHidden.value.split(/\r\n|\r|\n/) : [];
+
     function sync() {
         var modo = (form.querySelector('input[name="modo"]:checked') || {}).value || 'texto';
         var esPlantilla = modo === 'plantilla';
         bloqueTexto.classList.toggle('hidden', esPlantilla);
         bloquePlantilla.classList.toggle('hidden', !esPlantilla);
     }
+
+    function syncParamsHidden() {
+        if (!paramsBox || !paramsHidden) return;
+        var inputs = paramsBox.querySelectorAll('input[data-wa-param]');
+        var lines = [];
+        inputs.forEach(function (inp) { lines.push(inp.value.trim()); });
+        paramsHidden.value = lines.join('\n');
+    }
+
+    function renderParams() {
+        if (!sel || !paramsBox) return;
+        var opt = sel.options[sel.selectedIndex];
+        var meta = {};
+        try { meta = opt && opt.dataset.meta ? JSON.parse(opt.dataset.meta) : {}; } catch (e) { meta = {}; }
+        var params = Array.isArray(meta.params) ? meta.params : [];
+        var body = meta.body || '';
+
+        if (lang && meta.lang) lang.value = meta.lang;
+
+        if (preview && previewBody) {
+            if (body) {
+                preview.classList.remove('hidden');
+                previewBody.textContent = body;
+            } else {
+                preview.classList.add('hidden');
+                previewBody.textContent = '';
+            }
+        }
+
+        paramsBox.innerHTML = '';
+        if (!params.length) {
+            paramsBox.classList.add('hidden');
+            if (paramsHint) paramsHint.classList.add('hidden');
+            if (paramsHidden) paramsHidden.value = '';
+            return;
+        }
+
+        paramsBox.classList.remove('hidden');
+        if (paramsHint) paramsHint.classList.remove('hidden');
+
+        params.forEach(function (p, i) {
+            var wrap = document.createElement('div');
+            var label = document.createElement('label');
+            label.className = 'mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400';
+            var fallbackLabel = '{' + '{' + (i + 1) + '}' + '}';
+            label.textContent = (p.label || fallbackLabel) + (p.example ? ' · ej: ' + p.example : '');
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.setAttribute('data-wa-param', '1');
+            input.className = 'w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-gray-200 dark:bg-gray-900/40 dark:ring-gray-600';
+            input.placeholder = p.example || ('Valor para ' + (p.label || (i + 1)));
+            if (oldParams[i]) input.value = oldParams[i];
+            input.addEventListener('input', syncParamsHidden);
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            paramsBox.appendChild(wrap);
+        });
+        syncParamsHidden();
+    }
+
     form.querySelectorAll('.js-wa-modo').forEach(function (el) {
         el.addEventListener('change', sync);
     });
-    var sel = form.querySelector('select[name="plantilla"]');
-    if (sel && lang) {
+    if (sel) {
         sel.addEventListener('change', function () {
-            var opt = sel.options[sel.selectedIndex];
-            if (opt && opt.dataset.lang) lang.value = opt.dataset.lang;
+            oldParams = [];
+            renderParams();
         });
     }
+    form.addEventListener('submit', syncParamsHidden);
     sync();
+    renderParams();
+
+    @if(filled(old('plantilla', $plantillaPrefill ?? '')))
+    var modoPlantilla = form.querySelector('input[name="modo"][value="plantilla"]');
+    if (modoPlantilla) {
+        modoPlantilla.checked = true;
+        sync();
+        renderParams();
+    }
+    @endif
 })();
 </script>
 @endpush

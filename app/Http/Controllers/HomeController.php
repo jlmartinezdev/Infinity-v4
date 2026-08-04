@@ -4,11 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Auditoria;
 use App\Models\Cliente;
+use App\Models\Cobro;
+use App\Models\FacturaInterna;
+use App\Models\Olt;
+use App\Models\Pedido;
+use App\Models\Router;
 use App\Models\Servicio;
+use App\Models\Tarea;
 use App\Models\Ticket;
+use App\Models\User;
 use App\Support\CobrosMesVentana;
 use App\Support\MenuUsuario;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 class HomeController extends Controller
 {
@@ -48,7 +56,7 @@ class HomeController extends Controller
     ];
 
     /**
-     * Panel secundario: solo accesos directos (sin estadísticas). Para usuarios sin permiso dashboard.ver.
+     * Panel operativo para staff sin dashboard.ver (técnicos, cajeros, etc.).
      */
     public function inicio()
     {
@@ -60,12 +68,163 @@ class HomeController extends Controller
             return redirect()->route('home');
         }
 
+        $user->loadMissing('rol');
         $links = MenuUsuario::enlacesPlanos($user);
+        $kpis = $this->obtenerKpisStaff($user);
+        $accionesRapidas = $this->obtenerAccionesRapidasStaff($user);
 
         return view('inicio', [
             'user' => $user,
             'links' => $links,
+            'kpis' => $kpis,
+            'accionesRapidas' => $accionesRapidas,
         ]);
+    }
+
+    /**
+     * KPIs relevantes según permisos del usuario (no admin).
+     *
+     * @return list<array{label: string, value: string, hint: string, href: string|null, tone: string}>
+     */
+    private function obtenerKpisStaff(User $user): array
+    {
+        $kpis = [];
+
+        if ($user->tienePermiso('tickets.ver')) {
+            $mios = Ticket::query()
+                ->whereIn('estado', ['pendiente', 'en_proceso'])
+                ->where('asignado_id', $user->usuario_id)
+                ->count();
+            $kpis[] = [
+                'label' => 'Mis tickets',
+                'value' => number_format($mios),
+                'hint' => 'Abiertos asignados a vos',
+                'href' => Route::has('tickets.index') ? route('tickets.index') : '/tickets',
+                'tone' => 'rose',
+            ];
+        }
+
+        if ($user->tienePermiso('tareas.ver')) {
+            $mias = Tarea::query()
+                ->whereIn('estado', ['pendiente', 'en_progreso'])
+                ->where('asignado_id', $user->usuario_id)
+                ->count();
+            $kpis[] = [
+                'label' => 'Mis tareas',
+                'value' => number_format($mias),
+                'hint' => 'Pendientes / en progreso',
+                'href' => Route::has('tareas.index') ? route('tareas.index') : '/tareas',
+                'tone' => 'violet',
+            ];
+        }
+
+        if ($user->tienePermiso('pedidos.ver')) {
+            $pedidos = Pedido::query()
+                ->where('estado_instalado', false)
+                ->whereDoesntHave('estadoPedidoDetalles', fn ($q) => $q->where('estado', 'D'))
+                ->count();
+            $kpis[] = [
+                'label' => 'Pedidos',
+                'value' => number_format($pedidos),
+                'hint' => 'Pendientes de instalación',
+                'href' => Route::has('pedidos.index') ? route('pedidos.index') : '/pedidos',
+                'tone' => 'blue',
+            ];
+        }
+
+        if ($user->tienePermiso('cobros.ver') || $user->tienePermiso('cobros-servicios.ver')) {
+            $cobrosHoy = Cobro::query()
+                ->where('usuario_id', $user->usuario_id)
+                ->whereDate('fecha_pago', now()->toDateString());
+            $cantidad = (clone $cobrosHoy)->count();
+            $monto = (float) (clone $cobrosHoy)->sum('monto');
+            $kpis[] = [
+                'label' => 'Mis cobros hoy',
+                'value' => number_format($cantidad),
+                'hint' => number_format($monto, 0, ',', '.').' PYG',
+                'href' => Route::has('cobros.index') ? route('cobros.index') : '/cobros',
+                'tone' => 'amber',
+            ];
+        }
+
+        if ($user->tienePermiso('pagos-pendientes.ver')) {
+            $pendientes = FacturaInterna::query()
+                ->where('estado', 'pendiente')
+                ->count();
+            $kpis[] = [
+                'label' => 'Pendiente cobro',
+                'value' => number_format($pendientes),
+                'hint' => 'Facturas internas abiertas',
+                'href' => Route::has('factura-internas.pendientes')
+                    ? route('factura-internas.pendientes')
+                    : '/factura-internas/pendientes',
+                'tone' => 'emerald',
+            ];
+        }
+
+        if ($user->tienePermiso('servicios-lista.ver') || $user->tienePermiso('servicios.ver')) {
+            $activos = Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count();
+            $kpis[] = [
+                'label' => 'Servicios activos',
+                'value' => number_format($activos),
+                'hint' => 'En la red',
+                'href' => Route::has('servicios.index') ? route('servicios.index') : '/servicios',
+                'tone' => 'teal',
+            ];
+        }
+
+        return $kpis;
+    }
+
+    /**
+     * @return list<array{label: string, href: string, icon: string, tone: string}>
+     */
+    private function obtenerAccionesRapidasStaff(User $user): array
+    {
+        $acciones = [];
+
+        if ($user->tienePermiso('cobros.crear') || $user->tienePermiso('cobros-servicios.crear') || $user->tienePermiso('cobros-servicios.ver')) {
+            $acciones[] = [
+                'label' => 'Registrar cobro',
+                'href' => Route::has('cobros.servicios') ? route('cobros.servicios') : '/cobros/servicios',
+                'icon' => 'currency',
+                'tone' => 'amber',
+            ];
+        }
+        if ($user->tienePermiso('clientes.crear') || $user->tienePermiso('clientes-lista.crear')) {
+            $acciones[] = [
+                'label' => 'Nuevo cliente',
+                'href' => Route::has('clientes.create') ? route('clientes.create') : '/clientes/create',
+                'icon' => 'users',
+                'tone' => 'blue',
+            ];
+        }
+        if ($user->tienePermiso('tickets.crear')) {
+            $acciones[] = [
+                'label' => 'Nuevo ticket',
+                'href' => Route::has('tickets.create') ? route('tickets.create') : '/tickets/create',
+                'icon' => 'ticket',
+                'tone' => 'rose',
+            ];
+        }
+        if ($user->tienePermiso('pedidos.crear') || $user->tienePermiso('clientes-pedidos.crear')) {
+            $acciones[] = [
+                'label' => 'Nuevo pedido',
+                'href' => Route::has('pedidos.create') ? route('pedidos.create') : '/pedidos/create',
+                'icon' => 'clipboard-list',
+                'tone' => 'violet',
+            ];
+        }
+        if ($user->tienePermiso('servicios.crear') || $user->tienePermiso('servicios-lista.crear')) {
+            $acciones[] = [
+                'label' => 'Nuevo servicio',
+                'href' => Route::has('servicios.create') ? route('servicios.create') : '/servicios/create',
+                'icon' => 'wifi',
+                'tone' => 'emerald',
+            ];
+        }
+
+        return $acciones;
     }
 
     /**
@@ -77,25 +236,13 @@ class HomeController extends Controller
     {
         $user = Auth::user();
 
-        $stats = [
-            'clientes' => Cliente::where('estado', 'activo')->count(),
-            'servicios' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count(),
-            'facturacion' => $this->totalCobrosMesActualDesdeCobros(),
-            'tickets' => Ticket::whereIn('estado', ['pendiente', 'en_proceso'])->count(),
-            'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
-                ->distinct()
-                ->count('cliente_id'),
-            'clientes_instalados_mes' => Servicio::whereMonth('fecha_instalacion', now()->month)
-                ->whereYear('fecha_instalacion', now()->year)
-                ->distinct()
-                ->count('cliente_id'),
-        ];
-
+        $stats = $this->obtenerStats();
+        $systemStatus = $this->obtenerEstadoSistema($stats);
+        $ticketAvatares = $this->obtenerAvataresTicketsAbiertos();
         $recentActivity = $this->obtenerActividadReciente();
-
         $cobrosMesVentanaQuery = CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual());
 
-        return view('home', compact('user', 'stats', 'recentActivity', 'cobrosMesVentanaQuery'));
+        return view('home', compact('user', 'stats', 'systemStatus', 'ticketAvatares', 'recentActivity', 'cobrosMesVentanaQuery'));
     }
 
     /**
@@ -103,9 +250,46 @@ class HomeController extends Controller
      */
     public function stats()
     {
-        $stats = [
+        $stats = $this->obtenerStats();
+        $stats['cobros_mes_ventana_query'] = CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual());
+        $stats['sistema'] = $this->obtenerEstadoSistema($stats);
+
+        return response()->json($stats);
+    }
+
+    /**
+     * @return array<string, int|float>
+     */
+    private function obtenerStats(): array
+    {
+        $serviciosActivos = Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count();
+        $serviciosSuspendidos = Servicio::where('estado', Servicio::ESTADO_SUSPENDIDO)->count();
+        $serviciosCortados = Servicio::where('estado', Servicio::ESTADO_CORTADO)->count();
+        $serviciosOperativos = $serviciosActivos + $serviciosSuspendidos + $serviciosCortados;
+        $indiceSalud = $serviciosOperativos > 0
+            ? round(($serviciosActivos / $serviciosOperativos) * 100, 1)
+            : 100.0;
+
+        $clientesMesActual = Cliente::where('estado', 'activo')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+        $mesAnterior = now()->subMonth();
+        $clientesMesAnterior = Cliente::where('estado', 'activo')
+            ->whereMonth('created_at', $mesAnterior->month)
+            ->whereYear('created_at', $mesAnterior->year)
+            ->count();
+        $variacionClientes = $clientesMesAnterior > 0
+            ? (int) round((($clientesMesActual - $clientesMesAnterior) / $clientesMesAnterior) * 100)
+            : ($clientesMesActual > 0 ? 100 : 0);
+
+        return [
             'clientes' => Cliente::where('estado', 'activo')->count(),
-            'servicios' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count(),
+            'clientes_variacion' => $variacionClientes,
+            'servicios' => $serviciosActivos,
+            'servicios_suspendidos' => $serviciosSuspendidos,
+            'servicios_cortados' => $serviciosCortados,
+            'indice_salud' => $indiceSalud,
             'facturacion' => $this->totalCobrosMesActualDesdeCobros(),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'en_proceso'])->count(),
             'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
@@ -115,10 +299,113 @@ class HomeController extends Controller
                 ->whereYear('fecha_instalacion', now()->year)
                 ->distinct()
                 ->count('cliente_id'),
-            'cobros_mes_ventana_query' => CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual()),
         ];
+    }
 
-        return response()->json($stats);
+    /**
+     * Asignados con más tickets abiertos (para avatares del KPI).
+     *
+     * @return array{items: list<array{id: int, name: string, iniciales: string, color: string}>, extra: int}
+     */
+    private function obtenerAvataresTicketsAbiertos(): array
+    {
+        $colores = ['bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
+
+        $ranking = Ticket::query()
+            ->whereIn('estado', ['pendiente', 'en_proceso'])
+            ->whereNotNull('asignado_id')
+            ->selectRaw('asignado_id, COUNT(*) as total')
+            ->groupBy('asignado_id')
+            ->orderByDesc('total')
+            ->get();
+
+        $mostrar = 3;
+        $topIds = $ranking->take($mostrar)->pluck('asignado_id');
+        $usuarios = User::query()
+            ->whereIn('usuario_id', $topIds)
+            ->get()
+            ->keyBy('usuario_id');
+
+        $items = [];
+        foreach ($topIds as $i => $id) {
+            $u = $usuarios->get($id);
+            if (! $u) {
+                continue;
+            }
+            $items[] = [
+                'id' => (int) $u->usuario_id,
+                'name' => (string) $u->name,
+                'iniciales' => $this->inicialesNombre($u->name),
+                'color' => $colores[$i % count($colores)],
+            ];
+        }
+
+        return [
+            'items' => $items,
+            'extra' => max(0, $ranking->count() - count($items)),
+        ];
+    }
+
+    private function inicialesNombre(string $nombre): string
+    {
+        $partes = preg_split('/\s+/u', trim($nombre), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $iniciales = collect($partes)
+            ->take(2)
+            ->map(fn (string $p) => mb_strtoupper(mb_substr($p, 0, 1)))
+            ->implode('');
+
+        return $iniciales !== '' ? $iniciales : '?';
+    }
+
+    /**
+     * @param  array<string, int|float>  $stats
+     * @return array{operativo: bool, etiqueta: string, salud: float, items: list<array{label: string, detail: string, ok: bool, syncing?: bool}>}
+     */
+    private function obtenerEstadoSistema(array $stats): array
+    {
+        $routersTotal = Router::count();
+        $routersActivos = Router::where('estado', 'activo')->count();
+        $oltsTotal = Olt::count();
+        $oltsActivos = Olt::where('estado', 'activo')->count();
+        $oltsConError = Olt::whereNotNull('onus_sync_error')->where('onus_sync_error', '!=', '')->count();
+
+        $salud = (float) ($stats['indice_salud'] ?? 100);
+        $operativo = $salud >= 90 && $oltsConError === 0;
+
+        return [
+            'operativo' => $operativo,
+            'etiqueta' => $operativo ? 'Operativo' : 'Atención',
+            'salud' => $salud,
+            'items' => [
+                [
+                    'label' => 'Routers MikroTik',
+                    'detail' => $routersTotal > 0
+                        ? ($routersActivos > 0
+                            ? "{$routersActivos}/{$routersTotal} activos"
+                            : "{$routersTotal} en inventario")
+                        : 'Sin routers',
+                    'ok' => $routersTotal > 0,
+                    'syncing' => false,
+                ],
+                [
+                    'label' => 'OLTs GPON',
+                    'detail' => $oltsTotal > 0
+                        ? ($oltsConError > 0
+                            ? "{$oltsConError} con error de sync"
+                            : "{$oltsActivos}/{$oltsTotal} activos")
+                        : 'Sin OLTs',
+                    'ok' => $oltsTotal === 0 || ($oltsActivos > 0 && $oltsConError === 0),
+                    'syncing' => $oltsConError > 0,
+                ],
+                [
+                    'label' => 'Servicios en red',
+                    'detail' => number_format((float) $stats['servicios']).' activos · '
+                        .number_format((float) ($stats['servicios_suspendidos'] ?? 0)).' susp.',
+                    'ok' => $salud >= 90,
+                    'syncing' => $salud < 90 && $salud >= 75,
+                ],
+            ],
+        ];
     }
 
     /**
@@ -133,13 +420,13 @@ class HomeController extends Controller
     /**
      * Obtiene las últimas actividades desde la auditoría.
      *
-     * @return array<int, array{id: int, title: string, time: string, color: string}>
+     * @return array<int, array{id: int, title: string, subtitle: string, time: string, color: string}>
      */
     private function obtenerActividadReciente(): array
     {
         $auditorias = Auditoria::with('usuario')
             ->orderBy('created_at', 'desc')
-            ->limit(10)
+            ->limit(8)
             ->get();
 
         return $auditorias->map(function (Auditoria $a) {
@@ -150,9 +437,12 @@ class HomeController extends Controller
                 $title .= " por {$a->usuario->name}";
             }
 
+            $registro = $a->registro_id ? "#{$a->registro_id}" : '';
+
             return [
                 'id' => $a->auditoria_id,
                 'title' => $title,
+                'subtitle' => trim("{$tabla} {$registro}"),
                 'time' => $a->created_at->diffForHumans(),
                 'color' => self::ACCION_COLORS[$a->accion] ?? 'bg-gray-500',
             ];

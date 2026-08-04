@@ -6,8 +6,14 @@ use App\Http\Controllers\Api\V1\CobroController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\MikrotikWebhookController;
 use App\Http\Controllers\Api\V1\PortalController;
+use App\Http\Controllers\Api\V1\PortalLoyaltyController;
+use App\Http\Controllers\Api\V1\PortalV1Controller;
 use App\Http\Controllers\Api\V1\ServicioController;
 use App\Http\Controllers\Api\V1\SolicitudAccesoController;
+use App\Http\Controllers\Api\V1\StaffConfigController;
+use App\Http\Controllers\Api\V1\StaffPedidoInstalacionController;
+use App\Http\Controllers\Api\V1\StaffUbicacionController;
+use App\Http\Controllers\Api\V1\StaffVisitaController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
@@ -54,6 +60,37 @@ Route::prefix('v1')->group(function () {
             Route::get('/ticket-asuntos', [PortalController::class, 'asuntosTicket'])
                 ->middleware('permiso:portal.tickets.ver');
             Route::post('/save-push-token', [AuthController::class, 'savePushToken']);
+
+            // Loyalty / CMS
+            Route::get('/novedades', [PortalLoyaltyController::class, 'novedades'])
+                ->middleware('permiso:portal.loyalty.ver');
+            Route::get('/puntos', [PortalLoyaltyController::class, 'puntos'])
+                ->middleware('permiso:portal.loyalty.ver');
+            Route::get('/premios', [PortalLoyaltyController::class, 'premios'])
+                ->middleware('permiso:portal.loyalty.ver');
+            Route::get('/canjes', [PortalLoyaltyController::class, 'canjesIndex'])
+                ->middleware('permiso:portal.loyalty.ver');
+            Route::post('/canjes', [PortalLoyaltyController::class, 'canjesStore'])
+                ->middleware('permiso:portal.loyalty.canjear');
+            Route::get('/planes-upsell', [PortalLoyaltyController::class, 'planesUpsell'])
+                ->middleware('permiso:portal.loyalty.ver');
+            Route::post('/solicitud-cambio-plan', [PortalLoyaltyController::class, 'solicitudCambioPlan'])
+                ->middleware('permiso:portal.loyalty.upsell');
+
+            // Home Interplus Clientes 3.2 (feature flags + Fase 3)
+            Route::prefix('v1')->group(function () {
+                Route::get('/feature-flags', [PortalV1Controller::class, 'featureFlags']);
+                Route::get('/insights', [PortalV1Controller::class, 'insights'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::get('/referidos', [PortalV1Controller::class, 'referidos'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::post('/referidos/canjear', [PortalV1Controller::class, 'referidosCanjear'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::get('/pago-online', [PortalV1Controller::class, 'pagoOnline'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::get('/faqs', [PortalV1Controller::class, 'faqs'])
+                    ->middleware('permiso:portal.cuenta.ver');
+            });
         });
 
         // Personal / staff
@@ -61,23 +98,80 @@ Route::prefix('v1')->group(function () {
             Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
                 ->middleware('permiso:dashboard.ver');
 
-            Route::middleware('permiso:clientes.ver')->prefix('staff')->group(function () {
+            Route::middleware('permiso:solicitudes-acceso.ver')->prefix('staff')->group(function () {
                 Route::get('/solicitudes', [SolicitudAccesoController::class, 'index']);
                 Route::get('/solicitudes/{id}', [SolicitudAccesoController::class, 'show'])
                     ->whereNumber('id');
+                Route::get('/clientes/resumen', [SolicitudAccesoController::class, 'clientesResumen']);
                 Route::get('/clientes/buscar', [SolicitudAccesoController::class, 'buscarClientes']);
             });
             Route::post('/staff/solicitudes/{id}/aprobar', [SolicitudAccesoController::class, 'aprobar'])
                 ->whereNumber('id')
-                ->middleware('permiso:clientes.editar');
+                ->middleware('permiso:solicitudes-acceso.editar');
             Route::post('/staff/solicitudes/{id}/rechazar', [SolicitudAccesoController::class, 'rechazar'])
                 ->whereNumber('id')
-                ->middleware('permiso:clientes.editar');
+                ->middleware('permiso:solicitudes-acceso.editar');
 
             Route::post('/staff/save-push-token', [AuthController::class, 'savePushToken']);
 
             Route::get('/staff/auditoria', [SolicitudAccesoController::class, 'auditoria'])
                 ->middleware('admin');
+
+            // Flota GPS + visitas (app ISP Staff)
+            Route::post('/staff/ubicacion', [StaffUbicacionController::class, 'store']);
+            Route::get('/staff/ubicaciones', [StaffUbicacionController::class, 'index']);
+            Route::get('/staff/ubicaciones/stream', [StaffUbicacionController::class, 'stream']);
+            Route::get('/staff/visitas', [StaffVisitaController::class, 'index'])
+                ->middleware('permiso:tickets.ver');
+            Route::get('/staff/visitas/{id}', [StaffVisitaController::class, 'show'])
+                ->whereNumber('id')
+                ->middleware('permiso:tickets.ver');
+            Route::post('/staff/visitas/{id}/actualizar', [StaffVisitaController::class, 'actualizar'])
+                ->whereNumber('id')
+                ->middleware('permiso:tickets.crear');
+            Route::post('/staff/visitas/{id}/estado', [StaffVisitaController::class, 'actualizar'])
+                ->whereNumber('id')
+                ->middleware('permiso:tickets.crear');
+            Route::patch('/staff/visitas/{id}', [StaffVisitaController::class, 'actualizar'])
+                ->whereNumber('id')
+                ->middleware('permiso:tickets.crear');
+
+            // Config runtime (Maps JS key, etc.) — app Staff WebView
+            Route::get('/staff/config/maps', [StaffConfigController::class, 'maps']);
+            Route::get('/staff/config', [StaffConfigController::class, 'index']);
+
+            // Pedidos de instalación (mismo proceso que web /pedidos)
+            Route::get('/staff/me', [StaffPedidoInstalacionController::class, 'me']);
+            Route::get('/staff/pedidos-instalacion', [StaffPedidoInstalacionController::class, 'index'])
+                ->middleware('permiso:pedidos.ver');
+            Route::get('/staff/pedidos-instalacion/opciones-aprobacion', [StaffPedidoInstalacionController::class, 'opcionesAprobacion'])
+                ->middleware('permiso:pedidos.editar');
+            Route::get('/staff/pedidos-instalacion/nodos/{nodoId}/opciones', [StaffPedidoInstalacionController::class, 'opcionesNodo'])
+                ->whereNumber('nodoId')
+                ->middleware('permiso:pedidos.editar');
+            Route::get('/staff/pedidos-instalacion/{id}', [StaffPedidoInstalacionController::class, 'show'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.ver');
+            Route::post('/staff/pedidos-instalacion', [StaffPedidoInstalacionController::class, 'store'])
+                ->middleware('permiso:pedidos.crear');
+            Route::post('/staff/pedidos-instalacion/{id}/actualizar', [StaffPedidoInstalacionController::class, 'actualizar'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.editar');
+            Route::post('/staff/pedidos-instalacion/{id}/aprobar-estado', [StaffPedidoInstalacionController::class, 'aprobarEstado'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.editar');
+            Route::post('/staff/pedidos-instalacion/{id}/descartar-estado', [StaffPedidoInstalacionController::class, 'descartarEstado'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.editar');
+            Route::post('/staff/pedidos-instalacion/{id}/reabrir-estado', [StaffPedidoInstalacionController::class, 'reabrirEstado'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.editar');
+            Route::post('/staff/pedidos-instalacion/{id}/finalizar', [StaffPedidoInstalacionController::class, 'finalizar'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.finalizar');
+            Route::post('/staff/pedidos-instalacion/{id}/pppoe/generar', [StaffPedidoInstalacionController::class, 'generarPppoe'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.editar');
 
             Route::middleware('permiso:clientes.ver')->group(function () {
                 Route::get('/clientes/buscar', [ClienteController::class, 'buscar']);

@@ -36,7 +36,10 @@ return [
     ],
 
     'google' => [
+        /** Maps JavaScript API — panel web + app Staff (WebView). */
         'maps_key' => env('GOOGLE_MAPS_API_KEY'),
+        /** Opcional: Cloud-based map styling (Map ID). */
+        'maps_map_id' => env('GOOGLE_MAPS_MAP_ID'),
     ],
 
     /*

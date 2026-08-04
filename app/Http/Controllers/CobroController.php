@@ -306,30 +306,10 @@ class CobroController extends Controller
         }
 
         $montoTotal = (float) $validated['monto'];
-        $totalSaldo = $facturas->sum(fn (FacturaInterna $f) => $f->saldo_pendiente);
         $usuarioId = $request->user()?->usuario_id;
 
-        $montos = [];
-        $acum = 0;
-        $n = $facturas->count();
-        foreach ($facturas as $i => $f) {
-            $saldo = (float) $f->saldo_pendiente;
-            if ($i === $n - 1) {
-                $montos[] = round($montoTotal - $acum, 2);
-            } else {
-                $m = round($montoTotal * ($saldo / $totalSaldo), 2);
-                $montos[] = $m;
-                $acum += $m;
-            }
-        }
-
-        $items = [];
-        foreach ($facturas as $i => $factura) {
-            $monto = $montos[$i];
-            if ($monto > 0) {
-                $items[] = ['id' => $factura->id, 'monto' => $monto];
-            }
-        }
+        // FIFO: cobrir primero la factura más antigua (no prorratear parciales)
+        $items = $this->facturacionService->distribuirMontoEntreFacturasFifo($facturas, $montoTotal);
 
         if (empty($items)) {
             return redirect()->back()->withInput()->with('error', 'No se pudo distribuir el monto entre las facturas.');
@@ -351,7 +331,7 @@ class CobroController extends Controller
     }
 
     /**
-     * Formulario multicobro: facturas internas seleccionadas, monto total se reparte proporcional al saldo.
+     * Formulario multicobro: facturas internas seleccionadas; el monto se aplica FIFO (factura más antigua primero).
      */
     public function multicobro(Request $request)
     {
@@ -429,41 +409,22 @@ class CobroController extends Controller
         }
 
         $usuarioId = $request->user()?->usuario_id;
-        $facturasPorCliente = $facturas->groupBy('cliente_id');
+
+        // FIFO global: primero facturas más antiguas; luego agrupar por cliente para el recibo
+        $itemsFifo = $this->facturacionService->distribuirMontoEntreFacturasFifo($facturas, $montoTotal);
+        $itemsPorCliente = [];
+        foreach ($itemsFifo as $item) {
+            $factura = $facturas->firstWhere('id', $item['id']);
+            if (! $factura) {
+                continue;
+            }
+            $itemsPorCliente[$factura->cliente_id][] = $item;
+        }
 
         $cobrosCreados = [];
         $avisosMikrotik = [];
 
-        foreach ($facturasPorCliente as $clienteId => $facturasCliente) {
-            $facturasCliente = $facturasCliente->values();
-            $saldoCliente = $facturasCliente->sum(fn (FacturaInterna $f) => $f->saldo_pendiente);
-            $montoCliente = round($montoTotal * ($saldoCliente / $totalSaldo), 2);
-            if ($montoCliente <= 0) {
-                continue;
-            }
-
-            $montos = [];
-            $acum = 0;
-            $n = $facturasCliente->count();
-            foreach ($facturasCliente as $i => $f) {
-                $saldo = (float) $f->saldo_pendiente;
-                if ($i === $n - 1) {
-                    $montos[] = round($montoCliente - $acum, 2);
-                } else {
-                    $m = round($montoCliente * ($saldo / $saldoCliente), 2);
-                    $montos[] = $m;
-                    $acum += $m;
-                }
-            }
-
-            $items = [];
-            foreach ($facturasCliente as $i => $factura) {
-                $monto = $montos[$i];
-                if ($monto > 0) {
-                    $items[] = ['id' => $factura->id, 'monto' => $monto];
-                }
-            }
-
+        foreach ($itemsPorCliente as $clienteId => $items) {
             if (empty($items)) {
                 continue;
             }
@@ -710,6 +671,37 @@ class CobroController extends Controller
     }
 
     /**
+     * Enviar recibo de pago al WhatsApp (número del cliente u otro ingresado).
+     */
+    public function enviarWhatsApp(Request $request, Cobro $cobro, \App\Services\WhatsApp\WhatsAppOutboundNotifier $notifier)
+    {
+        $validated = $request->validate([
+            'destino' => ['required', 'in:registrado,otro'],
+            'telefono' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $override = null;
+        if ($validated['destino'] === 'otro') {
+            $override = trim((string) ($validated['telefono'] ?? ''));
+            if ($override === '') {
+                return redirect()
+                    ->route('cobros.show', $cobro)
+                    ->with('error', 'Ingresá el número de WhatsApp de destino.');
+            }
+        } elseif (! filled($cobro->cliente?->telefono)) {
+            return redirect()
+                ->route('cobros.show', $cobro)
+                ->with('error', 'El cliente no tiene teléfono registrado. Elegí «Otro número».');
+        }
+
+        $result = $notifier->reciboPago($cobro, forzar: true, telefonoOverride: $override);
+
+        return redirect()
+            ->route('cobros.show', $cobro)
+            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
      * Descargar recibo en PDF (mismo contenido que la vista de impresión).
      */
     public function reciboPdf(Cobro $cobro)
@@ -720,6 +712,36 @@ class CobroController extends Controller
             abort(403, 'No podés descargar este recibo.');
         }
 
+        return $this->streamReciboPdf($cobro);
+    }
+
+    /**
+     * Descarga pública del recibo (sin autenticación). Protegida con token HMAC.
+     * Usada por el botón "Descargar Recibo" de la plantilla WhatsApp.
+     *
+     * $cobro puede venir como "3857" o "{{1}}3857" (plantilla Meta con {{1}} literal mal cargado).
+     */
+    public function reciboPdfPublico(string $cobro, string $token)
+    {
+        $id = (int) preg_replace('/^\{\{1\}\}/', '', rawurldecode($cobro));
+        if ($id < 1) {
+            abort(404);
+        }
+
+        $cobroModel = Cobro::query()->findOrFail($id);
+
+        if (! $cobroModel->tokenPublicoValido($token)) {
+            abort(403, 'Enlace de recibo inválido o expirado.');
+        }
+
+        return $this->streamReciboPdf($cobroModel);
+    }
+
+    /**
+     * @return \Illuminate\Http\Response
+     */
+    private function streamReciboPdf(Cobro $cobro)
+    {
         $cobro->load(['cliente.servicios', 'facturaInternas', 'usuario']);
         $ajustes = \App\Models\AjustesGenerales::obtener();
 

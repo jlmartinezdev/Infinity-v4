@@ -1,19 +1,22 @@
 @extends('layouts.app')
 
-@section('title', 'WhatsApp · Mensajes')
+@section('title', 'WhatsApp - Mensajes')
 
 @section('content')
-<div class="max-w-6xl mx-auto">
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">WhatsApp</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Conversaciones agrupadas por número</p>
+@include('partials.whatsapp-chat-theme')
+<div class="mx-auto max-w-[1400px]">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">WhatsApp</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Conversaciones agrupadas por numero</p>
+        </div>
     </div>
 
     @include('whatsapp._tabs', ['waTab' => 'mensajes'])
 
-    <div id="whatsapp-mensajes-app">
-        <div class="rounded-2xl border border-gray-200/80 bg-white p-10 text-center text-sm text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            Cargando chat…
+    <div id="whatsapp-mensajes-app" class="mt-3">
+        <div class="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-xl dark:border-[#2a3942] dark:bg-[#111b21] dark:text-[#8696a0]">
+            Cargando chat...
         </div>
     </div>
 </div>
@@ -24,6 +27,10 @@
         'buscarInicial' => $buscarInicial,
         'configured' => $configured,
         'puedeEditar' => $puedeEditar,
+        'puedeCrearTicket' => $puedeCrearTicket ?? false,
+        'puedeCrearPedido' => $puedeCrearPedido ?? false,
+        'puedeCrearCobro' => $puedeCrearCobro ?? false,
+        'pedidoFormConfig' => $pedidoFormConfig ?? null,
         'urls' => $urls,
         'flash' => $flash ?? ['success' => null, 'error' => null],
     ];

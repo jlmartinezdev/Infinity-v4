@@ -248,6 +248,8 @@ const props = defineProps({
   cancelUrl: { type: String, required: true },
   csrfToken: { type: String, required: true },
   modalMode: { type: Boolean, default: false },
+  /** Prefill desde WhatsApp u otro contexto */
+  initialValues: { type: Object, default: null },
 });
 
 const currentStep = ref(1);
@@ -275,6 +277,19 @@ const formData = ref({
   observaciones: '',
   fecha_pedido: new Date().toISOString().split('T')[0],
 });
+
+if (props.initialValues && typeof props.initialValues === 'object') {
+  const iv = props.initialValues;
+  const keys = [
+    'cedula', 'cliente_id', 'nombre', 'apellido', 'telefono', 'ubicacion',
+    'maps_gps', 'lat', 'lon', 'plan_id', 'prioridad_instalacion', 'observaciones', 'fecha_pedido',
+  ];
+  for (const k of keys) {
+    if (iv[k] !== undefined && iv[k] !== null && iv[k] !== '') {
+      formData.value[k] = iv[k];
+    }
+  }
+}
 
 const limpiarTelefonoAsociacion = () => {
   telefonoAsociacion.value = null;
@@ -493,12 +508,14 @@ const submitForm = async () => {
   };
 
   try {
-    const response = await window.axios.post(props.submitUrl, dataToSubmit);
+    const response = await window.axios.post(props.submitUrl, dataToSubmit, {
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    });
 
     // Si la respuesta es exitosa
-    if (response.status === 200 || response.status === 201 || response.data?.redirect) {
+    if (response.status === 200 || response.status === 201 || response.data?.redirect || response.data?.success) {
       if (props.modalMode) {
-        window.dispatchEvent(new CustomEvent('pedido-created'));
+        window.dispatchEvent(new CustomEvent('pedido-created', { detail: response.data || {} }));
       } else {
         window.location.href = props.cancelUrl;
       }
@@ -510,12 +527,14 @@ const submitForm = async () => {
   } catch (error) {
     console.error('Error al guardar pedido:', error);
     if (error.response?.status === 422) {
-      const errors = error.response.data.errors;
-      const errorMessages = Object.values(errors).flat().join('\n');
-      alert('Error de validación:\n' + errorMessages);
+      const errors = error.response.data.errors || {};
+      const msg = error.response.data.message
+        || Object.values(errors).flat().join('\n')
+        || 'Datos inválidos';
+      alert('Error de validación:\n' + msg);
     } else if (error.response?.status === 302 || error.response?.status === 200) {
       if (props.modalMode) {
-        window.dispatchEvent(new CustomEvent('pedido-created'));
+        window.dispatchEvent(new CustomEvent('pedido-created', { detail: error.response?.data || {} }));
       } else {
         window.location.href = props.cancelUrl;
       }

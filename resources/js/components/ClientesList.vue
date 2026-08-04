@@ -319,6 +319,19 @@
         </tbody>
       </table>
     </div>
+
+    <button
+      v-show="mostrarSubir"
+      type="button"
+      class="fixed bottom-6 right-6 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg ring-1 ring-black/5 transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+      title="Subir arriba"
+      aria-label="Subir arriba"
+      @click="subirArriba"
+    >
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+      </svg>
+    </button>
   </div>
 
   <!-- Modal buscar temp -->
@@ -499,6 +512,17 @@ const modalRucError = ref('');
 const modalRucCliente = ref(null);
 const modalRucTermino = ref('');
 const modalRucMensaje = ref('');
+
+const mostrarSubir = ref(false);
+const UMBRAL_SCROLL_SUBIR = 320;
+
+function actualizarBotonSubir() {
+  mostrarSubir.value = window.scrollY > UMBRAL_SCROLL_SUBIR;
+}
+
+function subirArriba() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 const consultaRucLoadingId = ref(null);
 const menuAccionesAbiertoId = ref(null);
 
@@ -549,10 +573,13 @@ function eliminarCliente(cliente) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutsideMenuAcciones);
+  window.addEventListener('scroll', actualizarBotonSubir, { passive: true });
+  actualizarBotonSubir();
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutsideMenuAcciones);
+  window.removeEventListener('scroll', actualizarBotonSubir);
 });
 
 function toggle(clienteId) {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Staff\StaffPedidoInstalacionService;
 use Illuminate\Http\JsonResponse;
 
 class ApiController extends Controller
@@ -49,7 +50,11 @@ class ApiController extends Controller
                 'rol_id' => $user->rol->rol_id,
                 'descripcion' => $user->rol->descripcion,
             ] : null,
+            // Lista legacy (checkboxes Infinity). Flags tipados para app ISP Staff.
             'permisos' => is_array($user->permisos) ? $user->permisos : [],
+            'permisos_flags' => $user->esClientePortal()
+                ? []
+                : StaffPedidoInstalacionService::permisosFlags($user),
             'es_administrador' => $user->esAdministrador(),
             'cliente' => $user->cliente ? [
                 'cliente_id' => $user->cliente->cliente_id,

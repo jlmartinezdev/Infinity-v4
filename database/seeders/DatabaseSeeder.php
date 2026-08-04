@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         // Seed roles primero
         $this->call(RoleSeeder::class);
         $this->call(PermisoSeeder::class);
+        $this->call(LoyaltyReglaSeeder::class);
         $this->call(ImpuestoSeeder::class);
         $this->call(InventarioSeeder::class);
         $this->call(OltMarcaSeeder::class);

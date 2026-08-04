@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permiso' => \App\Http\Middleware\CheckPermiso::class,
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'flota.staff' => \App\Http\Middleware\EnsurePuedeVerFlotaStaff::class,
             'api.staff' => \App\Http\Middleware\EnsureStaffApi::class,
             'api.cliente' => \App\Http\Middleware\EnsureClientePortalApi::class,
         ]);
@@ -99,6 +100,16 @@ return Application::configure(basePath: dirname(__DIR__))
             ->before(function () {
                 Log::info('Tarea iniciado: fcm:avisar-facturas-por-vencer');
             });
+
+        // Backup BD → Google Drive (diario 02:30)
+        if (config('backup.drive.enabled')) {
+            $schedule->command('backup:drive')
+                ->dailyAt('02:30')
+                ->withoutOverlapping()
+                ->before(function () {
+                    Log::info('Tarea iniciado: backup:drive');
+                });
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {

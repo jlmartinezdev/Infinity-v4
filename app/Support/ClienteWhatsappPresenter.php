@@ -37,19 +37,25 @@ class ClienteWhatsappPresenter
             ->limit(200)
             ->get();
 
-        if ($mensajes->isEmpty()) {
-            return ['tiene' => false];
-        }
-
         $canMedia = $user?->tienePermiso('whatsapp.ver') ?? false;
-        $telefono = (string) ($mensajes->last()->telefono ?? $telefonos[0] ?? '');
+        $canEdit = $user?->tienePermiso('whatsapp.editar') ?? false;
+        $telefono = (string) ($mensajes->last()?->telefono ?? $telefonos[0] ?? '');
+
+        $ultimaEntrada = $mensajes->last(fn (WhatsappMensaje $m) => $m->esEntrada());
+        $fueraVentana = ! $ultimaEntrada
+            || ($ultimaEntrada->created_at && $ultimaEntrada->created_at->lt(now()->subHours(24)));
 
         return [
-            'tiene' => true,
+            'tiene' => $mensajes->isNotEmpty() || $telefono !== '',
             'telefono' => $telefono !== '' ? $telefono : null,
             'total' => $mensajes->count(),
+            'fuera_ventana' => $fueraVentana,
+            'puede_enviar' => $canEdit && $telefono !== '',
             'chat_url' => $canMedia && $telefono !== ''
                 ? route('whatsapp.mensajes', ['tel' => $telefono])
+                : null,
+            'plantilla_url' => $canEdit && $telefono !== ''
+                ? route('whatsapp.enviar', ['telefono' => $telefono])
                 : null,
             'mensajes' => $mensajes
                 ->map(fn (WhatsappMensaje $m) => $this->formatMensaje($m, $canMedia))

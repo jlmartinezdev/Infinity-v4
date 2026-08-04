@@ -10,10 +10,11 @@ class CheckPermiso
 {
     /**
      * Comprueba que el usuario autenticado tenga el permiso indicado.
+     * Si se pasan varios (ej. permiso:a.ver,b.ver), basta con uno (OR).
      *
-     * @param  string  $permiso  Código del permiso (ej: clientes.ver, usuarios.editar)
+     * @param  string  ...$permisos  Códigos (ej: clientes.ver, loyalty-premios.ver)
      */
-    public function handle(Request $request, Closure $next, string $permiso): Response
+    public function handle(Request $request, Closure $next, string ...$permisos): Response
     {
         if (! $request->user()) {
             if ($request->expectsJson() || $request->is('api/*')) {
@@ -25,7 +26,16 @@ class CheckPermiso
 
             return redirect()->route('login');
         }
-        if (! $request->user()->tienePermiso($permiso)) {
+
+        $ok = false;
+        foreach ($permisos as $permiso) {
+            if ($permiso !== '' && $request->user()->tienePermiso($permiso)) {
+                $ok = true;
+                break;
+            }
+        }
+
+        if (! $ok) {
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([
                     'success' => false,

@@ -292,7 +292,15 @@ const toggleDesktop = () => {
   desktopExpanded.value = !desktopExpanded.value;
   saveDesktopExpanded(desktopExpanded.value);
   emit('update:desktopExpanded', desktopExpanded.value);
+  notifyDesktopChange();
 };
+
+function notifyDesktopChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('sidebar-desktop-change', {
+    detail: { expanded: desktopExpanded.value },
+  }));
+}
 
 function closeSidebar() {
   if (props.isOpen !== null && props.isOpen !== undefined) emit('toggle-sidebar');
@@ -319,6 +327,7 @@ const CubeIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 
 const TvIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>` };
 const BoltIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>` };
 const ChatIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>` };
+const MapIcon = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>` };
 
 const iconMap = {
   home: HomeIcon,
@@ -335,6 +344,7 @@ const iconMap = {
   tv: TvIcon,
   bolt: BoltIcon,
   chat: ChatIcon,
+  map: MapIcon,
 };
 
 function iconComponent(icon) {
@@ -426,6 +436,7 @@ function restoreNavScroll() {
 
 onMounted(() => {
   window.addEventListener('toggle-sidebar', onToggleSidebar);
+  notifyDesktopChange();
   setTimeout(restoreNavScroll, 100);
 });
 

@@ -875,6 +875,38 @@ const selectedIds = ref([]);
 
 const selectedCount = computed(() => selectedIds.value.length);
 
+function normalizarTexto(valor) {
+  return (valor || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function coincideBusquedaServicio(servicio, termino) {
+  if (!termino) return true;
+  const tokens = normalizarTexto(termino).split(' ').filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  const textoServicio = normalizarTexto([
+    servicio.cliente?.nombre,
+    servicio.cliente?.apellido,
+    servicio.cliente?.cedula,
+    servicio.ip,
+    servicio.usuario_pppoe,
+    servicio.plan?.nombre,
+    servicio.pool?.router?.nombre,
+    servicio.pool?.router?.nodo?.descripcion,
+    servicio.servicio_id,
+  ].filter(Boolean).join(' '));
+
+  return tokens.every((token) => textoServicio.includes(token));
+}
+
 const serviciosFiltrados = computed(() => {
   let list = serviciosList.value;
   const { buscar, cliente_id, nodo_id, estado, estado_pago, app_tv, fecha_desde, fecha_hasta } = filtros.value;
@@ -889,17 +921,7 @@ const serviciosFiltrados = computed(() => {
     });
   }
   if (buscar && buscar.trim()) {
-    const q = buscar.trim().toLowerCase();
-    list = list.filter(s => {
-      const ip = (s.ip || '').toLowerCase();
-      const pppoe = (s.usuario_pppoe || '').toLowerCase();
-      const cedula = String(s.cliente?.cedula ?? '').toLowerCase();
-      const nombre = (s.cliente?.nombre ?? '').toLowerCase();
-      const apellido = (s.cliente?.apellido ?? '').toLowerCase();
-      const planNombre = (s.plan?.nombre ?? '').toLowerCase();
-      return ip.includes(q) || pppoe.includes(q) || cedula.includes(q) ||
-        nombre.includes(q) || apellido.includes(q) || planNombre.includes(q);
-    });
+    list = list.filter(s => coincideBusquedaServicio(s, buscar));
   }
   if (cliente_id) {
     list = list.filter(s => String(s.cliente?.cliente_id) === String(cliente_id));

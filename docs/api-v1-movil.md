@@ -545,6 +545,13 @@ El backend envía a FCM **HTTP v1** un payload con bloque **`notification`** (ob
 | GET | `/staff/clientes/buscar?q=` (mín. 3 chars) | `clientes.ver` |
 | POST | `/staff/save-push-token` | staff autenticado |
 | GET | `/staff/auditoria` | Administrador |
+| POST | `/staff/ubicacion` | staff autenticado (GPS flota) |
+| GET | `/staff/ubicaciones` | admin / gerente |
+| GET | `/staff/ubicaciones/stream` | admin / gerente (SSE) |
+| GET | `/staff/visitas` | `tickets.ver` |
+| GET | `/staff/visitas/{id}` | `tickets.ver` |
+
+Documentación detallada de flota: [API_STAFF_FLOTA.md](./API_STAFF_FLOTA.md).
 
 `status` aliases: `pendientes` (default) → `pendiente`; `aprobado` → `aprobada`; `historial` → todas.
 

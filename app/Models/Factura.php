@@ -84,7 +84,23 @@ class Factura extends Model
     {
         return $this->estado === 'borrador'
             && filled($this->set_nro_lote)
-            && in_array($this->set_estado_envio, ['en_proceso', 'pendiente'], true);
+            && in_array($this->set_estado_envio, ['en_proceso', 'pendiente', 'consultando'], true);
+    }
+
+    public function enColaSifen(): bool
+    {
+        return $this->estado === 'borrador'
+            && in_array($this->set_estado_envio, ['en_cola', 'consultando'], true);
+    }
+
+    /**
+     * KuDE imprimible con CDC/QR ya generados (autorizada o lote pendiente de aprobación).
+     */
+    public function puedeImprimirKude(): bool
+    {
+        return filled($this->set_cdc)
+            && filled($this->set_qr_url)
+            && in_array($this->set_estado_envio, ['en_proceso', 'pendiente', 'consultando', 'autorizado'], true);
     }
 
     public function scopeLotePendienteSifen($query)
@@ -92,7 +108,7 @@ class Factura extends Model
         return $query->where('estado', 'borrador')
             ->whereNotNull('set_nro_lote')
             ->where('set_nro_lote', '!=', '')
-            ->whereIn('set_estado_envio', ['en_proceso', 'pendiente']);
+            ->whereIn('set_estado_envio', ['en_proceso', 'pendiente', 'consultando']);
     }
 
     public function receptorNombreCompleto(): string

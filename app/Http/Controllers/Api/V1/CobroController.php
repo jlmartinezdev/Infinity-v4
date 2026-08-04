@@ -78,26 +78,9 @@ class CobroController extends ApiController
                 return $this->fail('Ninguna factura seleccionada tiene saldo pendiente.', 422);
             }
 
-            $totalSaldo = $facturas->sum(fn (FacturaInterna $f) => $f->saldo_pendiente);
-            $montos = [];
-            $acum = 0;
-            $n = $facturas->count();
-            foreach ($facturas as $i => $f) {
-                $saldo = (float) $f->saldo_pendiente;
-                if ($i === $n - 1) {
-                    $montos[] = round($monto - $acum, 2);
-                } else {
-                    $m = round($monto * ($saldo / $totalSaldo), 2);
-                    $montos[] = $m;
-                    $acum += $m;
-                }
-            }
-
-            $items = [];
-            foreach ($facturas as $i => $factura) {
-                if ($montos[$i] > 0) {
-                    $items[] = ['id' => $factura->id, 'monto' => $montos[$i]];
-                }
+            $items = $this->facturacionService->distribuirMontoEntreFacturasFifo($facturas, $monto);
+            if ($items === []) {
+                return $this->fail('No se pudo distribuir el monto entre las facturas.', 422);
             }
 
             $cobro = $this->facturacionService->registrarCobro([

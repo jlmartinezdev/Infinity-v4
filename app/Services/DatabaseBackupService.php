@@ -8,6 +8,10 @@ use Symfony\Component\Process\Process;
 
 class DatabaseBackupService
 {
+    public function __construct(
+        protected GoogleDriveUploader $driveUploader
+    ) {}
+
     /**
      * @return array{driver: string, label: string, database: string|null}
      */
@@ -87,6 +91,76 @@ class DatabaseBackupService
         }
 
         throw new \RuntimeException('El driver de base de datos actual no admite backup desde esta pantalla.');
+    }
+
+    /**
+     * Genera el backup en un archivo temporal bajo storage/app/backups.
+     *
+     * @return array{path: string, filename: string, delete_after: bool}
+     */
+    public function crearArchivoTemporal(): array
+    {
+        $dir = storage_path('app/backups');
+        File::ensureDirectoryExists($dir);
+
+        $filename = $this->suggestedFilename();
+        $prepared = $this->prepareBackup();
+
+        if ($prepared['type'] === 'sql') {
+            $path = $dir.DIRECTORY_SEPARATOR.$filename;
+            File::put($path, $prepared['content'] ?? '');
+
+            return [
+                'path' => $path,
+                'filename' => $filename,
+                'delete_after' => true,
+            ];
+        }
+
+        $source = $prepared['path'] ?? '';
+        $path = $dir.DIRECTORY_SEPARATOR.$filename;
+        if (! File::copy($source, $path)) {
+            throw new \RuntimeException('No se pudo copiar el archivo SQLite para backup.');
+        }
+
+        return [
+            'path' => $path,
+            'filename' => $filename,
+            'delete_after' => true,
+        ];
+    }
+
+    /**
+     * @return array{filename: string, drive_id: string, webViewLink: ?string, pruned: int}
+     */
+    public function subirADrive(): array
+    {
+        if (! $this->driveUploader->isConfigured()) {
+            throw new \RuntimeException('Google Drive no está configurado (enabled, refresh token, folder id).');
+        }
+
+        $temp = $this->crearArchivoTemporal();
+
+        try {
+            $mime = str_ends_with(strtolower($temp['filename']), '.sql')
+                ? 'application/sql'
+                : 'application/octet-stream';
+
+            $uploaded = $this->driveUploader->uploadFile($temp['path'], $temp['filename'], $mime);
+            $prefix = Str::slug(config('app.name', 'backup')).'-';
+            $pruned = $this->driveUploader->pruneOldBackups($prefix);
+
+            return [
+                'filename' => $temp['filename'],
+                'drive_id' => $uploaded['id'],
+                'webViewLink' => $uploaded['webViewLink'] ?? null,
+                'pruned' => $pruned,
+            ];
+        } finally {
+            if (($temp['delete_after'] ?? false) && File::isFile($temp['path'])) {
+                File::delete($temp['path']);
+            }
+        }
     }
 
     /**

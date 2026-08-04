@@ -145,14 +145,15 @@ class MikroTikService
      * @param  string|null  $localAddress  IP loopback del router (local-address)
      * @param  string|null  $comment  comentario (ej: nombre del cliente)
      */
-    public function addPppoeSecret(Router $router, string $name, string $password, ?string $remoteAddress = null, ?string $profile = null, ?string $localAddress = null, ?string $comment = null): array
+    public function addPppoeSecret(Router $router, string $name, string $password, ?string $remoteAddress = null, ?string $profile = null, ?string $localAddress = null, ?string $comment = null, bool $disabled = false): array
     {
-        Log::info('[MikroTik] addPppoeSecret: iniciando', ['router' => $router->ip, 'name' => $name]);
+        Log::info('[MikroTik] addPppoeSecret: iniciando', ['router' => $router->ip, 'name' => $name, 'disabled' => $disabled]);
         $client = $this->connect($router);
         $query = (new Query('/ppp/secret/add'))
             ->equal('name', $name)
             ->equal('password', $password)
-            ->equal('service', 'pppoe');
+            ->equal('service', 'pppoe')
+            ->equal('disabled', $disabled ? 'yes' : 'no');
         if ($remoteAddress !== null && $remoteAddress !== '') {
             $query->equal('remote-address', $remoteAddress);
         }
@@ -370,8 +371,9 @@ class MikroTikService
 
     /**
      * Sincroniza usuarios PPPoE desde la base de datos al router: servicios activos
-     * del router (por pool) se añaden o actualizan; usuarios que ya no están en BD
-     * se pueden eliminar opcionalmente.
+     * y suspendidos del router (por pool) se añaden o actualizan; los suspendidos
+     * quedan con disabled=yes. Usuarios que ya no están en BD se pueden eliminar
+     * opcionalmente.
      */
     public function syncPppoeFromDatabase(Router $router, bool $removeOrphans = false): array
     {
@@ -380,13 +382,15 @@ class MikroTikService
         $removed = 0;
         $errors = [];
 
-        $servicios = $this->serviciosPppoeActivosDelRouter($router);
+        $servicios = $this->serviciosPppoeDelRouter($router);
         $usernamesFromDb = [];
 
         Log::info('[MikroTik] syncPppoeFromDatabase: iniciando', [
             'router' => $router->ip,
             'router_id' => $router->router_id,
             'servicios_count' => $servicios->count(),
+            'activos' => $servicios->where('estado', Servicio::ESTADO_ACTIVO)->count(),
+            'suspendidos' => $servicios->where('estado', Servicio::ESTADO_SUSPENDIDO)->count(),
         ]);
 
         foreach ($servicios as $servicio) {
@@ -436,7 +440,7 @@ class MikroTikService
             })->count();
             $message = $poolCount === 0
                 ? 'Este router no tiene pools de IP activos. Creá pools en Sistema → Pools de IP.'
-                : 'No hay servicios activos con usuario PPPoE en los pools de este router.';
+                : 'No hay servicios activos/suspendidos con usuario PPPoE en los pools de este router.';
         }
 
         return [
@@ -477,8 +481,15 @@ class MikroTikService
         $remoteAddress = $servicio->ip ?: null;
         $localAddress = $router->ip_loopback ?: null;
         $nombreCliente = trim(($servicio->cliente?->nombre ?? '') . ' ' . ($servicio->cliente?->apellido ?? ''));
+        $disabled = $servicio->estado === Servicio::ESTADO_SUSPENDIDO
+            || $servicio->estado === Servicio::ESTADO_CORTADO;
 
-        Log::info('[MikroTik] syncPppoeServicio: iniciando', ['router' => $router->ip, 'usuario' => $servicio->usuario_pppoe]);
+        Log::info('[MikroTik] syncPppoeServicio: iniciando', [
+            'router' => $router->ip,
+            'usuario' => $servicio->usuario_pppoe,
+            'estado' => $servicio->estado,
+            'disabled' => $disabled,
+        ]);
 
         try {
             $existing = $this->getPppoeSecretByName($router, $servicio->usuario_pppoe);
@@ -503,7 +514,11 @@ class MikroTikService
 
         try {
             if ($existing) {
-                $attrs = ['profile' => $profileName, 'service' => 'pppoe', 'disabled' => 'no'];
+                $attrs = [
+                    'profile' => $profileName,
+                    'service' => 'pppoe',
+                    'disabled' => $disabled ? 'yes' : 'no',
+                ];
                 if ($localAddress !== null && $localAddress !== '') {
                     $attrs['local-address'] = $localAddress;
                 }
@@ -518,12 +533,25 @@ class MikroTikService
                 }
                 $this->setPppoeSecret($router, $existing['.id'], $attrs);
             } else {
-                $this->addPppoeSecret($router, $servicio->usuario_pppoe, $password, $remoteAddress, $profileName, $localAddress, $nombreCliente ?: null);
+                $this->addPppoeSecret(
+                    $router,
+                    $servicio->usuario_pppoe,
+                    $password,
+                    $remoteAddress,
+                    $profileName,
+                    $localAddress,
+                    $nombreCliente ?: null,
+                    $disabled,
+                );
             }
             if ($actualizarEstadoServicio) {
                 $servicio->update(['pppoe_synced' => now(), 'pppoe_status' => 'synced']);
             }
-            Log::info('[MikroTik] syncPppoeServicio: completado OK', ['router' => $router->ip, 'usuario' => $servicio->usuario_pppoe]);
+            Log::info('[MikroTik] syncPppoeServicio: completado OK', [
+                'router' => $router->ip,
+                'usuario' => $servicio->usuario_pppoe,
+                'disabled' => $disabled,
+            ]);
 
             return ['success' => true, 'action' => $existing ? 'updated' : 'added'];
         } catch (Throwable $e) {
@@ -779,6 +807,18 @@ class MikroTikService
      */
     public function serviciosPppoeActivosDelRouter(Router $router, ?array $poolIds = null): \Illuminate\Support\Collection
     {
+        return $this->serviciosPppoeDelRouter($router, $poolIds, [Servicio::ESTADO_ACTIVO]);
+    }
+
+    /**
+     * Servicios PPPoE del router (por defecto activos + suspendidos).
+     *
+     * @param  list<int|string>|null  $poolIds
+     * @param  list<string>|null  $estados
+     * @return \Illuminate\Support\Collection<int, Servicio>
+     */
+    public function serviciosPppoeDelRouter(Router $router, ?array $poolIds = null, ?array $estados = null): \Illuminate\Support\Collection
+    {
         $poolIds ??= $router->routerIpPools()
             ->where(function ($q) {
                 $q->where('activo', true)->orWhereNull('activo');
@@ -790,9 +830,11 @@ class MikroTikService
             return collect();
         }
 
+        $estados ??= [Servicio::ESTADO_ACTIVO, Servicio::ESTADO_SUSPENDIDO];
+
         return Servicio::with(['plan.perfilPppoe', 'pool', 'cliente'])
             ->whereIn('pool_id', $poolIds)
-            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->whereIn('estado', $estados)
             ->whereNotNull('usuario_pppoe')
             ->where('usuario_pppoe', '!=', '')
             ->orderBy('usuario_pppoe')

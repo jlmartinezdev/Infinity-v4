@@ -19,7 +19,7 @@
                 default => 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:ring-rose-800',
             };
             $esAdmin = $esAdmin ?? (auth()->user()?->esAdministrador() ?? false);
-            $puedeEditar = auth()->user()?->tienePermiso('clientes.editar') ?? false;
+            $puedeEditar = auth()->user()?->tienePermiso('solicitudes-acceso.editar') ?? false;
         @endphp
         <div class="flex flex-col items-stretch sm:items-end gap-2">
             <span class="inline-flex self-start sm:self-end rounded-full px-3 py-1 text-sm font-medium {{ $estadoClasses }}">
@@ -256,7 +256,7 @@
                 @endif
             </div>
 
-            @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && auth()->user()?->tienePermiso('clientes.editar'))
+            @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && auth()->user()?->tienePermiso('solicitudes-acceso.editar'))
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 space-y-3">
                     @if($solicitud->estado === 'pendiente_verificacion')
                         <p class="text-xs text-violet-700 dark:text-violet-300">

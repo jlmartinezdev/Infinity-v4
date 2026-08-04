@@ -191,6 +191,49 @@ class SolicitudAccesoController extends ApiController
     }
 
     /**
+     * GET /api/v1/staff/clientes/resumen
+     *
+     * Métricas para pantalla APP Clientes (staff).
+     */
+    public function clientesResumen()
+    {
+        // Mismo criterio que card "CLIENTES" del dashboard web: solo estado activo.
+        $totalClientes = Cliente::query()
+            ->where('estado', 'activo')
+            ->count();
+
+        // Acceso otorgado = mismas filas que GET /staff/auditoria (solicitudes aprobadas).
+        $conApp = SolicitudAcceso::query()
+            ->where('estado', SolicitudAcceso::ESTADO_APROBADA)
+            ->count();
+
+        // Misma lógica que auditoría filtrando app_activa.
+        $appActiva = SolicitudAcceso::query()
+            ->where('estado', SolicitudAcceso::ESTADO_APROBADA)
+            ->whereHas('cliente', fn ($q) => $q->where('app_activa', true))
+            ->count();
+
+        $solicitudesPendientes = SolicitudAcceso::query()
+            ->where('estado', SolicitudAcceso::ESTADO_PENDIENTE)
+            ->count();
+
+        return $this->ok([
+            'total_clientes' => $totalClientes,
+            'con_app' => $conApp,
+            'app_activa' => $appActiva,
+            'solicitudes_pendientes' => $solicitudesPendientes,
+            // Aliases aceptados por la app
+            'total' => $totalClientes,
+            'clientes_total' => $totalClientes,
+            'con_acceso' => $conApp,
+            'aprobados' => $conApp,
+            'activos' => $appActiva,
+            'solicitudes' => $solicitudesPendientes,
+            'pendientes' => $solicitudesPendientes,
+        ]);
+    }
+
+    /**
      * GET /api/v1/staff/clientes/buscar?q=
      */
     public function buscarClientes(Request $request)

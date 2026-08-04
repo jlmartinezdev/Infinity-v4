@@ -72,7 +72,7 @@ class User extends Authenticatable
      */
     public function getAuthPassword()
     {
-        return $this->contrasena;
+        return (string) ($this->contrasena ?? '');
     }
 
     /**
@@ -172,6 +172,40 @@ class User extends Authenticatable
     public function esAdministrador(): bool
     {
         return $this->rol && strtolower($this->rol->descripcion) === 'administrador';
+    }
+
+    /**
+     * Puede ver flota GPS de técnicos (app staff admin + panel web).
+     * Roles: admin, administrador, gerente — o permiso staff-mapa-tecnicos.ver.
+     */
+    public function puedeVerFlotaStaff(): bool
+    {
+        if ($this->esAdministrador()) {
+            return true;
+        }
+
+        if ($this->tienePermiso('staff-mapa-tecnicos.ver')) {
+            return true;
+        }
+
+        $rol = strtolower(trim((string) ($this->rol?->descripcion ?? '')));
+
+        return in_array($rol, ['admin', 'administrador', 'gerente'], true);
+    }
+
+    /**
+     * Ve todas las visitas staff (asignadas y sin asignar): admin / gerente / cajero.
+     * Técnicos solo ven las asignadas a ellos.
+     */
+    public function puedeVerTodasVisitasStaff(): bool
+    {
+        if ($this->puedeVerFlotaStaff()) {
+            return true;
+        }
+
+        $rol = strtolower(trim((string) ($this->rol?->descripcion ?? '')));
+
+        return in_array($rol, ['cajero', 'gerente', 'admin', 'administrador'], true);
     }
 
     /**

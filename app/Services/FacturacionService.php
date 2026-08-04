@@ -263,14 +263,7 @@ class FacturacionService
             }
 
             $this->aplicarSaldoAFavorEnFactura($factura, $servicios, $subtotal, $totalImpuestos, $total, $impuestoExento);
-
-            $factura->update([
-                'subtotal' => $subtotal,
-                'total_impuestos' => $totalImpuestos,
-                'total' => $total,
-            ]);
-
-            $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pendiente');
+            $this->finalizarTotalesTrasSaldoFavor($factura, $subtotal, $totalImpuestos, $total);
 
             return $factura->fresh(['detalles', 'cliente']);
         });
@@ -428,14 +421,7 @@ class FacturacionService
                 }
 
                 $this->aplicarSaldoAFavorEnFactura($factura, $serviciosCliente, $subtotal, $totalImpuestos, $total, $impuestoExento);
-
-                $factura->update([
-                    'subtotal' => $subtotal,
-                    'total_impuestos' => $totalImpuestos,
-                    'total' => $total,
-                ]);
-
-                $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pendiente');
+                $this->finalizarTotalesTrasSaldoFavor($factura, $subtotal, $totalImpuestos, $total);
 
                 return $factura->fresh(['detalles', 'cliente']);
             });
@@ -684,14 +670,28 @@ class FacturacionService
     }
 
     /**
-     * Aplica el saldo a favor de los servicios a la factura: añade línea de descuento y descuenta de los servicios.
-     * El monto se compara contra el total con IVA; el descuento reparte proporcionalmente subtotal e impuestos.
+     * Aplica el saldo a favor del cliente a la factura: línea de descuento y descuento en servicios.
+     * Usa saldo de todos los servicios del cliente (prioriza los de la factura).
      * Modifica $subtotal, $totalImpuestos y $total por referencia.
      */
     private function aplicarSaldoAFavorEnFactura(FacturaInterna $factura, $servicios, float &$subtotal, float &$totalImpuestos, float &$total, ?Impuesto $impuestoExento): void
     {
-        $saldoFavorTotal = $servicios->sum(fn (Servicio $s) => (float) ($s->saldo_a_favor ?? 0));
-        if ($saldoFavorTotal <= 0 || $total <= 0) {
+        if ($total <= 0) {
+            return;
+        }
+
+        $idsEnFactura = collect($servicios)->pluck('servicio_id')->filter()->flip();
+
+        $serviciosConSaldo = Servicio::query()
+            ->where('cliente_id', $factura->cliente_id)
+            ->where('saldo_a_favor', '>', 0)
+            ->orderBy('servicio_id')
+            ->get()
+            ->sortBy(fn (Servicio $s) => isset($idsEnFactura[$s->servicio_id]) ? 0 : 1)
+            ->values();
+
+        $saldoFavorTotal = round((float) $serviciosConSaldo->sum(fn (Servicio $s) => (float) ($s->saldo_a_favor ?? 0)), 2);
+        if ($saldoFavorTotal <= 0) {
             return;
         }
 
@@ -731,7 +731,7 @@ class FacturacionService
         $total = max(0, round($total - $montoAplicar, 2));
 
         $restante = $montoAplicar;
-        foreach ($servicios as $servicio) {
+        foreach ($serviciosConSaldo as $servicio) {
             if ($restante <= 0) {
                 break;
             }
@@ -744,6 +744,25 @@ class FacturacionService
             Servicio::where('servicio_id', $servicio->servicio_id)->decrement('saldo_a_favor', $aDeducir);
             $restante -= $aDeducir;
         }
+    }
+
+    /**
+     * Persiste totales tras aplicar saldo a favor; si el total queda en cero, marca la factura cobrada.
+     */
+    private function finalizarTotalesTrasSaldoFavor(FacturaInterna $factura, float $subtotal, float $totalImpuestos, float $total): void
+    {
+        $pagada = $total <= 0.009;
+        $updates = [
+            'subtotal' => $subtotal,
+            'total_impuestos' => $totalImpuestos,
+            'total' => $total,
+        ];
+        if ($pagada) {
+            $updates['estado'] = 'pagada';
+        }
+
+        $factura->update($updates);
+        $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, $pagada ? 'pagado' : 'pendiente');
     }
 
     /**
@@ -950,6 +969,54 @@ class FacturacionService
     }
 
     /**
+     * Distribuye un monto entre facturas en orden FIFO (más antigua primero).
+     * Criterio: periodo_hasta → fecha_emision → id.
+     * Cubre cada factura hasta su saldo; el resto pasa a la siguiente.
+     *
+     * @param  \Illuminate\Support\Collection<int, FacturaInterna>|iterable<FacturaInterna>  $facturas
+     * @return list<array{id: int, monto: float}>
+     */
+    public function distribuirMontoEntreFacturasFifo(iterable $facturas, float $monto): array
+    {
+        $monto = round(max(0, $monto), 2);
+        if ($monto <= 0) {
+            return [];
+        }
+
+        $ordenadas = collect($facturas)
+            ->filter(fn (FacturaInterna $f) => $f->saldo_pendiente > 0.009)
+            ->sortBy([
+                fn (FacturaInterna $f) => optional($f->periodo_hasta)->format('Y-m-d') ?? '9999-99-99',
+                fn (FacturaInterna $f) => optional($f->fecha_emision)->format('Y-m-d') ?? '9999-99-99',
+                fn (FacturaInterna $f) => (int) $f->id,
+            ])
+            ->values();
+
+        $items = [];
+        $restante = $monto;
+        foreach ($ordenadas as $factura) {
+            if ($restante <= 0.009) {
+                break;
+            }
+            $saldo = round((float) $factura->saldo_pendiente, 2);
+            if ($saldo <= 0) {
+                continue;
+            }
+            $aplicar = round(min($restante, $saldo), 2);
+            if ($aplicar <= 0) {
+                continue;
+            }
+            $items[] = [
+                'id' => (int) $factura->id,
+                'monto' => $aplicar,
+            ];
+            $restante = round($restante - $aplicar, 2);
+        }
+
+        return $items;
+    }
+
+    /**
      * Registra un cobro (solo aplicable a factura interna). Si cubre facturas vencidas del cliente, puede reactivar servicios suspendidos por falta de pago.
      * Si el cobro es por una factura interna, el concepto se copia de la descripción del detalle de la factura.
      *
@@ -1078,6 +1145,26 @@ class FacturacionService
 
         $cobro->load(['cliente', 'facturaInternas', 'facturaInterna', 'usuario']);
         app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, 1);
+
+        try {
+            app(\App\Services\Loyalty\PuntosService::class)->aplicarPuntosPorCobro(
+                $cobro,
+                ['created_by' => $usuarioId]
+            );
+        } catch (\Throwable $e) {
+            Log::info('[Loyalty] Puntos por pago omitidos: '.$e->getMessage(), [
+                'cliente_id' => $cobro->cliente_id,
+                'cobro_id' => $cobro->id,
+            ]);
+        }
+
+        try {
+            app(\App\Services\WhatsApp\WhatsAppOutboundNotifier::class)->reciboPago($cobro);
+        } catch (\Throwable $e) {
+            Log::info('[WhatsApp] Recibo automático omitido: '.$e->getMessage(), [
+                'cobro_id' => $cobro->id,
+            ]);
+        }
 
         return $cobro;
     }
@@ -1798,14 +1885,7 @@ class FacturacionService
             $total = $calc['total'];
             $serviciosCol = collect([$servicio]);
             $this->aplicarSaldoAFavorEnFactura($factura, $serviciosCol, $subtotal, $totalImpuestos, $total, $impuestoExento);
-
-            $factura->update([
-                'subtotal' => $subtotal,
-                'total_impuestos' => $totalImpuestos,
-                'total' => $total,
-            ]);
-
-            $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pendiente');
+            $this->finalizarTotalesTrasSaldoFavor($factura, $subtotal, $totalImpuestos, $total);
 
             return $factura->fresh(['detalles', 'cliente']);
         });

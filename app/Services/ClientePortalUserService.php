@@ -97,8 +97,9 @@ class ClientePortalUserService
 
     /**
      * Crea o actualiza el usuario de portal del cliente.
-     * Usuario y contraseña inicial = número de documento (solo dígitos).
+     * Usuario = documento (email portal). Contraseña vacía hasta aprobación / clave PLUS.
      *
+     * @param  bool  $resetPassword  Si true, deja la contraseña vacía (no usa el documento).
      * @return array{user: User, created: bool, password_reset: bool}
      */
     public function syncParaCliente(Cliente $cliente, bool $resetPassword = false): array
@@ -136,10 +137,10 @@ class ClientePortalUserService
                 $user->rol_id = $rol->rol_id;
                 $user->name = $nombre;
                 $user->email = $email;
-                $user->contrasena = Hash::make($digits);
+                $user->contrasena = null;
                 $user->permisos = $permisosPortal;
                 $user->estado = $this->estadoUsuarioDesdeCliente($cliente);
-                $user->notas = 'Usuario portal app (documento = usuario/contraseña).';
+                $user->notas = 'Usuario portal app (sin contraseña hasta aprobación / alta).';
                 $user->save();
                 $created = true;
                 $passwordReset = true;
@@ -165,7 +166,7 @@ class ClientePortalUserService
             // No pisar estado: el admin gestiona alta/baja de acceso app por separado.
 
             if ($resetPassword) {
-                $user->contrasena = Hash::make($digits);
+                $user->contrasena = null;
                 $passwordReset = true;
             }
 
@@ -301,8 +302,109 @@ class ClientePortalUserService
     }
 
     /**
+     * True si el hash actual coincide con el documento del cliente (legacy).
+     */
+    public function contrasenaEsDocumento(User $user, ?Cliente $cliente = null): bool
+    {
+        $hash = (string) ($user->contrasena ?? '');
+        if ($hash === '') {
+            return false;
+        }
+        $cliente ??= $user->cliente;
+        $cedula = (string) ($cliente?->cedula ?? '');
+        $digits = self::normalizarDocumento($cedula);
+        if ($digits !== '' && Hash::check($digits, $hash)) {
+            return true;
+        }
+
+        return $cedula !== '' && Hash::check($cedula, $hash);
+    }
+
+    /**
+     * Vacía contraseñas portal = documento, salvo clientes con app ya activa
+     * o con fecha de otorgamiento (conservan su clave actual / PLUS).
+     *
+     * @return int cantidad limpiada
+     */
+    public function limpiarContrasenasDocumentoLegacy(): int
+    {
+        $sinUsoApp = User::query()
+            ->whereNotNull('cliente_id')
+            ->whereNotNull('contrasena')
+            ->whereHas('cliente', function ($q) {
+                $q->whereNull('fecha_otorgamiento')
+                    ->where(function ($q2) {
+                        $q2->where('app_activa', false)->orWhereNull('app_activa');
+                    });
+            })
+            ->update(['contrasena' => null]);
+
+        $limpiadosHash = 0;
+        User::query()
+            ->whereNotNull('cliente_id')
+            ->whereNotNull('contrasena')
+            ->whereHas('cliente', function ($q) {
+                $q->where(function ($q2) {
+                    $q2->whereNotNull('fecha_otorgamiento')
+                        ->orWhere('app_activa', true);
+                });
+            })
+            ->with('cliente:cliente_id,cedula')
+            ->orderBy('usuario_id')
+            ->chunkById(100, function ($users) use (&$limpiadosHash) {
+                foreach ($users as $user) {
+                    // App activa / otorgado: solo vaciar si el hash sigue siendo el documento.
+                    // Si es PLUS u otra, conservar.
+                    if (! $this->contrasenaEsDocumento($user)) {
+                        continue;
+                    }
+                    // Quien ya usa la app con CI: conservar (no cortar acceso).
+                    if ($user->cliente?->app_activa) {
+                        continue;
+                    }
+                    $user->contrasena = null;
+                    $user->save();
+                    $limpiadosHash++;
+                }
+            }, 'usuario_id');
+
+        return (int) $sinUsoApp + $limpiadosHash;
+    }
+
+    /**
+     * Restaura contraseña = documento solo a clientes con app activa y sin clave
+     * (recuperación tras limpieza masiva; no aplica a altas nuevas).
+     *
+     * @return int
+     */
+    public function restaurarDocumentoSiAppActivaSinClave(): int
+    {
+        $restaurados = 0;
+        User::query()
+            ->whereNotNull('cliente_id')
+            ->whereNull('contrasena')
+            ->whereHas('cliente', fn ($q) => $q->where('app_activa', true))
+            ->with('cliente:cliente_id,cedula')
+            ->orderBy('usuario_id')
+            ->chunkById(100, function ($users) use (&$restaurados) {
+                foreach ($users as $user) {
+                    $digits = self::normalizarDocumento($user->cliente?->cedula);
+                    if ($digits === '') {
+                        continue;
+                    }
+                    $user->contrasena = Hash::make($digits);
+                    $user->save();
+                    $restaurados++;
+                }
+            }, 'usuario_id');
+
+        return $restaurados;
+    }
+
+    /**
      * Autentica cliente de portal.
-     * Usuario = documento. Contraseña = clave PLUS**** o (legacy) el mismo documento.
+     * Usuario = documento. Contraseña = clave otorgada (PLUS**** u otra definida en alta).
+     * Sin contraseña cargada → no puede iniciar sesión.
      */
     public function autenticarPorDocumento(string $usuario, string $password): ?User
     {
@@ -323,17 +425,21 @@ class ClientePortalUserService
             return null;
         }
 
-        // Clave actual (PLUS5685 u otra) tal cual la envió la app
-        if (Hash::check($password, $user->contrasena)) {
+        $hash = (string) ($user->contrasena ?? '');
+        if ($hash === '') {
+            return null;
+        }
+
+        if (Hash::check($password, $hash)) {
             return $user;
         }
 
-        // Legacy: documento como contraseña (solo dígitos o cédula cruda)
+        // Transición: si aún tienen hash = documento (app activa previa), permitir CI.
         $docPassword = self::normalizarDocumento($password);
-        if ($docPassword !== '' && Hash::check($docPassword, $user->contrasena)) {
+        if ($docPassword !== '' && Hash::check($docPassword, $hash)) {
             return $user;
         }
-        if (Hash::check((string) $cliente->cedula, $user->contrasena)) {
+        if (Hash::check((string) $cliente->cedula, $hash)) {
             return $user;
         }
 
@@ -357,6 +463,20 @@ class ClientePortalUserService
         if (! $cliente->fecha_otorgamiento) {
             $cliente->fecha_otorgamiento = now();
             $cliente->save();
+        }
+
+        try {
+            app(\App\Services\Loyalty\PuntosService::class)->aplicarBienvenidaUnaVez(
+                (int) $cliente->cliente_id,
+                [
+                    'meta' => [
+                        'motivo' => 'otorgamiento_acceso_app',
+                        'cliente_id' => $cliente->cliente_id,
+                    ],
+                ]
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::info('[Loyalty] Bienvenida omitida: '.$e->getMessage());
         }
 
         return [

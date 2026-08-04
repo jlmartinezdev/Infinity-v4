@@ -14,6 +14,7 @@ if (el) {
     tiposTecnologia: cfg.tiposTecnologia || [],
     aprobarEstadoUrl: cfg.aprobarEstadoUrl || '',
     urlOpcionesNodoAprobacion: cfg.urlOpcionesNodoAprobacion || '',
+    urlClientes: cfg.urlClientes || '',
   });
   app.mount(el);
 }

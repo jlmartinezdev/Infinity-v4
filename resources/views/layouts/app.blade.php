@@ -18,7 +18,34 @@
     </div>
     @endauth
 
-    <div class="{{ auth()->check() ? 'lg:ml-64' : '' }} flex flex-col min-h-screen min-w-0 transition-all duration-300 print:ml-0 bg-gray-50 dark:bg-gray-900">
+    {{-- Margen desktop: expandido 16rem (w-64) / colapsado 5rem (w-20) — sync con Sidebar.vue --}}
+    <style>
+        #app-main-shell { transition: margin-left 0.3s ease; }
+        @media (min-width: 1024px) {
+            body.auth-layout #app-main-shell { margin-left: 16rem; }
+            body.auth-layout #app-main-shell[data-sidebar="collapsed"] { margin-left: 5rem; }
+        }
+        @media print {
+            #app-main-shell { margin-left: 0 !important; }
+        }
+    </style>
+    <div id="app-main-shell" class="flex flex-col min-h-screen min-w-0 bg-gray-50 dark:bg-gray-900">
+        <script>
+            (function () {
+                try {
+                    var auth = {{ auth()->check() ? 'true' : 'false' }};
+                    if (auth) document.body.classList.add('auth-layout');
+                    var el = document.getElementById('app-main-shell');
+                    if (!el || !auth) return;
+                    var expanded = localStorage.getItem('infinity_sidebar_desktop_expanded') !== 'false';
+                    el.setAttribute('data-sidebar', expanded ? 'expanded' : 'collapsed');
+                    window.addEventListener('sidebar-desktop-change', function (e) {
+                        var isExpanded = !!(e.detail && e.detail.expanded);
+                        el.setAttribute('data-sidebar', isExpanded ? 'expanded' : 'collapsed');
+                    });
+                } catch (_) {}
+            })();
+        </script>
         <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 print:hidden transition-colors">
             <div class="px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">

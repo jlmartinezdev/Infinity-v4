@@ -81,6 +81,8 @@ return [
         /** Aviso al WhatsApp de la solicitud al aprobar/rechazar (default: activo si WA está configurado) */
         'acceso_aprobado' => (bool) env('WHATSAPP_EVENT_ACCESO_APROBADO', true),
         'acceso_rechazado' => (bool) env('WHATSAPP_EVENT_ACCESO_RECHAZADO', true),
+        /** Enviar recibo de cobro al WhatsApp del cliente (auto al registrar cobro) */
+        'recibo' => (bool) env('WHATSAPP_EVENT_RECIBO', false),
     ],
 
     /**
@@ -109,6 +111,21 @@ return [
         'enlace_caido' => env('WHATSAPP_TEMPLATE_ENLACE_CAIDO', ''),
         'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO', ''),
         'acceso_aprobado' => env('WHATSAPP_TEMPLATE_ACCESO_APROBADO', ''),
+        /** Nombre exacto en Meta (APPROVED). Ver docs/whatsapp-plantilla-recibo.md */
+        'recibo' => env('WHATSAPP_TEMPLATE_RECIBO', 'recibo_pago'),
+    ],
+
+    /**
+     * Idioma por evento (opcional). Si vacío, se detecta desde Meta
+     * (ej. recibo_pago está en es_AR aunque el default sea es).
+     */
+    'template_languages' => [
+        'ticket_asignado' => env('WHATSAPP_TEMPLATE_TICKET_ASIGNADO_LANG', ''),
+        'factura' => env('WHATSAPP_TEMPLATE_FACTURA_LANG', ''),
+        'enlace_caido' => env('WHATSAPP_TEMPLATE_ENLACE_CAIDO_LANG', ''),
+        'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO_LANG', ''),
+        'acceso_aprobado' => env('WHATSAPP_TEMPLATE_ACCESO_APROBADO_LANG', ''),
+        'recibo' => env('WHATSAPP_TEMPLATE_RECIBO_LANG', 'es_AR'),
     ],
 
     /**

@@ -61,6 +61,8 @@ class Cliente extends Model
         'fecha_activacion_app',
         'fecha_otorgamiento',
         'aprobado_por',
+        'referido_codigo',
+        'referido_por_cliente_id',
     ];
 
     public const CALIFICACION_MALO = 'malo';

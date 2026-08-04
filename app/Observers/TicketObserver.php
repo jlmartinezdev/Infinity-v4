@@ -27,6 +27,7 @@ class TicketObserver
     public function updated(Ticket $ticket): void
     {
         if ($ticket->wasChanged('asignado_id') && $ticket->asignado_id) {
+            $this->staffPush->ticketAsignado($ticket);
             $this->whatsappOutbound->ticketAsignado($ticket);
         }
 

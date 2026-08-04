@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use App\Helpers\MapsUrlHelper;
 use App\Models\Cliente;
 use App\Models\CedulaPadron;
+use App\Models\Canje;
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\Nodo;
 use App\Models\PoolIpAsignada;
+use App\Models\PuntosMovimiento;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Services\ClientePortalUserService;
+use App\Services\Loyalty\PuntosService;
 use App\Services\MikroTikService;
 use App\Services\Monitoreo\ServicioPingMonitoreoService;
 use Illuminate\Http\Request;
@@ -355,6 +358,19 @@ class ClienteController extends Controller
 
         $whatsappVista = (new \App\Support\ClienteWhatsappPresenter($cliente))->toArray(auth()->user());
 
+        $loyaltySaldo = app(PuntosService::class)->saldo((int) $cliente->cliente_id);
+        $loyaltyMovimientos = PuntosMovimiento::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get();
+        $loyaltyCanjes = Canje::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->with('premio')
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get();
+
         return view('clientes.detalle', compact(
             'cliente',
             'cobros',
@@ -364,6 +380,9 @@ class ClienteController extends Controller
             'facturasInternas',
             'esAdministrador',
             'whatsappVista',
+            'loyaltySaldo',
+            'loyaltyMovimientos',
+            'loyaltyCanjes',
         ));
     }
 
@@ -894,7 +913,8 @@ class ClienteController extends Controller
         $cliente = Cliente::create($validated);
 
         try {
-            app(ClientePortalUserService::class)->syncParaCliente($cliente, true);
+            // Sin contraseña: el acceso se otorga al aprobar solicitud / clave PLUS.
+            app(ClientePortalUserService::class)->syncParaCliente($cliente, false);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -926,13 +946,11 @@ class ClienteController extends Controller
             'estado' => ['required', 'string', 'in:activo,inactivo,suspendido'],
         ]);
 
-        $cedulaAnterior = (string) $cliente->cedula;
         $cliente->update($validated);
 
         try {
-            $resetPass = ClientePortalUserService::normalizarDocumento($cedulaAnterior)
-                !== ClientePortalUserService::normalizarDocumento($validated['cedula']);
-            app(ClientePortalUserService::class)->syncParaCliente($cliente->fresh(), $resetPass);
+            // Nunca resetear a documento; solo sincronizar email/nombre portal.
+            app(ClientePortalUserService::class)->syncParaCliente($cliente->fresh(), false);
         } catch (\Throwable $e) {
             report($e);
         }

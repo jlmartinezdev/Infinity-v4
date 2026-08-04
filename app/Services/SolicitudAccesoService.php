@@ -244,6 +244,24 @@ class SolicitudAccesoService
             ];
         });
 
+        try {
+            app(\App\Services\Loyalty\PuntosService::class)->aplicarBienvenidaUnaVez(
+                (int) $result['cliente']->cliente_id,
+                [
+                    'created_by' => $aprobador->usuario_id ?? null,
+                    'meta' => [
+                        'motivo' => 'aprobacion_solicitud_acceso',
+                        'solicitud_id' => $result['solicitud']->id,
+                    ],
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::info('[Loyalty] Bienvenida omitida: '.$e->getMessage(), [
+                'cliente_id' => $result['cliente']->cliente_id ?? null,
+                'solicitud_id' => $result['solicitud']->id ?? null,
+            ]);
+        }
+
         $this->avisarWhatsAppResultado($result['solicitud'], 'aprobada', $result['clave']);
 
         return $result;
@@ -400,8 +418,11 @@ class SolicitudAccesoService
         }
 
         $this->fcm->notifyStaff($title, $body, [
-            'tipo' => 'solicitud_acceso',
+            'tipo' => 'solicitud',
+            'id' => (string) $solicitud->id,
             'solicitud_id' => (string) $solicitud->id,
+            'title' => $title,
+            'body' => $body,
         ]);
     }
 

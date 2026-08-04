@@ -6,7 +6,7 @@
 @php
     $estadoFiltro = request()->has('estado') ? (string) request('estado') : 'pendiente';
     $esAdmin = auth()->user()?->esAdministrador() ?? false;
-    $puedeEditar = auth()->user()?->tienePermiso('clientes.editar') ?? false;
+    $puedeEditar = auth()->user()?->tienePermiso('solicitudes-acceso.editar') ?? false;
     $tabs = [
         'pendiente' => ['label' => 'Pendientes', 'count' => $pendientesCount ?? 0, 'dot' => 'bg-amber-400'],
         'pendiente_verificacion' => ['label' => 'Esperando WA', 'count' => $verificacionCount ?? 0, 'dot' => 'bg-violet-400'],
@@ -121,19 +121,21 @@
                             <td class="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400">
                                 @if($s->estado === 'pendiente_verificacion')
                                     <span class="text-violet-600 dark:text-violet-300">Código {{ $s->codigo_verificacion }}</span>
-                                @elseif($s->telefono_verificado)
-                                    <span class="text-emerald-600 dark:text-emerald-400">WA verificado</span>
                                 @elseif($s->estado === 'aprobada' && $cliente)
                                     <div class="flex flex-col gap-0.5">
                                         <span class="{{ $cliente->app_activa ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
                                             {{ $cliente->app_activa ? 'App activa' : 'Sin login' }}
                                         </span>
-                                        @if($wa)
+                                        @if($s->telefono_verificado)
+                                            <span class="text-emerald-600 dark:text-emerald-400">WA verificado</span>
+                                        @elseif($wa)
                                             <span class="{{ in_array($wa->estado, ['entregado','leido','enviado'], true) ? 'text-emerald-600 dark:text-emerald-400' : ($wa->estado === 'fallido' ? 'text-rose-500' : '') }}">
                                                 WA {{ $wa->estado }}
                                             </span>
                                         @endif
                                     </div>
+                                @elseif($s->telefono_verificado)
+                                    <span class="text-emerald-600 dark:text-emerald-400">WA verificado</span>
                                 @elseif($wa)
                                     <span>WA {{ $wa->estado }}</span>
                                 @else

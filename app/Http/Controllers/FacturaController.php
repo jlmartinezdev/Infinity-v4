@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ConsultarLoteSifenJob;
+use App\Jobs\EmitirFacturaSifenJob;
 use App\Models\Cliente;
 use App\Models\CedulaPadron;
 use App\Models\Factura;
@@ -11,6 +13,7 @@ use App\Models\Impuesto;
 use App\Models\Servicio;
 use App\Models\SifenConfiguracion;
 use App\Services\FacturacionService;
+use App\Services\Sifen\SifenBackground;
 use App\Services\Sifen\SifenKudeService;
 use App\Services\Sifen\SifenService;
 use Carbon\Carbon;
@@ -479,7 +482,7 @@ class FacturaController extends Controller
     /**
      * Crea borradores (y opcionalmente envía a SIFEN) para varios clientes a la vez.
      */
-    public function storeMasivo(Request $request, SifenService $sifenService)
+    public function storeMasivo(Request $request)
     {
         $validated = $request->validate([
             'cliente_ids' => ['required', 'array', 'min:1', 'max:50'],
@@ -513,10 +516,6 @@ class FacturaController extends Controller
         $creadas = [];
         $enviadas = [];
         $errores = [];
-
-        if ($emitir) {
-            @set_time_limit(0);
-        }
 
         foreach ($validated['cliente_ids'] as $clienteId) {
             $cliente = $clientes->get($clienteId);
@@ -562,12 +561,9 @@ class FacturaController extends Controller
                 $creadas[] = $factura->id;
 
                 if ($emitir) {
-                    $resultado = $sifenService->emitirDocumento($factura->fresh(), true);
-                    if ($resultado['lote_pendiente'] ?? false) {
-                        $enviadas[] = $factura->id;
-                    } elseif ($resultado['sifen']['aprobado'] ?? false) {
-                        $enviadas[] = $factura->id;
-                    }
+                    $factura->update(['set_estado_envio' => 'en_cola']);
+                    SifenBackground::dispatch(new EmitirFacturaSifenJob($factura->id));
+                    $enviadas[] = $factura->id;
                 }
             } catch (\Throwable $e) {
                 $errores[] = $etiqueta.': '.$e->getMessage();
@@ -582,7 +578,7 @@ class FacturaController extends Controller
             }
         }
         if ($emitir && $enviadas !== []) {
-            $partes[] = count($enviadas).' enviado(s) a SIFEN';
+            $partes[] = count($enviadas).' encolado(s) para SIFEN (segundo plano)';
         }
         if ($errores !== []) {
             $partes[] = count($errores).' con error';
@@ -604,7 +600,10 @@ class FacturaController extends Controller
         if ($emitir && $enviadas !== []) {
             return redirect()
                 ->route('facturas.index', ['estado' => 'borrador'])
-                ->with($tipo, $mensaje.' Use «Consultar lote SIFEN» en cada factura en proceso.');
+                ->with(
+                    $tipo,
+                    $mensaje.' La emisión corre en segundo plano; luego use «Consultar lotes» cuando figuren pendientes.'
+                );
         }
 
         if ($creadas !== [] && count($creadas) === 1 && ! $emitir) {
@@ -739,6 +738,10 @@ class FacturaController extends Controller
             return redirect()->route('facturas.show', $factura)
                 ->with('error', 'Solo se pueden editar facturas en estado borrador.');
         }
+        if ($factura->enColaSifen() || $factura->lotePendienteSifen()) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('warning', 'No se puede editar mientras la factura está en proceso o en cola SIFEN.');
+        }
         $factura->load('detalles');
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo'])->orderBy('nombre')->get();
         $impuestos = Impuesto::activos();
@@ -857,86 +860,67 @@ class FacturaController extends Controller
     }
 
     /**
-     * Emite la factura electrónica: genera DE, firma, envía a SIFEN y produce KuDE PDF.
+     * Emite la factura electrónica en segundo plano (cola).
      */
-    public function emitir(Factura $factura, SifenService $sifenService)
+    public function emitir(Factura $factura)
     {
         if ($factura->estado !== 'borrador') {
             return redirect()->route('facturas.show', $factura)
                 ->with('error', 'Solo se pueden emitir facturas en estado borrador.');
         }
 
-        try {
-            $resultado = $sifenService->emitirDocumento($factura, true);
-        } catch (\Throwable $e) {
-            $factura->refresh();
-            $tipo = $factura->lotePendienteSifen() ? 'warning' : 'error';
-            $prefijo = $factura->lotePendienteSifen()
-                ? ''
-                : 'Error al emitir factura electrónica: ';
-
+        if ($factura->enColaSifen()) {
             return redirect()->route('facturas.show', $factura)
-                ->with($tipo, $prefijo.$e->getMessage());
+                ->with('warning', 'Esta factura ya está en cola de procesamiento SIFEN. Actualice en unos segundos.');
         }
 
-        if ($resultado['lote_pendiente'] ?? false) {
-            $nroLote = $resultado['sifen']['protocolo_lote'] ?? $factura->fresh()->set_nro_lote;
-
-            return redirect()->route('facturas.show', $factura)->with(
-                'warning',
-                'Lote enviado a SIFEN (n.º '.$nroLote.'). CDC: '.$resultado['cdc']
-                .'. Espere 1–2 minutos y use «Consultar lote SIFEN».'
-            );
+        if ($factura->lotePendienteSifen()) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('warning', 'Ya tiene un lote pendiente. Use «Consultar lote SIFEN».');
         }
 
-        $mensaje = 'Factura electrónica emitida. CDC: '.$resultado['cdc'];
-        if ($resultado['sifen'] && ($resultado['sifen']['protocolo'] ?? null)) {
-            $mensaje .= ' · Protocolo: '.$resultado['sifen']['protocolo'];
-        }
-        if (($resultado['correo']['enviado'] ?? false) && ($resultado['correo']['destinatario'] ?? null)) {
-            $mensaje .= ' · Correo enviado a '.$resultado['correo']['destinatario'];
-        }
+        $factura->update(['set_estado_envio' => 'en_cola']);
+        SifenBackground::dispatch(new EmitirFacturaSifenJob($factura->id));
 
-        return redirect()->route('facturas.show', $factura)->with('success', $mensaje);
+        return redirect()->route('facturas.show', $factura)->with(
+            'warning',
+            'Emisión encolada en segundo plano. Actualice esta página en unos segundos para ver el resultado o el lote pendiente.'
+        );
     }
 
     /**
-     * Consulta el resultado de un lote SIFEN asíncrono pendiente.
+     * Consulta el resultado de un lote SIFEN en segundo plano.
      */
-    public function consultarLote(Factura $factura, SifenService $sifenService)
+    public function consultarLote(Factura $factura)
     {
-        if (! $factura->lotePendienteSifen() && $factura->estado !== 'borrador') {
+        if ($factura->estado === 'emitida' && $factura->set_estado_envio === 'autorizado') {
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'Esta factura no tiene un lote pendiente de consulta.');
+                ->with('success', 'La factura ya está autorizada.');
         }
 
         if (! $factura->lotePendienteSifen() && blank($factura->set_nro_lote)) {
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'Esta factura no tiene número de lote SIFEN.');
+                ->with('error', 'Esta factura no tiene un lote pendiente de consulta.');
         }
 
-        try {
-            $resultado = $sifenService->consultarResultadoLote($factura);
-        } catch (\Throwable $e) {
-            $factura->refresh();
-            $tipo = $factura->lotePendienteSifen() ? 'warning' : 'error';
-
+        if ($factura->set_estado_envio === 'consultando') {
             return redirect()->route('facturas.show', $factura)
-                ->with($tipo, $e->getMessage());
+                ->with('warning', 'La consulta ya está en cola. Actualice en unos segundos.');
         }
 
-        $mensaje = 'Lote consultado. Factura autorizada. CDC: '.$resultado['cdc'];
-        if (($resultado['correo']['enviado'] ?? false) && ($resultado['correo']['destinatario'] ?? null)) {
-            $mensaje .= ' · Correo enviado a '.$resultado['correo']['destinatario'];
-        }
+        $factura->update(['set_estado_envio' => 'consultando']);
+        SifenBackground::dispatch(new ConsultarLoteSifenJob($factura->id));
 
-        return redirect()->route('facturas.show', $factura)->with('success', $mensaje);
+        return redirect()->route('facturas.show', $factura)->with(
+            'warning',
+            'Consulta de lote encolada en segundo plano. Actualice esta página en unos segundos.'
+        );
     }
 
     /**
-     * Consulta varios lotes SIFEN pendientes (seleccionados o todos).
+     * Consulta varios lotes SIFEN pendientes en segundo plano.
      */
-    public function consultarLotesPendientes(Request $request, SifenService $sifenService)
+    public function consultarLotesPendientes(Request $request)
     {
         $validated = $request->validate([
             'factura_ids' => ['nullable', 'array', 'max:50'],
@@ -957,76 +941,37 @@ class FacturaController extends Controller
                 ->with('warning', 'No hay lotes SIFEN pendientes para consultar.');
         }
 
-        @set_time_limit(0);
-
-        $autorizadas = 0;
-        $aunProceso = 0;
-        $rechazadas = 0;
-        $errores = [];
-
+        $encoladas = 0;
         foreach ($facturas as $factura) {
-            $etiqueta = '#'.$factura->id;
-            if ($factura->numero_completo) {
-                $etiqueta .= ' '.$factura->numero_completo;
+            if ($factura->set_estado_envio === 'consultando') {
+                continue;
             }
-
-            try {
-                $sifenService->consultarResultadoLote($factura->fresh());
-                $factura->refresh();
-
-                if ($factura->estado === 'emitida') {
-                    $autorizadas++;
-                } elseif ($factura->lotePendienteSifen()) {
-                    $aunProceso++;
-                } else {
-                    $rechazadas++;
-                }
-            } catch (\Throwable $e) {
-                $factura->refresh();
-                if ($factura->lotePendienteSifen()) {
-                    $aunProceso++;
-                    $errores[] = $etiqueta.': aún en proceso';
-                } elseif ($factura->set_estado_envio === 'rechazado') {
-                    $rechazadas++;
-                    $errores[] = $etiqueta.': '.$e->getMessage();
-                } else {
-                    $errores[] = $etiqueta.': '.$e->getMessage();
-                }
-            }
+            $factura->update(['set_estado_envio' => 'consultando']);
+            SifenBackground::dispatch(new ConsultarLoteSifenJob($factura->id));
+            $encoladas++;
         }
 
-        $partes = [
-            'Consultadas: '.$facturas->count(),
-            'autorizadas: '.$autorizadas,
-            'aún en proceso: '.$aunProceso,
-            'rechazadas: '.$rechazadas,
-        ];
-        $mensaje = implode(' · ', $partes).'.';
-
-        if ($errores !== []) {
-            $mensaje .= ' Detalle: '.implode(' | ', array_slice($errores, 0, 6));
-            if (count($errores) > 6) {
-                $mensaje .= ' … (+'.(count($errores) - 6).')';
-            }
+        if ($encoladas === 0) {
+            return redirect()->route('facturas.index', ['lote_pendiente' => 1])
+                ->with('warning', 'Las consultas seleccionadas ya estaban en cola. Actualice en unos segundos.');
         }
-
-        $tipo = $rechazadas > 0 || $errores !== []
-            ? ($autorizadas > 0 || $aunProceso > 0 ? 'warning' : 'error')
-            : ($aunProceso > 0 ? 'warning' : 'success');
 
         return redirect()
-            ->route('facturas.index', $aunProceso > 0 ? ['lote_pendiente' => 1] : [])
-            ->with($tipo, $mensaje);
+            ->route('facturas.index', ['lote_pendiente' => 1])
+            ->with(
+                'warning',
+                $encoladas.' consulta(s) de lote encolada(s) en segundo plano. Actualice el listado en unos segundos.'
+            );
     }
 
     /**
-     * Descarga el KuDE PDF de una factura emitida.
+     * Descarga el KuDE PDF (autorizada o pendiente de aprobación SIFEN).
      */
     public function descargarKude(Factura $factura, SifenKudeService $kudeService)
     {
-        if ($factura->estado !== 'emitida') {
+        if (! $factura->puedeImprimirKude()) {
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'Solo las facturas emitidas tienen KuDE PDF.');
+                ->with('error', 'Aún no hay KuDE disponible. Emita el documento a SIFEN primero.');
         }
 
         $config = SifenConfiguracion::activa();
@@ -1053,14 +998,9 @@ class FacturaController extends Controller
      */
     public function verKudePos(Factura $factura, SifenKudeService $kudeService)
     {
-        if ($factura->estado !== 'emitida') {
+        if (! $factura->puedeImprimirKude()) {
             return redirect()->route('facturas.show', $factura)
-                ->with('error', 'Solo las facturas emitidas tienen KuDE.');
-        }
-
-        if (! $factura->set_cdc) {
-            return redirect()->route('facturas.show', $factura)
-                ->with('error', 'La factura no tiene CDC; no se puede generar el KuDE.');
+                ->with('error', 'Aún no hay KuDE disponible. Emita el documento a SIFEN primero.');
         }
 
         $config = SifenConfiguracion::activa();

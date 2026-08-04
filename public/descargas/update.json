@@ -1,4 +1,5 @@
-﻿{
-    "version":  "1.0.0",
-    "changelog":  "* ¡Descarga e instalacion automatica integrada!\n* Optimizaciones en la conexion de datos y consulta de planes.\n* Estabilidad mejorada en segundo plano."
+{
+  "version": "3.2.0",
+  "changelog": "• Nuevo diseño del portal (Inicio, Facturas, Pagos y Soporte)\n• Facturas con aspecto de documento y periodo destacado\n• Tickets con diseño troquelado\n• Premios y mejora de plan listos para el CMS\n• Más color de marca manteniendo la identidad Interplus",
+  "filename": "interplus_clientes-3.2.0-debug.apk"
 }

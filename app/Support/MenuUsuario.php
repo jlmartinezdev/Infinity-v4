@@ -32,9 +32,25 @@ class MenuUsuario
                 if (! empty($item['admin_only']) && ! $esAdmin) {
                     continue;
                 }
+                if (! empty($item['flota_staff']) && ! $user->puedeVerFlotaStaff()) {
+                    continue;
+                }
                 $permiso = $item['permiso'] ?? null;
                 if ($permiso && ! $user->tienePermiso($permiso)) {
                     continue;
+                }
+                $permisoAny = $item['permiso_any'] ?? null;
+                if (is_array($permisoAny) && $permisoAny !== []) {
+                    $okAny = false;
+                    foreach ($permisoAny as $codigo) {
+                        if ($user->tienePermiso($codigo)) {
+                            $okAny = true;
+                            break;
+                        }
+                    }
+                    if (! $okAny) {
+                        continue;
+                    }
                 }
                 if (isset($item['submenu'])) {
                     $sub = $filter($item['submenu']);
@@ -116,10 +132,10 @@ class MenuUsuario
     }
 
     /**
-     * Lista plana de enlaces (etiqueta + ruta + grupo) para el panel sin estadísticas.
+     * Lista plana de enlaces (etiqueta + ruta + grupo + icono) para el panel sin estadísticas.
      * Excluye el ítem "Inicio" del menú.
      *
-     * @return array<int, array{label: string, path: string, grupo: string|null}>
+     * @return array<int, array{label: string, path: string, grupo: string|null, icon: string, name: string}>
      */
     public static function enlacesPlanos(?User $user): array
     {
@@ -130,20 +146,33 @@ class MenuUsuario
             if (($item['name'] ?? '') === 'home') {
                 continue;
             }
+            $icon = (string) ($item['icon'] ?? 'document');
             if (! empty($item['submenu'])) {
                 $grupo = $item['label'] ?? null;
                 foreach ($item['submenu'] as $sub) {
+                    $path = $sub['path'] ?? '#';
+                    if (! is_string($path) || $path === '') {
+                        continue;
+                    }
                     $links[] = [
-                        'label' => $sub['label'] ?? '',
-                        'path' => $sub['path'] ?? '#',
-                        'grupo' => $grupo,
+                        'label' => (string) ($sub['label'] ?? ''),
+                        'path' => $path,
+                        'grupo' => is_string($grupo) ? $grupo : null,
+                        'icon' => $icon,
+                        'name' => (string) ($sub['name'] ?? ''),
                     ];
                 }
             } else {
+                $path = $item['path'] ?? '#';
+                if (! is_string($path) || $path === '') {
+                    continue;
+                }
                 $links[] = [
-                    'label' => $item['label'] ?? '',
-                    'path' => $item['path'] ?? '#',
+                    'label' => (string) ($item['label'] ?? ''),
+                    'path' => $path,
                     'grupo' => null,
+                    'icon' => $icon,
+                    'name' => (string) ($item['name'] ?? ''),
                 ];
             }
         }

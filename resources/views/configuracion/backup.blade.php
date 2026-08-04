@@ -50,5 +50,38 @@
             @endif
         </div>
     </div>
+
+    <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Google Drive</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Sube una copia a la carpeta configurada. También corre automático todos los días a las 02:30 si el schedule de Laravel está activo.</p>
+        </div>
+        <div class="p-6 space-y-4">
+            @if($driveReady)
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    Carpeta:
+                    <a href="https://drive.google.com/drive/folders/{{ $driveFolderId }}" target="_blank" rel="noopener"
+                       class="font-mono text-xs text-blue-600 dark:text-blue-400 hover:underline break-all">
+                        Infinity Backups
+                    </a>
+                </p>
+                @if($supported)
+                    <form action="{{ route('configuracion.backup.drive') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
+                            Subir a Google Drive
+                        </button>
+                    </form>
+                @endif
+            @else
+                <p class="text-sm text-amber-700 dark:text-amber-300">
+                    Drive no está listo. Configurá <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">BACKUP_DRIVE_ENABLED</code>,
+                    credenciales OAuth y <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GOOGLE_DRIVE_FOLDER_ID</code> en <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">.env</code>,
+                    luego ejecutá <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">php artisan backup:drive-auth</code>.
+                </p>
+            @endif
+        </div>
+    </div>
 </div>
 @endsection

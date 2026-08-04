@@ -43,9 +43,14 @@ class NotificacionAccionService
 
         $auditoria->loadMissing('usuario');
 
-        $usuarios = User::whereHas('rol', fn ($q) => $q->whereRaw('LOWER(descripcion) = ?', ['administrador']))
-            ->whereNull('cliente_id')
-            ->get();
+        // Solo rol Administrador, staff activo (nunca vendedor/cajero/técnico/portal)
+        $usuarios = User::query()
+            ->staff()
+            ->activos()
+            ->with('rol')
+            ->get()
+            ->filter(fn (User $u) => $u->esAdministrador())
+            ->values();
 
         if ($usuarios->isEmpty()) {
             return;

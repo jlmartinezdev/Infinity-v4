@@ -100,6 +100,7 @@ class PedidoController extends Controller
             'planes' => $planes,
             'tiposTecnologia' => $tiposTecnologia,
             'puedeAprobar' => $puedeAprobar,
+            'urlClientes' => route('clientes.mapas-pedidos.clientes'),
         ]);
     }
 
@@ -322,6 +323,14 @@ class PedidoController extends Controller
         // Usar el primer estado de estados_pedidos para estado_pedido_detalles
         $primerEstado = EstadoPedido::orderBy('estado_id')->first();
         if (!$primerEstado) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No existe ningún estado de pedido. Cree uno primero.',
+                    'errors' => ['estado_id' => ['No existe ningún estado de pedido.']],
+                ], 422);
+            }
+
             return back()->withInput()->withErrors(['estado_id' => 'No existe ningún estado de pedido. Cree uno primero.']);
         }
 
@@ -332,6 +341,15 @@ class PedidoController extends Controller
             'fecha' => now(),
             'estado' => 'P', // Pendiente
         ]);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Pedido creado correctamente.',
+                'pedido_id' => $pedido->pedido_id,
+                'redirect' => route('pedidos.index'),
+            ]);
+        }
 
         return redirect()->route('pedidos.index')->with('success', 'Pedido creado correctamente.');
     }
@@ -1375,6 +1393,15 @@ class PedidoController extends Controller
             ->values()
             ->all();
 
+        $detalleConNodo = $pedido->estadoPedidoDetalles
+            ->filter(fn (EstadoPedidoDetalle $d) => $d->nodo_id)
+            ->sortByDesc(fn (EstadoPedidoDetalle $d) => optional($d->fecha)?->timestamp ?? 0)
+            ->first();
+        $nodo = $detalleConNodo?->nodo;
+        $zona = trim((string) ($nodo?->ciudad ?: $nodo?->descripcion ?: ''));
+        $planConfirmado = $detalles->get(2)?->plan?->nombre;
+        $planSolicitado = $pedido->plan?->nombre;
+
         return [
             'pedido_id' => $pedido->pedido_id,
             'lat' => (float) $pedido->lat,
@@ -1387,8 +1414,13 @@ class PedidoController extends Controller
                 $pedido->lon !== null ? (float) $pedido->lon : null
             ),
             'fecha_pedido' => $pedido->fecha_pedido ? $pedido->fecha_pedido->toDateString() : null,
-            'cliente' => $pedido->cliente ? $pedido->cliente->nombre.' '.$pedido->cliente->apellido : null,
-            'plan' => $pedido->plan ? $pedido->plan->nombre : null,
+            'cliente' => $pedido->cliente ? trim($pedido->cliente->nombre.' '.$pedido->cliente->apellido) : null,
+            'documento' => $pedido->cliente?->cedula,
+            'zona' => $zona !== '' ? $zona : null,
+            'nodo' => $nodo?->descripcion,
+            'plan' => $planConfirmado ?: $planSolicitado,
+            'plan_confirmado' => $planConfirmado,
+            'plan_solicitado' => $planSolicitado,
             'tecnologia_descripcion' => $tecnologiaDesc,
             'tecnologia_id_seleccionado' => $ultimoConTecnologia?->tecnologia_id,
             'estados_pendientes' => $estadosPendientes,

@@ -113,10 +113,252 @@ class WhatsAppService
     }
 
     /**
+     * Sube un archivo a Meta y lo envía como imagen/documento/audio/video (ventana 24 h).
+     *
+     * @param  array{cliente_id?: int|null, ticket_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}  $meta
+     */
+    public function sendUploadedMedia(
+        string $to,
+        \Illuminate\Http\UploadedFile $file,
+        ?string $caption = null,
+        array $meta = [],
+    ): WhatsappMensaje {
+        $telefono = $this->normalizePhone($to);
+        $mime = strtolower((string) ($file->getMimeType() ?: $file->getClientMimeType() ?: ''));
+        $mime = trim(explode(';', $mime)[0]);
+        if ($this->tipoDesdeMime($mime) === null) {
+            $mime = $this->mimeDesdeExtension((string) $file->getClientOriginalExtension()) ?: $mime;
+        }
+        $tipo = $this->tipoDesdeMime($mime);
+        $caption = $caption !== null ? trim($caption) : null;
+        if ($caption === '') {
+            $caption = null;
+        }
+        $nombreOriginal = $file->getClientOriginalName() ?: ('archivo.'.$this->extensionDesdeMime($mime, $tipo ?: 'document'));
+        $cuerpo = $caption ?: match ($tipo) {
+            'image' => 'Imagen',
+            'video' => 'Video',
+            'audio' => 'Audio',
+            default => $nombreOriginal,
+        };
+
+        if (! $telefono) {
+            return $this->mensajeFallidoLocal($tipo ?: 'document', $to, $cuerpo, null, null, 'Teléfono inválido', $meta);
+        }
+
+        if ($tipo === null) {
+            return $this->mensajeFallidoLocal(
+                'document',
+                $to,
+                $cuerpo,
+                null,
+                null,
+                'Tipo de archivo no soportado por WhatsApp (usá JPG, PNG, PDF, MP4, etc.).',
+                $meta
+            );
+        }
+
+        $maxBytes = $this->maxBytesParaTipo($tipo);
+        if ($file->getSize() > $maxBytes) {
+            $mb = (int) round($maxBytes / 1048576);
+
+            return $this->mensajeFallidoLocal(
+                $tipo,
+                $to,
+                $cuerpo,
+                null,
+                null,
+                "El archivo supera el límite de {$mb} MB para {$tipo}.",
+                $meta
+            );
+        }
+
+        $mensaje = $this->crearSalida([
+            'telefono' => $telefono,
+            'tipo' => $tipo,
+            'cuerpo' => $cuerpo,
+            'estado' => WhatsappMensaje::ESTADO_PENDIENTE,
+            ...$this->metaFields($meta),
+        ]);
+
+        if (! $this->isConfigured()) {
+            return $this->marcarOmitido($mensaje, 'WhatsApp deshabilitado o sin credenciales');
+        }
+
+        $ext = $this->extensionDesdeMime($mime, $tipo);
+        $relative = "whatsapp-media/{$mensaje->id}/out.{$ext}";
+        try {
+            $binario = file_get_contents($file->getRealPath());
+            if ($binario === false) {
+                throw new \RuntimeException('No se pudo leer el archivo.');
+            }
+            \Illuminate\Support\Facades\Storage::disk('local')->put($relative, $binario);
+        } catch (\Throwable $e) {
+            return $this->marcarOmitido($mensaje, 'No se pudo guardar el archivo: '.$e->getMessage());
+        }
+
+        $local = [
+            'path' => $relative,
+            'mime' => $mime,
+            'filename' => $nombreOriginal,
+            'size' => strlen($binario),
+            'voice' => false,
+        ];
+        $mensaje->payload = ['_local' => $local];
+        $mensaje->save();
+
+        $mediaId = $this->uploadMediaToMeta($relative, $mime, $nombreOriginal);
+        if (! $mediaId) {
+            $mensaje->fill([
+                'estado' => WhatsappMensaje::ESTADO_FALLIDO,
+                'error_message' => 'Meta rechazó la subida del archivo.',
+                'payload' => array_merge($mensaje->payload ?? [], ['upload_error' => true]),
+            ])->save();
+
+            return $mensaje;
+        }
+
+        $local['media_id'] = $mediaId;
+        $mediaObject = ['id' => $mediaId];
+        if ($caption !== null && in_array($tipo, ['image', 'video', 'document'], true)) {
+            $mediaObject['caption'] = $caption;
+        }
+        if ($tipo === 'document') {
+            $mediaObject['filename'] = $nombreOriginal;
+        }
+
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $telefono,
+            'type' => $tipo,
+            $tipo => $mediaObject,
+        ];
+
+        $mensaje = $this->enviarPayload($mensaje, $payload);
+
+        $merged = is_array($mensaje->payload) ? $mensaje->payload : [];
+        $merged['_local'] = $local;
+        $merged[$tipo] = array_merge(
+            is_array($merged[$tipo] ?? null) ? $merged[$tipo] : [],
+            $mediaObject
+        );
+        $mensaje->payload = $merged;
+        $mensaje->save();
+
+        return $mensaje;
+    }
+
+    /**
+     * @return 'image'|'document'|'audio'|'video'|null
+     */
+    public function tipoDesdeMime(string $mime): ?string
+    {
+        $mime = strtolower(trim(explode(';', $mime)[0]));
+
+        return match (true) {
+            in_array($mime, ['image/jpeg', 'image/jpg', 'image/png'], true) => 'image',
+            in_array($mime, ['video/mp4', 'video/3gpp'], true) => 'video',
+            in_array($mime, ['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg', 'audio/opus'], true) => 'audio',
+            in_array($mime, [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'text/plain',
+            ], true) => 'document',
+            default => null,
+        };
+    }
+
+    private function mimeDesdeExtension(string $ext): ?string
+    {
+        return match (strtolower(trim($ext))) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'pdf' => 'application/pdf',
+            'mp4' => 'video/mp4',
+            '3gp' => 'video/3gpp',
+            'mp3' => 'audio/mpeg',
+            'aac' => 'audio/aac',
+            'amr' => 'audio/amr',
+            'ogg', 'opus' => 'audio/ogg',
+            'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls' => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'txt' => 'text/plain',
+            default => null,
+        };
+    }
+
+    private function maxBytesParaTipo(string $tipo): int
+    {
+        return match ($tipo) {
+            'image' => 5 * 1024 * 1024,
+            'audio', 'video' => 16 * 1024 * 1024,
+            'document' => 20 * 1024 * 1024, // Meta permite 100 MB; acotamos por PHP/práctico
+            default => 5 * 1024 * 1024,
+        };
+    }
+
+    private function uploadMediaToMeta(string $relativePath, string $mime, string $filename): ?string
+    {
+        $absolute = \Illuminate\Support\Facades\Storage::disk('local')->path($relativePath);
+        if (! is_file($absolute)) {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken((string) config('whatsapp.token'))
+                ->timeout(max(60, (int) config('whatsapp.timeout', 30)))
+                ->attach('file', file_get_contents($absolute), $filename, ['Content-Type' => $mime])
+                ->post($this->mediaUploadUrl(), [
+                    'messaging_product' => 'whatsapp',
+                    'type' => $mime,
+                ]);
+
+            if (! $response->successful()) {
+                Log::warning('[WhatsApp] Upload media falló', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'mime' => $mime,
+                ]);
+
+                return null;
+            }
+
+            $id = $response->json('id');
+
+            return is_string($id) && $id !== '' ? $id : null;
+        } catch (\Throwable $e) {
+            Log::warning('[WhatsApp] Excepción upload media: '.$e->getMessage(), [
+                'mime' => $mime,
+            ]);
+
+            return null;
+        }
+    }
+
+    private function mediaUploadUrl(): string
+    {
+        $base = rtrim((string) config('whatsapp.graph_base_url'), '/');
+        $version = trim((string) config('whatsapp.api_version'), '/');
+        $phoneId = (string) config('whatsapp.phone_number_id');
+
+        return "{$base}/{$version}/{$phoneId}/media";
+    }
+
+    /**
      * Envío de plantilla aprobada en Meta.
      *
      * @param  list<array{type: string, text?: string, image?: array, document?: array, currency?: array, date_time?: array}>  $bodyParameters
      * @param  array{cliente_id?: int|null, ticket_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}  $meta
+     * @param  list<array{type: string, text?: string}>  $urlButtonParameters  Parámetros del botón URL (índice 0 por defecto)
+     * @param  int  $urlButtonIndex  Índice del botón URL en la plantilla (0-based)
      */
     public function sendTemplate(
         string $to,
@@ -124,6 +366,8 @@ class WhatsAppService
         ?string $language = null,
         array $bodyParameters = [],
         array $meta = [],
+        array $urlButtonParameters = [],
+        int $urlButtonIndex = 0,
     ): WhatsappMensaje {
         $telefono = $this->normalizePhone($to);
         $language = $language ?: (string) config('whatsapp.default_template_language', 'es');
@@ -137,6 +381,14 @@ class WhatsAppService
             $components[] = [
                 'type' => 'body',
                 'parameters' => $bodyParameters,
+            ];
+        }
+        if ($urlButtonParameters !== []) {
+            $components[] = [
+                'type' => 'button',
+                'sub_type' => 'url',
+                'index' => (string) $urlButtonIndex,
+                'parameters' => $urlButtonParameters,
             ];
         }
 
@@ -171,11 +423,11 @@ class WhatsAppService
     }
 
     /**
-     * Lista plantillas del WABA (Meta Graph).
+     * Lista plantillas del WABA (Meta Graph), con componentes y parámetros.
      *
-     * @return list<array{name: string, status: string, language: string, category: string, rejected: string}>
+     * @return list<array<string, mixed>>
      */
-    public function listTemplates(int $limit = 30): array
+    public function listTemplates(int $limit = 50): array
     {
         $waba = (string) config('whatsapp.business_account_id');
         $token = (string) config('whatsapp.token');
@@ -186,7 +438,7 @@ class WhatsAppService
         try {
             $version = (string) config('whatsapp.api_version', 'v25.0');
             $response = $this->http()->get("https://graph.facebook.com/{$version}/{$waba}/message_templates", [
-                'fields' => 'name,status,language,category,rejected_reason',
+                'fields' => 'name,status,language,category,rejected_reason,parameter_format,components',
                 'limit' => $limit,
             ]);
 
@@ -200,13 +452,7 @@ class WhatsAppService
             }
 
             return collect($response->json('data', []))
-                ->map(static fn (array $t) => [
-                    'name' => (string) ($t['name'] ?? '-'),
-                    'status' => (string) ($t['status'] ?? '-'),
-                    'language' => (string) ($t['language'] ?? '-'),
-                    'category' => (string) ($t['category'] ?? '-'),
-                    'rejected' => (string) ($t['rejected_reason'] ?? 'NONE'),
-                ])
+                ->map(fn (array $t) => $this->mapTemplateFromMeta($t))
                 ->values()
                 ->all();
         } catch (\Throwable $e) {
@@ -214,6 +460,250 @@ class WhatsAppService
 
             return [];
         }
+    }
+
+    /**
+     * Solo plantillas APPROVED (útiles para envío).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listApprovedTemplates(int $limit = 50): array
+    {
+        return array_values(array_filter(
+            $this->listTemplates($limit),
+            static fn (array $t) => strtoupper((string) ($t['status'] ?? '')) === 'APPROVED'
+        ));
+    }
+
+    /**
+     * Resuelve el idioma real de una plantilla APPROVED en Meta.
+     * Prioridad: preferido exacto → mismo prefijo (es → es_AR) → es_AR → es → primero APPROVED.
+     */
+    public function resolverIdiomaPlantilla(string $templateName, ?string $preferido = null): ?string
+    {
+        $templateName = trim($templateName);
+        if ($templateName === '') {
+            return null;
+        }
+
+        $preferido = $preferido !== null && $preferido !== ''
+            ? $preferido
+            : (string) config('whatsapp.default_template_language', 'es');
+
+        $candidatas = array_values(array_filter(
+            $this->listApprovedTemplates(),
+            static fn (array $t) => ($t['name'] ?? '') === $templateName
+        ));
+
+        if ($candidatas === []) {
+            return $preferido !== '' ? $preferido : null;
+        }
+
+        $langs = array_values(array_unique(array_map(
+            static fn (array $t) => (string) ($t['language'] ?? ''),
+            $candidatas
+        )));
+        $langs = array_values(array_filter($langs));
+
+        foreach ($langs as $lang) {
+            if (strcasecmp($lang, $preferido) === 0) {
+                return $lang;
+            }
+        }
+
+        $pref = strtolower($preferido);
+        foreach ($langs as $lang) {
+            $l = strtolower($lang);
+            if (str_starts_with($l, $pref.'_') || str_starts_with($pref, $l.'_')) {
+                return $lang;
+            }
+        }
+
+        foreach (['es_AR', 'es', 'es_ES', 'en_US', 'en'] as $fallback) {
+            foreach ($langs as $lang) {
+                if (strcasecmp($lang, $fallback) === 0) {
+                    return $lang;
+                }
+            }
+        }
+
+        return $langs[0] ?? $preferido;
+    }
+
+    /**
+     * @param  array<string, mixed>  $t
+     * @return array<string, mixed>
+     */
+    private function mapTemplateFromMeta(array $t): array
+    {
+        $components = is_array($t['components'] ?? null) ? $t['components'] : [];
+        $parsed = $this->parseTemplateComponents($components);
+
+        return [
+            'name' => (string) ($t['name'] ?? '-'),
+            'status' => (string) ($t['status'] ?? '-'),
+            'language' => (string) ($t['language'] ?? '-'),
+            'category' => (string) ($t['category'] ?? '-'),
+            'rejected' => (string) ($t['rejected_reason'] ?? 'NONE'),
+            'parameter_format' => strtoupper((string) ($t['parameter_format'] ?? 'POSITIONAL')),
+            'header_format' => $parsed['header_format'],
+            'header_text' => $parsed['header_text'],
+            'body_text' => $parsed['body_text'],
+            'footer_text' => $parsed['footer_text'],
+            'buttons' => $parsed['buttons'],
+            'params' => $parsed['params'],
+            'params_body_count' => count(array_filter(
+                $parsed['params'],
+                static fn (array $p) => ($p['component'] ?? '') === 'body'
+            )),
+            'params_header_count' => count(array_filter(
+                $parsed['params'],
+                static fn (array $p) => ($p['component'] ?? '') === 'header'
+            )),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $components
+     * @return array{
+     *     header_format: string|null,
+     *     header_text: string|null,
+     *     body_text: string|null,
+     *     footer_text: string|null,
+     *     buttons: list<string>,
+     *     params: list<array{component: string, key: string, label: string, example: string}>
+     * }
+     */
+    private function parseTemplateComponents(array $components): array
+    {
+        $headerFormat = null;
+        $headerText = null;
+        $bodyText = null;
+        $footerText = null;
+        $buttons = [];
+        $params = [];
+
+        foreach ($components as $component) {
+            if (! is_array($component)) {
+                continue;
+            }
+            $type = strtoupper((string) ($component['type'] ?? ''));
+
+            if ($type === 'HEADER') {
+                $headerFormat = strtoupper((string) ($component['format'] ?? 'TEXT'));
+                $headerText = isset($component['text']) ? (string) $component['text'] : null;
+                if ($headerFormat === 'TEXT' && filled($headerText)) {
+                    foreach ($this->extractPlaceholders((string) $headerText, $component['example'] ?? [], 'header') as $p) {
+                        $params[] = $p;
+                    }
+                } elseif (in_array($headerFormat, ['IMAGE', 'VIDEO', 'DOCUMENT'], true)) {
+                    $params[] = [
+                        'component' => 'header',
+                        'key' => 'media',
+                        'label' => 'Header '.$headerFormat,
+                        'example' => '',
+                    ];
+                }
+            }
+
+            if ($type === 'BODY') {
+                $bodyText = isset($component['text']) ? (string) $component['text'] : null;
+                if (filled($bodyText)) {
+                    foreach ($this->extractPlaceholders((string) $bodyText, $component['example'] ?? [], 'body') as $p) {
+                        $params[] = $p;
+                    }
+                }
+            }
+
+            if ($type === 'FOOTER') {
+                $footerText = isset($component['text']) ? (string) $component['text'] : null;
+            }
+
+            if ($type === 'BUTTONS' && is_array($component['buttons'] ?? null)) {
+                foreach ($component['buttons'] as $btn) {
+                    if (! is_array($btn)) {
+                        continue;
+                    }
+                    $btnType = (string) ($btn['type'] ?? '');
+                    $btnText = (string) ($btn['text'] ?? $btnType);
+                    $buttons[] = trim($btnType.($btnText !== '' ? ': '.$btnText : ''));
+                }
+            }
+        }
+
+        return [
+            'header_format' => $headerFormat,
+            'header_text' => $headerText,
+            'body_text' => $bodyText,
+            'footer_text' => $footerText,
+            'buttons' => $buttons,
+            'params' => $params,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $example
+     * @return list<array{component: string, key: string, label: string, example: string}>
+     */
+    private function extractPlaceholders(string $text, array $example, string $component): array
+    {
+        if (! preg_match_all('/\{\{\s*([^}]+?)\s*\}\}/u', $text, $matches)) {
+            return [];
+        }
+
+        $keys = array_values(array_unique(array_map(
+            static fn ($k) => trim((string) $k),
+            $matches[1] ?? []
+        )));
+
+        $examplesByKey = [];
+        if ($component === 'body') {
+            if (! empty($example['body_text_named_params']) && is_array($example['body_text_named_params'])) {
+                foreach ($example['body_text_named_params'] as $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    $name = (string) ($row['param_name'] ?? '');
+                    if ($name !== '') {
+                        $examplesByKey[$name] = (string) ($row['example'] ?? '');
+                    }
+                }
+            } elseif (! empty($example['body_text'][0]) && is_array($example['body_text'][0])) {
+                foreach (array_values($example['body_text'][0]) as $i => $val) {
+                    $examplesByKey[(string) ($i + 1)] = (string) $val;
+                }
+            }
+        }
+
+        if ($component === 'header') {
+            if (! empty($example['header_text_named_params']) && is_array($example['header_text_named_params'])) {
+                foreach ($example['header_text_named_params'] as $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    $name = (string) ($row['param_name'] ?? '');
+                    if ($name !== '') {
+                        $examplesByKey[$name] = (string) ($row['example'] ?? '');
+                    }
+                }
+            } elseif (! empty($example['header_text']) && is_array($example['header_text'])) {
+                foreach (array_values($example['header_text']) as $i => $val) {
+                    $examplesByKey[(string) ($i + 1)] = (string) $val;
+                }
+            }
+        }
+
+        $out = [];
+        foreach ($keys as $key) {
+            $out[] = [
+                'component' => $component,
+                'key' => $key,
+                'label' => '{{'.$key.'}}',
+                'example' => $examplesByKey[$key] ?? '',
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -522,6 +1012,85 @@ class WhatsAppService
     }
 
     /**
+     * Guardar nombre de contacto WA y/o vincular a un cliente ISP (panel).
+     * No modifica clientes.nombre.
+     *
+     * @return array{
+     *   contacto: WhatsappContacto,
+     *   nombre: ?string,
+     *   cliente_id: ?int,
+     *   cliente_nombre: ?string
+     * }
+     */
+    public function guardarContactoManual(string $telefono, ?string $nombre, ?int $clienteId, bool $quitarCliente = false): array
+    {
+        $tel = $this->normalizePhone($telefono) ?? preg_replace('/\D+/', '', $telefono) ?? '';
+        $tel = trim((string) $tel);
+        if ($tel === '') {
+            throw new \InvalidArgumentException('Teléfono inválido.');
+        }
+
+        $nombre = $nombre !== null ? trim($nombre) : null;
+        if ($nombre === '') {
+            $nombre = null;
+        }
+        if ($nombre !== null) {
+            $nombre = mb_substr($nombre, 0, 200);
+        }
+
+        $cliente = null;
+        if (! $quitarCliente && $clienteId) {
+            $cliente = Cliente::query()->find($clienteId);
+            if (! $cliente) {
+                throw new \InvalidArgumentException('Cliente no encontrado.');
+            }
+        }
+
+        $contacto = WhatsappContacto::query()->firstOrNew(['telefono' => $tel]);
+        // El panel manda el nombre del form (null/vacío = sin nombre; si hay cliente se usa el ISP).
+        $contacto->nombre = $nombre;
+        if (! filled($contacto->nombre) && $cliente) {
+            $nombreIsp = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
+            if ($nombreIsp !== '') {
+                $contacto->nombre = mb_substr($nombreIsp, 0, 200);
+            }
+        }
+
+        if ($quitarCliente) {
+            $contacto->cliente_id = null;
+        } elseif ($cliente) {
+            $contacto->cliente_id = $cliente->cliente_id;
+        }
+
+        if (! $contacto->ultimo_visto_at) {
+            $contacto->ultimo_visto_at = now();
+        }
+        $contacto->save();
+
+        if ($quitarCliente) {
+            WhatsappMensaje::query()
+                ->where('telefono', $tel)
+                ->update(['cliente_id' => null]);
+        } elseif ($cliente) {
+            WhatsappMensaje::query()
+                ->where('telefono', $tel)
+                ->update(['cliente_id' => $cliente->cliente_id]);
+        }
+
+        $contacto->load('cliente:cliente_id,nombre,apellido');
+        $clienteNombre = $contacto->cliente
+            ? trim(($contacto->cliente->nombre ?? '').' '.($contacto->cliente->apellido ?? ''))
+            : null;
+
+        return [
+            'contacto' => $contacto,
+            'nombre' => $contacto->nombre,
+            'cliente_id' => $contacto->cliente_id,
+            'cliente_nombre' => $clienteNombre !== '' ? $clienteNombre : null,
+        ];
+    }
+
+    /**
      * Upsert del nombre de perfil WhatsApp por teléfono.
      * No modifica clientes.nombre (dato ISP / documento).
      */
@@ -568,6 +1137,126 @@ class WhatsAppService
             ['telefono' => $telefono],
             $attrs
         );
+    }
+
+    /**
+     * Cuando cambia el teléfono del cliente en Infinity:
+     * - desvincula el número viejo (contacto + mensajes de ese cliente)
+     * - vincula el número nuevo (si ya hay chat WA, o crea contacto ligero)
+     * El historial del número viejo permanece; solo pierde el vínculo cliente_id.
+     *
+     * @return array{changed: bool, anterior: ?string, nuevo: ?string}
+     */
+    public function sincronizarTelefonoCliente(
+        int $clienteId,
+        ?string $telefonoAnterior,
+        ?string $telefonoNuevo,
+        ?string $nombreIsp = null,
+    ): array {
+        $normOld = $this->normalizePhone($telefonoAnterior);
+        $normNew = $this->normalizePhone($telefonoNuevo);
+
+        if ($normOld === $normNew) {
+            if ($normNew) {
+                $this->vincularTelefonoACliente($normNew, $clienteId, $nombreIsp, $telefonoNuevo);
+            }
+
+            return ['changed' => false, 'anterior' => $normOld, 'nuevo' => $normNew];
+        }
+
+        if ($normOld) {
+            $this->desvincularTelefonoDeCliente($normOld, $clienteId, $telefonoAnterior);
+        }
+
+        if ($normNew) {
+            $this->vincularTelefonoACliente($normNew, $clienteId, $nombreIsp, $telefonoNuevo);
+        }
+
+        return ['changed' => true, 'anterior' => $normOld, 'nuevo' => $normNew];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function telefonosParaMatch(?string $phone, ?string $normalized = null): array
+    {
+        $out = $this->phones->variants($phone);
+        $norm = $normalized ?? $this->normalizePhone($phone);
+        if ($norm) {
+            $out[] = $norm;
+        }
+        $raw = preg_replace('/\D+/', '', (string) $phone) ?? '';
+        if ($raw !== '') {
+            $out[] = $raw;
+        }
+
+        return array_values(array_unique(array_filter($out)));
+    }
+
+    private function desvincularTelefonoDeCliente(string $normalized, int $clienteId, ?string $raw = null): void
+    {
+        $tels = $this->telefonosParaMatch($raw ?: $normalized, $normalized);
+        if ($tels === []) {
+            return;
+        }
+
+        WhatsappContacto::query()
+            ->whereIn('telefono', $tels)
+            ->where('cliente_id', $clienteId)
+            ->update(['cliente_id' => null]);
+
+        WhatsappMensaje::query()
+            ->whereIn('telefono', $tels)
+            ->where('cliente_id', $clienteId)
+            ->update(['cliente_id' => null]);
+    }
+
+    private function vincularTelefonoACliente(
+        string $normalized,
+        int $clienteId,
+        ?string $nombreIsp = null,
+        ?string $raw = null,
+    ): void {
+        $tels = $this->telefonosParaMatch($raw ?: $normalized, $normalized);
+        if ($tels === []) {
+            return;
+        }
+
+        $nombre = $nombreIsp !== null && trim($nombreIsp) !== ''
+            ? mb_substr(trim($nombreIsp), 0, 200)
+            : null;
+
+        $contactos = WhatsappContacto::query()->whereIn('telefono', $tels)->get();
+
+        if ($contactos->isEmpty()) {
+            $tieneMensajes = WhatsappMensaje::query()->whereIn('telefono', $tels)->exists();
+            if ($tieneMensajes) {
+                $attrs = [
+                    'cliente_id' => $clienteId,
+                    'ultimo_visto_at' => now(),
+                ];
+                if ($nombre) {
+                    $attrs['nombre'] = $nombre;
+                }
+                WhatsappContacto::query()->updateOrCreate(
+                    ['telefono' => $normalized],
+                    $attrs
+                );
+            }
+        } else {
+            foreach ($contactos as $contacto) {
+                $data = ['cliente_id' => $clienteId];
+                if ($nombre && ! filled($contacto->nombre)) {
+                    $data['nombre'] = $nombre;
+                }
+                $contacto->update($data);
+            }
+        }
+
+        // El número ahora pertenece a este cliente: asociar mensajes del hilo.
+        WhatsappMensaje::query()
+            ->whereIn('telefono', $tels)
+            ->update(['cliente_id' => $clienteId]);
     }
 
     /**

@@ -9,13 +9,20 @@ use Illuminate\Console\Command;
 class SyncClientePortalUsersCommand extends Command
 {
     protected $signature = 'clientes:sync-portal-users
-                            {--reset-passwords : Restablece la contraseña al número de documento}
+                            {--limpiar-passwords-documento : Vacía solo contraseñas que aún son el CI/documento}
                             {--solo-activos : Solo clientes en estado activo}';
 
-    protected $description = 'Crea/actualiza usuarios de app para clientes (usuario y contraseña = documento)';
+    protected $description = 'Crea/actualiza usuarios de app para clientes (usuario = documento; sin contraseña hasta alta)';
 
     public function handle(ClientePortalUserService $portal): int
     {
+        if ($this->option('limpiar-passwords-documento')) {
+            $n = $portal->limpiarContrasenasDocumentoLegacy();
+            $this->info("Contraseñas documento vaciadas: {$n}. Las claves PLUS u otras se conservaron.");
+
+            return self::SUCCESS;
+        }
+
         $query = Cliente::query()->orderBy('cliente_id');
 
         if ($this->option('solo-activos')) {
@@ -25,14 +32,13 @@ class SyncClientePortalUsersCommand extends Command
         $creados = 0;
         $actualizados = 0;
         $errores = 0;
-        $reset = (bool) $this->option('reset-passwords');
 
         $this->info('Sincronizando usuarios portal de clientes...');
 
-        $query->chunkById(100, function ($clientes) use ($portal, $reset, &$creados, &$actualizados, &$errores) {
+        $query->chunkById(100, function ($clientes) use ($portal, &$creados, &$actualizados, &$errores) {
             foreach ($clientes as $cliente) {
                 try {
-                    $result = $portal->syncParaCliente($cliente, $reset);
+                    $result = $portal->syncParaCliente($cliente, false);
                     if ($result['created']) {
                         $creados++;
                     } else {

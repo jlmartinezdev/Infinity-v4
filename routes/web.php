@@ -48,9 +48,16 @@ use App\Http\Controllers\RouterIpPoolController;
 use App\Http\Controllers\RouterModeloController;
 use App\Http\Controllers\SalidaPonController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\StaffMapaController;
 use App\Http\Controllers\ServicioPppoeEventoController;
 use App\Http\Controllers\SolicitudAccesoWebController;
 use App\Http\Controllers\AvisoPushWebController;
+use App\Http\Controllers\Loyalty\CanjeController as LoyaltyCanjeController;
+use App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboardController;
+use App\Http\Controllers\Loyalty\NovedadController as LoyaltyNovedadController;
+use App\Http\Controllers\Loyalty\PlanUpsellController as LoyaltyPlanUpsellController;
+use App\Http\Controllers\Loyalty\PremioController as LoyaltyPremioController;
+use App\Http\Controllers\Loyalty\PuntosController as LoyaltyPuntosController;
 use App\Http\Controllers\WhatsAppAsuntoController;
 use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\SplitterPrimarioController;
@@ -73,6 +80,13 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
+
+// Recibo PDF público (enlace WhatsApp — token HMAC, sin login)
+// Acepta también el bug de plantilla Meta: /recibo/{{1}}{id}/{token}
+Route::get('/recibo/{cobro}/{token}', [CobroController::class, 'reciboPdfPublico'])
+    ->where('cobro', '(?:\{\{1\}\})?\d+')
+    ->where('token', '[a-f0-9]{40}')
+    ->name('recibo.publico');
 
 // Rutas API de autenticación (usando web para sesiones)
 Route::prefix('api')->group(function () {
@@ -135,12 +149,20 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::delete('/configuracion/tareas-periodicas/{tareaPeriodica}', [TareaPeriodicaController::class, 'destroy'])->name('tareas-periodicas.destroy');
     Route::get('/configuracion/backup-bd', [DatabaseBackupController::class, 'index'])->name('configuracion.backup');
     Route::post('/configuracion/backup-bd/descargar', [DatabaseBackupController::class, 'download'])->name('configuracion.backup.download');
+    Route::post('/configuracion/backup-bd/drive', [DatabaseBackupController::class, 'uploadDrive'])->name('configuracion.backup.drive');
 });
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/corte-servicio', [CorteServicioController::class, 'index'])->name('admin.corte-servicio.index');
     Route::post('/corte-servicio/todos', [CorteServicioController::class, 'ejecutarTodos'])->name('admin.corte-servicio.todos');
     Route::post('/corte-servicio/nodo', [CorteServicioController::class, 'ejecutarNodo'])->name('admin.corte-servicio.nodo');
+});
+
+Route::middleware(['auth', 'flota.staff'])->group(function () {
+    Route::get('/staff/mapa-tecnicos', [StaffMapaController::class, 'index'])->name('staff.mapa-tecnicos');
+    Route::get('/staff/mapa-tecnicos/ubicaciones', [StaffMapaController::class, 'ubicaciones'])->name('staff.mapa-tecnicos.ubicaciones');
+    Route::get('/staff/mapa-tecnicos/clientes', [StaffMapaController::class, 'clientes'])->name('staff.mapa-tecnicos.clientes');
+    Route::get('/staff/mapa-tecnicos/pedidos', [StaffMapaController::class, 'pedidos'])->name('staff.mapa-tecnicos.pedidos');
 });
 
 // Clientes (CRUD)
@@ -172,13 +194,16 @@ Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
 });
 Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy')->middleware(['auth', 'permiso:clientes.eliminar']);
 Route::get('/clientes/mapas-pedidos', [PedidoController::class, 'mapasPedidos'])->name('clientes.mapas-pedidos')->middleware(['auth', 'permiso:pedidos.ver']);
+Route::get('/clientes/mapas-pedidos/clientes', [StaffMapaController::class, 'clientes'])
+    ->name('clientes.mapas-pedidos.clientes')
+    ->middleware(['auth', 'permiso:pedidos.ver']);
 
-// Solicitudes de acceso (App móvil)
-Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
+// Solicitudes de acceso (App móvil) — permiso dedicado, no hereda de clientes
+Route::middleware(['auth', 'permiso:solicitudes-acceso.ver'])->group(function () {
     Route::get('/solicitudes-acceso', [SolicitudAccesoWebController::class, 'index'])->name('solicitudes-acceso.index');
     Route::get('/solicitudes-acceso/{solicitud}', [SolicitudAccesoWebController::class, 'show'])->name('solicitudes-acceso.show');
 });
-Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
+Route::middleware(['auth', 'permiso:solicitudes-acceso.editar'])->group(function () {
     Route::post('/solicitudes-acceso/{solicitud}/aprobar', [SolicitudAccesoWebController::class, 'aprobar'])->name('solicitudes-acceso.aprobar');
     Route::post('/solicitudes-acceso/{solicitud}/rechazar', [SolicitudAccesoWebController::class, 'rechazar'])->name('solicitudes-acceso.rechazar');
     Route::post('/solicitudes-acceso/{solicitud}/reenviar-clave', [SolicitudAccesoWebController::class, 'reenviarClave'])->name('solicitudes-acceso.reenviar-clave');
@@ -194,29 +219,104 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::get('/whatsapp/contactos', [WhatsAppWebController::class, 'contactos'])->name('whatsapp.contactos');
     Route::get('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'index'])->name('whatsapp.asuntos.index');
     Route::get('/whatsapp/asuntos-json', [WhatsAppWebController::class, 'asuntosJson'])->name('whatsapp.asuntos.json');
+    Route::get('/whatsapp/rapido/meta', [WhatsAppWebController::class, 'rapidoMeta'])->name('whatsapp.rapido.meta');
 });
 Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::get('/whatsapp/enviar', [WhatsAppWebController::class, 'enviarForm'])->name('whatsapp.enviar');
     Route::post('/whatsapp/enviar', [WhatsAppWebController::class, 'enviar'])->name('whatsapp.enviar.store');
+    Route::post('/whatsapp/enviar-adjunto', [WhatsAppWebController::class, 'enviarAdjunto'])->name('whatsapp.enviar-adjunto');
     Route::post('/whatsapp/mensajes/{mensaje}/reintentar', [WhatsAppWebController::class, 'reintentar'])->name('whatsapp.reintentar');
     Route::post('/whatsapp/marcar-leidos', [WhatsAppWebController::class, 'marcarLeidos'])->name('whatsapp.marcar-leidos');
     Route::post('/whatsapp/conversacion/asunto', [WhatsAppWebController::class, 'asignarAsunto'])->name('whatsapp.asignar-asunto');
+    Route::get('/whatsapp/conversacion/buscar-cliente', [WhatsAppWebController::class, 'buscarClientes'])->name('whatsapp.buscar-cliente');
+    Route::post('/whatsapp/conversacion/contacto', [WhatsAppWebController::class, 'guardarContacto'])->name('whatsapp.guardar-contacto');
     Route::get('/whatsapp/asuntos/create', [WhatsAppAsuntoController::class, 'create'])->name('whatsapp.asuntos.create');
     Route::post('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'store'])->name('whatsapp.asuntos.store');
     Route::get('/whatsapp/asuntos/{asunto}/edit', [WhatsAppAsuntoController::class, 'edit'])->name('whatsapp.asuntos.edit');
     Route::put('/whatsapp/asuntos/{asunto}', [WhatsAppAsuntoController::class, 'update'])->name('whatsapp.asuntos.update');
     Route::delete('/whatsapp/asuntos/{asunto}', [WhatsAppAsuntoController::class, 'destroy'])->name('whatsapp.asuntos.destroy');
 });
+Route::post('/whatsapp/rapido/ticket', [WhatsAppWebController::class, 'storeTicketRapido'])
+    ->name('whatsapp.rapido.ticket')
+    ->middleware(['auth', 'permiso:tickets.crear']);
+Route::post('/whatsapp/rapido/pedido', [WhatsAppWebController::class, 'storePedidoRapido'])
+    ->name('whatsapp.rapido.pedido')
+    ->middleware(['auth', 'permiso:pedidos.crear']);
+Route::get('/whatsapp/rapido/cobro-meta', [WhatsAppWebController::class, 'cobroMeta'])
+    ->name('whatsapp.rapido.cobro-meta')
+    ->middleware(['auth', 'permiso:cobros.crear']);
+Route::post('/whatsapp/rapido/cobro', [WhatsAppWebController::class, 'storeCobroRapido'])
+    ->name('whatsapp.rapido.cobro')
+    ->middleware(['auth', 'permiso:cobros.crear']);
 
-// Avisos push voluntarios a app cliente
-Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
+// Avisos push voluntarios a app cliente — permiso dedicado, no hereda de clientes
+Route::middleware(['auth', 'permiso:avisos-push.ver'])->group(function () {
     Route::get('/avisos-push', [AvisoPushWebController::class, 'index'])->name('avisos-push.index');
     Route::get('/avisos-push/buscar', [AvisoPushWebController::class, 'buscar'])->name('avisos-push.buscar');
 });
-Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
+Route::middleware(['auth', 'permiso:avisos-push.editar'])->group(function () {
     Route::post('/avisos-push', [AvisoPushWebController::class, 'store'])->name('avisos-push.store');
     Route::post('/avisos-push/{aviso}/reenviar', [AvisoPushWebController::class, 'reenviar'])->name('avisos-push.reenviar');
     Route::delete('/avisos-push/{aviso}', [AvisoPushWebController::class, 'destroy'])->name('avisos-push.destroy');
+});
+
+// Loyalty / CMS App
+Route::middleware([
+    'auth',
+    'permiso:loyalty-novedades.ver,loyalty-premios.ver,loyalty-canjes.ver,loyalty-puntos.ver,loyalty-upsell.ver,loyalty-app-config.ver',
+])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/', [LoyaltyDashboardController::class, 'index'])->name('dashboard');
+});
+
+Route::middleware(['auth', 'permiso:loyalty-app-config.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/app-config', [\App\Http\Controllers\Loyalty\AppConfigController::class, 'edit'])->name('app-config.edit');
+    Route::put('/app-config', [\App\Http\Controllers\Loyalty\AppConfigController::class, 'update'])->name('app-config.update')->middleware('permiso:loyalty-app-config.editar');
+});
+
+Route::middleware(['auth', 'permiso:loyalty-novedades.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/novedades', [LoyaltyNovedadController::class, 'index'])->name('novedades.index');
+    Route::get('/novedades/create', [LoyaltyNovedadController::class, 'create'])->name('novedades.create')->middleware('permiso:loyalty-novedades.crear');
+    Route::post('/novedades', [LoyaltyNovedadController::class, 'store'])->name('novedades.store')->middleware('permiso:loyalty-novedades.crear');
+    Route::get('/novedades/{novedad}/edit', [LoyaltyNovedadController::class, 'edit'])->name('novedades.edit')->middleware('permiso:loyalty-novedades.editar');
+    Route::put('/novedades/{novedad}', [LoyaltyNovedadController::class, 'update'])->name('novedades.update')->middleware('permiso:loyalty-novedades.editar');
+    Route::delete('/novedades/{novedad}', [LoyaltyNovedadController::class, 'destroy'])->name('novedades.destroy')->middleware('permiso:loyalty-novedades.eliminar');
+});
+
+Route::middleware(['auth', 'permiso:loyalty-premios.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/premios', [LoyaltyPremioController::class, 'index'])->name('premios.index');
+    Route::get('/premios/create', [LoyaltyPremioController::class, 'create'])->name('premios.create')->middleware('permiso:loyalty-premios.crear');
+    Route::post('/premios', [LoyaltyPremioController::class, 'store'])->name('premios.store')->middleware('permiso:loyalty-premios.crear');
+    Route::get('/premios/{premio}/edit', [LoyaltyPremioController::class, 'edit'])->name('premios.edit')->middleware('permiso:loyalty-premios.editar');
+    Route::put('/premios/{premio}', [LoyaltyPremioController::class, 'update'])->name('premios.update')->middleware('permiso:loyalty-premios.editar');
+    Route::delete('/premios/{premio}', [LoyaltyPremioController::class, 'destroy'])->name('premios.destroy')->middleware('permiso:loyalty-premios.eliminar');
+});
+
+Route::middleware(['auth', 'permiso:loyalty-canjes.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/canjes', [LoyaltyCanjeController::class, 'index'])->name('canjes.index');
+    Route::post('/canjes/{canje}/preparar', [LoyaltyCanjeController::class, 'preparar'])->name('canjes.preparar')->middleware('permiso:loyalty-canjes.editar');
+    Route::post('/canjes/{canje}/listo', [LoyaltyCanjeController::class, 'listo'])->name('canjes.listo')->middleware('permiso:loyalty-canjes.editar');
+    Route::post('/canjes/{canje}/entregar', [LoyaltyCanjeController::class, 'entregar'])->name('canjes.entregar')->middleware('permiso:loyalty-canjes.editar');
+    Route::post('/canjes/{canje}/aplicar', [LoyaltyCanjeController::class, 'aplicar'])->name('canjes.aplicar')->middleware('permiso:loyalty-canjes.editar');
+    Route::post('/canjes/{canje}/cancelar', [LoyaltyCanjeController::class, 'cancelar'])->name('canjes.cancelar')->middleware('permiso:loyalty-canjes.editar');
+});
+
+Route::middleware(['auth', 'permiso:loyalty-puntos.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/puntos', [LoyaltyPuntosController::class, 'index'])->name('puntos.index');
+    Route::post('/puntos/reglas', [LoyaltyPuntosController::class, 'storeRegla'])->name('puntos.reglas.store')->middleware('permiso:loyalty-puntos.crear');
+    Route::put('/puntos/reglas/{regla}', [LoyaltyPuntosController::class, 'updateRegla'])->name('puntos.reglas.update')->middleware('permiso:loyalty-puntos.editar');
+    Route::post('/puntos/reglas/{regla}/toggle', [LoyaltyPuntosController::class, 'toggleRegla'])->name('puntos.reglas.toggle')->middleware('permiso:loyalty-puntos.editar');
+    Route::post('/puntos/reglas/{regla}/dias', [LoyaltyPuntosController::class, 'guardarPuntosPorDia'])->name('puntos.reglas.dias')->middleware('permiso:loyalty-puntos.editar');
+    Route::delete('/puntos/reglas/{regla}', [LoyaltyPuntosController::class, 'destroyRegla'])->name('puntos.reglas.destroy')->middleware('permiso:loyalty-puntos.eliminar');
+    Route::post('/puntos/ajustar', [LoyaltyPuntosController::class, 'ajustar'])->name('puntos.ajustar')->middleware('permiso:loyalty-puntos.editar');
+    Route::delete('/puntos/movimientos/{movimiento}', [LoyaltyPuntosController::class, 'destroyMovimiento'])->name('puntos.movimientos.destroy')->middleware('permiso:loyalty-puntos.eliminar');
+});
+
+Route::middleware(['auth', 'permiso:loyalty-upsell.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/upsell', [LoyaltyPlanUpsellController::class, 'index'])->name('upsell.index');
+    Route::post('/upsell', [LoyaltyPlanUpsellController::class, 'store'])->name('upsell.store')->middleware('permiso:loyalty-upsell.crear');
+    Route::put('/upsell/{upsell}', [LoyaltyPlanUpsellController::class, 'update'])->name('upsell.update')->middleware('permiso:loyalty-upsell.editar');
+    Route::delete('/upsell/{upsell}', [LoyaltyPlanUpsellController::class, 'destroy'])->name('upsell.destroy')->middleware('permiso:loyalty-upsell.eliminar');
+    Route::post('/upsell/staff', [LoyaltyPlanUpsellController::class, 'guardarStaff'])->name('upsell.staff')->middleware('permiso:loyalty-upsell.editar');
 });
 
 // Gestión avanzada de acceso app (solo Administrador) — sobre solicitudes de la app
@@ -399,6 +499,7 @@ Route::middleware(['auth', 'permiso:cobros-rendicion.ver'])->group(function () {
 Route::post('/cobros/rendiciones', [CobroRendicionController::class, 'store'])->name('cobros-rendiciones.store')->middleware(['auth', 'permiso:cobros-rendicion.crear']);
 Route::middleware(['auth', 'permiso:cobros.ver'])->group(function () {
     Route::get('/cobros/{cobro}/pdf', [CobroController::class, 'reciboPdf'])->name('cobros.recibo-pdf');
+    Route::post('/cobros/{cobro}/whatsapp', [CobroController::class, 'enviarWhatsApp'])->name('cobros.enviar-whatsapp');
     Route::get('/cobros/{cobro}', [CobroController::class, 'show'])->name('cobros.show');
 });
 Route::delete('/cobros/{cobro}', [CobroController::class, 'destroy'])->name('cobros.destroy')->middleware(['auth', 'permiso:cobros.eliminar']);
@@ -487,6 +588,7 @@ Route::middleware(['auth', 'permiso:tv.ver'])->group(function () {
 });
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/tv-cuentas/aviso-config', [TvCuentaController::class, 'updateAvisoConfig'])->name('tv-cuentas.aviso-config');
+    Route::post('/tv-cuentas/aviso-probar', [TvCuentaController::class, 'probarAviso'])->name('tv-cuentas.aviso-probar');
 });
 Route::middleware(['auth', 'permiso:tv.editar'])->group(function () {
     Route::get('/tv-cuentas/create', [TvCuentaController::class, 'create'])->name('tv-cuentas.create');

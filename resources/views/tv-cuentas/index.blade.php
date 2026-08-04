@@ -56,9 +56,7 @@
 
     @if(!empty($esAdmin))
     <dialog id="tv-aviso-modal" class="rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-0 w-[min(100%,32rem)] backdrop:bg-black/40">
-        <form method="POST" action="{{ route('tv-cuentas.aviso-config') }}" class="p-5 space-y-4">
-            @csrf
-            @method('PUT')
+        <div class="p-5 space-y-4">
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h2 class="text-lg font-semibold">Avisos WhatsApp — vencimiento TV</h2>
@@ -67,50 +65,66 @@
                 <button type="button" onclick="document.getElementById('tv-aviso-modal').close()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">&times;</button>
             </div>
 
-            <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="enabled" value="1" @checked(!empty($tvAviso['enabled']))
-                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
-                Activar avisos automáticos
-            </label>
+            <form id="tv-aviso-config-form" method="POST" action="{{ route('tv-cuentas.aviso-config') }}" class="space-y-4">
+                @csrf
+                @method('PUT')
 
-            <div class="grid grid-cols-2 gap-3">
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="enabled" value="1" @checked(!empty($tvAviso['enabled']))
+                        class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                    Activar avisos automáticos
+                </label>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Días de anticipación</label>
+                        <input type="number" name="dias_antes" min="0" max="60" required
+                            value="{{ old('dias_antes', $tvAviso['dias_antes'] ?? 7) }}"
+                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Hora de envío</label>
+                        <input type="time" name="hora" required
+                            value="{{ old('hora', $tvAviso['hora'] ?? '09:00') }}"
+                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                    </div>
+                </div>
+
                 <div>
-                    <label class="block text-sm font-medium mb-1">Días de anticipación</label>
-                    <input type="number" name="dias_antes" min="0" max="60" required
-                        value="{{ old('dias_antes', $tvAviso['dias_antes'] ?? 7) }}"
-                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                    <label class="block text-sm font-medium mb-2">Usuarios que reciben el aviso</label>
+                    <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700">
+                        @forelse($staffAviso as $u)
+                            <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
+                                <input type="checkbox" name="usuario_ids[]" value="{{ $u->usuario_id }}"
+                                    @checked(in_array((int) $u->usuario_id, $tvAviso['usuario_ids'] ?? [], true))
+                                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                                <span class="flex-1">{{ $u->name }}</span>
+                                <span class="text-xs text-gray-400">{{ $u->telefono ?: 'sin teléfono' }}</span>
+                            </label>
+                        @empty
+                            <p class="px-3 py-2 text-sm text-gray-500">No hay personal activo.</p>
+                        @endforelse
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Hora de envío</label>
-                    <input type="time" name="hora" required
-                        value="{{ old('hora', $tvAviso['hora'] ?? '09:00') }}"
-                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
-                </div>
-            </div>
+            </form>
 
-            <div>
-                <label class="block text-sm font-medium mb-2">Usuarios que reciben el aviso</label>
-                <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse($staffAviso as $u)
-                        <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
-                            <input type="checkbox" name="usuario_ids[]" value="{{ $u->usuario_id }}"
-                                @checked(in_array((int) $u->usuario_id, $tvAviso['usuario_ids'] ?? [], true))
-                                class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
-                            <span class="flex-1">{{ $u->name }}</span>
-                            <span class="text-xs text-gray-400">{{ $u->telefono ?: 'sin teléfono' }}</span>
-                        </label>
-                    @empty
-                        <p class="px-3 py-2 text-sm text-gray-500">No hay personal activo.</p>
-                    @endforelse
+            <div class="flex flex-wrap justify-between gap-2 pt-1 border-t border-gray-100 dark:border-gray-700">
+                <form method="POST" action="{{ route('tv-cuentas.aviso-probar') }}"
+                    onsubmit="return confirm('¿Enviar avisos de prueba por WhatsApp para TODAS las cuentas por vencer/vencidas (según días de anticipación)?\n\nSe envía un mensaje [PRUEBA] por cada cuenta a los usuarios guardados.\nNo se registran como avisos automáticos.\n\nSi cambiaste destinatarios, guardá primero.');">
+                    @csrf
+                    <button type="submit"
+                        class="px-4 py-2 text-sm rounded-lg border border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-medium">
+                        Probar envío
+                    </button>
+                </form>
+                <div class="flex gap-2 ml-auto">
+                    <button type="button" onclick="document.getElementById('tv-aviso-modal').close()"
+                        class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>
+                    <button type="submit" form="tv-aviso-config-form"
+                        class="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-medium">Guardar</button>
                 </div>
             </div>
-
-            <div class="flex justify-end gap-2 pt-1">
-                <button type="button" onclick="document.getElementById('tv-aviso-modal').close()"
-                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>
-                <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-medium">Guardar</button>
-            </div>
-        </form>
+        </div>
     </dialog>
     @if($errors->any())
         <script>document.addEventListener('DOMContentLoaded', () => document.getElementById('tv-aviso-modal')?.showModal());</script>

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Cliente;
 use App\Models\Ticket;
+use App\Observers\ClienteObserver;
 use App\Observers\TicketObserver;
 use App\Services\MikroTikService;
 use App\Session\CustomDatabaseSessionHandler;
@@ -33,9 +35,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Ticket::observe(TicketObserver::class);
+        Cliente::observe(ClienteObserver::class);
 
         $appUrl = (string) config('app.url', '');
-        if ($appUrl !== '' && str_starts_with($appUrl, 'https://')) {
+        // En vhost local (infinity.local por HTTP) no forzar HTTPS: rompe CSS/JS y cookies Secure.
+        $esLocalHttp = app()->environment('local')
+            && ! request()->secure()
+            && str_ends_with((string) request()->getHost(), '.local');
+        if ($esLocalHttp) {
+            config(['session.secure' => false]);
+        }
+        if ($appUrl !== '' && str_starts_with($appUrl, 'https://') && ! $esLocalHttp) {
             URL::forceScheme('https');
             // Si no fijaste SESSION_SECURE_COOKIE, marcar cookie de sesión Secure en HTTPS real.
             if (config('session.secure') === null) {

@@ -28,6 +28,34 @@ class PortalController extends ApiController
 
         $saldoFavor = (float) $cliente->servicios->sum(fn (Servicio $s) => (float) ($s->saldo_a_favor ?? 0));
 
+        $proximaVencimiento = FacturaInterna::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->whereNotIn('estado', ['anulada', 'cancelada'])
+            ->whereRaw($saldoExpr.' > 0.009')
+            ->whereNotNull('fecha_vencimiento')
+            ->orderBy('fecha_vencimiento')
+            ->value('fecha_vencimiento');
+
+        $clienteDesde = $cliente->servicios
+            ->map(fn (Servicio $s) => $s->fecha_instalacion)
+            ->filter()
+            ->sort()
+            ->first();
+        if (! $clienteDesde && $cliente->fecha_otorgamiento) {
+            $clienteDesde = $cliente->fecha_otorgamiento;
+        }
+
+        $cfgDisp = app(\App\Services\Portal\PortalAppConfigService::class)->resumen()['disponibilidad_pct'] ?? null;
+        if ($cfgDisp !== null && $cfgDisp !== '') {
+            $disponibilidad = (float) $cfgDisp;
+        } else {
+            $totalSvc = max(1, $cliente->servicios->count());
+            $activos = $cliente->servicios->where('estado', Servicio::ESTADO_ACTIVO)->count();
+            $disponibilidad = $cliente->servicios->isEmpty()
+                ? null
+                : round(90 + (10 * ($activos / $totalSvc)), 1);
+        }
+
         return $this->ok([
             'cliente' => [
                 'cliente_id' => $cliente->cliente_id,
@@ -42,7 +70,15 @@ class PortalController extends ApiController
             'resumen' => [
                 'total_pendiente' => $totalPendiente,
                 'saldo_a_favor' => $saldoFavor,
+                'saldo_favor' => $saldoFavor,
                 'servicios' => $cliente->servicios->count(),
+                'proxima_vencimiento' => $proximaVencimiento
+                    ? \Carbon\Carbon::parse($proximaVencimiento)->toDateString()
+                    : null,
+                'disponibilidad_pct' => $disponibilidad,
+                'cliente_desde' => $clienteDesde
+                    ? \Carbon\Carbon::parse($clienteDesde)->toDateString()
+                    : null,
             ],
             'servicios' => $cliente->servicios->map(fn (Servicio $s) => [
                 'servicio_id' => $s->servicio_id,

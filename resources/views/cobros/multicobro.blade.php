@@ -7,7 +7,7 @@
     <div class="mb-6">
         <a href="{{ route('factura-internas.pendientes') }}" class="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 text-sm font-medium">&larr; Volver a pendiente de pago</a>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Registrar multicobro</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">El monto total se repartirá entre las facturas de forma proporcional al saldo. Si hay clientes diferentes, se generará un cobro por cada cliente.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">El monto se aplica primero a la factura más antigua (FIFO) hasta cubrirla; el resto va a la siguiente. Si hay clientes diferentes, se genera un cobro por cada cliente.</p>
     </div>
 
     @if(session('error'))

@@ -158,7 +158,7 @@
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Permisos de la app (todos los clientes)</h2>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                             El mismo paquete se aplica a los <strong>{{ $totalClientesPortal }}</strong> usuarios portal.
-                            Usuario y contraseña de acceso: número de documento.
+                            Usuario de acceso: número de documento. La contraseña se carga al aprobar la solicitud de alta (clave PLUS); si no hubo alta, queda vacía.
                         </p>
                     </div>
 

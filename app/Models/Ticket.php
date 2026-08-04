@@ -23,7 +23,10 @@ class Ticket extends Model
         'reportado_desde',
         'usuario_id',
         'asignado_id',
+        'actualizado_por_id',
         'observaciones',
+        'nota_tecnico',
+        'detalle_tecnico',
         'imagen',
         'fecha_cierre',
         'factura_interna_id',
@@ -64,6 +67,11 @@ class Ticket extends Model
         return $this->belongsTo(User::class, 'asignado_id', 'usuario_id');
     }
 
+    public function actualizadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actualizado_por_id', 'usuario_id');
+    }
+
     public function facturaInterna(): BelongsTo
     {
         return $this->belongsTo(FacturaInterna::class, 'factura_interna_id');
@@ -73,11 +81,62 @@ class Ticket extends Model
     {
         return [
             'pendiente' => 'Pendiente',
+            'en_camino' => 'En camino',
             'en_proceso' => 'En proceso',
             'resuelto' => 'Resuelto',
+            'no_realizado' => 'No realizado',
             'cerrado' => 'Cerrado',
             'cancelado' => 'Cancelado',
         ];
+    }
+
+    /** Estados que la app staff puede elegir al actualizar una visita. */
+    public static function estadosStaffDisponibles(): array
+    {
+        return ['pendiente', 'en_camino', 'en_proceso', 'resuelto', 'no_realizado'];
+    }
+
+    /** Estados que ya no listan en GET /staff/visitas. */
+    public static function estadosStaffCerrados(): array
+    {
+        return ['resuelto', 'cerrado', 'cancelado', 'no_realizado'];
+    }
+
+    /**
+     * Normaliza key o label de estado a la clave interna (ej. "En camino" → en_camino).
+     */
+    public static function normalizarEstado(?string $valor): ?string
+    {
+        if ($valor === null) {
+            return null;
+        }
+        $raw = trim($valor);
+        if ($raw === '') {
+            return null;
+        }
+
+        $key = strtolower(str_replace([' ', '-'], '_', $raw));
+        $mapa = self::estados();
+        if (isset($mapa[$key])) {
+            return $key;
+        }
+
+        foreach ($mapa as $codigo => $label) {
+            if (strcasecmp($label, $raw) === 0) {
+                return $codigo;
+            }
+        }
+
+        // Aliases app
+        $aliases = [
+            'enproceso' => 'en_proceso',
+            'encamino' => 'en_camino',
+            'norealizado' => 'no_realizado',
+            'en_camino' => 'en_camino',
+            'no_realizado' => 'no_realizado',
+        ];
+
+        return $aliases[$key] ?? null;
     }
 
     public static function prioridades(): array

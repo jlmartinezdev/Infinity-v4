@@ -24,7 +24,7 @@ class AvisoPushWebController extends Controller
             'historial' => $historial,
             'conPush' => $this->avisos->contarConPush(),
             'tipos' => PushAviso::tipos(),
-            'puedeEditar' => auth()->user()?->tienePermiso('clientes.editar') ?? false,
+            'puedeEditar' => auth()->user()?->tienePermiso('avisos-push.editar') ?? false,
         ]);
     }
 

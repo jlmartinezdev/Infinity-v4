@@ -29,6 +29,11 @@ return [
                     'base' => 'portal.tickets',
                     'acciones' => ['ver', 'crear'],
                 ],
+                [
+                    'label' => 'Loyalty / novedades / puntos',
+                    'base' => 'portal.loyalty',
+                    'acciones' => ['ver', 'canjear', 'upsell'],
+                ],
             ],
         ],
     ],

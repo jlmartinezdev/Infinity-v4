@@ -126,7 +126,9 @@ class WhatsAppInboundTicketService
             'WhatsApp — ticket #'.$ticket->id,
             mb_strimwidth($mensaje->cuerpo ?: ('['.$mensaje->tipo.']'), 0, 120, '…'),
             [
-                'tipo' => 'whatsapp_ticket',
+                'tipo' => 'visita',
+                'id' => (string) $ticket->id,
+                'visita_id' => (string) $ticket->id,
                 'ticket_id' => (string) $ticket->id,
             ]
         );

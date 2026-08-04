@@ -11,6 +11,8 @@ return [
         'crear' => 'Crear',
         'editar' => 'Editar',
         'eliminar' => 'Eliminar',
+        'canjear' => 'Canjear',
+        'upsell' => 'Cambio de plan',
     ],
 
     /**
@@ -266,6 +268,7 @@ return [
             'label' => 'Tickets',
             'items' => [
                 ['label' => 'Tickets', 'base' => 'tickets', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Técnicos en mapa', 'base' => 'staff-mapa-tecnicos', 'acciones' => ['ver']],
             ],
         ],
         [
@@ -295,6 +298,19 @@ return [
                 ['label' => 'Routers', 'base' => 'sistema-routers', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Pools de IP', 'base' => 'sistema-pools-ip', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'MikroTik pendientes', 'base' => 'sistema-mikrotik-pendientes', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+            ],
+        ],
+        [
+            'label' => 'Loyalty / App CMS',
+            'items' => [
+                ['label' => 'Solicitudes app (alta usuario)', 'base' => 'solicitudes-acceso', 'acciones' => ['ver', 'editar']],
+                ['label' => 'Avisos push', 'base' => 'avisos-push', 'acciones' => ['ver', 'editar']],
+                ['label' => 'Novedades', 'base' => 'loyalty-novedades', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Premios', 'base' => 'loyalty-premios', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Canjes (cola)', 'base' => 'loyalty-canjes', 'acciones' => ['ver', 'editar']],
+                ['label' => 'Puntos y reglas', 'base' => 'loyalty-puntos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Planes upsell', 'base' => 'loyalty-upsell', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'App clientes (flags / FAQs)', 'base' => 'loyalty-app-config', 'acciones' => ['ver', 'editar']],
             ],
         ],
         [

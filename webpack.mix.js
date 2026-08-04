@@ -17,6 +17,13 @@ mix.webpackConfig({
             '@': path.resolve('resources/js'),
         },
     },
+    plugins: [
+        new (require('webpack')).DefinePlugin({
+            __VUE_OPTIONS_API__: true,
+            __VUE_PROD_DEVTOOLS__: false,
+            __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+        }),
+    ],
 });
 
 // Vue 3 para todos los bundles que usan componentes .vue
@@ -34,6 +41,7 @@ mix.js('resources/js/servicio-form-ips.js', 'public/js').vue();
 mix.js('resources/js/usuario-management.js', 'public/js').vue();
 mix.js('resources/js/mapas-pedidos.js', 'public/js').vue();
 mix.js('resources/js/mapa-clientes-activos.js', 'public/js').vue();
+mix.js('resources/js/mapa-tecnicos.js', 'public/js').vue();
 mix.js('resources/js/mapa-nap.js', 'public/js').vue();
 mix.js('resources/js/caja-nap-form-mapa.js', 'public/js').vue();
 mix.js('resources/js/servicios-index.js', 'public/js').vue();

@@ -7,6 +7,7 @@ use App\Models\Servicio;
 use App\Models\TvCuenta;
 use App\Models\TvCuentaAsignacion;
 use App\Models\User;
+use App\Services\Tv\TvAvisoVencimientoService;
 use App\Support\TvAvisoConfig;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -208,6 +209,22 @@ class TvCuentaController extends Controller
         return redirect()
             ->route('tv-cuentas.index')
             ->with('success', 'Configuración de avisos TV guardada.');
+    }
+
+    /**
+     * Envía un aviso WhatsApp de prueba (cuotas / vencimiento streaming TV).
+     */
+    public function probarAviso(Request $request, TvAvisoVencimientoService $service)
+    {
+        if (! $request->user()?->esAdministrador()) {
+            abort(403, 'Solo administradores pueden probar avisos TV.');
+        }
+
+        $resultado = $service->probar();
+
+        return redirect()
+            ->route('tv-cuentas.index')
+            ->with($resultado['ok'] ? 'success' : 'error', $resultado['message']);
     }
 
     /**
