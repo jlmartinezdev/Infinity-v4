@@ -147,6 +147,31 @@
                     <p class="text-xs text-indigo-700 dark:text-indigo-400 mt-1">DNIT puede demorar varios minutos. Ya puede imprimir el KuDE mientras espera; use «Consultar lote SIFEN» para obtener la autorización.</p>
                 </div>
             @endif
+            @php $sifenResumen = $factura->set_estado_envio === 'rechazado' ? $factura->respuestaSifenResumen() : null; @endphp
+            @if($factura->set_estado_envio === 'rechazado')
+                <div class="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm">
+                    <p class="font-medium text-red-900 dark:text-red-200 mb-1">SIFEN rechazó el documento</p>
+                    @if($sifenResumen && ($sifenResumen['codigo'] || $sifenResumen['mensaje']))
+                        @if(!empty($sifenResumen['codigo']))
+                            <p class="text-xs text-red-800 dark:text-red-300">
+                                Código: <span class="font-mono font-semibold">{{ $sifenResumen['codigo'] }}</span>
+                            </p>
+                        @endif
+                        @if(!empty($sifenResumen['mensaje']))
+                            <p class="text-xs text-red-800 dark:text-red-300 mt-1 break-words">{{ $sifenResumen['mensaje'] }}</p>
+                        @endif
+                        @if(!empty($sifenResumen['detalles']) && count($sifenResumen['detalles']) > 1)
+                            <ul class="mt-2 list-disc list-inside text-xs text-red-700 dark:text-red-300 space-y-0.5">
+                                @foreach($sifenResumen['detalles'] as $det)
+                                    <li>[{{ $det['codigo'] ?? '?' }}] {{ $det['mensaje'] ?? '—' }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    @else
+                        <p class="text-xs text-red-800 dark:text-red-300">No se pudo obtener el detalle del rechazo. Revise el XML de respuesta o reintente la emisión.</p>
+                    @endif
+                </div>
+            @endif
             @if($factura->set_cdc)
                 <div class="mt-4 p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 text-sm">
                     <p class="font-medium text-gray-700 dark:text-gray-300 mb-1">Factura electrónica (SIFEN)</p>

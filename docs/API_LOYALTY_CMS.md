@@ -57,26 +57,60 @@ La app **ya consume** estos endpoints (404 = vacío / 0 pts, no rompe).
     "saldo": 1200,
     "puede_canjear": true,
     "canjes_mes": 0,
-    "limite_mensual": 1
+    "limite_mensual": 1,
+    "puntos_por_vencer": 500,
+    "dias_al_vencimiento": 20,
+    "proximo_vencimiento": "2026-09-08",
+    "bono_bienvenida_activo": true,
+    "bono_bienvenida_vence_en_dias": 20,
+    "siguiente_premio_puntos": 800,
+    "siguiente_premio_nombre": "Descuento 5% factura"
   }
 }
 ```
+
+Campos opcionales: si no hay vencimiento / bono / siguiente premio, **no se envían** (la app soft-fail).
+
+`GET /portal/reglas-puntos` — “Cómo ganar puntos” (solo `activa` + `visible_portal`)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "codigo": "bienvenida_app",
+      "nombre": "Bono de bienvenida",
+      "descripcion": "La primera vez que abrís la app",
+      "puntos": 500,
+      "frecuencia": "unica_vez",
+      "activo": true,
+      "orden": 1,
+      "fase": 1
+    }
+  ]
+}
+```
+
+Motor: créditos generan lotes FIFO (`puntos_lotes`); débitos consumen el lote que vence primero. Comando: `loyalty:expirar-puntos` (diario 00:15).
 
 ---
 
 ## 3) Premios (galería)
 
 ### Panel Infinity
-- CRUD premios + upload imagen
-- `puntos_requeridos`, `stock`, `activo`, `orden`
-- **`destacado` (bool):** marca el premio del bloque grande “Premio destacado” en la app
-  - Ideal: **solo uno** activo a la vez (toggle en CMS)
-  - Si vienen varios en `true`, la app usa el de menor `orden`
+- CRUD premios + upload imagen + toggle rápido activo
+- `puntos_requeridos`, `stock` (`null` = ilimitado; `0` = oculto), `activo`, `orden`
+- **`destacado` (bool):** bloque grande en la app (ideal: uno solo)
+- **`etiqueta`:** `nuevo` | `novedad` | `sale` | null (badge en app)
+- **`tier`** 1–5, **`requiere_aprobacion`**, **`tope_anual_por_cliente`**
 - **Tipo** del premio (define el canje; el cliente no elige modalidad):
   - `fisico` | `producto` | `retiro` → retiro en oficina
   - `descuento_factura` → descuento % y/o monto Gs.
+  - `automatico` → entrega automática (estado APLICADO)
+  - `requiere_aprobacion` → cola staff
+  - `sorteo` → entrada a sorteo (APLICADO)
 
-`GET /portal/premios`
+`GET /portal/premios` — solo `activo=true` y stock `null` o `> 0`
 
 ```json
 {
@@ -84,30 +118,21 @@ La app **ya consume** estos endpoints (404 = vacío / 0 pts, no rompe).
   "data": [
     {
       "id": 10,
-      "nombre": "Camiseta Interplus",
-      "descripcion": "Edición especial selección",
-      "imagen_url": "https://.../premios/camiseta.jpg",
-      "puntos_requeridos": 50,
+      "nombre": "Boost de velocidad 48hs",
+      "descripcion": "Subí tu velocidad por 2 días",
+      "imagen_url": "https://.../premios/boost.jpg",
+      "puntos_requeridos": 300,
       "descuento_porcentaje": null,
       "descuento_monto": null,
-      "stock": 8,
+      "stock": null,
       "activo": true,
       "orden": 1,
       "destacado": true,
-      "tipo": "fisico"
-    },
-    {
-      "id": 11,
-      "nombre": "Gorra Interplus",
-      "imagen_url": "https://.../premios/gorra.jpg",
-      "puntos_requeridos": 25,
-      "descuento_porcentaje": null,
-      "descuento_monto": null,
-      "stock": 20,
-      "activo": true,
-      "orden": 2,
-      "destacado": false,
-      "tipo": "fisico"
+      "tipo": "automatico",
+      "etiqueta": "nuevo",
+      "tier": 1,
+      "requiere_aprobacion": false,
+      "tope_anual_por_cliente": null
     }
   ]
 }
@@ -227,3 +252,11 @@ o
 - [x] Upload storage imágenes
 - [x] Premios tipados (`tipo`, descuento %/monto) + `POST /canjes` solo con `premio_id`
 - [x] Campo `destacado` en premios (CMS toggle + JSON portal)
+- [x] `etiqueta`, `tier`, `requiere_aprobacion`, `tope_anual_por_cliente`, stock ilimitado
+- [x] Tipos `automatico` / `requiere_aprobacion` / `sorteo`
+- [x] `GET /portal/reglas-puntos` + campos frecuencia/orden/fase
+- [x] `GET /portal/puntos` con vencimiento / bono / siguiente premio
+- [x] FIFO lotes (`puntos_lotes`) + `loyalty:expirar-puntos`
+- [x] Toggle rápido deshabilitar premio sin borrar canjes
+
+Ver también: `INFINITY_PREMIOS_CMS.md` (requerimiento app).

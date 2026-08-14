@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Router;
 use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
+use App\Services\Monitoreo\IspFailoverService;
 use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -129,6 +130,53 @@ class MikrotikWebhookController extends ApiController
         ], $eventoModelo
             ? 'Evento PPPoE registrado.'
             : 'Sin cambio (mismo estado que el último evento).');
+    }
+
+    /**
+     * Netwatch / script MikroTik: ISP 1 down|up.
+     * Auth: Authorization: Bearer {router.webhook_token}
+     * Body: evento=down|up
+     */
+    public function ispFailover(Request $request, IspFailoverService $failover): JsonResponse
+    {
+        $router = $this->routerDesdeToken($request);
+        if (! $router) {
+            return $this->fail('Token de webhook inválido o ausente.', 401);
+        }
+
+        $evento = strtolower(trim((string) (
+            $request->input('evento')
+            ?? $request->input('event')
+            ?? $request->input('status')
+            ?? ''
+        )));
+
+        try {
+            $r = $failover->aplicarWebhook($evento, $router);
+        } catch (\Throwable $e) {
+            Log::warning('[MikroTik webhook] isp-failover error', [
+                'router_id' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->fail('No se pudo procesar el evento ISP: '.$e->getMessage(), 500);
+        }
+
+        if (! ($r['ok'] ?? false)) {
+            return $this->fail($r['message'] ?? 'Evento ISP rechazado.', 422);
+        }
+
+        Log::info('[MikroTik webhook] isp-failover', [
+            'router_id' => $router->router_id,
+            'evento' => $evento,
+            'accion' => $r['accion'] ?? null,
+        ]);
+
+        return $this->ok([
+            'accion' => $r['accion'] ?? null,
+            'modo' => $r['modo'] ?? null,
+            'router_id' => $router->router_id,
+        ], $r['message'] ?? 'OK');
     }
 
     private function routerDesdeToken(Request $request): ?Router

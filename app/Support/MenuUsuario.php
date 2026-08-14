@@ -35,26 +35,13 @@ class MenuUsuario
                 if (! empty($item['flota_staff']) && ! $user->puedeVerFlotaStaff()) {
                     continue;
                 }
-                $permiso = $item['permiso'] ?? null;
-                if ($permiso && ! $user->tienePermiso($permiso)) {
+                if (! self::entradaPermitida($user, $item, $esAdmin)) {
                     continue;
-                }
-                $permisoAny = $item['permiso_any'] ?? null;
-                if (is_array($permisoAny) && $permisoAny !== []) {
-                    $okAny = false;
-                    foreach ($permisoAny as $codigo) {
-                        if ($user->tienePermiso($codigo)) {
-                            $okAny = true;
-                            break;
-                        }
-                    }
-                    if (! $okAny) {
-                        continue;
-                    }
                 }
                 if (isset($item['submenu'])) {
                     $sub = $filter($item['submenu']);
-                    if ($sub !== []) {
+                    // Acceso rápido se completa después aunque el catálogo quede vacío.
+                    if ($sub !== [] || ($item['name'] ?? '') === 'acceso-rapido') {
                         $item['submenu'] = $sub;
                         $out[] = $item;
                     }
@@ -66,7 +53,91 @@ class MenuUsuario
             return $out;
         };
 
-        return $filter($items);
+        return self::aplicarAccesoRapidoPersonalizado($filter($items), $user);
+    }
+
+    /**
+     * Entradas del catálogo visibles para el usuario (para la UI de personalización).
+     *
+     * @return list<array{name: string, label: string, path: string}>
+     */
+    public static function catalogoAccesoRapidoVisible(?User $user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        $user->loadMissing('rol.permisos');
+        $out = [];
+        foreach (config('menu.acceso_rapido.catalogo', []) as $entry) {
+            if (! is_array($entry) || ! self::entradaPermitida($user, $entry)) {
+                continue;
+            }
+            $name = (string) ($entry['name'] ?? '');
+            $label = (string) ($entry['label'] ?? '');
+            $path = (string) ($entry['path'] ?? '');
+            if ($name === '' || $label === '' || $path === '') {
+                continue;
+            }
+            $out[] = [
+                'name' => $name,
+                'label' => $label,
+                'path' => $path,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Orden de names seleccionados (preferencia o default filtrado por lo visible).
+     *
+     * @return list<string>
+     */
+    public static function accesoRapidoSeleccionado(?User $user): array
+    {
+        $visibles = collect(self::catalogoAccesoRapidoVisible($user))->pluck('name')->all();
+        $visiblesFlip = array_flip($visibles);
+
+        $prefs = $user?->acceso_rapido;
+        if ($prefs === null) {
+            $orden = config('menu.acceso_rapido.default', []);
+        } else {
+            $orden = is_array($prefs) ? $prefs : [];
+        }
+
+        $out = [];
+        foreach ($orden as $name) {
+            if (! is_string($name) || $name === '' || ! isset($visiblesFlip[$name])) {
+                continue;
+            }
+            $out[] = $name;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<string>  $names
+     * @return list<string>
+     */
+    public static function sanitizarAccesoRapido(User $user, array $names): array
+    {
+        $permitidos = array_flip(
+            collect(self::catalogoAccesoRapidoVisible($user))->pluck('name')->all()
+        );
+        $out = [];
+        foreach ($names as $name) {
+            if (! is_string($name) || $name === '' || ! isset($permitidos[$name])) {
+                continue;
+            }
+            if (in_array($name, $out, true)) {
+                continue;
+            }
+            $out[] = $name;
+        }
+
+        return $out;
     }
 
     /**
@@ -84,7 +155,8 @@ class MenuUsuario
         $agrupados = [];
 
         foreach (config('menu.items', []) as $item) {
-            if (($item['name'] ?? '') === 'home') {
+            // Acceso rápido / Inicio: no listar como grupo de permisos (duplican ítems reales).
+            if (in_array(($item['name'] ?? ''), ['home', 'acceso-rapido'], true)) {
                 continue;
             }
             if (! empty($item['admin_only'])) {
@@ -143,7 +215,7 @@ class MenuUsuario
         $links = [];
 
         foreach ($items as $item) {
-            if (($item['name'] ?? '') === 'home') {
+            if (in_array(($item['name'] ?? ''), ['home', 'acceso-rapido'], true)) {
                 continue;
             }
             $icon = (string) ($item['icon'] ?? 'document');
@@ -178,5 +250,87 @@ class MenuUsuario
         }
 
         return $links;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private static function aplicarAccesoRapidoPersonalizado(array $items, User $user): array
+    {
+        $catalogo = collect(config('menu.acceso_rapido.catalogo', []))->keyBy('name');
+        $seleccion = self::accesoRapidoSeleccionado($user);
+
+        $submenu = [];
+        foreach ($seleccion as $name) {
+            $entry = $catalogo->get($name);
+            if (! is_array($entry)) {
+                continue;
+            }
+            $submenu[] = $entry;
+        }
+
+        $submenu[] = [
+            'name' => 'rapido-personalizar',
+            'label' => 'Personalizar…',
+            'path' => '/mi-acceso-rapido',
+        ];
+
+        $found = false;
+        foreach ($items as $i => $item) {
+            if (($item['name'] ?? '') !== 'acceso-rapido') {
+                continue;
+            }
+            $items[$i]['submenu'] = $submenu;
+            $found = true;
+            break;
+        }
+
+        if (! $found) {
+            array_unshift($items, [
+                'name' => 'acceso-rapido',
+                'label' => 'Acceso rápido',
+                'icon' => 'bolt',
+                'defaultExpanded' => true,
+                'submenu' => $submenu,
+            ]);
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private static function entradaPermitida(User $user, array $item, ?bool $esAdmin = null): bool
+    {
+        if ($esAdmin === null) {
+            $esAdmin = $user->rol && strtolower((string) $user->rol->descripcion) === 'administrador';
+        }
+
+        if (! empty($item['admin_only']) && ! $esAdmin) {
+            return false;
+        }
+        if (! empty($item['flota_staff']) && ! $user->puedeVerFlotaStaff()) {
+            return false;
+        }
+
+        $permiso = $item['permiso'] ?? null;
+        if ($permiso && ! $user->tienePermiso($permiso)) {
+            return false;
+        }
+
+        $permisoAny = $item['permiso_any'] ?? null;
+        if (is_array($permisoAny) && $permisoAny !== []) {
+            foreach ($permisoAny as $codigo) {
+                if ($user->tienePermiso($codigo)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
     }
 }

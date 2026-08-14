@@ -327,6 +327,7 @@ Ejemplo pedido **664** (plan ya confirmado):
 ## Escritura adicional
 
 - `POST /staff/pedidos-instalacion` — crear  
-- `POST /staff/pedidos-instalacion/{id}/actualizar` — estado de campo (`en_camino`, notas)  
+- `POST /staff/pedidos-instalacion/{id}/actualizar` — estado de campo (`en_camino`, notas)
+- `POST /staff/avisos/en-camino` — WhatsApp oficial (`tipo: instalacion`, `recurso_id`). Ver `docs/whatsapp-plantilla-en-camino.md`  
 - `POST /staff/pedidos-instalacion/{id}/finalizar`  
 - `POST /staff/pedidos-instalacion/{id}/pppoe/generar`

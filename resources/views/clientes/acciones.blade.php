@@ -74,7 +74,7 @@
                                 <td class="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-400">{{ $s->ip ?? '—' }}</td>
                                 <td class="px-3 py-2">{{ $estadosServicio[$s->estado] ?? $s->estado }}</td>
                                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                                    @if($u?->tienePermiso('servicios.crear'))
+                                    @if($u?->tienePermiso('servicios.crear') || $u?->tienePermiso('servicios.editar'))
                                         <a href="{{ route('servicios.edit', $s) }}" class="text-purple-600 dark:text-purple-400 hover:underline mr-3">Editar</a>
                                     @endif
                                     @if($u?->tienePermiso('facturas.crear'))

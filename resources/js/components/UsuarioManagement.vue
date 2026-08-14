@@ -4,7 +4,7 @@
         <div v-show="showModalCrear" 
              @click.self="cerrarModalCrear"
              class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black/60 overflow-y-auto h-full w-full z-50">
-            <div @click.stop class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
+            <div @click.stop class="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Nuevo Usuario</h3>
                     <button @click.stop="cerrarModalCrear" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -39,6 +39,35 @@
                                    name="telefono"
                                    placeholder="0981..."
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula</label>
+                                <input v-model="formCrear.cedula" type="text" name="cedula"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cargo</label>
+                                <input v-model="formCrear.cargo" type="text" name="cargo"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Salario básico (Gs.)</label>
+                            <input v-model="formCrear.salario_basico" type="number" min="0" step="1" name="salario_basico"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
+                                <input v-model="formCrear.banco" type="text" name="banco" placeholder="Ueno"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuenta bancaria</label>
+                                <input v-model="formCrear.cuenta_bancaria" type="text" name="cuenta_bancaria"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña *</label>
@@ -95,7 +124,7 @@
         <div v-show="showModalEditar" 
              @click.self="cerrarModalEditar"
              class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black/60 overflow-y-auto h-full w-full z-50">
-            <div @click.stop class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
+            <div @click.stop class="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Usuario</h3>
                     <button @click.stop="cerrarModalEditar" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -132,6 +161,37 @@
                                    placeholder="0981..."
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         </div>
+                        <template v-if="!formEditar.es_cliente_portal">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula</label>
+                                    <input v-model="formEditar.cedula" type="text" name="cedula"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cargo</label>
+                                    <input v-model="formEditar.cargo" type="text" name="cargo"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Salario básico (Gs.)</label>
+                                <input v-model="formEditar.salario_basico" type="number" min="0" step="1" name="salario_basico"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
+                                    <input v-model="formEditar.banco" type="text" name="banco" placeholder="Ueno"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuenta bancaria</label>
+                                    <input v-model="formEditar.cuenta_bancaria" type="text" name="cuenta_bancaria"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                            </div>
+                        </template>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nueva Contraseña (dejar vacío para no cambiar)</label>
                             <input v-model="formEditar.password" 
@@ -265,6 +325,11 @@ const formCrear = ref({
     name: '',
     email: '',
     telefono: '',
+    cedula: '',
+    cargo: '',
+    salario_basico: '',
+    banco: '',
+    cuenta_bancaria: '',
     password: '',
     rol_id: '',
     estado: 'activo'
@@ -275,9 +340,15 @@ const formEditar = ref({
     name: '',
     email: '',
     telefono: '',
+    cedula: '',
+    cargo: '',
+    salario_basico: '',
+    banco: '',
+    cuenta_bancaria: '',
     password: '',
     rol_id: '',
-    estado: 'activo'
+    estado: 'activo',
+    es_cliente_portal: false
 });
 
 const modalAprobar = ref({
@@ -297,6 +368,11 @@ const abrirModalCrear = (event) => {
         name: '',
         email: '',
         telefono: '',
+        cedula: '',
+        cargo: '',
+        salario_basico: '',
+        banco: '',
+        cuenta_bancaria: '',
         password: '',
         rol_id: '',
         estado: 'activo'
@@ -325,9 +401,15 @@ const abrirModalEditar = async (usuarioId, event) => {
             name: data.name,
             email: data.email,
             telefono: data.telefono || '',
+            cedula: data.cedula || '',
+            cargo: data.cargo || '',
+            salario_basico: data.salario_basico ?? '',
+            banco: data.banco || '',
+            cuenta_bancaria: data.cuenta_bancaria || '',
             password: '',
             rol_id: data.rol_id,
-            estado: data.estado
+            estado: data.estado,
+            es_cliente_portal: !!data.es_cliente_portal
         };
         showModalEditar.value = true;
     } catch (error) {
@@ -372,6 +454,11 @@ const crearUsuario = async () => {
             name: formCrear.value.name,
             email: formCrear.value.email,
             telefono: formCrear.value.telefono || null,
+            cedula: formCrear.value.cedula || null,
+            cargo: formCrear.value.cargo || null,
+            salario_basico: formCrear.value.salario_basico !== '' ? Number(formCrear.value.salario_basico) : null,
+            banco: formCrear.value.banco || null,
+            cuenta_bancaria: formCrear.value.cuenta_bancaria || null,
             password: formCrear.value.password,
             rol_id: formCrear.value.rol_id,
             estado: formCrear.value.estado,
@@ -418,6 +505,14 @@ const actualizarUsuario = async () => {
             rol_id: formEditar.value.rol_id,
             estado: formEditar.value.estado,
         };
+
+        if (!formEditar.value.es_cliente_portal) {
+            data.cedula = formEditar.value.cedula || null;
+            data.cargo = formEditar.value.cargo || null;
+            data.salario_basico = formEditar.value.salario_basico !== '' ? Number(formEditar.value.salario_basico) : null;
+            data.banco = formEditar.value.banco || null;
+            data.cuenta_bancaria = formEditar.value.cuenta_bancaria || null;
+        }
         
         if (formEditar.value.password) {
             data.password = formEditar.value.password;

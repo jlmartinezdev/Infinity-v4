@@ -15,6 +15,12 @@ class LoyaltyRegla extends Model
 
     public const EVENTO_BIENVENIDA = 'bienvenida';
 
+    public const FRECUENCIA_UNICA = 'unica_vez';
+
+    public const FRECUENCIA_MENSUAL = 'mensual';
+
+    public const FRECUENCIA_EVENTO = 'por_evento';
+
     protected $fillable = [
         'codigo',
         'nombre',
@@ -22,6 +28,10 @@ class LoyaltyRegla extends Model
         'puntos',
         'activa',
         'evento',
+        'frecuencia',
+        'orden',
+        'fase',
+        'visible_portal',
         'condiciones',
     ];
 
@@ -30,6 +40,9 @@ class LoyaltyRegla extends Model
         return [
             'puntos' => 'integer',
             'activa' => 'boolean',
+            'orden' => 'integer',
+            'fase' => 'integer',
+            'visible_portal' => 'boolean',
             'condiciones' => 'array',
         ];
     }
@@ -39,12 +52,30 @@ class LoyaltyRegla extends Model
         return $query->where('activa', true);
     }
 
+    public function scopeVisiblesPortal(Builder $query): Builder
+    {
+        return $query->activas()
+            ->where('visible_portal', true)
+            ->orderBy('orden')
+            ->orderBy('nombre');
+    }
+
     public static function eventos(): array
     {
         return [
             self::EVENTO_MANUAL => 'Manual / ajuste',
             self::EVENTO_PAGO => 'Al recibir un pago',
             self::EVENTO_BIENVENIDA => 'Bienvenida (primer acceso app)',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public static function frecuencias(): array
+    {
+        return [
+            self::FRECUENCIA_UNICA => 'Una sola vez',
+            self::FRECUENCIA_MENSUAL => 'Mensual',
+            self::FRECUENCIA_EVENTO => 'Por evento',
         ];
     }
 
@@ -123,6 +154,33 @@ class LoyaltyRegla extends Model
         return [
             'solo_factura_servicio' => true,
             'puntos_por_dia' => $limpio,
+        ];
+    }
+
+    public function frecuenciaInferida(): string
+    {
+        if (filled($this->frecuencia)) {
+            return (string) $this->frecuencia;
+        }
+
+        return match ($this->evento) {
+            self::EVENTO_BIENVENIDA => self::FRECUENCIA_UNICA,
+            self::EVENTO_PAGO => self::FRECUENCIA_MENSUAL,
+            default => self::FRECUENCIA_EVENTO,
+        };
+    }
+
+    public function toPortalArray(): array
+    {
+        return [
+            'codigo' => $this->codigo,
+            'nombre' => $this->nombre,
+            'descripcion' => $this->descripcion,
+            'puntos' => (int) $this->puntos,
+            'frecuencia' => $this->frecuenciaInferida(),
+            'activo' => (bool) $this->activa,
+            'orden' => (int) $this->orden,
+            'fase' => $this->fase !== null ? (int) $this->fase : null,
         ];
     }
 }

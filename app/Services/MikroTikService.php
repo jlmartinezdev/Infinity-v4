@@ -5,8 +5,14 @@ namespace App\Services;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\PerfilPppoe;
 use App\Models\Router;
+use App\Models\RouterNetworkBackup;
+use App\Models\RouterNetworkBackupAddress;
+use App\Models\RouterNetworkBackupRoute;
+use App\Models\RouterScheduler;
+use App\Models\RouterScript;
 use App\Models\Servicio;
 use App\Models\ServicioHotspot;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RouterOS\Client;
 use RouterOS\Config;
@@ -80,6 +86,110 @@ class MikroTikService
         } catch (Throwable $e) {
             Log::warning('MikroTik testConnection failed', ['router' => $router->router_id, 'error' => $e->getMessage()]);
             return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Consulta leases DHCP y sesiones PPPoE activas (/ppp/active).
+     *
+     * @return array{
+     *   success: bool,
+     *   dhcp_activos?: int,
+     *   dhcp_total?: int,
+     *   pppoe_activos?: int,
+     *   dhcp_leases?: list<array{address: string, mac: string, hostname: string, status: string, server: string, expires: string, active: bool, static: bool}>,
+     *   message?: string,
+     *   error?: string
+     * }
+     */
+    public function consultarDhcpYPppoeActivos(Router $router): array
+    {
+        try {
+            $client = $this->connect($router);
+
+            $leasesRaw = $client->query(new Query('/ip/dhcp-server/lease/print'))->read();
+            $leasesRaw = is_array($leasesRaw) ? $leasesRaw : [];
+            $dhcpLeases = [];
+            $dhcpActivos = 0;
+
+            foreach ($leasesRaw as $lease) {
+                if (! is_array($lease)) {
+                    continue;
+                }
+                $status = strtolower(trim((string) ($lease['status'] ?? '')));
+                // bound = lease en uso; sin status (algunas versiones) también se cuenta como activo
+                $activo = $status === 'bound' || $status === '';
+                if ($activo) {
+                    $dhcpActivos++;
+                }
+
+                // RouterOS: dynamic=true → lease dinámico; false/ausente con make-static → estático
+                $dynRaw = strtolower(trim((string) ($lease['dynamic'] ?? 'true')));
+                $esEstatico = ! in_array($dynRaw, ['true', 'yes', '1'], true);
+
+                $dhcpLeases[] = [
+                    'address' => trim((string) ($lease['address'] ?? '')),
+                    'mac' => trim((string) ($lease['mac-address'] ?? $lease['mac_address'] ?? '')),
+                    'hostname' => trim((string) ($lease['host-name'] ?? $lease['host_name'] ?? '')),
+                    'status' => $status !== '' ? $status : 'bound',
+                    'server' => trim((string) ($lease['server'] ?? '')),
+                    'expires' => trim((string) ($lease['expires-after'] ?? $lease['expires_after'] ?? '')),
+                    'active' => $activo,
+                    'static' => $esEstatico,
+                ];
+            }
+
+            usort($dhcpLeases, function (array $a, array $b): int {
+                if ($a['active'] !== $b['active']) {
+                    return $a['active'] ? -1 : 1;
+                }
+
+                return strnatcmp($a['address'], $b['address']);
+            });
+
+            $pppActive = $client->query(new Query('/ppp/active/print'))->read();
+            $pppActive = is_array($pppActive) ? $pppActive : [];
+            $pppoeActivos = 0;
+            foreach ($pppActive as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $service = strtolower(trim((string) ($row['service'] ?? 'pppoe')));
+                // Contar PPPoE; si no hay service, asumir pppoe (comportamiento habitual)
+                if ($service === '' || $service === 'pppoe' || $service === 'any') {
+                    $pppoeActivos++;
+                }
+            }
+
+            $this->disconnect();
+
+            $dhcpTotal = count($dhcpLeases);
+
+            return [
+                'success' => true,
+                'dhcp_activos' => $dhcpActivos,
+                'dhcp_total' => $dhcpTotal,
+                'pppoe_activos' => $pppoeActivos,
+                'dhcp_leases' => $dhcpLeases,
+                'message' => sprintf(
+                    'DHCP activos: %d%s · PPPoE activos: %d',
+                    $dhcpActivos,
+                    $dhcpTotal !== $dhcpActivos ? " (total {$dhcpTotal})" : '',
+                    $pppoeActivos
+                ),
+            ];
+        } catch (Throwable $e) {
+            $this->disconnect();
+            Log::warning('MikroTik consultarDhcpYPppoeActivos failed', [
+                'router' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => $e->getMessage(),
+            ];
         }
     }
 
@@ -746,6 +856,7 @@ class MikroTikService
 
     /**
      * Deshabilita o habilita el usuario PPPoE en el router.
+     * Si se pide habilitar y el secreto no existe, sincroniza (crea) el usuario desde la BD.
      */
     public function setPppoeDisabledEnRouter(Servicio $servicio, bool $disabled): array
     {
@@ -763,7 +874,19 @@ class MikroTikService
                 return ['success' => true];
             }
 
-            return ['success' => false, 'error' => 'Usuario no encontrado en el router.'];
+            // Reactivación (cobro, activar manual, promesa): crear/sincronizar si falta el secreto.
+            if (! $disabled) {
+                Log::info('[MikroTik] setPppoeDisabledEnRouter: usuario ausente, sincronizando PPPoE', [
+                    'servicio' => $servicio->servicio_id,
+                    'usuario' => $servicio->usuario_pppoe,
+                    'router' => $router->router_id,
+                ]);
+
+                return $this->syncPppoeServicio($servicio);
+            }
+
+            // Deshabilitar y no está en el router: ya queda “cortado” de facto.
+            return ['success' => true, 'message' => 'Usuario no encontrado en el router (nada que deshabilitar).'];
         } catch (Throwable $e) {
             Log::error('[MikroTik] setPppoeDisabledEnRouter error', [
                 'servicio' => $servicio->servicio_id,
@@ -1288,6 +1411,1090 @@ class MikroTikService
         }
 
         return implode(' ', $partes);
+    }
+
+    /**
+     * Lista scripts del router (/system/script).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getSystemScripts(Router $router): array
+    {
+        $client = $this->connect($router);
+        $query = new Query('/system/script/print');
+        // read(false): el parser default de la lib corta valores multilínea (source) en el primer \n
+        $raw = $client->query($query)->read(false);
+        $this->disconnect();
+
+        return $this->parseApiReply(is_array($raw) ? $raw : []);
+    }
+
+    /**
+     * Obtiene un script por nombre en el router.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getSystemScriptByName(Router $router, string $name): ?array
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return null;
+        }
+
+        $client = $this->connect($router);
+        $query = (new Query('/system/script/print'))->where('name', $name);
+        $raw = $client->query($query)->read(false);
+        $this->disconnect();
+
+        $items = $this->parseApiReply(is_array($raw) ? $raw : []);
+
+        return $items[0] ?? null;
+    }
+
+    /**
+     * Crea o actualiza un script en el router por nombre.
+     *
+     * @return array{success: bool, action?: string, error?: string}
+     */
+    public function upsertSystemScript(
+        Router $router,
+        string $name,
+        string $source,
+        ?string $policy = null,
+        ?string $owner = null,
+        bool $dontRequirePermissions = false
+    ): array {
+        $name = trim($name);
+        if ($name === '') {
+            return ['success' => false, 'error' => 'Nombre de script vacío'];
+        }
+
+        try {
+            $existing = $this->getSystemScriptByName($router, $name);
+            $client = $this->connect($router);
+
+            if ($existing && ! empty($existing['.id'])) {
+                $query = (new Query('/system/script/set'))
+                    ->equal('.id', $existing['.id'])
+                    ->equal('source', $source)
+                    ->equal('dont-require-permissions', $dontRequirePermissions ? 'yes' : 'no');
+                if ($policy !== null && $policy !== '') {
+                    $query->equal('policy', $policy);
+                }
+                // owner no se envía: en muchos RouterOS no es seteable por API
+                $raw = $client->query($query)->read(false);
+                $this->disconnect();
+                if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                    return ['success' => false, 'error' => $trap];
+                }
+
+                return ['success' => true, 'action' => 'updated'];
+            }
+
+            $query = (new Query('/system/script/add'))
+                ->equal('name', $name)
+                ->equal('source', $source)
+                ->equal('dont-require-permissions', $dontRequirePermissions ? 'yes' : 'no');
+            if ($policy !== null && $policy !== '') {
+                $query->equal('policy', $policy);
+            }
+            $raw = $client->query($query)->read(false);
+            $this->disconnect();
+            if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                return ['success' => false, 'error' => $trap];
+            }
+
+            return ['success' => true, 'action' => 'added'];
+        } catch (Throwable $e) {
+            $this->disconnect();
+            Log::warning('[MikroTik] upsertSystemScript failed', [
+                'router' => $router->router_id,
+                'name' => $name,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Lee scripts del router y los guarda/actualiza en la BD (por nombre).
+     *
+     * @param  list<string>|null  $nombres  null = todos
+     * @return array{success: bool, imported: int, updated: int, errors: list<string>, scripts: list<RouterScript>}
+     */
+    public function importSystemScriptsToDatabase(Router $router, ?array $nombres = null): array
+    {
+        $imported = 0;
+        $updated = 0;
+        $errors = [];
+        $scripts = [];
+
+        try {
+            $remotos = $this->getSystemScripts($router);
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'imported' => 0,
+                'updated' => 0,
+                'errors' => [$e->getMessage()],
+                'scripts' => [],
+            ];
+        }
+
+        $filtro = null;
+        if ($nombres !== null) {
+            $filtro = array_fill_keys(array_map(
+                static fn ($n) => mb_strtolower(trim((string) $n)),
+                $nombres
+            ), true);
+        }
+
+        foreach ($remotos as $remoto) {
+            $nombre = trim((string) ($remoto['name'] ?? ''));
+            if ($nombre === '') {
+                continue;
+            }
+            if ($filtro !== null && ! isset($filtro[mb_strtolower($nombre)])) {
+                continue;
+            }
+
+            try {
+                $source = (string) ($remoto['source'] ?? '');
+                $policy = isset($remoto['policy']) ? (string) $remoto['policy'] : null;
+                $owner = isset($remoto['owner']) ? (string) $remoto['owner'] : null;
+                $dontReq = in_array(
+                    strtolower((string) ($remoto['dont-require-permissions'] ?? 'no')),
+                    ['yes', 'true', '1'],
+                    true
+                );
+
+                $existente = RouterScript::where('nombre', $nombre)->first();
+                $payload = [
+                    'source' => $source,
+                    'owner' => $owner,
+                    'policy' => $policy,
+                    'dont_require_permissions' => $dontReq,
+                    'router_origen_id' => $router->router_id,
+                    'leido_en' => now(),
+                ];
+
+                if ($existente) {
+                    $existente->update($payload);
+                    $scripts[] = $existente->fresh(['routerOrigen']);
+                    $updated++;
+                } else {
+                    $scripts[] = RouterScript::create(array_merge($payload, ['nombre' => $nombre]))
+                        ->load('routerOrigen');
+                    $imported++;
+                }
+            } catch (Throwable $e) {
+                $errors[] = $nombre.': '.$e->getMessage();
+            }
+        }
+
+        return [
+            'success' => $errors === [],
+            'imported' => $imported,
+            'updated' => $updated,
+            'errors' => $errors,
+            'scripts' => $scripts,
+        ];
+    }
+
+    /**
+     * Escribe un script de la BD en el router destino.
+     *
+     * @return array{success: bool, action?: string, error?: string}
+     */
+    public function syncScriptToRouter(RouterScript $script, Router $routerDestino): array
+    {
+        $result = $this->upsertSystemScript(
+            $routerDestino,
+            $script->nombre,
+            (string) $script->source,
+            $script->policy,
+            $script->owner,
+            (bool) $script->dont_require_permissions
+        );
+
+        if ($result['success'] ?? false) {
+            $script->update(['sincronizado_en' => now()]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Lista schedulers del router (/system/scheduler).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getSystemSchedulers(Router $router): array
+    {
+        $client = $this->connect($router);
+        $query = new Query('/system/scheduler/print');
+        $raw = $client->query($query)->read(false);
+        $this->disconnect();
+
+        return $this->parseApiReply(is_array($raw) ? $raw : []);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getSystemSchedulerByName(Router $router, string $name): ?array
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return null;
+        }
+
+        $client = $this->connect($router);
+        $query = (new Query('/system/scheduler/print'))->where('name', $name);
+        $raw = $client->query($query)->read(false);
+        $this->disconnect();
+
+        $items = $this->parseApiReply(is_array($raw) ? $raw : []);
+
+        return $items[0] ?? null;
+    }
+
+    /**
+     * Crea o actualiza un scheduler en el router por nombre.
+     *
+     * @param  array{
+     *   on_event?: ?string,
+     *   start_date?: ?string,
+     *   start_time?: ?string,
+     *   interval?: ?string,
+     *   owner?: ?string,
+     *   policy?: ?string,
+     *   disabled?: bool,
+     *   comment?: ?string
+     * }  $attrs
+     * @return array{success: bool, action?: string, error?: string}
+     */
+    public function upsertSystemScheduler(Router $router, string $name, array $attrs): array
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return ['success' => false, 'error' => 'Nombre de scheduler vacío'];
+        }
+
+        try {
+            $existing = $this->getSystemSchedulerByName($router, $name);
+            $client = $this->connect($router);
+
+            $applyEquals = function (Query $query) use ($attrs): void {
+                // owner NO se envía: RouterOS responde !trap "unknown parameter owner"
+                $map = [
+                    'on_event' => 'on-event',
+                    'start_date' => 'start-date',
+                    'start_time' => 'start-time',
+                    'interval' => 'interval',
+                    'policy' => 'policy',
+                    'comment' => 'comment',
+                ];
+                foreach ($map as $key => $rosKey) {
+                    if (! array_key_exists($key, $attrs)) {
+                        continue;
+                    }
+                    $value = $attrs[$key];
+                    if ($value === null || $value === '') {
+                        continue;
+                    }
+                    $query->equal($rosKey, (string) $value);
+                }
+                if (array_key_exists('disabled', $attrs)) {
+                    $query->equal('disabled', ! empty($attrs['disabled']) ? 'yes' : 'no');
+                }
+            };
+
+            if ($existing && ! empty($existing['.id'])) {
+                $query = (new Query('/system/scheduler/set'))->equal('.id', $existing['.id']);
+                $applyEquals($query);
+                $raw = $client->query($query)->read(false);
+                $this->disconnect();
+                if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                    return ['success' => false, 'error' => $trap];
+                }
+
+                return ['success' => true, 'action' => 'updated'];
+            }
+
+            $query = (new Query('/system/scheduler/add'))->equal('name', $name);
+            $applyEquals($query);
+            $raw = $client->query($query)->read(false);
+            $this->disconnect();
+            if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                return ['success' => false, 'error' => $trap];
+            }
+
+            return ['success' => true, 'action' => 'added'];
+        } catch (Throwable $e) {
+            $this->disconnect();
+            Log::warning('[MikroTik] upsertSystemScheduler failed', [
+                'router' => $router->router_id,
+                'name' => $name,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Lee schedulers del router y los guarda/actualiza en la BD (por nombre).
+     *
+     * @param  list<string>|null  $nombres  null = todos
+     * @return array{success: bool, imported: int, updated: int, errors: list<string>, schedulers: list<RouterScheduler>}
+     */
+    public function importSystemSchedulersToDatabase(Router $router, ?array $nombres = null): array
+    {
+        $imported = 0;
+        $updated = 0;
+        $errors = [];
+        $schedulers = [];
+
+        try {
+            $remotos = $this->getSystemSchedulers($router);
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'imported' => 0,
+                'updated' => 0,
+                'errors' => [$e->getMessage()],
+                'schedulers' => [],
+            ];
+        }
+
+        $filtro = null;
+        if ($nombres !== null) {
+            $filtro = array_fill_keys(array_map(
+                static fn ($n) => mb_strtolower(trim((string) $n)),
+                $nombres
+            ), true);
+        }
+
+        foreach ($remotos as $remoto) {
+            $nombre = trim((string) ($remoto['name'] ?? ''));
+            if ($nombre === '') {
+                continue;
+            }
+            if ($filtro !== null && ! isset($filtro[mb_strtolower($nombre)])) {
+                continue;
+            }
+
+            try {
+                $disabled = in_array(
+                    strtolower((string) ($remoto['disabled'] ?? 'no')),
+                    ['yes', 'true', '1'],
+                    true
+                );
+
+                $payload = [
+                    'on_event' => isset($remoto['on-event']) ? (string) $remoto['on-event'] : null,
+                    'start_date' => isset($remoto['start-date']) ? (string) $remoto['start-date'] : null,
+                    'start_time' => isset($remoto['start-time']) ? (string) $remoto['start-time'] : null,
+                    'interval' => isset($remoto['interval']) ? (string) $remoto['interval'] : null,
+                    'owner' => isset($remoto['owner']) ? (string) $remoto['owner'] : null,
+                    'policy' => isset($remoto['policy']) ? (string) $remoto['policy'] : null,
+                    'disabled' => $disabled,
+                    'comment' => isset($remoto['comment']) ? (string) $remoto['comment'] : null,
+                    'router_origen_id' => $router->router_id,
+                    'leido_en' => now(),
+                ];
+
+                $existente = RouterScheduler::where('nombre', $nombre)->first();
+                if ($existente) {
+                    $existente->update($payload);
+                    $schedulers[] = $existente->fresh(['routerOrigen']);
+                    $updated++;
+                } else {
+                    $schedulers[] = RouterScheduler::create(array_merge($payload, ['nombre' => $nombre]))
+                        ->load('routerOrigen');
+                    $imported++;
+                }
+            } catch (Throwable $e) {
+                $errors[] = $nombre.': '.$e->getMessage();
+            }
+        }
+
+        return [
+            'success' => $errors === [],
+            'imported' => $imported,
+            'updated' => $updated,
+            'errors' => $errors,
+            'schedulers' => $schedulers,
+        ];
+    }
+
+    /**
+     * Escribe un scheduler de la BD en el router destino.
+     *
+     * @return array{success: bool, action?: string, error?: string}
+     */
+    public function syncSchedulerToRouter(RouterScheduler $scheduler, Router $routerDestino): array
+    {
+        $result = $this->upsertSystemScheduler($routerDestino, $scheduler->nombre, [
+            'on_event' => $scheduler->on_event,
+            'start_date' => $scheduler->start_date,
+            'start_time' => $scheduler->start_time,
+            'interval' => $scheduler->interval,
+            'owner' => $scheduler->owner,
+            'policy' => $scheduler->policy,
+            'disabled' => (bool) $scheduler->disabled,
+            'comment' => $scheduler->comment,
+        ]);
+
+        if ($result['success'] ?? false) {
+            $scheduler->update(['sincronizado_en' => now()]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Ping ICMP desde el router (API /ping).
+     * RouterOS 7.23 no admite ping por interface: solo src-address.
+     *
+     * @return array{ok: bool, latency_ms: int|null, received: int, sent: int, error: string|null, replies: list<array<string, string>>}
+     */
+    public function pingFromRouter(
+        Router $router,
+        string $host,
+        int $count = 2,
+        ?string $srcAddress = null
+    ): array {
+        $host = trim($host);
+        $count = max(1, min(10, $count));
+        $empty = [
+            'ok' => false,
+            'latency_ms' => null,
+            'received' => 0,
+            'sent' => 0,
+            'error' => null,
+            'replies' => [],
+        ];
+
+        if ($host === '' || ! filter_var($host, FILTER_VALIDATE_IP)) {
+            $empty['error'] = 'Host de ping inválido';
+
+            return $empty;
+        }
+
+        $src = $srcAddress !== null ? trim($srcAddress) : '';
+        if ($src === '' || ! filter_var($src, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $empty['error'] = 'Falta src-address IPv4 (RouterOS 7 no permite ping por interface)';
+
+            return $empty;
+        }
+
+        try {
+            $client = $this->connect($router);
+            $q = (new Query('/ping'))
+                ->equal('address', $host)
+                ->equal('count', (string) $count)
+                ->equal('src-address', $src);
+
+            $raw = $client->query($q)->read(false);
+            $this->disconnect();
+
+            $items = $this->parseApiReply(is_array($raw) ? $raw : []);
+            if ($items === [] && is_array($raw) && isset($raw[0]) && is_array($raw[0])) {
+                $items = $raw;
+            }
+
+            $received = 0;
+            $sent = 0;
+            $latency = null;
+            foreach ($items as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $status = strtolower(trim((string) ($row['status'] ?? '')));
+                if (isset($row['received']) && is_numeric($row['received'])) {
+                    $received = max($received, (int) $row['received']);
+                }
+                if (isset($row['sent']) && is_numeric($row['sent'])) {
+                    $sent = max($sent, (int) $row['sent']);
+                }
+                $timeRaw = (string) ($row['time'] ?? $row['avg-rtt'] ?? '');
+                if ($timeRaw !== '' && $status !== 'timeout' && ! str_contains($status, 'unreachable')) {
+                    if (preg_match('/(\d+)/', $timeRaw, $m)) {
+                        $ms = (int) $m[1];
+                        $latency = $latency === null ? $ms : (int) round(($latency + $ms) / 2);
+                    }
+                    $received = max($received, 1);
+                }
+            }
+
+            $ok = $received > 0;
+            if ($sent === 0) {
+                $sent = $count;
+            }
+
+            return [
+                'ok' => $ok,
+                'latency_ms' => $ok ? $latency : null,
+                'received' => $received,
+                'sent' => $sent,
+                'error' => $ok ? null : 'Sin respuesta (timeout)',
+                'replies' => $items,
+            ];
+        } catch (Throwable $e) {
+            $this->disconnect();
+            Log::warning('[MikroTik] pingFromRouter failed', [
+                'router' => $router->router_id,
+                'host' => $host,
+                'src' => $src,
+                'error' => $e->getMessage(),
+            ]);
+
+            $empty['error'] = $e->getMessage();
+
+            return $empty;
+        }
+    }
+
+    /**
+     * IPv4 en una interfaz (incluye dinámicas, p.ej. PPPoE). Sin CIDR.
+     */
+    public function ipv4OnInterface(Router $router, string $interface): ?string
+    {
+        $want = strtolower(trim($interface));
+        if ($want === '') {
+            return null;
+        }
+
+        foreach ($this->queryApiPrint($router, '/ip/address/print') as $row) {
+            if ($this->rosBool($row['disabled'] ?? 'no')) {
+                continue;
+            }
+            $iface = strtolower(trim((string) ($row['interface'] ?? '')));
+            if ($iface !== $want) {
+                continue;
+            }
+            $addr = trim((string) ($row['address'] ?? ''));
+            if (str_contains($addr, '/')) {
+                $addr = explode('/', $addr, 2)[0];
+            }
+            if (filter_var($addr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                return $addr;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Direcciones IPv4 del router (estáticas y dinámicas).
+     *
+     * @return list<array{address: string, ip: string, interface: string, disabled: bool, dynamic: bool, comment: string}>
+     */
+    public function listIpv4Addresses(Router $router): array
+    {
+        $out = [];
+        foreach ($this->queryApiPrint($router, '/ip/address/print') as $row) {
+            $cidr = trim((string) ($row['address'] ?? ''));
+            if ($cidr === '') {
+                continue;
+            }
+            $ip = str_contains($cidr, '/') ? explode('/', $cidr, 2)[0] : $cidr;
+            $out[] = [
+                'address' => $cidr,
+                'ip' => $ip,
+                'interface' => (string) ($row['interface'] ?? ''),
+                'disabled' => $this->rosBool($row['disabled'] ?? 'no'),
+                'dynamic' => $this->rosBool($row['dynamic'] ?? 'no'),
+                'comment' => (string) ($row['comment'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Todas las rutas IPv4 (incluye default 0.0.0.0/0).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getIpv4Routes(Router $router): array
+    {
+        return $this->queryApiPrint($router, '/ip/route/print');
+    }
+
+    /**
+     * Activa o desactiva una ruta IPv4 por .id de RouterOS.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function setIpv4RouteDisabled(Router $router, string $rosId, bool $disabled): array
+    {
+        $rosId = trim($rosId);
+        if ($rosId === '') {
+            return ['success' => false, 'error' => 'Falta .id de la ruta'];
+        }
+
+        try {
+            $client = $this->connect($router);
+            $q = (new Query('/ip/route/set'))
+                ->equal('.id', $rosId)
+                ->equal('disabled', $disabled ? 'yes' : 'no');
+            $raw = $client->query($q)->read(false);
+            $this->disconnect();
+
+            if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                return ['success' => false, 'error' => $trap];
+            }
+
+            return ['success' => true];
+        } catch (Throwable $e) {
+            $this->disconnect();
+            Log::warning('[MikroTik] setIpv4RouteDisabled failed', [
+                'router' => $router->router_id,
+                'id' => $rosId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Direcciones IPv4 estáticas (/ip/address, sin dynamic).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getStaticIpv4Addresses(Router $router): array
+    {
+        return $this->filterStaticAddresses(
+            $this->queryApiPrint($router, '/ip/address/print'),
+            'ipv4'
+        );
+    }
+
+    /**
+     * Direcciones IPv6 estáticas (/ipv6/address, sin dynamic).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getStaticIpv6Addresses(Router $router): array
+    {
+        return $this->filterStaticAddresses(
+            $this->queryApiPrint($router, '/ipv6/address/print'),
+            'ipv6'
+        );
+    }
+
+    /**
+     * Rutas IPv4 estáticas (/ip/route).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getStaticIpv4Routes(Router $router): array
+    {
+        return $this->filterStaticRoutes(
+            $this->queryApiPrint($router, '/ip/route/print'),
+            'ipv4'
+        );
+    }
+
+    /**
+     * Rutas IPv6 estáticas (/ipv6/route).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getStaticIpv6Routes(Router $router): array
+    {
+        return $this->filterStaticRoutes(
+            $this->queryApiPrint($router, '/ipv6/route/print'),
+            'ipv6'
+        );
+    }
+
+    /**
+     * Lee IPs/rutas estáticas del router y guarda un backup en BD.
+     *
+     * @return array{success: bool, backup?: RouterNetworkBackup, error?: string}
+     */
+    public function importNetworkBackupFromRouter(Router $router, ?string $nombre = null, ?string $notas = null): array
+    {
+        try {
+            $ipv4 = $this->getStaticIpv4Addresses($router);
+            $ipv6 = $this->getStaticIpv6Addresses($router);
+            $rutasV4 = $this->getStaticIpv4Routes($router);
+            $rutasV6 = $this->getStaticIpv6Routes($router);
+        } catch (Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
+            $backup = DB::transaction(function () use ($router, $nombre, $notas, $ipv4, $ipv6, $rutasV4, $rutasV6) {
+                $backup = RouterNetworkBackup::create([
+                    'router_origen_id' => $router->router_id,
+                    'nombre' => $nombre ?: ('Backup '.$router->nombre.' '.now()->format('Y-m-d H:i')),
+                    'notas' => $notas,
+                    'cant_ipv4' => count($ipv4),
+                    'cant_ipv6' => count($ipv6),
+                    'cant_rutas_v4' => count($rutasV4),
+                    'cant_rutas_v6' => count($rutasV6),
+                    'leido_en' => now(),
+                ]);
+
+                foreach (array_merge(
+                    array_map(fn ($a) => ['familia' => 'ipv4', 'row' => $a], $ipv4),
+                    array_map(fn ($a) => ['familia' => 'ipv6', 'row' => $a], $ipv6),
+                ) as $item) {
+                    $row = $item['row'];
+                    RouterNetworkBackupAddress::create([
+                        'router_network_backup_id' => $backup->router_network_backup_id,
+                        'familia' => $item['familia'],
+                        'address' => (string) ($row['address'] ?? ''),
+                        'network' => isset($row['network']) ? (string) $row['network'] : null,
+                        'interface' => isset($row['interface']) ? (string) $row['interface'] : null,
+                        'disabled' => $this->rosBool($row['disabled'] ?? 'no'),
+                        'comment' => isset($row['comment']) ? (string) $row['comment'] : null,
+                        'extra' => $this->networkExtra($row, ['address', 'network', 'interface', 'disabled', 'comment', '.id', '.nextid']),
+                    ]);
+                }
+
+                foreach (array_merge(
+                    array_map(fn ($a) => ['familia' => 'ipv4', 'row' => $a], $rutasV4),
+                    array_map(fn ($a) => ['familia' => 'ipv6', 'row' => $a], $rutasV6),
+                ) as $item) {
+                    $row = $item['row'];
+                    RouterNetworkBackupRoute::create([
+                        'router_network_backup_id' => $backup->router_network_backup_id,
+                        'familia' => $item['familia'],
+                        'dst_address' => (string) ($row['dst-address'] ?? ''),
+                        'gateway' => isset($row['gateway']) ? (string) $row['gateway'] : null,
+                        'distance' => isset($row['distance']) && is_numeric($row['distance']) ? (int) $row['distance'] : null,
+                        'routing_table' => isset($row['routing-table']) ? (string) $row['routing-table'] : null,
+                        'scope' => isset($row['scope']) ? (string) $row['scope'] : null,
+                        'target_scope' => isset($row['target-scope']) ? (string) $row['target-scope'] : null,
+                        'pref_src' => isset($row['pref-src']) ? (string) $row['pref-src'] : null,
+                        'check_gateway' => isset($row['check-gateway']) ? (string) $row['check-gateway'] : null,
+                        'disabled' => $this->rosBool($row['disabled'] ?? 'no'),
+                        'comment' => isset($row['comment']) ? (string) $row['comment'] : null,
+                        'extra' => $this->networkExtra($row, [
+                            'dst-address', 'gateway', 'distance', 'routing-table', 'scope', 'target-scope',
+                            'pref-src', 'check-gateway', 'disabled', 'comment', '.id', '.nextid',
+                            'dynamic', 'static', 'connect', 'active', 'ecmp',
+                        ]),
+                    ]);
+                }
+
+                return $backup->load(['routerOrigen', 'addresses', 'routes']);
+            });
+        } catch (Throwable $e) {
+            Log::warning('[MikroTik] importNetworkBackupFromRouter failed', [
+                'router' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+
+        return ['success' => true, 'backup' => $backup];
+    }
+
+    /**
+     * Restaura un backup de red en el router destino (solo estáticas).
+     *
+     * @return array{success: bool, added_addresses: int, added_routes: int, errors: list<string>}
+     */
+    public function syncNetworkBackupToRouter(RouterNetworkBackup $backup, Router $routerDestino): array
+    {
+        $backup->loadMissing(['addresses', 'routes']);
+        $addedAddresses = 0;
+        $addedRoutes = 0;
+        $errors = [];
+
+        try {
+            $client = $this->connect($routerDestino);
+
+            foreach ($backup->addresses as $addr) {
+                if (trim((string) $addr->address) === '' || trim((string) $addr->interface) === '') {
+                    continue;
+                }
+                $path = $addr->familia === 'ipv6' ? '/ipv6/address/add' : '/ip/address/add';
+                try {
+                    $q = (new Query($path))
+                        ->equal('address', (string) $addr->address)
+                        ->equal('interface', (string) $addr->interface)
+                        ->equal('disabled', $addr->disabled ? 'yes' : 'no');
+                    if ($addr->familia === 'ipv4' && $addr->network) {
+                        $q->equal('network', (string) $addr->network);
+                    }
+                    if ($addr->comment) {
+                        $q->equal('comment', (string) $addr->comment);
+                    }
+                    $raw = $client->query($q)->read(false);
+                    if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                        // Si ya existe, no es error fatal
+                        if (! str_contains(mb_strtolower($trap), 'already have') && ! str_contains(mb_strtolower($trap), 'exists')) {
+                            $errors[] = "IP {$addr->address}: {$trap}";
+                            continue;
+                        }
+                    }
+                    $addedAddresses++;
+                } catch (Throwable $e) {
+                    $errors[] = "IP {$addr->address}: ".$e->getMessage();
+                }
+            }
+
+            foreach ($backup->routes as $route) {
+                if (trim((string) $route->dst_address) === '') {
+                    continue;
+                }
+                $path = $route->familia === 'ipv6' ? '/ipv6/route/add' : '/ip/route/add';
+                try {
+                    $q = (new Query($path))
+                        ->equal('dst-address', (string) $route->dst_address)
+                        ->equal('disabled', $route->disabled ? 'yes' : 'no');
+                    if ($route->gateway) {
+                        $q->equal('gateway', (string) $route->gateway);
+                    }
+                    if ($route->distance !== null) {
+                        $q->equal('distance', (string) $route->distance);
+                    }
+                    if ($route->routing_table && $route->routing_table !== 'main') {
+                        $q->equal('routing-table', (string) $route->routing_table);
+                    }
+                    if ($route->scope) {
+                        $q->equal('scope', (string) $route->scope);
+                    }
+                    if ($route->target_scope) {
+                        $q->equal('target-scope', (string) $route->target_scope);
+                    }
+                    if ($route->pref_src) {
+                        $q->equal('pref-src', (string) $route->pref_src);
+                    }
+                    if ($route->check_gateway) {
+                        $q->equal('check-gateway', (string) $route->check_gateway);
+                    }
+                    if ($route->comment) {
+                        $q->equal('comment', (string) $route->comment);
+                    }
+                    $raw = $client->query($q)->read(false);
+                    if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                        if (! str_contains(mb_strtolower($trap), 'already have') && ! str_contains(mb_strtolower($trap), 'exists')) {
+                            $errors[] = "Ruta {$route->dst_address}: {$trap}";
+                            continue;
+                        }
+                    }
+                    $addedRoutes++;
+                } catch (Throwable $e) {
+                    $errors[] = "Ruta {$route->dst_address}: ".$e->getMessage();
+                }
+            }
+
+            $this->disconnect();
+        } catch (Throwable $e) {
+            $this->disconnect();
+
+            return [
+                'success' => false,
+                'added_addresses' => $addedAddresses,
+                'added_routes' => $addedRoutes,
+                'errors' => array_merge($errors, [$e->getMessage()]),
+            ];
+        }
+
+        if ($errors === [] || ($addedAddresses + $addedRoutes) > 0) {
+            $backup->update(['sincronizado_en' => now()]);
+        }
+
+        return [
+            'success' => $errors === [],
+            'added_addresses' => $addedAddresses,
+            'added_routes' => $addedRoutes,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function queryApiPrint(Router $router, string $path): array
+    {
+        $client = $this->connect($router);
+        $raw = $client->query(new Query($path))->read(false);
+        $this->disconnect();
+
+        return $this->parseApiReply(is_array($raw) ? $raw : []);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function filterStaticAddresses(array $rows, string $familia): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            if ($this->rosBool($row['dynamic'] ?? 'no')) {
+                continue;
+            }
+            $address = trim((string) ($row['address'] ?? ''));
+            if ($address === '') {
+                continue;
+            }
+            $row['_familia'] = $familia;
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function filterStaticRoutes(array $rows, string $familia): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            $isStatic = $this->rosBool($row['static'] ?? 'no');
+            $isDynamic = $this->rosBool($row['dynamic'] ?? 'no');
+            $isConnect = $this->rosBool($row['connect'] ?? 'no');
+
+            // Preferir flag static; si no viene, excluir dynamic/connect
+            if ($isStatic) {
+                // ok
+            } elseif ($isDynamic || $isConnect) {
+                continue;
+            } else {
+                // sin flags claros: solo si tiene gateway (ruta manual típica)
+                if (trim((string) ($row['gateway'] ?? '')) === '') {
+                    continue;
+                }
+            }
+
+            $dst = trim((string) ($row['dst-address'] ?? ''));
+            if ($dst === '') {
+                continue;
+            }
+            $row['_familia'] = $familia;
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    private function rosBool(mixed $value): bool
+    {
+        return in_array(strtolower((string) $value), ['yes', 'true', '1'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<string>  $exclude
+     * @return array<string, mixed>|null
+     */
+    private function networkExtra(array $row, array $exclude): ?array
+    {
+        $extra = [];
+        foreach ($row as $key => $value) {
+            if (str_starts_with((string) $key, '_')) {
+                continue;
+            }
+            if (in_array($key, $exclude, true)) {
+                continue;
+            }
+            $extra[$key] = $value;
+        }
+
+        return $extra === [] ? null : $extra;
+    }
+
+    /**
+     * Extrae mensaje de !trap de una respuesta cruda del API.
+     *
+     * @param  list<string>  $raw
+     */
+    private function apiTrapMessage(array $raw): ?string
+    {
+        $inTrap = false;
+        $message = null;
+        $category = null;
+
+        foreach ($raw as $word) {
+            if ($word === '!trap') {
+                $inTrap = true;
+                continue;
+            }
+            if ($word === '!done' || $word === '!re' || $word === '!fatal' || $word === '') {
+                if ($inTrap && ($message !== null || $category !== null)) {
+                    break;
+                }
+                $inTrap = false;
+                continue;
+            }
+            if (! $inTrap) {
+                continue;
+            }
+            if (str_starts_with($word, '=message=')) {
+                $message = substr($word, strlen('=message='));
+            } elseif (str_starts_with($word, '=category=')) {
+                $category = substr($word, strlen('=category='));
+            }
+        }
+
+        if ($message === null && $category === null) {
+            return null;
+        }
+
+        return $message ?: ('API trap'.($category !== null ? " (category {$category})" : ''));
+    }
+
+    /**
+     * Parsea respuesta cruda del API RouterOS preservando valores multilínea
+     * (p.ej. =source=... con saltos de línea). El parser de routeros-api-php
+     * usa (.*) sin flag s y trunca en el primer \\n.
+     *
+     * @param  list<string>  $raw
+     * @return list<array<string, string>>
+     */
+    private function parseApiReply(array $raw): array
+    {
+        $items = [];
+        $current = null;
+
+        foreach ($raw as $word) {
+            if ($word === '!re') {
+                if (is_array($current)) {
+                    $items[] = $current;
+                }
+                $current = [];
+                continue;
+            }
+
+            if ($word === '!done' || $word === '!fatal' || $word === '!trap') {
+                if (is_array($current)) {
+                    $items[] = $current;
+                    $current = null;
+                }
+                continue;
+            }
+
+            if ($word === '' || ! is_array($current)) {
+                continue;
+            }
+
+            // /s: el punto también coincide con saltos de línea dentro del valor
+            if (preg_match('/^([=.])([.\w-]+)=(.*)$/s', $word, $m)) {
+                $current[$m[2]] = $m[3];
+            }
+        }
+
+        if (is_array($current)) {
+            $items[] = $current;
+        }
+
+        return $items;
     }
 
     private function escapeRouterOsValue(string $value): string

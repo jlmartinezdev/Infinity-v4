@@ -107,6 +107,11 @@ class FacturaInterna extends Model
         return $this->hasMany(FacturaInternaNotaCredito::class)->orderByDesc('id');
     }
 
+    public function tpagoPaymentLinks(): HasMany
+    {
+        return $this->hasMany(TpagoPaymentLink::class, 'factura_interna_id')->orderByDesc('id');
+    }
+
     /** Monto aplicado a esta factura (suma de pivot.monto; cap en total para no exceder por sobrepagos). */
     public function getMontoPagadoAttribute(): float
     {

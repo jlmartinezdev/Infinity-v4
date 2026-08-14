@@ -215,10 +215,43 @@ class RouterController extends Controller
         $result = $mikrotik->testConnection($router);
 
         if ($result['success']) {
+            $router->update(['estado' => Router::ESTADO_CONECTADO]);
+
             return response()->json(['success' => true, 'message' => 'Conexión exitosa al router.']);
         }
 
+        $router->update(['estado' => Router::ESTADO_DESCONECTADO]);
+
         return response()->json(['success' => false, 'message' => $result['error'] ?? 'Error al conectar.'], 422);
+    }
+
+    /**
+     * Consultar leases DHCP activos y sesiones PPPoE activas en el MikroTik.
+     */
+    public function consultarDhcpPppoe($router, MikroTikService $mikrotik)
+    {
+        $router = Router::where('router_id', $router)->firstOrFail();
+        $result = $mikrotik->consultarDhcpYPppoeActivos($router);
+
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? $result['error'] ?? 'No se pudo consultar el router.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $result['message'],
+            'router' => [
+                'id' => $router->router_id,
+                'nombre' => $router->nombre,
+            ],
+            'dhcp_activos' => $result['dhcp_activos'] ?? 0,
+            'dhcp_total' => $result['dhcp_total'] ?? 0,
+            'pppoe_activos' => $result['pppoe_activos'] ?? 0,
+            'dhcp_leases' => $result['dhcp_leases'] ?? [],
+        ]);
     }
 
     /**

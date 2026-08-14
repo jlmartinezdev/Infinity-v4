@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Canje;
+use App\Models\LoyaltyRegla;
 use App\Models\Novedad;
 use App\Models\Premio;
 use App\Services\Loyalty\CanjeService;
@@ -38,10 +39,19 @@ class PortalLoyaltyController extends ApiController
         return $this->ok($this->puntos->resumenPortal((int) $request->user()->cliente_id));
     }
 
+    public function reglasPuntos()
+    {
+        $items = LoyaltyRegla::visiblesPortal()
+            ->get()
+            ->map(fn (LoyaltyRegla $r) => $r->toPortalArray())
+            ->values();
+
+        return $this->ok($items);
+    }
+
     public function premios()
     {
-        $items = Premio::query()
-            ->where('activo', true)
+        $items = Premio::disponiblesPortal()
             ->orderBy('orden')
             ->orderBy('nombre')
             ->get()

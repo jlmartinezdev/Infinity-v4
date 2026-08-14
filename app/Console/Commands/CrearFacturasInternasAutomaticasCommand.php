@@ -43,12 +43,7 @@ class CrearFacturasInternasAutomaticasCommand extends Command
         $periodoHasta = Carbon::now()->endOfMonth();
 
         $diaVencimiento = FacturacionParametro::diaVencimiento();
-        $proximoMes = Carbon::now()->addMonth();
-        $fechaVencimiento = Carbon::createFromDate(
-            $proximoMes->year,
-            $proximoMes->month,
-            min($diaVencimiento, $proximoMes->daysInMonth)
-        )->toDateString();
+        $fechaVencimiento = FacturacionParametro::fechaVencimientoMesSiguiente();
 
         if ($dryRun) {
             $this->info('Modo dry-run: no se crearán facturas.');

@@ -88,6 +88,22 @@ class FacturacionParametro extends Model
         return (int) static::obtener('dia_vencimiento', 5);
     }
 
+    /**
+     * Fecha de vencimiento = día configurado del mes siguiente a $referencia
+     * (misma regla que facturas automáticas; p. ej. día 5 → 05/09 si la ref. es agosto).
+     */
+    public static function fechaVencimientoMesSiguiente(?\Carbon\CarbonInterface $referencia = null): string
+    {
+        $ref = $referencia
+            ? \Carbon\Carbon::instance($referencia)->startOfDay()
+            : now()->startOfDay();
+        $dia = max(1, min(31, self::diaVencimiento()));
+        $proximoMes = $ref->copy()->startOfMonth()->addMonth();
+        $dia = min($dia, $proximoMes->daysInMonth);
+
+        return \Carbon\Carbon::createFromDate($proximoMes->year, $proximoMes->month, $dia)->toDateString();
+    }
+
     public static function diaCorte(): int
     {
         return (int) static::obtener('dia_corte', 6);

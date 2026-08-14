@@ -307,7 +307,7 @@ class FacturacionService
         }
 
         $porCliente = $servicios->groupBy('cliente_id');
-        $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
+        $fechaVencimientoConfig = FacturacionParametro::fechaVencimientoMesSiguiente();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $impuestoPlan = $this->resolverImpuestoPlanes();
         $facturas = collect();
@@ -332,9 +332,9 @@ class FacturacionService
                 $periodoDesdeEfectivo = $fechas->sortBy(fn ($c) => $c->format('Y-m-d'))->first()->copy();
             }
 
-            $factura = DB::transaction(function () use ($serviciosCliente, $cliente, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $diasVencimiento, $impuestoExento, $impuestoPlan, $usuarioId, $observacionesExtra) {
+            $factura = DB::transaction(function () use ($serviciosCliente, $cliente, $periodoDesde, $periodoHasta, $periodoDesdeEfectivo, $fechaVencimientoConfig, $impuestoExento, $impuestoPlan, $usuarioId, $observacionesExtra) {
                 $fechaEmision = now()->toDateString();
-                $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
+                $fechaVencimiento = $fechaVencimientoConfig;
 
                 $obsBase = sprintf(
                     'Factura interna - Período %s a %s (servicios seleccionados)',
@@ -763,6 +763,148 @@ class FacturacionService
 
         $factura->update($updates);
         $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, $pagada ? 'pagado' : 'pendiente');
+    }
+
+    /**
+     * Aplica saldo a favor del cliente a una factura interna ya emitida/pendiente.
+     * Crea línea «Saldo a favor aplicado», descuenta servicios y marca pagada si corresponde.
+     *
+     * @return array{monto_aplicado: float, saldo_pendiente: float, pagada: bool, avisos: list<string>}
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function aplicarSaldoAFavorAFacturaPendiente(FacturaInterna $factura): array
+    {
+        if (! in_array($factura->estado, ['pendiente', 'emitida'], true)) {
+            throw new \InvalidArgumentException('Solo se puede aplicar saldo a favor en facturas pendientes o emitidas.');
+        }
+
+        $factura->loadMissing(['detalles', 'cliente']);
+        $saldoPendiente = round((float) $factura->saldo_pendiente, 2);
+        if ($saldoPendiente <= 0.009) {
+            throw new \InvalidArgumentException('La factura no tiene saldo pendiente.');
+        }
+
+        $serviciosConSaldo = Servicio::query()
+            ->where('cliente_id', $factura->cliente_id)
+            ->where('saldo_a_favor', '>', 0)
+            ->orderBy('servicio_id')
+            ->get();
+
+        $idsEnFactura = $factura->detalles->pluck('servicio_id')->filter()->flip();
+        $serviciosConSaldo = $serviciosConSaldo
+            ->sortBy(fn (Servicio $s) => isset($idsEnFactura[$s->servicio_id]) ? 0 : 1)
+            ->values();
+
+        $saldoFavorTotal = round((float) $serviciosConSaldo->sum(fn (Servicio $s) => (float) ($s->saldo_a_favor ?? 0)), 2);
+        if ($saldoFavorTotal <= 0.009) {
+            throw new \InvalidArgumentException('El cliente no tiene saldo a favor disponible.');
+        }
+
+        $montoAplicar = round(min($saldoFavorTotal, $saldoPendiente), 2);
+        if ($montoAplicar <= 0.009) {
+            throw new \InvalidArgumentException('No hay monto aplicable.');
+        }
+
+        $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
+        $avisos = [];
+
+        DB::transaction(function () use ($factura, $serviciosConSaldo, $montoAplicar, $impuestoExento) {
+            $subtotal = round((float) $factura->subtotal, 2);
+            $totalImpuestos = round((float) $factura->total_impuestos, 2);
+            $total = round((float) $factura->total, 2);
+
+            $descuentoSubtotal = $subtotal;
+            $descuentoImpuesto = $totalImpuestos;
+            if ($total > 0.009 && $montoAplicar < $total - 0.009) {
+                $ratio = $montoAplicar / $total;
+                $descuentoSubtotal = round($subtotal * $ratio, 2);
+                $descuentoImpuesto = round($totalImpuestos * $ratio, 2);
+                $ajuste = round($montoAplicar - ($descuentoSubtotal + $descuentoImpuesto), 2);
+                if (abs($ajuste) >= 0.01) {
+                    $descuentoImpuesto = round($descuentoImpuesto + $ajuste, 2);
+                }
+            }
+
+            FacturaInternaDetalle::create([
+                'factura_interna_id' => $factura->id,
+                'impuesto_id' => $impuestoExento?->id,
+                'servicio_id' => null,
+                'descripcion' => 'Saldo a favor aplicado',
+                'cantidad' => 1,
+                'precio_unitario' => -$montoAplicar,
+                'subtotal' => -$descuentoSubtotal,
+                'porcentaje_impuesto' => 0,
+                'monto_impuesto' => -$descuentoImpuesto,
+                'total' => -$montoAplicar,
+            ]);
+
+            $subtotal = max(0, round($subtotal - $descuentoSubtotal, 2));
+            $totalImpuestos = max(0, round($totalImpuestos - $descuentoImpuesto, 2));
+            $total = max(0, round($total - $montoAplicar, 2));
+
+            $restante = $montoAplicar;
+            foreach ($serviciosConSaldo as $servicio) {
+                if ($restante <= 0.009) {
+                    break;
+                }
+                $saldoServicio = (float) ($servicio->saldo_a_favor ?? 0);
+                if ($saldoServicio <= 0) {
+                    continue;
+                }
+                $aDeducir = round(min($saldoServicio, $restante), 2);
+                Servicio::where('servicio_id', $servicio->servicio_id)->decrement('saldo_a_favor', $aDeducir);
+                $restante = round($restante - $aDeducir, 2);
+            }
+
+            PromesaPago::where('factura_interna_id', $factura->id)->delete();
+
+            $factura->update([
+                'subtotal' => $subtotal,
+                'total_impuestos' => $totalImpuestos,
+                'total' => $total,
+            ]);
+            $factura->refresh();
+
+            if ($factura->saldo_pendiente <= 0.009) {
+                $factura->update([
+                    'estado' => 'pagada',
+                    'fecha_pago' => $factura->fecha_pago ?? now()->toDateString(),
+                ]);
+                $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pagado');
+            } else {
+                $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'parcial');
+            }
+
+            if ($factura->cliente) {
+                $this->recalcularCalificacionPagoCliente($factura->cliente);
+            }
+        });
+
+        $factura->refresh();
+        $pagada = $factura->esta_pagada;
+
+        if ($pagada && $factura->cliente) {
+            try {
+                $avisos = $this->revisarActivacionServicios($factura->cliente);
+            } catch (Throwable $e) {
+                Log::warning('[Saldo a favor] Error al reactivar servicios en MikroTik', [
+                    'cliente_id' => $factura->cliente_id,
+                    'factura_interna_id' => $factura->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $avisos = [
+                    'El saldo se aplicó correctamente, pero no se pudo conectar al router MikroTik para reactivar el servicio. Quedó en cola de reintento.',
+                ];
+            }
+        }
+
+        return [
+            'monto_aplicado' => $montoAplicar,
+            'saldo_pendiente' => round((float) $factura->saldo_pendiente, 2),
+            'pagada' => $pagada,
+            'avisos' => $avisos,
+        ];
     }
 
     /**
@@ -1280,7 +1422,11 @@ class FacturacionService
                     if (! $dryRun) {
                         $servicio->suspender('Falta de pago - Factura vencida');
                     }
-                    $suspendidos[] = ['servicio_id' => $servicio->servicio_id, 'cliente_id' => $cliente->cliente_id];
+                    $suspendidos[] = [
+                        'servicio_id' => $servicio->servicio_id,
+                        'cliente_id' => $cliente->cliente_id,
+                        'factura_id' => $factura->id,
+                    ];
                 }
             }
         }
@@ -1354,6 +1500,7 @@ class FacturacionService
                     $suspendidos[] = [
                         'servicio_id' => $servicio->servicio_id,
                         'cliente_id' => $cliente->cliente_id,
+                        'factura_id' => $factura->id,
                     ];
                 }
             }

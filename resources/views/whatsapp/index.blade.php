@@ -258,6 +258,9 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 max-w-xs">
+                                @php
+                                    $cuerpoVisible = app(\App\Services\WhatsApp\WhatsAppService::class)->cuerpoVisibleMensaje($m);
+                                @endphp
                                 @if($m->template_name)
                                     <div class="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-300">{{ $m->template_name }}
                                         @if($m->template_language)
@@ -265,7 +268,7 @@
                                         @endif
                                     </div>
                                 @endif
-                                <div class="truncate text-xs text-gray-500 dark:text-gray-400" title="{{ $m->cuerpo }}">{{ $m->cuerpo ?: '—' }}</div>
+                                <div class="line-clamp-3 text-xs text-gray-700 dark:text-gray-200 whitespace-pre-line" title="{{ $cuerpoVisible }}">{{ $cuerpoVisible ?: '—' }}</div>
                             </td>
                             <td class="px-4 py-3 max-w-sm">
                                 @if($fallo['codigo'])
@@ -325,6 +328,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-50 dark:divide-gray-700/60">
                     @forelse($ultimos as $m)
+                        @php $cuerpoUltimo = app(\App\Services\WhatsApp\WhatsAppService::class)->cuerpoVisibleMensaje($m); @endphp
                         <tr>
                             <td class="px-4 py-3 text-xs text-gray-400">#{{ $m->id }}</td>
                             <td class="px-4 py-3 text-sm">{{ $m->direccion }}</td>
@@ -335,7 +339,7 @@
                                 <div class="font-mono text-sm {{ $m->contacto_nombre ? 'text-gray-500' : 'text-gray-900 dark:text-gray-100' }}">{{ $m->telefono }}</div>
                             </td>
                             <td class="px-4 py-3 text-sm">{{ $m->estado }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate">{{ $m->cuerpo }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate" title="{{ $cuerpoUltimo }}">{{ $cuerpoUltimo }}</td>
                             <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{{ $m->created_at?->format('d/m/Y H:i') }}</td>
                         </tr>
                     @empty

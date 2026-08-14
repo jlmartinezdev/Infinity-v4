@@ -224,8 +224,16 @@
                                         Lote pendiente
                                     </span>
                                 @elseif($f->set_estado_envio === 'rechazado')
-                                    <span class="mt-1 inline-flex px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">
-                                        SIFEN rechazó
+                                    @php $rechazo = $f->respuestaSifenResumen(); @endphp
+                                    <span class="mt-1 inline-flex flex-col items-start gap-0.5">
+                                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">
+                                            SIFEN rechazó{{ !empty($rechazo['codigo']) ? ' '.$rechazo['codigo'] : '' }}
+                                        </span>
+                                        @if(!empty($rechazo['mensaje']))
+                                            <span class="max-w-[14rem] text-[10px] leading-tight text-red-700/90 dark:text-red-300/90 line-clamp-2" title="{{ $rechazo['mensaje'] }}">
+                                                {{ $rechazo['mensaje'] }}
+                                            </span>
+                                        @endif
                                     </span>
                                 @endif
                             </td>

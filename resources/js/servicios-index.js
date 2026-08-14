@@ -9,6 +9,7 @@ if (el) {
   const app = createApp(ServiciosIndex, {
     servicios: cfg.servicios || [],
     nodos: cfg.nodos || [],
+    planes: cfg.planes || [],
     clientes: cfg.clientes || [],
     canCreateFactura: cfg.canCreateFactura ?? false,
     canCancelarServicio: cfg.canCancelarServicio ?? false,
@@ -31,7 +32,7 @@ if (el) {
     urlCrearFacturaInterna: cfg.urlCrearFacturaInterna || '',
     urlCrearFacturaServicioEspecial: cfg.urlCrearFacturaServicioEspecial || '',
     urlCrearFacturaFraccionDeuda: cfg.urlCrearFacturaFraccionDeuda || '',
-    filtros: cfg.filtros || { buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' },
+    filtros: cfg.filtros || { buscar: '', cliente_id: '', nodo_id: '', plan_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' },
   });
   app.mount(el);
 }

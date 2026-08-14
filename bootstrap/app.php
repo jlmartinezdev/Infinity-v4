@@ -75,41 +75,76 @@ return Application::configure(basePath: dirname(__DIR__))
                 Log::info('Tarea iniciado: mikrotik:procesar-pendientes');
             });
 
+        // Ping ICMP a IP de gestión de routers (cada 60 s; sin auditoría/notificaciones)
+        $schedule->command('mikrotik:ping-routers')
+            ->everyMinute()
+            ->withoutOverlapping(1)
+            ->before(function () {
+                Log::info('Tarea iniciado: mikrotik:ping-routers');
+            });
+
+        $schedule->command('mikrotik:check-isp-salida')
+            ->everyMinute()
+            ->withoutOverlapping(2)
+            ->before(function () {
+                Log::info('Tarea iniciado: mikrotik:check-isp-salida');
+            });
+
         if (config('monitoreo.habilitado', true)) {
             $schedule->command('monitoreo:ping-servicios')
-                ->everyFiveMinutes()
+                ->cron('*/7 * * * *')
                 ->withoutOverlapping(10)
                 ->before(function () {
                     Log::info('Tarea iniciado: monitoreo:ping-servicios');
                 });
         }
 
-        // Avisos WhatsApp vencimiento cuentas TV (hora configurable en panel TV)
-        $horaTvAviso = \App\Support\TvAvisoConfig::hora();
+        // Avisos WhatsApp vencimiento cuentas TV (hora del panel; si el PC estaba apagado, corre al encender)
         $schedule->command('tv:avisar-vencimientos')
-            ->dailyAt($horaTvAviso)
+            ->everyFifteenMinutes()
             ->withoutOverlapping()
+            ->when(fn () => \App\Support\TvAvisoConfig::enabled()
+                && \App\Support\ScheduleOnceAfter::due('tv-avisar', \App\Support\TvAvisoConfig::hora()))
             ->before(function () {
                 Log::info('Tarea iniciado: tv:avisar-vencimientos');
             });
 
         // Push FCM: facturas internas por vencer (días = notificacion_dias_antes)
         $schedule->command('fcm:avisar-facturas-por-vencer')
-            ->dailyAt('09:00')
+            ->everyFifteenMinutes()
             ->withoutOverlapping()
+            ->when(fn () => \App\Support\ScheduleOnceAfter::due('fcm-facturas', '09:00'))
             ->before(function () {
                 Log::info('Tarea iniciado: fcm:avisar-facturas-por-vencer');
             });
 
-        // Backup BD → Google Drive (diario 02:30)
-        if (config('backup.drive.enabled')) {
-            $schedule->command('backup:drive')
-                ->dailyAt('02:30')
-                ->withoutOverlapping()
-                ->before(function () {
-                    Log::info('Tarea iniciado: backup:drive');
-                });
-        }
+        // Loyalty: vencer lotes de puntos (FIFO)
+        $schedule->command('loyalty:expirar-puntos')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->when(fn () => \App\Support\ScheduleOnceAfter::due('loyalty-expirar', '00:15'))
+            ->before(function () {
+                Log::info('Tarea iniciado: loyalty:expirar-puntos');
+            });
+
+        // Backup BD → Google Drive (hora configurable; reintenta si falló)
+        $schedule->command('backup:drive')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping(30)
+            ->appendOutputTo(storage_path('logs/schedule-backup-drive.log'))
+            ->when(function () {
+                if (! app(\App\Services\GoogleDriveUploader::class)->isConfigured()) {
+                    return false;
+                }
+
+                return \App\Support\ScheduleOnceAfter::due(
+                    'backup-drive',
+                    \App\Support\BackupScheduleConfig::hora()
+                );
+            })
+            ->before(function () {
+                Log::info('Tarea iniciado: backup:drive');
+            });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {

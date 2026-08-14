@@ -111,10 +111,19 @@
                                 <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300">{{ $eventos[$r->evento] ?? $r->evento }}</span>
                             </div>
                             <p class="text-xs text-gray-400 mt-0.5 font-mono truncate">{{ $r->codigo }}
+                                · {{ $r->frecuenciaInferida() }}
+                                @if($r->fase)
+                                    · fase {{ $r->fase }}
+                                @endif
+                                @unless($r->visible_portal)
+                                    · oculto app
+                                @endunless
                                 @if($r->usaPuntosPorDia())
                                     ·
                                     @foreach($r->puntosPorDiaHasta($diasMax) as $dia => $pts)
-                                        @if($pts > 0)<span class="text-gray-500">d{{ $dia }}={{ $pts }}</span>@endif
+                                        @if($pts > 0)
+                                            <span class="text-gray-500">d{{ $dia }}={{ $pts }}</span>
+                                        @endif
                                     @endforeach
                                 @else
                                     · {{ $r->puntos }} pts
@@ -260,8 +269,29 @@
                     <label class="block text-[11px] font-medium text-gray-500 mb-1">Descripción</label>
                     <textarea name="descripcion" rows="2" class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-900/50 outline-none focus:ring-2 focus:ring-gray-400/30"></textarea>
                 </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Frecuencia</label>
+                        <select name="frecuencia" class="w-full px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-900/50">
+                            @foreach(($frecuencias ?? []) as $k => $label)
+                                <option value="{{ $k }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Orden</label>
+                        <input type="number" name="orden" min="0" value="0" class="w-full px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-900/50">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Fase</label>
+                        <input type="number" name="fase" min="1" max="9" class="w-full px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-900/50">
+                    </div>
+                </div>
                 <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                     <input type="checkbox" name="activa" value="1" checked class="rounded border-gray-300"> Activa
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <input type="checkbox" name="visible_portal" value="1" checked class="rounded border-gray-300"> Visible en app (“Cómo ganar”)
                 </label>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-close-modal class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>

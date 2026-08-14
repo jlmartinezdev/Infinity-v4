@@ -8,16 +8,23 @@ use App\Models\TvCuenta;
 use App\Models\TvCuentaAsignacion;
 use App\Models\User;
 use App\Services\Tv\TvAvisoVencimientoService;
+use App\Services\Tv\TvHistorialPagoService;
+use App\Services\Tv\TvPrecioSyncService;
 use App\Support\TvAvisoConfig;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TvCuentaController extends Controller
 {
+    public function __construct(
+        private readonly TvPrecioSyncService $tvPrecioSync,
+    ) {}
+
     private function calcularFechaVencimiento(int $dia): string
     {
         $hoy = Carbon::today();
@@ -43,91 +50,75 @@ class TvCuentaController extends Controller
         return Schema::hasColumns('tv_cuenta_asignaciones', ['servicio_id', 'perfil_numero', 'fecha_activacion']);
     }
 
-    /**
-     * Recalcula app_tv, cantidad_perfil_app y precio_app en servicios según todas las asignaciones TV de ese servicio.
-     */
-    private function sincronizarAppTvEnServicio(int $servicioId): void
+    /** @return array{filtro: string, busqueda: string, filtroApp: string, filtroCupos: string, orden: string} */
+    private function parametrosListadoTv(Request $request): array
     {
-        $asignaciones = TvCuentaAsignacion::query()
-            ->where('servicio_id', $servicioId)
-            ->get();
-
-        if ($asignaciones->isEmpty()) {
-            Servicio::where('servicio_id', $servicioId)->update([
-                'app_tv' => false,
-                'cantidad_perfil_app' => null,
-                'precio_app' => null,
-            ]);
-
-            return;
-        }
-
-        $cantidad = $asignaciones->count();
-        $suma = 0.0;
-        if (Schema::hasColumn('tv_cuenta_asignaciones', 'precio_aplicado')) {
-            foreach ($asignaciones as $a) {
-                $suma += (float) ($a->precio_aplicado ?? 0);
-            }
-        }
-
-        Servicio::where('servicio_id', $servicioId)->update([
-            'app_tv' => true,
-            'cantidad_perfil_app' => $cantidad,
-            'precio_app' => $suma > 0 ? round($suma, 2) : null,
-        ]);
-    }
-
-    public function index(Request $request)
-    {
-        $filtro = $request->get('estado', 'todos');
+        $filtro = (string) $request->get('estado', 'todos');
         if (! in_array($filtro, ['todos', 'vencido', 'por_vencer', 'ok'], true)) {
             $filtro = 'todos';
         }
-        $busqueda = trim((string) $request->get('q', ''));
 
-        $todas = TvCuenta::query()
-            ->withCount('asignaciones')
-            ->with([
-                'asignaciones' => fn ($q) => $q->orderBy('perfil_numero')->orderBy('id'),
-                'asignaciones.servicio.cliente',
-                'asignaciones.servicio.plan',
-            ])
-            ->get();
-
-        $stats = [
-            'total' => $todas->count(),
-            'vencido' => 0,
-            'por_vencer' => 0,
-            'ok' => 0,
-            'asignaciones' => (int) $todas->sum('asignaciones_count'),
-            'cupos_totales' => (int) $todas->sum(fn (TvCuenta $c) => $c->maxAsignaciones()),
-        ];
-
-        foreach ($todas as $cuenta) {
-            $stats[$cuenta->estadoVencimiento()]++;
+        $filtroApp = (string) $request->get('app', 'todos');
+        if (! in_array($filtroApp, ['todos', TvCuenta::APP_NEBULA, TvCuenta::APP_LUMIX], true)) {
+            $filtroApp = 'todos';
         }
 
-        $prioridad = ['vencido' => 0, 'por_vencer' => 1, 'ok' => 2];
-        $ordenadas = $todas->sort(function (TvCuenta $a, TvCuenta $b) use ($prioridad) {
-            $ea = $a->estadoVencimiento();
-            $eb = $b->estadoVencimiento();
-            $cmpEstado = ($prioridad[$ea] ?? 9) <=> ($prioridad[$eb] ?? 9);
-            if ($cmpEstado !== 0) {
-                return $cmpEstado;
-            }
+        $filtroCupos = (string) $request->get('cupos', 'todos');
+        if (! in_array($filtroCupos, ['todos', 'libres', 'llenas', 'vacias'], true)) {
+            $filtroCupos = 'todos';
+        }
 
-            return $a->diasParaVencimiento() <=> $b->diasParaVencimiento();
-        })->values();
+        $orden = (string) $request->get('orden', 'urgencia');
+        $ordenesValidos = [
+            'urgencia', 'vencimiento_asc', 'vencimiento_desc',
+            'nombre_asc', 'nombre_desc', 'usuario_asc', 'usuario_desc',
+            'app', 'cupos_desc', 'cupos_asc', 'estado_pago',
+        ];
+        if (! in_array($orden, $ordenesValidos, true)) {
+            $orden = 'urgencia';
+        }
 
-        if ($filtro !== 'todos') {
-            $ordenadas = $ordenadas
-                ->filter(fn (TvCuenta $c) => $c->estadoVencimiento() === $filtro)
+        return [
+            'filtro' => $filtro,
+            'busqueda' => trim((string) $request->get('q', '')),
+            'filtroApp' => $filtroApp,
+            'filtroCupos' => $filtroCupos,
+            'orden' => $orden,
+        ];
+    }
+
+    /** @param  array{filtro: string, busqueda: string, filtroApp: string, filtroCupos: string, orden: string}  $params */
+    private function filtrarCuentasTv(Collection $cuentas, array $params): Collection
+    {
+        if ($params['filtro'] !== 'todos') {
+            $cuentas = $cuentas
+                ->filter(fn (TvCuenta $c) => $c->estadoVencimiento() === $params['filtro'])
                 ->values();
         }
 
-        if ($busqueda !== '') {
-            $needle = mb_strtolower($busqueda);
-            $ordenadas = $ordenadas->filter(function (TvCuenta $c) use ($needle) {
+        if ($params['filtroApp'] !== 'todos') {
+            $cuentas = $cuentas
+                ->filter(fn (TvCuenta $c) => $c->aplicacion === $params['filtroApp'])
+                ->values();
+        }
+
+        if ($params['filtroCupos'] !== 'todos') {
+            $cuentas = $cuentas->filter(function (TvCuenta $c) use ($params) {
+                $uso = (int) $c->asignaciones_count;
+                $max = $c->maxAsignaciones();
+
+                return match ($params['filtroCupos']) {
+                    'libres' => $uso < $max,
+                    'llenas' => $uso >= $max,
+                    'vacias' => $uso === 0,
+                    default => true,
+                };
+            })->values();
+        }
+
+        if ($params['busqueda'] !== '') {
+            $needle = mb_strtolower($params['busqueda']);
+            $cuentas = $cuentas->filter(function (TvCuenta $c) use ($needle) {
                 $textos = [
                     $c->nombre,
                     $c->usuario_app,
@@ -151,6 +142,69 @@ class TvCuentaController extends Controller
                 return false;
             })->values();
         }
+
+        return $cuentas;
+    }
+
+    private function ordenarCuentasTv(Collection $cuentas, string $orden): Collection
+    {
+        $prioridad = ['vencido' => 0, 'por_vencer' => 1, 'ok' => 2];
+
+        return $cuentas->sort(function (TvCuenta $a, TvCuenta $b) use ($orden, $prioridad) {
+            $cmp = match ($orden) {
+                'vencimiento_asc' => $a->fechaVencimientoReferencia() <=> $b->fechaVencimientoReferencia(),
+                'vencimiento_desc' => $b->fechaVencimientoReferencia() <=> $a->fechaVencimientoReferencia(),
+                'nombre_asc' => strcasecmp($a->nombre ?: $a->usuario_app, $b->nombre ?: $b->usuario_app),
+                'nombre_desc' => strcasecmp($b->nombre ?: $b->usuario_app, $a->nombre ?: $a->usuario_app),
+                'usuario_asc' => strcasecmp($a->usuario_app, $b->usuario_app),
+                'usuario_desc' => strcasecmp($b->usuario_app, $a->usuario_app),
+                'app' => [$a->aplicacion, $a->nombre ?: $a->usuario_app] <=> [$b->aplicacion, $b->nombre ?: $b->usuario_app],
+                'cupos_desc' => $b->asignaciones_count <=> $a->asignaciones_count,
+                'cupos_asc' => $a->asignaciones_count <=> $b->asignaciones_count,
+                'estado_pago' => ($prioridad[$a->estadoVencimiento()] ?? 9) <=> ($prioridad[$b->estadoVencimiento()] ?? 9),
+                default => ($prioridad[$a->estadoVencimiento()] ?? 9) <=> ($prioridad[$b->estadoVencimiento()] ?? 9)
+                    ?: $a->diasParaVencimiento() <=> $b->diasParaVencimiento(),
+            };
+
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+
+            return strcasecmp($a->nombre ?: $a->usuario_app, $b->nombre ?: $b->usuario_app);
+        })->values();
+    }
+
+    public function index(Request $request)
+    {
+        $params = $this->parametrosListadoTv($request);
+        extract($params);
+
+        $todas = TvCuenta::query()
+            ->withCount('asignaciones')
+            ->with([
+                'asignaciones' => fn ($q) => $q->orderBy('perfil_numero')->orderBy('id'),
+                'asignaciones.servicio.cliente',
+                'asignaciones.servicio.plan',
+            ])
+            ->get();
+
+        $stats = [
+            'total' => $todas->count(),
+            'vencido' => 0,
+            'por_vencer' => 0,
+            'ok' => 0,
+            'asignaciones' => (int) $todas->sum('asignaciones_count'),
+            'cupos_totales' => (int) $todas->sum(fn (TvCuenta $c) => $c->maxAsignaciones()),
+        ];
+
+        foreach ($todas as $cuenta) {
+            $stats[$cuenta->estadoVencimiento()]++;
+        }
+
+        $ordenadas = $this->ordenarCuentasTv(
+            $this->filtrarCuentasTv($todas, $params),
+            $orden
+        );
 
         $perPage = 20;
         $page = max(1, (int) $request->get('page', 1));
@@ -176,6 +230,9 @@ class TvCuentaController extends Controller
             'stats',
             'filtro',
             'busqueda',
+            'filtroApp',
+            'filtroCupos',
+            'orden',
             'tvAviso',
             'staffAviso',
             'esAdmin'
@@ -233,10 +290,19 @@ class TvCuentaController extends Controller
      */
     public function exportarExcel(Request $request): StreamedResponse
     {
-        $filtro = $request->get('estado', 'todos');
-        if (! in_array($filtro, ['todos', 'vencido', 'por_vencer', 'ok'], true)) {
-            $filtro = 'todos';
-        }
+        $params = $this->parametrosListadoTv($request);
+
+        $cuentasFiltradas = $this->ordenarCuentasTv(
+            $this->filtrarCuentasTv(
+                TvCuenta::query()->withCount('asignaciones')->with([
+                    'asignaciones.servicio.cliente',
+                ])->get(),
+                $params
+            ),
+            $params['orden']
+        );
+
+        $ordenCuenta = $cuentasFiltradas->values()->mapWithKeys(fn (TvCuenta $c, int $i) => [$c->id => $i]);
 
         $asignaciones = TvCuentaAsignacion::query()
             ->with([
@@ -244,34 +310,12 @@ class TvCuentaController extends Controller
                 'servicio.cliente',
                 'servicio.plan',
             ])
-            ->whereHas('tvCuenta')
+            ->whereIn('tv_cuenta_id', $cuentasFiltradas->pluck('id'))
             ->get()
-            ->filter(function (TvCuentaAsignacion $asig) use ($filtro) {
-                $cuenta = $asig->tvCuenta;
-                if (! $cuenta) {
-                    return false;
-                }
-
-                return $filtro === 'todos' || $cuenta->estadoVencimiento() === $filtro;
-            })
-            ->sort(function (TvCuentaAsignacion $a, TvCuentaAsignacion $b) {
-                $clienteA = $a->servicio?->cliente;
-                $clienteB = $b->servicio?->cliente;
-                $nombreA = mb_strtolower(trim(($clienteA?->nombre ?? '').' '.($clienteA?->apellido ?? '')));
-                $nombreB = mb_strtolower(trim(($clienteB?->nombre ?? '').' '.($clienteB?->apellido ?? '')));
-                $cmp = $nombreA <=> $nombreB;
+            ->sort(function (TvCuentaAsignacion $a, TvCuentaAsignacion $b) use ($ordenCuenta) {
+                $cmp = ($ordenCuenta[$a->tv_cuenta_id] ?? 999) <=> ($ordenCuenta[$b->tv_cuenta_id] ?? 999);
                 if ($cmp !== 0) {
                     return $cmp;
-                }
-
-                $appCmp = ($a->tvCuenta?->aplicacion ?? '') <=> ($b->tvCuenta?->aplicacion ?? '');
-                if ($appCmp !== 0) {
-                    return $appCmp;
-                }
-
-                $cuentaCmp = ($a->tvCuenta?->usuario_app ?? '') <=> ($b->tvCuenta?->usuario_app ?? '');
-                if ($cuentaCmp !== 0) {
-                    return $cuentaCmp;
                 }
 
                 return ((int) ($a->perfil_numero ?? 0)) <=> ((int) ($b->perfil_numero ?? 0));
@@ -306,7 +350,7 @@ class TvCuentaController extends Controller
                 'TV box comodato',
                 'Fecha activación',
                 'Vencimiento cuenta',
-                'Estado vencimiento',
+                'Estado de pago',
                 'Día vencimiento mensual',
             ], ';');
 
@@ -440,15 +484,20 @@ class TvCuentaController extends Controller
             unset($validated['vencimiento_pago']);
         }
 
-        $slotsModificados = $this->slotsConPrecioModificado($tv_cuenta, $validated);
-
         $tv_cuenta->update($validated);
 
-        $asignacionesActualizadas = $this->propagarPreciosAsignaciones($tv_cuenta, $slotsModificados);
+        // Siempre alinea precio_aplicado al catálogo (también si ya estaba 20000 en el form
+        // y la asignación seguía en 20) y resincroniza servicios.precio_app.
+        $resultado = $this->tvPrecioSync->reconciliarAsignaciones(
+            (int) $tv_cuenta->id,
+            incluirCero: true,
+            aplicar: true,
+        );
+        $asignacionesActualizadas = (int) $resultado['asignaciones_actualizadas'];
 
         $mensaje = 'Cuenta TV actualizada.';
         if ($asignacionesActualizadas > 0) {
-            $mensaje .= ' Se actualizó el precio aplicado en '.$asignacionesActualizadas.' asignación(es) del mismo perfil/pantalla.';
+            $mensaje .= ' Se actualizó el precio aplicado en '.$asignacionesActualizadas.' asignación(es) y se sincronizó el precio de facturación.';
         }
 
         return redirect()->route('tv-cuentas.edit', $tv_cuenta)
@@ -559,87 +608,12 @@ class TvCuentaController extends Controller
 
         TvCuentaAsignacion::create($payload);
 
-        $this->sincronizarAppTvEnServicio((int) $servicio->servicio_id);
+        $this->tvPrecioSync->sincronizarServicio((int) $servicio->servicio_id);
 
         return redirect()->route('tv-cuentas.edit', $tv_cuenta)
             ->with('success', $this->asignacionPerfilesV2Disponible()
                 ? 'Servicio asignado al '.$tv_cuenta->etiquetaTipoSlot().' correctamente.'
                 : 'Servicio asignado correctamente.');
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<int, int>
-     */
-    private function slotsConPrecioModificado(TvCuenta $cuenta, array $validated): array
-    {
-        $esLumix = ($validated['aplicacion'] ?? $cuenta->aplicacion) === TvCuenta::APP_LUMIX;
-        $max = $esLumix ? TvCuenta::MAX_LUMIX : TvCuenta::MAX_NEBULA;
-        $modificados = [];
-
-        for ($numero = 1; $numero <= $max; $numero++) {
-            $campo = $esLumix ? "precio_pantalla_{$numero}" : "precio_perfil_{$numero}";
-            if (! array_key_exists($campo, $validated)) {
-                continue;
-            }
-
-            if ($this->precioNormalizado($cuenta->getAttribute($campo)) !== $this->precioNormalizado($validated[$campo])) {
-                $modificados[] = $numero;
-            }
-        }
-
-        return $modificados;
-    }
-
-    /**
-     * @param  array<int, int>  $slotsModificados
-     */
-    private function propagarPreciosAsignaciones(TvCuenta $cuenta, array $slotsModificados): int
-    {
-        if ($slotsModificados === [] || ! Schema::hasColumn('tv_cuenta_asignaciones', 'precio_aplicado')) {
-            return 0;
-        }
-
-        $cuenta->refresh();
-        $serviciosAfectados = [];
-        $actualizadas = 0;
-
-        $asignaciones = $cuenta->asignaciones()
-            ->whereIn('perfil_numero', $slotsModificados)
-            ->get();
-
-        foreach ($asignaciones as $asignacion) {
-            if ($asignacion->es_promo || ! $asignacion->perfil_numero) {
-                continue;
-            }
-
-            $nuevoPrecio = (float) ($cuenta->precioSlot((int) $asignacion->perfil_numero) ?? 0);
-            if ($this->precioNormalizado($asignacion->precio_aplicado) === $this->precioNormalizado($nuevoPrecio)) {
-                continue;
-            }
-
-            $asignacion->update(['precio_aplicado' => $nuevoPrecio]);
-            $actualizadas++;
-            $serviciosAfectados[(int) $asignacion->servicio_id] = true;
-        }
-
-        foreach (array_keys($serviciosAfectados) as $servicioId) {
-            $this->sincronizarAppTvEnServicio($servicioId);
-        }
-
-        return $actualizadas;
-    }
-
-    private function precioNormalizado(mixed $valor): ?float
-    {
-        if ($valor === null || $valor === '') {
-            return null;
-        }
-
-        return round((float) $valor, 2);
     }
 
     private function reglasCuentaTv(Request $request, ?TvCuenta $cuenta = null): array
@@ -696,6 +670,17 @@ class TvCuentaController extends Controller
         return $validated;
     }
 
+    public function historialPago(TvCuenta $tv_cuenta, TvCuentaAsignacion $asignacion, TvHistorialPagoService $service)
+    {
+        if ((int) $asignacion->tv_cuenta_id !== (int) $tv_cuenta->id) {
+            abort(404);
+        }
+
+        return response()->json(
+            $service->historialAsignacion($asignacion, auth()->user())
+        );
+    }
+
     public function destroyAsignacion(TvCuenta $tv_cuenta, TvCuentaAsignacion $asignacion)
     {
         if ((int) $asignacion->tv_cuenta_id !== (int) $tv_cuenta->id) {
@@ -705,7 +690,7 @@ class TvCuentaController extends Controller
         $servicioId = (int) $asignacion->servicio_id;
         $asignacion->delete();
         if ($servicioId > 0) {
-            $this->sincronizarAppTvEnServicio($servicioId);
+            $this->tvPrecioSync->sincronizarServicio($servicioId);
         }
 
         return redirect()->route('tv-cuentas.edit', $tv_cuenta)

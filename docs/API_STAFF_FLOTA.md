@@ -12,6 +12,7 @@ Base: `/api/v1` · Auth: `Authorization: Bearer <token>` (login `tipo: "staff"`)
 | `GET` | `/staff/visitas` | Staff con `tickets.ver` | Tickets abiertos. Técnico: solo `asignado_a` = su `usuario_id`. Admin/gerente/cajero: todas |
 | `GET` | `/staff/visitas/{id}` | Staff con `tickets.ver` | Detalle visita |
 | `POST` | `/staff/visitas/{id}/actualizar` | Staff con `tickets.crear` | Cambio de estado + nota del técnico |
+| `POST` | `/staff/avisos/en-camino` | Staff autenticado | WhatsApp Cloud API (número oficial). `tipo`: visita\|instalacion. Ver `docs/whatsapp-plantilla-en-camino.md` |
 | `GET` | `/tickets/asuntos` | Staff `tickets.ver` | Catálogo de asuntos para filtro |
 
 Aliases: `POST …/estado`, `PATCH /staff/visitas/{id}`.
@@ -122,6 +123,25 @@ Al menos uno de `estado` / `nota_tecnico` / `detalle_tecnico`.
 Acepta keys (`resuelto`) o labels (`Resuelto`).  
 Respuesta: VisitaItem actualizado en `data`.  
 `resuelto` / `no_realizado` dejan de listarse en GET visitas. Auditoría vía trait Auditable + `actualizado_por_id`.
+
+## POST `/staff/avisos/en-camino`
+
+Envía el aviso desde el número oficial (WhatsApp Cloud API). La app no manda texto ni teléfono del cliente.
+
+```json
+{
+  "tipo": "visita",
+  "recurso_id": 123,
+  "lat": -25.2867,
+  "lng": -57.647
+}
+```
+
+Respuesta: `{ "success": true, "data": { "enviado": true, "canal": "whatsapp", "message_id": "wamid..." } }`
+
+Errores: 400 sin teléfono, 403 sin acceso, 404 inexistente, 409 reenvío &lt; 5 min, 422 config/plantilla, 502 proveedor.
+
+Marca `en_camino` en el recurso antes del envío. Detalle de plantilla Meta: `docs/whatsapp-plantilla-en-camino.md`.
 
 ## Panel web
 

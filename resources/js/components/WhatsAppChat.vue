@@ -293,33 +293,50 @@
                   </div>
 
                   <div v-if="m.tipo === 'audio' && m.media_url" class="my-1 min-w-[220px]">
+                    <div v-if="mediaHydrating[m.id] && !mediaSrc(m)" class="wa-muted text-xs py-1">Cargando audio…</div>
                     <audio
-                      :src="m.media_url"
+                      v-else-if="mediaSrc(m)"
+                      :src="mediaSrc(m)"
                       controls
                       preload="metadata"
                       class="w-full max-w-xs"
                       style="height: 36px;"
                     />
-                    <p class="mt-0.5 text-[11px] opacity-70">{{ m.media_voice ? 'Nota de voz' : (m.cuerpo || 'Audio') }}</p>
+                    <p v-else class="rounded-md bg-black/10 px-2 py-1.5 text-xs opacity-80 dark:bg-black/20">
+                      No se pudo cargar el audio
+                      <button type="button" class="ml-1 underline" @click="hydrateMedia(m, true)">Reintentar</button>
+                    </p>
+                    <p class="mt-0.5 text-[11px] opacity-70">{{ m.media_voice ? 'Nota de voz' : (captionMedia(m) || 'Audio') }}</p>
+                  </div>
+                  <div v-else-if="m.tipo === 'image' && m.media_url" class="my-1 max-w-full">
+                    <button
+                      v-if="!mediaFailed[m.id]"
+                      type="button"
+                      class="block max-w-full cursor-zoom-in border-0 bg-transparent p-0 text-left"
+                      title="Ver imagen"
+                      @click="abrirModalImagen(m)"
+                    >
+                      <img
+                        :src="mediaSrc(m) || m.media_url"
+                        alt="Imagen"
+                        class="max-h-56 max-w-full rounded-md object-contain"
+                        @error="onMediaImgError(m)"
+                      >
+                    </button>
+                    <p v-else class="rounded-md bg-black/10 px-2 py-1.5 text-xs opacity-80 dark:bg-black/20">
+                      No se pudo cargar la imagen
+                      <button type="button" class="ml-1 underline" @click="hydrateMedia(m, true)">Reintentar</button>
+                    </p>
+                    <p v-if="captionMedia(m)" class="mt-1 whitespace-pre-wrap break-words text-[14.2px] leading-[19px]">{{ captionMedia(m) }}</p>
                   </div>
                   <button
-                    v-else-if="m.tipo === 'image' && m.media_url"
-                    type="button"
-                    class="my-1 block max-w-full cursor-zoom-in border-0 bg-transparent p-0 text-left"
-                    title="Ver imagen"
-                    @click="abrirModalImagen(m)"
-                  >
-                    <img :src="m.media_url" alt="Imagen" class="max-h-56 max-w-full rounded-md object-contain" loading="lazy">
-                  </button>
-                  <a
                     v-else-if="['document','video','sticker'].includes(m.tipo) && m.media_url"
-                    :href="m.media_url"
-                    target="_blank"
-                    rel="noopener"
+                    type="button"
                     class="my-1 inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20"
+                    @click="abrirMediaAdjunto(m)"
                   >
                     Abrir {{ m.tipo }}
-                  </a>
+                  </button>
                   <div v-else-if="m.tipo === 'location' && m.maps_url" class="my-1 min-w-[200px] max-w-xs">
                     <p class="text-[14px] font-medium leading-snug">{{ m.maps_nombre || 'Ubicación compartida' }}</p>
                     <p v-if="m.maps_direccion" class="mt-0.5 text-[11px] opacity-80">{{ m.maps_direccion }}</p>
@@ -1007,6 +1024,9 @@ export default {
       loadingHilo: false,
       enviando: false,
       adjuntoPendiente: null,
+      mediaObjectUrls: {},
+      mediaFailed: {},
+      mediaHydrating: {},
       reintentandoId: null,
       marcandoLeidos: false,
       guardandoAsunto: false,
@@ -1108,6 +1128,9 @@ export default {
     if (this.buscarTimer) clearTimeout(this.buscarTimer);
     if (this.contactoBuscarTimer) clearTimeout(this.contactoBuscarTimer);
     if (this.hiloAbort) this.hiloAbort.abort();
+    Object.values(this.mediaObjectUrls || {}).forEach((u) => {
+      try { URL.revokeObjectURL(u); } catch (_) {}
+    });
     if (this._onPedidoCreated) window.removeEventListener('pedido-created', this._onPedidoCreated);
     if (this._onClosePedidoModal) window.removeEventListener('close-pedido-modal', this._onClosePedidoModal);
     if (this._onKeydown) window.removeEventListener('keydown', this._onKeydown);
@@ -1277,6 +1300,7 @@ export default {
       }
       if (added || updated) {
         this.mensajes = Array.from(byId.values()).sort((a, b) => a.id - b.id);
+        this.$nextTick(() => this.hydrateMediaEnHilo());
       }
       return { added, updated };
     },
@@ -1323,7 +1347,13 @@ export default {
           if (added) this.$nextTick(() => this.scrollHilo(false));
         } else {
           this.mensajes = lote;
-          this.$nextTick(() => this.scrollHilo(true));
+          this.$nextTick(() => {
+            this.scrollHilo(true);
+            this.hydrateMediaEnHilo();
+          });
+        }
+        if (incremental) {
+          this.$nextTick(() => this.hydrateMediaEnHilo());
         }
         if (data.ultimo_id) this.ultimoId = Math.max(this.ultimoId, data.ultimo_id);
         if (data.server_now) this.lastSyncAt = data.server_now;
@@ -1577,11 +1607,102 @@ export default {
     },
 
     // —— Modales rápidos / GPS ——
+    captionMedia(m) {
+      const c = String(m?.cuerpo || '').trim();
+      if (!c) return '';
+      const genericos = ['imagen', 'image', 'audio', 'video', 'documento', 'document', 'sticker', '—', '-'];
+      return genericos.includes(c.toLowerCase()) ? '' : c;
+    },
+    mediaSrc(m) {
+      if (!m?.id) return null;
+      return this.mediaObjectUrls[m.id] || null;
+    },
+    onMediaLoaded(m) {
+      if (!m?.id) return;
+      if (this.mediaFailed[m.id]) {
+        const next = { ...this.mediaFailed };
+        delete next[m.id];
+        this.mediaFailed = next;
+      }
+    },
+    onMediaImgError(m) {
+      if (!m?.id || this.mediaFailed[m.id]) return;
+      this.mediaFailed = { ...this.mediaFailed, [m.id]: true };
+    },
+    async hydrateMedia(m, force = false) {
+      if (!m?.id || !m.media_url) return;
+      if (!force && (this.mediaObjectUrls[m.id] || this.mediaHydrating[m.id])) return;
+      if (force && this.mediaObjectUrls[m.id]) {
+        try { URL.revokeObjectURL(this.mediaObjectUrls[m.id]); } catch (_) {}
+        const urls = { ...this.mediaObjectUrls };
+        delete urls[m.id];
+        this.mediaObjectUrls = urls;
+      }
+      this.mediaHydrating = { ...this.mediaHydrating, [m.id]: true };
+      const failed = { ...this.mediaFailed };
+      delete failed[m.id];
+      this.mediaFailed = failed;
+      try {
+        const res = await window.axios.get(m.media_url, {
+          responseType: 'blob',
+          withCredentials: true,
+          headers: {
+            Accept: m.media_mime || 'application/octet-stream,*/*',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        });
+        const data = res.data;
+        if (!(data instanceof Blob) || data.size < 32) {
+          throw new Error('empty');
+        }
+        if ((data.type || '').includes('text/html') || (data.type || '').includes('application/json')) {
+          throw new Error('not-media');
+        }
+        const head = new Uint8Array(await data.slice(0, 16).arrayBuffer());
+        const esJpeg = head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF;
+        const esPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4E;
+        const esGif = head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
+        const esWebp = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46;
+        if (m.tipo === 'image' && !esJpeg && !esPng && !esGif && !esWebp) {
+          throw new Error('not-image');
+        }
+        let blob = data;
+        if (m.tipo === 'image') {
+          const mime = esPng ? 'image/png' : (esGif ? 'image/gif' : (esWebp ? 'image/webp' : 'image/jpeg'));
+          blob = new Blob([data], { type: mime });
+        } else if ((!data.type || data.type === 'application/octet-stream') && m.tipo === 'audio') {
+          blob = new Blob([data], { type: m.media_mime || 'audio/ogg' });
+        }
+        this.mediaObjectUrls = {
+          ...this.mediaObjectUrls,
+          [m.id]: URL.createObjectURL(blob),
+        };
+      } catch (e) {
+        console.warn('[WA media] falló', m.id, e?.response?.status || e?.message);
+        this.mediaFailed = { ...this.mediaFailed, [m.id]: true };
+      } finally {
+        const hyd = { ...this.mediaHydrating };
+        delete hyd[m.id];
+        this.mediaHydrating = hyd;
+      }
+    },
+    hydrateMediaEnHilo() {
+      (this.mensajes || []).forEach((m) => {
+        if (m?.media_url && ['audio', 'video', 'document', 'sticker'].includes(m.tipo)) {
+          this.hydrateMedia(m, false);
+        }
+      });
+    },
+    async abrirMediaAdjunto(m) {
+      await this.hydrateMedia(m, false);
+      const src = this.mediaSrc(m) || m.media_url;
+      if (src) window.open(src, '_blank', 'noopener');
+    },
     abrirModalImagen(m) {
       if (!m?.media_url) return;
       this.modalImagen = {
-        url: m.media_url,
-        caption: (m.cuerpo && m.cuerpo !== 'Imagen') ? m.cuerpo : 'Imagen',
+        url: this.mediaSrc(m) || m.media_url,
+        caption: this.captionMedia(m) || 'Imagen',
       };
     },
     cerrarModalImagen() {

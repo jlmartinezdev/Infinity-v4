@@ -7,6 +7,7 @@ use App\Models\MikrotikOperacionPendiente;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use Illuminate\Console\Command;
 
 class ServiciosCorteAutomaticoCommand extends Command
@@ -18,7 +19,11 @@ class ServiciosCorteAutomaticoCommand extends Command
 
     protected $description = 'Suspende servicios por falta de pago (facturas vencidas). Se ejecuta el día y hora configurados. También deshabilita PPPoE en routers MikroTik.';
 
-    public function handle(FacturacionService $facturacionService, MikroTikService $mikrotik): int
+    public function handle(
+        FacturacionService $facturacionService,
+        MikroTikService $mikrotik,
+        WhatsAppOutboundNotifier $whatsapp,
+    ): int
     {
         $dryRun = $this->option('dry-run');
         $force = $this->option('force');
@@ -77,6 +82,13 @@ class ServiciosCorteAutomaticoCommand extends Command
                         'servicios:corte-automatico'
                     );
                 }
+            }
+        }
+
+        if (! $dryRun) {
+            $avisos = $whatsapp->avisarSuspensionesPorFaltaPago($suspendidos);
+            if ($avisos > 0) {
+                $this->info("Avisos WhatsApp enviados: {$avisos}");
             }
         }
 

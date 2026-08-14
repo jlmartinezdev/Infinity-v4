@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Cliente;
 use App\Models\Nodo;
+use App\Models\Plan;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 
@@ -45,7 +46,12 @@ class ListaClienteServicioViewData
     }
 
     /**
-     * @return array{serviciosParaVue: list<array<string, mixed>>, nodos: \Illuminate\Support\Collection<int, Nodo>, clientesFiltro: \Illuminate\Support\Collection<int, Cliente>}
+     * @return array{
+     *   serviciosParaVue: list<array<string, mixed>>,
+     *   nodos: \Illuminate\Support\Collection<int, Nodo>,
+     *   clientesFiltro: \Illuminate\Support\Collection<int, Cliente>,
+     *   planes: list<array{plan_id: int, nombre: string}>
+     * }
      */
     public static function serviciosPayload(): array
     {
@@ -56,6 +62,16 @@ class ListaClienteServicioViewData
         $clientesFiltro = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])
             ->orderBy('nombre')
             ->get(['cliente_id', 'cedula', 'nombre', 'apellido']);
+
+        $planes = Plan::query()
+            ->orderBy('nombre')
+            ->get(['plan_id', 'nombre'])
+            ->map(fn (Plan $p) => [
+                'plan_id' => (int) $p->plan_id,
+                'nombre' => (string) $p->nombre,
+            ])
+            ->values()
+            ->all();
 
         $saldoFacturasPorCliente = app(FacturacionService::class)->mapSaldoPendienteInternasPorClienteIds(
             $servicios->pluck('cliente_id')->unique()->filter()->values()->all()
@@ -68,7 +84,8 @@ class ListaClienteServicioViewData
                 'servicio_id' => $s->servicio_id,
                 'saldo_facturas_pendiente' => $cid ? (float) ($saldoFacturasPorCliente[$cid] ?? 0) : 0,
                 'cliente' => $s->cliente ? ['cliente_id' => $s->cliente->cliente_id, 'nombre' => $s->cliente->nombre, 'apellido' => $s->cliente->apellido, 'cedula' => $s->cliente->cedula, 'url_ubicacion' => trim((string) ($s->cliente->url_ubicacion ?? ''))] : null,
-                'plan' => $s->plan ? ['nombre' => $s->plan->nombre] : null,
+                'plan' => $s->plan ? ['plan_id' => (int) $s->plan->plan_id, 'nombre' => $s->plan->nombre] : null,
+                'plan_id' => $s->plan_id ? (int) $s->plan_id : null,
                 'pool' => $s->pool ? [
                     'router' => $s->pool->router ? [
                         'nombre' => $s->pool->router->nombre,
@@ -98,6 +115,7 @@ class ListaClienteServicioViewData
             'serviciosParaVue' => $serviciosParaVue,
             'nodos' => Nodo::orderBy('descripcion')->get(),
             'clientesFiltro' => $clientesFiltro,
+            'planes' => $planes,
         ];
     }
 

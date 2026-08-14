@@ -20,7 +20,7 @@ class PuntosController extends Controller
 
     public function index(Request $request)
     {
-        $reglas = LoyaltyRegla::query()->orderBy('nombre')->get();
+        $reglas = LoyaltyRegla::query()->orderBy('orden')->orderBy('nombre')->get();
         $movimientos = PuntosMovimiento::with(['cliente', 'creador'])
             ->orderByDesc('id')
             ->limit(50)
@@ -47,6 +47,7 @@ class PuntosController extends Controller
             'clienteBuscado' => $clienteBuscado,
             'saldoCliente' => $saldoCliente,
             'eventos' => LoyaltyRegla::eventos(),
+            'frecuencias' => LoyaltyRegla::frecuencias(),
             'reglaPago' => $reglaPago,
             'puntosPorDiaPago' => $reglaPago?->puntosPorDiaHasta() ?? [],
             'diasPagoMax' => LoyaltyRegla::DIAS_PAGO_CONFIGURABLES,
@@ -71,14 +72,26 @@ class PuntosController extends Controller
             'descripcion' => ['nullable', 'string'],
             'puntos' => ['nullable', 'integer'],
             'evento' => ['required', Rule::in(array_keys(LoyaltyRegla::eventos()))],
+            'frecuencia' => ['nullable', Rule::in(array_keys(LoyaltyRegla::frecuencias()))],
+            'orden' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'fase' => ['nullable', 'integer', 'min:1', 'max:9'],
             'activa' => ['nullable', 'boolean'],
+            'visible_portal' => ['nullable', 'boolean'],
             'dia_puntos' => ['nullable', 'array'],
             'dia_puntos.*' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $data['codigo'] = Str::lower($data['codigo']);
         $data['activa'] = $request->boolean('activa', true);
+        $data['visible_portal'] = $request->boolean('visible_portal', true);
         $data['puntos'] = (int) ($data['puntos'] ?? 0);
+        $data['orden'] = (int) ($data['orden'] ?? 0);
+        $data['fase'] = filled($data['fase'] ?? null) ? (int) $data['fase'] : null;
+        $data['frecuencia'] = $data['frecuencia'] ?? match ($data['evento']) {
+            LoyaltyRegla::EVENTO_BIENVENIDA => LoyaltyRegla::FRECUENCIA_UNICA,
+            LoyaltyRegla::EVENTO_PAGO => LoyaltyRegla::FRECUENCIA_MENSUAL,
+            default => LoyaltyRegla::FRECUENCIA_EVENTO,
+        };
 
         if ($data['evento'] === LoyaltyRegla::EVENTO_PAGO) {
             $data['condiciones'] = LoyaltyRegla::condicionesPagoDesdeMapa($request->input('dia_puntos', []));
@@ -100,12 +113,20 @@ class PuntosController extends Controller
             'descripcion' => ['nullable', 'string'],
             'puntos' => ['nullable', 'integer'],
             'evento' => ['required', Rule::in(array_keys(LoyaltyRegla::eventos()))],
+            'frecuencia' => ['nullable', Rule::in(array_keys(LoyaltyRegla::frecuencias()))],
+            'orden' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'fase' => ['nullable', 'integer', 'min:1', 'max:9'],
             'activa' => ['nullable', 'boolean'],
+            'visible_portal' => ['nullable', 'boolean'],
             'dia_puntos' => ['nullable', 'array'],
             'dia_puntos.*' => ['nullable', 'integer', 'min:0'],
         ]);
         $data['activa'] = $request->boolean('activa', true);
+        $data['visible_portal'] = $request->boolean('visible_portal', true);
         $data['puntos'] = (int) ($data['puntos'] ?? 0);
+        $data['orden'] = (int) ($data['orden'] ?? 0);
+        $data['fase'] = filled($data['fase'] ?? null) ? (int) $data['fase'] : null;
+        $data['frecuencia'] = $data['frecuencia'] ?? $regla->frecuenciaInferida();
 
         if ($data['evento'] === LoyaltyRegla::EVENTO_PAGO) {
             $data['condiciones'] = LoyaltyRegla::condicionesPagoDesdeMapa($request->input('dia_puntos', []));

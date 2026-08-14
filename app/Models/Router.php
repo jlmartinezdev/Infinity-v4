@@ -11,6 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Router extends Model
 {
     use Auditable;
+
+    public const ESTADO_CONECTADO = 'conectado';
+
+    public const ESTADO_DESCONECTADO = 'desconectado';
+
+    public const ESTADO_DESCONOCIDO = 'desconocido';
+
     protected $table = 'routers';
 
     protected $primaryKey = 'router_id';
@@ -31,12 +38,25 @@ class Router extends Model
         'password',
         'webhook_token',
         'estado',
+        'ping_latencia_ms',
+        'ping_at',
+        'ping_fallos_seguidos',
+        'ping_alerta_enviada',
     ];
+
+    public function estaConectado(): bool
+    {
+        return strtolower((string) $this->estado) === self::ESTADO_CONECTADO;
+    }
 
     protected function casts(): array
     {
         return [
             'api_port' => 'integer',
+            'ping_latencia_ms' => 'integer',
+            'ping_at' => 'datetime',
+            'ping_fallos_seguidos' => 'integer',
+            'ping_alerta_enviada' => 'boolean',
         ];
     }
 
@@ -48,6 +68,16 @@ class Router extends Model
     public function routerIpPools(): HasMany
     {
         return $this->hasMany(RouterIpPool::class, 'router_id', 'router_id');
+    }
+
+    public function scriptsOrigen(): HasMany
+    {
+        return $this->hasMany(RouterScript::class, 'router_origen_id', 'router_id');
+    }
+
+    public function schedulersOrigen(): HasMany
+    {
+        return $this->hasMany(RouterScheduler::class, 'router_origen_id', 'router_id');
     }
 
     public function getRouteKeyName(): string

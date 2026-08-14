@@ -27,8 +27,20 @@ class CanjeService
             if (! $premio || ! $premio->activo) {
                 throw new \InvalidArgumentException('Premio no disponible.');
             }
-            if ((int) $premio->stock < 1) {
+            if (! $premio->tieneStockDisponible()) {
                 throw new \InvalidArgumentException('Sin stock para este premio.');
+            }
+
+            if ($premio->tope_anual_por_cliente !== null) {
+                $usados = Canje::query()
+                    ->where('cliente_id', $clienteId)
+                    ->where('premio_id', $premio->id)
+                    ->where('estado', '!=', Canje::ESTADO_CANCELADO)
+                    ->whereYear('created_at', now()->year)
+                    ->count();
+                if ($usados >= (int) $premio->tope_anual_por_cliente) {
+                    throw new \InvalidArgumentException('Alcanzaste el tope anual de canjes para este premio.');
+                }
             }
 
             $modalidad = $premio->modalidadCanje();
@@ -56,16 +68,27 @@ class CanjeService
                 throw new \InvalidArgumentException('No tenés puntos suficientes para este canje.');
             }
 
-            $premio->stock = (int) $premio->stock - 1;
-            $premio->save();
+            if (! $premio->tieneStockIlimitado()) {
+                $premio->stock = (int) $premio->stock - 1;
+                $premio->save();
+            }
 
-            $canje = Canje::create([
+            $estado = Canje::ESTADO_PENDIENTE;
+            $extra = [];
+            if ($premio->esAutomatico() || $premio->esSorteo()) {
+                $estado = Canje::ESTADO_APLICADO;
+                $extra['completed_at'] = now();
+            } elseif ($premio->necesitaAprobacion()) {
+                $estado = Canje::ESTADO_PENDIENTE;
+            }
+
+            $canje = Canje::create(array_merge([
                 'cliente_id' => $clienteId,
                 'premio_id' => $premio->id,
                 'puntos_usados' => $requeridos,
                 'modalidad' => $modalidad,
-                'estado' => Canje::ESTADO_PENDIENTE,
-            ]);
+                'estado' => $estado,
+            ], $extra));
 
             $this->puntos->debitar($clienteId, $requeridos, 'Canje: '.$premio->nombre, 'canje', [
                 'referencia_tipo' => 'canje',
@@ -74,6 +97,8 @@ class CanjeService
                     'premio_tipo' => $premio->tipo,
                     'descuento_porcentaje' => $premio->descuento_porcentaje,
                     'descuento_monto' => $premio->descuento_monto,
+                    'etiqueta' => $premio->etiqueta,
+                    'tier' => $premio->tier,
                 ],
             ]);
 
@@ -97,8 +122,8 @@ class CanjeService
 
     public function marcarEntregado(Canje $canje, ?int $staffId = null): Canje
     {
-        if ($canje->modalidad !== Canje::MOD_RETIRO) {
-            throw new \InvalidArgumentException('Solo aplica a retiro en oficina.');
+        if (! in_array($canje->modalidad, [Canje::MOD_RETIRO, Canje::MOD_APROBACION], true)) {
+            throw new \InvalidArgumentException('Solo aplica a retiro en oficina o aprobación.');
         }
 
         return $this->transicionar($canje, Canje::ESTADO_ENTREGADO, $staffId, [
@@ -108,8 +133,13 @@ class CanjeService
 
     public function marcarAplicado(Canje $canje, ?int $staffId = null): Canje
     {
-        if ($canje->modalidad !== Canje::MOD_DESCUENTO) {
-            throw new \InvalidArgumentException('Solo aplica a descuento en factura.');
+        if (! in_array($canje->modalidad, [
+            Canje::MOD_DESCUENTO,
+            Canje::MOD_AUTOMATICO,
+            Canje::MOD_SORTEO,
+            Canje::MOD_APROBACION,
+        ], true)) {
+            throw new \InvalidArgumentException('Modalidad no admite marcar como aplicado.');
         }
 
         return $this->transicionar($canje, Canje::ESTADO_APLICADO, $staffId, [
@@ -130,7 +160,7 @@ class CanjeService
             $canje = Canje::query()->lockForUpdate()->findOrFail($canje->id);
 
             $premio = Premio::query()->lockForUpdate()->find($canje->premio_id);
-            if ($premio) {
+            if ($premio && ! $premio->tieneStockIlimitado()) {
                 $premio->stock = (int) $premio->stock + 1;
                 $premio->save();
             }
@@ -144,6 +174,8 @@ class CanjeService
                     'referencia_tipo' => 'canje',
                     'referencia_id' => $canje->id,
                     'created_by' => $staffId,
+                    'origen_lote' => \App\Models\PuntosLote::ORIGEN_REVERSA,
+                    'dias_vencimiento' => null,
                 ]
             );
 

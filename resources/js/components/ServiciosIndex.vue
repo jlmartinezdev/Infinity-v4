@@ -25,7 +25,7 @@
         <div class="relative shrink-0" ref="dropdownEstadoRef">
           <button
             type="button"
-            @click="dropdownEstadoOpen = !dropdownEstadoOpen; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false; dropdownAppTvOpen = false"
+            @click="dropdownEstadoOpen = !dropdownEstadoOpen; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false; dropdownPlanOpen = false; dropdownAppTvOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[140px] justify-between"
           >
             <span>{{ filtros.estado === 'todos' ? 'Estado' : estadoLabel(filtros.estado) }}</span>
@@ -67,7 +67,7 @@
         <div class="relative shrink-0" ref="dropdownNodoRef">
           <button
             type="button"
-            @click="dropdownNodoOpen = !dropdownNodoOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownAppTvOpen = false"
+            @click="dropdownNodoOpen = !dropdownNodoOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownPlanOpen = false; dropdownAppTvOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[150px] max-w-[220px] justify-between"
           >
             <span class="truncate">{{ nodoFiltroLabel }}</span>
@@ -99,11 +99,47 @@
             </button>
           </div>
         </div>
+        <!-- Filtro Plan -->
+        <div class="relative shrink-0" ref="dropdownPlanRef">
+          <button
+            type="button"
+            @click="dropdownPlanOpen = !dropdownPlanOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false; dropdownAppTvOpen = false"
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[150px] max-w-[240px] justify-between"
+          >
+            <span class="truncate">{{ planFiltroLabel }}</span>
+            <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div
+            v-show="dropdownPlanOpen"
+            class="absolute left-0 mt-1.5 min-w-[220px] max-h-64 overflow-y-auto py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-20"
+          >
+            <button
+              type="button"
+              @click="filtros.plan_id = ''; dropdownPlanOpen = false"
+              class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              :class="!filtros.plan_id ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
+            >
+              Todos los planes
+            </button>
+            <button
+              v-for="p in planes"
+              :key="p.plan_id"
+              type="button"
+              @click="filtros.plan_id = String(p.plan_id); dropdownPlanOpen = false"
+              class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors truncate"
+              :class="String(filtros.plan_id) === String(p.plan_id) ? 'text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'"
+            >
+              {{ p.nombre || ('Plan #' + p.plan_id) }}
+            </button>
+          </div>
+        </div>
         <!-- Dropdown Estado de Pago -->
         <div class="relative shrink-0" ref="dropdownEstadoPagoRef">
           <button
             type="button"
-            @click="dropdownEstadoPagoOpen = !dropdownEstadoPagoOpen; dropdownEstadoOpen = false; dropdownNodoOpen = false; dropdownAppTvOpen = false"
+            @click="dropdownEstadoPagoOpen = !dropdownEstadoPagoOpen; dropdownEstadoOpen = false; dropdownNodoOpen = false; dropdownPlanOpen = false; dropdownAppTvOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[160px] justify-between"
           >
             <span>{{ filtros.estado_pago === 'todos' ? 'Estado de Pago' : estadoPagoLabel(filtros.estado_pago) }}</span>
@@ -131,7 +167,7 @@
         <div class="relative shrink-0" ref="dropdownAppTvRef">
           <button
             type="button"
-            @click="dropdownAppTvOpen = !dropdownAppTvOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false"
+            @click="dropdownAppTvOpen = !dropdownAppTvOpen; dropdownEstadoOpen = false; dropdownEstadoPagoOpen = false; dropdownNodoOpen = false; dropdownPlanOpen = false"
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors text-sm font-medium min-w-[140px] justify-between"
           >
             <span>{{ appTvFiltroLabel }}</span>
@@ -640,6 +676,7 @@ const opcionesAppTv = [
 const props = defineProps({
   servicios: { type: Array, default: () => [] },
   nodos: { type: Array, default: () => [] },
+  planes: { type: Array, default: () => [] },
   clientes: { type: Array, default: () => [] },
   canCreateFactura: { type: Boolean, default: false },
   canCancelarServicio: { type: Boolean, default: false },
@@ -662,7 +699,7 @@ const props = defineProps({
   urlCrearFacturaInterna: { type: String, default: '' },
   urlCrearFacturaServicioEspecial: { type: String, default: '' },
   urlCrearFacturaFraccionDeuda: { type: String, default: '' },
-  filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' }) },
+  filtros: { type: Object, default: () => ({ buscar: '', cliente_id: '', nodo_id: '', plan_id: '', estado: 'todos', estado_pago: 'todos', app_tv: 'todos', fecha_desde: '', fecha_hasta: '' }) },
   sharedBuscar: { type: Object, default: null },
   hideSearchBar: { type: Boolean, default: false },
 });
@@ -705,6 +742,7 @@ const filtros = ref({
   buscar: getBuscarInicial(),
   cliente_id: props.filtros?.cliente_id ?? '',
   nodo_id: props.filtros?.nodo_id != null && props.filtros?.nodo_id !== '' ? String(props.filtros.nodo_id) : '',
+  plan_id: props.filtros?.plan_id != null && props.filtros?.plan_id !== '' ? String(props.filtros.plan_id) : '',
   estado: props.filtros?.estado ?? 'todos',
   estado_pago: props.filtros?.estado_pago ?? 'todos',
   app_tv: props.filtros?.app_tv ?? 'todos',
@@ -730,16 +768,24 @@ if (props.sharedBuscar) {
 const dropdownEstadoOpen = ref(false);
 const dropdownEstadoPagoOpen = ref(false);
 const dropdownNodoOpen = ref(false);
+const dropdownPlanOpen = ref(false);
 const dropdownAppTvOpen = ref(false);
 const dropdownEstadoRef = ref(null);
 const dropdownEstadoPagoRef = ref(null);
 const dropdownNodoRef = ref(null);
+const dropdownPlanRef = ref(null);
 const dropdownAppTvRef = ref(null);
 
 const nodoFiltroLabel = computed(() => {
   if (!filtros.value.nodo_id) return 'Nodo';
   const n = props.nodos.find((x) => String(x.nodo_id) === String(filtros.value.nodo_id));
   return n ? (n.descripcion || `Nodo #${n.nodo_id}`) : 'Nodo';
+});
+
+const planFiltroLabel = computed(() => {
+  if (!filtros.value.plan_id) return 'Plan';
+  const p = props.planes.find((x) => String(x.plan_id) === String(filtros.value.plan_id));
+  return p ? (p.nombre || `Plan #${p.plan_id}`) : 'Plan';
 });
 
 const appTvFiltroLabel = computed(() => {
@@ -853,11 +899,13 @@ function closeDropdowns(ev) {
   const insideEstado = dropdownEstadoRef.value?.contains(ev.target);
   const insidePago = dropdownEstadoPagoRef.value?.contains(ev.target);
   const insideNodo = dropdownNodoRef.value?.contains(ev.target);
+  const insidePlan = dropdownPlanRef.value?.contains(ev.target);
   const insideAppTv = dropdownAppTvRef.value?.contains(ev.target);
-  if (!insideEstado && !insidePago && !insideNodo && !insideAppTv) {
+  if (!insideEstado && !insidePago && !insideNodo && !insidePlan && !insideAppTv) {
     dropdownEstadoOpen.value = false;
     dropdownEstadoPagoOpen.value = false;
     dropdownNodoOpen.value = false;
+    dropdownPlanOpen.value = false;
     dropdownAppTvOpen.value = false;
   }
   if (openAccionesId.value !== null) {
@@ -909,7 +957,7 @@ function coincideBusquedaServicio(servicio, termino) {
 
 const serviciosFiltrados = computed(() => {
   let list = serviciosList.value;
-  const { buscar, cliente_id, nodo_id, estado, estado_pago, app_tv, fecha_desde, fecha_hasta } = filtros.value;
+  const { buscar, cliente_id, nodo_id, plan_id, estado, estado_pago, app_tv, fecha_desde, fecha_hasta } = filtros.value;
 
   if (fecha_desde || fecha_hasta) {
     list = list.filter(s => {
@@ -929,6 +977,10 @@ const serviciosFiltrados = computed(() => {
   if (nodo_id) {
     const nid = String(nodo_id);
     list = list.filter(s => String(s.pool?.router?.nodo?.nodo_id ?? '') === nid);
+  }
+  if (plan_id) {
+    const pid = String(plan_id);
+    list = list.filter(s => String(s.plan_id ?? s.plan?.plan_id ?? '') === pid);
   }
   if (estado && estado !== 'todos') {
     list = list.filter(s => (s.estado || 'P') === estado);

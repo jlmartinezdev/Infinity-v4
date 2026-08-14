@@ -27398,6 +27398,7 @@ var STORAGE_KEY_NAV_SCROLL = 'infinity_sidebar_nav_scroll';
       if (!item.submenu) return false;
       var key = item.name;
       if (key in menuExpanded.value) return menuExpanded.value[key];
+      if (item.defaultExpanded) return true;
       return isSubmenuActive(item);
     }
     function toggleSubmenu(item) {

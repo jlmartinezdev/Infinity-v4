@@ -818,19 +818,54 @@ class WhatsAppWebController extends Controller
 
     public function media(WhatsappMensaje $mensaje)
     {
-        $mensaje = $this->whatsapp->adjuntarMediaLocal($mensaje);
         $path = $this->whatsapp->rutaMediaLocal($mensaje);
         if (! $path) {
-            abort(404, 'Media no disponible (Meta lo borra a los ~7 días si no se descargó a tiempo).');
+            $mensaje = $this->whatsapp->adjuntarMediaLocal($mensaje);
+            $path = $this->whatsapp->rutaMediaLocal($mensaje);
+        }
+        if (! $path) {
+            return response('Media no disponible', 404, [
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
+                'Pragma' => 'no-cache',
+            ]);
         }
 
-        $mime = (string) (data_get($mensaje->payload, '_local.mime') ?: 'application/octet-stream');
         $absolute = \Illuminate\Support\Facades\Storage::disk('local')->path($path);
+        if (! is_file($absolute) || ! is_readable($absolute)) {
+            return response('Archivo multimedia no encontrado en disco.', 404, [
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
+                'Pragma' => 'no-cache',
+            ]);
+        }
+
+        $mime = $this->whatsapp->mimeMediaLocal($mensaje, $absolute);
+        if ($mensaje->tipo === 'image' && ! str_starts_with($mime, 'image/')) {
+            return response('Media no disponible', 404, [
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
+                'Pragma' => 'no-cache',
+            ]);
+        }
+        $ext = pathinfo($absolute, PATHINFO_EXTENSION) ?: match (true) {
+            str_contains($mime, 'jpeg') || str_contains($mime, 'jpg') => 'jpg',
+            str_contains($mime, 'png') => 'png',
+            str_contains($mime, 'webp') => 'webp',
+            str_contains($mime, 'gif') => 'gif',
+            str_contains($mime, 'pdf') => 'pdf',
+            str_contains($mime, 'mp4') => 'mp4',
+            str_contains($mime, 'ogg') => 'ogg',
+            default => 'bin',
+        };
+        $filename = 'wa-'.$mensaje->id.'.'.$ext;
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
 
         return response()->file($absolute, [
             'Content-Type' => $mime,
-            'Content-Disposition' => 'inline; filename="wa-'.$mensaje->id.'"',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
             'Cache-Control' => 'private, max-age=86400',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
@@ -1179,7 +1214,9 @@ class WhatsAppWebController extends Controller
                 'clasificacion_label' => $clasif['label'],
                 'clasificacion_color' => $clasif['color'],
                 'ultimo_id' => $ultimo?->id,
-                'ultimo_cuerpo' => $ultimo?->cuerpo ?: $ultimo?->template_name,
+                'ultimo_cuerpo' => $ultimo
+                    ? $this->whatsapp->cuerpoVisibleMensaje($ultimo)
+                    : null,
                 'ultimo_direccion' => $ultimo?->direccion,
                 'ultimo_estado' => $ultimo?->estado,
                 'ultimo_at' => $ultimo?->created_at?->toIso8601String(),
@@ -1315,8 +1352,10 @@ class WhatsAppWebController extends Controller
     private function serializeMensaje(WhatsappMensaje $m): array
     {
         $fallo = $m->esFallido() ? $m->detalleFallo() : null;
-        $tieneMedia = filled(data_get($m->payload, '_local.path'))
-            || in_array($m->tipo, ['audio', 'image', 'video', 'document', 'sticker'], true);
+        $esMedia = in_array($m->tipo, ['audio', 'image', 'video', 'document', 'sticker'], true);
+        $mediaReady = filled(data_get($m->payload, '_local.path'))
+            && \Illuminate\Support\Facades\Storage::disk('local')->exists((string) data_get($m->payload, '_local.path'));
+        $tieneMediaId = $esMedia && filled(data_get($m->payload, $m->tipo.'.id'));
         $ubicacion = $this->datosUbicacion($m);
 
         return [
@@ -1325,7 +1364,7 @@ class WhatsAppWebController extends Controller
             'telefono' => $m->telefono,
             'contacto_nombre' => $m->contacto_nombre,
             'tipo' => $m->tipo,
-            'cuerpo' => $m->cuerpo,
+            'cuerpo' => $this->whatsapp->cuerpoVisibleMensaje($m),
             'template_name' => $m->template_name,
             'template_language' => $m->template_language,
             'estado' => $m->estado,
@@ -1339,10 +1378,13 @@ class WhatsAppWebController extends Controller
             'dia' => $m->created_at?->format('Y-m-d'),
             'dia_label' => $m->created_at?->translatedFormat('d M Y'),
             'fallo' => $fallo,
-            'media_url' => $tieneMedia ? url('/whatsapp/mensajes/'.$m->id.'/media') : null,
+            // Relativa al host actual (el chat carga el binario por axios/blob con sesión).
+            'media_url' => ($mediaReady || $tieneMediaId)
+                ? route('whatsapp.media', $m, absolute: false).'?v='.(data_get($m->payload, '_local.size') ?: $m->updated_at?->timestamp ?: $m->id)
+                : null,
             'media_mime' => data_get($m->payload, '_local.mime'),
             'media_voice' => (bool) data_get($m->payload, '_local.voice', data_get($m->payload, 'audio.voice', false)),
-            'media_ready' => filled(data_get($m->payload, '_local.path')),
+            'media_ready' => $mediaReady,
             'maps_url' => $ubicacion['url'] ?? null,
             'maps_lat' => $ubicacion['lat'] ?? null,
             'maps_lng' => $ubicacion['lng'] ?? null,

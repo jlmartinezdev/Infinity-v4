@@ -45,7 +45,7 @@
                     <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Parcial ({{ number_format($statsMapa['ping_mixed'] ?? 0) }})</span>
                     <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-400"></span> Sin ping ({{ number_format($statsMapa['ping_unknown'] ?? 0) }})</span>
                 </div>
-                <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Ping automático cada 5 min · CLI: <code class="text-[10px]">php artisan monitoreo:ping-servicios --nodo=ID</code></p>
+                <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Ping automático cada 7 min · CLI: <code class="text-[10px]">php artisan monitoreo:ping-servicios --nodo=ID</code></p>
             @endif
         </div>
         <div class="flex flex-col gap-2 shrink-0 w-full lg:w-auto">

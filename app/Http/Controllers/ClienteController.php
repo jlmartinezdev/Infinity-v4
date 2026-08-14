@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
+use App\Support\HerramientasRedPayload;
 use App\Support\ListaClienteServicioViewData;
 
 class ClienteController extends Controller
@@ -315,7 +316,7 @@ class ClienteController extends Controller
      */
     public function detalle(Cliente $cliente)
     {
-        $cliente->load(['servicios.plan', 'servicios.pool']);
+        $cliente->load(['servicios.plan', 'servicios.pool.olt', 'servicios.pool.router.nodo', 'servicios.cajaNapPuertoActivo.cajaNap.salidaPon.olt']);
 
         $saldoPendienteExpr = FacturaInterna::sqlSaldoPendienteExpr();
 
@@ -371,6 +372,19 @@ class ClienteController extends Controller
             ->limit(15)
             ->get();
 
+        $herramientasRedConfig = null;
+        if (auth()->user()?->tienePermiso('servicios.ver') && $cliente->servicios->isNotEmpty()) {
+            $primero = $cliente->servicios->first();
+            $herramientasRedConfig = [
+                'compact' => true,
+                'initialPayload' => HerramientasRedPayload::fromServicio($primero),
+                'servicios' => $cliente->servicios
+                    ->map(fn (Servicio $s) => HerramientasRedPayload::opcionServicio($s))
+                    ->values()
+                    ->all(),
+            ];
+        }
+
         return view('clientes.detalle', compact(
             'cliente',
             'cobros',
@@ -383,6 +397,7 @@ class ClienteController extends Controller
             'loyaltySaldo',
             'loyaltyMovimientos',
             'loyaltyCanjes',
+            'herramientasRedConfig',
         ));
     }
 
@@ -449,9 +464,7 @@ class ClienteController extends Controller
      */
     public function acciones(Cliente $cliente)
     {
-        $cliente->load(['servicios.plan', 'servicios.pool']);
-
-        return view('clientes.acciones', compact('cliente'));
+        return redirect()->route('clientes.detalle', $cliente);
     }
 
     /**
@@ -509,15 +522,14 @@ class ClienteController extends Controller
     }
 
     /**
-     * Consultar RUC en ruc.com.py, marcar cliente como consultado y
-     * actualizar cédula con el RUC encontrado. Si está ACTIVO, también nombre/apellido.
+     * Consultar RUC en ruc.com.py (solo lectura).
+     * No actualiza el cliente: la UI debe pedir confirmación y llamar a aplicarConsultaRuc.
      */
     public function consultarRuc(Request $request, Cliente $cliente)
     {
         if ($cliente->ruc_consultado) {
             return response()->json([
                 'encontrado' => false,
-                'actualizado' => false,
                 'ya_consultado' => true,
                 'resultados' => [],
                 'message' => 'Este cliente ya fue consultado previamente.',
@@ -526,10 +538,9 @@ class ClienteController extends Controller
         }
 
         $termino = $this->normalizarTerminoConsultaRuc((string) $cliente->cedula);
-        if ($termino === '' || strlen(preg_replace('/\D+/', '', $termino) ?? '') < 5) {
+        if ($termino === '' || strlen($termino) < 5) {
             return response()->json([
                 'encontrado' => false,
-                'actualizado' => false,
                 'resultados' => [],
                 'message' => 'El cliente no tiene un documento válido para consultar (mínimo 5 dígitos).',
             ], 422);
@@ -548,7 +559,6 @@ class ClienteController extends Controller
             if (! $response->successful()) {
                 return response()->json([
                     'encontrado' => false,
-                    'actualizado' => false,
                     'resultados' => [],
                     'message' => 'No se pudo consultar el servicio de RUC (HTTP '.$response->status().').',
                 ], 502);
@@ -556,86 +566,185 @@ class ClienteController extends Controller
 
             $payload = $response->json();
             $rows = $this->extraerResultadosConsultaRuc($payload);
-            $resultados = array_map(static fn (array $row) => [
-                'ruc' => isset($row['ruc']) ? trim((string) $row['ruc']) : null,
-                'razon_social' => isset($row['razon_social']) ? trim((string) $row['razon_social']) : null,
-                'estado' => isset($row['estado']) ? trim((string) $row['estado']) : null,
-            ], $rows);
+            $resultados = [];
+            foreach ($rows as $row) {
+                $ruc = isset($row['ruc']) ? trim((string) $row['ruc']) : '';
+                $estado = isset($row['estado']) ? trim((string) $row['estado']) : '';
+                $razon = isset($row['razon_social']) ? trim((string) $row['razon_social']) : '';
+                $coincide = $this->rucCoincideConDocumento($ruc, $termino);
+                $estadoUpper = strtoupper($estado);
+                $cancelado = $this->estadoRucEsCancelado($estadoUpper);
+                $aplicable = $coincide && ! $cancelado && $ruc !== '';
 
-            // Preferir ACTIVO; si no hay, usar el primer RUC válido encontrado.
-            $elegido = collect($resultados)->first(
-                static fn (array $row) => strtoupper((string) ($row['estado'] ?? '')) === 'ACTIVO'
-                    && filled($row['ruc'] ?? null)
-            ) ?? collect($resultados)->first(
-                static fn (array $row) => filled($row['ruc'] ?? null)
-            );
+                [$nombrePreview, $apellidoPreview] = $aplicable
+                    ? $this->partirRazonSocial($razon)
+                    : ['', ''];
 
-            $actualizado = false;
-            $rucActualizado = false;
-            $nombreActualizado = false;
-            $bloqueadoPorDuplicado = false;
-            $updates = ['ruc_consultado' => true];
-            $estadoElegido = $elegido ? strtoupper((string) ($elegido['estado'] ?? '')) : '';
-
-            if ($elegido) {
-                $ruc = trim((string) $elegido['ruc']);
-                $existeOtro = Cliente::query()
-                    ->where('cliente_id', '!=', $cliente->cliente_id)
-                    ->where(function ($q) use ($ruc) {
-                        $q->where('cedula', $ruc)
-                            ->orWhere('cedula', preg_replace('/\D+/', '', $ruc));
-                    })
-                    ->exists();
-
-                if ($existeOtro) {
-                    $bloqueadoPorDuplicado = true;
-                } elseif ($ruc !== '' && $ruc !== (string) $cliente->cedula) {
-                    $updates['cedula'] = $ruc;
-                    $rucActualizado = true;
-                    $actualizado = true;
-                }
-
-                // Nombre/apellido solo si está ACTIVO
-                if ($estadoElegido === 'ACTIVO') {
-                    [$nombre, $apellido] = $this->partirRazonSocial((string) ($elegido['razon_social'] ?? ''));
-                    if ($nombre !== '') {
-                        $updates['nombre'] = $nombre;
-                        $updates['apellido'] = $apellido !== '' ? $apellido : null;
-                        $nombreActualizado = true;
-                        $actualizado = true;
-                    }
-                }
+                $resultados[] = [
+                    'ruc' => $ruc !== '' ? $ruc : null,
+                    'razon_social' => $razon !== '' ? $razon : null,
+                    'estado' => $estado !== '' ? $estado : null,
+                    'coincide_documento' => $coincide,
+                    'cancelado' => $cancelado,
+                    'aplicable' => $aplicable,
+                    'nombre_preview' => $nombrePreview !== '' ? $nombrePreview : null,
+                    'apellido_preview' => $apellidoPreview !== '' ? $apellidoPreview : null,
+                    'motivo_bloqueo' => match (true) {
+                        $ruc === '' => 'Sin RUC en el resultado.',
+                        ! $coincide => 'No coincide exactamente con el documento consultado (posible homónimo o coincidencia parcial).',
+                        $cancelado => 'RUC cancelado: no se puede actualizar el cliente con este resultado.',
+                        default => null,
+                    },
+                ];
             }
 
-            $cliente->fill($updates);
-            $cliente->save();
-
+            $aplicables = array_values(array_filter($resultados, static fn (array $r) => ! empty($r['aplicable'])));
             $message = match (true) {
-                $bloqueadoPorDuplicado => 'Se encontró RUC, pero otro cliente ya usa ese documento. No se actualizó la cédula.',
-                $rucActualizado && $nombreActualizado => 'RUC activo: se actualizaron documento y nombre del cliente.',
-                $rucActualizado && $estadoElegido === 'ACTIVO' => 'RUC activo: se actualizó el documento del cliente.',
-                $rucActualizado => 'Se actualizó el RUC del cliente (estado: '.($elegido['estado'] ?? 'sin estado').').',
-                count($resultados) > 0 => 'Consulta realizada. No fue necesario actualizar el documento.',
+                count($aplicables) > 0 => 'Seleccioná un resultado y confirmá para actualizar RUC y/o nombre.',
+                count($resultados) > 0 => 'Se encontraron resultados, pero ninguno es aplicable (sin coincidencia exacta o RUC cancelado).',
                 default => 'Consulta realizada. No se encontró RUC para este documento.',
             };
 
             return response()->json([
                 'encontrado' => count($resultados) > 0,
-                'actualizado' => $actualizado,
                 'termino' => $termino,
                 'resultados' => $resultados,
+                'aplicables' => count($aplicables),
                 'rateLimit' => is_array($payload['rateLimit'] ?? null) ? $payload['rateLimit'] : null,
                 'message' => $message,
-                'cliente' => $this->clienteRucPayload($cliente->fresh()),
+                'cliente' => $this->clienteRucPayload($cliente),
             ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'encontrado' => false,
-                'actualizado' => false,
                 'resultados' => [],
                 'message' => 'Error al consultar RUC: '.$e->getMessage(),
             ], 502);
         }
+    }
+
+    /**
+     * Aplica un resultado de consulta RUC tras confirmación del usuario.
+     * No aplica RUC cancelados ni resultados que no coincidan exactamente con el documento.
+     */
+    public function aplicarConsultaRuc(Request $request, Cliente $cliente)
+    {
+        if ($cliente->ruc_consultado) {
+            return response()->json([
+                'actualizado' => false,
+                'ya_consultado' => true,
+                'message' => 'Este cliente ya fue consultado previamente.',
+                'cliente' => $this->clienteRucPayload($cliente),
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'ruc' => ['required', 'string', 'max:20'],
+            'razon_social' => ['nullable', 'string', 'max:200'],
+            'estado' => ['nullable', 'string', 'max:40'],
+            'actualizar_ruc' => ['sometimes', 'boolean'],
+            'actualizar_nombre' => ['sometimes', 'boolean'],
+            'marcar_consultado' => ['sometimes', 'boolean'],
+        ]);
+
+        $termino = $this->normalizarTerminoConsultaRuc((string) $cliente->cedula);
+        $ruc = trim($validated['ruc']);
+        $estado = strtoupper(trim((string) ($validated['estado'] ?? '')));
+        $actualizarRuc = array_key_exists('actualizar_ruc', $validated)
+            ? (bool) $validated['actualizar_ruc']
+            : true;
+        $actualizarNombre = array_key_exists('actualizar_nombre', $validated)
+            ? (bool) $validated['actualizar_nombre']
+            : true;
+        $marcarConsultado = array_key_exists('marcar_consultado', $validated)
+            ? (bool) $validated['marcar_consultado']
+            : true;
+
+        if ($this->estadoRucEsCancelado($estado)) {
+            return response()->json([
+                'actualizado' => false,
+                'message' => 'El RUC está cancelado. No se actualiza el cliente.',
+                'cliente' => $this->clienteRucPayload($cliente),
+            ], 422);
+        }
+
+        if (! $this->rucCoincideConDocumento($ruc, $termino)) {
+            return response()->json([
+                'actualizado' => false,
+                'message' => 'El RUC no coincide exactamente con el documento del cliente. No se actualiza.',
+                'cliente' => $this->clienteRucPayload($cliente),
+            ], 422);
+        }
+
+        if (! $actualizarRuc && ! $actualizarNombre) {
+            if ($marcarConsultado) {
+                $cliente->forceFill(['ruc_consultado' => true])->save();
+            }
+
+            return response()->json([
+                'actualizado' => false,
+                'message' => $marcarConsultado
+                    ? 'Consulta marcada sin cambios en RUC ni nombre.'
+                    : 'No se aplicaron cambios.',
+                'cliente' => $this->clienteRucPayload($cliente->fresh()),
+            ]);
+        }
+
+        $updates = [];
+        $rucActualizado = false;
+        $nombreActualizado = false;
+
+        if ($actualizarRuc && $ruc !== '' && $ruc !== (string) $cliente->cedula) {
+            $existeOtro = Cliente::query()
+                ->where('cliente_id', '!=', $cliente->cliente_id)
+                ->where(function ($q) use ($ruc) {
+                    $q->where('cedula', $ruc)
+                        ->orWhere('cedula', preg_replace('/\D+/', '', $ruc));
+                })
+                ->exists();
+
+            if ($existeOtro) {
+                return response()->json([
+                    'actualizado' => false,
+                    'message' => 'Otro cliente ya usa ese documento. No se actualizó el RUC.',
+                    'cliente' => $this->clienteRucPayload($cliente),
+                ], 422);
+            }
+
+            $updates['cedula'] = $ruc;
+            $rucActualizado = true;
+        }
+
+        if ($actualizarNombre) {
+            [$nombre, $apellido] = $this->partirRazonSocial((string) ($validated['razon_social'] ?? ''));
+            if ($nombre !== '') {
+                $updates['nombre'] = $nombre;
+                $updates['apellido'] = $apellido !== '' ? $apellido : null;
+                $nombreActualizado = true;
+            }
+        }
+
+        if ($marcarConsultado) {
+            $updates['ruc_consultado'] = true;
+        }
+
+        if ($updates !== []) {
+            $cliente->fill($updates);
+            $cliente->save();
+        }
+
+        $message = match (true) {
+            $rucActualizado && $nombreActualizado => 'Se actualizaron RUC y nombre del cliente.',
+            $rucActualizado => 'Se actualizó el RUC del cliente.',
+            $nombreActualizado => 'Se actualizó el nombre del cliente.',
+            default => 'No hubo cambios que aplicar.',
+        };
+
+        return response()->json([
+            'actualizado' => $rucActualizado || $nombreActualizado,
+            'message' => $message,
+            'cliente' => $this->clienteRucPayload($cliente->fresh()),
+        ]);
     }
 
     /**
@@ -650,6 +759,54 @@ class ClienteController extends Controller
         }
 
         return preg_replace('/\D+/', '', $cedula) ?? '';
+    }
+
+    /**
+     * Base del RUC/cédula sin dígito verificador.
+     */
+    private function baseDocumentoRuc(string $ruc): string
+    {
+        $ruc = trim($ruc);
+        if (preg_match('/^(\d{5,10})-(\d)$/', $ruc, $m)) {
+            return $m[1];
+        }
+
+        $digits = preg_replace('/\D+/', '', $ruc) ?? '';
+        // Si viene DV pegado (N dígitos + 1), la base suele ser sin el último.
+        if (strlen($digits) >= 6 && strlen($digits) <= 9) {
+            return $digits;
+        }
+        if (strlen($digits) >= 10) {
+            return substr($digits, 0, -1);
+        }
+
+        return $digits;
+    }
+
+    /**
+     * Exige coincidencia exacta de la base del documento para evitar
+     * que búsquedas cortas (p. ej. 6 dígitos) traigan datos de otra persona.
+     */
+    private function rucCoincideConDocumento(string $ruc, string $termino): bool
+    {
+        $termino = preg_replace('/\D+/', '', $termino) ?? '';
+        if ($termino === '' || $ruc === '') {
+            return false;
+        }
+
+        return $this->baseDocumentoRuc($ruc) === $termino;
+    }
+
+    private function estadoRucEsCancelado(string $estado): bool
+    {
+        $estado = strtoupper(trim($estado));
+        if ($estado === '') {
+            return false;
+        }
+
+        return str_contains($estado, 'CANCEL')
+            || str_contains($estado, 'BAJA')
+            || str_contains($estado, 'INACTIV');
     }
 
     /**

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccesoRapidoController;
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\AuthController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
 use App\Http\Controllers\CobroRendicionController;
+use App\Http\Controllers\TpagoPaymentLinkController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\SifenConfiguracionController;
@@ -43,7 +45,13 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\PromesaPagoController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RolController;
+use App\Http\Controllers\RedMonitoreoController;
+use App\Http\Controllers\RouterCaidaAvisoController;
+use App\Http\Controllers\IspFailoverController;
 use App\Http\Controllers\RouterController;
+use App\Http\Controllers\RouterScriptController;
+use App\Http\Controllers\RouterSchedulerController;
+use App\Http\Controllers\RouterNetworkBackupController;
 use App\Http\Controllers\RouterIpPoolController;
 use App\Http\Controllers\RouterModeloController;
 use App\Http\Controllers\SalidaPonController;
@@ -68,6 +76,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketAsuntoController;
 use App\Http\Controllers\TipoTecnologiaController;
 use App\Http\Controllers\TvCuentaController;
+use App\Http\Controllers\LiquidacionSueldoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
@@ -88,6 +97,17 @@ Route::get('/recibo/{cobro}/{token}', [CobroController::class, 'reciboPdfPublico
     ->where('token', '[a-f0-9]{40}')
     ->name('recibo.publico');
 
+// Páginas legales App Interplus Clientes (públicas — Play Store / PRIVACY_POLICY_URL)
+Route::get('/privacidad-app-clientes', function () {
+    return response()->file(public_path('privacidad-app-clientes.html'));
+})->name('legal.privacidad-app-clientes');
+Route::get('/terminos-app-clientes', function () {
+    return response()->file(public_path('terminos-app-clientes.html'));
+})->name('legal.terminos-app-clientes');
+Route::get('/eliminar-cuenta-app-clientes', function () {
+    return response()->file(public_path('eliminar-cuenta-app-clientes.html'));
+})->name('legal.eliminar-cuenta-app-clientes');
+
 // Rutas API de autenticación (usando web para sesiones)
 Route::prefix('api')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
@@ -104,6 +124,13 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
 // Panel secundario (solo enlaces, sin datos): cualquier usuario autenticado
 Route::get('/inicio', [HomeController::class, 'inicio'])->middleware('auth')->name('inicio');
+
+// Acceso rápido personalizable (menú lateral) — por usuario staff
+Route::middleware('auth')->group(function () {
+    Route::get('/mi-acceso-rapido', [AccesoRapidoController::class, 'edit'])->name('acceso-rapido.edit');
+    Route::put('/mi-acceso-rapido', [AccesoRapidoController::class, 'update'])->name('acceso-rapido.update');
+    Route::post('/mi-acceso-rapido/restaurar', [AccesoRapidoController::class, 'reset'])->name('acceso-rapido.reset');
+});
 
 // Dashboard principal: estadísticas y actividad
 Route::get('/', [HomeController::class, 'index'])->middleware(['auth', 'permiso:dashboard.ver'])->name('home');
@@ -148,6 +175,7 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::put('/configuracion/tareas-periodicas/{tareaPeriodica}', [TareaPeriodicaController::class, 'update'])->name('tareas-periodicas.update');
     Route::delete('/configuracion/tareas-periodicas/{tareaPeriodica}', [TareaPeriodicaController::class, 'destroy'])->name('tareas-periodicas.destroy');
     Route::get('/configuracion/backup-bd', [DatabaseBackupController::class, 'index'])->name('configuracion.backup');
+    Route::put('/configuracion/backup-bd/hora', [DatabaseBackupController::class, 'updateHora'])->name('configuracion.backup.hora');
     Route::post('/configuracion/backup-bd/descargar', [DatabaseBackupController::class, 'download'])->name('configuracion.backup.download');
     Route::post('/configuracion/backup-bd/drive', [DatabaseBackupController::class, 'uploadDrive'])->name('configuracion.backup.drive');
 });
@@ -191,6 +219,7 @@ Route::middleware(['auth', 'permiso:clientes.editar'])->group(function () {
     Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
     Route::post('/clientes/{cliente}/actualizar-desde-temp', [ClienteController::class, 'actualizarDesdeTemp'])->name('clientes.actualizar-desde-temp');
     Route::post('/clientes/{cliente}/consultar-ruc', [ClienteController::class, 'consultarRuc'])->name('clientes.consultar-ruc');
+    Route::post('/clientes/{cliente}/aplicar-consulta-ruc', [ClienteController::class, 'aplicarConsultaRuc'])->name('clientes.aplicar-consulta-ruc');
 });
 Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy')->middleware(['auth', 'permiso:clientes.eliminar']);
 Route::get('/clientes/mapas-pedidos', [PedidoController::class, 'mapasPedidos'])->name('clientes.mapas-pedidos')->middleware(['auth', 'permiso:pedidos.ver']);
@@ -288,6 +317,7 @@ Route::middleware(['auth', 'permiso:loyalty-premios.ver'])->prefix('loyalty')->n
     Route::post('/premios', [LoyaltyPremioController::class, 'store'])->name('premios.store')->middleware('permiso:loyalty-premios.crear');
     Route::get('/premios/{premio}/edit', [LoyaltyPremioController::class, 'edit'])->name('premios.edit')->middleware('permiso:loyalty-premios.editar');
     Route::put('/premios/{premio}', [LoyaltyPremioController::class, 'update'])->name('premios.update')->middleware('permiso:loyalty-premios.editar');
+    Route::post('/premios/{premio}/toggle', [LoyaltyPremioController::class, 'toggle'])->name('premios.toggle')->middleware('permiso:loyalty-premios.editar');
     Route::delete('/premios/{premio}', [LoyaltyPremioController::class, 'destroy'])->name('premios.destroy')->middleware('permiso:loyalty-premios.eliminar');
 });
 
@@ -504,6 +534,12 @@ Route::middleware(['auth', 'permiso:cobros.ver'])->group(function () {
 });
 Route::delete('/cobros/{cobro}', [CobroController::class, 'destroy'])->name('cobros.destroy')->middleware(['auth', 'permiso:cobros.eliminar']);
 
+// Links de pago TPago
+Route::middleware(['auth', 'permiso:cobros.ver'])->prefix('tpago')->name('tpago.')->group(function () {
+    Route::get('/links', [TpagoPaymentLinkController::class, 'index'])->name('links.index');
+    Route::get('/links/{tpago_link}', [TpagoPaymentLinkController::class, 'show'])->name('links.show');
+});
+
 // Facturas internas (listado, ver, editar)
 Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pendientes'])->name('factura-internas.pendientes')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/list', [FacturaInternaController::class, 'pendientesList'])->name('factura-internas.pendientes.list')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
@@ -531,6 +567,12 @@ Route::middleware(['auth', 'permiso:factura-interna.crear'])->group(function () 
     Route::put('/factura-internas/{factura_interna}', [FacturaInternaController::class, 'update'])->name('factura-internas.update');
     Route::post('/factura-internas/{factura_interna}/nota-credito', [FacturaInternaController::class, 'emitirNotaCredito'])->name('factura-internas.nota-credito');
 });
+Route::post('/factura-internas/{factura_interna}/tpago-link', [FacturaInternaController::class, 'generarLinkTpago'])
+    ->name('factura-internas.tpago-link')
+    ->middleware(['auth', 'permiso:cobros.crear']);
+Route::post('/factura-internas/{factura_interna}/aplicar-saldo', [FacturaInternaController::class, 'aplicarSaldoAFavor'])
+    ->name('factura-internas.aplicar-saldo')
+    ->middleware(['auth', 'permiso:cobros.crear']);
 Route::delete('/factura-internas/{factura_interna}', [FacturaInternaController::class, 'destroy'])->name('factura-internas.destroy')->middleware(['auth', 'permiso:factura-interna.eliminar']);
 
 // Tickets (CRUD)
@@ -558,6 +600,7 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::get('/servicios/ips-disponibles', [ServicioController::class, 'ipsDisponibles'])->name('servicios.ips-disponibles')->middleware('permiso:servicios.crear');
     Route::post('/servicios/{servicio_id}/ping', [ServicioController::class, 'ping'])->name('servicios.ping');
     Route::get('/servicios/{servicio_id}/herramientas-red', [ServicioController::class, 'herramientasRed'])->name('servicios.herramientas-red');
+    Route::get('/servicios/{servicio_id}/herramientas-red/datos', [ServicioController::class, 'herramientasRedDatos'])->name('servicios.herramientas-red.datos');
     Route::post('/servicios/{servicio_id}/herramientas-red/mikrotik', [ServicioController::class, 'herramientasRedMikrotik'])->name('servicios.herramientas-red.mikrotik');
     Route::post('/servicios/{servicio_id}/herramientas-red/antena', [ServicioController::class, 'herramientasRedAntena'])->name('servicios.herramientas-red.antena');
     Route::post('/servicios/{servicio_id}/herramientas-red/antena-dhcp', [ServicioController::class, 'herramientasRedAntenaDhcp'])->name('servicios.herramientas-red.antena-dhcp');
@@ -567,7 +610,7 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
 Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::post('/servicios', [ServicioController::class, 'store'])->name('servicios.store');
 });
-Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
+Route::middleware(['auth', 'permiso:servicios.crear,servicios.editar'])->group(function () {
     Route::get('/servicios/{servicio_id}/edit', [ServicioController::class, 'edit'])->name('servicios.edit');
     Route::get('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarForm'])->name('servicios.migrar');
     Route::put('/servicios/{servicio_id}', [ServicioController::class, 'update'])->name('servicios.update');
@@ -585,6 +628,7 @@ Route::middleware(['auth', 'permiso:tv.ver'])->group(function () {
     Route::get('/tv-cuentas/dashboard', [TvCuentaController::class, 'dashboard'])->name('tv-cuentas.dashboard');
     Route::get('/tv-cuentas/exportar-excel', [TvCuentaController::class, 'exportarExcel'])->name('tv-cuentas.exportar-excel');
     Route::get('/tv-cuentas', [TvCuentaController::class, 'index'])->name('tv-cuentas.index');
+    Route::get('/tv-cuentas/{tv_cuenta}/asignaciones/{asignacion}/historial-pago', [TvCuentaController::class, 'historialPago'])->name('tv-cuentas.asignaciones.historial-pago');
 });
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/tv-cuentas/aviso-config', [TvCuentaController::class, 'updateAvisoConfig'])->name('tv-cuentas.aviso-config');
@@ -695,10 +739,41 @@ Route::middleware(['auth', 'permiso:usuarios.ver'])->group(function () {
     Route::post('/usuarios/{usuario}/permisos', [UsuarioController::class, 'updatePermisos'])->name('usuarios.update-permisos')->middleware('permiso:usuarios.permisos');
     Route::post('/usuarios/permisos-clientes', [UsuarioController::class, 'updatePermisosClientes'])->name('usuarios.update-permisos-clientes')->middleware('permiso:usuarios.permisos');
     Route::post('/usuarios/{usuario}/aprobar', [UsuarioController::class, 'aprobar'])->name('usuarios.aprobar');
+
+    Route::get('/liquidacion', [LiquidacionSueldoController::class, 'create'])->name('liquidacion.create');
+    Route::post('/liquidacion/pdf', [LiquidacionSueldoController::class, 'pdf'])->name('liquidacion.pdf');
 });
 
 // Sistema (routers, pools de IP, IPs asignadas, importar WispHub)
 Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema.ver'])->group(function () {
+    Route::get('red-monitoreo', [RedMonitoreoController::class, 'index'])->name('red-monitoreo.index')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('red-monitoreo/datos', [RedMonitoreoController::class, 'datos'])->name('red-monitoreo.datos')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::post('red-monitoreo/ping', [RedMonitoreoController::class, 'ping'])->name('red-monitoreo.ping')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::post('red-monitoreo/notificar-caida', [RedMonitoreoController::class, 'notificarCaidaPrueba'])->name('red-monitoreo.notificar-caida')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('router-caida-avisos', [RouterCaidaAvisoController::class, 'index'])->name('router-caida-avisos.index')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::put('router-caida-avisos', [RouterCaidaAvisoController::class, 'update'])->name('router-caida-avisos.update')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::post('router-caida-avisos/probar', [RouterCaidaAvisoController::class, 'probar'])->name('router-caida-avisos.probar')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('isp-failover', [IspFailoverController::class, 'index'])->name('isp-failover.index')
+        ->middleware('permiso:sistema-isp-failover.ver');
+    Route::put('isp-failover', [IspFailoverController::class, 'update'])->name('isp-failover.update')
+        ->middleware('permiso:sistema-isp-failover.editar');
+    Route::post('isp-failover/ping', [IspFailoverController::class, 'pingAhora'])->name('isp-failover.ping')
+        ->middleware('permiso:sistema-isp-failover.ver');
+    Route::post('isp-failover/forzar', [IspFailoverController::class, 'forzarFailover'])->name('isp-failover.forzar')
+        ->middleware('permiso:sistema-isp-failover.editar');
+    Route::post('isp-failover/restaurar', [IspFailoverController::class, 'restaurarPrimario'])->name('isp-failover.restaurar')
+        ->middleware('permiso:sistema-isp-failover.editar');
+    Route::post('isp-failover/probar', [IspFailoverController::class, 'probar'])->name('isp-failover.probar')
+        ->middleware('permiso:sistema-isp-failover.editar');
+    Route::get('isp-failover/rutas', [IspFailoverController::class, 'rutas'])->name('isp-failover.rutas')
+        ->middleware('permiso:sistema-isp-failover.ver');
     Route::get('auditoria', [AuditoriaController::class, 'index'])->name('auditoria.index');
     Route::get('mikrotik-pendientes', [MikrotikPendienteController::class, 'index'])->name('mikrotik-pendientes.index');
     Route::post('mikrotik-pendientes/reintentar-todos', [MikrotikPendienteController::class, 'reintentarTodos'])->name('mikrotik-pendientes.reintentar-todos');
@@ -708,9 +783,35 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::post('importar-wisphub/run', [WispHubImportController::class, 'run'])->name('importar-wisphub.run');
     Route::get('importar-wisphub/exportar-excel', [WispHubImportController::class, 'exportarExcel'])->name('importar-wisphub.exportar-excel');
     Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->name('routers.test-connection');
+    Route::get('routers/{router}/consultar-dhcp-pppoe', [RouterController::class, 'consultarDhcpPppoe'])->name('routers.consultar-dhcp-pppoe');
     Route::post('routers/{router}/sync-pppoe', [RouterController::class, 'syncPppoe'])->name('routers.sync-pppoe');
     Route::get('routers/{router}/export-pppoe-script', [RouterController::class, 'exportPppoeScript'])->name('routers.export-pppoe-script');
     Route::resource('routers', RouterController::class)->except(['show']);
+
+    Route::get('router-scripts', [RouterScriptController::class, 'index'])->name('router-scripts.index');
+    Route::get('router-scripts/list-remote', [RouterScriptController::class, 'listRemote'])->name('router-scripts.list-remote');
+    Route::post('router-scripts/import', [RouterScriptController::class, 'importFromRouter'])->name('router-scripts.import');
+    Route::get('router-scripts/{router_script}/edit', [RouterScriptController::class, 'edit'])->name('router-scripts.edit');
+    Route::put('router-scripts/{router_script}', [RouterScriptController::class, 'update'])->name('router-scripts.update');
+    Route::delete('router-scripts/{router_script}', [RouterScriptController::class, 'destroy'])->name('router-scripts.destroy');
+    Route::post('router-scripts/{router_script}/sync', [RouterScriptController::class, 'syncToRouter'])->name('router-scripts.sync');
+
+    Route::get('router-schedulers', [RouterSchedulerController::class, 'index'])->name('router-schedulers.index');
+    Route::get('router-schedulers/list-remote', [RouterSchedulerController::class, 'listRemote'])->name('router-schedulers.list-remote');
+    Route::post('router-schedulers/import', [RouterSchedulerController::class, 'importFromRouter'])->name('router-schedulers.import');
+    Route::get('router-schedulers/{router_scheduler}/edit', [RouterSchedulerController::class, 'edit'])->name('router-schedulers.edit');
+    Route::put('router-schedulers/{router_scheduler}', [RouterSchedulerController::class, 'update'])->name('router-schedulers.update');
+    Route::delete('router-schedulers/{router_scheduler}', [RouterSchedulerController::class, 'destroy'])->name('router-schedulers.destroy');
+    Route::post('router-schedulers/{router_scheduler}/sync', [RouterSchedulerController::class, 'syncToRouter'])->name('router-schedulers.sync');
+
+    Route::get('router-network-backups', [RouterNetworkBackupController::class, 'index'])->name('router-network-backups.index');
+    Route::get('router-network-backups/preview', [RouterNetworkBackupController::class, 'previewRemote'])->name('router-network-backups.preview');
+    Route::post('router-network-backups/import', [RouterNetworkBackupController::class, 'importFromRouter'])->name('router-network-backups.import');
+    Route::get('router-network-backups/{router_network_backup}', [RouterNetworkBackupController::class, 'show'])->name('router-network-backups.show');
+    Route::get('router-network-backups/{router_network_backup}/export', [RouterNetworkBackupController::class, 'export'])->name('router-network-backups.export');
+    Route::delete('router-network-backups/{router_network_backup}', [RouterNetworkBackupController::class, 'destroy'])->name('router-network-backups.destroy');
+    Route::post('router-network-backups/{router_network_backup}/sync', [RouterNetworkBackupController::class, 'syncToRouter'])->name('router-network-backups.sync');
+
     Route::resource('router-modelos', RouterModeloController::class)->except(['show']);
     Route::resource('router-ip-pools', RouterIpPoolController::class)->except(['show']);
     Route::get('pool-ip-asignadas', [PoolIpAsignadaController::class, 'index'])->name('pool-ip-asignadas.index');

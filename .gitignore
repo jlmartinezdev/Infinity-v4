@@ -42,3 +42,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# NSSM binarios (scripts de servicio en tools/*.ps1)
+/tools/nssm/

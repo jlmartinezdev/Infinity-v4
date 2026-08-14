@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class LoyaltyImageUploader
@@ -22,6 +23,39 @@ class LoyaltyImageUploader
         }
 
         return $actual;
+    }
+
+    /**
+     * Guarda o elimina un archivo concreto (útil para campos anidados).
+     */
+    public static function guardarArchivo(?UploadedFile $file, string $carpeta, ?string $actual = null, bool $eliminar = false): ?string
+    {
+        if ($eliminar) {
+            self::borrar($actual);
+
+            return null;
+        }
+
+        if ($file) {
+            self::borrar($actual);
+
+            return $file->store($carpeta, 'public');
+        }
+
+        return $actual;
+    }
+
+    public static function urlPublica(?string $path): ?string
+    {
+        if (! filled($path)) {
+            return null;
+        }
+
+        if (! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return url(Storage::disk('public')->url($path));
     }
 
     public static function borrar(?string $path): void

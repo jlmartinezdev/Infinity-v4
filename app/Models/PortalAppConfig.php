@@ -11,6 +11,7 @@ class PortalAppConfig extends Model
     protected $fillable = [
         'flags',
         'pago_online',
+        'metodos_pago',
         'referidos',
         'whatsapp',
         'resumen',
@@ -22,6 +23,7 @@ class PortalAppConfig extends Model
         return [
             'flags' => 'array',
             'pago_online' => 'array',
+            'metodos_pago' => 'array',
             'referidos' => 'array',
             'whatsapp' => 'array',
             'resumen' => 'array',

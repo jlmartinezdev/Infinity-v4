@@ -22,13 +22,13 @@ use Illuminate\Support\Facades\Log;
  */
 class FcmPushService
 {
-    public function notifyStaff(string $title, string $body, array $data = []): void
+    public function notifyStaff(string $title, string $body, array $data = []): bool
     {
         $ctx = $this->contextoEnvio();
         if ($ctx === null) {
             Log::info('FCM omitido (sin cuenta de servicio HTTP v1)', compact('title', 'body', 'data'));
 
-            return;
+            return false;
         }
 
         [$projectId, $accessToken] = $ctx;
@@ -38,7 +38,7 @@ class FcmPushService
         $topic = config('services.fcm.staff_topic') ?: env('FCM_STAFF_TOPIC', 'staff');
         // Solo topic: la app staff se suscribe a "staff". Enviar también a push_token
         // duplica la notificación en el mismo dispositivo.
-        $this->enviarV1($projectId, $accessToken, array_merge($messageBase, [
+        return $this->enviarV1($projectId, $accessToken, array_merge($messageBase, [
             'topic' => $topic,
         ]), 'topic:'.$topic);
     }

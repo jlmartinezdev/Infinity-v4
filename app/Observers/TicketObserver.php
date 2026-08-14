@@ -38,5 +38,14 @@ class TicketObserver
                 : 'estado';
             $this->clientePush->ticketActualizado($ticket, $cambio);
         }
+
+        // WhatsApp al cliente: ticket → resuelto
+        if (
+            $ticket->wasChanged('estado')
+            && $ticket->estado === 'resuelto'
+            && $ticket->cliente_id
+        ) {
+            $this->whatsappOutbound->ticketResuelto($ticket);
+        }
     }
 }

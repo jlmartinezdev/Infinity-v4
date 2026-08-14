@@ -5,6 +5,8 @@ namespace App\Services\Monitoreo;
 use App\Models\MonitoreoPingServicio;
 use App\Models\Servicio;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ServicioPingMonitoreoService
 {
@@ -163,6 +165,72 @@ class ServicioPingMonitoreoService
         }
 
         return $resumen;
+    }
+
+    /**
+     * Conteos de servicios activos y online (ping) agrupados por router_id del pool.
+     *
+     * @param  list<int>  $routerIds
+     * @return array<int, array{activos: int, online: int, offline: int, sin_dato: int}>
+     */
+    public function conteosPorRouterIds(array $routerIds): array
+    {
+        $routerIds = array_values(array_unique(array_filter(array_map('intval', $routerIds))));
+        if ($routerIds === []) {
+            return [];
+        }
+
+        if (! Schema::hasTable('monitoreo_ping_servicios')) {
+            $soloActivos = DB::table('servicios as s')
+                ->join('router_ip_pools as p', 'p.pool_id', '=', 's.pool_id')
+                ->where('s.estado', Servicio::ESTADO_ACTIVO)
+                ->whereIn('p.router_id', $routerIds)
+                ->groupBy('p.router_id')
+                ->selectRaw('p.router_id, COUNT(*) as activos')
+                ->get();
+
+            $out = [];
+            foreach ($soloActivos as $row) {
+                $id = (int) $row->router_id;
+                $activos = (int) $row->activos;
+                $out[$id] = [
+                    'activos' => $activos,
+                    'online' => 0,
+                    'offline' => 0,
+                    'sin_dato' => $activos,
+                ];
+            }
+
+            return $out;
+        }
+
+        $rows = DB::table('servicios as s')
+            ->join('router_ip_pools as p', 'p.pool_id', '=', 's.pool_id')
+            ->leftJoin('monitoreo_ping_servicios as m', 'm.servicio_id', '=', 's.servicio_id')
+            ->where('s.estado', Servicio::ESTADO_ACTIVO)
+            ->whereIn('p.router_id', $routerIds)
+            ->groupBy('p.router_id')
+            ->selectRaw('
+                p.router_id,
+                COUNT(*) as activos,
+                SUM(CASE WHEN m.en_linea = 1 THEN 1 ELSE 0 END) as online,
+                SUM(CASE WHEN m.en_linea = 0 THEN 1 ELSE 0 END) as offline,
+                SUM(CASE WHEN m.servicio_id IS NULL THEN 1 ELSE 0 END) as sin_dato
+            ')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $id = (int) $row->router_id;
+            $out[$id] = [
+                'activos' => (int) $row->activos,
+                'online' => (int) $row->online,
+                'offline' => (int) $row->offline,
+                'sin_dato' => (int) $row->sin_dato,
+            ];
+        }
+
+        return $out;
     }
 
     private function aplicarFiltroNodo(Builder $query, ?int $nodoId): void

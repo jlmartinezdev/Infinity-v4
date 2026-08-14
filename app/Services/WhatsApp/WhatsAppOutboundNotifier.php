@@ -4,10 +4,12 @@ namespace App\Services\WhatsApp;
 
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
+use App\Models\Router;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Models\TvCuenta;
 use App\Models\User;
+use App\Models\WhatsappMensaje;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -87,6 +89,171 @@ class WhatsAppOutboundNotifier
                 'contexto_id' => $ticket->id,
             ]
         );
+    }
+
+    /**
+     * Avisa al cliente cuando su ticket queda resuelto.
+     *
+     * Plantilla Meta ticket_resuelto (ej.):
+     * Hola {{1}}, tu solicitud #{{2}} ({{3}}) fue resuelta.
+     * Si necesitás ayuda, respondé este mensaje o contactanos.
+     *
+     * Ver docs/whatsapp-plantilla-ticket-resuelto.md
+     */
+    public function ticketResuelto(Ticket $ticket): void
+    {
+        if (! $this->eventEnabled('ticket_resuelto')) {
+            return;
+        }
+
+        $ticket->loadMissing(['cliente', 'ticketAsunto']);
+        $cliente = $ticket->cliente;
+        if (! $cliente || ! filled($cliente->telefono)) {
+            Log::info('[WhatsApp outbound] ticket_resuelto sin teléfono de cliente', [
+                'ticket_id' => $ticket->id,
+                'cliente_id' => $ticket->cliente_id,
+            ]);
+
+            return;
+        }
+
+        $nombre = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
+        $asunto = $ticket->ticketAsunto?->nombre ?? 'Soporte';
+        $texto = sprintf(
+            "Hola %s, tu solicitud #%d (%s) fue resuelta.\nSi necesitás ayuda, respondé este mensaje o contactanos.",
+            $nombre !== '' ? $nombre : 'cliente',
+            $ticket->id,
+            $asunto
+        );
+
+        $this->enviar(
+            event: 'ticket_resuelto',
+            telefono: (string) $cliente->telefono,
+            texto: $texto,
+            templateParams: [
+                ['type' => 'text', 'text' => $nombre !== '' ? $nombre : 'cliente'],
+                ['type' => 'text', 'text' => (string) $ticket->id],
+                ['type' => 'text', 'text' => $asunto],
+            ],
+            meta: [
+                'ticket_id' => $ticket->id,
+                'cliente_id' => $ticket->cliente_id,
+                'contexto_tipo' => 'ticket_resuelto',
+                'contexto_id' => $ticket->id,
+            ]
+        );
+    }
+
+    /**
+     * Avisa al cliente que su servicio fue suspendido por falta de pago.
+     *
+     * Plantilla Meta servicio_suspendido_falta_pago (ej.):
+     * Hola {{1}}, te informamos que tu servicio de internet fue suspendido por falta de pago.
+     * Factura: #{{2}} / Saldo pendiente: Gs. {{3}} / Vencimiento: {{4}}
+     * Regularizá tu pago para reactivar el servicio.
+     *
+     * Ver docs/whatsapp-plantilla-servicio-suspendido.md
+     */
+    public function servicioSuspendidoPorFaltaPago(Servicio $servicio, ?FacturaInterna $factura = null): bool
+    {
+        if (! $this->eventEnabled('servicio_suspendido')) {
+            return false;
+        }
+
+        $servicio->loadMissing(['cliente']);
+        $cliente = $servicio->cliente;
+        if (! $cliente || ! filled($cliente->telefono)) {
+            Log::info('[WhatsApp outbound] servicio_suspendido sin teléfono de cliente', [
+                'servicio_id' => $servicio->servicio_id,
+                'cliente_id' => $servicio->cliente_id,
+            ]);
+
+            return false;
+        }
+
+        if ($factura === null) {
+            $factura = FacturaInterna::query()
+                ->where('cliente_id', $cliente->cliente_id)
+                ->whereIn('estado', ['pendiente', 'emitida'])
+                ->where('fecha_vencimiento', '<', now()->toDateString())
+                ->orderBy('fecha_vencimiento')
+                ->get()
+                ->first(fn (FacturaInterna $f) => $f->saldo_pendiente > 0);
+        }
+
+        $nombre = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
+        $saludo = $nombre !== '' ? $nombre : 'cliente';
+        $facturaRef = $factura ? (string) $factura->id : 'pendiente';
+        $saldo = $factura
+            ? number_format((float) $factura->saldo_pendiente, 0, ',', '.')
+            : '-';
+        $vencimiento = $factura?->fecha_vencimiento?->format('d/m/Y') ?? '-';
+
+        $texto = sprintf(
+            "Hola %s, te informamos que tu servicio de internet fue suspendido por falta de pago.\nFactura: #%s\nSaldo pendiente: Gs. %s\nVencimiento: %s\n\nRegularizá tu pago para reactivar el servicio. Ante dudas, respondé este mensaje o contactanos.",
+            $saludo,
+            $facturaRef,
+            $saldo,
+            $vencimiento
+        );
+
+        return $this->enviar(
+            event: 'servicio_suspendido',
+            telefono: (string) $cliente->telefono,
+            texto: $texto,
+            templateParams: [
+                ['type' => 'text', 'text' => $saludo],
+                ['type' => 'text', 'text' => $facturaRef],
+                ['type' => 'text', 'text' => $saldo],
+                ['type' => 'text', 'text' => $vencimiento],
+            ],
+            meta: [
+                'cliente_id' => $cliente->cliente_id,
+                'contexto_tipo' => 'servicio_suspendido',
+                'contexto_id' => $servicio->servicio_id,
+            ]
+        );
+    }
+
+    /**
+     * Un aviso por cliente a partir del listado de suspensiones del corte.
+     *
+     * @param  list<array{servicio_id: int, cliente_id: int, factura_id?: int|null}>  $suspendidos
+     * @return int Cantidad de avisos intentados/enviados OK
+     */
+    public function avisarSuspensionesPorFaltaPago(array $suspendidos): int
+    {
+        if (! $this->eventEnabled('servicio_suspendido') || $suspendidos === []) {
+            return 0;
+        }
+
+        $enviados = 0;
+        $vistos = [];
+
+        foreach ($suspendidos as $item) {
+            $clienteId = (int) ($item['cliente_id'] ?? 0);
+            $servicioId = (int) ($item['servicio_id'] ?? 0);
+            if ($clienteId <= 0 || $servicioId <= 0 || isset($vistos[$clienteId])) {
+                continue;
+            }
+            $vistos[$clienteId] = true;
+
+            $servicio = Servicio::query()->with('cliente')->find($servicioId);
+            if (! $servicio) {
+                continue;
+            }
+
+            $factura = null;
+            if (! empty($item['factura_id'])) {
+                $factura = FacturaInterna::query()->find((int) $item['factura_id']);
+            }
+
+            if ($this->servicioSuspendidoPorFaltaPago($servicio, $factura)) {
+                $enviados++;
+            }
+        }
+
+        return $enviados;
     }
 
     /**
@@ -216,7 +383,7 @@ class WhatsAppOutboundNotifier
                 continue;
             }
 
-            $this->enviar(
+            $okEnvio = $this->enviar(
                 event: 'tv_vencimiento',
                 telefono: $telefono,
                 texto: $texto,
@@ -229,6 +396,147 @@ class WhatsAppOutboundNotifier
                 meta: [
                     'contexto_tipo' => 'tv_vencimiento',
                     'contexto_id' => $cuenta->id,
+                ]
+            );
+            if ($okEnvio) {
+                $enviados++;
+            }
+        }
+
+        return $enviados > 0;
+    }
+
+    /**
+     * Avisa a staff seleccionados que un router no responde ping.
+     * Ver docs/whatsapp-plantilla-router-caido.md
+     *
+     * @param  Collection<int, User>  $destinatarios
+     */
+    public function routerCaido(Router $router, Collection $destinatarios, bool $esPrueba = false): bool
+    {
+        if (! $this->whatsapp->isConfigured()) {
+            return false;
+        }
+
+        // El panel (RouterCaidaAvisoConfig) controla el envío automático;
+        // el flag de evento permite desactivar globalmente vía .env.
+        if (! $esPrueba && ! (bool) config('whatsapp.events.router_caido', true)) {
+            return false;
+        }
+
+        $nombre = trim((string) ($router->nombre ?: ('#'.$router->router_id)));
+        $ip = trim((string) ($router->ip ?: '-'));
+        $fallos = (int) ($router->ping_fallos_seguidos ?? 0);
+        $cuando = $router->ping_at
+            ? $router->ping_at->timezone(config('app.timezone'))->format('d/m/Y H:i:s')
+            : now()->timezone(config('app.timezone'))->format('d/m/Y H:i:s');
+
+        $texto = sprintf(
+            "%sAlerta de red\nRouter: %s\nIP: %s\nEstado: sin respuesta al ping\nFallos seguidos: %d\nÚltimo chequeo: %s\nRevisá Monitoreo de red en el panel.",
+            $esPrueba ? "[PRUEBA]\n" : '',
+            $nombre,
+            $ip,
+            $fallos,
+            $cuando
+        );
+
+        $enviados = 0;
+        foreach ($destinatarios as $user) {
+            if (! $user instanceof User) {
+                continue;
+            }
+            $telefono = $this->telefonoStaff($user);
+            if (! $telefono) {
+                Log::info('[WhatsApp outbound] router_caido sin teléfono', [
+                    'usuario_id' => $user->usuario_id,
+                    'router_id' => $router->router_id,
+                ]);
+
+                continue;
+            }
+
+            $this->enviar(
+                event: 'router_caido',
+                telefono: $telefono,
+                texto: $texto,
+                templateParams: [
+                    ['type' => 'text', 'text' => $nombre],
+                    ['type' => 'text', 'text' => $ip],
+                    ['type' => 'text', 'text' => (string) max(1, $fallos)],
+                    ['type' => 'text', 'text' => $cuando],
+                ],
+                meta: [
+                    'contexto_tipo' => 'router_caido',
+                    'contexto_id' => $router->router_id,
+                ]
+            );
+            $enviados++;
+        }
+
+        return $enviados > 0;
+    }
+
+    /**
+     * Aviso al staff: salida ISP 1 caída (failover) o recuperada (failback).
+     *
+     * @param  Collection<int, User>  $destinatarios
+     */
+    public function ispFailover(
+        string $titulo,
+        string $pingHost,
+        string $routerNombre,
+        Collection $destinatarios,
+        bool $esPrueba = false
+    ): bool {
+        if (! $this->whatsapp->isConfigured()) {
+            return false;
+        }
+
+        if (! $esPrueba && ! (bool) config('whatsapp.events.isp_failover', true)) {
+            return false;
+        }
+
+        $cuando = now()->timezone(config('app.timezone'))->format('d/m/Y H:i:s');
+        $host = trim($pingHost) !== '' ? trim($pingHost) : '1.1.1.1';
+        $routerNombre = trim($routerNombre) !== '' ? trim($routerNombre) : 'router borde';
+        $titulo = trim($titulo) !== '' ? trim($titulo) : 'Cambio de salida ISP';
+
+        $texto = sprintf(
+            "%sAlerta de salida ISP\n%s\nPing: %s\nRouter: %s\nHora: %s\nRevisá Failover ISP en Infinity.",
+            $esPrueba ? "[PRUEBA]\n" : '',
+            $titulo,
+            $host,
+            $routerNombre,
+            $cuando
+        );
+
+        $enviados = 0;
+        foreach ($destinatarios as $user) {
+            if (! $user instanceof User) {
+                continue;
+            }
+            $telefono = $this->telefonoStaff($user);
+            if (! $telefono) {
+                Log::info('[WhatsApp outbound] isp_failover sin teléfono', [
+                    'usuario_id' => $user->usuario_id,
+                ]);
+
+                continue;
+            }
+
+            $this->enviar(
+                event: 'isp_failover',
+                telefono: $telefono,
+                texto: $texto,
+                templateParams: [
+                    ['type' => 'text', 'text' => ($esPrueba ? '[PRUEBA] ' : '').$titulo],
+                    ['type' => 'text', 'text' => $host],
+                    ['type' => 'text', 'text' => $routerNombre],
+                    ['type' => 'text', 'text' => $cuando],
+                ],
+                meta: [
+                    'contexto_tipo' => 'isp_failover',
+                    'contexto_id' => 0,
                 ]
             );
             $enviados++;
@@ -354,6 +662,136 @@ class WhatsAppOutboundNotifier
     }
 
     /**
+     * Aviso staff → cliente: técnico en camino (visita / instalación).
+     * Solo plantilla Meta (sin fallback a texto libre).
+     *
+     * Plantilla sugerida: staff_tecnico_en_camino_v1
+     * Hola {{1}}. Le informamos que nuestro técnico {{2}} está en camino… {{3}}.
+     *
+     * @param  array{cliente_id?: int|null, ticket_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}  $meta
+     * @param  array<string, mixed>  $auditExtra  Se guarda en payload.audit (usuario, tipo, recurso, base legal)
+     * @return array{ok: bool, message_id?: string|null, status?: int, message?: string, error?: string|null}
+     */
+    public function tecnicoEnCamino(
+        string $telefono,
+        string $nombreCliente,
+        string $nombreTecnico,
+        string $tarea,
+        array $meta = [],
+        array $auditExtra = [],
+        ?string $trackingUrlSuffix = null,
+    ): array {
+        if (! $this->whatsapp->isConfigured()) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'WhatsApp no está configurado.',
+                'error' => 'not_configured',
+            ];
+        }
+
+        $template = trim((string) config('whatsapp.templates.en_camino', ''));
+        if ($template === '') {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Plantilla de aviso en camino no configurada.',
+                'error' => 'template_missing',
+            ];
+        }
+
+        $langPreferido = (string) (
+            config('whatsapp.template_languages.en_camino')
+            ?: config('whatsapp.default_template_language', 'es')
+        );
+
+        $nombreCliente = trim($nombreCliente) !== '' ? trim($nombreCliente) : 'cliente';
+        $nombreTecnico = trim($nombreTecnico) !== '' ? trim($nombreTecnico) : 'nuestro técnico';
+        $tarea = trim($tarea) !== '' ? trim($tarea) : 'la visita técnica programada';
+
+        // Meta limita variables de cuerpo (~1024); recortar con margen.
+        $nombreCliente = mb_substr($nombreCliente, 0, 60);
+        $nombreTecnico = mb_substr($nombreTecnico, 0, 60);
+        $tarea = mb_substr($tarea, 0, 120);
+
+        try {
+            $lang = $this->whatsapp->resolverIdiomaPlantilla($template, $langPreferido) ?: $langPreferido;
+
+            $urlButtonParameters = [];
+            if (filled($trackingUrlSuffix) && (bool) config('whatsapp.en_camino_tracking_enabled', false)) {
+                $urlButtonParameters[] = ['type' => 'text', 'text' => (string) $trackingUrlSuffix];
+            }
+
+            $textoVisible = sprintf(
+                "Hola %s.\n\nLe informamos que nuestro técnico %s está en camino a su domicilio para realizar %s.\n\nEste es un aviso automático de sistema Interplus. No es necesario responder este mensaje.",
+                $nombreCliente,
+                $nombreTecnico,
+                $tarea
+            );
+
+            $mensaje = $this->whatsapp->sendTemplate(
+                $telefono,
+                $template,
+                $lang,
+                [
+                    ['type' => 'text', 'text' => $nombreCliente],
+                    ['type' => 'text', 'text' => $nombreTecnico],
+                    ['type' => 'text', 'text' => $tarea],
+                ],
+                $meta,
+                $urlButtonParameters,
+                0,
+                $textoVisible,
+            );
+
+            $payload = is_array($mensaje->payload) ? $mensaje->payload : [];
+            $payload['audit'] = array_merge([
+                'base_legal' => 'interes_legitimo_prestacion_servicio',
+                'consentimiento' => 'aviso_operativo_campo',
+            ], $auditExtra);
+            $mensaje->payload = $payload;
+            $mensaje->save();
+
+            $wamid = is_string($mensaje->wamid) ? $mensaje->wamid : null;
+            if ($mensaje->estado !== WhatsappMensaje::ESTADO_FALLIDO && filled($wamid)) {
+                return [
+                    'ok' => true,
+                    'message_id' => $wamid,
+                    'status' => 200,
+                ];
+            }
+
+            // Omitido/fallido sin llegar a Meta → config; rechazo Meta → 502
+            $error = (string) ($mensaje->error_message ?? 'WhatsApp rechazó o no respondió el aviso.');
+            $esConfig = str_contains(mb_strtolower($error), 'deshabilitado')
+                || str_contains(mb_strtolower($error), 'credenciales')
+                || str_contains(mb_strtolower($error), 'config');
+
+            return [
+                'ok' => false,
+                'status' => $esConfig ? 422 : 502,
+                'message' => $esConfig
+                    ? 'Plantilla o configuración de WhatsApp incompleta.'
+                    : 'WhatsApp rechazó o no respondió el aviso.',
+                'message_id' => $wamid,
+                'error' => $error,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[WhatsApp outbound] Error enviando en_camino: '.$e->getMessage(), [
+                'exception' => $e,
+                'meta' => $meta,
+            ]);
+
+            return [
+                'ok' => false,
+                'status' => 502,
+                'message' => 'WhatsApp rechazó o no respondió el aviso.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Avisa al cliente que su enlace/servicio cayó (PPPoE down).
      */
     public function enlaceCaido(Servicio $servicio): void
@@ -427,6 +865,8 @@ class WhatsAppOutboundNotifier
                     $templateParams,
                     $meta,
                     $urlButtonParameters,
+                    0,
+                    $texto,
                 );
 
                 if ($mensaje->estado !== 'fallido') {

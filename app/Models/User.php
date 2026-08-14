@@ -42,12 +42,18 @@ class User extends Authenticatable
         'name',
         'email',
         'telefono',
+        'cedula',
+        'cargo',
+        'salario_basico',
+        'banco',
+        'cuenta_bancaria',
         'push_token',
         'device_type',
         'contrasena',
         'rol_id',
         'cliente_id',
         'permisos',
+        'acceso_rapido',
         'estado',
         'ultimo_acceso_at',
         'ultimo_acceso_ip',
@@ -86,6 +92,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'ultimo_acceso_at' => 'datetime',
             'permisos' => 'array',
+            'acceso_rapido' => 'array',
+            'salario_basico' => 'integer',
             // No usar 'hashed' cast aquí porque interfiere con Auth::attempt()
             // La contraseña se hashea manualmente al crear/actualizar
         ];

@@ -3,7 +3,11 @@
 namespace App\Services\Sifen;
 
 /**
- * Cálculos de IVA por ítem y totales según MT SIFEN v150 (precio IVA incluido).
+ * Cálculos de IVA por ítem y totales según MT SIFEN v150 + NT13 (precio IVA incluido).
+ *
+ * NT13 (val. 1921): dBasExe = 0 si iAfecIVA ∈ {1,2,3};
+ * solo con iAfecIVA = 4 (gravado parcial) se calcula la base exenta por fórmula.
+ * El total exento del DE sigue yendo en dSubExe (suma de dTotOpeItem con iAfecIVA=3).
  */
 class SifenIvaCalculator
 {
@@ -12,6 +16,8 @@ class SifenIvaCalculator
     public const AFEC_EXONERADO = 2;
 
     public const AFEC_EXENTO = 3;
+
+    public const AFEC_GRAVADO_PARCIAL = 4;
 
     /**
      * @return array{
@@ -45,20 +51,21 @@ class SifenIvaCalculator
 
         $baseGravada = 0.0;
         $liquidacion = 0.0;
+        // NT13: con Exento/Exonerado/Gravado total, dBasExe debe ser 0 (no el importe de la línea).
         $baseExenta = 0.0;
+        $propIva = 0.0;
 
         if ($afectacion === self::AFEC_GRAVADO && $tasa > 0) {
+            $propIva = 100.0;
             $divisor = 1 + ($tasa / 100);
             $baseGravada = round($totalLinea / $divisor, 8);
             $liquidacion = round($totalLinea - $baseGravada, 8);
-        } elseif ($afectacion === self::AFEC_EXENTO || $afectacion === self::AFEC_EXONERADO) {
-            $baseExenta = $totalLinea;
         }
 
         return [
             'iAfecIVA' => $afectacion,
             'dDesAfecIVA' => $this->descripcionAfectacion($afectacion),
-            'dPropIVA' => $afectacion === self::AFEC_GRAVADO ? 100 : 0,
+            'dPropIVA' => $propIva,
             'dTasaIVA' => $tasa,
             'dBasGravIVA' => $baseGravada,
             'dLiqIVAItem' => $liquidacion,
@@ -149,6 +156,7 @@ class SifenIvaCalculator
             self::AFEC_GRAVADO => 'Gravado IVA',
             self::AFEC_EXONERADO => 'Exonerado (Art. 83- Ley 125/91)',
             self::AFEC_EXENTO => 'Exento',
+            self::AFEC_GRAVADO_PARCIAL => 'Gravado parcial (TF)',
             default => 'Exento',
         };
     }

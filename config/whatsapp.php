@@ -13,7 +13,8 @@ return [
 
     'enabled' => (bool) env('WHATSAPP_ENABLED', false),
 
-    'token' => env('WHATSAPP_TOKEN'),
+    /** Token Graph API. Alias: WHATSAPP_ACCESS_TOKEN */
+    'token' => env('WHATSAPP_TOKEN', env('WHATSAPP_ACCESS_TOKEN')),
 
     'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
 
@@ -74,6 +75,8 @@ return [
     */
     'events' => [
         'ticket_asignado' => (bool) env('WHATSAPP_EVENT_TICKET_ASIGNADO', false),
+        /** Cliente: ticket marcado como resuelto. Ver docs/whatsapp-plantilla-ticket-resuelto.md */
+        'ticket_resuelto' => (bool) env('WHATSAPP_EVENT_TICKET_RESUELTO', false),
         'factura' => (bool) env('WHATSAPP_EVENT_FACTURA', false),
         'enlace_caido' => (bool) env('WHATSAPP_EVENT_ENLACE_CAIDO', false),
         // TV se activa desde el panel (TvAvisoConfig), no solo por este flag.
@@ -83,7 +86,21 @@ return [
         'acceso_rechazado' => (bool) env('WHATSAPP_EVENT_ACCESO_RECHAZADO', true),
         /** Enviar recibo de cobro al WhatsApp del cliente (auto al registrar cobro) */
         'recibo' => (bool) env('WHATSAPP_EVENT_RECIBO', false),
+        /** Aviso staff "técnico en camino" (endpoint /staff/avisos/en-camino; siempre exige plantilla) */
+        'en_camino' => (bool) env('WHATSAPP_EVENT_EN_CAMINO', true),
+        /** Cliente: servicio suspendido por falta de pago. Ver docs/whatsapp-plantilla-servicio-suspendido.md */
+        'servicio_suspendido' => (bool) env('WHATSAPP_EVENT_SERVICIO_SUSPENDIDO', false),
+        /** Staff: router sin respuesta al ping (N fallos). Ver docs/whatsapp-plantilla-router-caido.md */
+        'router_caido' => (bool) env('WHATSAPP_EVENT_ROUTER_CAIDO', true),
+        /** Staff: salida ISP 1 caída / recuperada. Ver docs/whatsapp-plantilla-isp-failover.md */
+        'isp_failover' => (bool) env('WHATSAPP_EVENT_ISP_FAILOVER', true),
     ],
+
+    /**
+     * Botón URL de seguimiento en plantilla en_camino (solo si hay URL pública con token temporal).
+     * No usar maps.google.com/?q=<GPS técnico> desde el número oficial.
+     */
+    'en_camino_tracking_enabled' => (bool) env('WHATSAPP_EN_CAMINO_TRACKING', false),
 
     /**
      * Número corporativo (solo dígitos, con país) para wa.me en la app.
@@ -107,12 +124,22 @@ return [
 
     'templates' => [
         'ticket_asignado' => env('WHATSAPP_TEMPLATE_TICKET_ASIGNADO', ''),
+        /** Ver docs/whatsapp-plantilla-ticket-resuelto.md */
+        'ticket_resuelto' => env('WHATSAPP_TEMPLATE_TICKET_RESUELTO', 'ticket_resuelto'),
         'factura' => env('WHATSAPP_TEMPLATE_FACTURA', ''),
         'enlace_caido' => env('WHATSAPP_TEMPLATE_ENLACE_CAIDO', ''),
-        'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO', ''),
+        'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO', 'tv_cuenta_por_vencer'),
         'acceso_aprobado' => env('WHATSAPP_TEMPLATE_ACCESO_APROBADO', ''),
         /** Nombre exacto en Meta (APPROVED). Ver docs/whatsapp-plantilla-recibo.md */
         'recibo' => env('WHATSAPP_TEMPLATE_RECIBO', 'recibo_pago'),
+        /** Ver docs/whatsapp-plantilla-en-camino.md */
+        'en_camino' => env('WHATSAPP_TEMPLATE_EN_CAMINO', 'staff_tecnico_en_camino_v1'),
+        /** Ver docs/whatsapp-plantilla-servicio-suspendido.md */
+        'servicio_suspendido' => env('WHATSAPP_TEMPLATE_SERVICIO_SUSPENDIDO', 'servicio_suspendido_falta_pago'),
+        /** Ver docs/whatsapp-plantilla-router-caido.md */
+        'router_caido' => env('WHATSAPP_TEMPLATE_ROUTER_CAIDO', 'router_caido_ping'),
+        /** Ver docs/whatsapp-plantilla-isp-failover.md */
+        'isp_failover' => env('WHATSAPP_TEMPLATE_ISP_FAILOVER', 'isp_failover_salida'),
     ],
 
     /**
@@ -121,11 +148,17 @@ return [
      */
     'template_languages' => [
         'ticket_asignado' => env('WHATSAPP_TEMPLATE_TICKET_ASIGNADO_LANG', ''),
+        'ticket_resuelto' => env('WHATSAPP_TEMPLATE_TICKET_RESUELTO_LANG', ''),
         'factura' => env('WHATSAPP_TEMPLATE_FACTURA_LANG', ''),
         'enlace_caido' => env('WHATSAPP_TEMPLATE_ENLACE_CAIDO_LANG', ''),
         'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO_LANG', ''),
         'acceso_aprobado' => env('WHATSAPP_TEMPLATE_ACCESO_APROBADO_LANG', ''),
         'recibo' => env('WHATSAPP_TEMPLATE_RECIBO_LANG', 'es_AR'),
+        /** Alias: WHATSAPP_TEMPLATE_LANGUAGE */
+        'en_camino' => env('WHATSAPP_TEMPLATE_EN_CAMINO_LANG', env('WHATSAPP_TEMPLATE_LANGUAGE', '')),
+        'servicio_suspendido' => env('WHATSAPP_TEMPLATE_SERVICIO_SUSPENDIDO_LANG', ''),
+        'router_caido' => env('WHATSAPP_TEMPLATE_ROUTER_CAIDO_LANG', ''),
+        'isp_failover' => env('WHATSAPP_TEMPLATE_ISP_FAILOVER_LANG', ''),
     ],
 
     /**

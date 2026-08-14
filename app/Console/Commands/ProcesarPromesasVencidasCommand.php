@@ -6,6 +6,7 @@ use App\Models\MikrotikOperacionPendiente;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use Illuminate\Console\Command;
 
 class ProcesarPromesasVencidasCommand extends Command
@@ -15,7 +16,11 @@ class ProcesarPromesasVencidasCommand extends Command
 
     protected $description = 'Procesa promesas de pago vencidas: suspende servicios si sigue el saldo y elimina la promesa. Deshabilita PPPoE en MikroTik al suspender.';
 
-    public function handle(FacturacionService $facturacionService, MikroTikService $mikrotik): int
+    public function handle(
+        FacturacionService $facturacionService,
+        MikroTikService $mikrotik,
+        WhatsAppOutboundNotifier $whatsapp,
+    ): int
     {
         $dryRun = $this->option('dry-run');
         if ($dryRun) {
@@ -55,6 +60,13 @@ class ProcesarPromesasVencidasCommand extends Command
                         'promesas:procesar-vencidas'
                     );
                 }
+            }
+        }
+
+        if (! $dryRun) {
+            $avisos = $whatsapp->avisarSuspensionesPorFaltaPago($suspendidos);
+            if ($avisos > 0) {
+                $this->info("Avisos WhatsApp enviados: {$avisos}");
             }
         }
 

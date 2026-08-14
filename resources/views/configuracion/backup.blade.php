@@ -54,9 +54,34 @@
     <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Google Drive</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Sube una copia a la carpeta configurada. También corre automático todos los días a las 02:30 si el schedule de Laravel está activo.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Sube una copia a la carpeta configurada. El schedule reintenta después de la hora si el PC estaba apagado o si el backup falló.</p>
         </div>
         <div class="p-6 space-y-4">
+            @php
+                $workerOk = !empty($schedule['worker']);
+                $latido = $schedule['latido'] ?? null;
+            @endphp
+            <div class="text-sm rounded-lg border px-3 py-2 {{ $workerOk ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200' : 'border-rose-200 bg-rose-50 dark:bg-rose-900/20 text-rose-800 dark:text-rose-200' }}">
+                Worker InfinitySchedule:
+                <strong>{{ $workerOk ? 'activo' : 'sin latido' }}</strong>
+                @if($latido)
+                    · último {{ $latido->timezone(config('app.timezone'))->format('d/m/Y H:i:s') }}
+                @endif
+                · hoy: {{ !empty($schedule['backup_ok_hoy']) ? 'backup OK' : 'aún no hay backup OK' }}
+            </div>
+
+            <form action="{{ route('configuracion.backup.hora') }}" method="POST" class="flex flex-wrap items-end gap-3">
+                @csrf
+                @method('PUT')
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hora automática</label>
+                    <input type="time" name="hora" required value="{{ old('hora', $hora ?? '02:30') }}"
+                        class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                </div>
+                <button type="submit" class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Guardar hora
+                </button>
+            </form>
             @if($driveReady)
                 <p class="text-sm text-gray-700 dark:text-gray-300">
                     Carpeta:

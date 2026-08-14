@@ -8,14 +8,17 @@ use App\Http\Controllers\Api\V1\MikrotikWebhookController;
 use App\Http\Controllers\Api\V1\PortalController;
 use App\Http\Controllers\Api\V1\PortalLoyaltyController;
 use App\Http\Controllers\Api\V1\PortalV1Controller;
+use App\Http\Controllers\Api\V1\ReporteController;
 use App\Http\Controllers\Api\V1\ServicioController;
 use App\Http\Controllers\Api\V1\SolicitudAccesoController;
+use App\Http\Controllers\Api\V1\StaffAvisoEnCaminoController;
 use App\Http\Controllers\Api\V1\StaffConfigController;
 use App\Http\Controllers\Api\V1\StaffPedidoInstalacionController;
 use App\Http\Controllers\Api\V1\StaffUbicacionController;
 use App\Http\Controllers\Api\V1\StaffVisitaController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
+use App\Http\Controllers\Api\V1\TpagoWebhookController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,10 +39,14 @@ Route::prefix('v1')->group(function () {
 
     // Webhooks MikroTik (auth por webhook_token del router, no Sanctum)
     Route::post('/webhooks/mikrotik/pppoe', [MikrotikWebhookController::class, 'pppoe']);
+    Route::post('/webhooks/mikrotik/isp-failover', [MikrotikWebhookController::class, 'ispFailover']);
 
     // Webhooks WhatsApp Cloud API (verify_token + firma App Secret)
     Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
     Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
+
+    // Confirmación de pagos TPago / Bancard (URL a configurar en el portal TPago)
+    Route::post('/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -68,6 +75,8 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permiso:portal.loyalty.ver');
             Route::get('/premios', [PortalLoyaltyController::class, 'premios'])
                 ->middleware('permiso:portal.loyalty.ver');
+            Route::get('/reglas-puntos', [PortalLoyaltyController::class, 'reglasPuntos'])
+                ->middleware('permiso:portal.loyalty.ver');
             Route::get('/canjes', [PortalLoyaltyController::class, 'canjesIndex'])
                 ->middleware('permiso:portal.loyalty.ver');
             Route::post('/canjes', [PortalLoyaltyController::class, 'canjesStore'])
@@ -86,9 +95,11 @@ Route::prefix('v1')->group(function () {
                     ->middleware('permiso:portal.cuenta.ver');
                 Route::post('/referidos/canjear', [PortalV1Controller::class, 'referidosCanjear'])
                     ->middleware('permiso:portal.cuenta.ver');
-                Route::get('/pago-online', [PortalV1Controller::class, 'pagoOnline'])
+                Route::match(['get', 'post'], '/pago-online', [PortalV1Controller::class, 'pagoOnline'])
                     ->middleware('permiso:portal.cuenta.ver');
                 Route::get('/faqs', [PortalV1Controller::class, 'faqs'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::get('/cpe/dhcp-clients', [PortalV1Controller::class, 'cpeDhcpClients'])
                     ->middleware('permiso:portal.cuenta.ver');
             });
         });
@@ -135,6 +146,9 @@ Route::prefix('v1')->group(function () {
             Route::patch('/staff/visitas/{id}', [StaffVisitaController::class, 'actualizar'])
                 ->whereNumber('id')
                 ->middleware('permiso:tickets.crear');
+
+            // Aviso WhatsApp "técnico en camino" (Cloud API, número oficial)
+            Route::post('/staff/avisos/en-camino', [StaffAvisoEnCaminoController::class, 'store']);
 
             // Config runtime (Maps JS key, etc.) — app Staff WebView
             Route::get('/staff/config/maps', [StaffConfigController::class, 'maps']);
@@ -191,6 +205,10 @@ Route::prefix('v1')->group(function () {
             });
             Route::post('/cobros', [CobroController::class, 'store'])
                 ->middleware('permiso:cobros.crear');
+
+            // Reportes para N8N / automatizaciones (misma lógica de saldo que pendientes de pago)
+            Route::get('/reportes/morosos', [ReporteController::class, 'morosos'])
+                ->middleware('permiso:pagos-pendientes.ver,cobros.ver,factura-interna.ver');
 
             Route::middleware('permiso:tickets.ver')->group(function () {
                 Route::get('/tickets', [TicketController::class, 'index']);

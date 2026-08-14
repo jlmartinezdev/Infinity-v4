@@ -33,6 +33,10 @@ class TvAvisarVencimientosCommand extends Command
             [[$stats['candidatas'], $stats['enviadas'], $stats['omitidas'], $stats['errores']]]
         );
 
+        if ((int) $stats['errores'] === 0) {
+            \App\Support\ScheduleOnceAfter::markDone('tv-avisar');
+        }
+
         return self::SUCCESS;
     }
 }

@@ -1,7 +1,59 @@
 <?php
 
+$accesoRapidoCatalogo = [
+    ['name' => 'rapido-clientes', 'label' => 'Lista clientes', 'path' => '/clientes', 'permiso' => 'clientes-lista.ver'],
+    ['name' => 'rapido-nuevo-cliente', 'label' => 'Nuevo cliente', 'path' => '/clientes/create', 'permiso_any' => ['clientes.crear', 'clientes-lista.crear']],
+    ['name' => 'rapido-cobro', 'label' => 'Registrar cobro', 'path' => '/cobros/servicios', 'permiso_any' => ['cobros-servicios.ver', 'cobros-servicios.crear', 'cobros.crear']],
+    ['name' => 'rapido-cobros', 'label' => 'Cobros y recibos', 'path' => '/cobros', 'permiso' => 'cobros.ver'],
+    ['name' => 'rapido-pendientes', 'label' => 'Pendiente de pago', 'path' => '/factura-internas/pendientes', 'permiso' => 'pagos-pendientes.ver'],
+    ['name' => 'rapido-facturas-internas', 'label' => 'Facturas internas', 'path' => '/factura-internas', 'permiso' => 'factura-interna.ver'],
+    ['name' => 'rapido-tickets', 'label' => 'Tickets', 'path' => '/tickets', 'permiso' => 'tickets.ver'],
+    ['name' => 'rapido-nuevo-ticket', 'label' => 'Nuevo ticket', 'path' => '/tickets/create', 'permiso' => 'tickets.crear'],
+    ['name' => 'rapido-tareas', 'label' => 'Tareas', 'path' => '/tareas', 'permiso' => 'tareas.ver'],
+    ['name' => 'rapido-pedidos', 'label' => 'Pedidos', 'path' => '/pedidos', 'permiso' => 'clientes-pedidos.ver'],
+    ['name' => 'rapido-nuevo-pedido', 'label' => 'Nuevo pedido', 'path' => '/pedidos/create', 'permiso_any' => ['pedidos.crear', 'clientes-pedidos.crear']],
+    ['name' => 'rapido-agenda', 'label' => 'Agenda', 'path' => '/agenda', 'permiso' => 'clientes-agenda.ver'],
+    ['name' => 'rapido-servicios', 'label' => 'Servicios', 'path' => '/servicios', 'permiso' => 'servicios-lista.ver'],
+    ['name' => 'rapido-whatsapp', 'label' => 'WhatsApp', 'path' => '/whatsapp/mensajes', 'permiso' => 'whatsapp.ver'],
+    ['name' => 'rapido-mapa-tecnicos', 'label' => 'Técnicos en mapa', 'path' => '/staff/mapa-tecnicos', 'permiso' => 'staff-mapa-tecnicos.ver'],
+    ['name' => 'rapido-solicitudes', 'label' => 'Solicitudes app', 'path' => '/solicitudes-acceso', 'permiso' => 'solicitudes-acceso.ver'],
+    ['name' => 'rapido-tv', 'label' => 'TV streaming', 'path' => '/tv-cuentas', 'permiso' => 'tv.ver'],
+    ['name' => 'rapido-red-monitoreo', 'label' => 'Monitoreo de red', 'path' => '/sistema/red-monitoreo', 'permiso' => 'sistema-red-monitoreo.ver'],
+    ['name' => 'rapido-isp-failover', 'label' => 'Failover ISP', 'path' => '/sistema/isp-failover', 'permiso' => 'sistema-isp-failover.ver'],
+];
+
 return [
+    /**
+     * Catálogo y defaults del menú Acceso rápido (personalizable por usuario).
+     * users.acceso_rapido = lista ordenada de name; null = usar default.
+     */
+    'acceso_rapido' => [
+        'default' => [
+            'rapido-clientes',
+            'rapido-cobro',
+            'rapido-pendientes',
+            'rapido-tickets',
+            'rapido-nuevo-ticket',
+            'rapido-tareas',
+            'rapido-pedidos',
+            'rapido-servicios',
+            'rapido-whatsapp',
+            'rapido-mapa-tecnicos',
+            'rapido-red-monitoreo',
+            'rapido-isp-failover',
+        ],
+        'catalogo' => $accesoRapidoCatalogo,
+    ],
+
     'items' => [
+        [
+            'name' => 'acceso-rapido',
+            'label' => 'Acceso rápido',
+            'icon' => 'bolt',
+            'defaultExpanded' => true,
+            // submenu se arma en MenuUsuario desde catálogo + preferencias del usuario
+            'submenu' => [],
+        ],
         [
             'name' => 'home',
             'label' => 'Inicio',
@@ -98,6 +150,7 @@ return [
                 ['name' => 'promesas-pago', 'label' => 'Promesas de pago', 'path' => '/promesas-pago', 'permiso' => 'promesas-pago.ver'],
                 ['name' => 'cobros-servicios', 'label' => 'Cobros', 'path' => '/cobros/servicios', 'permiso' => 'cobros-servicios.ver'],
                 ['name' => 'cobros', 'label' => 'Cobros y recibos', 'path' => '/cobros', 'permiso' => 'cobros.ver'],
+                ['name' => 'tpago-links', 'label' => 'Links TPago', 'path' => '/tpago/links', 'permiso' => 'cobros.ver'],
                 ['name' => 'cobros-rendicion', 'label' => 'Rendición de efectivo', 'path' => '/cobros/rendiciones', 'permiso' => 'cobros-rendicion.ver'],
             ],
         ],
@@ -116,6 +169,7 @@ return [
             'submenu' => [
                 ['name' => 'usuarios-lista', 'label' => 'Personal y clientes', 'path' => '/usuarios', 'permiso' => 'usuarios.ver'],
                 ['name' => 'usuarios-sesiones', 'label' => 'Sesiones activas', 'path' => '/usuarios/sesiones', 'permiso' => 'usuarios.ver'],
+                ['name' => 'usuarios-liquidacion', 'label' => 'Liquidación de sueldo', 'path' => '/liquidacion', 'permiso' => 'usuarios.ver'],
             ],
         ],
         [
@@ -152,6 +206,9 @@ return [
             'label' => 'Sistema',
             'icon' => 'server',
             'submenu' => [
+                ['name' => 'red-monitoreo', 'label' => 'Monitoreo de red', 'path' => '/sistema/red-monitoreo', 'permiso' => 'sistema-red-monitoreo.ver'],
+                ['name' => 'router-caida-avisos', 'label' => 'Alertas caída router', 'path' => '/sistema/router-caida-avisos', 'permiso' => 'sistema-red-monitoreo.ver'],
+                ['name' => 'isp-failover', 'label' => 'Failover ISP', 'path' => '/sistema/isp-failover', 'permiso' => 'sistema-isp-failover.ver'],
                 ['name' => 'auditoria', 'label' => 'Auditoría', 'path' => '/sistema/auditoria', 'permiso' => 'sistema-routers.ver'],
                 ['name' => 'routers', 'label' => 'Routers', 'path' => '/sistema/routers', 'permiso' => 'sistema-routers.ver'],
                 ['name' => 'router-modelos', 'label' => 'Catálogo MikroTik', 'path' => '/sistema/router-modelos', 'permiso' => 'sistema-routers.ver'],

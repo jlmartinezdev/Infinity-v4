@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\WhatsappContacto;
 use App\Models\WhatsappMensaje;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -355,10 +356,11 @@ class WhatsAppService
     /**
      * Envío de plantilla aprobada en Meta.
      *
-     * @param  list<array{type: string, text?: string, image?: array, document?: array, currency?: array, date_time?: array}>  $bodyParameters
+     * @param  list<array{type: string, text?: string, image?: array, document?: array, currency?: array, date_time?: array, parameter_name?: string}>  $bodyParameters
      * @param  array{cliente_id?: int|null, ticket_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}  $meta
      * @param  list<array{type: string, text?: string}>  $urlButtonParameters  Parámetros del botón URL (índice 0 por defecto)
      * @param  int  $urlButtonIndex  Índice del botón URL en la plantilla (0-based)
+     * @param  string|null  $cuerpoVisible  Texto legible para el panel/chat (si vacío se arma desde plantilla Meta + variables)
      */
     public function sendTemplate(
         string $to,
@@ -368,12 +370,20 @@ class WhatsAppService
         array $meta = [],
         array $urlButtonParameters = [],
         int $urlButtonIndex = 0,
+        ?string $cuerpoVisible = null,
     ): WhatsappMensaje {
         $telefono = $this->normalizePhone($to);
         $language = $language ?: (string) config('whatsapp.default_template_language', 'es');
 
+        $cuerpo = filled($cuerpoVisible)
+            ? trim((string) $cuerpoVisible)
+            : $this->renderCuerpoPlantilla($templateName, $language, $bodyParameters);
+        if ($cuerpo === '') {
+            $cuerpo = $templateName;
+        }
+
         if (! $telefono) {
-            return $this->mensajeFallidoLocal('template', $to, $templateName, $templateName, $language, 'Teléfono inválido', $meta);
+            return $this->mensajeFallidoLocal('template', $to, $cuerpo, $templateName, $language, 'Teléfono inválido', $meta);
         }
 
         $components = [];
@@ -395,7 +405,7 @@ class WhatsAppService
         $mensaje = $this->crearSalida([
             'telefono' => $telefono,
             'tipo' => 'template',
-            'cuerpo' => $templateName,
+            'cuerpo' => $cuerpo,
             'template_name' => $templateName,
             'template_language' => $language,
             'estado' => WhatsappMensaje::ESTADO_PENDIENTE,
@@ -435,6 +445,12 @@ class WhatsAppService
             return [];
         }
 
+        $cacheKey = 'whatsapp:templates:v1:'.$waba.':'.$limit;
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
+
         try {
             $version = (string) config('whatsapp.api_version', 'v25.0');
             $response = $this->http()->get("https://graph.facebook.com/{$version}/{$waba}/message_templates", [
@@ -448,18 +464,151 @@ class WhatsAppService
                     'body' => $response->body(),
                 ]);
 
-                return [];
+                return is_array($cached) ? $cached : [];
             }
 
-            return collect($response->json('data', []))
+            $list = collect($response->json('data', []))
                 ->map(fn (array $t) => $this->mapTemplateFromMeta($t))
                 ->values()
                 ->all();
+
+            if ($list !== []) {
+                Cache::put($cacheKey, $list, now()->addMinutes(10));
+            }
+
+            return $list;
         } catch (\Throwable $e) {
             Log::warning('[WhatsApp] Excepción listando plantillas: '.$e->getMessage());
 
-            return [];
+            return is_array($cached) ? $cached : [];
         }
+    }
+
+    /**
+     * Texto legible de una plantilla con variables aplicadas (para panel/chat).
+     *
+     * @param  list<array{type?: string, text?: string, parameter_name?: string}>  $bodyParameters
+     */
+    public function renderCuerpoPlantilla(string $templateName, ?string $language, array $bodyParameters = []): string
+    {
+        $templateName = trim($templateName);
+        $values = $this->valoresParametrosCuerpo($bodyParameters);
+        $bodyText = $this->textoCuerpoPlantilla($templateName, $language);
+
+        if (filled($bodyText)) {
+            return $this->aplicarVariablesPlantilla($bodyText, $values);
+        }
+
+        if ($values === []) {
+            return $templateName;
+        }
+
+        $ordered = [];
+        for ($i = 1; isset($values[(string) $i]); $i++) {
+            $ordered[] = $values[(string) $i];
+        }
+        if ($ordered === []) {
+            $ordered = array_values($values);
+        }
+
+        return $templateName."\n".implode(' · ', $ordered);
+    }
+
+    /**
+     * Cuerpo a mostrar en UI: si es plantilla antigua (cuerpo = nombre), rehidrata desde Meta + payload.
+     */
+    public function cuerpoVisibleMensaje(WhatsappMensaje $mensaje): string
+    {
+        $cuerpo = trim((string) ($mensaje->cuerpo ?? ''));
+        $tpl = trim((string) ($mensaje->template_name ?? ''));
+
+        if ($mensaje->tipo !== 'template' || $tpl === '') {
+            return $cuerpo !== '' ? $cuerpo : ($tpl !== '' ? $tpl : '—');
+        }
+
+        if ($cuerpo !== '' && strcasecmp($cuerpo, $tpl) !== 0) {
+            return $cuerpo;
+        }
+
+        $params = $this->extraerParamsPlantilla($mensaje);
+        $rendered = $this->renderCuerpoPlantilla($tpl, $mensaje->template_language, $params);
+
+        return $rendered !== '' ? $rendered : ($cuerpo !== '' ? $cuerpo : $tpl);
+    }
+
+    private function textoCuerpoPlantilla(string $templateName, ?string $language): ?string
+    {
+        if ($templateName === '') {
+            return null;
+        }
+
+        $preferido = strtolower((string) ($language ?: ''));
+        $candidatas = array_values(array_filter(
+            $this->listTemplates(100),
+            static fn (array $t) => ($t['name'] ?? '') === $templateName && filled($t['body_text'] ?? null)
+        ));
+
+        if ($candidatas === []) {
+            return null;
+        }
+
+        if ($preferido !== '') {
+            foreach ($candidatas as $t) {
+                $lang = strtolower((string) ($t['language'] ?? ''));
+                if ($lang === $preferido
+                    || str_starts_with($lang, $preferido.'_')
+                    || str_starts_with($preferido, $lang.'_')) {
+                    return (string) $t['body_text'];
+                }
+            }
+        }
+
+        return (string) ($candidatas[0]['body_text'] ?? null);
+    }
+
+    /**
+     * @param  list<array{type?: string, text?: string, parameter_name?: string}>  $bodyParameters
+     * @return array<string, string>
+     */
+    private function valoresParametrosCuerpo(array $bodyParameters): array
+    {
+        $values = [];
+        $pos = 1;
+        foreach ($bodyParameters as $p) {
+            if (! is_array($p)) {
+                continue;
+            }
+            $text = trim((string) ($p['text'] ?? ''));
+            $name = trim((string) ($p['parameter_name'] ?? ''));
+            if ($name !== '') {
+                $values[$name] = $text;
+            }
+            $values[(string) $pos] = $text;
+            $pos++;
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param  array<string, string>  $values
+     */
+    private function aplicarVariablesPlantilla(string $bodyText, array $values): string
+    {
+        $rendered = preg_replace_callback(
+            '/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/u',
+            static function (array $m) use ($values): string {
+                $key = $m[1];
+                if (array_key_exists($key, $values)) {
+                    return $values[$key];
+                }
+
+                return $m[0];
+            },
+            $bodyText
+        );
+
+        return is_string($rendered) ? $rendered : $bodyText;
     }
 
     /**
@@ -728,13 +877,20 @@ class WhatsAppService
 
         if ($original->tipo === 'template' && filled($original->template_name)) {
             $params = $this->extraerParamsPlantilla($original);
+            $cuerpoVisible = trim((string) ($original->cuerpo ?? ''));
+            if ($cuerpoVisible === '' || strcasecmp($cuerpoVisible, (string) $original->template_name) === 0) {
+                $cuerpoVisible = null;
+            }
 
             return $this->sendTemplate(
                 (string) $original->telefono,
                 (string) $original->template_name,
                 $original->template_language,
                 $params,
-                $meta
+                $meta,
+                [],
+                0,
+                $cuerpoVisible,
             );
         }
 
@@ -871,8 +1027,12 @@ class WhatsAppService
 
         $payload = is_array($mensaje->payload) ? $mensaje->payload : [];
         $local = data_get($payload, '_local');
-        if (is_array($local) && filled($local['path'] ?? null) && \Illuminate\Support\Facades\Storage::disk('local')->exists((string) $local['path'])) {
-            return $mensaje;
+        $localPath = is_array($local) ? (string) ($local['path'] ?? '') : '';
+        if ($localPath !== '' && \Illuminate\Support\Facades\Storage::disk('local')->exists($localPath)) {
+            if ($tipo !== 'image' || $this->archivoLocalEsImagen($localPath)) {
+                return $mensaje;
+            }
+            \Illuminate\Support\Facades\Storage::disk('local')->delete($localPath);
         }
 
         $mediaId = (string) data_get($payload, "{$tipo}.id", '');
@@ -884,14 +1044,25 @@ class WhatsAppService
         if (! $descarga) {
             return $mensaje;
         }
+        if ($tipo === 'image' && ! self::esImagenBinario($descarga['binario'])) {
+            Log::warning('[WhatsApp] Media descargado no es imagen', [
+                'mensaje_id' => $mensaje->id,
+                'media_id' => $mediaId,
+                'mime' => $descarga['mime'],
+                'size' => $descarga['size'],
+            ]);
+
+            return $mensaje;
+        }
 
         $ext = $this->extensionDesdeMime($descarga['mime'], $tipo);
         $relative = "whatsapp-media/{$mensaje->id}/{$mediaId}.{$ext}";
         \Illuminate\Support\Facades\Storage::disk('local')->put($relative, $descarga['binario']);
 
+        $mimeLocal = self::mimeDesdeBinario($descarga['binario'], $descarga['mime']);
         $payload['_local'] = [
             'path' => $relative,
-            'mime' => $descarga['mime'],
+            'mime' => $mimeLocal,
             'media_id' => $mediaId,
             'size' => $descarga['size'],
             'voice' => (bool) data_get($payload, 'audio.voice', false),
@@ -938,9 +1109,7 @@ class WhatsAppService
                 return null;
             }
 
-            $bin = Http::withToken((string) config('whatsapp.token'))
-                ->timeout((int) config('whatsapp.timeout', 30))
-                ->get($url);
+            $bin = $this->httpDescargarMedia($url);
 
             if (! $bin->successful()) {
                 Log::warning('[WhatsApp] Descarga de media falló', [
@@ -952,6 +1121,16 @@ class WhatsAppService
             }
 
             $body = $bin->body();
+            $mimeRespuesta = strtolower((string) ($bin->header('Content-Type') ?: $mime));
+            if ($body === '' || str_contains($mimeRespuesta, 'text/html') || str_starts_with(ltrim($body), '<')) {
+                Log::warning('[WhatsApp] Descarga de media no es binario', [
+                    'media_id' => $mediaId,
+                    'mime' => $mimeRespuesta,
+                    'size' => strlen($body),
+                ]);
+
+                return null;
+            }
 
             return [
                 'binario' => $body,
@@ -978,6 +1157,112 @@ class WhatsAppService
         }
 
         return $path;
+    }
+
+    public static function mimeDesdeBinario(string $binario, string $fallback = 'application/octet-stream'): string
+    {
+        $head = substr($binario, 0, 16);
+        if (str_starts_with($head, "\xFF\xD8\xFF")) {
+            return 'image/jpeg';
+        }
+        if (str_starts_with($head, "\x89PNG")) {
+            return 'image/png';
+        }
+        if (str_starts_with($head, 'GIF87a') || str_starts_with($head, 'GIF89a')) {
+            return 'image/gif';
+        }
+        if (strlen($binario) >= 12 && str_starts_with($head, 'RIFF') && substr($binario, 8, 4) === 'WEBP') {
+            return 'image/webp';
+        }
+
+        $fallback = strtolower(trim(explode(';', $fallback)[0]));
+
+        return $fallback !== '' ? $fallback : 'application/octet-stream';
+    }
+
+    public function mimeMediaLocal(WhatsappMensaje $mensaje, string $absolutePath): string
+    {
+        $guardado = (string) data_get($mensaje->payload, '_local.mime', '');
+        $head = '';
+        try {
+            $fh = fopen($absolutePath, 'rb');
+            if ($fh) {
+                $head = (string) fread($fh, 16);
+                fclose($fh);
+            }
+        } catch (\Throwable) {
+            $head = '';
+        }
+
+        $sniffed = $head !== '' ? self::mimeDesdeBinario($head, $guardado) : $guardado;
+
+        return $sniffed !== '' ? $sniffed : 'application/octet-stream';
+    }
+
+    public static function esImagenBinario(string $binario): bool
+    {
+        return str_starts_with(self::mimeDesdeBinario($binario, ''), 'image/');
+    }
+
+    private function archivoLocalEsImagen(string $relative): bool
+    {
+        try {
+            $abs = \Illuminate\Support\Facades\Storage::disk('local')->path($relative);
+            if (! is_file($abs) || filesize($abs) < 24) {
+                return false;
+            }
+            $fh = fopen($abs, 'rb');
+            if (! $fh) {
+                return false;
+            }
+            $head = (string) fread($fh, 16);
+            fclose($fh);
+
+            return self::esImagenBinario($head);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Guzzle quita Authorization en redirects cross-host (lookaside.fbsbx.com).
+     * Hay que seguir Location a mano conservando el Bearer.
+     */
+    private function httpDescargarMedia(string $url): Response
+    {
+        $token = (string) config('whatsapp.token');
+        $timeout = max(30, (int) config('whatsapp.timeout', 30));
+        $headers = [
+            'Authorization' => 'Bearer '.$token,
+            'User-Agent' => 'Infinity-WhatsApp/1.0',
+        ];
+        $options = ['allow_redirects' => false];
+
+        $response = Http::withHeaders($headers)
+            ->timeout($timeout)
+            ->withOptions($options)
+            ->get($url);
+
+        $hops = 0;
+        while ($hops < 5 && in_array($response->status(), [301, 302, 303, 307, 308], true)) {
+            $hops++;
+            $loc = trim((string) $response->header('Location'));
+            if ($loc === '') {
+                break;
+            }
+            if (! str_starts_with($loc, 'http://') && ! str_starts_with($loc, 'https://')) {
+                $parts = parse_url($url);
+                $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+                $loc = str_starts_with($loc, '/') ? $origin.$loc : rtrim($origin, '/').'/'.$loc;
+            }
+            $url = $loc;
+            $response = Http::withHeaders($headers)
+                ->timeout($timeout)
+                ->withOptions($options)
+                ->get($url);
+        }
+
+        return $response;
     }
 
     private function extensionDesdeMime(string $mime, string $tipo): string

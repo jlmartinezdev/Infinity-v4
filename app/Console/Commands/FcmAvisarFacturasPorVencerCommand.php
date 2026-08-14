@@ -59,6 +59,10 @@ class FcmAvisarFacturasPorVencerCommand extends Command
             [[$candidatas, $dry ? 0 : $enviadas, $omitidas, $dias]]
         );
 
+        if (! $dry) {
+            \App\Support\ScheduleOnceAfter::markDone('fcm-facturas');
+        }
+
         return self::SUCCESS;
     }
 }

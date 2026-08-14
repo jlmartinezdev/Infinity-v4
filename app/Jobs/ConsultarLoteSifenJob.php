@@ -57,7 +57,19 @@ class ConsultarLoteSifenJob implements ShouldBeUnique, ShouldQueue
         } catch (\Throwable $e) {
             $factura->refresh();
             // Si sigue pendiente, no marcar rechazo: DNIT aún puede estar procesando.
-            if (! $factura->lotePendienteSifen() && $factura->set_estado_envio !== 'rechazado') {
+            if ($factura->set_estado_envio === 'rechazado') {
+                // Asegurar que el código/mensaje queden visibles en la UI si no hay XML útil.
+                $resumen = $factura->respuestaSifenResumen();
+                if (! $resumen || blank($resumen['codigo'] ?? null)) {
+                    $factura->update([
+                        'set_xml_respuesta' => mb_substr($e->getMessage(), 0, 65000),
+                    ]);
+                }
+                Log::warning('[SIFEN job] Consulta de lote: documento rechazado', [
+                    'factura_id' => $this->facturaId,
+                    'error' => $e->getMessage(),
+                ]);
+            } elseif (! $factura->lotePendienteSifen()) {
                 Log::warning('[SIFEN job] Consulta de lote con error', [
                     'factura_id' => $this->facturaId,
                     'error' => $e->getMessage(),

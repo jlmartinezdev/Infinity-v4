@@ -134,6 +134,11 @@ class Servicio extends Model
         return $this->belongsTo(Plan::class, 'plan_id', 'plan_id');
     }
 
+    public function tvCuentaAsignaciones(): HasMany
+    {
+        return $this->hasMany(TvCuentaAsignacion::class, 'servicio_id', 'servicio_id');
+    }
+
     public function pedido(): BelongsTo
     {
         return $this->belongsTo(Pedido::class, 'pedido_id', 'pedido_id');

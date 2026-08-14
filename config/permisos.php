@@ -51,6 +51,16 @@ return [
             'servicios-hotspot-usuarios.crear',
             'servicios-hotspot-perfiles.crear',
         ],
+        'servicios.editar' => [
+            'servicios-lista.editar',
+            'servicios-lista.crear',
+            'servicios-hotspot.editar',
+            'servicios-hotspot.crear',
+            'servicios-hotspot-usuarios.editar',
+            'servicios-hotspot-usuarios.crear',
+            'servicios-hotspot-perfiles.editar',
+            'servicios-hotspot-perfiles.crear',
+        ],
         'servicios.eliminar' => [
             'servicios-lista.eliminar',
             'servicios-hotspot.eliminar',
@@ -110,6 +120,7 @@ return [
             'ftth-olts.ver', 'ftth-marcas-olt.ver', 'ftth-cajas-nap.ver', 'ftth-mapa-optico.ver',
             'ftth-salidas-pon.ver', 'ftth-lineas-cable.ver',
             'sistema-routers.ver', 'sistema-pools-ip.ver', 'sistema-mikrotik-pendientes.ver',
+            'sistema-red-monitoreo.ver', 'sistema-isp-failover.ver',
         ],
         'sistema.editar' => [
             'ftth-olts.crear', 'ftth-olts.editar', 'ftth-olts.eliminar',
@@ -121,6 +132,7 @@ return [
             'sistema-routers.crear', 'sistema-routers.editar', 'sistema-routers.eliminar',
             'sistema-pools-ip.crear', 'sistema-pools-ip.editar', 'sistema-pools-ip.eliminar',
             'sistema-mikrotik-pendientes.crear', 'sistema-mikrotik-pendientes.editar', 'sistema-mikrotik-pendientes.eliminar',
+            'sistema-isp-failover.editar',
         ],
         'usuarios.permisos' => ['usuarios-permisos.editar'],
     ],
@@ -176,11 +188,13 @@ return [
             'ftth-olts.ver', 'ftth-marcas-olt.ver', 'ftth-cajas-nap.ver', 'ftth-mapa-optico.ver',
             'ftth-salidas-pon.ver', 'ftth-lineas-cable.ver',
             'sistema-routers.ver', 'sistema-pools-ip.ver', 'sistema-mikrotik-pendientes.ver',
+            'sistema-red-monitoreo.ver', 'sistema-isp-failover.ver',
         ],
         'sistema.editar' => [
             'ftth-olts.editar', 'ftth-marcas-olt.editar', 'ftth-cajas-nap.editar', 'ftth-mapa-optico.editar',
             'ftth-salidas-pon.editar', 'ftth-lineas-cable.editar',
             'sistema-routers.editar', 'sistema-pools-ip.editar', 'sistema-mikrotik-pendientes.editar',
+            'sistema-isp-failover.editar',
         ],
         'clientes.ver' => ['clientes-dashboard.ver', 'clientes-lista.ver'],
         'pedidos.ver' => ['clientes-pedidos.ver', 'clientes-mapa-pedidos.ver'],
@@ -189,6 +203,7 @@ return [
         'agenda.ver' => ['clientes-agenda.ver'],
         'servicios.ver' => ['servicios-lista.ver', 'servicios-hotspot.ver', 'servicios-hotspot-usuarios.ver', 'servicios-hotspot-perfiles.ver'],
         'servicios.crear' => ['servicios-lista.crear'],
+        'servicios.editar' => ['servicios-lista.editar', 'servicios-lista.crear'],
         'cobros.ver' => ['cobros.ver', 'cobros-servicios.ver'],
         'cobros.crear' => ['cobros.crear', 'cobros-servicios.crear'],
         'pagos-pendientes.ver' => ['pagos-pendientes.ver', 'promesas-pago.ver'],
@@ -295,6 +310,8 @@ return [
         [
             'label' => 'Sistema',
             'items' => [
+                ['label' => 'Monitoreo de red', 'base' => 'sistema-red-monitoreo', 'acciones' => ['ver']],
+                ['label' => 'Failover ISP', 'base' => 'sistema-isp-failover', 'acciones' => ['ver', 'editar']],
                 ['label' => 'Routers', 'base' => 'sistema-routers', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Pools de IP', 'base' => 'sistema-pools-ip', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'MikroTik pendientes', 'base' => 'sistema-mikrotik-pendientes', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],

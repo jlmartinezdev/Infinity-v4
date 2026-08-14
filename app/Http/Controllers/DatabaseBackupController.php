@@ -21,8 +21,27 @@ class DatabaseBackupController extends Controller
         $supported = $this->backupService->isSupported();
         $driveReady = $this->driveUploader->isConfigured();
         $driveFolderId = (string) config('backup.drive.folder_id', '');
+        $hora = \App\Support\BackupScheduleConfig::hora();
+        $schedule = [
+            'worker' => \App\Support\ScheduleOnceAfter::workerActivo(),
+            'latido' => \App\Support\ScheduleOnceAfter::ultimoLatido(),
+            'backup_ok_hoy' => \App\Support\ScheduleOnceAfter::doneToday('backup-drive'),
+            'hora' => $hora,
+        ];
 
-        return view('configuracion.backup', compact('info', 'supported', 'driveReady', 'driveFolderId'));
+        return view('configuracion.backup', compact('info', 'supported', 'driveReady', 'driveFolderId', 'schedule', 'hora'));
+    }
+
+    public function updateHora(\Illuminate\Http\Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'hora' => ['required', 'date_format:H:i'],
+        ]);
+        \App\Support\BackupScheduleConfig::guardarHora($validated['hora']);
+
+        return redirect()
+            ->route('configuracion.backup')
+            ->with('success', 'Hora de backup automático guardada ('.$validated['hora'].').');
     }
 
     public function download(): StreamedResponse|BinaryFileResponse|RedirectResponse

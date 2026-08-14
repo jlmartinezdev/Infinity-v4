@@ -71,15 +71,15 @@
 
                 <div class="cliente-wa-row {{ ($msg['entrada'] ?? false) ? 'cliente-wa-row--in' : 'cliente-wa-row--out' }}">
                     <div class="cliente-wa-bubble {{ ($msg['entrada'] ?? false) ? 'cliente-wa-bubble--in' : 'cliente-wa-bubble--out' }} {{ ! empty($msg['fallido']) ? 'cliente-wa-bubble--fail' : '' }}">
-                        @if (! empty($msg['tipo_label']))
+                        @if (! empty($msg['tipo_label']) && empty($msg['media_es_imagen']))
                             <div class="cliente-wa-bubble__meta">{{ $msg['tipo_label'] }}</div>
                         @endif
                         @if (! empty($msg['media_es_imagen']) && ! empty($msg['media_url']))
                             <button type="button" class="cliente-wa-bubble__img-btn" data-cliente-wa-img="{{ e($msg['media_url']) }}" title="Ver imagen">
-                                <img src="{{ $msg['media_url'] }}" alt="Imagen" class="cliente-wa-bubble__img" loading="lazy">
+                                <img src="{{ e($msg['media_url']) }}" alt="Imagen" class="cliente-wa-bubble__img">
                             </button>
                         @elseif (! empty($msg['media_url']))
-                            <a href="{{ $msg['media_url'] }}" target="_blank" rel="noopener noreferrer" class="cliente-wa-bubble__link">Ver adjunto</a>
+                            <a href="{{ $msg['media_url'] }}" target="_blank" rel="noopener noreferrer" class="cliente-wa-bubble__link" data-cliente-wa-doc="{{ e($msg['media_url']) }}">Ver adjunto</a>
                         @endif
                         @if (! empty($msg['maps_url']))
                             <a href="{{ $msg['maps_url'] }}" target="_blank" rel="noopener noreferrer" class="cliente-wa-bubble__link">{{ $msg['maps_label'] ?? 'Ver mapa' }}</a>
@@ -187,6 +187,10 @@
 
     var lightbox = document.querySelector('[data-cliente-wa-lightbox]');
     var lightboxImg = lightbox ? lightbox.querySelector('[data-cliente-wa-lightbox-img]') : null;
+    function csrf() {
+        var m = document.querySelector('meta[name="csrf-token"]');
+        return m ? m.getAttribute('content') : '';
+    }
     function cerrarLightbox() {
         if (!lightbox) return;
         lightbox.hidden = true;
@@ -201,7 +205,8 @@
         var btn = e.target.closest('[data-cliente-wa-img]');
         if (!btn || !root.contains(btn)) return;
         e.preventDefault();
-        abrirLightbox(btn.getAttribute('data-cliente-wa-img'));
+        var url = btn.getAttribute('data-cliente-wa-img');
+        abrirLightbox(url);
     });
     if (lightbox) {
         lightbox.addEventListener('click', function (e) {
@@ -223,11 +228,6 @@
     var telefono = root.getAttribute('data-telefono') || '';
     var enviarUrl = root.getAttribute('data-enviar-url') || '';
     var enviando = false;
-
-    function csrf() {
-        var m = document.querySelector('meta[name="csrf-token"]');
-        return m ? m.getAttribute('content') : '';
-    }
 
     function showError(msg) {
         if (!errEl) return;
@@ -260,7 +260,7 @@
         var mediaHtml = '';
         if (msg.tipo === 'image' && msg.media_url) {
             mediaHtml = '<button type="button" class="cliente-wa-bubble__img-btn" data-cliente-wa-img="' + escapeHtml(msg.media_url) + '" title="Ver imagen">' +
-                '<img src="' + escapeHtml(msg.media_url) + '" alt="Imagen" class="cliente-wa-bubble__img" loading="lazy"></button>';
+                '<img src="' + escapeHtml(msg.media_url) + '" alt="Imagen" class="cliente-wa-bubble__img"></button>';
             if (cuerpo === 'Imagen') cuerpo = '';
         } else if (msg.media_url && msg.tipo !== 'text') {
             mediaHtml = '<a href="' + escapeHtml(msg.media_url) + '" target="_blank" rel="noopener" class="cliente-wa-bubble__link">Ver ' + escapeHtml(msg.tipo || 'adjunto') + '</a>';

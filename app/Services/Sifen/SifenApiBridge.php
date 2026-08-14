@@ -231,7 +231,18 @@ class SifenApiBridge
             $sifen = is_array($respuesta['sifen'] ?? null) ? $respuesta['sifen'] : ($data['sifen'] ?? []);
             $codigo = is_array($sifen) ? ($sifen['codigo'] ?? '?') : '?';
             $mensaje = is_array($sifen) ? ($sifen['mensaje'] ?? ($respuesta['message'] ?? 'Sin autorización')) : 'Sin autorización';
-            throw new RuntimeException('SIFEN no autorizó el DE: ['.$codigo.'] '.$mensaje);
+            $textoError = 'SIFEN no autorizó el DE: ['.$codigo.'] '.$mensaje;
+            if ($factura->set_estado_envio !== 'rechazado') {
+                $factura->update([
+                    'set_estado_envio' => 'rechazado',
+                    'set_xml_respuesta' => $factura->set_xml_respuesta ?: mb_substr($textoError, 0, 65000),
+                ]);
+            } elseif (blank($factura->set_xml_respuesta)) {
+                $factura->update([
+                    'set_xml_respuesta' => mb_substr($textoError, 0, 65000),
+                ]);
+            }
+            throw new RuntimeException($textoError);
         }
 
         $this->descargarArchivosLocales($factura, (int) $factura->sifen_api_documento_id);

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\DatabaseBackupService;
 use App\Services\GoogleDriveUploader;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class BackupDriveCommand extends Command
 {
@@ -31,6 +32,11 @@ class BackupDriveCommand extends Command
         try {
             $result = $backupService->subirADrive();
             $this->info("OK: {$result['filename']} (id {$result['drive_id']})");
+            Log::info('[backup:drive] OK', [
+                'filename' => $result['filename'],
+                'drive_id' => $result['drive_id'],
+            ]);
+            \App\Support\ScheduleOnceAfter::markDone('backup-drive');
             if ($result['pruned'] > 0) {
                 $this->comment("Eliminados {$result['pruned']} backup(s) antiguos.");
             }
@@ -40,6 +46,7 @@ class BackupDriveCommand extends Command
 
             return self::SUCCESS;
         } catch (\Throwable $e) {
+            Log::error('[backup:drive] '.$e->getMessage(), ['exception' => $e]);
             $this->error($e->getMessage());
 
             return self::FAILURE;

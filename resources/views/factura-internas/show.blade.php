@@ -20,6 +20,33 @@
             @if(!$factura_interna->esta_pagada && auth()->user()?->tienePermiso('cobros.crear'))
                 <a href="{{ route('cobros.create', ['cliente_id' => $factura_interna->cliente_id, 'factura_interna_id' => $factura_interna->id]) }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">Registrar cobro</a>
             @endif
+            @if(
+                !$factura_interna->esta_pagada
+                && $factura_interna->saldo_pendiente > 0
+                && ($saldoAFavorCliente ?? 0) > 0
+                && in_array($factura_interna->estado, ['pendiente', 'emitida'], true)
+                && auth()->user()?->tienePermiso('cobros.crear')
+            )
+                @php
+                    $montoAplicable = min((float) $saldoAFavorCliente, (float) $factura_interna->saldo_pendiente);
+                @endphp
+                <form method="POST" action="{{ route('factura-internas.aplicar-saldo', $factura_interna) }}" class="inline"
+                    onsubmit="return confirm('¿Aplicar {{ number_format($montoAplicable, 0, ',', '.') }} {{ $factura_interna->moneda }} de saldo a favor a esta factura?\n\nSaldo a favor del cliente: {{ number_format((float) $saldoAFavorCliente, 0, ',', '.') }}\nSaldo pendiente factura: {{ number_format((float) $factura_interna->saldo_pendiente, 0, ',', '.') }}');">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700" title="Usar crédito del cliente contra el saldo pendiente">
+                        Aplicar saldo a favor
+                        <span class="ml-1.5 text-emerald-100 text-xs font-normal">({{ number_format($montoAplicable, 0, ',', '.') }})</span>
+                    </button>
+                </form>
+            @endif
+            @if(!$factura_interna->esta_pagada && ($tpagoDisponible ?? false) && auth()->user()?->tienePermiso('cobros.crear'))
+                <form method="POST" action="{{ route('factura-internas.tpago-link', $factura_interna) }}" class="inline">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+                        {{ $tpagoLink ? 'Reusar / ver link TPago' : 'Generar link TPago' }}
+                    </button>
+                </form>
+            @endif
             @if($factura_interna->saldo_pendiente > 0 && in_array($factura_interna->estado, ['pendiente', 'emitida'], true) && auth()->user()?->tienePermiso('factura-interna.crear'))
                 <button type="button" id="btn-nota-credito" class="inline-flex items-center px-4 py-2 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700">Nota de crédito</button>
             @endif
@@ -120,6 +147,44 @@
                         <p class="text-sm {{ $factura_interna->esta_pagada ? 'text-green-700' : 'text-amber-700' }}">Saldo: <span class="font-medium">{{ number_format($factura_interna->saldo_pendiente, 0, ',', '.') }} {{ $factura_interna->moneda }}</span> @if($factura_interna->esta_pagada) <span class="text-green-600">(Pagada)</span> @endif</p>
                     </div>
                 </div>
+                @php
+                    $tpagoUrlFlash = session('tpago_link_url');
+                    $tpagoUrlShow = $tpagoUrlFlash ?: ($tpagoLink?->link_url);
+                @endphp
+                @if($tpagoUrlShow)
+                    <div class="mt-6 pt-6 border-t border-gray-100">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Link de pago TPago</p>
+                        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <input type="text" readonly value="{{ $tpagoUrlShow }}"
+                                   class="flex-1 text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 font-mono"
+                                   id="tpago-link-url"
+                                   onclick="this.select()">
+                            <a href="{{ $tpagoUrlShow }}" target="_blank" rel="noopener"
+                               class="inline-flex justify-center px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100">Abrir</a>
+                        </div>
+                        @if($tpagoLink)
+                            <p class="text-xs text-gray-500 mt-1">
+                                Alias: {{ $tpagoLink->link_alias }}
+                                · {{ number_format($tpagoLink->amount, 0, ',', '.') }} Gs
+                                @if($tpagoLink->expires_at)
+                                    · vence {{ $tpagoLink->expires_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}
+                                @endif
+                                · <a href="{{ route('tpago.links.show', $tpagoLink) }}" class="text-indigo-600 hover:underline">detalle</a>
+                            </p>
+                        @endif
+                        @if(auth()->user()?->tienePermiso('cobros.ver'))
+                            <p class="text-xs mt-2">
+                                <a href="{{ route('tpago.links.index', ['factura_interna_id' => $factura_interna->id]) }}"
+                                   class="text-indigo-600 hover:underline">Ver todos los links TPago de esta factura</a>
+                            </p>
+                        @endif
+                    </div>
+                @elseif(auth()->user()?->tienePermiso('cobros.ver') && !$factura_interna->esta_pagada)
+                    <div class="mt-6 pt-6 border-t border-gray-100">
+                        <a href="{{ route('tpago.links.index', ['factura_interna_id' => $factura_interna->id]) }}"
+                           class="text-sm text-indigo-600 hover:underline">Ver links TPago de esta factura</a>
+                    </div>
+                @endif
                 @if($factura_interna->notasCredito->isNotEmpty())
                     <div class="mt-6 pt-6 border-t border-gray-100">
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-2">

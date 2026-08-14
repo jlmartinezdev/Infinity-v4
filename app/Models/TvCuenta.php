@@ -71,6 +71,16 @@ class TvCuenta extends Model
     }
 
     /** @return array<string, string> */
+    public static function estadosPago(): array
+    {
+        return [
+            'vencido' => 'Vencido',
+            'por_vencer' => 'Por vencer',
+            'ok' => 'Al día',
+        ];
+    }
+
+    /** @return array<string, string> */
     public static function aplicaciones(): array
     {
         return [

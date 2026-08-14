@@ -17,6 +17,10 @@
         </div>
         @if(! $esClientes)
             <div class="flex flex-wrap gap-2">
+                <a href="{{ route('liquidacion.create') }}"
+                   class="inline-flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600">
+                    Liquidación de sueldo
+                </a>
                 <a href="{{ route('usuarios.sesiones') }}"
                    class="inline-flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600">
                     Sesiones activas

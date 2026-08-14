@@ -13,6 +13,7 @@ use App\Models\Impuesto;
 use App\Models\Nodo;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
+use App\Services\Tpago\TpagoPaymentLinkService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -930,12 +931,91 @@ class FacturaInternaController extends Controller
         $query->orderBy('factura_internas.id', 'asc');
     }
 
-    public function show(FacturaInterna $factura_interna)
+    public function show(FacturaInterna $factura_interna, TpagoPaymentLinkService $tpagoLinks)
     {
         $factura_interna->load(['cliente', 'detalles.impuesto', 'usuario', 'cobros', 'notasCredito.usuario']);
         $ajustes = AjustesGenerales::obtener();
+        $tpagoLink = $tpagoLinks->ultimoLinkActivo($factura_interna);
+        $tpagoDisponible = $tpagoLinks->disponible();
 
-        return view('factura-internas.show', compact('factura_interna', 'ajustes'));
+        $saldoAFavorCliente = 0.0;
+        if ($factura_interna->cliente_id) {
+            $saldoAFavorCliente = round((float) Servicio::query()
+                ->where('cliente_id', $factura_interna->cliente_id)
+                ->sum('saldo_a_favor'), 2);
+        }
+
+        return view('factura-internas.show', compact(
+            'factura_interna',
+            'ajustes',
+            'tpagoLink',
+            'tpagoDisponible',
+            'saldoAFavorCliente'
+        ));
+    }
+
+    /**
+     * Aplica saldo a favor del cliente al saldo pendiente de la factura.
+     */
+    public function aplicarSaldoAFavor(
+        Request $request,
+        FacturaInterna $factura_interna,
+        FacturacionService $facturacionService
+    ) {
+        try {
+            $resultado = $facturacionService->aplicarSaldoAFavorAFacturaPendiente($factura_interna);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()
+                ->route('factura-internas.show', $factura_interna)
+                ->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            return redirect()
+                ->route('factura-internas.show', $factura_interna)
+                ->with('error', 'No se pudo aplicar el saldo a favor: '.$e->getMessage());
+        }
+
+        $msg = 'Se aplicaron '.number_format($resultado['monto_aplicado'], 0, ',', '.')
+            .' '.$factura_interna->moneda.' de saldo a favor a la factura.';
+        if ($resultado['pagada']) {
+            $msg .= ' La factura quedó pagada.';
+        } else {
+            $msg .= ' Saldo pendiente: '.number_format($resultado['saldo_pendiente'], 0, ',', '.')
+                .' '.$factura_interna->moneda.'.';
+        }
+        if (! empty($resultado['avisos'])) {
+            $msg .= ' '.implode(' ', $resultado['avisos']);
+        }
+
+        return redirect()
+            ->route('factura-internas.show', $factura_interna)
+            ->with('success', $msg);
+    }
+
+    /**
+     * Genera (o reusa) un link de pago TPago para el saldo de la factura.
+     */
+    public function generarLinkTpago(
+        Request $request,
+        FacturaInterna $factura_interna,
+        TpagoPaymentLinkService $tpagoLinks
+    ) {
+        try {
+            $result = $tpagoLinks->paraFactura(
+                $factura_interna,
+                $request->boolean('force_new')
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? 'No se pudo generar el link.';
+
+            return back()->with('error', (string) $msg);
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $url = $result['checkout_url'];
+        $msg = ($result['reused'] ? 'Link TPago reutilizado: ' : 'Link TPago generado: ').$url;
+
+        return back()->with('success', $msg)->with('tpago_link_url', $url);
     }
 
     /**

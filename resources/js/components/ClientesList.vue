@@ -140,23 +140,6 @@
         </td>
         <td class="px-4 py-3">
           <div class="flex items-center justify-end gap-1">
-            <button
-              v-if="puedeConsultarRuc(c)"
-              type="button"
-              class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50 disabled:opacity-50"
-              :disabled="consultaRucLoadingId === c.cliente_id"
-              title="Consultar RUC"
-              @click.stop="consultarRucCliente(c)"
-            >
-              <svg v-if="consultaRucLoadingId !== c.cliente_id" class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <svg v-else class="w-3.5 h-3.5 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {{ consultaRucLoadingId === c.cliente_id ? 'Consultando…' : 'Consultar RUC' }}
-            </button>
             <div
               class="relative"
               :data-menu-acciones="c.cliente_id"
@@ -170,7 +153,7 @@
                 aria-label="Acciones del cliente"
                 aria-haspopup="true"
                 :aria-expanded="menuAccionesAbiertoId === c.cliente_id"
-                @click.stop="toggleMenuAcciones(c.cliente_id)"
+                @click.stop="toggleMenuAcciones(c.cliente_id, $event)"
               >
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="5" r="1.75" />
@@ -178,83 +161,6 @@
                   <circle cx="12" cy="19" r="1.75" />
                 </svg>
               </button>
-              <div
-                v-show="menuAccionesAbiertoId === c.cliente_id"
-                class="absolute right-0 top-full mt-1 z-30 min-w-[12.5rem] py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/5 dark:ring-white/10"
-                role="menu"
-              >
-                <a
-                  v-if="urlAccionesCliente"
-                  :href="urlAccionesCliente(c.cliente_id)"
-                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
-                  role="menuitem"
-                  @click="cerrarMenuAcciones"
-                >
-                  <svg class="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                  Acciones del cliente
-                </a>
-                <a
-                  v-if="urlDetalleCliente"
-                  :href="urlDetalleCliente(c.cliente_id)"
-                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
-                  role="menuitem"
-                  @click="cerrarMenuAcciones"
-                >
-                  <svg class="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  Ver detalle
-                </a>
-                <button
-                  v-if="puedeEditar"
-                  type="button"
-                  class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
-                  role="menuitem"
-                  @click="accionBuscarTemp(c)"
-                >
-                  <svg class="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Buscar en temp
-                </button>
-                <a
-                  v-if="urlCreateServicioBase && (!c.servicios || c.servicios.length === 0)"
-                  :href="urlCreateServicio(c.cliente_id)"
-                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
-                  role="menuitem"
-                  @click="cerrarMenuAcciones"
-                >
-                  <svg class="w-4 h-4 shrink-0 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Crear servicio
-                </a>
-                <a
-                  :href="urlEditCliente(c.cliente_id)"
-                  class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
-                  role="menuitem"
-                  @click="cerrarMenuAcciones"
-                >
-                  <svg class="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Editar
-                </a>
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-gray-200 dark:border-gray-600 mt-1 pt-2.5"
-                  role="menuitem"
-                  @click="eliminarCliente(c)"
-                >
-                  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Eliminar
-                </button>
-              </div>
             </div>
             <button
               v-if="c.servicios && c.servicios.length > 0"
@@ -419,7 +325,8 @@
         <div class="p-4 overflow-y-auto flex-1 space-y-3">
           <p v-if="modalRucCliente" class="text-sm text-gray-600 dark:text-gray-400">
             Cliente: <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalRucCliente.nombre }} {{ modalRucCliente.apellido }}</span><br>
-            Documento consultado: <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalRucTermino || '—' }}</span>
+            Documento actual: <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalRucCliente.cedula || '—' }}</span><br>
+            Consulta: <span class="font-medium text-gray-900 dark:text-gray-100">{{ modalRucTermino || '—' }}</span>
           </p>
           <p v-if="modalRucLoading" class="text-sm text-gray-600 dark:text-gray-400">Consultando...</p>
           <template v-else>
@@ -429,35 +336,206 @@
               No se encontró RUC registrado para este documento.
             </p>
             <div v-if="!modalRucError && modalRucResultados.length > 0" class="space-y-3">
-              <div
+              <label
                 v-for="(r, idx) in modalRucResultados"
                 :key="idx"
-                class="p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40"
+                class="block p-3 rounded-lg border transition-colors"
+                :class="r.aplicable
+                  ? (modalRucSeleccionado === idx
+                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 cursor-pointer'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 cursor-pointer hover:border-purple-300')
+                  : 'border-gray-200 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-900/40 opacity-80'"
               >
-                <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ r.ruc || '—' }}</div>
-                <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">{{ r.razon_social || '—' }}</div>
-                <div v-if="r.estado" class="mt-2">
-                  <span
-                    class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
-                    :class="r.estado === 'ACTIVO' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'"
+                <div class="flex items-start gap-2">
+                  <input
+                    v-if="r.aplicable"
+                    type="radio"
+                    class="mt-1 text-purple-600"
+                    :value="idx"
+                    v-model="modalRucSeleccionado"
+                    name="ruc-resultado"
                   >
-                    {{ r.estado }}
-                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ r.ruc || '—' }}</div>
+                    <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">{{ r.razon_social || '—' }}</div>
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                      <span
+                        v-if="r.estado"
+                        class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
+                        :class="estadoRucPillClass(r)"
+                      >
+                        {{ r.estado }}
+                      </span>
+                      <span
+                        v-if="!r.coincide_documento"
+                        class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+                      >
+                        No coincide
+                      </span>
+                      <span
+                        v-if="r.cancelado"
+                        class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+                      >
+                        Cancelado
+                      </span>
+                    </div>
+                    <p v-if="r.motivo_bloqueo" class="mt-2 text-xs text-amber-700 dark:text-amber-300">{{ r.motivo_bloqueo }}</p>
+                  </div>
                 </div>
+              </label>
+
+              <div v-if="resultadoRucSeleccionado" class="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/20 p-3 space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-300">Confirmar cambios</p>
+                <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+                  <input type="checkbox" v-model="modalRucActualizarDoc" class="mt-0.5 text-purple-600">
+                  <span>
+                    Actualizar documento:
+                    <span class="font-mono">{{ modalRucCliente?.cedula || '—' }}</span>
+                    →
+                    <span class="font-mono font-semibold">{{ resultadoRucSeleccionado.ruc }}</span>
+                  </span>
+                </label>
+                <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+                  <input type="checkbox" v-model="modalRucActualizarNombre" class="mt-0.5 text-purple-600">
+                  <span>
+                    Actualizar nombre:
+                    <span>{{ modalRucCliente?.nombre || '—' }} {{ modalRucCliente?.apellido || '' }}</span>
+                    →
+                    <span class="font-semibold">{{ resultadoRucSeleccionado.nombre_preview || '—' }} {{ resultadoRucSeleccionado.apellido_preview || '' }}</span>
+                  </span>
+                </label>
               </div>
             </div>
           </template>
         </div>
-        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-          <button type="button" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700" @click="cerrarModalRuc">Cerrar</button>
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap justify-end gap-2">
+          <button type="button" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" @click="cerrarModalRuc">
+            Cerrar
+          </button>
+          <button
+            v-if="!modalRucLoading && !modalRucError && resultadoRucSeleccionado"
+            type="button"
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+            :disabled="modalRucAplicando || (!modalRucActualizarDoc && !modalRucActualizarNombre)"
+            @click="aplicarConsultaRucSeleccionada"
+          >
+            {{ modalRucAplicando ? 'Aplicando...' : 'Confirmar y aplicar' }}
+          </button>
         </div>
       </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="clienteMenuAcciones"
+      data-menu-acciones-panel
+      class="fixed z-[80] min-w-[12.5rem] py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/5 dark:ring-white/10"
+      :style="menuAccionesStyle"
+      role="menu"
+      @click.stop
+    >
+      <a
+        v-if="urlAccionesCliente"
+        :href="urlAccionesCliente(clienteMenuAcciones.cliente_id)"
+        class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+        role="menuitem"
+        @click="cerrarMenuAcciones"
+      >
+        <svg class="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+        Acciones del cliente
+      </a>
+      <a
+        v-if="urlDetalleCliente"
+        :href="urlDetalleCliente(clienteMenuAcciones.cliente_id)"
+        class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+        role="menuitem"
+        @click="cerrarMenuAcciones"
+      >
+        <svg class="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        Ver detalle
+      </a>
+      <button
+        v-if="puedeEditar"
+        type="button"
+        class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+        role="menuitem"
+        @click="accionBuscarTemp(clienteMenuAcciones)"
+      >
+        <svg class="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        Buscar en temp
+      </button>
+      <button
+        v-if="puedeConsultarRuc(clienteMenuAcciones)"
+        type="button"
+        class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80 disabled:opacity-50"
+        role="menuitem"
+        :disabled="consultaRucLoadingId === clienteMenuAcciones.cliente_id"
+        @click="accionConsultarRuc(clienteMenuAcciones)"
+      >
+        <svg
+          v-if="consultaRucLoadingId !== clienteMenuAcciones.cliente_id"
+          class="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <svg v-else class="w-4 h-4 shrink-0 animate-spin text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        {{ consultaRucLoadingId === clienteMenuAcciones.cliente_id ? 'Consultando RUC…' : 'Consultar RUC' }}
+      </button>
+      <a
+        v-if="urlCreateServicioBase && (!clienteMenuAcciones.servicios || clienteMenuAcciones.servicios.length === 0)"
+        :href="urlCreateServicio(clienteMenuAcciones.cliente_id)"
+        class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+        role="menuitem"
+        @click="cerrarMenuAcciones"
+      >
+        <svg class="w-4 h-4 shrink-0 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Crear servicio
+      </a>
+      <a
+        :href="urlEditCliente(clienteMenuAcciones.cliente_id)"
+        class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+        role="menuitem"
+        @click="cerrarMenuAcciones"
+      >
+        <svg class="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Editar
+      </a>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-gray-200 dark:border-gray-600 mt-1 pt-2.5"
+        role="menuitem"
+        @click="eliminarCliente(clienteMenuAcciones)"
+      >
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Eliminar
+      </button>
     </div>
   </Teleport>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   clientes: { type: Array, default: () => [] },
@@ -470,6 +548,7 @@ const props = defineProps({
   urlCreateServicioBase: { type: String, default: '' },
   urlBuscarTemp: { type: String, default: '' },
   urlConsultarRucBase: { type: String, default: '' },
+  urlAplicarConsultaRucBase: { type: String, default: '' },
   urlActualizarDesdeTempBase: { type: String, default: '' },
   urlDetalleClienteBase: { type: String, default: '' },
   urlAccionesClienteBase: { type: String, default: '' },
@@ -507,11 +586,21 @@ const modalTempCliente = ref(null);
 const modalTempBuscar = ref('');
 const modalRucVisible = ref(false);
 const modalRucLoading = ref(false);
+const modalRucAplicando = ref(false);
 const modalRucResultados = ref([]);
 const modalRucError = ref('');
 const modalRucCliente = ref(null);
 const modalRucTermino = ref('');
 const modalRucMensaje = ref('');
+const modalRucSeleccionado = ref(null);
+const modalRucActualizarDoc = ref(true);
+const modalRucActualizarNombre = ref(true);
+
+const resultadoRucSeleccionado = computed(() => {
+  if (modalRucSeleccionado.value === null || modalRucSeleccionado.value === undefined) return null;
+  const row = modalRucResultados.value[modalRucSeleccionado.value];
+  return row && row.aplicable ? row : null;
+});
 
 const mostrarSubir = ref(false);
 const UMBRAL_SCROLL_SUBIR = 320;
@@ -525,9 +614,44 @@ function subirArriba() {
 }
 const consultaRucLoadingId = ref(null);
 const menuAccionesAbiertoId = ref(null);
+const menuAccionesPos = ref({ top: 0, left: 0, openUp: false });
 
-function toggleMenuAcciones(clienteId) {
-  menuAccionesAbiertoId.value = menuAccionesAbiertoId.value === clienteId ? null : clienteId;
+const clienteMenuAcciones = computed(() => {
+  if (menuAccionesAbiertoId.value == null) return null;
+  return listaClientes.value.find((c) => c.cliente_id === menuAccionesAbiertoId.value) || null;
+});
+
+const menuAccionesStyle = computed(() => ({
+  top: `${menuAccionesPos.value.top}px`,
+  left: `${menuAccionesPos.value.left}px`,
+  transform: menuAccionesPos.value.openUp ? 'translateY(-100%)' : 'none',
+}));
+
+function posicionarMenuAcciones(anchorEl) {
+  if (!anchorEl) return;
+  const rect = anchorEl.getBoundingClientRect();
+  const menuWidth = 200;
+  const estimatedHeight = 260;
+  const gap = 4;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const openUp = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+  let left = rect.right - menuWidth;
+  left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+  menuAccionesPos.value = {
+    top: openUp ? rect.top - gap : rect.bottom + gap,
+    left,
+    openUp,
+  };
+}
+
+function toggleMenuAcciones(clienteId, event) {
+  if (menuAccionesAbiertoId.value === clienteId) {
+    cerrarMenuAcciones();
+    return;
+  }
+  menuAccionesAbiertoId.value = clienteId;
+  const btn = event?.currentTarget || null;
+  nextTick(() => posicionarMenuAcciones(btn));
 }
 
 function cerrarMenuAcciones() {
@@ -536,8 +660,15 @@ function cerrarMenuAcciones() {
 
 function handleClickOutsideMenuAcciones(e) {
   if (menuAccionesAbiertoId.value == null) return;
-  const openMenu = document.querySelector(`[data-menu-acciones="${menuAccionesAbiertoId.value}"]`);
-  if (openMenu && !openMenu.contains(e.target)) {
+  const trigger = document.querySelector(`[data-menu-acciones="${menuAccionesAbiertoId.value}"]`);
+  const panel = document.querySelector('[data-menu-acciones-panel]');
+  if (trigger?.contains(e.target) || panel?.contains(e.target)) return;
+  cerrarMenuAcciones();
+}
+
+function handleScrollOrResizeMenuAcciones() {
+  actualizarBotonSubir();
+  if (menuAccionesAbiertoId.value != null) {
     cerrarMenuAcciones();
   }
 }
@@ -545,6 +676,11 @@ function handleClickOutsideMenuAcciones(e) {
 function accionBuscarTemp(cliente) {
   cerrarMenuAcciones();
   buscarTemp(cliente);
+}
+
+function accionConsultarRuc(cliente) {
+  cerrarMenuAcciones();
+  consultarRucCliente(cliente);
 }
 
 function eliminarCliente(cliente) {
@@ -573,13 +709,15 @@ function eliminarCliente(cliente) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutsideMenuAcciones);
-  window.addEventListener('scroll', actualizarBotonSubir, { passive: true });
+  window.addEventListener('scroll', handleScrollOrResizeMenuAcciones, { passive: true, capture: true });
+  window.addEventListener('resize', handleScrollOrResizeMenuAcciones, { passive: true });
   actualizarBotonSubir();
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutsideMenuAcciones);
-  window.removeEventListener('scroll', actualizarBotonSubir);
+  window.removeEventListener('scroll', handleScrollOrResizeMenuAcciones, true);
+  window.removeEventListener('resize', handleScrollOrResizeMenuAcciones);
 });
 
 function toggle(clienteId) {
@@ -693,11 +831,26 @@ function urlConsultarRuc(clienteId) {
   return props.urlConsultarRucBase.replace('__id__', clienteId);
 }
 
+function urlAplicarConsultaRuc(clienteId) {
+  return (props.urlAplicarConsultaRucBase || '').replace('__id__', clienteId);
+}
+
 function puedeConsultarRuc(cliente) {
   if (!props.puedeEditar || !props.urlConsultarRucBase) return false;
   if (cliente.ruc_consultado) return false;
   const termino = normalizarTerminoRuc(cliente.cedula);
   return termino.length >= 5;
+}
+
+function estadoRucPillClass(r) {
+  const estado = (r?.estado || '').toString().toUpperCase();
+  if (r?.cancelado || estado.includes('CANCEL') || estado.includes('BAJA')) {
+    return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
+  }
+  if (estado === 'ACTIVO') {
+    return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+  }
+  return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
 }
 
 
@@ -732,9 +885,13 @@ async function consultarRucCliente(cliente) {
   modalRucTermino.value = termino;
   modalRucVisible.value = true;
   modalRucLoading.value = true;
+  modalRucAplicando.value = false;
   modalRucResultados.value = [];
   modalRucError.value = '';
   modalRucMensaje.value = '';
+  modalRucSeleccionado.value = null;
+  modalRucActualizarDoc.value = true;
+  modalRucActualizarNombre.value = true;
   consultaRucLoadingId.value = cliente.cliente_id;
 
   try {
@@ -756,23 +913,79 @@ async function consultarRucCliente(cliente) {
     modalRucResultados.value = data.resultados || [];
     modalRucMensaje.value = data.message || '';
 
-    const idx = listaClientes.value.findIndex((c) => c.cliente_id === cliente.cliente_id);
-    if (idx >= 0) {
-      const actualizado = data.cliente || {};
-      listaClientes.value[idx] = {
-        ...listaClientes.value[idx],
-        cedula: actualizado.cedula ?? listaClientes.value[idx].cedula,
-        nombre: actualizado.nombre ?? listaClientes.value[idx].nombre,
-        apellido: actualizado.apellido ?? listaClientes.value[idx].apellido,
-        ruc_consultado: true,
-      };
-      modalRucCliente.value = listaClientes.value[idx];
-    }
+    const primeroAplicable = modalRucResultados.value.findIndex((row) => row.aplicable);
+    modalRucSeleccionado.value = primeroAplicable >= 0 ? primeroAplicable : null;
   } catch (e) {
     modalRucError.value = 'Error de conexión al consultar RUC.';
   } finally {
     modalRucLoading.value = false;
     consultaRucLoadingId.value = null;
+  }
+}
+
+async function aplicarConsultaRucSeleccionada() {
+  const cliente = modalRucCliente.value;
+  const seleccionado = resultadoRucSeleccionado.value;
+  if (!cliente || !seleccionado || !props.urlAplicarConsultaRucBase) return;
+  if (!modalRucActualizarDoc.value && !modalRucActualizarNombre.value) return;
+
+  const cambios = [];
+  if (modalRucActualizarDoc.value) {
+    cambios.push(`documento ${cliente.cedula || '—'} → ${seleccionado.ruc}`);
+  }
+  if (modalRucActualizarNombre.value) {
+    const nombreNuevo = `${seleccionado.nombre_preview || ''} ${seleccionado.apellido_preview || ''}`.trim();
+    cambios.push(`nombre → ${nombreNuevo || '—'}`);
+  }
+  if (!window.confirm(`¿Confirmás actualizar?\n\n• ${cambios.join('\n• ')}`)) {
+    return;
+  }
+
+  modalRucAplicando.value = true;
+  modalRucError.value = '';
+  try {
+    const r = await fetch(urlAplicarConsultaRuc(cliente.cliente_id), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': props.csrfToken,
+      },
+      body: JSON.stringify({
+        ruc: seleccionado.ruc,
+        razon_social: seleccionado.razon_social || '',
+        estado: seleccionado.estado || '',
+        actualizar_ruc: !!modalRucActualizarDoc.value,
+        actualizar_nombre: !!modalRucActualizarNombre.value,
+        marcar_consultado: true,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      modalRucError.value = data.message || 'No se pudo aplicar la consulta RUC.';
+      return;
+    }
+
+    modalRucMensaje.value = data.message || 'Cambios aplicados.';
+    const actualizado = data.cliente || {};
+    const idx = listaClientes.value.findIndex((c) => c.cliente_id === cliente.cliente_id);
+    if (idx >= 0) {
+      listaClientes.value[idx] = {
+        ...listaClientes.value[idx],
+        cedula: actualizado.cedula ?? listaClientes.value[idx].cedula,
+        nombre: actualizado.nombre ?? listaClientes.value[idx].nombre,
+        apellido: actualizado.apellido ?? listaClientes.value[idx].apellido,
+        ruc_consultado: actualizado.ruc_consultado ?? true,
+      };
+      modalRucCliente.value = listaClientes.value[idx];
+    }
+    modalRucResultados.value = [];
+    modalRucSeleccionado.value = null;
+  } catch (e) {
+    modalRucError.value = 'Error de conexión al aplicar la consulta RUC.';
+  } finally {
+    modalRucAplicando.value = false;
   }
 }
 
@@ -783,6 +996,10 @@ function cerrarModalRuc() {
   modalRucResultados.value = [];
   modalRucError.value = '';
   modalRucMensaje.value = '';
+  modalRucSeleccionado.value = null;
+  modalRucActualizarDoc.value = true;
+  modalRucActualizarNombre.value = true;
+  modalRucAplicando.value = false;
 }
 
 async function ejecutarBuscarTemp(nombre) {

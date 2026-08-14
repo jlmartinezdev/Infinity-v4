@@ -222,14 +222,14 @@
                                 <span class="ml-1 text-blue-600 dark:text-blue-400">(TV box comodato)</span>
                             @endif
                             @if(!($a->es_promo ?? false) && isset($a->precio_aplicado) && (float) $a->precio_aplicado > 0)
-                                <span class="ml-1">· Gs. {{ number_format((float) $a->precio_aplicado, 0, ',', '.') }}</span>
+                                <span class="ml-1" title="Precio que se factura (precio_aplicado → precio_app)">· Factura: Gs. {{ number_format((float) $a->precio_aplicado, 0, ',', '.') }}</span>
                             @endif
                         </p>
                         @if($asignacionPerfilesV2 ?? false)
                             <p class="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                                 {{ $tv_cuenta->nombreSlot((int) ($a->perfil_numero ?? 0)) }}
                                 @if(!($a->es_promo ?? false) && $a->perfil_numero && $tv_cuenta->precioSlot((int) $a->perfil_numero) !== null)
-                                    (Gs. {{ number_format((float) $tv_cuenta->precioSlot((int) $a->perfil_numero), 0, ',', '.') }})
+                                    <span title="Precio de catálogo de la cuenta TV">(catálogo Gs. {{ number_format((float) $tv_cuenta->precioSlot((int) $a->perfil_numero), 0, ',', '.') }})</span>
                                 @endif
                                 @if($a->fecha_activacion)
                                     | Activado: {{ $a->fecha_activacion->format('d/m/Y') }}
@@ -239,6 +239,14 @@
                             <p class="text-xs text-gray-500 dark:text-gray-500 mt-0.5">1 dispositivo</p>
                         @endif
                     </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <button type="button"
+                            data-tv-historial-pago="{{ route('tv-cuentas.asignaciones.historial-pago', [$tv_cuenta, $a]) }}"
+                            data-tv-historial-titulo="Pagos — {{ trim(($a->servicio?->cliente?->nombre ?? '').' '.($a->servicio?->cliente?->apellido ?? '')) }}"
+                            class="text-sm text-purple-600 dark:text-purple-400 hover:underline font-medium"
+                            title="Ver historial de pago App TV">
+                            Pagos
+                        </button>
                     @if(auth()->user()?->tienePermiso('tv.editar'))
                         <form action="{{ route('tv-cuentas.asignaciones.destroy', [$tv_cuenta, $a]) }}" method="POST" onsubmit="return confirm('¿Quitar este cliente de la cuenta?');">
                             @csrf
@@ -246,6 +254,7 @@
                             <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">Quitar</button>
                         </form>
                     @endif
+                    </div>
                 </li>
             @empty
                 <li class="py-6 text-center text-gray-500 dark:text-gray-400 text-sm">Nadie asignado aún.</li>
@@ -304,4 +313,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+
+@include('tv-cuentas._historial-pago-modal')
 @endsection

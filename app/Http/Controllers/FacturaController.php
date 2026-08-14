@@ -1483,13 +1483,21 @@ class FacturaController extends Controller
     /**
      * Ejecuta suspensión por falta de pago: servicios de clientes con facturas vencidas y saldo pendiente se marcan como suspendidos.
      */
-    public function suspenderFaltaPago(FacturacionService $facturacionService)
-    {
+    public function suspenderFaltaPago(
+        FacturacionService $facturacionService,
+        \App\Services\WhatsApp\WhatsAppOutboundNotifier $whatsapp,
+    ) {
         $suspendidos = $facturacionService->suspenderPorFaltaPago();
         $cantidad = count($suspendidos);
-        return redirect()->route('facturas.index')
-            ->with('success', $cantidad > 0
-                ? "Suspensión aplicada: {$cantidad} servicio(s) suspendido(s) por falta de pago."
-                : 'No había servicios pendientes de suspender por falta de pago.');
+        $avisos = $cantidad > 0 ? $whatsapp->avisarSuspensionesPorFaltaPago($suspendidos) : 0;
+
+        $msg = $cantidad > 0
+            ? "Suspensión aplicada: {$cantidad} servicio(s) suspendido(s) por falta de pago."
+            : 'No había servicios pendientes de suspender por falta de pago.';
+        if ($avisos > 0) {
+            $msg .= " Avisos WhatsApp: {$avisos}.";
+        }
+
+        return redirect()->route('facturas.index')->with('success', $msg);
     }
 }

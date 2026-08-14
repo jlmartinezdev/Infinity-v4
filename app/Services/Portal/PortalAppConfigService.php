@@ -40,6 +40,27 @@ class PortalAppConfigService
     }
 
     /**
+     * Metadata por método de pago (merge defaults + BD).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function metodosPago(): array
+    {
+        $defaults = config('portal_app.metodos_pago', []);
+        $override = $this->row()->metodos_pago ?? [];
+        $keys = config('portal_app.pago_metodos_keys', array_keys($defaults));
+        $out = [];
+
+        foreach ($keys as $key) {
+            $base = is_array($defaults[$key] ?? null) ? $defaults[$key] : [];
+            $over = is_array($override[$key] ?? null) ? $override[$key] : [];
+            $out[$key] = array_merge($base, $over);
+        }
+
+        return $out;
+    }
+
+    /**
      * @return array{puntos_por_alta: int, link_base: string}
      */
     public function referidos(): array
@@ -97,6 +118,7 @@ class PortalAppConfigService
      * @param  array{
      *   flags?: array<string, string>,
      *   pago_online?: array,
+     *   metodos_pago?: array,
      *   referidos?: array,
      *   whatsapp?: array,
      *   resumen?: array,
@@ -106,7 +128,7 @@ class PortalAppConfigService
     public function guardar(array $data): PortalAppConfig
     {
         $row = $this->row();
-        foreach (['flags', 'pago_online', 'referidos', 'whatsapp', 'resumen', 'faqs'] as $key) {
+        foreach (['flags', 'pago_online', 'metodos_pago', 'referidos', 'whatsapp', 'resumen', 'faqs'] as $key) {
             if (array_key_exists($key, $data)) {
                 $row->{$key} = $data[$key];
             }

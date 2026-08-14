@@ -11,7 +11,7 @@ use App\Models\Ticket;
 use App\Models\RouterIpPool;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\PoolIpAsignada;
-use App\Support\PppoeTimeline12h;
+use App\Support\HerramientasRedPayload;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\NetworkPingService;
@@ -31,6 +31,7 @@ class ServicioController extends Controller
             return response()->json([
                 'servicios' => $payload['serviciosParaVue'],
                 'nodos' => $payload['nodos']->map(fn (Nodo $n) => $n->toArraySelect())->values()->all(),
+                'planes' => $payload['planes'] ?? [],
             ]);
         }
 
@@ -609,38 +610,8 @@ class ServicioController extends Controller
      */
     public function herramientasRed($servicio_id)
     {
-        $servicio = Servicio::with([
-            'cliente',
-            'pool.olt',
-            'pool.router.nodo',
-            'plan',
-            'cajaNapPuertoActivo.cajaNap.salidaPon.olt',
-        ])->findOrFail($servicio_id);
-
-        $esFibra = $this->servicioEsFibra($servicio);
-        $esAntena = $this->servicioEsAntena($servicio);
-        $conexionEventos = \App\Models\ServicioConexionEvento::query()
-            ->where('servicio_id', $servicio->servicio_id)
-            ->orderByDesc('ocurrio_at')
-            ->orderByDesc('servicio_conexion_evento_id')
-            ->limit(30)
-            ->get();
-
-        $pppoeTimeline12h = PppoeTimeline12h::construir($servicio->servicio_id);
-
-        $ultimaSenalOptica = \App\Models\ServicioConexionEvento::query()
-            ->where('servicio_id', $servicio->servicio_id)
-            ->where('tipo', \App\Models\ServicioConexionEvento::TIPO_SENAL_OPTICA)
-            ->orderByDesc('ocurrio_at')
-            ->orderByDesc('servicio_conexion_evento_id')
-            ->first();
-
-        $ultimaSenalAntena = \App\Models\ServicioConexionEvento::query()
-            ->where('servicio_id', $servicio->servicio_id)
-            ->where('tipo', \App\Models\ServicioConexionEvento::TIPO_SENAL_ANTENA)
-            ->orderByDesc('ocurrio_at')
-            ->orderByDesc('servicio_conexion_evento_id')
-            ->first();
+        $servicio = Servicio::with(HerramientasRedPayload::relaciones())->findOrFail($servicio_id);
+        $payload = HerramientasRedPayload::fromServicio($servicio);
 
         $ticketOrigen = null;
         $ticketId = (int) request()->query('ticket_id');
@@ -651,16 +622,27 @@ class ServicioController extends Controller
                 ->first(['id', 'descripcion', 'datos_diagnostico', 'created_at', 'prioridad', 'reportado_desde']);
         }
 
+        $herramientasRedConfig = [
+            'compact' => false,
+            'initialPayload' => $payload,
+            'servicios' => [HerramientasRedPayload::opcionServicio($servicio)],
+        ];
+
         return view('servicios.herramientas-red', compact(
             'servicio',
-            'esFibra',
-            'esAntena',
-            'conexionEventos',
-            'pppoeTimeline12h',
-            'ultimaSenalOptica',
-            'ultimaSenalAntena',
             'ticketOrigen',
+            'herramientasRedConfig',
         ));
+    }
+
+    /**
+     * JSON para reutilizar herramientas de red (detalle cliente / selector de servicio).
+     */
+    public function herramientasRedDatos($servicio_id)
+    {
+        $servicio = Servicio::with(HerramientasRedPayload::relaciones())->findOrFail($servicio_id);
+
+        return response()->json(HerramientasRedPayload::fromServicio($servicio));
     }
 
     /**

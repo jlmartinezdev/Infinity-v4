@@ -117,6 +117,11 @@ class UsuarioController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'telefono' => ['nullable', 'string', 'max:30'],
+            'cedula' => ['nullable', 'string', 'max:20'],
+            'cargo' => ['nullable', 'string', 'max:120'],
+            'salario_basico' => ['nullable', 'integer', 'min:0'],
+            'banco' => ['nullable', 'string', 'max:80'],
+            'cuenta_bancaria' => ['nullable', 'string', 'max:60'],
             'password' => ['required', 'string', 'min:6'],
             'rol_id' => ['required', 'integer', 'exists:roles,rol_id'],
             'estado' => ['required', 'string', 'in:activo,pendiente_aprobacion,suspendido'],
@@ -131,6 +136,11 @@ class UsuarioController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'telefono' => $validated['telefono'] ?? null,
+            'cedula' => $validated['cedula'] ?? null,
+            'cargo' => $validated['cargo'] ?? null,
+            'salario_basico' => $validated['salario_basico'] ?? null,
+            'banco' => $validated['banco'] ?? null,
+            'cuenta_bancaria' => $validated['cuenta_bancaria'] ?? null,
             'contrasena' => Hash::make($validated['password']),
             'rol_id' => $validated['rol_id'],
             'estado' => $validated['estado'],
@@ -168,6 +178,11 @@ class UsuarioController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->usuario_id.',usuario_id'],
             'telefono' => ['nullable', 'string', 'max:30'],
+            'cedula' => ['nullable', 'string', 'max:20'],
+            'cargo' => ['nullable', 'string', 'max:120'],
+            'salario_basico' => ['nullable', 'integer', 'min:0'],
+            'banco' => ['nullable', 'string', 'max:80'],
+            'cuenta_bancaria' => ['nullable', 'string', 'max:60'],
             'password' => ['nullable', 'string', 'min:6'],
             'rol_id' => ['required', 'integer', 'exists:roles,rol_id'],
             'estado' => ['required', 'string', 'in:activo,pendiente_aprobacion,suspendido'],
@@ -190,6 +205,14 @@ class UsuarioController extends Controller
             'rol_id' => $validated['rol_id'],
             'estado' => $validated['estado'],
         ];
+
+        if (! $user->esClientePortal()) {
+            $updateData['cedula'] = $validated['cedula'] ?? null;
+            $updateData['cargo'] = $validated['cargo'] ?? null;
+            $updateData['salario_basico'] = $validated['salario_basico'] ?? null;
+            $updateData['banco'] = $validated['banco'] ?? null;
+            $updateData['cuenta_bancaria'] = $validated['cuenta_bancaria'] ?? null;
+        }
 
         if (! empty($validated['password'])) {
             $updateData['contrasena'] = Hash::make($validated['password']);
@@ -252,6 +275,11 @@ class UsuarioController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'telefono' => $user->telefono,
+            'cedula' => $user->cedula,
+            'cargo' => $user->cargo,
+            'salario_basico' => $user->salario_basico,
+            'banco' => $user->banco,
+            'cuenta_bancaria' => $user->cuenta_bancaria,
             'rol_id' => $user->rol_id,
             'estado' => $user->estado,
             'es_cliente_portal' => $user->esClientePortal(),

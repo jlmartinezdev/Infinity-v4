@@ -27,6 +27,7 @@ class PremioController extends Controller
         return view('loyalty.premios.index', [
             'premios' => $premios,
             'tipos' => Premio::tipos(),
+            'etiquetas' => Premio::etiquetas(),
         ]);
     }
 
@@ -34,6 +35,7 @@ class PremioController extends Controller
     {
         return view('loyalty.premios.create', [
             'tipos' => Premio::tipos(),
+            'etiquetas' => Premio::etiquetas(),
         ]);
     }
 
@@ -54,6 +56,7 @@ class PremioController extends Controller
         return view('loyalty.premios.edit', [
             'premio' => $premio,
             'tipos' => Premio::tipos(),
+            'etiquetas' => Premio::etiquetas(),
         ]);
     }
 
@@ -67,6 +70,16 @@ class PremioController extends Controller
         $this->asegurarUnicoDestacado($premio->fresh());
 
         return redirect()->route('loyalty.premios.index')->with('success', 'Premio actualizado.');
+    }
+
+    public function toggle(Premio $premio)
+    {
+        $premio->activo = ! $premio->activo;
+        $premio->save();
+
+        return redirect()->route('loyalty.premios.index')->with('success', $premio->activo
+            ? 'Premio habilitado: '.$premio->nombre
+            : 'Premio deshabilitado: '.$premio->nombre);
     }
 
     public function destroy(Premio $premio)
@@ -92,9 +105,14 @@ class PremioController extends Controller
             'descuento_porcentaje' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'descuento_monto' => ['nullable', 'numeric', 'min:0'],
             'stock' => ['nullable', 'integer', 'min:0'],
+            'stock_ilimitado' => ['nullable', 'boolean'],
             'orden' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'activo' => ['nullable', 'boolean'],
             'destacado' => ['nullable', 'boolean'],
+            'etiqueta' => ['nullable', Rule::in(Premio::ETIQUETAS)],
+            'tier' => ['nullable', 'integer', 'min:1', 'max:5'],
+            'requiere_aprobacion' => ['nullable', 'boolean'],
+            'tope_anual_por_cliente' => ['nullable', 'integer', 'min:1'],
             'imagen' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:4096'],
             'eliminar_imagen' => ['nullable', 'boolean'],
         ]);
@@ -109,9 +127,23 @@ class PremioController extends Controller
         $data['activo'] = $request->boolean('activo', true);
         $data['destacado'] = $request->boolean('destacado', false);
         $data['orden'] = (int) ($data['orden'] ?? 0);
-        $data['stock'] = (int) ($data['stock'] ?? 0);
         $data['puntos_requeridos'] = (int) $data['puntos_requeridos'];
         $data['tipo'] = $data['tipo'] ?? Premio::TIPO_FISICO;
+        $data['etiqueta'] = filled($data['etiqueta'] ?? null) ? $data['etiqueta'] : null;
+        $data['tier'] = filled($data['tier'] ?? null) ? (int) $data['tier'] : null;
+        $data['tope_anual_por_cliente'] = filled($data['tope_anual_por_cliente'] ?? null)
+            ? (int) $data['tope_anual_por_cliente']
+            : null;
+
+        $data['requiere_aprobacion'] = $request->boolean('requiere_aprobacion')
+            || $data['tipo'] === Premio::TIPO_APROBACION;
+
+        // stock_ilimitado o vacío → null (sin límite); 0 = agotado (oculto en app).
+        if ($request->boolean('stock_ilimitado') || ! $request->filled('stock')) {
+            $data['stock'] = null;
+        } else {
+            $data['stock'] = (int) $request->input('stock');
+        }
 
         if ($data['tipo'] === Premio::TIPO_DESCUENTO) {
             $pct = isset($data['descuento_porcentaje']) && $data['descuento_porcentaje'] !== ''
@@ -132,6 +164,8 @@ class PremioController extends Controller
             $data['descuento_porcentaje'] = null;
             $data['descuento_monto'] = null;
         }
+
+        unset($data['stock_ilimitado'], $data['eliminar_imagen']);
 
         return $data;
     }

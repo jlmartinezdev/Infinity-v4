@@ -103,6 +103,59 @@ class Factura extends Model
             && in_array($this->set_estado_envio, ['en_proceso', 'pendiente', 'consultando', 'autorizado'], true);
     }
 
+    /**
+     * Resume código/mensaje de rechazo (o respuesta) SIFEN desde set_xml_respuesta.
+     *
+     * @return array{codigo: ?string, mensaje: ?string, detalles: list<array{codigo: ?string, mensaje: ?string}>}|null
+     */
+    public function respuestaSifenResumen(): ?array
+    {
+        $raw = trim((string) ($this->set_xml_respuesta ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_contains($raw, '<')) {
+            try {
+                $parser = app(\App\Services\Sifen\SifenRespuestaParser::class);
+                $parsed = filled($this->set_nro_lote)
+                    ? $parser->parsearResultadoLote($raw, $this->set_cdc)
+                    : $parser->parsear($raw);
+
+                $codigo = $parsed['codigo'] ?? null;
+                $mensaje = $parsed['mensaje'] ?? null;
+                $detalles = is_array($parsed['detalles'] ?? null) ? $parsed['detalles'] : [];
+
+                if (! $codigo && ! $mensaje && $detalles === []) {
+                    return null;
+                }
+
+                return [
+                    'codigo' => $codigo ? (string) $codigo : null,
+                    'mensaje' => $mensaje ? (string) $mensaje : null,
+                    'detalles' => $detalles,
+                ];
+            } catch (\Throwable) {
+                // Continúa con parseo de texto plano.
+            }
+        }
+
+        $codigo = null;
+        $mensaje = $raw;
+        if (preg_match('/\[(\d{3,4})\]\s*(.+)$/u', $raw, $m)) {
+            $codigo = $m[1];
+            $mensaje = trim($m[2]);
+        } elseif (preg_match('/\b(\d{3,4})\b/', $raw, $m)) {
+            $codigo = $m[1];
+        }
+
+        return [
+            'codigo' => $codigo,
+            'mensaje' => mb_substr($mensaje, 0, 500),
+            'detalles' => [],
+        ];
+    }
+
     public function scopeLotePendienteSifen($query)
     {
         return $query->where('estado', 'borrador')

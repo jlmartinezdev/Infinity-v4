@@ -16,6 +16,46 @@
         'por_vencer' => 'Por vencer',
         'ok' => 'Al día',
     ];
+    $filtroApp = $filtroApp ?? 'todos';
+    $filtroCupos = $filtroCupos ?? 'todos';
+    $orden = $orden ?? 'urgencia';
+    $estadosPago = [
+        'todos' => 'Todos los pagos',
+        'vencido' => 'Vencido',
+        'por_vencer' => 'Por vencer',
+        'ok' => 'Al día',
+    ];
+    $queryListado = array_filter([
+        'estado' => ($filtro ?? 'todos') !== 'todos' ? $filtro : null,
+        'q' => ($busqueda ?? '') !== '' ? $busqueda : null,
+        'app' => $filtroApp !== 'todos' ? $filtroApp : null,
+        'cupos' => $filtroCupos !== 'todos' ? $filtroCupos : null,
+        'orden' => $orden !== 'urgencia' ? $orden : null,
+    ]);
+    $ordenLabels = [
+        'urgencia' => 'Urgencia (vencidas primero)',
+        'vencimiento_asc' => 'Vencimiento — más próximo',
+        'vencimiento_desc' => 'Vencimiento — más lejano',
+        'nombre_asc' => 'Nombre A → Z',
+        'nombre_desc' => 'Nombre Z → A',
+        'usuario_asc' => 'Usuario app A → Z',
+        'usuario_desc' => 'Usuario app Z → A',
+        'app' => 'App (Nebula / Lumix)',
+        'cupos_desc' => 'Cupos — más en uso',
+        'cupos_asc' => 'Cupos — más libres',
+        'estado_pago' => 'Estado de pago',
+    ];
+    $cuposLabels = [
+        'todos' => 'Todos los cupos',
+        'libres' => 'Con cupos libres',
+        'llenas' => 'Completas (sin cupo)',
+        'vacias' => 'Sin asignar',
+    ];
+    $hayFiltrosActivos = ($filtro ?? 'todos') !== 'todos'
+        || ($busqueda ?? '') !== ''
+        || $filtroApp !== 'todos'
+        || $filtroCupos !== 'todos'
+        || $orden !== 'urgencia';
 @endphp
 
 <div class="max-w-7xl mx-auto">
@@ -60,7 +100,7 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h2 class="text-lg font-semibold">Avisos WhatsApp — vencimiento TV</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Solo administradores. Se notifica una vez por cuenta y fecha de vencimiento a los usuarios elegidos (deben tener teléfono WhatsApp).</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Solo administradores. Un aviso por día mientras la cuenta esté en la ventana de anticipación. Hace falta plantilla Meta (fuera de las 24 h no llega texto libre). Ver <code class="text-xs">docs/whatsapp-plantilla-tv-vencimiento.md</code>.</p>
                 </div>
                 <button type="button" onclick="document.getElementById('tv-aviso-modal').close()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">&times;</button>
             </div>
@@ -139,22 +179,22 @@
     @endif
 
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'todos', 'q' => $busqueda])) }}"
+        <a href="{{ route('tv-cuentas.index', array_merge($queryListado, ['estado' => 'todos'])) }}"
             class="{{ $cardBase }} {{ $filtro === 'todos' ? $cardActive : 'hover:border-purple-300 dark:hover:border-purple-600' }}">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total cuentas</p>
             <p class="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $stats['total'] }}</p>
         </a>
-        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'vencido', 'q' => $busqueda])) }}"
+        <a href="{{ route('tv-cuentas.index', array_merge($queryListado, ['estado' => 'vencido'])) }}"
             class="{{ $cardBase }} {{ $filtro === 'vencido' ? $cardActive : 'hover:border-red-400 dark:hover:border-red-500' }}">
             <p class="text-xs font-medium text-red-700 dark:text-red-300 uppercase tracking-wide">Vencidas</p>
             <p class="mt-1 text-3xl font-bold text-red-700 dark:text-red-300">{{ $stats['vencido'] }}</p>
         </a>
-        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'por_vencer', 'q' => $busqueda])) }}"
+        <a href="{{ route('tv-cuentas.index', array_merge($queryListado, ['estado' => 'por_vencer'])) }}"
             class="{{ $cardBase }} {{ $filtro === 'por_vencer' ? $cardActive : 'hover:border-orange-400 dark:hover:border-orange-500' }}">
             <p class="text-xs font-medium text-orange-700 dark:text-orange-300 uppercase tracking-wide">Por vencer</p>
             <p class="mt-1 text-3xl font-bold text-orange-700 dark:text-orange-300">{{ $stats['por_vencer'] }}</p>
         </a>
-        <a href="{{ route('tv-cuentas.index', array_filter(['estado' => 'ok', 'q' => $busqueda])) }}"
+        <a href="{{ route('tv-cuentas.index', array_merge($queryListado, ['estado' => 'ok'])) }}"
             class="{{ $cardBase }} {{ $filtro === 'ok' ? $cardActive : 'hover:border-green-400 dark:hover:border-green-500' }}">
             <p class="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">Al día</p>
             <p class="mt-1 text-3xl font-bold text-green-700 dark:text-green-400">{{ $stats['ok'] }}</p>
@@ -166,37 +206,72 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ route('tv-cuentas.index') }}" class="mb-4">
-        @if($filtro !== 'todos')
-            <input type="hidden" name="estado" value="{{ $filtro }}">
-        @endif
-        <div class="flex flex-col sm:flex-row gap-2 sm:max-w-xl">
-            <div class="relative flex-1">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <form method="GET" action="{{ route('tv-cuentas.index') }}" class="mb-4 space-y-3">
+        <div class="flex items-center w-full min-h-[2.75rem] sm:min-h-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20">
+            <span class="pl-3 flex items-center shrink-0 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
                 </svg>
-                <input type="text" name="q" value="{{ $busqueda }}"
-                    placeholder="Buscar por cuenta, usuario app, perfil, cliente o cédula…"
-                    class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400 dark:placeholder-gray-500">
-            </div>
-            <div class="flex gap-2 shrink-0">
-                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">Buscar</button>
-                @if($busqueda !== '')
-                    <a href="{{ route('tv-cuentas.index', $filtro !== 'todos' ? ['estado' => $filtro] : []) }}"
-                        class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Limpiar</a>
-                @endif
-            </div>
+            </span>
+            <input type="search" name="q" id="tv-busqueda" value="{{ $busqueda }}"
+                placeholder="Usuario, cliente o cédula"
+                aria-label="Buscar cuentas TV"
+                autocomplete="off"
+                enterkeyhint="search"
+                class="flex-1 min-w-0 border-0 bg-transparent pl-2 pr-3 py-2.5 sm:py-2 text-base sm:text-sm leading-normal focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 [appearance:textfield] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+            <select name="estado" aria-label="Estado de pago"
+                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                @foreach($estadosPago as $valor => $etiqueta)
+                    <option value="{{ $valor }}" @selected(($filtro ?? 'todos') === $valor)>{{ $etiqueta }}</option>
+                @endforeach
+            </select>
+            <select name="app" aria-label="Aplicación"
+                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                <option value="todos" @selected($filtroApp === 'todos')>Todas las apps</option>
+                <option value="nebula" @selected($filtroApp === 'nebula')>Solo Nebula</option>
+                <option value="lumix" @selected($filtroApp === 'lumix')>Solo Lumix</option>
+            </select>
+            <select name="cupos" aria-label="Cupos"
+                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                @foreach($cuposLabels as $valor => $etiqueta)
+                    <option value="{{ $valor }}" @selected($filtroCupos === $valor)>{{ $etiqueta }}</option>
+                @endforeach
+            </select>
+            <select name="orden" aria-label="Orden"
+                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none sm:col-span-2 xl:col-span-1">
+                @foreach($ordenLabels as $valor => $etiqueta)
+                    <option value="{{ $valor }}" @selected($orden === $valor)>{{ $etiqueta }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            @if($hayFiltrosActivos)
+                <a href="{{ route('tv-cuentas.index') }}"
+                    class="w-full sm:w-auto text-center px-4 py-2.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-base sm:text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Limpiar</a>
+            @endif
+            <button type="submit" class="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-purple-600 text-white rounded-lg text-base sm:text-sm font-medium hover:bg-purple-700 transition-colors">Aplicar filtros</button>
         </div>
     </form>
 
-    @if($filtro !== 'todos' || $busqueda !== '')
+    @if($hayFiltrosActivos)
         <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
             @if($filtro !== 'todos')
-                Filtrando: <span class="font-medium">{{ $badgeLabels[$filtro] ?? $filtro }}</span>
+                Estado de pago: <span class="font-medium">{{ $badgeLabels[$filtro] ?? $filtro }}</span>
             @endif
             @if($busqueda !== '')
                 @if($filtro !== 'todos') · @endif
                 Búsqueda: <span class="font-medium">"{{ $busqueda }}"</span>
+            @endif
+            @if($filtroApp !== 'todos')
+                · App: <span class="font-medium">{{ \App\Models\TvCuenta::aplicaciones()[$filtroApp] ?? $filtroApp }}</span>
+            @endif
+            @if($filtroCupos !== 'todos')
+                · Cupos: <span class="font-medium">{{ $cuposLabels[$filtroCupos] ?? $filtroCupos }}</span>
+            @endif
+            @if($orden !== 'urgencia')
+                · Orden: <span class="font-medium">{{ $ordenLabels[$orden] ?? $orden }}</span>
             @endif
             ({{ $cuentas->total() }} cuenta{{ $cuentas->total() === 1 ? '' : 's' }})
             · <a href="{{ route('tv-cuentas.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver todas</a>
@@ -208,7 +283,7 @@
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado de pago</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">App</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre / usuario app</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Contraseña</th>
@@ -295,6 +370,13 @@
                                                         @endif
                                                     </span>
                                                 @endif
+                                                <button type="button"
+                                                    data-tv-historial-pago="{{ route('tv-cuentas.asignaciones.historial-pago', [$c, $asig]) }}"
+                                                    data-tv-historial-titulo="Pagos — {{ $nombreCliente !== '' ? $nombreCliente : 'Cliente' }}"
+                                                    class="ml-1 text-purple-600 dark:text-purple-400 hover:underline font-medium"
+                                                    title="Ver historial de pago App TV">
+                                                    Pagos
+                                                </button>
                                             </li>
                                         @endforeach
                                     </ul>
@@ -343,4 +425,6 @@
         @endif
     </div>
 </div>
+
+@include('tv-cuentas._historial-pago-modal')
 @endsection

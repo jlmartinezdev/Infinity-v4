@@ -101,7 +101,9 @@ class ClienteWhatsappPresenter
         $ubicacion = $this->datosUbicacion($m);
         $cuerpo = trim((string) ($m->cuerpo ?? ''));
 
-        if ($cuerpo === '' && $m->tipo !== 'text') {
+        if ($m->tipo === 'image' && in_array(mb_strtolower($cuerpo), ['', 'imagen', 'image'], true)) {
+            $cuerpo = '';
+        } elseif ($cuerpo === '' && $m->tipo !== 'text') {
             $cuerpo = match ($m->tipo) {
                 'image' => 'Imagen',
                 'audio' => 'Audio',
@@ -128,7 +130,9 @@ class ClienteWhatsappPresenter
             'dia' => $m->created_at?->format('Y-m-d'),
             'dia_label' => $m->created_at?->translatedFormat('d M Y'),
             'contexto_tipo' => $m->contexto_tipo,
-            'media_url' => ($canMedia && $tieneMedia) ? route('whatsapp.media', $m) : null,
+            'media_url' => ($canMedia && $tieneMedia)
+                ? $this->urlMedia($m)
+                : null,
             'media_es_imagen' => $m->tipo === 'image' && $tieneMedia,
             'maps_url' => $ubicacion['url'],
             'maps_label' => $ubicacion['nombre'] ?? $ubicacion['direccion'] ?? null,
@@ -151,6 +155,13 @@ class ClienteWhatsappPresenter
             'template' => 'Plantilla',
             default => ucfirst((string) $m->tipo),
         };
+    }
+
+    private function urlMedia(WhatsappMensaje $m): string
+    {
+        $ver = (string) (data_get($m->payload, '_local.size') ?: $m->updated_at?->timestamp ?: $m->id);
+
+        return route('whatsapp.media', $m, absolute: false).'?v='.$ver;
     }
 
     private function estadoLabel(WhatsappMensaje $m): ?string

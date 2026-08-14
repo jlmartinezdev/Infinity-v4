@@ -678,6 +678,7 @@ class CobroController extends Controller
         $validated = $request->validate([
             'destino' => ['required', 'in:registrado,otro'],
             'telefono' => ['nullable', 'string', 'max:40'],
+            'guardar_telefono' => ['nullable', 'in:0,1'],
         ]);
 
         $override = null;
@@ -694,11 +695,23 @@ class CobroController extends Controller
                 ->with('error', 'El cliente no tiene teléfono registrado. Elegí «Otro número».');
         }
 
+        $guardadoMsg = null;
+        if ($validated['destino'] === 'otro'
+            && ($validated['guardar_telefono'] ?? '0') === '1'
+            && $cobro->cliente
+        ) {
+            $telefonoGuardar = \App\Helpers\TelefonoParaguayHelper::normalize($override) ?? $override;
+            $cobro->cliente->forceFill(['telefono' => $telefonoGuardar])->save();
+            $guardadoMsg = ' Teléfono del cliente actualizado.';
+        }
+
         $result = $notifier->reciboPago($cobro, forzar: true, telefonoOverride: $override);
+
+        $message = $result['message'].($result['ok'] && $guardadoMsg ? $guardadoMsg : '');
 
         return redirect()
             ->route('cobros.show', $cobro)
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+            ->with($result['ok'] ? 'success' : 'error', $message);
     }
 
     /**

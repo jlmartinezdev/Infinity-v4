@@ -1,11 +1,12 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Política de privacidad — ISP Staff</title>
   <style>
+    html, body { background: #ffffff; }
     body { font-family: system-ui, Segoe UI, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #0f172a; }
+    a { color: #0097BD; }
     h1 { font-size: 1.6rem; }
     h2 { font-size: 1.15rem; margin-top: 1.75rem; }
     .muted { color: #475569; font-size: 0.95rem; }
@@ -13,7 +14,7 @@
 </head>
 <body>
   <h1>Política de privacidad — ISP Staff</h1>
-  <p class="muted">Última actualización: 28 de julio de 2026 · App: ISP Staff (com.isp.staff) · Operador: Infinity ISP Pro</p>
+  <p class="muted">Última actualización: 6 de agosto de 2026 · App: ISP Staff (com.isp.staff) · Operador: Infinity ISP Pro</p>
 
   <p>
     Esta política describe cómo la aplicación <strong>ISP Staff</strong> trata datos personales
@@ -29,52 +30,66 @@
 
   <h2>2. Datos que tratamos</h2>
   <ul>
-    <li><strong>Cuenta staff:</strong> usuario/correo, identificador interno, rol/cargo.</li>
-    <li><strong>Ubicación:</strong> coordenadas aproximadas/precisas cuando activás “En turno” o enviás “voy en camino”.</li>
-    <li><strong>Operación:</strong> solicitudes, visitas asignadas, acciones de aprobación/rechazo, tokens de notificación push.</li>
-    <li><strong>Dispositivo:</strong> datos técnicos necesarios para push (FCM) y funcionamiento de la app.</li>
+    <li><strong>Cuenta staff:</strong> usuario/correo, identificador interno, rol/cargo y credenciales de acceso (almacenadas de forma cifrada en el dispositivo si elegís recordar sesión o huella).</li>
+    <li><strong>Ubicación:</strong> coordenadas aproximadas y precisas cuando activás “En turno”, reportás “En camino” o actualizás el GPS de un pedido en domicilio. En turno, la ubicación puede enviarse también con la app en segundo plano (notificación persistente).</li>
+    <li><strong>Fotos / cámara:</strong> fotografías de evidencia de visitas o instalaciones que capturás en la app. Pueden quedar en el dispositivo hasta sincronizarse con el servidor de la empresa.</li>
+    <li><strong>Operación:</strong> solicitudes, visitas, pedidos de instalación, notas, estados de campo, historial de acciones y tokens de notificación push.</li>
+    <li><strong>Dispositivo y diagnósticos:</strong> datos técnicos para push (FCM), integridad de la app y reportes de fallos (Crashlytics) para estabilidad.</li>
   </ul>
 
   <h2>3. Finalidades</h2>
   <ul>
     <li>Autenticación y control de acceso del personal.</li>
-    <li>Gestión de altas de clientes, visitas técnicas y auditoría interna.</li>
+    <li>Gestión de altas de clientes, visitas técnicas, pedidos de instalación y auditoría interna.</li>
     <li>Supervisión de flota por administradores mientras el técnico está en turno.</li>
+    <li>Registro de evidencia fotográfica del trabajo en campo.</li>
     <li>Envío de notificaciones operativas.</li>
-    <li>Comunicación con clientes vía WhatsApp cuando el técnico elige avisar “en camino” (incluye enlace de mapa).</li>
+    <li>Aviso profesional al cliente cuando el técnico indica “En camino”, preferentemente desde el WhatsApp oficial de Infinity (plantilla automática). Si el envío oficial no está disponible, la app puede ofrecer un mensaje de respaldo para envío manual.</li>
+    <li>Cola offline de cambios de campo (estado, notas, GPS) hasta recuperar conexión.</li>
   </ul>
 
   <h2>4. Base y carácter del tratamiento</h2>
   <p>
-    El uso es laboral/contractual con Infinity ISP Pro. Algunas funciones (ubicación, notificaciones)
+    El uso es laboral/contractual con Infinity ISP Pro (interés legítimo / ejecución de la relación
+    de trabajo o prestación del servicio). Algunas funciones (ubicación, cámara, notificaciones)
     requieren tu consentimiento en el sistema operativo; podés revocar permisos en Ajustes del teléfono
-    (eso puede limitar flota / “en camino”).
+    (eso puede limitar flota, “en camino” o evidencia fotográfica).
   </p>
 
   <h2>5. Destinatarios</h2>
   <ul>
     <li>Servidores de Infinity ISP Pro (<code>infinityisppro.net</code>).</li>
-    <li>Google Firebase Cloud Messaging, para entregar notificaciones push.</li>
-    <li>No vendemos datos personales a terceros con fines publicitarios.</li>
+    <li>Google Firebase (Cloud Messaging y Crashlytics) para notificaciones y estabilidad.</li>
+    <li>WhatsApp Cloud API / Meta, cuando se envía el aviso “En camino” desde el número oficial de Infinity (el backend arma el mensaje; la app no envía texto libre ni teléfono del cliente como payload manipulable).</li>
+    <li>No vendemos datos personales a terceros con fines publicitarios. La app no usa ID de publicidad con fines de marketing.</li>
   </ul>
 
   <h2>6. Transferencias y seguridad</h2>
   <p>
-    La comunicación con la API se realiza por HTTPS. Aplicamos medidas organizativas y técnicas
-    razonables según el entorno de la empresa. El acceso a ubicaciones de flota está restringido a roles administrativos.
+    La comunicación con la API se realiza por HTTPS. En el dispositivo, la sesión sensible se guarda
+    con almacenamiento cifrado. El acceso a ubicaciones de flota está restringido a roles administrativos.
   </p>
 
   <h2>7. Conservación</h2>
   <p>
     Los datos se conservan mientras exista la relación laboral/contrato y según políticas internas
-    de Infinity ISP Pro (por ejemplo, ubicaciones en vivo de corta duración; históricos según necesidad operativa).
+    de Infinity ISP Pro (por ejemplo, ubicaciones en vivo de corta duración; históricos y evidencia
+    según necesidad operativa). Las fotos locales de evidencia pueden borrarse del teléfono al
+    limpiar caché o desinstalar la app; la conservación en servidor sigue las reglas de la empresa.
   </p>
 
-  <h2>8. Derechos</h2>
+  <h2>8. Derechos y eliminación</h2>
   <p>
     Podés solicitar acceso, corrección o eliminación de datos personales asociados a tu cuenta staff
-    contactando a tu administrador o al correo de soporte publicado por la empresa. Responderemos
-    conforme a la normativa aplicable y a los procedimientos internos.
+    contactando a tu administrador o al correo de soporte publicado por la empresa
+    (p. ej. el indicado en la ficha de Google Play). Responderemos conforme a la normativa aplicable
+    y a los procedimientos internos.
+  </p>
+  <p>
+    Pasos sugeridos para pedir borrado: (1) identificarte como usuario staff;
+    (2) indicar qué datos querés eliminar (cuenta, ubicaciones, evidencia, etc.);
+    (3) el administrador procesará la solicitud y te confirmará qué se borró o qué se conserva
+    por obligación operativa o legal.
   </p>
 
   <h2>9. Menores</h2>

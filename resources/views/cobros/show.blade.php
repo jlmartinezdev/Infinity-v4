@@ -55,6 +55,7 @@
 
         <form action="{{ route('cobros.enviar-whatsapp', $cobro) }}" method="POST" id="form-wa-recibo" class="mt-4 space-y-4">
             @csrf
+            <input type="hidden" name="guardar_telefono" id="wa-guardar-telefono" value="0">
             <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-600 {{ $telRegistrado === '' ? 'opacity-50' : '' }}">
                 <input type="radio" name="destino" value="registrado" class="mt-1 text-emerald-600 focus:ring-emerald-500"
                        {{ $telRegistrado !== '' ? 'checked' : 'disabled' }}>
@@ -83,8 +84,8 @@
                         class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200">
                     Cancelar
                 </button>
-                <button type="submit"
-                        class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
+                <button type="submit" id="btn-wa-recibo-enviar"
+                        class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70">
                     Enviar
                 </button>
             </div>
@@ -157,15 +158,66 @@
         modal.setAttribute('aria-hidden', 'true');
     }
 
+    var form = document.getElementById('form-wa-recibo');
+    var btnEnviar = document.getElementById('btn-wa-recibo-enviar');
+    var guardarInput = document.getElementById('wa-guardar-telefono');
+    var telRegistrado = @json($telRegistrado);
+    var enviando = false;
+
+    function marcarEnviando() {
+        enviando = true;
+        if (btnEnviar) {
+            btnEnviar.disabled = true;
+            btnEnviar.textContent = 'Enviando…';
+        }
+        modal.querySelectorAll('[data-wa-cerrar]').forEach(function(el) {
+            el.disabled = true;
+            el.classList.add('pointer-events-none', 'opacity-50');
+        });
+    }
+
+    function digitos(s) {
+        return String(s || '').replace(/\D/g, '');
+    }
+
     btn.addEventListener('click', abrir);
     modal.querySelectorAll('[data-wa-cerrar]').forEach(function(el) {
-        el.addEventListener('click', cerrar);
+        el.addEventListener('click', function() {
+            if (!enviando) cerrar();
+        });
     });
     radios.forEach(function(r) {
         r.addEventListener('change', syncDestino);
     });
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (enviando) {
+                e.preventDefault();
+                return;
+            }
+            if (guardarInput) guardarInput.value = '0';
+
+            var destino = (modal.querySelector('input[name="destino"]:checked') || {}).value;
+            if (destino === 'otro' && inputOtro) {
+                var tel = (inputOtro.value || '').trim();
+                if (tel !== '') {
+                    var distinto = digitos(tel) !== digitos(telRegistrado);
+                    if (distinto) {
+                        var msg = telRegistrado
+                            ? '¿Guardar este número (' + tel + ') como teléfono del cliente?\n\nReemplaza el actual: ' + telRegistrado
+                            : '¿Guardar este número (' + tel + ') como teléfono del cliente?';
+                        if (confirm(msg)) {
+                            if (guardarInput) guardarInput.value = '1';
+                        }
+                    }
+                }
+            }
+
+            marcarEnviando();
+        });
+    }
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && !modal.classList.contains('hidden')) cerrar();
+        if (e.key === 'Escape' && !modal.classList.contains('hidden') && !enviando) cerrar();
     });
 })();
 </script>

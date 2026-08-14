@@ -361,6 +361,35 @@ Permiso: `servicios.ver`
 | GET | `/cobros/{id}` | `cobros.ver` |
 | POST | `/cobros` | `cobros.crear` |
 
+### 5.4.1 Reporte morosos (N8N)
+
+`GET /reportes/morosos`
+
+Permiso: `pagos-pendientes.ver` **o** `cobros.ver` **o** `factura-interna.ver`
+
+Una fila por cliente con saldo pendiente (misma lógica de saldo que pendientes de pago en el panel).
+
+| Query | Default | Descripción |
+|-------|---------|-------------|
+| `solo_vencidos` | `1` | Solo facturas ya vencidas |
+| `con_telefono` | `1` | Solo clientes con teléfono |
+| `solo_cobrables` | `1` | Cliente no inactivo + servicio no cancelado |
+| `min_dias_mora` | `1` | Mínimo de días desde el vencimiento más antiguo |
+| `max_dias_mora` | — | Máximo de días de mora |
+| `min_saldo` | — | Saldo mínimo |
+| `incluir_facturas` | `0` | Incluye detalle de facturas |
+| `per_page` | `50` | 1–200 |
+| `page` | `1` | |
+
+Ejemplo N8N:
+
+```http
+GET /api/v1/reportes/morosos?per_page=50&min_dias_mora=3&con_telefono=1
+Authorization: Bearer {token}
+```
+
+Respuesta (`data.items[]`): `cliente_id`, `nombre`, `telefono`, `saldo_pendiente`, `dias_mora`, `facturas_count`, `factura_ids`, etc. Paginación en `data.meta`.
+
 **Filtros listado:** `cliente_id`, `fecha_desde`, `fecha_hasta`, `usuario_id` (solo admin), `per_page`, `page`.  
 Usuarios no admin solo ven sus propios cobros.
 

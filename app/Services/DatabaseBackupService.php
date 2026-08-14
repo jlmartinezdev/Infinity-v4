@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -104,6 +105,21 @@ class DatabaseBackupService
         File::ensureDirectoryExists($dir);
 
         $filename = $this->suggestedFilename();
+        $name = config('database.default');
+        $config = config("database.connections.{$name}");
+        $driver = $config['driver'] ?? '';
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $path = $dir.DIRECTORY_SEPARATOR.$filename;
+            $this->dumpMysqlToFile($config, $path);
+
+            return [
+                'path' => $path,
+                'filename' => $filename,
+                'delete_after' => true,
+            ];
+        }
+
         $prepared = $this->prepareBackup();
 
         if ($prepared['type'] === 'sql') {
@@ -234,6 +250,56 @@ class DatabaseBackupService
         }
 
         return $process->getOutput();
+    }
+
+    /**
+     * Dump MySQL a un archivo (más fiable que capturar stdout, sobre todo como servicio Windows).
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function dumpMysqlToFile(array $config, string $path): void
+    {
+        $binary = $this->resolveMysqldumpBinary();
+        if ($binary === 'mysqldump' || ! File::isFile($binary)) {
+            throw new \RuntimeException(
+                'No se encontró mysqldump. Definí MYSQLDUMP_PATH en .env (ej. C:\\xampp\\mysql\\bin\\mysqldump.exe).'
+            );
+        }
+
+        $host = $config['host'] ?? '127.0.0.1';
+        $port = (string) ($config['port'] ?? '3306');
+        $database = $config['database'] ?? '';
+        $username = $config['username'] ?? 'root';
+        $password = (string) ($config['password'] ?? '');
+
+        Log::info('[backup] mysqldump', ['binary' => $binary, 'database' => $database, 'path' => $path]);
+
+        $command = [
+            $binary,
+            '--user='.$username,
+            '--host='.$host,
+            '--port='.$port,
+            '--single-transaction',
+            '--routines',
+            '--no-tablespaces',
+            '--default-character-set=utf8mb4',
+            '--result-file='.$path,
+        ];
+
+        if ($password !== '') {
+            $command[] = '--password='.$password;
+        }
+
+        $command[] = $database;
+
+        $process = new Process($command);
+        $process->setTimeout(3600);
+        $process->run();
+
+        if (! $process->isSuccessful() || ! File::isFile($path) || File::size($path) < 10) {
+            $msg = trim($process->getErrorOutput() ?: $process->getOutput() ?: $process->getExitCodeText());
+            throw new \RuntimeException('mysqldump falló: '.($msg !== '' ? $msg : 'código '.$process->getExitCode()));
+        }
     }
 
     private function resolveSqlitePath(string $path): string

@@ -14,6 +14,12 @@ class Canje extends Model
 
     public const MOD_DESCUENTO = 'descuento_factura';
 
+    public const MOD_AUTOMATICO = 'automatico';
+
+    public const MOD_APROBACION = 'requiere_aprobacion';
+
+    public const MOD_SORTEO = 'sorteo';
+
     public const ESTADO_PENDIENTE = 'PENDIENTE';
 
     public const ESTADO_EN_PREPARACION = 'EN_PREPARACION';
@@ -84,6 +90,9 @@ class Canje extends Model
         return [
             self::MOD_RETIRO => 'Retiro en oficina',
             self::MOD_DESCUENTO => 'Descuento en factura',
+            self::MOD_AUTOMATICO => 'Automático',
+            self::MOD_APROBACION => 'Requiere aprobación',
+            self::MOD_SORTEO => 'Sorteo',
         ];
     }
 

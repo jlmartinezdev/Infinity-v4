@@ -11,6 +11,7 @@
     $config = [
         'servicios' => $serviciosParaVue ?? [],
         'nodos' => isset($nodos) ? $nodos->map(fn ($n) => $n->toArraySelect())->values()->all() : [],
+        'planes' => $planes ?? [],
         'clientes' => $clientes->map(fn($c) => [
             'cliente_id' => $c->cliente_id,
             'cedula' => $c->cedula,
@@ -34,7 +35,7 @@
         'urlDarBaja' => url('servicios') . '/__id__/dar-baja',
         'urlSyncPppoe' => url('servicios') . '/__id__/sync-pppoe',
         'urlHerramientasRed' => url('servicios') . '/__id__/herramientas-red',
-        'urlAccionesClienteBase' => auth()->user()?->tienePermiso('clientes.ver') ? url('clientes') . '/__id__/acciones' : '',
+        'urlAccionesClienteBase' => auth()->user()?->tienePermiso('clientes.ver') ? url('clientes') . '/__id__/detalle' : '',
         'canVerClientes' => auth()->user()?->tienePermiso('clientes.ver') ?? false,
         'urlCrearFacturaInterna' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio', ['servicio' => '__id__']) : '',
         'urlCrearFacturaServicioEspecial' => auth()->user()?->tienePermiso('facturas.crear') ? route('facturas.crear-interna-servicio-especial', ['servicio' => '__id__']) : '',
@@ -43,6 +44,7 @@
             'buscar' => request('buscar', ''),
             'cliente_id' => request('cliente_id', ''),
             'nodo_id' => request('nodo_id', ''),
+            'plan_id' => request('plan_id', ''),
             'estado' => request('estado', 'todos'),
             'estado_pago' => request('estado_pago', 'todos'),
             'app_tv' => request('app_tv', 'todos'),

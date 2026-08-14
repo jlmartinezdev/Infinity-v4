@@ -69,18 +69,20 @@ class FacturaDetalle extends Model
 
     /**
      * Precio unitario con IVA incluido (ej. precio mensual del plan).
+     * Subtotal = cantidad × precio (mismo valor que el total de línea);
+     * monto_impuesto es la porción de IVA incluida (informativa / desglose).
      */
     public static function calcularDesdePrecioIvaIncluido(float $cantidad, float $precioUnitarioConIva, ?Impuesto $impuesto): array
     {
-        $total = round($cantidad * $precioUnitarioConIva, 2);
+        $subtotal = round($cantidad * $precioUnitarioConIva, 2);
         $porcentaje = $impuesto ? (float) $impuesto->porcentaje : 0;
+        $total = $subtotal;
 
         if ($porcentaje > 0) {
             $divisor = 1 + ($porcentaje / 100);
-            $subtotal = round($total / $divisor, 2);
-            $montoImpuesto = round($total - $subtotal, 2);
+            $baseNeta = round($total / $divisor, 2);
+            $montoImpuesto = round($total - $baseNeta, 2);
         } else {
-            $subtotal = $total;
             $montoImpuesto = 0.0;
         }
 

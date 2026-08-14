@@ -117,7 +117,15 @@ class GoogleDriveUploader
         ]);
 
         if (! $response->successful() || ! filled($response->json('access_token'))) {
-            throw new RuntimeException('No se pudo obtener access token de Google Drive. Revisá GOOGLE_DRIVE_REFRESH_TOKEN.');
+            $error = (string) ($response->json('error') ?? '');
+            $desc = (string) ($response->json('error_description') ?? $response->body());
+            $hint = ($error === 'invalid_grant')
+                ? ' El refresh token expiró o fue revocado. Ejecutá: php artisan backup:drive-auth'
+                : '';
+
+            throw new RuntimeException(
+                'No se pudo obtener access token de Google Drive ('.$error.': '.$desc.').'.$hint
+            );
         }
 
         return (string) $response->json('access_token');

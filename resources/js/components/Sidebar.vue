@@ -271,6 +271,7 @@ function isSubmenuExpanded(item) {
   if (!item.submenu) return false;
   const key = item.name;
   if (key in menuExpanded.value) return menuExpanded.value[key];
+  if (item.defaultExpanded) return true;
   return isSubmenuActive(item);
 }
 

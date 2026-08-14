@@ -51,7 +51,7 @@ class TvAvisoVencimientoService
 
             $ya = TvAvisoNotificacion::query()
                 ->where('tv_cuenta_id', $cuenta->id)
-                ->whereDate('fecha_vencimiento', $vencimiento->toDateString())
+                ->whereDate('enviado_at', $hoy->toDateString())
                 ->exists();
 
             if ($ya) {
