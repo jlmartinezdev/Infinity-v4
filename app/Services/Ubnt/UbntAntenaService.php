@@ -10,6 +10,7 @@ class UbntAntenaService
     public function __construct(
         private WstalistParser $parser,
         private DhcpLeasesParser $dhcpParser,
+        private McaStatusParser $mcaParser,
     ) {}
 
     /**
@@ -165,6 +166,72 @@ class UbntAntenaService
                 'message' => 'Error SSH/dhcp leases: '.$e->getMessage(),
                 'host' => $host,
                 'comando' => $command ?? 'cat /tmp/dhcpd.leases',
+            ];
+        }
+    }
+
+    /**
+     * Consulta un AP airOS: SSID, hostname, modo, frecuencia y estaciones asociadas.
+     *
+     * @return array<string, mixed>
+     */
+    public function consultarApAirOs(string $host): array
+    {
+        $host = trim($host);
+        if ($host === '') {
+            return [
+                'success' => false,
+                'message' => 'No hay IP para conectar por SSH al AP.',
+            ];
+        }
+
+        $user = (string) config('ubnt.ssh_user', 'ubnt');
+        $password = (string) config('ubnt.ssh_password', '');
+        $port = (int) config('ubnt.ssh_port', 22);
+        $timeout = (int) config('ubnt.connect_timeout', 15);
+
+        try {
+            $session = new UbntSshSession($host, $port, $user, $password, $timeout);
+            $outs = $session->execMany([
+                'status' => 'mca-status 2>/dev/null || ubntbox mca-status 2>/dev/null || true',
+                'cfg' => 'grep -E "ssid|host.1.name|chanbw|radio.1.freq|wireless.1.mode|ieee_mode" /tmp/system.cfg 2>/dev/null || true',
+                'wsta' => (string) config('ubnt.command', 'wstalist'),
+            ]);
+
+            $statusRaw = $outs['status'] ?? '';
+            $cfgRaw = $outs['cfg'] ?? '';
+            $wstaRaw = $outs['wsta'] ?? '';
+
+            if ($statusRaw === '' && $cfgRaw === '') {
+                return [
+                    'success' => false,
+                    'message' => 'El AP no devolvió mca-status ni system.cfg (¿airOS / credenciales?).',
+                    'host' => $host,
+                ];
+            }
+
+            $datos = $this->mcaParser->parse($statusRaw, $cfgRaw);
+            $stations = $this->parser->parse($wstaRaw);
+            if ($datos['estaciones'] === null) {
+                $datos['estaciones'] = count($stations);
+            }
+
+            return array_merge($datos, [
+                'success' => true,
+                'message' => 'Consulta airOS OK.',
+                'host' => $host,
+                'estaciones_detalle' => $stations,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('[Ubnt] AP airOS failed', [
+                'host' => $host,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Error SSH airOS: '.$e->getMessage(),
+                'host' => $host,
             ];
         }
     }

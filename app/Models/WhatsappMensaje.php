@@ -127,6 +127,7 @@ class WhatsappMensaje extends Model
 
         $tips = [
             '131047' => 'Fuera de la ventana de 24 h: el cliente no te escribió recientemente. Usá una plantilla APPROVED.',
+            '131042' => 'Cuenta de WhatsApp Business con problema de pago o elegibilidad en Meta.',
             '131026' => 'Mensaje no entregable (número inválido, sin WhatsApp o bloqueado).',
             '131031' => 'El destinatario no es un usuario válido de WhatsApp.',
             '131051' => 'Tipo de mensaje no soportado para este destinatario.',

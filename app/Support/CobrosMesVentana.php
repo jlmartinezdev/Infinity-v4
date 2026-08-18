@@ -496,6 +496,41 @@ final class CobrosMesVentana
     }
 
     /**
+     * Saldo impago de facturas pendiente/emitida, separado por vencimiento.
+     * Vencidas: fecha_vencimiento anterior a hoy. Por vencer: hoy o posterior (o sin fecha).
+     *
+     * @return array{vencidas: float, por_vencer: float}
+     */
+    public static function totalesPendientePorVencimiento(?Carbon $mesReferencia = null, ?Carbon $hoy = null): array
+    {
+        $hoyStr = ($hoy ?? now())->toDateString();
+        $saldo = '(factura_internas.total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0))';
+
+        $q = DB::table('factura_internas')
+            ->selectRaw("
+                COALESCE(SUM(CASE
+                    WHEN factura_internas.fecha_vencimiento IS NOT NULL AND factura_internas.fecha_vencimiento < ?
+                    THEN {$saldo} ELSE 0 END), 0) as vencidas,
+                COALESCE(SUM(CASE
+                    WHEN factura_internas.fecha_vencimiento IS NULL OR factura_internas.fecha_vencimiento >= ?
+                    THEN {$saldo} ELSE 0 END), 0) as por_vencer
+            ", [$hoyStr, $hoyStr])
+            ->whereIn('estado', ['pendiente', 'emitida'])
+            ->whereRaw($saldo.' > 0');
+
+        if ($mesReferencia !== null) {
+            self::aplicarFiltroFacturasCicloMesReferencia($q, $mesReferencia);
+        }
+
+        $row = $q->first();
+
+        return [
+            'vencidas' => (float) ($row->vencidas ?? 0),
+            'por_vencer' => (float) ($row->por_vencer ?? 0),
+        ];
+    }
+
+    /**
      * Meses de resumen a recalcular cuando se crea o modifica una factura interna.
      *
      * @return list<string> Fechas Y-m-01

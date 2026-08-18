@@ -414,6 +414,27 @@
               Fuera de ventana 24 h: el texto libre va a fallar.
               <a :href="plantillaUrl(telActivo)" class="font-semibold underline">Enviar con plantilla APPROVED</a>
             </div>
+            <div
+              v-if="sugerenciaIa && puedeEditar"
+              class="relative z-10 border-t px-3 py-2 text-xs"
+              style="background: #ecfdf5; color: #065f46;"
+            >
+              <p class="font-semibold">Sugerencia IA — no enviada. Revisá y mandá cuando esté bien.</p>
+              <p v-if="sugerenciaIa.escalate" class="mt-0.5">La IA sugiere derivar a un asesor{{ sugerenciaIa.motivo_escalado ? ' (' + sugerenciaIa.motivo_escalado + ')' : '' }}.</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="rounded-full bg-[#16a34a] px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-40"
+                  :disabled="!puedeEnviarSugerencia"
+                  @click="enviarTexto"
+                >Enviar sugerencia</button>
+                <button
+                  type="button"
+                  class="rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900"
+                  @click="descartarSugerencia"
+                >Descartar</button>
+              </div>
+            </div>
             <form class="wa-composer relative z-10 border-t px-3 py-2.5" @submit.prevent="enviarTexto">
               <div
                 v-if="adjuntoPendiente"
@@ -459,7 +480,7 @@
                   autocomplete="off"
                   class="wa-input max-h-28 min-h-[42px] flex-1 resize-none rounded-lg border-0 px-3 py-2.5 text-[15px] focus:ring-0 disabled:opacity-50"
                   :disabled="hiloMeta.fuera_ventana"
-                  @input="autoGrowComposer"
+                  @input="onComposerInput"
                   @keydown.enter.exact.prevent="enviarTexto"
                 />
                 <button
@@ -1031,6 +1052,8 @@ export default {
       marcandoLeidos: false,
       guardandoAsunto: false,
       texto: '',
+      sugerenciaAplicadaId: null,
+      textoDesdeIa: false,
       toast: null,
       pollTimer: null,
       buscarTimer: null,
@@ -1139,6 +1162,12 @@ export default {
     puedeGuardarContacto() {
       const nombre = (this.contactoForm.nombre || '').trim();
       return !!(nombre || this.contactoForm.cliente_id || this.contactoForm.quitar_cliente);
+    },
+    sugerenciaIa() {
+      return this.hiloMeta?.sugerencia_ia || null;
+    },
+    puedeEnviarSugerencia() {
+      return !!(this.sugerenciaIa?.reply && (this.texto || '').trim() && !this.hiloMeta.fuera_ventana && !this.enviando);
     },
   },
   methods: {
@@ -1258,6 +1287,8 @@ export default {
       this.lastSyncAt = null;
       this.hiloMeta = { nombre: this.nombreDeLista(t) };
       this.texto = '';
+      this.sugerenciaAplicadaId = null;
+      this.textoDesdeIa = false;
       this.quitarAdjunto();
       this.syncUrl();
       this.cargarHilo(t, false, this.hiloSeq);
@@ -1336,6 +1367,7 @@ export default {
           clasificacion_label: data.clasificacion_label,
           clasificacion_color: data.clasificacion_color,
           fuera_ventana: data.fuera_ventana,
+          sugerencia_ia: data.sugerencia_ia || null,
           total: data.total,
           fallidos: data.fallidos,
           sin_leer: data.sin_leer,
@@ -1362,7 +1394,10 @@ export default {
           await this.marcarLeidos(t);
         }
         if (!incremental && this.puedeEditar && this.configured) {
+          this.aplicarSugerenciaSiCorresponde();
           this.focusComposer();
+        } else if (incremental) {
+          this.aplicarSugerenciaSiCorresponde();
         }
       } catch (e) {
         if (e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.name === 'AbortError') return;
@@ -1474,6 +1509,40 @@ export default {
       el.style.height = 'auto';
       el.style.height = `${Math.min(el.scrollHeight, 112)}px`;
     },
+    onComposerInput() {
+      this.textoDesdeIa = false;
+      this.autoGrowComposer();
+    },
+    aplicarSugerenciaSiCorresponde() {
+      const sug = this.sugerenciaIa;
+      if (!sug?.reply || !this.puedeEditar || this.hiloMeta.fuera_ventana) return;
+      if (this.sugerenciaAplicadaId === sug.mensaje_id) return;
+      const actual = (this.texto || '').trim();
+      if (actual && !this.textoDesdeIa) return;
+      this.texto = sug.reply;
+      this.textoDesdeIa = true;
+      this.sugerenciaAplicadaId = sug.mensaje_id;
+      this.$nextTick(() => this.autoGrowComposer());
+    },
+    async descartarSugerencia() {
+      const tel = this.telActivo;
+      if (!tel || !this.urls.descartarSugerenciaIa) {
+        this.hiloMeta = { ...this.hiloMeta, sugerencia_ia: null };
+        if (this.textoDesdeIa) this.texto = '';
+        this.textoDesdeIa = false;
+        this.sugerenciaAplicadaId = null;
+        return;
+      }
+      try {
+        await window.axios.post(this.urls.descartarSugerenciaIa, { telefono: tel }, { headers: { Accept: 'application/json' } });
+      } catch (_) {
+        // Si falla el POST, igual la sacamos de la UI
+      }
+      this.hiloMeta = { ...this.hiloMeta, sugerencia_ia: null };
+      if (this.textoDesdeIa) this.texto = '';
+      this.textoDesdeIa = false;
+      this.sugerenciaAplicadaId = null;
+    },
     abrirSelectorAdjunto() {
       if (this.hiloMeta.fuera_ventana || this.enviando) return;
       this.$refs.fileInput?.click();
@@ -1530,6 +1599,9 @@ export default {
         } else {
           await this.cargarHilo(this.telActivo, false);
         }
+        this.hiloMeta = { ...this.hiloMeta, sugerencia_ia: null };
+        this.textoDesdeIa = false;
+        this.sugerenciaAplicadaId = null;
         await this.cargarConversaciones(true);
       } catch (e) {
         const msg = e.response?.data?.error || e.response?.data?.message || 'Falló el envío';

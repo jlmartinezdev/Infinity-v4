@@ -8,17 +8,21 @@ use App\Models\Servicio;
 use App\Models\Cliente;
 use App\Models\Plan;
 use App\Models\Ticket;
+use App\Models\TipoTecnologia;
 use App\Models\RouterIpPool;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\PoolIpAsignada;
+use App\Support\CpeInventario;
 use App\Support\HerramientasRedPayload;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\NetworkPingService;
+use App\Services\PedidoNodoOpcionesService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use App\Support\ListaClienteServicioViewData;
 
 class ServicioController extends Controller
@@ -75,12 +79,12 @@ class ServicioController extends Controller
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])
             ->orderBy('nombre')
             ->get();
-        $planes = Plan::where('estado', 'activo')->orderBy('nombre')->get();
-        $pools = RouterIpPool::with('router')->where('activo', true)->orderBy('pool_id')->get();
-
         $clienteId = $request->get('cliente_id');
 
-        return view('servicios.create', compact('clientes', 'planes', 'pools', 'clienteId'));
+        return view('servicios.create', array_merge(
+            compact('clientes', 'clienteId'),
+            $this->catalogosFormularioServicio()
+        ));
     }
 
     public function store(Request $request)
@@ -88,6 +92,7 @@ class ServicioController extends Controller
         $validated = $request->validate([
             'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
             'pool_id' => ['required', 'integer', 'exists:router_ip_pools,pool_id'],
+            'tecnologia_id' => ['required', 'integer', 'exists:tipos_tecnologias,tecnologia_id'],
             'plan_id' => ['required', 'integer', 'exists:planes,plan_id'],
             'ip' => ['nullable', 'string', 'max:15', function ($attribute, $value, $fail) {
                 if ($value && str_ends_with(trim($value), '.255')) {
@@ -99,10 +104,22 @@ class ServicioController extends Controller
             'fecha_instalacion' => ['nullable', 'date'],
             'estado' => ['nullable', 'string', 'in:A,S,C'],
             'mac_address' => ['nullable', 'string', 'max:20'],
+            'tr069_serial' => ['nullable', 'string', 'max:64'],
+            'tr069_product_class' => ['nullable', 'string', 'max:64'],
+            'cpe_acceso' => ['nullable', 'string', 'in:ssh,acs'],
+            'cpe_onu' => ['nullable', 'string', 'max:64'],
+            'cpe_onu_otro' => ['nullable', 'string', 'max:64', 'required_if:cpe_onu,'.CpeInventario::OTRO],
+            'cpe_router' => ['nullable', 'string', 'max:64'],
+            'cpe_router_otro' => ['nullable', 'string', 'max:64', 'required_if:cpe_router,'.CpeInventario::OTRO],
+            'cpe_antena' => ['nullable', 'string', 'max:64'],
+            'cpe_antena_otro' => ['nullable', 'string', 'max:64', 'required_if:cpe_antena,'.CpeInventario::OTRO],
+            'cpe_notas' => ['nullable', 'string', 'max:120'],
             'acuerdo_tipo' => ['nullable', 'string', 'in:ninguno,libre,meses'],
             'acuerdo_meses' => ['nullable', 'integer', 'min:1', 'max:24'],
             'acuerdo_desde' => ['nullable', 'date'],
         ]);
+        $validated = $this->normalizarCpeInventario($validated);
+        $validated = $this->validarPlanDeTecnologia($validated);
 
         $validated['estado'] = $validated['estado'] ?? 'P';
         $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
@@ -154,10 +171,11 @@ class ServicioController extends Controller
             ->findOrFail($servicio_id);
 
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])->orderBy('nombre')->get();
-        $planes = Plan::where('estado', 'activo')->orderBy('nombre')->get();
-        $pools = RouterIpPool::with('router')->where('activo', true)->orderBy('pool_id')->get();
 
-        return view('servicios.edit', compact('servicio', 'clientes', 'planes', 'pools'));
+        return view('servicios.edit', array_merge(
+            compact('servicio', 'clientes'),
+            $this->catalogosFormularioServicio($servicio)
+        ));
     }
 
     public function update(Request $request, $servicio_id, MikroTikService $mikrotik)
@@ -169,6 +187,7 @@ class ServicioController extends Controller
 
         $validated = $request->validate([
             'pool_id' => ['required', 'integer', 'exists:router_ip_pools,pool_id'],
+            'tecnologia_id' => ['required', 'integer', 'exists:tipos_tecnologias,tecnologia_id'],
             'plan_id' => ['required', 'integer', 'exists:planes,plan_id'],
             'ip' => ['nullable', 'string', 'max:15', function ($attribute, $value, $fail) {
                 if ($value && str_ends_with(trim($value), '.255')) {
@@ -181,10 +200,22 @@ class ServicioController extends Controller
             'fecha_cancelacion' => ['nullable', 'date'],
             'estado' => ['nullable', 'string', 'in:A,S,C,P,X'],
             'mac_address' => ['nullable', 'string', 'max:20'],
+            'tr069_serial' => ['nullable', 'string', 'max:64'],
+            'tr069_product_class' => ['nullable', 'string', 'max:64'],
+            'cpe_acceso' => ['nullable', 'string', 'in:ssh,acs'],
+            'cpe_onu' => ['nullable', 'string', 'max:64'],
+            'cpe_onu_otro' => ['nullable', 'string', 'max:64', 'required_if:cpe_onu,'.CpeInventario::OTRO],
+            'cpe_router' => ['nullable', 'string', 'max:64'],
+            'cpe_router_otro' => ['nullable', 'string', 'max:64', 'required_if:cpe_router,'.CpeInventario::OTRO],
+            'cpe_antena' => ['nullable', 'string', 'max:64'],
+            'cpe_antena_otro' => ['nullable', 'string', 'max:64', 'required_if:cpe_antena,'.CpeInventario::OTRO],
+            'cpe_notas' => ['nullable', 'string', 'max:120'],
             'acuerdo_tipo' => ['nullable', 'string', 'in:ninguno,libre,meses'],
             'acuerdo_meses' => ['nullable', 'integer', 'min:1', 'max:24'],
             'acuerdo_desde' => ['nullable', 'date'],
         ]);
+        $validated = $this->normalizarCpeInventario($validated);
+        $validated = $this->validarPlanDeTecnologia($validated);
         $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
         if ($validated['acuerdo_tipo'] !== 'meses') {
             $validated['acuerdo_meses'] = null;
@@ -763,8 +794,92 @@ class ServicioController extends Controller
     }
 
     /**
-     * Consulta MAC y tráfico (download/upload) en MikroTik para el servicio.
+     * Resumen TR-069 del CPE vía GenieACS (último Inform, modelo, WAN, SSID).
      */
+    public function herramientasRedTr069($servicio_id, \App\Services\GenieAcs\GenieAcsService $acs)
+    {
+        @set_time_limit(45);
+        $servicio = Servicio::query()->findOrFail($servicio_id);
+        $result = $acs->resumen($servicio);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
+
+    /**
+     * Hosts LAN reportados por el CPE (TR-069).
+     */
+    public function herramientasRedTr069Hosts($servicio_id, \App\Services\GenieAcs\GenieAcsService $acs)
+    {
+        @set_time_limit(45);
+        $servicio = Servicio::query()->findOrFail($servicio_id);
+        $result = $acs->hosts($servicio);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
+
+    public function herramientasRedTr069Reboot($servicio_id, \App\Services\GenieAcs\GenieAcsService $acs)
+    {
+        @set_time_limit(45);
+        $servicio = Servicio::query()->findOrFail($servicio_id);
+        $result = $acs->reboot($servicio);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
+
+    public function herramientasRedTr069Refresh($servicio_id, \App\Services\GenieAcs\GenieAcsService $acs)
+    {
+        @set_time_limit(45);
+        $servicio = Servicio::query()->findOrFail($servicio_id);
+        $result = $acs->refresh($servicio);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
+
+    public function herramientasRedTr069Password($servicio_id, Request $request, \App\Services\GenieAcs\GenieAcsService $acs)
+    {
+        @set_time_limit(45);
+        $servicio = Servicio::query()->findOrFail($servicio_id);
+        $tipo = $request->input('tipo', 'wifi');
+        if (! in_array($tipo, ['wifi', 'admin'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tipo inválido (wifi o admin).',
+                'servicio_id' => $servicio->servicio_id,
+            ], 422);
+        }
+        $min = $tipo === 'admin' ? 4 : 8;
+        $max = $tipo === 'admin' ? 64 : 63;
+        $password = (string) $request->input('password', '');
+        if (strlen($password) < $min || strlen($password) > $max) {
+            return response()->json([
+                'success' => false,
+                'message' => $tipo === 'wifi'
+                    ? 'La clave WiFi debe tener entre 8 y 63 caracteres.'
+                    : 'La clave del router debe tener entre 4 y 64 caracteres.',
+                'servicio_id' => $servicio->servicio_id,
+            ], 422);
+        }
+        $wifiId = $request->input('wifi_id');
+        $wifiId = is_string($wifiId) && $wifiId !== '' ? $wifiId : 'all';
+        $result = $acs->setPassword($servicio, $tipo, $password, $wifiId);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
     public function herramientasRedMikrotik($servicio_id, MikroTikService $mikrotik)
     {
         $servicio = Servicio::with(['pool.router', 'cliente'])->findOrFail($servicio_id);
@@ -1313,5 +1428,94 @@ class ServicioController extends Controller
         }
 
         return redirect()->route('servicios.index')->with('success', $mensaje);
+    }
+
+    /**
+     * @return array{planes: \Illuminate\Support\Collection, pools: \Illuminate\Support\Collection, tecnologias: \Illuminate\Support\Collection, tecnologiaKinds: array<string, string>}
+     */
+    private function catalogosFormularioServicio(?Servicio $servicio = null): array
+    {
+        $planes = Plan::where('estado', 'activo')->orderBy('nombre')->get();
+        if ($servicio?->plan && ! $planes->contains(fn (Plan $p) => (int) $p->plan_id === (int) $servicio->plan_id)) {
+            $planes = $planes->prepend($servicio->plan);
+        }
+
+        $tecnologias = TipoTecnologia::orderBy('descripcion')->get();
+        $tecnologiaKinds = [];
+        foreach ($tecnologias as $t) {
+            $id = (string) $t->tecnologia_id;
+            if (PedidoNodoOpcionesService::descripcionEsGpon($t->descripcion)) {
+                $tecnologiaKinds[$id] = 'gpon';
+            } elseif (PedidoNodoOpcionesService::descripcionEsWireless($t->descripcion)) {
+                $tecnologiaKinds[$id] = 'wireless';
+            } else {
+                $tecnologiaKinds[$id] = 'otro';
+            }
+        }
+
+        $pools = RouterIpPool::with(['router.nodo', 'olt'])->where('activo', true)->orderBy('pool_id')->get();
+
+        return compact('planes', 'pools', 'tecnologias', 'tecnologiaKinds');
+    }
+
+    private function validarPlanDeTecnologia(array $validated): array
+    {
+        $plan = Plan::find($validated['plan_id'] ?? null);
+        if (! $plan || (int) $plan->tecnologia_id !== (int) $validated['tecnologia_id']) {
+            throw ValidationException::withMessages([
+                'plan_id' => 'El plan no corresponde a la tecnología seleccionada.',
+            ]);
+        }
+
+        unset($validated['tecnologia_id']);
+
+        return $validated;
+    }
+
+    private function normalizarCpeInventario(array $validated): array
+    {
+        $kind = $this->kindDeTecnologia(isset($validated['tecnologia_id']) ? (int) $validated['tecnologia_id'] : null);
+
+        $validated['cpe_onu'] = CpeInventario::resolverSeleccion(
+            'onu',
+            $validated['cpe_onu'] ?? null,
+            $validated['cpe_onu_otro'] ?? null
+        );
+        $validated['cpe_router'] = CpeInventario::resolverSeleccion(
+            'router',
+            $validated['cpe_router'] ?? null,
+            $validated['cpe_router_otro'] ?? null
+        );
+        $validated['cpe_antena'] = CpeInventario::resolverSeleccion(
+            'antena',
+            $validated['cpe_antena'] ?? null,
+            $validated['cpe_antena_otro'] ?? null
+        );
+
+        if ($kind === 'gpon') {
+            $validated['cpe_antena'] = null;
+        } elseif ($kind === 'wireless') {
+            $validated['cpe_onu'] = null;
+        }
+
+        unset($validated['cpe_onu_otro'], $validated['cpe_router_otro'], $validated['cpe_antena_otro']);
+
+        return $validated;
+    }
+
+    private function kindDeTecnologia(?int $tecnologiaId): string
+    {
+        if (! $tecnologiaId) {
+            return 'otro';
+        }
+        $tipo = TipoTecnologia::find($tecnologiaId);
+        if ($tipo && PedidoNodoOpcionesService::descripcionEsGpon($tipo->descripcion)) {
+            return 'gpon';
+        }
+        if ($tipo && PedidoNodoOpcionesService::descripcionEsWireless($tipo->descripcion)) {
+            return 'wireless';
+        }
+
+        return 'otro';
     }
 }

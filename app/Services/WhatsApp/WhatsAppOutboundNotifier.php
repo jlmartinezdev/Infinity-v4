@@ -2,14 +2,18 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
+use App\Models\NodoApWireless;
 use App\Models\Router;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Models\TvCuenta;
 use App\Models\User;
 use App\Models\WhatsappMensaje;
+use App\Support\FacturaReclamoMensaje;
+use App\Support\PendientesResumenPublico;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -264,22 +268,36 @@ class WhatsAppOutboundNotifier
      * Monto: Gs. {{4}} / Vencimiento: {{5}}
      *
      * Para servicio especial, {{3}} es la descripción del ítem (no un período).
+     *
+     * @return array{ok: bool, message: string}
      */
-    public function facturaGenerada(FacturaInterna $factura): void
+    public function facturaGenerada(FacturaInterna $factura, bool $forzar = false, ?string $telefonoOverride = null): array
     {
-        if (! $this->eventEnabled('factura')) {
-            return;
+        if (! $forzar && ! $this->eventEnabled('factura')) {
+            return ['ok' => false, 'message' => 'El aviso automático de factura está desactivado.'];
+        }
+
+        if (! $this->whatsapp->isConfigured()) {
+            return ['ok' => false, 'message' => 'WhatsApp no está configurado.'];
         }
 
         $factura->loadMissing(['cliente', 'detalles']);
         $cliente = $factura->cliente;
-        if (! $cliente || ! filled($cliente->telefono)) {
+        if (! $cliente) {
+            return ['ok' => false, 'message' => 'La factura no tiene cliente asociado.'];
+        }
+
+        $telefono = filled($telefonoOverride)
+            ? trim((string) $telefonoOverride)
+            : (string) ($cliente->telefono ?? '');
+
+        if ($telefono === '') {
             Log::info('[WhatsApp outbound] factura sin teléfono de cliente', [
                 'factura_id' => $factura->id,
                 'cliente_id' => $factura->cliente_id,
             ]);
 
-            return;
+            return ['ok' => false, 'message' => 'El cliente no tiene teléfono. Indicá un número para enviar.'];
         }
 
         $nombre = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
@@ -318,9 +336,9 @@ class WhatsAppOutboundNotifier
             $texto .= "\n".$detalleLineas;
         }
 
-        $this->enviar(
+        $ok = $this->enviar(
             event: 'factura',
-            telefono: (string) $cliente->telefono,
+            telefono: $telefono,
             texto: $texto,
             templateParams: [
                 ['type' => 'text', 'text' => $saludo],
@@ -335,6 +353,136 @@ class WhatsAppOutboundNotifier
                 'contexto_id' => $factura->id,
             ]
         );
+
+        $telNorm = $this->whatsapp->normalizePhone($telefono) ?? $telefono;
+        $fallo = $this->ultimoFallo('factura', (int) $factura->id, (int) $cliente->cliente_id);
+
+        return $ok
+            ? ['ok' => true, 'message' => 'Aviso de factura enviado por WhatsApp a '.$telNorm.'.']
+            : ['ok' => false, 'message' => $this->mensajeFallo('No se pudo enviar el aviso de factura a '.$telNorm.'.', $fallo), 'fallo' => $fallo];
+    }
+
+    /**
+     * Reclamo de mora (facturas vencidas) con link al PDF resumen.
+     *
+     * @param  Collection<int, FacturaInterna>  $facturas
+     * @return array{ok: bool, message: string, ya_enviado?: bool, fallo?: array<string, mixed>|null}
+     */
+    public function facturaReclamo(
+        Cliente $cliente,
+        Collection $facturas,
+        bool $adjuntarResumen = true,
+        bool $forzarDia = false,
+        ?string $telefonoOverride = null,
+    ): array {
+        if (! $this->whatsapp->isConfigured()) {
+            return ['ok' => false, 'message' => 'WhatsApp no está configurado.'];
+        }
+
+        $telefono = filled($telefonoOverride)
+            ? trim((string) $telefonoOverride)
+            : (string) ($cliente->telefono ?? '');
+
+        if ($telefono === '') {
+            return ['ok' => false, 'message' => 'Indicá un teléfono o cargá el del cliente.'];
+        }
+
+        $vencidas = $facturas->filter(function (FacturaInterna $f) {
+            return $f->fecha_vencimiento && $f->fecha_vencimiento->lt(now()->startOfDay());
+        })->values();
+
+        if ($vencidas->isEmpty()) {
+            return ['ok' => false, 'message' => 'Este cliente no tiene facturas vencidas para reclamar.'];
+        }
+
+        if (! $forzarDia) {
+            $yaHoy = WhatsappMensaje::query()
+                ->where('contexto_tipo', 'factura_reclamo')
+                ->where('cliente_id', $cliente->cliente_id)
+                ->where('created_at', '>=', now()->startOfDay())
+                ->whereIn('estado', [
+                    WhatsappMensaje::ESTADO_PENDIENTE,
+                    WhatsappMensaje::ESTADO_ENVIADO,
+                    WhatsappMensaje::ESTADO_ENTREGADO,
+                    WhatsappMensaje::ESTADO_LEIDO,
+                ])
+                ->exists();
+            if ($yaHoy) {
+                return [
+                    'ok' => false,
+                    'ya_enviado' => true,
+                    'message' => 'Ya se envió un reclamo a este cliente hoy. ¿Reenviar de todos modos?',
+                ];
+            }
+        }
+
+        $nombre = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
+        $saludo = $nombre !== '' ? mb_substr($nombre, 0, 60) : 'cliente';
+        $primera = $vencidas->first();
+        $cantidad = $vencidas->count();
+        $cantidadLabel = (string) $cantidad;
+        $vencimiento = $primera->fecha_vencimiento?->format('d/m/Y') ?? '-';
+        $vencimientoLabel = $vencimiento.' (vencido)';
+        $saldo = (float) $vencidas->sum(fn (FacturaInterna $f) => (float) $f->saldo_pendiente);
+        $saldoFmt = number_format($saldo, 0, ',', '.');
+
+        $urlPublica = PendientesResumenPublico::url((int) $cliente->cliente_id);
+        $sufijoBoton = PendientesResumenPublico::sufijo((int) $cliente->cliente_id);
+
+        $texto = FacturaReclamoMensaje::cuerpo(
+            $saludo,
+            $cantidad,
+            $vencimiento,
+            $saldoFmt,
+            $adjuntarResumen ? $urlPublica : null,
+        );
+
+        $plantilla = trim((string) config('whatsapp.templates.factura_reclamo', ''));
+
+        $ok = $this->enviar(
+            event: 'factura_reclamo',
+            telefono: $telefono,
+            texto: $texto,
+            templateParams: [
+                ['type' => 'text', 'text' => $saludo],
+                ['type' => 'text', 'text' => $cantidadLabel],
+                ['type' => 'text', 'text' => $vencimientoLabel],
+                ['type' => 'text', 'text' => $saldoFmt],
+            ],
+            meta: [
+                'cliente_id' => $cliente->cliente_id,
+                'contexto_tipo' => 'factura_reclamo',
+                'contexto_id' => (int) $primera->id,
+            ],
+            urlButtonParameters: $adjuntarResumen
+                ? [['type' => 'text', 'text' => $sufijoBoton]]
+                : [],
+            fallbackTexto: true,
+        );
+
+        $telNorm = $this->whatsapp->normalizePhone($telefono) ?? $telefono;
+        $fallo = $this->ultimoFallo('factura_reclamo', (int) $primera->id, (int) $cliente->cliente_id);
+
+        if ($ok) {
+            $msg = 'Reclamo enviado por WhatsApp a '.$telNorm.'.';
+            if ($plantilla === '') {
+                $msg .= ' Fue texto libre (no hay plantilla Meta). Si no llega al teléfono, el número está fuera de la ventana de 24 h: hay que crear y aprobar factura_reclamo_mora.';
+            }
+
+            return ['ok' => true, 'message' => $msg, 'sin_plantilla' => $plantilla === ''];
+        }
+
+        $base = 'No se pudo enviar el reclamo a '.$telNorm.'.';
+        if ($plantilla === '') {
+            $base .= ' No hay plantilla Meta de reclamo (WHATSAPP_TEMPLATE_FACTURA_RECLAMO). El texto libre no llega si el destinatario no escribió en las últimas 24 h.';
+        }
+
+        return [
+            'ok' => false,
+            'message' => $this->mensajeFallo($base, $fallo),
+            'fallo' => $fallo,
+            'sin_plantilla' => $plantilla === '',
+        ];
     }
 
     /**
@@ -468,6 +616,77 @@ class WhatsAppOutboundNotifier
                 meta: [
                     'contexto_tipo' => 'router_caido',
                     'contexto_id' => $router->router_id,
+                ]
+            );
+            $enviados++;
+        }
+
+        return $enviados > 0;
+    }
+
+    /**
+     * Avisa a staff que un AP wireless (airOS) no responde ping.
+     *
+     * @param  Collection<int, User>  $destinatarios
+     */
+    public function apWirelessCaido(NodoApWireless $ap, Collection $destinatarios, bool $esPrueba = false): bool
+    {
+        if (! $this->whatsapp->isConfigured()) {
+            return false;
+        }
+
+        if (! $esPrueba && ! (bool) config('whatsapp.events.ap_wireless_caido', true)) {
+            return false;
+        }
+
+        $ap->loadMissing('nodo');
+        $nodo = trim((string) ($ap->nodo?->descripcion ?: ''));
+        $nombreAp = trim((string) ($ap->nombre ?: ('#'.$ap->ap_id)));
+        $nombre = $nodo !== '' ? "AP {$nombreAp} ({$nodo})" : "AP {$nombreAp}";
+        $ip = trim((string) ($ap->ip ?: '-'));
+        $fallos = (int) ($ap->ping_fallos_seguidos ?? 0);
+        $cuando = $ap->ping_at
+            ? $ap->ping_at->timezone(config('app.timezone'))->format('d/m/Y H:i:s')
+            : now()->timezone(config('app.timezone'))->format('d/m/Y H:i:s');
+
+        $texto = sprintf(
+            "%sAlerta de red\nAP wireless: %s\nIP: %s\nSSID: %s\nEstado: sin respuesta al ping\nFallos seguidos: %d\nÚltimo chequeo: %s\nRevisá APs wireless en el panel.",
+            $esPrueba ? "[PRUEBA]\n" : '',
+            $nombre,
+            $ip,
+            trim((string) ($ap->ssid ?: '-')),
+            $fallos,
+            $cuando
+        );
+
+        $enviados = 0;
+        foreach ($destinatarios as $user) {
+            if (! $user instanceof User) {
+                continue;
+            }
+            $telefono = $this->telefonoStaff($user);
+            if (! $telefono) {
+                Log::info('[WhatsApp outbound] ap_wireless_caido sin teléfono', [
+                    'usuario_id' => $user->usuario_id,
+                    'ap_id' => $ap->ap_id,
+                ]);
+
+                continue;
+            }
+
+            $this->enviar(
+                event: 'ap_wireless_caido',
+                telefono: $telefono,
+                texto: $texto,
+                templateParams: [
+                    ['type' => 'text', 'text' => $nombre],
+                    ['type' => 'text', 'text' => $ip],
+                    ['type' => 'text', 'text' => (string) max(1, $fallos)],
+                    ['type' => 'text', 'text' => $cuando],
+                ],
+                meta: [
+                    'contexto_tipo' => 'ap_wireless_caido',
+                    'contexto_id' => $ap->ap_id,
                 ]
             );
             $enviados++;
@@ -847,6 +1066,7 @@ class WhatsAppOutboundNotifier
         array $templateParams,
         array $meta,
         array $urlButtonParameters = [],
+        bool $fallbackTexto = true,
     ): bool {
         $template = trim((string) config("whatsapp.templates.{$event}", ''));
         $langPreferido = (string) (
@@ -873,8 +1093,7 @@ class WhatsAppOutboundNotifier
                     return true;
                 }
 
-                // Plantilla PENDING/idioma incorrecto → texto libre (solo útil con ventana 24h).
-                Log::warning('[WhatsApp outbound] Plantilla falló, reintento con texto', [
+                Log::warning('[WhatsApp outbound] Plantilla falló'.($fallbackTexto ? ', reintento con texto' : ''), [
                     'event' => $event,
                     'template' => $template,
                     'language' => $lang,
@@ -882,6 +1101,10 @@ class WhatsAppOutboundNotifier
                     'error_code' => $mensaje->error_code,
                     'meta' => $meta,
                 ]);
+
+                if (! $fallbackTexto) {
+                    return false;
+                }
             }
 
             $mensaje = $this->whatsapp->sendText($telefono, $texto, $meta);
@@ -955,5 +1178,47 @@ class WhatsAppOutboundNotifier
         }
 
         return '-';
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function ultimoFallo(string $contextoTipo, int $contextoId, int $clienteId): ?array
+    {
+        $ultimo = WhatsappMensaje::query()
+            ->where('contexto_tipo', $contextoTipo)
+            ->where('cliente_id', $clienteId)
+            ->when($contextoId > 0, fn ($q) => $q->where('contexto_id', $contextoId))
+            ->latest('id')
+            ->first();
+
+        if (! $ultimo || ! $ultimo->esFallido()) {
+            return null;
+        }
+
+        return $ultimo->detalleFallo();
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $fallo
+     */
+    private function mensajeFallo(string $base, ?array $fallo): string
+    {
+        if (! $fallo) {
+            return $base.' Revisá el historial en el modal.';
+        }
+
+        $partes = [$base];
+        if (! empty($fallo['codigo'])) {
+            $partes[] = 'Código Meta '.$fallo['codigo'];
+        }
+        if (! empty($fallo['mensaje'])) {
+            $partes[] = (string) $fallo['mensaje'];
+        }
+        if (! empty($fallo['tip'])) {
+            $partes[] = (string) $fallo['tip'];
+        }
+
+        return implode(' — ', $partes);
     }
 }

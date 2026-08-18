@@ -17,6 +17,7 @@ use App\Support\CobrosMesVentana;
 use App\Support\MenuUsuario;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 class HomeController extends Controller
 {
@@ -270,22 +271,24 @@ class HomeController extends Controller
             ? round(($serviciosActivos / $serviciosOperativos) * 100, 1)
             : 100.0;
 
-        $clientesMesActual = Cliente::where('estado', 'activo')
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->count();
         $mesAnterior = now()->subMonth();
-        $clientesMesAnterior = Cliente::where('estado', 'activo')
-            ->whereMonth('created_at', $mesAnterior->month)
-            ->whereYear('created_at', $mesAnterior->year)
-            ->count();
-        $variacionClientes = $clientesMesAnterior > 0
-            ? (int) round((($clientesMesActual - $clientesMesAnterior) / $clientesMesAnterior) * 100)
-            : ($clientesMesActual > 0 ? 100 : 0);
+        $instaladosMes = Servicio::whereMonth('fecha_instalacion', now()->month)
+            ->whereYear('fecha_instalacion', now()->year)
+            ->distinct()
+            ->count('cliente_id');
+        $instaladosMesAnterior = Servicio::whereMonth('fecha_instalacion', $mesAnterior->month)
+            ->whereYear('fecha_instalacion', $mesAnterior->year)
+            ->distinct()
+            ->count('cliente_id');
+        $variacionInstalados = $instaladosMesAnterior > 0
+            ? (int) round((($instaladosMes - $instaladosMesAnterior) / $instaladosMesAnterior) * 100)
+            : ($instaladosMes > 0 ? 100 : 0);
+        $progresoInstalados = $instaladosMesAnterior > 0
+            ? min(100, (int) round(($instaladosMes / $instaladosMesAnterior) * 100))
+            : ($instaladosMes > 0 ? 100 : 0);
 
         return [
             'clientes' => Cliente::where('estado', 'activo')->count(),
-            'clientes_variacion' => $variacionClientes,
             'servicios' => $serviciosActivos,
             'servicios_suspendidos' => $serviciosSuspendidos,
             'servicios_cortados' => $serviciosCortados,
@@ -295,10 +298,10 @@ class HomeController extends Controller
             'clientes_instalados_hoy' => Servicio::whereDate('fecha_instalacion', now()->toDateString())
                 ->distinct()
                 ->count('cliente_id'),
-            'clientes_instalados_mes' => Servicio::whereMonth('fecha_instalacion', now()->month)
-                ->whereYear('fecha_instalacion', now()->year)
-                ->distinct()
-                ->count('cliente_id'),
+            'clientes_instalados_mes' => $instaladosMes,
+            'instalados_variacion' => $variacionInstalados,
+            'instalados_progreso' => $progresoInstalados,
+            'instalados_mes_anterior' => $instaladosMesAnterior,
         ];
     }
 
@@ -359,7 +362,7 @@ class HomeController extends Controller
 
     /**
      * @param  array<string, int|float>  $stats
-     * @return array{operativo: bool, etiqueta: string, salud: float, items: list<array{label: string, detail: string, ok: bool, syncing?: bool}>}
+     * @return array{operativo: bool, etiqueta: string, salud: float, items: list<array{label: string, detail: string, ok: bool, syncing?: bool, href?: string|null}>}
      */
     private function obtenerEstadoSistema(array $stats): array
     {
@@ -367,10 +370,35 @@ class HomeController extends Controller
         $routersActivos = Router::where('estado', 'activo')->count();
         $oltsTotal = Olt::count();
         $oltsActivos = Olt::where('estado', 'activo')->count();
-        $oltsConError = Olt::whereNotNull('onus_sync_error')->where('onus_sync_error', '!=', '')->count();
+        $oltsConErrorLista = Olt::query()
+            ->whereNotNull('onus_sync_error')
+            ->where('onus_sync_error', '!=', '')
+            ->orderBy('codigo')
+            ->get(['olt_id', 'codigo', 'ip', 'onus_sync_error']);
+        $oltsConError = $oltsConErrorLista->count();
 
         $salud = (float) ($stats['indice_salud'] ?? 100);
         $operativo = $salud >= 90 && $oltsConError === 0;
+
+        $oltHref = Route::has('sistema.olts.index') ? route('sistema.olts.index') : null;
+        $oltDetail = 'Sin OLTs';
+        if ($oltsTotal > 0) {
+            if ($oltsConError > 0) {
+                $primero = $oltsConErrorLista->first();
+                $nombre = $primero->codigo ?: ('OLT #'.$primero->olt_id);
+                $err = Str::limit(trim((string) $primero->onus_sync_error), 90, '…');
+                $oltDetail = $oltsConError === 1
+                    ? "{$nombre}: {$err}"
+                    : "{$oltsConError} con error · {$nombre}: {$err}";
+                if ($oltsConError === 1 && Route::has('sistema.olts.show')) {
+                    $oltHref = route('sistema.olts.show', $primero);
+                }
+            } else {
+                $oltDetail = "{$oltsActivos}/{$oltsTotal} activos";
+            }
+        }
+
+        $routerHref = Route::has('sistema.routers.index') ? route('sistema.routers.index') : null;
 
         return [
             'operativo' => $operativo,
@@ -386,16 +414,14 @@ class HomeController extends Controller
                         : 'Sin routers',
                     'ok' => $routersTotal > 0,
                     'syncing' => false,
+                    'href' => $routerHref,
                 ],
                 [
                     'label' => 'OLTs GPON',
-                    'detail' => $oltsTotal > 0
-                        ? ($oltsConError > 0
-                            ? "{$oltsConError} con error de sync"
-                            : "{$oltsActivos}/{$oltsTotal} activos")
-                        : 'Sin OLTs',
+                    'detail' => $oltDetail,
                     'ok' => $oltsTotal === 0 || ($oltsActivos > 0 && $oltsConError === 0),
                     'syncing' => $oltsConError > 0,
+                    'href' => $oltHref,
                 ],
                 [
                     'label' => 'Servicios en red',
@@ -403,6 +429,7 @@ class HomeController extends Controller
                         .number_format((float) ($stats['servicios_suspendidos'] ?? 0)).' susp.',
                     'ok' => $salud >= 90,
                     'syncing' => $salud < 90 && $salud >= 75,
+                    'href' => Route::has('servicios.index') ? route('servicios.index') : null,
                 ],
             ],
         ];

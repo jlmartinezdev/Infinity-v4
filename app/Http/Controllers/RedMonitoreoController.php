@@ -266,6 +266,7 @@ class RedMonitoreoController extends Controller
             'urlDatos' => url('/sistema/red-monitoreo/datos'),
             'urlPing' => url('/sistema/red-monitoreo/ping'),
             'urlNotificarCaida' => url('/sistema/red-monitoreo/notificar-caida'),
+            'urlAvisos' => url('/sistema/router-caida-avisos'),
             'urlRouters' => url('/sistema/routers'),
             'urlIspFailover' => url('/sistema/isp-failover'),
             'isp_failover' => IspFailoverConfig::snapshot(),

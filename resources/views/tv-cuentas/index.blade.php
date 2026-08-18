@@ -2,6 +2,23 @@
 
 @section('title', 'Cuentas TV (app)')
 
+@push('styles')
+<style>
+    mark.search-mark {
+        background-color: #facc15;
+        color: inherit;
+        padding: 0 0.12em;
+        border-radius: 0.15rem;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+    }
+    .dark mark.search-mark {
+        background-color: rgba(250, 204, 21, 0.45);
+        color: inherit;
+    }
+</style>
+@endpush
+
 @section('content')
 @php
     $cardBase = 'block p-4 rounded-xl shadow border transition-colors bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
@@ -56,9 +73,16 @@
         || $filtroApp !== 'todos'
         || $filtroCupos !== 'todos'
         || $orden !== 'urgencia';
+    $cantidadFiltrosPanel = (int) (
+        (($filtro ?? 'todos') !== 'todos')
+        + ($filtroApp !== 'todos')
+        + ($filtroCupos !== 'todos')
+        + ($orden !== 'urgencia')
+    );
+    $resaltar = fn (?string $texto): string => \App\Support\SearchHighlight::html($texto, $busqueda ?? '');
 @endphp
 
-<div class="max-w-7xl mx-auto">
+<div class="max-w-[1600px] mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cuentas TV (streaming)</h1>
@@ -206,52 +230,89 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ route('tv-cuentas.index') }}" class="mb-4 space-y-3">
-        <div class="flex items-center w-full min-h-[2.75rem] sm:min-h-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20">
-            <span class="pl-3 flex items-center shrink-0 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
-                </svg>
-            </span>
-            <input type="search" name="q" id="tv-busqueda" value="{{ $busqueda }}"
-                placeholder="Usuario, cliente o cédula"
-                aria-label="Buscar cuentas TV"
-                autocomplete="off"
-                enterkeyhint="search"
-                class="flex-1 min-w-0 border-0 bg-transparent pl-2 pr-3 py-2.5 sm:py-2 text-base sm:text-sm leading-normal focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 [appearance:textfield] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden">
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
-            <select name="estado" aria-label="Estado de pago"
-                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
-                @foreach($estadosPago as $valor => $etiqueta)
-                    <option value="{{ $valor }}" @selected(($filtro ?? 'todos') === $valor)>{{ $etiqueta }}</option>
-                @endforeach
-            </select>
-            <select name="app" aria-label="Aplicación"
-                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
-                <option value="todos" @selected($filtroApp === 'todos')>Todas las apps</option>
-                <option value="nebula" @selected($filtroApp === 'nebula')>Solo Nebula</option>
-                <option value="lumix" @selected($filtroApp === 'lumix')>Solo Lumix</option>
-            </select>
-            <select name="cupos" aria-label="Cupos"
-                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
-                @foreach($cuposLabels as $valor => $etiqueta)
-                    <option value="{{ $valor }}" @selected($filtroCupos === $valor)>{{ $etiqueta }}</option>
-                @endforeach
-            </select>
-            <select name="orden" aria-label="Orden"
-                class="w-full min-w-0 px-3 py-2.5 sm:py-2 text-base sm:text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none sm:col-span-2 xl:col-span-1">
-                @foreach($ordenLabels as $valor => $etiqueta)
-                    <option value="{{ $valor }}" @selected($orden === $valor)>{{ $etiqueta }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-            @if($hayFiltrosActivos)
-                <a href="{{ route('tv-cuentas.index') }}"
-                    class="w-full sm:w-auto text-center px-4 py-2.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-base sm:text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Limpiar</a>
-            @endif
-            <button type="submit" class="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-purple-600 text-white rounded-lg text-base sm:text-sm font-medium hover:bg-purple-700 transition-colors">Aplicar filtros</button>
+    <form method="GET" action="{{ route('tv-cuentas.index') }}" class="mb-4">
+        <div class="flex items-stretch gap-2">
+            <div class="flex items-center flex-1 min-w-0 min-h-[2.75rem] sm:min-h-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20">
+                <span class="pl-3 flex items-center shrink-0 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
+                    </svg>
+                </span>
+                <input type="search" name="q" id="tv-busqueda" value="{{ $busqueda }}"
+                    placeholder="Usuario, cliente o cédula"
+                    aria-label="Buscar cuentas TV"
+                    autocomplete="off"
+                    enterkeyhint="search"
+                    class="flex-1 min-w-0 border-0 bg-transparent pl-2 pr-3 py-2.5 sm:py-2 text-base sm:text-sm leading-normal focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 [appearance:textfield] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden">
+            </div>
+            <div class="relative shrink-0" id="tv-filtros-wrap">
+                <button
+                    type="button"
+                    id="tv-filtros-btn"
+                    class="relative inline-flex items-center gap-2 h-full px-4 py-2.5 rounded-lg border font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/20 {{ $cantidadFiltrosPanel ? 'border-purple-600 bg-purple-600 text-white hover:bg-purple-700' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600' }}"
+                    aria-expanded="false"
+                    aria-controls="tv-filtros-menu"
+                    title="Filtros"
+                >
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span class="hidden sm:inline">Filtros</span>
+                    @if($cantidadFiltrosPanel)
+                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold bg-white text-purple-700">{{ $cantidadFiltrosPanel }}</span>
+                    @endif
+                </button>
+                <div
+                    id="tv-filtros-menu"
+                    class="hidden absolute right-0 mt-2 w-80 max-w-sm py-3 px-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl z-30"
+                >
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</p>
+                        @if($cantidadFiltrosPanel || ($busqueda ?? '') !== '')
+                            <a href="{{ route('tv-cuentas.index') }}" class="text-xs text-purple-600 dark:text-purple-400 hover:underline">Limpiar</a>
+                        @endif
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado de pago</label>
+                            <select name="estado" aria-label="Estado de pago"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                @foreach($estadosPago as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected(($filtro ?? 'todos') === $valor)>{{ $etiqueta }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Aplicación</label>
+                            <select name="app" aria-label="Aplicación"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                <option value="todos" @selected($filtroApp === 'todos')>Todas las apps</option>
+                                <option value="nebula" @selected($filtroApp === 'nebula')>Solo Nebula</option>
+                                <option value="lumix" @selected($filtroApp === 'lumix')>Solo Lumix</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Cupos</label>
+                            <select name="cupos" aria-label="Cupos"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                @foreach($cuposLabels as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected($filtroCupos === $valor)>{{ $etiqueta }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Orden</label>
+                            <select name="orden" aria-label="Orden"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                @foreach($ordenLabels as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected($orden === $valor)>{{ $etiqueta }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">Aplicar</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </form>
 
@@ -278,153 +339,250 @@
         </p>
     @endif
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado de pago</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">App</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre / usuario app</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Contraseña</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Vencimiento</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cupos en uso</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    @forelse($cuentas as $c)
-                        @php $estado = $c->estadoVencimiento(); @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $badgeClasses[$estado] ?? '' }}">
-                                    {{ $badgeLabels[$estado] ?? $estado }}
-                                </span>
-                                <div class="text-xs mt-1 {{ $estado === 'vencido' ? 'text-red-700 dark:text-red-300 font-medium' : ($estado === 'por_vencer' ? 'text-orange-700 dark:text-orange-300 font-medium' : 'text-gray-500 dark:text-gray-400') }}">
+    <div class="space-y-4">
+        @forelse($cuentas as $c)
+            @php
+                $estado = $c->estadoVencimiento();
+                $maxSlots = $c->maxAsignaciones();
+                $asigPorPerfil = $c->asignaciones->keyBy(fn ($a) => (int) $a->perfil_numero);
+                $nombresPerfil = $c->esNebula()
+                    ? [1 => $c->perfil_1 ?: 'Perfil 1', 2 => $c->perfil_2 ?: 'Perfil 2', 3 => $c->perfil_3 ?: 'Perfil 3']
+                    : [1 => 'Pantalla 1', 2 => 'Pantalla 2', 3 => 'Pantalla 3', 4 => 'Pantalla 4'];
+            @endphp
+            <article class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4 sm:p-5">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $badgeClasses[$estado] ?? '' }}">
+                                {{ $badgeLabels[$estado] ?? $estado }}
+                            </span>
+                            @if($estado !== 'ok')
+                                <span class="text-xs font-medium {{ $estado === 'vencido' ? 'text-red-700 dark:text-red-300' : 'text-orange-700 dark:text-orange-300' }}">
                                     {{ $c->etiquetaEstadoVencimiento() }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {{ $c->esLumix() ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200' }}">
-                                    {{ \App\Models\TvCuenta::aplicaciones()[$c->aplicacion] ?? $c->aplicacion }}
                                 </span>
-                            </td>
-                            <td class="px-4 py-3 text-sm">
-                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $c->nombre ?: '—' }}</span>
-                                <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{{ $c->usuario_app }}</div>
-                                @if($c->esNebula())
-                                    <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                                        P1: {{ $c->perfil_1 ?: 'Perfil 1' }} | P2: {{ $c->perfil_2 ?: 'Perfil 2' }} | P3: {{ $c->perfil_3 ?: 'Perfil 3' }}
+                            @endif
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $c->esLumix() ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200' }}">
+                                {{ \App\Models\TvCuenta::aplicaciones()[$c->aplicacion] ?? $c->aplicacion }}
+                            </span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $c->asignaciones_count >= $maxSlots ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200' }}">
+                                {{ $c->asignaciones_count }} / {{ $maxSlots }}
+                            </span>
+                        </div>
+                        <p class="text-[11px] uppercase tracking-wide text-gray-400">Cuenta</p>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate" title="{{ $c->nombre ?: 'Sin nombre' }}">{!! $resaltar($c->nombre ?: 'Sin nombre') !!}</h2>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-400">Usuario app</p>
+                        <div class="mt-0.5 flex items-center gap-1.5 min-w-0">
+                            <p class="font-mono text-sm text-gray-800 dark:text-gray-200 break-all">{!! $resaltar($c->usuario_app) !!}</p>
+                            @if(filled($c->usuario_app))
+                                <button type="button"
+                                    class="shrink-0 p-1 rounded-md text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    data-tv-copiar="{{ $c->usuario_app }}"
+                                    title="Copiar usuario"
+                                    aria-label="Copiar usuario">
+                                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                    </svg>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-400">Contraseña</p>
+                        <div class="mt-0.5 flex items-center gap-1.5 min-w-0">
+                            <p class="font-mono text-sm font-medium text-gray-900 dark:text-gray-100">{{ $c->password }}</p>
+                            @if(filled($c->password))
+                                <button type="button"
+                                    class="shrink-0 p-1 rounded-md text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    data-tv-copiar="{{ $c->password }}"
+                                    title="Copiar contraseña"
+                                    aria-label="Copiar contraseña">
+                                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                    </svg>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-400">Vencimiento</p>
+                        <p class="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">{{ $c->fechaVencimientoReferencia()->format('d/m/Y') }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Día {{ $c->diaVencimientoMensual() }} de cada mes</p>
+                    </div>
+
+                    <div class="flex-shrink-0 flex items-center gap-3">
+                        @if(auth()->user()?->tienePermiso('tv.editar'))
+                            <form action="{{ route('tv-cuentas.renovar', $c) }}" method="POST" class="inline"
+                                onsubmit="return confirm('¿Renovar esta cuenta por 1 mes adelante?');">
+                                @csrf
+                                <button type="submit" class="text-green-600 dark:text-green-400 hover:underline text-sm font-medium whitespace-nowrap" title="Adelantar vencimiento 1 mes">
+                                    +1 mes
+                                </button>
+                            </form>
+                            <a href="{{ route('tv-cuentas.edit', $c) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm font-medium">Editar</a>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 {{ $maxSlots >= 4 ? 'xl:grid-cols-4' : 'lg:grid-cols-3' }} gap-3">
+                    @for($i = 1; $i <= $maxSlots; $i++)
+                        @php
+                            $asig = $asigPorPerfil->get($i);
+                            $precioCampo = $c->esNebula() ? 'precio_perfil_'.$i : 'precio_pantalla_'.$i;
+                            $precio = $c->{$precioCampo};
+                            $cliente = $asig?->servicio?->cliente;
+                            $nombreCliente = trim(($cliente?->nombre ?? '').' '.($cliente?->apellido ?? ''));
+                            $slotLabel = $c->esLumix() ? 'Pantalla '.$i : 'P'.$i;
+                        @endphp
+                        @if($asig)
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 p-3 min-h-[7.5rem]">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                            {{ $slotLabel }}
+                                            <span class="normal-case font-medium text-gray-700 dark:text-gray-200">{!! $resaltar($nombresPerfil[$i] ?? '') !!}</span>
+                                        </p>
+                                        <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug break-words">
+                                            {!! $nombreCliente !== '' ? $resaltar($nombreCliente) : '—' !!}
+                                        </p>
+                                        @if($cliente?->cedula)
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{!! $resaltar($cliente->cedula) !!}</p>
+                                        @endif
                                     </div>
-                                    <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                                        Precio P1: {{ $c->precio_perfil_1 !== null ? 'Gs. '.number_format((float) $c->precio_perfil_1, 0, ',', '.') : '—' }}
-                                        | Precio P2: {{ $c->precio_perfil_2 !== null ? 'Gs. '.number_format((float) $c->precio_perfil_2, 0, ',', '.') : '—' }}
-                                        | Precio P3: {{ $c->precio_perfil_3 !== null ? 'Gs. '.number_format((float) $c->precio_perfil_3, 0, ',', '.') : '—' }}
-                                    </div>
-                                @else
-                                    <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                                        4 pantallas · Precios:
-                                        @foreach([1,2,3,4] as $pi)
-                                            P{{ $pi }} {{ $c->{'precio_pantalla_'.$pi} !== null ? 'Gs. '.number_format((float) $c->{'precio_pantalla_'.$pi}, 0, ',', '.') : '—' }}@if($pi < 4) | @endif
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                {{ $c->password }}
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                <div>{{ $c->fechaVencimientoReferencia()->format('d/m/Y') }}</div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Día {{ $c->diaVencimientoMensual() }} de cada mes</div>
-                            </td>
-                            <td class="px-4 py-3 text-sm align-top">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $c->asignaciones_count >= $c->maxAsignaciones() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200' }}">
-                                    {{ $c->asignaciones_count }} / {{ $c->maxAsignaciones() }}
-                                </span>
-                                @if($c->asignaciones->isNotEmpty())
-                                    <ul class="mt-2 space-y-1.5">
-                                        @foreach($c->asignaciones as $asig)
-                                            @php
-                                                $cliente = $asig->servicio?->cliente;
-                                                $nombreCliente = trim(($cliente?->nombre ?? '') . ' ' . ($cliente?->apellido ?? ''));
-                                            @endphp
-                                            <li class="text-xs leading-snug">
-                                                @if($asig->perfil_numero)
-                                                    <span class="text-gray-500 dark:text-gray-400 font-medium">{{ $c->esLumix() ? 'Pan' : 'P' }}{{ $asig->perfil_numero }}:</span>
-                                                @endif
-                                                @if($asig->servicio?->plan)
-                                                    <span class="inline-flex px-1 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200 mr-0.5"
-                                                        title="{{ $asig->servicio->plan->nombre }}">{{ $asig->servicio->plan->iniciales() }}</span>
-                                                @endif
-                                                <span class="text-gray-900 dark:text-gray-100">{{ $nombreCliente !== '' ? $nombreCliente : '—' }}</span>
-                                                @if($cliente?->cedula)
-                                                    <span class="text-gray-500 dark:text-gray-400">({{ $cliente->cedula }})</span>
-                                                @endif
-                                                @if(($asig->es_promo ?? false) || ($asig->tvbox_comodato ?? false))
-                                                    <span class="inline-flex flex-wrap gap-1 ml-1 align-middle">
-                                                        @if($asig->es_promo ?? false)
-                                                            <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Promo</span>
-                                                        @endif
-                                                        @if($asig->tvbox_comodato ?? false)
-                                                            <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">TV box</span>
-                                                        @endif
-                                                    </span>
-                                                @endif
-                                                <button type="button"
-                                                    data-tv-historial-pago="{{ route('tv-cuentas.asignaciones.historial-pago', [$c, $asig]) }}"
-                                                    data-tv-historial-titulo="Pagos — {{ $nombreCliente !== '' ? $nombreCliente : 'Cliente' }}"
-                                                    class="ml-1 text-purple-600 dark:text-purple-400 hover:underline font-medium"
-                                                    title="Ver historial de pago App TV">
-                                                    Pagos
-                                                </button>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @else
-                                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Sin asignar</p>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                @if(auth()->user()?->tienePermiso('tv.editar'))
-                                    <div class="inline-flex items-center justify-end gap-2 flex-wrap">
-                                        <form action="{{ route('tv-cuentas.renovar', $c) }}" method="POST" class="inline"
-                                            onsubmit="return confirm('¿Renovar esta cuenta por 1 mes adelante?');">
-                                            @csrf
-                                            <button type="submit" class="text-green-600 dark:text-green-400 hover:underline text-sm font-medium" title="Adelantar vencimiento 1 mes">
-                                                +1 mes
-                                            </button>
-                                        </form>
-                                        <a href="{{ route('tv-cuentas.edit', $c) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm font-medium">Editar</a>
-                                    </div>
-                                @else
-                                    <span class="text-gray-400 text-sm">—</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                                @if($stats['total'] === 0)
-                                    No hay cuentas TV registradas.
-                                    @if(auth()->user()?->tienePermiso('tv.editar'))
-                                        <a href="{{ route('tv-cuentas.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear una</a>
+                                    @if($asig->servicio?->plan)
+                                        <span class="shrink-0 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
+                                            title="{{ $asig->servicio->plan->nombre }}">{{ $asig->servicio->plan->iniciales() }}</span>
                                     @endif
-                                @elseif($busqueda !== '')
-                                    Ninguna cuenta coincide con la búsqueda "{{ $busqueda }}".
-                                @else
-                                    Ninguna cuenta coincide con el filtro seleccionado.
+                                </div>
+                                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                                    @if($precio !== null)
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400">Gs. {{ number_format((float) $precio, 0, ',', '.') }}</span>
+                                    @endif
+                                    @if($asig->es_promo ?? false)
+                                        <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Promo</span>
+                                    @endif
+                                    @if($asig->tvbox_comodato ?? false)
+                                        <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">TV box</span>
+                                    @endif
+                                    <button type="button"
+                                        data-tv-historial-pago="{{ route('tv-cuentas.asignaciones.historial-pago', [$c, $asig]) }}"
+                                        data-tv-historial-titulo="Pagos — {{ $nombreCliente !== '' ? $nombreCliente : 'Cliente' }}"
+                                        class="ml-auto text-purple-600 dark:text-purple-400 hover:underline text-xs font-medium">
+                                        Pagos
+                                    </button>
+                                </div>
+                            </div>
+                        @else
+                            <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-transparent p-3 min-h-[7.5rem] flex flex-col justify-between">
+                                <div>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                        {{ $slotLabel }}
+                                        <span class="normal-case font-medium">{!! $resaltar($nombresPerfil[$i] ?? '') !!}</span>
+                                    </p>
+                                    <p class="mt-2 text-sm text-gray-400 dark:text-gray-500">Libre</p>
+                                </div>
+                                @if($precio !== null)
+                                    <p class="text-[11px] text-gray-400">Gs. {{ number_format((float) $precio, 0, ',', '.') }}</p>
                                 @endif
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        @if($cuentas->hasPages())
-            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">{{ $cuentas->withQueryString()->links() }}</div>
-        @endif
+                            </div>
+                        @endif
+                    @endfor
+                </div>
+            </article>
+        @empty
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-10 text-center text-gray-500 dark:text-gray-400">
+                @if($stats['total'] === 0)
+                    No hay cuentas TV registradas.
+                    @if(auth()->user()?->tienePermiso('tv.editar'))
+                        <a href="{{ route('tv-cuentas.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear una</a>
+                    @endif
+                @elseif($busqueda !== '')
+                    Ninguna cuenta coincide con la búsqueda "{{ $busqueda }}".
+                @else
+                    Ninguna cuenta coincide con el filtro seleccionado.
+                @endif
+            </div>
+        @endforelse
     </div>
+    @if($cuentas->hasPages())
+        <div class="mt-4 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">{{ $cuentas->withQueryString()->links() }}</div>
+    @endif
 </div>
 
 @include('tv-cuentas._historial-pago-modal')
+
+@push('scripts')
+<script>
+(function () {
+    const iconCopy = '<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+    const iconOk = '<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+
+    function fallbackCopy(texto) {
+        const ta = document.createElement('textarea');
+        ta.value = texto || '';
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+    }
+
+    function marcarCopiado(btn) {
+        const prev = btn.innerHTML;
+        btn.innerHTML = iconOk;
+        btn.classList.add('text-emerald-500');
+        setTimeout(function () {
+            btn.innerHTML = prev;
+            btn.classList.remove('text-emerald-500');
+        }, 1400);
+    }
+
+    document.addEventListener('click', function (ev) {
+        const btn = ev.target.closest('[data-tv-copiar]');
+        if (!btn) return;
+        const texto = btn.getAttribute('data-tv-copiar') || '';
+        if (!texto) return;
+        const done = function () { marcarCopiado(btn); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(done).catch(function () {
+                fallbackCopy(texto);
+                done();
+            });
+            return;
+        }
+        fallbackCopy(texto);
+        done();
+    });
+
+    const wrap = document.getElementById('tv-filtros-wrap');
+    const btnFiltros = document.getElementById('tv-filtros-btn');
+    const menuFiltros = document.getElementById('tv-filtros-menu');
+    if (wrap && btnFiltros && menuFiltros) {
+        function filtrosAbiertos() {
+            return !menuFiltros.classList.contains('hidden');
+        }
+        function setFiltrosOpen(open) {
+            menuFiltros.classList.toggle('hidden', !open);
+            btnFiltros.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        btnFiltros.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setFiltrosOpen(!filtrosAbiertos());
+        });
+        document.addEventListener('click', function (e) {
+            if (!wrap.contains(e.target)) setFiltrosOpen(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') setFiltrosOpen(false);
+        });
+    }
+})();
+</script>
+@endpush
 @endsection

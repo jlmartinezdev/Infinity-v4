@@ -63,6 +63,11 @@ class Plan extends Model
         return $this->belongsTo(PerfilPppoe::class, 'perfil_pppoe_id', 'perfil_pppoe_id');
     }
 
+    public function tipoTecnologia(): BelongsTo
+    {
+        return $this->belongsTo(TipoTecnologia::class, 'tecnologia_id', 'tecnologia_id');
+    }
+
     /**
      * Servicios asociados al plan.
      */

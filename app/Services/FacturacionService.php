@@ -115,7 +115,7 @@ class FacturacionService
      * Un detalle por cada servicio con el precio del plan.
      *
      * @param  string|null  $estado  Estado de la factura (por defecto: pendiente)
-     * @param  string|null  $fechaVencimiento  Fecha de vencimiento Y-m-d (por defecto: emisión + dias_vencimiento_factura)
+     * @param  string|null  $fechaVencimiento  Fecha de vencimiento Y-m-d (por defecto: día configurado del mes siguiente a la emisión)
      * @param  string|null  $fechaEmision  Fecha de emisión Y-m-d (por defecto: hoy)
      * @param  list<string>|null  $estadosServicio  Estados de servicio a incluir (por defecto solo activo)
      */
@@ -161,14 +161,13 @@ class FacturacionService
             );
         }
 
-        $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $impuestoPlan = $this->resolverImpuestoPlanes();
         $estadoFinal = $estado ?? 'pendiente';
         $baseVencimiento = $fechaEmision !== null && $fechaEmision !== ''
             ? Carbon::parse($fechaEmision)->startOfDay()
             : now()->startOfDay();
-        $fechaVencimientoFinal = $fechaVencimiento ?? $baseVencimiento->copy()->addDays($diasVencimiento)->toDateString();
+        $fechaVencimientoFinal = $fechaVencimiento ?? FacturacionParametro::fechaVencimientoMesSiguiente($baseVencimiento);
         $fechaEmisionFinal = $fechaEmision !== null && $fechaEmision !== '' ? Carbon::parse($fechaEmision)->toDateString() : now()->toDateString();
 
         $periodoDesdeEfectivo = $periodoDesde->copy();

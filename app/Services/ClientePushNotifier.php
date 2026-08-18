@@ -42,7 +42,7 @@ class ClientePushNotifier
         }
 
         $this->enviar((int) $factura->cliente_id, 'Nueva factura', $body, [
-            'tipo' => 'factura',
+            'tipo' => 'facturas',
             'factura_id' => (string) $factura->id,
             'monto' => (string) $total,
             'fecha_vencimiento' => $venc ?? '',
@@ -74,7 +74,7 @@ class ClientePushNotifier
         $diasTxt = $diasAntes === 1 ? '1 día' : "{$diasAntes} días";
 
         $this->enviar((int) $factura->cliente_id, 'Factura por vencer', "Su factura #{$factura->id} (Gs. {$monto}) vence en {$diasTxt} ({$venc}).", [
-            'tipo' => 'factura_vencimiento',
+            'tipo' => 'facturas',
             'factura_id' => (string) $factura->id,
             'monto' => (string) $factura->saldo_pendiente,
             'fecha_vencimiento' => $venc,
@@ -106,7 +106,7 @@ class ClientePushNotifier
         }
 
         $this->enviar((int) $ticket->cliente_id, $title, $body, [
-            'tipo' => 'ticket',
+            'tipo' => 'soporte',
             'ticket_id' => (string) $ticket->id,
             'estado' => (string) $ticket->estado,
         ]);

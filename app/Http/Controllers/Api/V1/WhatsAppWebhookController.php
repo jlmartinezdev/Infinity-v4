@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Services\WhatsApp\WhatsAppAgentService;
 use App\Services\WhatsApp\WhatsAppInboundTicketService;
 use App\Services\WhatsApp\WhatsAppService;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class WhatsAppWebhookController extends ApiController
     public function __construct(
         private readonly WhatsAppService $whatsapp,
         private readonly WhatsAppInboundTicketService $inboundTickets,
+        private readonly WhatsAppAgentService $agent,
         private readonly \App\Services\WhatsApp\WhatsAppSolicitudVerificacionService $solicitudVerificacion,
     ) {}
 
@@ -132,6 +134,13 @@ class WhatsAppWebhookController extends ApiController
 
             // Primero: OTP invertido de registro ("Quiero mi código de verificación")
             if ($this->solicitudVerificacion->intentarVerificar($registro)) {
+                continue;
+            }
+
+            // Plugin IA (N8N): solo texto, async después del 200 a Meta.
+            if ($this->agent->debeProcesar($registro)) {
+                $this->agent->dispatchAfterResponse($registro);
+
                 continue;
             }
 

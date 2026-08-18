@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
+use App\Services\PedidoNodoOpcionesService;
 
 class HerramientasRedPayload
 {
@@ -13,7 +14,7 @@ class HerramientasRedPayload
             'cliente',
             'pool.olt',
             'pool.router.nodo',
-            'plan',
+            'plan.tipoTecnologia',
             'cajaNapPuertoActivo.cajaNap.salidaPon.olt',
         ];
     }
@@ -56,10 +57,19 @@ class HerramientasRedPayload
                 'ip' => $servicio->ip,
                 'usuario_pppoe' => $servicio->usuario_pppoe,
                 'cliente_nombre' => $clienteNombre !== '' ? $clienteNombre : 'Servicio #'.$servicio->servicio_id,
+                'cliente_id' => $servicio->cliente_id ? (int) $servicio->cliente_id : null,
+                'cliente_url' => $servicio->cliente_id ? route('clientes.detalle', $servicio->cliente_id) : null,
                 'edit_url' => route('servicios.edit', $servicio->servicio_id),
                 'router_nombre' => $router?->nombre ?? $router?->ip,
                 'nodo' => $router?->nodo?->descripcion,
                 'desc_onu' => $servicio->usuario_pppoe ?: ($clienteNombre !== '' ? $clienteNombre : ''),
+                'tr069_serial' => $servicio->tr069_serial,
+                'tr069_product_class' => $servicio->tr069_product_class,
+                'mac_address' => $servicio->mac_address,
+                'cpe_acceso' => $servicio->cpe_acceso,
+                'equipo_resumen' => CpeInventario::resumen($servicio),
+                'tecnologia' => $esFibra ? 'gpon' : ($esAntena ? 'wireless' : null),
+                'tecnologia_label' => $servicio->plan?->tipoTecnologia?->descripcion,
             ],
             'urls' => [
                 'ping' => route('servicios.ping', $servicio->servicio_id),
@@ -68,12 +78,21 @@ class HerramientasRedPayload
                 'antena_dhcp' => route('servicios.herramientas-red.antena-dhcp', $servicio->servicio_id),
                 'olt' => route('servicios.herramientas-red.olt', $servicio->servicio_id),
                 'olt_desc' => route('servicios.herramientas-red.olt-desc', $servicio->servicio_id),
+                'tr069' => route('servicios.herramientas-red.tr069', $servicio->servicio_id),
+                'tr069_hosts' => route('servicios.herramientas-red.tr069-hosts', $servicio->servicio_id),
+                'tr069_reboot' => route('servicios.herramientas-red.tr069-reboot', $servicio->servicio_id),
+                'tr069_refresh' => route('servicios.herramientas-red.tr069-refresh', $servicio->servicio_id),
+                'tr069_password' => route('servicios.herramientas-red.tr069-password', $servicio->servicio_id),
                 'servicios_index' => route('servicios.index'),
             ],
             'csrf' => csrf_token(),
             'es_fibra' => $esFibra,
             'es_antena' => $esAntena,
             'tiene_router' => (bool) $router,
+            'tr069_enabled' => (bool) config('genieacs.enabled')
+                && filled(config('genieacs.nbi_url'))
+                && CpeInventario::usaAcs($servicio),
+            'cpe_ssh' => CpeInventario::usaSshCpe($servicio),
             'ultima_optica' => self::serializarOptica($ultimaOptica),
             'ultima_antena' => self::serializarAntena($ultimaAntena),
             'timeline' => self::serializarTimeline($timeline),
@@ -102,6 +121,20 @@ class HerramientasRedPayload
     {
         $servicio->loadMissing(self::relaciones());
 
+        $techDesc = $servicio->plan?->tipoTecnologia?->descripcion;
+        if (PedidoNodoOpcionesService::descripcionEsGpon($techDesc)) {
+            return true;
+        }
+        if (PedidoNodoOpcionesService::descripcionEsWireless($techDesc)) {
+            return false;
+        }
+        if (filled($servicio->cpe_onu)) {
+            return true;
+        }
+        if (filled($servicio->cpe_antena)) {
+            return false;
+        }
+
         if ($servicio->cajaNapPuertoActivo) {
             return true;
         }
@@ -120,13 +153,27 @@ class HerramientasRedPayload
 
     public static function esAntena(Servicio $servicio): bool
     {
+        $servicio->loadMissing(self::relaciones());
+
+        $techDesc = $servicio->plan?->tipoTecnologia?->descripcion;
+        if (PedidoNodoOpcionesService::descripcionEsWireless($techDesc)) {
+            return true;
+        }
+        if (PedidoNodoOpcionesService::descripcionEsGpon($techDesc)) {
+            return false;
+        }
+        if (filled($servicio->cpe_antena)) {
+            return true;
+        }
+        if (filled($servicio->cpe_onu)) {
+            return false;
+        }
         if (self::esFibra($servicio)) {
             return false;
         }
-        if (trim((string) ($servicio->ip ?? '')) === '') {
-            return false;
-        }
-        if ($servicio->pool?->router?->nodo?->manejaWireless()) {
+
+        $nodo = $servicio->pool?->router?->nodo;
+        if ($nodo && $nodo->manejaWireless() && ! $nodo->manejaGpon()) {
             return true;
         }
         $planNombre = strtolower((string) ($servicio->plan?->nombre ?? ''));
@@ -134,7 +181,7 @@ class HerramientasRedPayload
             return true;
         }
 
-        return $servicio->pool?->router !== null;
+        return false;
     }
 
     private static function serializarOptica(?ServicioConexionEvento $ev): ?array

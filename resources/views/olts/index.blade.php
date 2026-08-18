@@ -68,6 +68,8 @@
                         </span>
                         @if($o->estado && $o->estado !== 'activo')
                             <span class="absolute top-3 right-3 inline-flex rounded-full bg-amber-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">{{ ucfirst($o->estado) }}</span>
+                        @elseif($o->onus_sync_error)
+                            <span class="absolute top-3 right-3 inline-flex rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">Error sync</span>
                         @endif
                         <img src="{{ $imgUrl }}" alt="{{ $modeloNombre }}"
                             class="mx-auto h-28 w-full max-w-[220px] object-contain drop-shadow-sm group-hover:scale-[1.02] transition-transform duration-200"
@@ -87,6 +89,11 @@
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 Puertos {{ $o->oltPuertos->count() }} / {{ $o->cantidad_puerto }}
                             </p>
+                            @if($o->onus_sync_error)
+                                <p class="mt-2 text-xs text-amber-700 dark:text-amber-400 leading-snug line-clamp-3" title="{{ $o->onus_sync_error }}">
+                                    {{ $o->onus_sync_error }}
+                                </p>
+                            @endif
                         </a>
 
                         <div class="mt-auto pt-4 flex flex-wrap gap-2">

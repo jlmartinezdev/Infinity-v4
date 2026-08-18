@@ -66,8 +66,9 @@
                 </div>
                 <div>
                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes del mes</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">Facturas creadas el mes anterior</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">Solo vencidas · ciclo mes anterior</p>
                     <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($totalPendienteMes ?? 0, 0, ',', '.') }} PYG</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Por vencer: {{ number_format($totalPendienteMesPorVencer ?? 0, 0, ',', '.') }} PYG</p>
                 </div>
             </div>
         </a>
@@ -81,7 +82,9 @@
                 </div>
                 <div>
                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pendientes total</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">Solo vencidas</p>
                     <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($totalPendiente ?? 0, 0, ',', '.') }} PYG</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Por vencer: {{ number_format($totalPendientePorVencer ?? 0, 0, ',', '.') }} PYG</p>
                 </div>
             </div>
         </a>

@@ -52,6 +52,7 @@
                         'nodo_id' => $detalle->nodo_id,
                         'tecnologia_id' => $detalle->tecnologia_id,
                         'plan_id' => $detalle->plan_id,
+                        'plan_nombre' => $detalle->plan?->nombre,
                         'pool_id' => $detalle->pool_id,
                     ];
                 })->toArray(),

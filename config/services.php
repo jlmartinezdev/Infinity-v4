@@ -60,8 +60,8 @@ return [
         'staff_topic' => env('FCM_STAFF_TOPIC', 'staff'),
         /** Canal Android staff (debe coincidir con el creado en la app staff) */
         'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'staff'),
-        /** Canal Android app cliente */
-        'client_android_channel_id' => env('FCM_CLIENT_ANDROID_CHANNEL_ID', 'clientes'),
+        /** Canal Android app cliente (app 3.2.4+: interplus_avisos_v2). No usar interplus_avisos (mudo). */
+        'client_android_channel_id' => env('FCM_CLIENT_ANDROID_CHANNEL_ID', 'interplus_avisos_v2'),
         /** Obsoleto: API legacy /fcm/send ya no funciona (404). */
         'server_key' => env('FCM_SERVER_KEY'),
     ],

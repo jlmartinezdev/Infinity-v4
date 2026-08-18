@@ -6,9 +6,9 @@ return [
     |--------------------------------------------------------------------------
     | WhatsApp Cloud API (Meta)
     |--------------------------------------------------------------------------
-    | Propósito en Infinity: avisos SALIENTES organizados (ticket asignado,
-    | factura, caída de enlace). La atención conversacional al cliente queda
-    | en la IA de WhatsApp Business; no crear tickets ni auto-responder aquí.
+    | Avisos salientes (plantillas) + webhook oficial. El agente IA es un
+    | plugin opcional (N8N): ver clave `agent` más abajo.
+    | No duplicar webhook en Meta.
     */
 
     'enabled' => (bool) env('WHATSAPP_ENABLED', false),
@@ -68,6 +68,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Agente IA (plugin N8N) — no reemplaza el webhook Meta
+    |--------------------------------------------------------------------------
+    | Si enabled: mensajes de texto entrantes se reenvían a N8N.
+    | Con auto_send=false (entrenamiento) solo arma un borrador en el panel.
+    | Con auto_send=true envía el reply por Graph API.
+    */
+    'agent' => [
+        'enabled' => (bool) env('WA_AGENT_ENABLED', false),
+        'url' => env('N8N_WA_AGENT_URL', 'http://200.59.9.117:5678/webhook/interplus-wa-agent'),
+        'secret' => env('N8N_WA_AGENT_SECRET'),
+        'timeout_ms' => (int) env('N8N_WA_AGENT_TIMEOUT_MS', 25000),
+        'fallback_message' => env(
+            'WA_AGENT_FALLBACK_MESSAGE',
+            'Gracias por escribir a Interplus. Un asesor te responde en breve por este mismo WhatsApp.'
+        ),
+        'escalate_message' => env(
+            'WA_AGENT_ESCALATE_MESSAGE',
+            'Te comunico con un asesor. Te responden por este mismo WhatsApp.'
+        ),
+        /** Si un humano (panel o app Business) escribió en las últimas N horas, no llamar a N8N. Solo aplica con auto_send. */
+        'humano_silencio_horas' => (int) env('WA_AGENT_HUMANO_SILENCIO_HORAS', 2),
+        /** Enviar el reply de N8N aunque escalate=true (además de crear ticket). */
+        'enviar_reply_en_escalado' => (bool) env('WA_AGENT_ENVIAR_REPLY_ESCALADO', true),
+        /**
+         * false = modo entrenamiento: N8N arma un borrador en el panel, el humano envía.
+         * true = el bot manda solo por WhatsApp (cuando haya confianza).
+         */
+        'auto_send' => (bool) env('WA_AGENT_AUTO_SEND', false),
+        /** Crear ticket si escalate=true. En entrenamiento conviene false. */
+        'auto_ticket' => (bool) env('WA_AGENT_AUTO_TICKET', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Avisos salientes por evento
     |--------------------------------------------------------------------------
     | Fuera de ventana 24h hace falta plantilla Meta APPROVED.
@@ -78,6 +112,8 @@ return [
         /** Cliente: ticket marcado como resuelto. Ver docs/whatsapp-plantilla-ticket-resuelto.md */
         'ticket_resuelto' => (bool) env('WHATSAPP_EVENT_TICKET_RESUELTO', false),
         'factura' => (bool) env('WHATSAPP_EVENT_FACTURA', false),
+        /** Cliente: reclamo de mora desde Pendiente de pago. Ver docs/whatsapp-plantilla-factura-reclamo.md */
+        'factura_reclamo' => (bool) env('WHATSAPP_EVENT_FACTURA_RECLAMO', true),
         'enlace_caido' => (bool) env('WHATSAPP_EVENT_ENLACE_CAIDO', false),
         // TV se activa desde el panel (TvAvisoConfig), no solo por este flag.
         'tv_vencimiento' => (bool) env('WHATSAPP_EVENT_TV_VENCIMIENTO', true),
@@ -92,6 +128,8 @@ return [
         'servicio_suspendido' => (bool) env('WHATSAPP_EVENT_SERVICIO_SUSPENDIDO', false),
         /** Staff: router sin respuesta al ping (N fallos). Ver docs/whatsapp-plantilla-router-caido.md */
         'router_caido' => (bool) env('WHATSAPP_EVENT_ROUTER_CAIDO', true),
+        /** Staff: AP wireless airOS sin ping. Reutiliza plantilla router_caido_ping si no hay una propia. */
+        'ap_wireless_caido' => (bool) env('WHATSAPP_EVENT_AP_WIRELESS_CAIDO', true),
         /** Staff: salida ISP 1 caída / recuperada. Ver docs/whatsapp-plantilla-isp-failover.md */
         'isp_failover' => (bool) env('WHATSAPP_EVENT_ISP_FAILOVER', true),
     ],
@@ -127,6 +165,8 @@ return [
         /** Ver docs/whatsapp-plantilla-ticket-resuelto.md */
         'ticket_resuelto' => env('WHATSAPP_TEMPLATE_TICKET_RESUELTO', 'ticket_resuelto'),
         'factura' => env('WHATSAPP_TEMPLATE_FACTURA', ''),
+        /** Ver docs/whatsapp-plantilla-factura-reclamo.md — vacío hasta que la plantilla esté APPROVED */
+        'factura_reclamo' => env('WHATSAPP_TEMPLATE_FACTURA_RECLAMO', ''),
         'enlace_caido' => env('WHATSAPP_TEMPLATE_ENLACE_CAIDO', ''),
         'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO', 'tv_cuenta_por_vencer'),
         'acceso_aprobado' => env('WHATSAPP_TEMPLATE_ACCESO_APROBADO', ''),
@@ -138,6 +178,7 @@ return [
         'servicio_suspendido' => env('WHATSAPP_TEMPLATE_SERVICIO_SUSPENDIDO', 'servicio_suspendido_falta_pago'),
         /** Ver docs/whatsapp-plantilla-router-caido.md */
         'router_caido' => env('WHATSAPP_TEMPLATE_ROUTER_CAIDO', 'router_caido_ping'),
+        'ap_wireless_caido' => env('WHATSAPP_TEMPLATE_AP_WIRELESS_CAIDO', env('WHATSAPP_TEMPLATE_ROUTER_CAIDO', 'router_caido_ping')),
         /** Ver docs/whatsapp-plantilla-isp-failover.md */
         'isp_failover' => env('WHATSAPP_TEMPLATE_ISP_FAILOVER', 'isp_failover_salida'),
     ],
@@ -150,6 +191,7 @@ return [
         'ticket_asignado' => env('WHATSAPP_TEMPLATE_TICKET_ASIGNADO_LANG', ''),
         'ticket_resuelto' => env('WHATSAPP_TEMPLATE_TICKET_RESUELTO_LANG', ''),
         'factura' => env('WHATSAPP_TEMPLATE_FACTURA_LANG', ''),
+        'factura_reclamo' => env('WHATSAPP_TEMPLATE_FACTURA_RECLAMO_LANG', ''),
         'enlace_caido' => env('WHATSAPP_TEMPLATE_ENLACE_CAIDO_LANG', ''),
         'tv_vencimiento' => env('WHATSAPP_TEMPLATE_TV_VENCIMIENTO_LANG', ''),
         'acceso_aprobado' => env('WHATSAPP_TEMPLATE_ACCESO_APROBADO_LANG', ''),
@@ -158,6 +200,7 @@ return [
         'en_camino' => env('WHATSAPP_TEMPLATE_EN_CAMINO_LANG', env('WHATSAPP_TEMPLATE_LANGUAGE', '')),
         'servicio_suspendido' => env('WHATSAPP_TEMPLATE_SERVICIO_SUSPENDIDO_LANG', ''),
         'router_caido' => env('WHATSAPP_TEMPLATE_ROUTER_CAIDO_LANG', ''),
+        'ap_wireless_caido' => env('WHATSAPP_TEMPLATE_AP_WIRELESS_CAIDO_LANG', env('WHATSAPP_TEMPLATE_ROUTER_CAIDO_LANG', '')),
         'isp_failover' => env('WHATSAPP_TEMPLATE_ISP_FAILOVER_LANG', ''),
     ],
 

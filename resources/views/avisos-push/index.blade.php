@@ -120,16 +120,15 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                                @if($a->destino === 'todos')
-                                    Todos
-                                @else
-                                    {{ count($a->cliente_ids ?? []) }} seleccionado(s)
-                                @endif
+                                {{ $a->etiquetaDestino() }}
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <span class="text-emerald-700 dark:text-emerald-300">{{ $a->enviados }} OK</span>
                                 @if($a->fallidos)
                                     <span class="text-rose-600 dark:text-rose-300"> · {{ $a->fallidos }} fallo</span>
+                                @endif
+                                @if($a->omitidos)
+                                    <span class="text-amber-600 dark:text-amber-300"> · {{ $a->omitidos }} sin token</span>
                                 @endif
                                 <div class="text-xs text-gray-400">de {{ $a->total_destinatarios }}</div>
                             </td>
@@ -211,8 +210,12 @@
             var c = seleccionados[id];
             var span = document.createElement('span');
             span.className = 'inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 ring-1 ring-blue-200 dark:bg-blue-950/40 dark:text-blue-200 dark:ring-blue-800';
+            var nombre = ((c.nombre || '') + ' ' + (c.apellido || '')).trim();
+            var label = (nombre && nombre !== 'Cliente')
+                ? (nombre + ' · Cliente #' + c.cliente_id)
+                : ('Cliente #' + c.cliente_id);
             span.innerHTML =
-                '<span>' + escapeHtml((c.nombre || '') + ' #' + c.cliente_id) + '</span>' +
+                '<span>' + escapeHtml(label) + '</span>' +
                 '<button type="button" data-id="' + c.cliente_id + '" class="ml-0.5 text-blue-600 hover:text-rose-600 dark:text-blue-300">&times;</button>' +
                 '<input type="hidden" name="cliente_ids[]" value="' + c.cliente_id + '">';
             chipsEl.appendChild(span);
@@ -264,7 +267,7 @@
     buscarInput.addEventListener('input', function () {
         clearTimeout(debounce);
         var q = buscarInput.value.trim();
-        if (q.length < 2) {
+        if (q.length < 2 && !/^\d+$/.test(q)) {
             resultadosEl.classList.add('hidden');
             resultadosEl.innerHTML = '';
             return;

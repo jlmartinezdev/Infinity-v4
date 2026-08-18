@@ -27,6 +27,16 @@ class WhatsAppInboundTicketService
             return ['ticket' => null, 'created' => false];
         }
 
+        return $this->crearOAdjuntar($mensaje, true);
+    }
+
+    /**
+     * Crea o adjunta ticket aunque inbound_tickets esté apagado (escalado del agente IA).
+     *
+     * @return array{ticket: Ticket|null, created: bool}
+     */
+    public function crearOAdjuntar(WhatsappMensaje $mensaje, bool $autoRespuesta = true): array
+    {
         if (! $mensaje->esEntrada()) {
             return ['ticket' => null, 'created' => false];
         }
@@ -45,7 +55,9 @@ class WhatsAppInboundTicketService
             $mensaje->ticket_id = $ticket->id;
             $mensaje->save();
 
-            $this->autoRespuestaSiCorresponde($mensaje, $ticket);
+            if ($autoRespuesta) {
+                $this->autoRespuestaSiCorresponde($mensaje, $ticket);
+            }
 
             return ['ticket' => $ticket, 'created' => true];
         } catch (\Throwable $e) {

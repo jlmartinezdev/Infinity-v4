@@ -135,6 +135,7 @@ class WhatsAppWebController extends Controller
                 'asuntos' => route('whatsapp.asuntos.json'),
                 'enviar' => route('whatsapp.enviar.store'),
                 'enviarAdjunto' => route('whatsapp.enviar-adjunto'),
+                'descartarSugerenciaIa' => route('whatsapp.sugerencia-ia.descartar'),
                 'reintentarTpl' => url('/whatsapp/mensajes/__ID__/reintentar'),
                 'enviarPlantilla' => route('whatsapp.enviar'),
                 'mediaTpl' => url('/whatsapp/mensajes/__ID__/media'),
@@ -794,6 +795,8 @@ class WhatsAppWebController extends Controller
             'clasificacion_label' => $clasif['label'],
             'clasificacion_color' => $clasif['color'],
             'fuera_ventana' => $fueraVentana,
+            'sugerencia_ia' => app(\App\Services\WhatsApp\WhatsAppAgentService::class)
+                ->sugerenciaPendientePara($tel),
             'total' => $total,
             'fallidos' => $fallidos,
             'sin_leer' => $sinLeer,
@@ -814,6 +817,18 @@ class WhatsAppWebController extends Controller
         $result = $this->whatsapp->marcarConversacionLeida($tel);
 
         return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function descartarSugerenciaIa(Request $request): JsonResponse
+    {
+        $tel = $this->normalizeTel($request->input('telefono') ?: $request->input('tel'));
+        if (! $tel) {
+            return response()->json(['ok' => false, 'error' => 'Teléfono requerido'], 422);
+        }
+
+        app(\App\Services\WhatsApp\WhatsAppAgentService::class)->marcarSugerencia($tel, 'descartada');
+
+        return response()->json(['ok' => true]);
     }
 
     public function media(WhatsappMensaje $mensaje)
@@ -950,6 +965,11 @@ class WhatsAppWebController extends Controller
                     'mensaje' => $this->serializeMensaje($mensaje),
                 ], 422)
                 : redirect()->route('whatsapp.mensajes', ['tel' => $mensaje->telefono])->with('error', $msg);
+        }
+
+        if (($validated['modo'] ?? '') === 'texto') {
+            app(\App\Services\WhatsApp\WhatsAppAgentService::class)
+                ->marcarSugerencia($mensaje->telefono, 'usada');
         }
 
         return $wantsJson

@@ -21,8 +21,9 @@ class FcmProbarClienteCommand extends Command
         $user = null;
 
         if (ctype_digit($id)) {
-            $user = User::query()->where('usuario_id', (int) $id)->whereNotNull('cliente_id')->first()
-                ?: User::query()->where('cliente_id', (int) $id)->whereNotNull('push_token')->first();
+            $n = (int) $id;
+            $user = User::query()->where('cliente_id', $n)->whereNotNull('push_token')->first()
+                ?: User::query()->where('usuario_id', $n)->whereNotNull('cliente_id')->first();
         }
 
         if (! $user) {
@@ -49,7 +50,7 @@ class FcmProbarClienteCommand extends Command
             $user,
             (string) $this->option('title'),
             (string) $this->option('body'),
-            ['tipo' => 'prueba_fcm_cliente']
+            ['tipo' => 'aviso', 'tab' => 'aviso']
         );
         $this->info('Listo. Revisá el celular del cliente y storage/logs/laravel.log');
 

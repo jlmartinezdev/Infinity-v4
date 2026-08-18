@@ -25,15 +25,30 @@
           <template v-if="servicio.nodo">
             · Nodo {{ servicio.nodo }}
           </template>
+          <template v-if="servicio.tecnologia_label">
+            · {{ servicio.tecnologia_label }}
+          </template>
+        </p>
+        <p v-if="servicio.equipo_resumen" class="mt-1 text-sm text-gray-700 dark:text-gray-300">
+          Equipo en casa: <span class="font-medium">{{ servicio.equipo_resumen }}</span>
         </p>
       </div>
-      <a
-        v-if="servicio.servicio_id && servicio.edit_url"
-        :href="servicio.edit_url"
-        class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-      >
-        Editar servicio
-      </a>
+      <div class="flex flex-wrap items-center gap-2">
+        <a
+          v-if="servicio.cliente_url"
+          :href="servicio.cliente_url"
+          class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+        >
+          Detalle del cliente
+        </a>
+        <a
+          v-if="servicio.servicio_id && servicio.edit_url"
+          :href="servicio.edit_url"
+          class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+        >
+          Editar servicio
+        </a>
+      </div>
     </div>
 
     <div v-if="servicios.length > 1" class="mb-4">
@@ -55,7 +70,7 @@
     >No hay servicios para consultar.</p>
 
     <template v-else-if="payload">
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div class="noc-tools-grid" :class="{ 'is-4': toolsCols >= 4 }">
         <!-- Ping -->
         <section class="noc-card">
           <div class="noc-card-head">
@@ -83,6 +98,51 @@
               </button>
             </div>
             <div v-show="outPing" class="text-sm" v-html="outPing"></div>
+            <div v-if="pingStats" class="space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <span
+                  v-if="pingStats.alive"
+                  class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                >Responde</span>
+                <span
+                  v-else
+                  class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                >Sin respuesta</span>
+              </div>
+              <p class="text-sm text-gray-700 dark:text-gray-200">{{ pingStats.calidad }}</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <p class="noc-metric-label">Paquetes</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {{ pingStats.received }} de {{ pingStats.sent }}
+                  </p>
+                </div>
+                <div>
+                  <p class="noc-metric-label">Pérdida</p>
+                  <p
+                    class="text-sm font-semibold"
+                    :class="pingStats.loss_pct > 0 ? 'noc-metric--warn' : 'text-gray-900 dark:text-gray-100'"
+                  >{{ pingStats.loss_pct }}%</p>
+                </div>
+                <div v-if="pingStats.avg_ms != null">
+                  <p class="noc-metric-label">Promedio</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ pingStats.avg_ms }} ms</p>
+                </div>
+                <div v-if="pingStats.min_ms != null || pingStats.max_ms != null">
+                  <p class="noc-metric-label">Mín / Máx</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {{ pingStats.min_ms != null ? pingStats.min_ms : '—' }}
+                    /
+                    {{ pingStats.max_ms != null ? pingStats.max_ms : '—' }}
+                    ms
+                  </p>
+                </div>
+              </div>
+              <details v-if="pingStats.output" class="text-xs text-gray-500 dark:text-gray-400">
+                <summary class="cursor-pointer select-none">Ver detalle técnico</summary>
+                <pre class="mt-1 max-h-40 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 font-mono text-[11px] text-gray-800 dark:border-gray-600 dark:bg-gray-900/50 dark:text-gray-200 whitespace-pre-wrap">{{ pingStats.output }}</pre>
+              </details>
+            </div>
           </div>
         </section>
 
@@ -128,8 +188,8 @@
           </div>
         </section>
 
-        <!-- ONU Signal -->
-        <section class="noc-card">
+        <!-- ONU Signal (solo GPON / fibra) -->
+        <section v-if="esFibra" class="noc-card">
           <div class="noc-card-head">
             <span class="noc-icon noc-icon--amber">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
@@ -195,8 +255,8 @@
           </div>
         </section>
 
-        <!-- CPE / Antena -->
-        <section class="noc-card">
+        <!-- CPE / Antena (solo wireless) -->
+        <section v-if="esAntena" class="noc-card">
           <div class="noc-card-head">
             <span class="noc-icon noc-icon--sky">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
@@ -270,13 +330,234 @@
             <div v-show="outAntenaDhcp" class="text-sm" v-html="outAntenaDhcp"></div>
           </div>
         </section>
+
+        <section v-if="tr069Enabled" class="noc-card">
+          <div class="noc-card-head">
+            <span class="noc-icon noc-icon--violet">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <h2 class="noc-card-title">TR-069</h2>
+                <span v-if="tr069Resumen?.online" class="noc-live-badge">INFORM</span>
+              </div>
+              <p class="noc-card-sub">GenieACS · clave y reboot por ACS</p>
+            </div>
+          </div>
+          <div class="noc-card-body space-y-3">
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              Serial
+              <span class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.tr069_serial || '—' }}</span>
+              <template v-if="servicio.mac_address">
+                · MAC <span class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.mac_address }}</span>
+              </template>
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="noc-btn-icon noc-btn-icon--primary"
+                title="Consultar CPE en el ACS"
+                aria-label="Consultar CPE en el ACS"
+                :disabled="loading.tr069"
+                @click="onTr069Resumen"
+              >
+                <svg v-show="!loading.tr069" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                <svg v-show="loading.tr069" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              </button>
+              <button
+                type="button"
+                class="noc-btn-icon noc-btn-icon--ghost"
+                title="Hosts LAN"
+                aria-label="Hosts LAN"
+                :disabled="loading.tr069Hosts"
+                @click="onTr069Hosts"
+              >
+                <svg v-show="!loading.tr069Hosts" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                <svg v-show="loading.tr069Hosts" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              </button>
+              <button
+                type="button"
+                class="noc-btn-icon noc-btn-icon--ghost"
+                title="Refresh parámetros"
+                aria-label="Refresh parámetros"
+                :disabled="loading.tr069Refresh"
+                @click="onTr069Refresh"
+              >
+                <svg v-show="!loading.tr069Refresh" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <svg v-show="loading.tr069Refresh" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              </button>
+              <button
+                type="button"
+                class="noc-btn-icon noc-btn-icon--ghost"
+                title="Reiniciar CPE"
+                aria-label="Reiniciar CPE"
+                :disabled="loading.tr069Reboot"
+                @click="onTr069Reboot"
+              >
+                <svg v-show="!loading.tr069Reboot" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.636 5.636a9 9 0 1012.728 0M12 3v9"/></svg>
+                <svg v-show="loading.tr069Reboot" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              </button>
+            </div>
+            <p v-if="outTr069" class="text-sm" v-html="outTr069"></p>
+          </div>
+        </section>
       </div>
+
+      <section v-if="cpeSsh && esFibra" class="noc-card mt-4">
+        <div class="noc-card-head">
+          <span class="noc-icon noc-icon--blue">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
+          </span>
+          <div class="flex-1 min-w-0">
+            <h2 class="noc-card-title">CPE por SSH</h2>
+            <p class="noc-card-sub">Huawei / ONU con acceso SSH</p>
+          </div>
+        </div>
+        <div class="noc-card-body space-y-2">
+          <p class="text-sm text-gray-700 dark:text-gray-300">
+            Este servicio está marcado para comandos por <strong>SSH</strong>, no por ACS.
+            <template v-if="servicio.equipo_resumen"> {{ servicio.equipo_resumen }}.</template>
+          </p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            La OLT y la antena Ubnt siguen en las tarjetas de arriba. Los comandos SSH al Huawei (WiFi, reboot del ONU) se agregan sobre este perfil.
+          </p>
+        </div>
+      </section>
+
+      <section v-if="tr069Enabled && tr069TieneDetalle" class="noc-card mt-4">
+        <div class="noc-card-head">
+          <span class="noc-icon noc-icon--violet">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </span>
+          <div class="flex-1 min-w-0">
+            <h2 class="noc-card-title">Detalle TR-069</h2>
+            <p class="noc-card-sub">Estado ACS, hosts LAN y cambio de clave</p>
+          </div>
+        </div>
+        <div class="noc-card-body space-y-3">
+          <template v-if="tr069Resumen && tr069Resumen.success">
+            <p v-if="tr069Resumen.aviso" class="text-sm text-amber-700 dark:text-amber-300">{{ tr069Resumen.aviso }}</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div>
+                <p class="noc-metric-label">Estado</p>
+                <p class="font-semibold" :class="tr069Resumen.online ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'">
+                  {{ tr069Resumen.online ? 'Online' : 'Sin Inform reciente' }}
+                </p>
+              </div>
+              <div>
+                <p class="noc-metric-label">Modelo</p>
+                <p class="font-medium text-gray-900 dark:text-gray-100">{{ tr069Resumen.model || tr069Resumen.product_class || '—' }}</p>
+                <p v-if="tr069Resumen.manufacturer" class="text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.manufacturer }}</p>
+              </div>
+              <div>
+                <p class="noc-metric-label">Firmware</p>
+                <p class="font-mono text-xs text-gray-800 dark:text-gray-200">{{ tr069Resumen.software_version || '—' }}</p>
+              </div>
+              <div>
+                <p class="noc-metric-label">WAN IP</p>
+                <p class="font-mono text-gray-900 dark:text-gray-100">{{ tr069Resumen.wan_ip || '—' }}</p>
+                <p v-if="tr069Resumen.wan_mac" class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.wan_mac }}</p>
+              </div>
+              <div>
+                <p class="noc-metric-label">LAN CPE</p>
+                <p class="font-mono text-gray-900 dark:text-gray-100">{{ tr069Resumen.lan_ip || '—' }}</p>
+              </div>
+              <div class="col-span-1 md:col-span-3">
+                <p class="noc-metric-label">SSID</p>
+                <p class="text-gray-900 dark:text-gray-100">{{ (tr069Resumen.ssids && tr069Resumen.ssids.length) ? tr069Resumen.ssids.join(' · ') : (tr069Resumen.ssid || '—') }}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="noc-metric-label">Último Inform</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.last_inform || '—' }}</p>
+              </div>
+            </div>
+          </template>
+          <div v-if="tr069Hosts && tr069Hosts.length" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              <thead class="bg-gray-50 dark:bg-gray-900/40">
+                <tr>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">IP</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">MAC</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Nombre</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">RSSI</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Origen</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr v-for="(h, idx) in tr069Hosts" :key="'h-' + idx" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                  <td class="px-2 py-2 font-mono text-gray-900 dark:text-gray-100">{{ h.ip || '—' }}</td>
+                  <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ h.mac || '—' }}</td>
+                  <td class="px-2 py-2 text-gray-700 dark:text-gray-300">{{ h.hostname || '—' }}</td>
+                  <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ h.rssi != null && h.rssi !== '' ? h.rssi + ' dBm' : '—' }}</td>
+                  <td class="px-2 py-2 text-gray-500 dark:text-gray-400">{{ h.source === 'wifi' ? 'WiFi' : (h.source === 'lan' ? 'LAN' : '—') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <form
+            v-if="tr069Resumen && tr069Resumen.success"
+            class="rounded-lg border border-gray-200 dark:border-gray-600 p-3 space-y-2"
+            @submit.prevent="onTr069Password"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Cambiar clave por ACS</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">El CPE no informa la clave actual. Se escribe por TR-069 (WPA2, 8–63 caracteres).</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label for="tr069-pass-tipo" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destino</label>
+                <select
+                  id="tr069-pass-tipo"
+                  v-model="tr069PassTarget"
+                  class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                >
+                  <option value="wifi-all">WiFi · todos los SSID activos</option>
+                  <option
+                    v-for="w in tr069WifiEnabled"
+                    :key="w.id"
+                    :value="'wifi:' + w.id"
+                  >WiFi · {{ w.ssid }}{{ w.band ? ' (' + w.band + ')' : '' }}</option>
+                  <option v-if="tr069Resumen.puede_admin_password" value="admin">Clave del router (panel)</option>
+                </select>
+              </div>
+              <div>
+                <label for="tr069-pass" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nueva clave</label>
+                <input
+                  id="tr069-pass"
+                  v-model="tr069Password"
+                  type="password"
+                  autocomplete="new-password"
+                  class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                  :minlength="tr069PassTarget === 'admin' ? 4 : 8"
+                  :maxlength="tr069PassTarget === 'admin' ? 64 : 63"
+                  required
+                >
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <input
+                v-model="tr069Password2"
+                type="password"
+                autocomplete="new-password"
+                placeholder="Repetir clave"
+                class="flex-1 min-w-[10rem] py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                required
+              >
+              <button
+                type="submit"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="loading.tr069Password"
+              >
+                {{ loading.tr069Password ? 'Encolando…' : 'Aplicar' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
 
       <section class="noc-card mt-6">
         <div class="noc-card-head border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div>
             <h2 class="noc-card-title text-base">Registro de actividad reciente</h2>
-            <p class="noc-card-sub">Señal óptica, señal antena y eventos PPPoE · últimos 30</p>
+            <p class="noc-card-sub">{{ registroSubtitulo }} · últimos 30</p>
           </div>
         </div>
 
@@ -373,6 +654,7 @@
       <p v-if="!compact" class="mt-4 text-xs text-gray-400 dark:text-gray-500">
         Antena Ubiquiti: SSH a la IP del servicio con <span class="font-mono">wstalist</span> (RSSI, noise, CCQ, TX/RX, distancia, MAC remota)
         o <span class="font-mono">cat /tmp/dhcpd.leases</span> (dispositivos conectados al CPE vía DHCP).
+        TR-069: GenieACS (serial del servicio) para routers/ONT sin SSH.
         OLT: estrategia principal <span class="font-mono">show address-table gpon 0/{pon}</span> (tabla por PON).
         El download MikroTik se lee de <span class="font-mono">&lt;pppoe-USUARIO&gt;</span>.
       </p>
@@ -395,11 +677,18 @@ const selectedServicioId = ref(
 );
 const loadingDatos = ref(false);
 const outPing = ref('');
+const pingStats = ref(null);
 const outMac = ref('');
 const outTrafico = ref('');
 const outOlt = ref('');
 const outAntena = ref('');
 const outAntenaDhcp = ref('');
+const outTr069 = ref('');
+const tr069Resumen = ref(null);
+const tr069Hosts = ref([]);
+const tr069PassTarget = ref('wifi-all');
+const tr069Password = ref('');
+const tr069Password2 = ref('');
 const loading = reactive({
   ping: false,
   mac: false,
@@ -408,6 +697,11 @@ const loading = reactive({
   oltDesc: false,
   antena: false,
   antenaDhcp: false,
+  tr069: false,
+  tr069Hosts: false,
+  tr069Refresh: false,
+  tr069Reboot: false,
+  tr069Password: false,
 });
 
 let mikrotikCache = null;
@@ -417,12 +711,45 @@ const servicio = computed(() => payload.value?.servicio || {});
 const ultimaOptica = computed(() => payload.value?.ultima_optica || null);
 const ultimaAntena = computed(() => payload.value?.ultima_antena || null);
 const timeline = computed(() => payload.value?.timeline || null);
-const eventos = computed(() => payload.value?.eventos || []);
 const canPing = computed(() => !!servicio.value.ip);
 const canMac = computed(() => !!payload.value?.tiene_router);
 const canOlt = computed(() => !!payload.value?.es_fibra);
 const canOltDesc = computed(() => !!payload.value?.es_fibra && !!servicio.value.desc_onu);
 const canAntena = computed(() => !!payload.value?.es_antena);
+const esFibra = computed(() => !!payload.value?.es_fibra);
+const esAntena = computed(() => !!payload.value?.es_antena);
+const tr069Enabled = computed(() => !!payload.value?.tr069_enabled);
+const cpeSsh = computed(() => !!payload.value?.cpe_ssh);
+const toolsCols = computed(() => {
+  let n = 2;
+  if (esFibra.value || esAntena.value) n += 1;
+  if (tr069Enabled.value) n += 1;
+  return n;
+});
+const tr069TieneDetalle = computed(() => {
+  if (tr069Resumen.value && tr069Resumen.value.success) return true;
+  return Array.isArray(tr069Hosts.value) && tr069Hosts.value.length > 0;
+});
+const eventos = computed(() => {
+  const all = payload.value?.eventos || [];
+  if (esFibra.value) {
+    return all.filter((e) => e.tipo !== 'senal_antena');
+  }
+  if (esAntena.value) {
+    return all.filter((e) => e.tipo !== 'senal_optica');
+  }
+  return all;
+});
+const registroSubtitulo = computed(() => {
+  if (esFibra.value) return 'Señal óptica ONU y eventos PPPoE';
+  if (esAntena.value) return 'Señal antena y eventos PPPoE';
+  return 'Eventos de conexión';
+});
+const tr069WifiEnabled = computed(() => {
+  const list = tr069Resumen.value?.wifi;
+  if (!Array.isArray(list)) return [];
+  return list.filter((w) => w && w.enabled);
+});
 
 function barPct(dbm) {
   if (dbm === null || dbm === undefined || dbm === '') return 0;
@@ -450,11 +777,18 @@ function csrfToken() {
 
 function clearResults() {
   outPing.value = '';
+  pingStats.value = null;
   outMac.value = '';
   outTrafico.value = '';
   outOlt.value = '';
   outAntena.value = '';
   outAntenaDhcp.value = '';
+  outTr069.value = '';
+  tr069Resumen.value = null;
+  tr069Hosts.value = [];
+  tr069PassTarget.value = 'wifi-all';
+  tr069Password.value = '';
+  tr069Password2.value = '';
   mikrotikCache = null;
 }
 
@@ -498,7 +832,7 @@ function errHtml(msg) {
   return '<p class="text-red-600 dark:text-red-400">' + escapeHtml(msg || 'Error') + '</p>';
 }
 
-function postJson(url) {
+function postJson(url, body) {
   return fetch(url, {
     method: 'POST',
     headers: {
@@ -507,7 +841,23 @@ function postJson(url) {
       'X-Requested-With': 'XMLHttpRequest',
       'X-CSRF-TOKEN': csrfToken(),
     },
-    body: '{}',
+    body: JSON.stringify(body || {}),
+    credentials: 'same-origin',
+  }).then(function (r) {
+    return r.json().then(function (data) {
+      return { ok: r.ok, data: data || {} };
+    });
+  });
+}
+
+function getJson(url) {
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-TOKEN': csrfToken(),
+    },
     credentials: 'same-origin',
   }).then(function (r) {
     return r.json().then(function (data) {
@@ -679,24 +1029,29 @@ function oltCmdResultHtml(oltPayload) {
 
 function onPing() {
   loading.ping = true;
+  pingStats.value = null;
   outPing.value = '<p class="text-gray-500 dark:text-gray-400">Consultando…</p>';
   postJson(payload.value.urls.ping).then(function (res) {
     var d = res.data;
-    if (!res.ok && !d.output) {
+    outPing.value = '';
+    if (!res.ok && !d.output && d.sent == null) {
       outPing.value = errHtml(d.message);
       return;
     }
-    var badge = d.alive
-      ? '<span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300">Responde</span>'
-      : '<span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-300">Sin respuesta</span>';
-    var html = '<div class="flex flex-wrap items-center gap-2">' + badge +
-      '<span class="text-gray-600 dark:text-gray-300">' + escapeHtml(d.message || '') + '</span></div>';
-    if (d.output) {
-      html += '<pre class="mt-2 max-h-48 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs font-mono text-gray-800 dark:border-gray-600 dark:bg-gray-900/50 dark:text-gray-200 whitespace-pre-wrap">' +
-        escapeHtml(d.output) + '</pre>';
-    }
-    outPing.value = html;
+    pingStats.value = {
+      alive: !!d.alive,
+      sent: d.sent != null ? d.sent : (d.packets || 0),
+      received: d.received != null ? d.received : 0,
+      lost: d.lost != null ? d.lost : 0,
+      loss_pct: d.loss_pct != null ? d.loss_pct : (d.alive ? 0 : 100),
+      min_ms: d.min_ms != null ? d.min_ms : null,
+      max_ms: d.max_ms != null ? d.max_ms : null,
+      avg_ms: d.avg_ms != null ? d.avg_ms : null,
+      calidad: d.calidad || d.message || '',
+      output: d.output || '',
+    };
   }).catch(function () {
+    pingStats.value = null;
     outPing.value = errHtml('Error de conexión al ejecutar ping.');
   }).finally(function () {
     loading.ping = false;
@@ -799,6 +1154,127 @@ function onAntenaDhcp() {
     outAntenaDhcp.value = errHtml('Error al consultar DHCP leases por SSH.');
   }).finally(function () {
     loading.antenaDhcp = false;
+  });
+}
+
+function onTr069Resumen() {
+  var url = payload.value?.urls?.tr069;
+  if (!url) return;
+  loading.tr069 = true;
+  outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Consultando GenieACS…</p>';
+  tr069Resumen.value = null;
+  getJson(url).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outTr069.value = errHtml(d.message);
+      return;
+    }
+    tr069Resumen.value = d;
+    outTr069.value = '<p class="text-xs text-gray-400">' + escapeHtml(d.message || '') + (d.via ? ' · vía ' + escapeHtml(d.via) : '') + '</p>';
+  }).catch(function () {
+    outTr069.value = errHtml('No se pudo contactar GenieACS.');
+  }).finally(function () {
+    loading.tr069 = false;
+  });
+}
+
+function onTr069Hosts() {
+  var url = payload.value?.urls?.tr069_hosts;
+  if (!url) return;
+  loading.tr069Hosts = true;
+  outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Leyendo hosts LAN del CPE…</p>';
+  tr069Hosts.value = [];
+  getJson(url).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outTr069.value = errHtml(d.message);
+      return;
+    }
+    tr069Hosts.value = Array.isArray(d.hosts) ? d.hosts : [];
+    outTr069.value = '<p class="text-xs text-gray-400">' + escapeHtml(d.message || '') + '</p>';
+  }).catch(function () {
+    outTr069.value = errHtml('No se pudo leer hosts LAN.');
+  }).finally(function () {
+    loading.tr069Hosts = false;
+  });
+}
+
+function onTr069Refresh() {
+  var url = payload.value?.urls?.tr069_refresh;
+  if (!url) return;
+  loading.tr069Refresh = true;
+  outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Encolando refresh en el ACS…</p>';
+  postJson(url).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outTr069.value = errHtml(d.message);
+      return;
+    }
+    outTr069.value = '<p class="text-green-700 dark:text-green-400 text-sm">' + escapeHtml(d.message || 'Refresh encolado.') + '</p>';
+  }).catch(function () {
+    outTr069.value = errHtml('No se pudo encolar el refresh.');
+  }).finally(function () {
+    loading.tr069Refresh = false;
+  });
+}
+
+function onTr069Reboot() {
+  var url = payload.value?.urls?.tr069_reboot;
+  if (!url) return;
+  if (!confirm('¿Reiniciar el CPE por TR-069? El equipo se desconecta unos minutos.')) return;
+  loading.tr069Reboot = true;
+  outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Encolando reboot en el ACS…</p>';
+  postJson(url).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outTr069.value = errHtml(d.message);
+      return;
+    }
+    outTr069.value = '<p class="text-green-700 dark:text-green-400 text-sm">' + escapeHtml(d.message || 'Reboot encolado.') + '</p>';
+  }).catch(function () {
+    outTr069.value = errHtml('No se pudo encolar el reboot.');
+  }).finally(function () {
+    loading.tr069Reboot = false;
+  });
+}
+
+function onTr069Password() {
+  var url = payload.value?.urls?.tr069_password;
+  if (!url) return;
+  var pass = tr069Password.value || '';
+  var pass2 = tr069Password2.value || '';
+  if (pass !== pass2) {
+    outTr069.value = errHtml('Las claves no coinciden.');
+    return;
+  }
+  var target = tr069PassTarget.value || 'wifi-all';
+  var tipo = target === 'admin' ? 'admin' : 'wifi';
+  var wifiId = 'all';
+  if (tipo === 'wifi' && target.indexOf('wifi:') === 0) {
+    wifiId = target.slice(5);
+  }
+  var min = tipo === 'admin' ? 4 : 8;
+  if (pass.length < min) {
+    outTr069.value = errHtml(tipo === 'wifi'
+      ? 'La clave WiFi debe tener al menos 8 caracteres.'
+      : 'La clave del router debe tener al menos 4 caracteres.');
+    return;
+  }
+  loading.tr069Password = true;
+  outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Encolando SetParameterValues en el ACS…</p>';
+  postJson(url, { tipo: tipo, wifi_id: wifiId, password: pass }).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outTr069.value = errHtml(d.message);
+      return;
+    }
+    tr069Password.value = '';
+    tr069Password2.value = '';
+    outTr069.value = '<p class="text-green-700 dark:text-green-400 text-sm">' + escapeHtml(d.message || 'Clave encolada.') + '</p>';
+  }).catch(function () {
+    outTr069.value = errHtml('No se pudo encolar el cambio de clave.');
+  }).finally(function () {
+    loading.tr069Password = false;
   });
 }
 

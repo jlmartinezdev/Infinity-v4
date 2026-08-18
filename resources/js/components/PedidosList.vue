@@ -1,253 +1,380 @@
 <template>
-    <div class="max-w-7xl mx-auto">
+    <div class="mx-auto" :class="vista === 'kanban' ? 'max-w-[90rem]' : 'max-w-7xl'">
         <!-- Header -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Lista de pedidos</h1>
-            <div class="flex items-center gap-2 flex-wrap">
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Lista de pedidos</h1>
+            <div class="grid grid-cols-2 sm:flex sm:items-stretch gap-2 w-full">
                 <a v-if="urlExportarExcel"
                     :href="urlExportarExcel"
-                    class="inline-flex items-center gap-2 px-4 py-2 border border-green-600 text-green-700 dark:text-green-400 dark:border-green-500 bg-white dark:bg-gray-800 rounded-lg font-medium hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                    class="flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-3 py-2 border border-green-600 text-green-700 dark:text-green-400 dark:border-green-500 bg-white dark:bg-gray-800 rounded-lg font-medium text-sm text-center hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
-                    Exportar Excel
+                    <span class="truncate">Exportar Excel</span>
                 </a>
                 <button
                     v-if="urlResolucionesHoy"
                     type="button"
-                    class="inline-flex items-center gap-2 px-4 py-2 border border-sky-600 text-sky-700 dark:text-sky-400 dark:border-sky-500 bg-white dark:bg-gray-800 rounded-lg font-medium hover:bg-sky-50 dark:hover:bg-sky-900/20 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                    class="flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-3 py-2 border border-sky-600 text-sky-700 dark:text-sky-400 dark:border-sky-500 bg-white dark:bg-gray-800 rounded-lg font-medium text-sm text-center hover:bg-sky-50 dark:hover:bg-sky-900/20 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                     @click="abrirModalResolucionesHoy"
                 >
                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Aprobados / desaprobados hoy
+                    <span class="truncate">Aprobados / desaprobados hoy</span>
                 </button>
                 <button type="button" @click="modalFactibilidadOpen = true"
-                    class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
-                    Análisis de Factibilidad Rapido
+                    class="flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 bg-purple-600 text-white rounded-lg font-medium text-sm text-center hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                    <span class="truncate">Análisis de Factibilidad Rapido</span>
                 </button>
                 <button type="button" @click="openModalPedido"
-                    class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
-                    Nuevo pedido
+                    class="flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 bg-purple-600 text-white rounded-lg font-medium text-sm text-center hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                    <span class="truncate">Nuevo pedido</span>
                 </button>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden" style="min-height: 160px;">
-            <!-- Filtros (client-side con Vue) -->
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-                    <div class="sm:w-48">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado</label>
-                        <select name="estado_id" v-model="formEstadoId" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                            <option value="todos">Todos los estados</option>
-                            <option v-for="e in estados" :key="e.estado_id" :value="String(e.estado_id)">
-                                {{ e.descripcion }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="sm:w-40">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Tecnología</label>
-                        <select name="tecnologia" v-model="formTecnologia" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                            <option value="todos">Todas las tecnologías</option>
-                            <option value="gpon">GPON / Fibra</option>
-                            <option value="wireless">Wireless</option>
-                        </select>
-                    </div>
-                    <div class="sm:w-40">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha desde</label>
-                        <input
-                            v-model="filtroFechaDesde"
-                            type="date"
-                            class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                        />
-                    </div>
-                    <div class="sm:w-40">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha hasta</label>
-                        <input
-                            v-model="filtroFechaHasta"
-                            type="date"
-                            class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                        />
-                    </div>
-                    <div class="sm:w-56">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Instalación</label>
-                        <select v-model="filtroInstalacion" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                            <option value="todos">Todos</option>
-                            <option value="pendientes">Pendientes (sin instalar)</option>
-                            <option value="instalados">Solo instalados</option>
-                        </select>
-                    </div>
-                    <div class="sm:w-56">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Ampliación de red</label>
-                        <select v-model="filtroEsperaAmpliacion" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                            <option value="todos">Todos</option>
-                            <option value="solo">Solo en espera</option>
-                            <option value="no">Sin espera</option>
-                        </select>
-                    </div>
-                    <div v-if="filtroFechaDesde || filtroFechaHasta" class="flex items-end">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-visible" style="min-height: 160px;">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 relative z-20 rounded-t-xl">
+                    <div class="flex gap-3 items-stretch">
+                        <div class="flex-1 relative min-w-0">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <input
+                                v-model="buscar"
+                                type="text"
+                                placeholder="Buscar por cliente, cédula o descripción..."
+                                class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                            <button
+                                v-if="buscar"
+                                type="button"
+                                @click="buscar = ''"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                title="Limpiar búsqueda"
+                            >
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="relative shrink-0" ref="menuFiltrosRef">
+                            <button
+                                type="button"
+                                class="relative inline-flex items-center gap-2 h-full px-4 py-2.5 rounded-lg border font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                                :class="cantidadFiltrosActivos || menuFiltrosOpen
+                                    ? 'border-purple-600 bg-purple-600 text-white hover:bg-purple-700'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                :aria-expanded="menuFiltrosOpen"
+                                title="Filtros"
+                                @click.stop="menuFiltrosOpen = !menuFiltrosOpen"
+                            >
+                                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                <span class="hidden sm:inline">Filtros</span>
+                                <span
+                                    v-if="cantidadFiltrosActivos"
+                                    class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[11px] font-bold"
+                                    :class="menuFiltrosOpen || cantidadFiltrosActivos ? 'bg-white text-purple-700' : 'bg-purple-600 text-white'"
+                                >{{ cantidadFiltrosActivos }}</span>
+                            </button>
+                            <div
+                                v-show="menuFiltrosOpen"
+                                class="absolute right-0 mt-2 w-[min(22rem,calc(100vw-2rem))] max-h-[min(70vh,36rem)] overflow-y-auto py-3 px-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl z-30"
+                                @click.stop
+                            >
+                                <div class="flex items-center justify-between gap-2 mb-3">
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</p>
+                                    <button
+                                        v-if="cantidadFiltrosActivos"
+                                        type="button"
+                                        class="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                                        @click="limpiarFiltros"
+                                    >
+                                        Limpiar
+                                    </button>
+                                </div>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado</label>
+                                        <select v-model="formEstadoId" class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                            <option value="todos">Todos los estados</option>
+                                            <option v-for="e in estados" :key="e.estado_id" :value="String(e.estado_id)">
+                                                {{ e.descripcion }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Tecnología</label>
+                                        <select v-model="formTecnologia" class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                            <option value="todos">Todas las tecnologías</option>
+                                            <option value="gpon">GPON / Fibra</option>
+                                            <option value="wireless">Wireless</option>
+                                        </select>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha desde</label>
+                                            <input
+                                                v-model="filtroFechaDesde"
+                                                type="date"
+                                                class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha hasta</label>
+                                            <input
+                                                v-model="filtroFechaHasta"
+                                                type="date"
+                                                class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Instalación</label>
+                                        <select v-model="filtroInstalacion" class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                            <option value="todos">Todos</option>
+                                            <option value="pendientes">Pendientes (sin instalar)</option>
+                                            <option value="instalados">Solo instalados</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Ampliación de red</label>
+                                        <select v-model="filtroEsperaAmpliacion" class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                            <option value="todos">Todos</option>
+                                            <option value="solo">Solo en espera</option>
+                                            <option value="no">Sin espera</option>
+                                        </select>
+                                    </div>
+                                    <label class="flex items-center gap-2 px-1 py-1 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            :checked="mostrarDescartados === '1'"
+                                            @change="setMostrarDescartados($event.target.checked ? '1' : '0')"
+                                            class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                                        >
+                                        <span class="text-sm text-gray-700 dark:text-gray-200">Mostrar pedidos descartados</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         <button
                             type="button"
-                            class="text-sm text-purple-600 dark:text-purple-400 hover:underline px-1 py-2"
-                            @click="filtroFechaDesde = ''; filtroFechaHasta = ''"
+                            class="hidden sm:inline-flex shrink-0 items-center gap-2 h-full px-4 py-2.5 rounded-lg border font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                            :class="vista === 'kanban'
+                                ? 'border-purple-600 bg-purple-600 text-white hover:bg-purple-700'
+                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                            :title="vista === 'kanban' ? 'Vista lista' : 'Vista Kanban'"
+                            @click="setVista(vista === 'kanban' ? 'lista' : 'kanban')"
                         >
-                            Limpiar fechas
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path v-if="vista !== 'kanban'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4h3v16H9V4zm6 0h3v16h-3V4zM4 4h3v16H4V4z" />
+                                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                            <span class="hidden sm:inline">{{ vista === 'kanban' ? 'Lista' : 'Kanban' }}</span>
                         </button>
                     </div>
-                    <div class="relative pt-2">
-                        
-                            <label class="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                                <input type="checkbox" :checked="mostrarDescartados === '1'" @change="setMostrarDescartados($event.target.checked ? '1' : '0')"
-                                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
-                                <span class="text-sm text-gray-700 dark:text-gray-200">Mostrar pedidos descartados</span>
-                            </label>
-                        
-                    </div>
-                    <!--button type="button"
-                        class="inline-flex items-center justify-center px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors shadow-sm"
-                        @click="dropdownInstaladosOpen = false">
-                        Filtrar
-                    </button-->
                 </div>
-            </div>
 
             <div class="overflow-x-hidden">
-                <!-- Barra de búsqueda instantánea -->
-        <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <div class="flex flex-col sm:flex-row gap-3">
-                <div class="flex-1 relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                    </div>
-                    <input
-                        v-model="buscar"
-                        type="text"
-                        placeholder="Buscar por cliente, cédula o descripción..."
-                        class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                    <button
-                        v-if="buscar"
-                        type="button"
-                        @click="buscar = ''"
-                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        title="Limpiar búsqueda"
-                    >
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <div v-if="pedidosOrdenados.length === 0" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
             <template v-if="buscar">No hay resultados para la búsqueda.</template>
             <template v-else>No hay pedidos. <button type="button" class="text-purple-600 dark:text-purple-400 hover:underline btn-open-pedido-modal">Crear uno</button></template>
         </div>
 
-        <div v-for="pedido in pedidosOrdenados" :key="pedido.pedido_id" class="border-b border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div v-else-if="vista === 'kanban'" class="p-4">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-[11px] text-gray-600 dark:text-gray-400">
+                <span class="font-medium">Espera:</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> 0–2 días</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span> 3–6 días</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-orange-500"></span> 7–13 días</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-red-600"></span> 14+ días</span>
+            </div>
+            <div class="grid grid-cols-3 gap-x-4">
+                <header
+                    v-for="col in columnasKanban"
+                    :key="'h-' + col.idx"
+                    class="flex items-center justify-between gap-2 px-3 pt-3 pb-2 rounded-t-xl bg-gray-50 dark:bg-gray-900"
+                >
+                    <h2 class="text-sm font-semibold truncate" :class="col.head" :title="col.title">{{ col.title }}</h2>
+                    <span class="text-sm text-gray-500 dark:text-gray-400 shrink-0">{{ col.pedidos.length }}</span>
+                </header>
+                <template v-if="!filasKanban.length">
+                    <div
+                        v-for="col in columnasKanban"
+                        :key="'empty-' + col.idx"
+                        class="rounded-b-xl bg-gray-50 dark:bg-gray-900 px-3 pb-6"
+                    >
+                        <p class="text-xs text-center text-gray-400 dark:text-gray-500 py-8">Sin pedidos en esta etapa</p>
+                    </div>
+                </template>
+                <template v-for="(fila, i) in filasKanban" :key="fila.pedido.pedido_id">
+                    <div
+                        v-for="col in columnasKanban"
+                        :key="fila.pedido.pedido_id + '-' + col.idx"
+                        class="bg-gray-50 dark:bg-gray-900 px-2 py-1"
+                        :class="i === filasKanban.length - 1 ? 'rounded-b-xl pb-3' : ''"
+                    >
+                        <article
+                            v-if="fila.colIdx === col.idx"
+                            class="rounded-lg px-2.5 py-1.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 h-full"
+                            @click="abrirPedidoDesdeKanban(fila.pedido.pedido_id)"
+                        >
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-[11px] font-mono text-gray-400 leading-none">#{{ fila.pedido.pedido_id }}</p>
+                                <span v-if="fila.pedido.espera_ampliacion_red" class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold rounded bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200">ESPERA RED</span>
+                            </div>
+                            <p class="mt-0.5 text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug truncate">
+                                {{ fila.pedido.cliente?.nombre }} {{ fila.pedido.cliente?.apellido }}
+                            </p>
+                            <p class="text-xs text-gray-700 dark:text-gray-300 leading-snug truncate" :title="fila.pedido.ubicacion || ''">
+                                {{ fila.pedido.ubicacion || 'Sin dirección' }}
+                            </p>
+                            <template v-if="col.idx === 2">
+                                <p class="text-xs text-gray-700 dark:text-gray-300 truncate" :title="nombrePlanSeleccionado(fila.pedido) || ''">
+                                    {{ nombrePlanSeleccionado(fila.pedido) || 'Sin plan' }}
+                                </p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 truncate" :title="nombreNodoSeleccionado(fila.pedido) || ''">
+                                    {{ nombreNodoSeleccionado(fila.pedido) || 'Sin nodo' }}
+                                </p>
+                            </template>
+                            <p class="mt-0.5 text-[11px] leading-none" :class="claseDiasEsperaKanban(fila.pedido.fecha_pedido)">
+                                {{ formatFecha(fila.pedido.fecha_pedido) }}
+                                <span v-if="diasDesdePedidoLabel(fila.pedido.fecha_pedido)"> · {{ diasDesdePedidoLabel(fila.pedido.fecha_pedido) }}</span>
+                            </p>
+                        </article>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div v-for="pedido in pedidosOrdenados" v-show="vista === 'lista'" :id="'pedido-row-' + pedido.pedido_id" :key="pedido.pedido_id"
+             class="border-b border-l-4 overflow-hidden transition-colors"
+             :class="clasesExpansionPedido(pedido.pedido_id, 'fila')">
             <!-- Header del Accordion -->
             <button type="button" @click="togglePedido(pedido.pedido_id)"
-                class="w-full px-3 sm:px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex flex-col sm:flex-row items-stretch sm:items-center justify-between text-left gap-3 sm:gap-0 touch-manipulation">
-                <!-- Id del pedido -->
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 p-3">{{ pedido.pedido_id }}</div>
-                <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4 items-center min-w-0">
-                    <!-- Cliente -->
-                    <div class="col-span-2">
-                        <div class="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase">{{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ pedido.cliente.cedula }}</div>
-                    </div>
-                    
-                    <!-- Celular -->
-                    <div class="flex items-center gap-1 order-3 sm:order-none">
-                        <a v-if="pedido.cliente.telefono"
-                           :href="`https://wa.me/${pedido.cliente.telefono.replace(/[^0-9]/g, '')}`"
-                           target="_blank"
-                           @click.stop
-                           class="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded pr-1 transition-colors"
-                           title="Abrir WhatsApp">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 32 32">
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.381 1.262.619 1.694.791.712.306 1.36.263 1.871.16.571-.116 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                            </svg>
-                        </a>
-                        <span class="text-xs text-gray-900 dark:text-gray-100">{{ pedido.cliente.telefono ?? '—' }}</span>
-                        
-                    </div>
-                    
-                    <!-- Plan / Estado -->
-                    <div class="text-xs text-gray-900 dark:text-gray-100 flex flex-wrap items-center gap-1.5 order-2 sm:order-none">
-                        <span v-if="pedido.estado_instalado"
-                              class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                            INSTALADO
-                        </span>
-                        <span v-else-if="pedido.espera_ampliacion_red"
-                              class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200"
-                              title="En espera de ampliación de red">
-                            ESPERA RED
-                        </span>
-                        <span v-else :class="getBadgeClassEstado(pedido)" 
-                              class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full">
-                            {{ getEstadoActual(pedido)?.estado_pedido?.descripcion ?? 'Sin estado' }}
-                        </span>
-                    </div>
-                   
-                    <!-- Barra de progreso por estado (3 puntos: números 1-3 si aprobado) -->
-                    <div class="flex items-center gap-0.5 order-4 sm:order-none">
-                        <template v-for="(step, idx) in getProgressSteps(pedido)" :key="step.estado_id">
-                            <div v-if="idx > 0" class="flex-shrink-0 w-4 h-0.5 rounded-full"
-                                 :class="step.status === 'approved' ? 'bg-purple-500' : (step.status === 'pending' ? 'bg-purple-400' : 'bg-gray-200 dark:bg-gray-600')"></div>
-                            <div class="flex flex-col items-center flex-shrink-0"
-                                 :class="step.status === 'approved' ? 'text-purple-600 dark:text-purple-400' : (step.status === 'pending' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-300 dark:text-gray-500')">
-                                <div v-if="step.status === 'approved'"
-                                     class="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-semibold"
-                                     :title="step.descripcion + ' (aprobado)'">
-                                    {{ idx + 1 }}
-                                </div>
-                                <div v-else-if="step.status === 'pending'"
-                                     class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center ring-2 ring-purple-400 dark:ring-purple-600"
-                                     :title="step.descripcion + ' (pendiente)'">
-                                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-                                </div>
-                                <div v-else
-                                     class="w-6 h-6 rounded-full border-2 border-gray-200 dark:border-gray-600 flex items-center justify-center bg-white dark:bg-gray-800"
-                                     :title="(step.descripcion || 'Paso ' + (idx + 1)) + ' (pendiente)'">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600"></span>
+                class="w-full px-3 md:px-4 py-3 transition-colors flex flex-col md:flex-row md:items-center text-left gap-2 md:gap-0 touch-manipulation"
+                :class="clasesExpansionPedido(pedido.pedido_id, 'header')">
+                <div class="flex items-start justify-between gap-2 w-full md:contents">
+                    <div class="min-w-0 flex-1 md:contents">
+                        <div class="text-[11px] font-mono text-gray-400 dark:text-gray-500 md:text-xs md:mt-0.5 md:p-3">{{ pedido.pedido_id }}</div>
+                        <div class="min-w-0 md:flex-1 md:grid md:grid-cols-2 lg:grid-cols-6 md:gap-4 md:items-center">
+                            <div class="md:col-span-2 min-w-0">
+                                <div class="text-sm md:text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase leading-snug">{{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                    <span>{{ pedido.cliente.cedula }}</span>
+                                    <template v-if="pedido.cliente.telefono">
+                                        <span class="md:hidden text-gray-300 dark:text-gray-600">·</span>
+                                        <a class="md:hidden inline-flex items-center gap-1 text-gray-900 dark:text-gray-100"
+                                           :href="`https://wa.me/${pedido.cliente.telefono.replace(/[^0-9]/g, '')}`"
+                                           target="_blank"
+                                           @click.stop
+                                           title="Abrir WhatsApp">
+                                            <svg class="w-3.5 h-3.5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 32 32"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.381 1.262.619 1.694.791.712.306 1.36.263 1.871.16.571-.116 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                                            {{ pedido.cliente.telefono }}
+                                        </a>
+                                    </template>
                                 </div>
                             </div>
-                        </template>
-                        <template v-if="!getProgressSteps(pedido).length">
-                            <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
-                        </template>
+
+                            <div class="hidden md:flex items-center gap-1">
+                                <a v-if="pedido.cliente.telefono"
+                                   :href="`https://wa.me/${pedido.cliente.telefono.replace(/[^0-9]/g, '')}`"
+                                   target="_blank"
+                                   @click.stop
+                                   class="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded pr-1 transition-colors"
+                                   title="Abrir WhatsApp">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 32 32">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.381 1.262.619 1.694.791.712.306 1.36.263 1.871.16.571-.116 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                                    </svg>
+                                </a>
+                                <span class="text-xs text-gray-900 dark:text-gray-100">{{ pedido.cliente.telefono ?? '—' }}</span>
+                            </div>
+
+                            <div class="mt-2 md:mt-0 flex items-center justify-between gap-2 md:justify-start md:contents">
+                                <span v-if="pedido.estado_instalado"
+                                      class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                    INSTALADO
+                                </span>
+                                <span v-else-if="pedido.espera_ampliacion_red"
+                                      class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200"
+                                      title="En espera de ampliación de red">
+                                    ESPERA RED
+                                </span>
+                                <span v-else :class="getBadgeClassEstado(pedido)"
+                                      class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full">
+                                    {{ getEstadoActual(pedido)?.estado_pedido?.descripcion ?? 'Sin estado' }}
+                                </span>
+
+                                <div class="flex items-center gap-0.5 shrink-0">
+                                    <template v-for="(step, idx) in getProgressSteps(pedido)" :key="step.estado_id">
+                                        <div v-if="idx > 0" class="flex-shrink-0 w-4 h-0.5 rounded-full"
+                                             :class="step.status === 'approved' ? 'bg-purple-500' : (step.status === 'pending' ? 'bg-purple-400' : 'bg-gray-200 dark:bg-gray-600')"></div>
+                                        <div class="flex flex-col items-center flex-shrink-0"
+                                             :class="step.status === 'approved' ? 'text-purple-600 dark:text-purple-400' : (step.status === 'pending' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-300 dark:text-gray-500')">
+                                            <div v-if="step.status === 'approved'"
+                                                 class="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-semibold"
+                                                 :title="step.descripcion + ' (aprobado)'">
+                                                {{ idx + 1 }}
+                                            </div>
+                                            <div v-else-if="step.status === 'pending'"
+                                                 class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center ring-2 ring-purple-400 dark:ring-purple-600"
+                                                 :title="step.descripcion + ' (pendiente)'">
+                                                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                            </div>
+                                            <div v-else
+                                                 class="w-6 h-6 rounded-full border-2 border-gray-200 dark:border-gray-600 flex items-center justify-center bg-white dark:bg-gray-800"
+                                                 :title="(step.descripcion || 'Paso ' + (idx + 1)) + ' (pendiente)'">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template v-if="!getProgressSteps(pedido).length">
+                                        <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="hidden md:block text-xs text-gray-900 dark:text-gray-100">
+                                <div v-if="pedido.fecha_pedido">
+                                    {{ formatFecha(pedido.fecha_pedido) }}
+                                    <span v-if="diasDesdePedidoLabel(pedido.fecha_pedido)" class="text-gray-500 dark:text-gray-400"> ({{ diasDesdePedidoLabel(pedido.fecha_pedido) }})</span>
+                                </div>
+                                <div v-else>—</div>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <!-- Fecha -->
-                    <div class="text-xs text-gray-900 dark:text-gray-100 order-5 sm:order-none">
-                        <div v-if="pedido.fecha_pedido">
+                    <svg class="md:hidden w-5 h-5 shrink-0 mt-0.5 text-gray-400 dark:text-gray-500 transition-transform"
+                         :class="{ 'rotate-180': expandedPedidos.includes(pedido.pedido_id) }"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+
+                <div class="flex items-center justify-between md:justify-start gap-2 w-full md:w-auto md:ml-4 shrink-0">
+                    <div class="md:hidden text-xs text-gray-900 dark:text-gray-100">
+                        <template v-if="pedido.fecha_pedido">
                             {{ formatFecha(pedido.fecha_pedido) }}
                             <span v-if="diasDesdePedidoLabel(pedido.fecha_pedido)" class="text-gray-500 dark:text-gray-400"> ({{ diasDesdePedidoLabel(pedido.fecha_pedido) }})</span>
-                        </div>
-                        <div v-else>—</div>
+                        </template>
+                        <template v-else>—</template>
                     </div>
-                </div>
-                
-                <!-- Botón de acciones y expandir -->
-                <div class="flex items-center justify-end sm:justify-start gap-1.5 sm:gap-2 sm:ml-4 shrink-0 order-last sm:order-none">
                     <div class="flex items-center gap-1">
-                        <button v-if="puedeFinalizarPedido(pedido) && !pedido.tiene_agenda" type="button" @click.stop="crearAgenda(pedido)" class="p-2 sm:p-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation" title="Crear agenda">
+                        <button v-if="puedeFinalizarPedido(pedido) && !pedido.tiene_agenda" type="button" @click.stop="crearAgenda(pedido)" class="p-2 md:p-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation" title="Crear agenda">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
                         </button>
-                        <button v-else type="button" class="mx-3">&nbsp;&nbsp;</button>
+                        <button v-else type="button" class="hidden md:inline mx-3">&nbsp;&nbsp;</button>
                         <button v-if="puedeFinalizarPedido(pedido)"
                                 type="button"
                                 @click.stop="finalizarPedido(pedido)"
                                 :disabled="loadingFinalizar === pedido.pedido_id"
-                                class="p-2 sm:p-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation"
+                                class="p-2 md:p-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation"
                                 title="Finalizar pedido (marcar instalación completada)">
                             <svg v-if="loadingFinalizar === pedido.pedido_id" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -257,14 +384,14 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                         </button>
-                        <button v-else type="button" class="mx-2">&nbsp;&nbsp;</button>
+                        <button v-else type="button" class="hidden md:inline mx-2">&nbsp;&nbsp;</button>
                         <button
                             v-if="esperaAmpliacionRedUrl && !pedido.estado_instalado"
                             type="button"
                             @click.stop="toggleEsperaAmpliacionRed(pedido)"
                             :disabled="loadingEsperaRed === pedido.pedido_id"
                             :class="[
-                                'p-2 sm:p-1.5 rounded-full hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation',
+                                'p-2 md:p-1.5 rounded-full hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors disabled:opacity-50 flex items-center justify-center touch-manipulation',
                                 pedido.espera_ampliacion_red
                                     ? 'bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 ring-2 ring-orange-400'
                                     : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
@@ -281,7 +408,7 @@
                         </button>
                         <a :href="`/pedidos/${pedido.pedido_id}/edit`"
                            @click.stop
-                           class="p-2 sm:p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center justify-center touch-manipulation"
+                           class="p-2 md:p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center justify-center touch-manipulation"
                            title="Editar">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -295,24 +422,26 @@
                             <input type="hidden" name="_method" value="DELETE">
                             <button type="submit"
                                     @click.stop
-                                    class="p-2 sm:p-1.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center touch-manipulation"
+                                    class="p-2 md:p-1.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center touch-manipulation"
                                     title="Eliminar">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                 </svg>
                             </button>
                         </form>
+                        <svg class="hidden md:block w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform"
+                             :class="{ 'rotate-180': expandedPedidos.includes(pedido.pedido_id) }"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
                     </div>
-                    <svg class="w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform"
-                         :class="{ 'rotate-180': expandedPedidos.includes(pedido.pedido_id) }"
-                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
                 </div>
             </button>
             
             <!-- Contenido del Accordion -->
-            <div v-show="expandedPedidos.includes(pedido.pedido_id)" class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+            <div v-show="expandedPedidos.includes(pedido.pedido_id)"
+                 class="border-t"
+                 :class="clasesExpansionPedido(pedido.pedido_id, 'panel')">
                 <div class="p-3 sm:p-4 space-y-4">
                     <div
                         v-if="pedido.espera_ampliacion_red"
@@ -667,7 +796,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import PedidoForm from '@/components/PedidoForm.vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
@@ -786,10 +915,11 @@ async function abrirModalResolucionesHoy() {
         resolucionesCargando.value = false;
     }
 }
-const dropdownInstaladosOpen = ref(false);
-const dropdownInstaladosRef = ref(null);
+const menuFiltrosOpen = ref(false);
+const menuFiltrosRef = ref(null);
 const modalPedidoContentRef = ref(null);
 const modalPedidoHeaderRef = ref(null);
+const vista = ref('lista');
 
 /** todos | pendientes | instalados — filtro por estado_instalado del pedido */
 const filtroInstalacion = ref('todos');
@@ -801,6 +931,28 @@ const formEstadoId = ref(props.filtroEstadoId || 'todos');
 const formClienteId = ref(props.filtroClienteId || 'todos');
 const formTecnologia = ref('todos');
 const fechaHoy = new Date().toISOString().split('T')[0];
+
+const cantidadFiltrosActivos = computed(() => {
+    let n = 0;
+    if (formEstadoId.value && formEstadoId.value !== 'todos') n += 1;
+    if (formTecnologia.value && formTecnologia.value !== 'todos') n += 1;
+    if (filtroFechaDesde.value) n += 1;
+    if (filtroFechaHasta.value) n += 1;
+    if (filtroInstalacion.value && filtroInstalacion.value !== 'todos') n += 1;
+    if (filtroEsperaAmpliacion.value && filtroEsperaAmpliacion.value !== 'todos') n += 1;
+    if (mostrarDescartados.value === '0') n += 1;
+    return n;
+});
+
+function limpiarFiltros() {
+    formEstadoId.value = 'todos';
+    formTecnologia.value = 'todos';
+    filtroFechaDesde.value = '';
+    filtroFechaHasta.value = '';
+    filtroInstalacion.value = 'todos';
+    filtroEsperaAmpliacion.value = 'todos';
+    setMostrarDescartados('1');
+}
 
 function getSwalThemeOptions() {
     const isDark = document.documentElement.classList.contains('dark');
@@ -825,10 +977,41 @@ function aplicarCompatFiltroInstalacionDesdeProps() {
     }
 }
 
+function setVista(v) {
+    vista.value = v === 'kanban' ? 'kanban' : 'lista';
+    try { localStorage.setItem('pedidos_vista', vista.value); } catch (e) {}
+}
+
+let mqlVistaDesktop = null;
+function aplicarVistaSegunPantalla() {
+    if (!mqlVistaDesktop?.matches) {
+        vista.value = 'lista';
+        return;
+    }
+    try {
+        const storedVista = localStorage.getItem('pedidos_vista');
+        const paramsVista = new URLSearchParams(window.location.search).get('vista');
+        if (paramsVista === 'kanban' || paramsVista === 'lista') {
+            vista.value = paramsVista;
+        } else if (storedVista === 'kanban' || storedVista === 'lista') {
+            vista.value = storedVista;
+        }
+    } catch (e) {}
+}
+
+async function abrirPedidoDesdeKanban(pedidoId) {
+    setVista('lista');
+    if (!expandedPedidos.value.includes(pedidoId)) {
+        expandedPedidos.value.push(pedidoId);
+    }
+    await nextTick();
+    const el = document.getElementById('pedido-row-' + pedidoId);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function setMostrarDescartados(val) {
     mostrarDescartados.value = val;
     try { localStorage.setItem('pedidos_mostrar_descartados', val); } catch (e) {}
-    dropdownInstaladosOpen.value = false;
 }
 
 function openModalPedido() {
@@ -840,9 +1023,13 @@ function closeModalPedido() {
 }
 
 function handleClickOutside(e) {
-    if (dropdownInstaladosRef.value && !dropdownInstaladosRef.value.contains(e.target)) {
-        dropdownInstaladosOpen.value = false;
+    if (menuFiltrosRef.value && !menuFiltrosRef.value.contains(e.target)) {
+        menuFiltrosOpen.value = false;
     }
+}
+
+function handleFiltrosKeydown(e) {
+    if (e.key === 'Escape') menuFiltrosOpen.value = false;
 }
 
 watch(filtroInstalacion, (v) => {
@@ -874,8 +1061,19 @@ onMounted(() => {
         filtroFechaHasta.value = localStorage.getItem('pedidos_fecha_hasta') || '';
         const storedDesc = localStorage.getItem('pedidos_mostrar_descartados');
         if (storedDesc === '0' || storedDesc === '1') mostrarDescartados.value = storedDesc;
+        const storedVista = localStorage.getItem('pedidos_vista');
+        const paramsVista = new URLSearchParams(window.location.search).get('vista');
+        if (paramsVista === 'kanban' || paramsVista === 'lista') {
+            vista.value = paramsVista;
+        } else if (storedVista === 'kanban' || storedVista === 'lista') {
+            vista.value = storedVista;
+        }
     } catch (e) {}
+    mqlVistaDesktop = window.matchMedia('(min-width: 640px)');
+    aplicarVistaSegunPantalla();
+    mqlVistaDesktop.addEventListener('change', aplicarVistaSegunPantalla);
     document.addEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', handleFiltrosKeydown);
     const onClose = () => closeModalPedido();
     const onCreated = () => { closeModalPedido(); window.location.reload(); };
     window.addEventListener('close-pedido-modal', onClose);
@@ -892,6 +1090,8 @@ onMounted(() => {
 
 onUnmounted(() => {
     document.removeEventListener('click', handleClickOutside);
+    document.removeEventListener('keydown', handleFiltrosKeydown);
+    mqlVistaDesktop?.removeEventListener('change', aplicarVistaSegunPantalla);
     if (window._pedidosListCleanup) window._pedidosListCleanup();
 });
 
@@ -1075,6 +1275,40 @@ const togglePedido = (pedidoId) => {
     }
 };
 
+function indicePedidoExpandido(pedidoId) {
+    if (!expandedPedidos.value.includes(pedidoId)) return -1;
+    let n = 0;
+    for (const p of pedidosOrdenados.value) {
+        if (!expandedPedidos.value.includes(p.pedido_id)) continue;
+        if (p.pedido_id === pedidoId) return n;
+        n += 1;
+    }
+    return -1;
+}
+
+function clasesExpansionPedido(pedidoId, parte) {
+    const idx = indicePedidoExpandido(pedidoId);
+    if (idx < 0) {
+        if (parte === 'fila') return 'border-gray-200 dark:border-gray-700 border-l-transparent';
+        if (parte === 'header') return 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50';
+        return '';
+    }
+    const par = idx % 2 === 0;
+    if (parte === 'fila') {
+        return par
+            ? 'border-purple-300/40 dark:border-purple-700/30 bg-purple-500/15 dark:bg-purple-400/15 border-l-purple-500'
+            : 'border-sky-300/40 dark:border-sky-700/30 bg-sky-500/15 dark:bg-sky-400/15 border-l-sky-500';
+    }
+    if (parte === 'header') {
+        return par
+            ? 'bg-transparent hover:bg-purple-500/10 dark:hover:bg-purple-400/10'
+            : 'bg-transparent hover:bg-sky-500/10 dark:hover:bg-sky-400/10';
+    }
+    return par
+        ? 'border-purple-300/30 dark:border-purple-700/25 bg-purple-500/10 dark:bg-purple-400/10'
+        : 'border-sky-300/30 dark:border-sky-700/25 bg-sky-500/10 dark:bg-sky-400/10';
+}
+
 const getBadgeClass = (descripcion) => {
     if (!descripcion) return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     const estadoLower = descripcion.toLowerCase();
@@ -1095,18 +1329,34 @@ const formatFecha = (fecha) => {
     return `${date.getDate()} ${mes}. ${date.getFullYear()}`;
 };
 
-/** Etiqueta de días transcurridos desde la fecha: "hoy", "hace 1 día" o "hace X días". */
-const diasDesdePedidoLabel = (fecha) => {
-    if (!fecha) return '';
+/** Días transcurridos desde la fecha del pedido (0 = hoy). */
+const diasDesdePedido = (fecha) => {
+    if (!fecha) return null;
     const date = new Date(fecha);
     const hoy = new Date();
     date.setHours(0, 0, 0, 0);
     hoy.setHours(0, 0, 0, 0);
     const dias = Math.floor((hoy - date) / (24 * 60 * 60 * 1000));
-    if (dias < 0) return '';
+    if (Number.isNaN(dias) || dias < 0) return null;
+    return dias;
+};
+
+/** Etiqueta de días transcurridos desde la fecha: "hoy", "hace 1 día" o "hace X días". */
+const diasDesdePedidoLabel = (fecha) => {
+    const dias = diasDesdePedido(fecha);
+    if (dias == null) return '';
     if (dias === 0) return 'hoy';
     if (dias === 1) return 'hace 1 día';
     return 'hace ' + dias + ' días';
+};
+
+const claseDiasEsperaKanban = (fecha) => {
+    const dias = diasDesdePedido(fecha);
+    if (dias == null) return 'text-gray-500 dark:text-gray-400';
+    if (dias <= 2) return 'text-emerald-800 dark:text-emerald-300 font-semibold';
+    if (dias <= 6) return 'text-amber-800 dark:text-amber-300 font-semibold';
+    if (dias <= 13) return 'text-orange-800 dark:text-orange-300 font-semibold';
+    return 'text-red-800 dark:text-red-300 font-semibold';
 };
 
 const formatFechaHora = (fecha) => {
@@ -1193,21 +1443,24 @@ const getDetallesOrdenados = (detalles) => {
     return [...detalles].sort((a, b) => (b.estado_id ?? 0) - (a.estado_id ?? 0));
 };
 
-/** Obtiene nodo_id, tecnologia_id, plan_id del detalle más reciente que tenga al menos uno asignado */
+/** Último valor no nulo de cada campo (el plan confirmado suele estar en estado 2; el nodo en 3). */
 const getSeleccionPedido = (pedido) => {
-    if (!pedido?.estado_pedido_detalles?.length) return null;
-    const ordenados = [...pedido.estado_pedido_detalles].sort((a, b) => {
+    const detalles = pedido?.estado_pedido_detalles || [];
+    if (!detalles.length) return null;
+    const ordenados = [...detalles].sort((a, b) => {
         const fa = a.fecha || a.created_at || '';
         const fb = b.fecha || b.created_at || '';
         return fb.localeCompare(fa);
     });
-    const conDatos = ordenados.find(d => d.nodo_id != null || d.tecnologia_id != null || d.plan_id != null);
-    if (!conDatos) return null;
-    return {
-        nodo_id: conDatos.nodo_id ?? null,
-        tecnologia_id: conDatos.tecnologia_id ?? null,
-        plan_id: conDatos.plan_id ?? null,
+    const pick = (key) => {
+        const d = ordenados.find((x) => x[key] != null && x[key] !== '');
+        return d ? d[key] : null;
     };
+    const nodo_id = pick('nodo_id');
+    const tecnologia_id = pick('tecnologia_id');
+    const plan_id = pick('plan_id');
+    if (nodo_id == null && tecnologia_id == null && plan_id == null) return null;
+    return { nodo_id, tecnologia_id, plan_id };
 };
 
 const getNodoDescripcion = (nodoId) => {
@@ -1228,9 +1481,30 @@ const getPlanNombre = (planId) => {
     return p?.nombre ?? '';
 };
 
-/** Primeros 3 estados como pasos de la barra de progreso: aprobado = check, pendiente = punto, no alcanzado = vacío */
+const nombrePlanSeleccionado = (pedido) => {
+    const sel = getSeleccionPedido(pedido);
+    const fromList = getPlanNombre(sel?.plan_id);
+    if (fromList) return fromList;
+    if (sel?.plan_id != null) {
+        const d = (pedido?.estado_pedido_detalles || []).find(
+            (x) => String(x.plan_id) === String(sel.plan_id) && x.plan_nombre
+        );
+        if (d?.plan_nombre) return d.plan_nombre;
+    }
+    return pedido?.plan?.nombre || '';
+};
+
+const nombreNodoSeleccionado = (pedido) => {
+    return getNodoDescripcion(getSeleccionPedido(pedido)?.nodo_id) || '';
+};
+
+/** Primeros 3 estados (por estado_id) como pasos: aprobado = check, pendiente = punto, no alcanzado = vacío */
+const estadosWorkflow = computed(() =>
+    [...(props.estados || [])].sort((a, b) => (Number(a.estado_id) || 0) - (Number(b.estado_id) || 0)).slice(0, 3)
+);
+
 const getProgressSteps = (pedido) => {
-    const estadosList = (props.estados || []).slice(0, 3);
+    const estadosList = estadosWorkflow.value;
     const detalles = pedido.estado_pedido_detalles || [];
     const detalleByEstadoId = {};
     detalles.forEach(d => {
@@ -1246,11 +1520,50 @@ const getProgressSteps = (pedido) => {
         }
         return {
             estado_id: est.estado_id,
-            descripcion: est.descripcion || est.estado_pedido?.descripcion || '',
+            descripcion: est.descripcion || '',
             status
         };
     });
 };
+
+function columnaKanbanDe(pedido) {
+    const steps = getProgressSteps(pedido);
+    let approved = 0;
+    for (const s of steps) {
+        if (s.status === 'approved') approved += 1;
+        else break;
+    }
+    if (approved <= 0) return 0;
+    if (approved === 1) return 1;
+    return 2;
+}
+
+const columnasKanban = computed(() => {
+    const fallbacks = ['Análisis factibilidad', 'Confirmar plan', 'En espera para instalar'];
+    const heads = [
+        'text-amber-600 dark:text-amber-400',
+        'text-blue-600 dark:text-blue-400',
+        'text-green-600 dark:text-green-400',
+    ];
+    return [0, 1, 2].map((idx) => {
+        const est = estadosWorkflow.value[idx];
+        return {
+            idx,
+            title: est?.descripcion || fallbacks[idx],
+            head: heads[idx],
+            pedidos: pedidosOrdenados.value.filter((p) => !p.estado_instalado && columnaKanbanDe(p) === idx),
+        };
+    });
+});
+
+const filasKanban = computed(() => {
+    return pedidosOrdenados.value
+        .filter((p) => !p.estado_instalado)
+        .map((p) => ({
+            pedido: p,
+            colIdx: columnaKanbanDe(p),
+        }));
+});
 
 /** Puede finalizar pedido: todos los estados (primeros 3) aprobados, usuario PPPoE creado y no finalizado ya */
 function puedeFinalizarPedido(pedido) {

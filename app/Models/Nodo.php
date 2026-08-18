@@ -108,6 +108,11 @@ class Nodo extends Model
         return $this->hasMany(Olt::class, 'nodo_id', 'nodo_id');
     }
 
+    public function apsWireless(): HasMany
+    {
+        return $this->hasMany(NodoApWireless::class, 'nodo_id', 'nodo_id');
+    }
+
     public function getCoordenadasParaMapa(): ?array
     {
         if (! $this->coordenas_gps) {

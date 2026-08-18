@@ -46,6 +46,8 @@ use App\Http\Controllers\PromesaPagoController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\RedMonitoreoController;
+use App\Http\Controllers\NodoApWirelessController;
+use App\Http\Controllers\ApWirelessCaidaAvisoController;
 use App\Http\Controllers\RouterCaidaAvisoController;
 use App\Http\Controllers\IspFailoverController;
 use App\Http\Controllers\RouterController;
@@ -96,6 +98,12 @@ Route::get('/recibo/{cobro}/{token}', [CobroController::class, 'reciboPdfPublico
     ->where('cobro', '(?:\{\{1\}\})?\d+')
     ->where('token', '[a-f0-9]{40}')
     ->name('recibo.publico');
+
+// Resumen de deuda PDF público (enlace WhatsApp — token HMAC, sin login)
+Route::get('/pendientes-resumen/{cliente}/{token}', [FacturaInternaController::class, 'pdfPendientesPublico'])
+    ->where('cliente', '(?:\{\{1\}\})?\d+')
+    ->where('token', '[a-f0-9]{40}')
+    ->name('pendientes.resumen.publico');
 
 // Páginas legales App Interplus Clientes (públicas — Play Store / PRIVACY_POLICY_URL)
 Route::get('/privacidad-app-clientes', function () {
@@ -240,6 +248,37 @@ Route::middleware(['auth', 'permiso:solicitudes-acceso.editar'])->group(function
 
 // WhatsApp Cloud API (panel)
 Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
+    Route::get('/tmp/wa-agent', function () {
+        return view('tmp.wa-agent');
+    })->name('tmp.wa-agent');
+    Route::post('/tmp/wa-agent', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'wa_id' => ['required', 'string', 'max:32'],
+            'mensaje' => ['required', 'string', 'max:2000'],
+            'nombre' => ['nullable', 'string', 'max:80'],
+            'enviar' => ['nullable'],
+        ]);
+
+        $lookup = app(\App\Services\WhatsApp\ClientePorTelefonoService::class)->buscar($validated['wa_id']);
+        $mensaje = \App\Models\WhatsappMensaje::query()->create([
+            'direccion' => \App\Models\WhatsappMensaje::DIRECCION_ENTRADA,
+            'telefono' => $validated['wa_id'],
+            'contacto_nombre' => $validated['nombre'] ?? null,
+            'tipo' => 'text',
+            'cuerpo' => $validated['mensaje'],
+            'wamid' => 'test-html-'.now()->timestamp,
+            'estado' => \App\Models\WhatsappMensaje::ESTADO_RECIBIDO,
+            'cliente_id' => ($lookup['encontrado'] ?? false) ? ($lookup['cliente_id'] ?? null) : null,
+            'payload' => ['timestamp' => time(), 'origen' => 'tmp-html'],
+        ]);
+
+        $resultado = app(\App\Services\WhatsApp\WhatsAppAgentService::class)
+            ->procesar($mensaje, $request->boolean('enviar'));
+        $resultado['lookup'] = $lookup;
+
+        return back()->with('resultado', $resultado)->withInput();
+    })->name('tmp.wa-agent.run');
+
     Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
     Route::get('/whatsapp/mensajes', [WhatsAppWebController::class, 'mensajes'])->name('whatsapp.mensajes');
     Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
@@ -256,6 +295,7 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::post('/whatsapp/enviar-adjunto', [WhatsAppWebController::class, 'enviarAdjunto'])->name('whatsapp.enviar-adjunto');
     Route::post('/whatsapp/mensajes/{mensaje}/reintentar', [WhatsAppWebController::class, 'reintentar'])->name('whatsapp.reintentar');
     Route::post('/whatsapp/marcar-leidos', [WhatsAppWebController::class, 'marcarLeidos'])->name('whatsapp.marcar-leidos');
+    Route::post('/whatsapp/sugerencia-ia/descartar', [WhatsAppWebController::class, 'descartarSugerenciaIa'])->name('whatsapp.sugerencia-ia.descartar');
     Route::post('/whatsapp/conversacion/asunto', [WhatsAppWebController::class, 'asignarAsunto'])->name('whatsapp.asignar-asunto');
     Route::get('/whatsapp/conversacion/buscar-cliente', [WhatsAppWebController::class, 'buscarClientes'])->name('whatsapp.buscar-cliente');
     Route::post('/whatsapp/conversacion/contacto', [WhatsAppWebController::class, 'guardarContacto'])->name('whatsapp.guardar-contacto');
@@ -545,7 +585,11 @@ Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pe
 Route::get('/factura-internas/pendientes/list', [FacturaInternaController::class, 'pendientesList'])->name('factura-internas.pendientes.list')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/mapa-puntos', [FacturaInternaController::class, 'pendientesMapaPuntos'])->name('factura-internas.pendientes.mapa-puntos')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/exportar-excel', [FacturaInternaController::class, 'exportarPendientesExcel'])->name('factura-internas.pendientes.exportar-excel')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
-Route::get('/factura-internas/pendientes/pdf-cliente/{cliente}', [FacturaInternaController::class, 'pdfPendientesPorCliente'])->name('factura-internas.pendientes.pdf-cliente')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+    Route::get('/factura-internas/pendientes/pdf-cliente/{cliente}', [FacturaInternaController::class, 'pdfPendientesPorCliente'])->name('factura-internas.pendientes.pdf-cliente')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+    Route::get('/factura-internas/pendientes/whatsapp/{cliente}', [FacturaInternaController::class, 'pendientesWhatsApp'])->name('factura-internas.pendientes.whatsapp')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+    Route::post('/factura-internas/pendientes/whatsapp/{cliente}/reenviar-aviso', [FacturaInternaController::class, 'pendientesWhatsAppReenviarAviso'])->name('factura-internas.pendientes.whatsapp.reenviar')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+    Route::post('/factura-internas/pendientes/whatsapp/{cliente}/reclamo', [FacturaInternaController::class, 'pendientesWhatsAppReclamo'])->name('factura-internas.pendientes.whatsapp.reclamo')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+    Route::post('/factura-internas/pendientes/whatsapp-masivo', [FacturaInternaController::class, 'pendientesWhatsAppMasivo'])->name('factura-internas.pendientes.whatsapp.masivo')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::middleware(['auth', 'permiso:pagos-pendientes.ver'])->group(function () {
     Route::get('/promesas-pago', [PromesaPagoController::class, 'index'])->name('promesas-pago.index');
 });
@@ -606,6 +650,11 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::post('/servicios/{servicio_id}/herramientas-red/antena-dhcp', [ServicioController::class, 'herramientasRedAntenaDhcp'])->name('servicios.herramientas-red.antena-dhcp');
     Route::post('/servicios/{servicio_id}/herramientas-red/olt', [ServicioController::class, 'herramientasRedOlt'])->name('servicios.herramientas-red.olt');
     Route::post('/servicios/{servicio_id}/herramientas-red/olt-desc', [ServicioController::class, 'herramientasRedOltDesc'])->name('servicios.herramientas-red.olt-desc');
+    Route::get('/servicios/{servicio_id}/herramientas-red/tr069', [ServicioController::class, 'herramientasRedTr069'])->name('servicios.herramientas-red.tr069');
+    Route::get('/servicios/{servicio_id}/herramientas-red/tr069-hosts', [ServicioController::class, 'herramientasRedTr069Hosts'])->name('servicios.herramientas-red.tr069-hosts');
+    Route::post('/servicios/{servicio_id}/herramientas-red/tr069-reboot', [ServicioController::class, 'herramientasRedTr069Reboot'])->name('servicios.herramientas-red.tr069-reboot');
+    Route::post('/servicios/{servicio_id}/herramientas-red/tr069-refresh', [ServicioController::class, 'herramientasRedTr069Refresh'])->name('servicios.herramientas-red.tr069-refresh');
+    Route::post('/servicios/{servicio_id}/herramientas-red/tr069-password', [ServicioController::class, 'herramientasRedTr069Password'])->name('servicios.herramientas-red.tr069-password');
 });
 Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::post('/servicios', [ServicioController::class, 'store'])->name('servicios.store');
@@ -754,6 +803,26 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
         ->middleware('permiso:sistema-red-monitoreo.ver');
     Route::post('red-monitoreo/notificar-caida', [RedMonitoreoController::class, 'notificarCaidaPrueba'])->name('red-monitoreo.notificar-caida')
         ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('aps-wireless', [NodoApWirelessController::class, 'index'])->name('aps-wireless.index')
+        ->middleware('permiso:sistema-aps-wireless.ver');
+    Route::get('aps-wireless/datos', [NodoApWirelessController::class, 'datos'])->name('aps-wireless.datos')
+        ->middleware('permiso:sistema-aps-wireless.ver');
+    Route::post('aps-wireless', [NodoApWirelessController::class, 'store'])->name('aps-wireless.store')
+        ->middleware('permiso:sistema-aps-wireless.crear');
+    Route::put('aps-wireless/{ap}', [NodoApWirelessController::class, 'update'])->name('aps-wireless.update')
+        ->middleware('permiso:sistema-aps-wireless.editar');
+    Route::delete('aps-wireless/{ap}', [NodoApWirelessController::class, 'destroy'])->name('aps-wireless.destroy')
+        ->middleware('permiso:sistema-aps-wireless.eliminar');
+    Route::post('aps-wireless/{ap}/ping', [NodoApWirelessController::class, 'ping'])->name('aps-wireless.ping')
+        ->middleware('permiso:sistema-aps-wireless.ver');
+    Route::post('aps-wireless/{ap}/ssh', [NodoApWirelessController::class, 'ssh'])->name('aps-wireless.ssh')
+        ->middleware('permiso:sistema-aps-wireless.ver');
+    Route::get('aps-wireless-avisos', [ApWirelessCaidaAvisoController::class, 'index'])->name('aps-wireless-avisos.index')
+        ->middleware('permiso:sistema-aps-wireless-avisos.ver');
+    Route::put('aps-wireless-avisos', [ApWirelessCaidaAvisoController::class, 'update'])->name('aps-wireless-avisos.update')
+        ->middleware('permiso:sistema-aps-wireless-avisos.ver');
+    Route::post('aps-wireless-avisos/probar', [ApWirelessCaidaAvisoController::class, 'probar'])->name('aps-wireless-avisos.probar')
+        ->middleware('permiso:sistema-aps-wireless-avisos.ver');
     Route::get('router-caida-avisos', [RouterCaidaAvisoController::class, 'index'])->name('router-caida-avisos.index')
         ->middleware('permiso:sistema-red-monitoreo.ver');
     Route::put('router-caida-avisos', [RouterCaidaAvisoController::class, 'update'])->name('router-caida-avisos.update')

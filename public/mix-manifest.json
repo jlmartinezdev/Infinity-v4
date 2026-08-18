@@ -4,7 +4,7 @@
     "/js/login.js": "/js/login.js?id=b105d07882dd160751ded67dbcecf7be",
     "/js/register.js": "/js/register.js?id=3fba10a25d8f76d2e9419435ae9837b5",
     "/js/pedido-form.js": "/js/pedido-form.js?id=7b254ecf53831a9b0821a6c3c48b24da",
-    "/js/pedidos-list.js": "/js/pedidos-list.js?id=9e6c921ba4040b92ddb7a31c7da833bc",
+    "/js/pedidos-list.js": "/js/pedidos-list.js?id=111583878f838c469847cafd4dc57591",
     "/js/clientes-list.js": "/js/clientes-list.js?id=da6761530156584d70952985d5f9070c",
     "/js/cliente-form-mapa.js": "/js/cliente-form-mapa.js?id=2636bda90a3d27ef1390072281213e8f",
     "/js/recibo-copy-image.js": "/js/recibo-copy-image.js?id=5671ac89794a2a45decb9f64144ae561",
@@ -22,11 +22,12 @@
     "/js/facturas-internas-index.js": "/js/facturas-internas-index.js?id=8b881005a85962a3dbc79e815e2fce19",
     "/js/notas-credito-index.js": "/js/notas-credito-index.js?id=5e25f86cfe320a179c745c5017bb8ec8",
     "/js/compras-create.js": "/js/compras-create.js?id=8f80cdc8ae099462943c1dc776abcc4a",
-    "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=e11a94ba3681a43f45ad1b49ae80fa98",
+    "/js/pendientes-pago.js": "/js/pendientes-pago.js?id=5a6112238f0876806d3da9380750249c",
     "/js/nodo-migrar-pppoe.js": "/js/nodo-migrar-pppoe.js?id=9bd856c64bd3766f744d093d07e3ff70",
-    "/js/red-monitoreo.js": "/js/red-monitoreo.js?id=b13f0ecc14b41d08d4d3d013d2b9c11c",
-    "/js/herramientas-red.js": "/js/herramientas-red.js?id=2299816163f8ca8bff910fc051cc7501",
+    "/js/red-monitoreo.js": "/js/red-monitoreo.js?id=af76a478862985517f7aa6c924a6de34",
+    "/js/aps-wireless.js": "/js/aps-wireless.js?id=eb31f73c501a38dc53d25c3b6ebcfd40",
+    "/js/herramientas-red.js": "/js/herramientas-red.js?id=8cedb571679f446a40d55b601cbb91ff",
     "/js/tareas-dashboard.js": "/js/tareas-dashboard.js?id=bcca6662a0b8e2ae23be5f7546f46cce",
-    "/js/whatsapp-mensajes.js": "/js/whatsapp-mensajes.js?id=71965b56fdf64c78178b4b5ae832b54a",
-    "/css/app.css": "/css/app.css?id=419ff393a5af70ce880657054226b810"
+    "/js/whatsapp-mensajes.js": "/js/whatsapp-mensajes.js?id=1eff83987536f86ec2debfc9e8d301b0",
+    "/css/app.css": "/css/app.css?id=8b216bb32dee17a19e7fa7b90dd50707"
 }

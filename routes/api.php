@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/auth/login', [AuthController::class, 'login']); // alias N8N (JSON viejo)
 
     // Onboarding pÃºblico (sin token)
     Route::post('/portal/solicitud-alta', [SolicitudAccesoController::class, 'store']);
@@ -59,6 +60,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/facturas', [PortalController::class, 'facturas'])
                 ->middleware('permiso:portal.facturas.ver');
             Route::get('/cobros', [PortalController::class, 'cobros'])
+                ->middleware('permiso:portal.cobros.ver');
+            Route::get('/cobros/{cobro}', [PortalController::class, 'cobro'])
+                ->whereNumber('cobro')
                 ->middleware('permiso:portal.cobros.ver');
             Route::get('/tickets', [PortalController::class, 'tickets'])
                 ->middleware('permiso:portal.tickets.ver');
@@ -186,6 +190,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/staff/pedidos-instalacion/{id}/pppoe/generar', [StaffPedidoInstalacionController::class, 'generarPppoe'])
                 ->whereNumber('id')
                 ->middleware('permiso:pedidos.editar');
+
+            Route::get('/clientes/por-telefono', [ClienteController::class, 'porTelefono'])
+                ->middleware('permiso:clientes.ver,pagos-pendientes.ver,cobros.ver,factura-interna.ver');
 
             Route::middleware('permiso:clientes.ver')->group(function () {
                 Route::get('/clientes/buscar', [ClienteController::class, 'buscar']);

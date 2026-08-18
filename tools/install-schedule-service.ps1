@@ -80,7 +80,8 @@ Write-Host "==> Instalando servicio $ServiceName..."
 & $NssmExe set $ServiceName AppRestartDelay 5000
 & $NssmExe set $ServiceName AppStopMethodSkip 0
 & $NssmExe set $ServiceName AppStopMethodConsole 15000
-& $NssmExe set $ServiceName AppEnvironmentExtra "PATH=C:\xampp\php;C:\xampp\mysql\bin;$env:PATH"
+$system32 = Join-Path $env:SystemRoot 'System32'
+& $NssmExe set $ServiceName AppEnvironmentExtra "PATH=C:\xampp\php;C:\xampp\mysql\bin;$system32;$env:SystemRoot;$env:PATH"
 
 Write-Host "==> Iniciando $ServiceName..."
 & $NssmExe start $ServiceName

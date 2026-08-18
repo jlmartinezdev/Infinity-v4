@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\MapsUrlHelper;
+use App\Helpers\TelefonoParaguayHelper;
 use App\Models\AjustesGenerales;
 use App\Models\Cobro;
 use App\Models\Cliente;
@@ -14,6 +15,9 @@ use App\Models\Nodo;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 use App\Services\Tpago\TpagoPaymentLinkService;
+use App\Services\WhatsApp\PendientesWhatsAppService;
+use App\Services\WhatsApp\WhatsAppOutboundNotifier;
+use App\Support\PendientesResumenPublico;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -173,7 +177,7 @@ class FacturaInternaController extends Controller
         $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
         $promExpr = '(SELECT MAX(vencimiento_at) FROM promesa_pagos pp WHERE pp.factura_interna_id = factura_internas.id)';
 
-        $inner = $this->facturasPendientesQuery($request);
+        $inner = $this->facturasPendientesQuery($request, false);
         $inner->select([
             'factura_internas.id',
             'factura_internas.cliente_id',
@@ -187,7 +191,7 @@ class FacturaInternaController extends Controller
             DB::raw('('.$promExpr.') as prom_calc'),
         ]);
 
-        $cuentaSaldoPendiente = FacturaInterna::sqlClienteCuentaEnTotalPendiente('fi_stats.cliente_id');
+        $hoy = now()->toDateString();
         $statsBase = DB::query()
             ->fromSub(clone $inner, 'fi_stats')
             ->selectRaw("
@@ -195,21 +199,26 @@ class FacturaInternaController extends Controller
                 COUNT(DISTINCT fi_stats.cliente_id) as cantidad_clientes,
                 COALESCE(SUM(fi_stats.total), 0) as monto_total,
                 COALESCE(SUM(fi_stats.cobrado_calc), 0) as monto_cobrado,
-                COALESCE(SUM(CASE WHEN {$cuentaSaldoPendiente} THEN fi_stats.saldo_calc ELSE 0 END), 0) as monto_saldo
-            ")
+                COALESCE(SUM(fi_stats.saldo_calc), 0) as monto_saldo,
+                COALESCE(SUM(CASE
+                    WHEN fi_stats.fecha_vencimiento IS NOT NULL AND fi_stats.fecha_vencimiento < ?
+                    THEN fi_stats.saldo_calc ELSE 0 END), 0) as saldo_vencido,
+                COALESCE(SUM(CASE
+                    WHEN fi_stats.fecha_vencimiento IS NULL OR fi_stats.fecha_vencimiento >= ?
+                    THEN fi_stats.saldo_calc ELSE 0 END), 0) as saldo_vigente,
+                COUNT(CASE
+                    WHEN fi_stats.fecha_vencimiento IS NOT NULL AND fi_stats.fecha_vencimiento < ?
+                    THEN 1 END) as facturas_vencidas,
+                COUNT(DISTINCT CASE
+                    WHEN fi_stats.fecha_vencimiento IS NOT NULL AND fi_stats.fecha_vencimiento < ?
+                    THEN fi_stats.cliente_id END) as clientes_vencidos,
+                COUNT(CASE
+                    WHEN fi_stats.fecha_vencimiento IS NULL OR fi_stats.fecha_vencimiento >= ?
+                    THEN 1 END) as facturas_vigentes
+            ", [$hoy, $hoy, $hoy, $hoy, $hoy])
             ->first();
-        $hoy = now()->toDateString();
-        $cuentaSaldoVencido = FacturaInterna::sqlClienteCuentaEnTotalPendiente('fi_venc.cliente_id');
-        $statsVencidos = DB::query()
-            ->fromSub(clone $inner, 'fi_venc')
-            ->whereNotNull('fi_venc.fecha_vencimiento')
-            ->whereDate('fi_venc.fecha_vencimiento', '<', $hoy)
-            ->selectRaw("
-                COUNT(*) as facturas_vencidas,
-                COUNT(DISTINCT fi_venc.cliente_id) as clientes_vencidos,
-                COALESCE(SUM(CASE WHEN {$cuentaSaldoVencido} THEN fi_venc.saldo_calc ELSE 0 END), 0) as saldo_vencido
-            ")
-            ->first();
+
+        $this->aplicarFiltroDeuda($request, $inner);
 
         $perPage = 20;
         $page = max(1, (int) $request->input('page', 1));
@@ -272,7 +281,10 @@ class FacturaInternaController extends Controller
         $clienteIdsPagina = $slice->pluck('cliente_id')->unique()->map(fn ($id) => (int) $id)->values()->all();
         $conServicioActivo = $this->clienteIdsConServicioActivo($clienteIdsPagina);
 
-        $data = $slice->map(function ($g) use ($facturasCargadas, $user, $conServicioActivo) {
+        $waService = app(PendientesWhatsAppService::class);
+        [$avisosWa, $reclamosWa] = $waService->ultimosPorPagina($allFacturaIds, $clienteIdsPagina);
+
+        $data = $slice->map(function ($g) use ($facturasCargadas, $user, $conServicioActivo, $waService, $avisosWa, $reclamosWa) {
             $ids = array_values(array_filter(array_map('intval', explode(',', (string) $g->factura_ids_csv))));
             $facturas = collect($ids)
                 ->map(fn (int $id) => $facturasCargadas->get($id))
@@ -321,6 +333,7 @@ class FacturaInternaController extends Controller
                 'moneda' => (string) ($g->moneda ?? 'PYG'),
                 'promesa_label' => $promesaLabel,
                 'contacto_cliente' => $contacto,
+                'whatsapp' => $waService->resumenFila($facturas, $c, $avisosWa, $reclamosWa),
                 'facturas' => $facturas->map(function (FacturaInterna $f) {
                     return [
                         'id' => $f->id,
@@ -355,9 +368,11 @@ class FacturaInternaController extends Controller
                 'monto_total' => (float) ($statsBase->monto_total ?? 0),
                 'monto_cobrado' => (float) ($statsBase->monto_cobrado ?? 0),
                 'monto_saldo' => (float) ($statsBase->monto_saldo ?? 0),
-                'facturas_vencidas' => (int) ($statsVencidos->facturas_vencidas ?? 0),
-                'clientes_vencidos' => (int) ($statsVencidos->clientes_vencidos ?? 0),
-                'saldo_vencido' => (float) ($statsVencidos->saldo_vencido ?? 0),
+                'saldo_vigente' => (float) ($statsBase->saldo_vigente ?? 0),
+                'saldo_vencido' => (float) ($statsBase->saldo_vencido ?? 0),
+                'facturas_vencidas' => (int) ($statsBase->facturas_vencidas ?? 0),
+                'clientes_vencidos' => (int) ($statsBase->clientes_vencidos ?? 0),
+                'facturas_vigentes' => (int) ($statsBase->facturas_vigentes ?? 0),
             ],
         ]);
     }
@@ -455,6 +470,284 @@ class FacturaInternaController extends Controller
      * PDF con todas las facturas internas pendientes de un cliente (una sección por factura).
      */
     public function pdfPendientesPorCliente(Cliente $cliente)
+    {
+        return $this->streamPdfPendientesCliente($cliente);
+    }
+
+    /**
+     * PDF público del resumen de deuda (enlace WhatsApp — token HMAC, sin login).
+     */
+    public function pdfPendientesPublico(string $cliente, string $token)
+    {
+        $id = (int) preg_replace('/^\{\{1\}\}/', '', rawurldecode($cliente));
+        if ($id < 1) {
+            abort(404);
+        }
+
+        if (! PendientesResumenPublico::tokenValido($id, $token)) {
+            abort(403, 'Enlace de resumen inválido.');
+        }
+
+        $clienteModel = Cliente::query()->findOrFail($id);
+
+        return $this->streamPdfPendientesCliente($clienteModel);
+    }
+
+    /**
+     * Historial y preview WhatsApp del cliente (modal en Pendiente de pago).
+     */
+    public function pendientesWhatsApp(Cliente $cliente, PendientesWhatsAppService $wa)
+    {
+        return response()->json($wa->detalle($cliente));
+    }
+
+    /**
+     * Reenvía el aviso de factura (misma plantilla que usa el técnico al generar).
+     */
+    public function pendientesWhatsAppReenviarAviso(
+        Request $request,
+        Cliente $cliente,
+        WhatsAppOutboundNotifier $notifier,
+        PendientesWhatsAppService $wa,
+    ) {
+        $validated = $request->validate([
+            'factura_id' => ['required', 'integer'],
+            'destino' => ['nullable', 'in:registrado,otro'],
+            'telefono' => ['nullable', 'string', 'max:40'],
+            'guardar_telefono' => ['nullable', 'boolean'],
+        ]);
+
+        $factura = FacturaInterna::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->whereKey((int) $validated['factura_id'])
+            ->firstOrFail();
+
+        [$override, $errorTel] = $this->resolverTelefonoWhatsApp(
+            $cliente,
+            (string) ($validated['destino'] ?? 'registrado'),
+            trim((string) ($validated['telefono'] ?? '')),
+            (bool) ($validated['guardar_telefono'] ?? false),
+        );
+        if ($errorTel) {
+            return response()->json(['ok' => false, 'message' => $errorTel], 422);
+        }
+
+        $result = $notifier->facturaGenerada(
+            $factura,
+            forzar: true,
+            telefonoOverride: $override,
+        );
+
+        $result['detalle'] = $wa->detalle($cliente->fresh());
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    /**
+     * Envía reclamo de mora con link al PDF resumen.
+     */
+    public function pendientesWhatsAppReclamo(
+        Request $request,
+        Cliente $cliente,
+        WhatsAppOutboundNotifier $notifier,
+        PendientesWhatsAppService $wa,
+    ) {
+        $validated = $request->validate([
+            'destino' => ['nullable', 'in:registrado,otro'],
+            'telefono' => ['nullable', 'string', 'max:40'],
+            'guardar_telefono' => ['nullable', 'boolean'],
+            'adjuntar_resumen' => ['nullable', 'boolean'],
+            'forzar' => ['nullable', 'boolean'],
+        ]);
+
+        [$override, $errorTel] = $this->resolverTelefonoWhatsApp(
+            $cliente,
+            (string) ($validated['destino'] ?? 'registrado'),
+            trim((string) ($validated['telefono'] ?? '')),
+            (bool) ($validated['guardar_telefono'] ?? false),
+        );
+        if ($errorTel) {
+            return response()->json(['ok' => false, 'message' => $errorTel], 422);
+        }
+
+        $facturas = $wa->facturasPendientesDe($cliente);
+        $result = $notifier->facturaReclamo(
+            $cliente,
+            $facturas,
+            adjuntarResumen: (bool) ($validated['adjuntar_resumen'] ?? true),
+            forzarDia: (bool) ($validated['forzar'] ?? false),
+            telefonoOverride: $override,
+        );
+
+        $status = 200;
+        if (! $result['ok']) {
+            $status = ! empty($result['ya_enviado']) ? 409 : 422;
+        }
+
+        $result['detalle'] = $wa->detalle($cliente->fresh());
+
+        return response()->json($result, $status);
+    }
+
+    /**
+     * Envío masivo de aviso de factura o reclamo de mora a los clientes marcados.
+     */
+    public function pendientesWhatsAppMasivo(
+        Request $request,
+        WhatsAppOutboundNotifier $notifier,
+        PendientesWhatsAppService $wa,
+    ) {
+        $validated = $request->validate([
+            'tipo' => ['required', 'in:aviso,reclamo'],
+            'items' => ['required', 'array', 'min:1', 'max:50'],
+            'items.*.cliente_id' => ['required', 'integer', 'distinct'],
+            'items.*.factura_id' => ['nullable', 'integer'],
+            'forzar' => ['sometimes', 'boolean'],
+            'adjuntar_resumen' => ['sometimes', 'boolean'],
+        ]);
+
+        @set_time_limit(180);
+
+        $tipo = $validated['tipo'];
+        $forzar = (bool) ($validated['forzar'] ?? false);
+        $adjuntar = (bool) ($validated['adjuntar_resumen'] ?? true);
+
+        $enviados = 0;
+        $fallidos = 0;
+        $omitidos = 0;
+        $resultados = [];
+
+        foreach ($validated['items'] as $item) {
+            $clienteId = (int) $item['cliente_id'];
+            $cliente = Cliente::query()->find($clienteId);
+            $nombre = $cliente
+                ? trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''))
+                : '#'.$clienteId;
+
+            if (! $cliente) {
+                $omitidos++;
+                $resultados[] = [
+                    'cliente_id' => $clienteId,
+                    'nombre' => $nombre,
+                    'ok' => false,
+                    'omitido' => true,
+                    'message' => 'Cliente no encontrado.',
+                ];
+                continue;
+            }
+
+            if (! filled($cliente->telefono)) {
+                $omitidos++;
+                $resultados[] = [
+                    'cliente_id' => $clienteId,
+                    'nombre' => $nombre !== '' ? $nombre : '#'.$clienteId,
+                    'ok' => false,
+                    'omitido' => true,
+                    'message' => 'Sin teléfono registrado.',
+                ];
+                continue;
+            }
+
+            if ($tipo === 'aviso') {
+                $facturaId = (int) ($item['factura_id'] ?? 0);
+                $factura = null;
+                if ($facturaId > 0) {
+                    $factura = FacturaInterna::query()
+                        ->where('cliente_id', $cliente->cliente_id)
+                        ->whereKey($facturaId)
+                        ->whereIn('estado', ['pendiente', 'emitida'])
+                        ->first();
+                }
+                if (! $factura) {
+                    $factura = $wa->facturasPendientesDe($cliente)->first();
+                }
+                if (! $factura) {
+                    $omitidos++;
+                    $resultados[] = [
+                        'cliente_id' => $clienteId,
+                        'nombre' => $nombre !== '' ? $nombre : '#'.$clienteId,
+                        'ok' => false,
+                        'omitido' => true,
+                        'message' => 'Sin factura pendiente para avisar.',
+                    ];
+                    continue;
+                }
+                $result = $notifier->facturaGenerada($factura, forzar: true);
+            } else {
+                $facturas = $wa->facturasPendientesDe($cliente);
+                $result = $notifier->facturaReclamo(
+                    $cliente,
+                    $facturas,
+                    adjuntarResumen: $adjuntar,
+                    forzarDia: $forzar,
+                );
+            }
+
+            $fila = [
+                'cliente_id' => $clienteId,
+                'nombre' => $nombre !== '' ? $nombre : '#'.$clienteId,
+                'ok' => ! empty($result['ok']),
+                'message' => (string) ($result['message'] ?? ''),
+            ];
+            if (! empty($result['ok'])) {
+                $enviados++;
+            } elseif (! empty($result['ya_enviado'])) {
+                $omitidos++;
+                $fila['omitido'] = true;
+                $fila['ya_enviado'] = true;
+            } else {
+                $fallidos++;
+            }
+            $resultados[] = $fila;
+
+            usleep(150000);
+        }
+
+        return response()->json([
+            'ok' => $fallidos === 0,
+            'enviados' => $enviados,
+            'fallidos' => $fallidos,
+            'omitidos' => $omitidos,
+            'message' => "Enviados: {$enviados}. Fallidos: {$fallidos}. Omitidos: {$omitidos}.",
+            'resultados' => $resultados,
+        ]);
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string} [override o null para usar el del cliente, error]
+     */
+    private function resolverTelefonoWhatsApp(Cliente $cliente, string $destino, string $telefono, bool $guardar): array
+    {
+        if ($destino === 'otro') {
+            if ($telefono === '') {
+                return [null, 'Ingresá el número de WhatsApp de destino.'];
+            }
+            $this->guardarTelefonoSiCorresponde($cliente, $telefono, $guardar);
+
+            return [$telefono, null];
+        }
+
+        if (! filled($cliente->telefono)) {
+            return [null, 'El cliente no tiene teléfono registrado. Elegí «Otro número».'];
+        }
+
+        return [null, null];
+    }
+
+    private function guardarTelefonoSiCorresponde(Cliente $cliente, string $telefono, bool $guardar): void
+    {
+        if (! $guardar || $telefono === '') {
+            return;
+        }
+
+        $norm = TelefonoParaguayHelper::normalize($telefono) ?? $telefono;
+        $cliente->forceFill(['telefono' => $norm])->save();
+    }
+
+    /**
+     * @return \Illuminate\Http\Response
+     */
+    private function streamPdfPendientesCliente(Cliente $cliente)
     {
         $facturas = FacturaInterna::query()
             ->where('factura_internas.cliente_id', $cliente->cliente_id)
@@ -674,7 +967,7 @@ class FacturaInternaController extends Controller
     /**
      * Consulta base: facturas internas pendientes con saldo > 0.
      */
-    private function facturasPendientesQuery(Request $request)
+    private function facturasPendientesQuery(Request $request, bool $aplicarDeuda = true)
     {
         $query = FacturaInterna::query()
             ->whereIn('factura_internas.estado', ['pendiente', 'emitida'])
@@ -698,9 +991,69 @@ class FacturaInternaController extends Controller
             }
         }
 
+        $this->aplicarFiltroVistaBaja($request, $query);
+
         $this->applyFacturasPendientesFiltrosColumna($request, $query);
 
+        if ($aplicarDeuda) {
+            $this->aplicarFiltroDeuda($request, $query);
+        }
+
         return $query;
+    }
+
+    /**
+     * Filtro rápido de badges: facturas vencidas, vigentes o todas las abiertas de la vista.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FacturaInterna>  $query
+     */
+    private function aplicarFiltroDeuda(Request $request, $query): void
+    {
+        $deuda = strtolower(trim((string) $request->input('deuda', 'todas')));
+        if (! in_array($deuda, ['todas', 'vencida', 'vigente'], true)) {
+            $deuda = 'todas';
+        }
+        if ($deuda === 'todas') {
+            return;
+        }
+
+        $hoy = now()->toDateString();
+        if ($deuda === 'vencida') {
+            $query->whereNotNull('factura_internas.fecha_vencimiento')
+                ->whereDate('factura_internas.fecha_vencimiento', '<', $hoy);
+
+            return;
+        }
+
+        $query->where(function ($q) use ($hoy) {
+            $q->whereNull('factura_internas.fecha_vencimiento')
+                ->orWhereDate('factura_internas.fecha_vencimiento', '>=', $hoy);
+        });
+    }
+
+    /**
+     * Vista de clientes dados de baja: activos (default), todos o solo bajas.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FacturaInterna>  $query
+     */
+    private function aplicarFiltroVistaBaja(Request $request, $query): void
+    {
+        $vista = strtolower(trim((string) $request->input('vista', 'activos')));
+        if (! in_array($vista, ['activos', 'todos', 'bajas'], true)) {
+            $vista = 'activos';
+        }
+        if ($vista === 'todos') {
+            return;
+        }
+
+        $cuenta = FacturaInterna::sqlClienteCuentaEnTotalPendiente('factura_internas.cliente_id');
+        if ($vista === 'bajas') {
+            $query->whereRaw('NOT ('.$cuenta.')');
+
+            return;
+        }
+
+        $query->whereRaw($cuenta);
     }
 
     /**

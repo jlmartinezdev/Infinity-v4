@@ -263,6 +263,30 @@ Permiso: `portal.cobros.ver`
 
 Query: `per_page`, `page`.
 
+Cada ítem: `id`, `numero_recibo`, `fecha_pago`, `fecha_pago_formato`, `monto`, `monto_formato`, `forma_pago`, `forma_pago_label`, `concepto`, `referencia`.
+
+**Recibo para pintar en la app** (mismo ticket que Infinity, modo `con_grafico`):
+
+`GET /portal/cobros/{id}`  
+Permiso: `portal.cobros.ver`
+
+La app recorre `data.layout[]` y dibuja. No hace falta armar el orden a mano.
+
+| `layout[].tipo` | Qué pintar |
+|-----------------|------------|
+| `logo` | Imagen centrada (`url`), alto ~40 dp |
+| `titulo` | Nombre empresa MAYÚSCULAS, centrado, 16 sp bold |
+| `contacto` | `lineas[]` centradas, 12 sp, color muted |
+| `separador` | Línea 1 px `#9CA3AF` |
+| `texto` | Línea (`bold` opcional) |
+| `fila` | Izquierda / derecha. Si `destacado`: TOTAL más grande |
+| `factura` | Bloque con borde izquierdo `#D1D5DB`: `izq`/`der` + `periodo` muted |
+| `pie` | `lineas[]` centradas MAYÚSCULAS bold + `numero` muted |
+
+Colores en `data.estilo`. Textos ya vienen en ASCII (sin tildes).
+
+También: `empresa` (incluye `logo_url`), `cliente`, `recibo`, `facturas`, `compartir_texto` (share plano), `pdf_url` (PDF público), `archivo_nombre` (ej. `recibo-001-001-0000140.png`).
+
 ### 4.4 Tickets de soporte
 
 **Listar** — `GET /portal/tickets` — permiso `portal.tickets.ver`  
@@ -668,9 +692,16 @@ Body:
 ```json
 {
   "push_token": "TOKEN_FCM_DEL_DISPOSITIVO",
-  "device_type": "android"
+  "device_type": "android",
+  "platform": "android",
+  "cliente_id": 140,
+  "usuario_id": 512
 }
 ```
+
+Alias: `token` = `push_token`. `platform` = `device_type` si este no viene.
+
+El token se guarda en el usuario de la sesión (`users.push_token`) **indexado por `users.cliente_id`**. El panel Avisos push → Seleccionados busca `WHERE cliente_id IN (…)`. `cliente_id` / `usuario_id` del body son informativos: no cambian de cuenta; si no coinciden con la sesión se loguea y se conserva el de Infinity.
 
 Respuesta: `{ "success": true, "data": { "usuario_id": …, "cliente_id": …, "device_type": "android" } }`
 
@@ -691,8 +722,8 @@ Hoy el backend envía con el proyecto **`isp-staff-panel`** (mismo que la app st
 
 - Firebase Messaging (FCM) ya integrado.
 - Pedir permiso de notificaciones (Android 13+): `POST_NOTIFICATIONS`.
-- Crear canal de notificación id **`clientes`** (prioridad alta, sonido default).  
-  Debe coincidir con `FCM_CLIENT_ANDROID_CHANNEL_ID` del backend (default `clientes`).
+- Crear canal de notificación id **`interplus_avisos_v2`** (prioridad alta, sonido default). Nombre visible: **Avisos Interplus**.  
+  Debe coincidir con `FCM_CLIENT_ANDROID_CHANNEL_ID` del backend (default `interplus_avisos_v2`). **No usar** el canal viejo `interplus_avisos` (en muchos equipos quedó mudo).
 
 ### 2. Cuándo registrar el token
 
@@ -720,7 +751,10 @@ Content-Type: application/json
 
 {
   "push_token": "<fcmToken>",
-  "device_type": "android"
+  "device_type": "android",
+  "platform": "android",
+  "cliente_id": 140,
+  "usuario_id": 512
 }
 ```
 
@@ -739,9 +773,9 @@ El backend manda bloque `notification` + `data` (Android suena en background). E
 
 | Key | Ejemplo | Uso |
 |-----|---------|-----|
-| `tipo` | `prueba_fcm_cliente`, `factura`, `ticket`, … | Navegar en la app |
-| `title` | texto | eco del título |
-| `body` | texto | eco del cuerpo |
+| `tipo` | `facturas`, `soporte`, `aviso`, `pago`, `premios` | Tono visual en la campana |
+| `title` / `titulo` | texto | eco del título |
+| `body` / `mensaje` | texto | eco del cuerpo |
 
 Manejar tap de la notificación: leer `tipo` (+ ids futuros) y abrir la pantalla correcta.
 
@@ -848,7 +882,7 @@ FCM_SERVICE_ACCOUNT_PATH=storage/app/firebase-service-account.json
 FCM_PROJECT_ID=tu-project-id
 FCM_STAFF_TOPIC=staff
 FCM_ANDROID_CHANNEL_ID=staff
-FCM_CLIENT_ANDROID_CHANNEL_ID=clientes
+FCM_CLIENT_ANDROID_CHANNEL_ID=interplus_avisos_v2
 ```
 
 Luego: `php artisan config:clear`, `php artisan fcm:probar-staff` y `php artisan fcm:probar-cliente {documento}`.

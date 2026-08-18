@@ -7,6 +7,7 @@ use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Models\TicketAsunto;
+use App\Support\PortalReciboPresenter;
 use Illuminate\Http\Request;
 
 /**
@@ -128,14 +129,34 @@ class PortalController extends ApiController
     public function cobros(Request $request)
     {
         $perPage = min(50, max(1, (int) $request->get('per_page', 20)));
+        $presenter = new PortalReciboPresenter;
 
-        $cobros = Cobro::query()
+        $page = Cobro::query()
             ->where('cliente_id', $request->user()->cliente_id)
             ->orderByDesc('fecha_pago')
             ->orderByDesc('id')
             ->paginate($perPage);
 
-        return $this->ok($cobros);
+        $page->getCollection()->transform(fn (Cobro $c) => $presenter->listadoItem($c));
+
+        return $this->ok($page);
+    }
+
+    /**
+     * Recibo listo para pintar en la app (mismo estilo que Infinity).
+     */
+    public function cobro(Request $request, int $cobro)
+    {
+        $model = Cobro::query()
+            ->where('id', $cobro)
+            ->where('cliente_id', $request->user()->cliente_id)
+            ->first();
+
+        if (! $model) {
+            return $this->fail('Recibo no encontrado.', 404);
+        }
+
+        return $this->ok((new PortalReciboPresenter)->detalle($model));
     }
 
     public function tickets(Request $request)

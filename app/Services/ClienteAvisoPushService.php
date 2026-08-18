@@ -75,25 +75,42 @@ class ClienteAvisoPushService
         $tipo = in_array($tipo, array_keys(PushAviso::tipos()), true) ? $tipo : 'aviso';
         $destino = $destino === 'seleccionados' ? 'seleccionados' : 'todos';
 
+        $idsPedidos = $destino === 'seleccionados'
+            ? $this->normalizarClienteIds($clienteIds)
+            : [];
+
         $users = $destino === 'todos'
             ? $this->destinatariosTodos()
-            : $this->destinatariosSeleccionados($clienteIds);
+            : $this->destinatariosSeleccionados($idsPedidos);
 
         // Un usuario por cliente (el más reciente con token ya viene del query).
         $porCliente = $users->unique('cliente_id')->values();
+        $conTokenIds = $porCliente->pluck('cliente_id')->map(fn ($id) => (int) $id)->all();
+
+        $omitidos = 0;
+        if ($destino === 'seleccionados') {
+            $sinToken = array_values(array_diff($idsPedidos, $conTokenIds));
+            $omitidos = count($sinToken);
+            if ($sinToken !== []) {
+                Log::info('Aviso push: clientes seleccionados sin token activo', [
+                    'sin_token' => $sinToken,
+                    'con_token' => $conTokenIds,
+                ]);
+            }
+        }
+
+        $tipoFcm = $tipo === 'promocion' ? 'premios' : 'aviso';
 
         $aviso = PushAviso::query()->create([
             'titulo' => $titulo,
             'cuerpo' => $cuerpo,
             'tipo' => $tipo,
             'destino' => $destino,
-            'cliente_ids' => $destino === 'seleccionados'
-                ? $porCliente->pluck('cliente_id')->map(fn ($id) => (int) $id)->values()->all()
-                : null,
-            'total_destinatarios' => $porCliente->count(),
+            'cliente_ids' => $destino === 'seleccionados' ? $idsPedidos : null,
+            'total_destinatarios' => $destino === 'todos' ? $porCliente->count() : count($idsPedidos),
             'enviados' => 0,
             'fallidos' => 0,
-            'omitidos' => 0,
+            'omitidos' => $omitidos,
             'creado_por' => $creadoPor,
         ]);
 
@@ -104,7 +121,8 @@ class ClienteAvisoPushService
             $ok = false;
             try {
                 $ok = $this->fcm->notifyUser($user, $titulo, $cuerpo, [
-                    'tipo' => $tipo,
+                    'tipo' => $tipoFcm,
+                    'tab' => $tipoFcm,
                     'aviso_id' => (string) $aviso->id,
                 ]);
             } catch (\Throwable $e) {
@@ -124,7 +142,7 @@ class ClienteAvisoPushService
         $aviso->update([
             'enviados' => $enviados,
             'fallidos' => $fallidos,
-            'omitidos' => 0,
+            'omitidos' => $omitidos,
         ]);
 
         return $aviso->fresh() ?? $aviso;
@@ -138,23 +156,33 @@ class ClienteAvisoPushService
     public function buscarConPush(string $q, int $limit = 15): array
     {
         $q = trim($q);
-        if (mb_strlen($q) < 2) {
+        $idHint = null;
+        if (preg_match('/#?\s*(\d+)\s*$/u', $q, $m)) {
+            $idHint = (int) $m[1];
+        }
+        if ($idHint === null && mb_strlen($q) < 2) {
             return [];
         }
 
         $like = '%'.$q.'%';
 
         return $this->queryConPush()
-            ->whereHas('cliente', function ($query) use ($like, $q) {
-                $query->where(function ($inner) use ($like, $q) {
-                    $inner->where('nombre', 'like', $like)
-                        ->orWhere('apellido', 'like', $like)
-                        ->orWhere('cedula', 'like', $like)
-                        ->orWhere('telefono', 'like', $like);
-                    if (ctype_digit($q)) {
-                        $inner->orWhere('cliente_id', (int) $q);
-                    }
+            ->where(function ($outer) use ($like, $q, $idHint) {
+                $outer->whereHas('cliente', function ($query) use ($like, $q) {
+                    $query->where(function ($inner) use ($like, $q) {
+                        $inner->where('nombre', 'like', $like)
+                            ->orWhere('apellido', 'like', $like)
+                            ->orWhereRaw("CONCAT(nombre, ' ', apellido) like ?", [$like])
+                            ->orWhere('cedula', 'like', $like)
+                            ->orWhere('telefono', 'like', $like);
+                        if (ctype_digit($q)) {
+                            $inner->orWhere('cliente_id', (int) $q);
+                        }
+                    });
                 });
+                if ($idHint) {
+                    $outer->orWhere('cliente_id', $idHint);
+                }
             })
             ->with('cliente:cliente_id,nombre,apellido,cedula')
             ->orderByDesc('ultimo_acceso_at')
@@ -187,6 +215,20 @@ class ClienteAvisoPushService
             is_array($aviso->cliente_ids) ? $aviso->cliente_ids : [],
             $creadoPor
         );
+    }
+
+    /**
+     * @param  list<mixed>  $clienteIds
+     * @return list<int>
+     */
+    private function normalizarClienteIds(array $clienteIds): array
+    {
+        return collect($clienteIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function queryConPush()

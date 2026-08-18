@@ -35,7 +35,7 @@ class PedidoController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Pedido::with(['cliente', 'plan', 'estadoPedidoDetalles.estadoPedido', 'estadoPedidoDetalles.usuario', 'esperaAmpliacionRedUsuario'])
+        $query = Pedido::with(['cliente', 'plan', 'estadoPedidoDetalles.estadoPedido', 'estadoPedidoDetalles.usuario', 'estadoPedidoDetalles.plan', 'esperaAmpliacionRedUsuario'])
             ->withCount('agendas')
             ->orderBy('fecha_pedido', 'desc');
 

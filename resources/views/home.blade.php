@@ -7,7 +7,9 @@
     $saludCirc = max(0, min(100, $salud));
     $saludDash = 2 * M_PI * 42;
     $saludOffset = $saludDash * (1 - ($saludCirc / 100));
-    $variacion = (int) ($stats['clientes_variacion'] ?? 0);
+    $variacionInstalados = (int) ($stats['instalados_variacion'] ?? 0);
+    $progresoInstalados = max(0, min(100, (int) ($stats['instalados_progreso'] ?? 0)));
+    $metaInstaladosMes = (int) ($stats['instalados_mes_anterior'] ?? 0);
 @endphp
 
 @section('content')
@@ -17,19 +19,7 @@
         <a href="{{ route('clientes.index') }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-blue-400/60 dark:hover:border-blue-500/40 transition-all">
             <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Clientes</p>
             <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes']) }}</p>
-            <div class="mt-3 flex items-center gap-1.5">
-                @if($variacion >= 0)
-                    <span class="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
-                        +{{ $variacion }}%
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-0.5 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
-                        {{ $variacion }}%
-                    </span>
-                @endif
-                <span class="text-[10px] text-gray-400 dark:text-gray-500">vs mes ant.</span>
-            </div>
+            <p class="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Activos</p>
         </a>
 
         <a href="{{ route('servicios.index') }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-emerald-400/60 dark:hover:border-emerald-500/40 transition-all">
@@ -108,13 +98,25 @@
                     </span>
                 @endif
             </div>
-            @php
-                $metaMes = max(1, (int) ceil(now()->day * 2.5));
-                $progresoMes = min(100, (int) round(($stats['clientes_instalados_mes'] / $metaMes) * 100));
-            @endphp
-            <div class="mt-3 h-1.5 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden flex gap-0.5">
+            <div class="mt-3 flex items-center gap-1.5">
+                @if($variacionInstalados >= 0)
+                    <span class="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                        +{{ $variacionInstalados }}%
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-0.5 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                        {{ $variacionInstalados }}%
+                    </span>
+                @endif
+                <span class="text-[10px] text-gray-400 dark:text-gray-500">vs mes ant.</span>
+            </div>
+            <div
+                class="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden flex gap-0.5"
+                title="{{ $progresoInstalados }}% de la meta ({{ number_format($metaInstaladosMes) }} del mes anterior)"
+            >
                 @for($i = 0; $i < 5; $i++)
-                    <div class="flex-1 rounded-sm {{ $progresoMes > ($i * 20) ? 'bg-teal-500' : 'bg-transparent' }}"></div>
+                    <div class="flex-1 rounded-sm {{ $progresoInstalados > ($i * 20) ? 'bg-emerald-500' : 'bg-transparent' }}"></div>
                 @endfor
             </div>
         </a>
@@ -371,7 +373,14 @@
 
                 <div class="flex-1 w-full space-y-3">
                     @foreach(($systemStatus['items'] ?? []) as $item)
-                        <div class="flex items-center justify-between gap-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] px-3 py-2.5 border border-transparent dark:border-white/5">
+                        @php
+                            $itemHref = $item['href'] ?? null;
+                            $itemTag = $itemHref ? 'a' : 'div';
+                        @endphp
+                        <{{ $itemTag }}
+                            @if($itemHref) href="{{ $itemHref }}" @endif
+                            class="flex items-center justify-between gap-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] px-3 py-2.5 border border-transparent dark:border-white/5 {{ $itemHref ? 'hover:border-amber-400/40 dark:hover:border-amber-500/30 hover:bg-amber-50/50 dark:hover:bg-amber-500/5 transition-colors' : '' }}"
+                        >
                             <div class="flex items-center gap-2.5 min-w-0">
                                 @if(!empty($item['syncing']))
                                     <span class="h-2 w-2 rounded-full bg-amber-400 shrink-0 animate-pulse"></span>
@@ -382,14 +391,14 @@
                                 @endif
                                 <div class="min-w-0">
                                     <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ $item['label'] }}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ $item['detail'] }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 {{ !empty($item['syncing']) ? 'leading-snug' : 'truncate' }}">{{ $item['detail'] }}</p>
                                 </div>
                             </div>
                             <span class="text-[11px] font-medium shrink-0
                                 {{ !empty($item['syncing']) ? 'text-amber-500' : (!empty($item['ok']) ? 'text-emerald-500' : 'text-rose-500') }}">
-                                {{ !empty($item['syncing']) ? 'Sync' : (!empty($item['ok']) ? 'OK' : 'Alert') }}
+                                {{ !empty($item['syncing']) ? 'Ver' : (!empty($item['ok']) ? 'OK' : 'Alert') }}
                             </span>
-                        </div>
+                        </{{ $itemTag }}>
                     @endforeach
                 </div>
             </div>

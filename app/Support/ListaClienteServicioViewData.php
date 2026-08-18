@@ -7,6 +7,7 @@ use App\Models\Nodo;
 use App\Models\Plan;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
+use App\Services\PedidoNodoOpcionesService;
 
 /**
  * Datos compartidos para la pantalla unificada Clientes / Servicios.
@@ -55,7 +56,7 @@ class ListaClienteServicioViewData
      */
     public static function serviciosPayload(): array
     {
-        $servicios = Servicio::with(['cliente', 'plan', 'pool.router.nodo', 'pool.olt', 'cajaNapPuertoActivo'])
+        $servicios = Servicio::with(['cliente', 'plan.tipoTecnologia', 'pool.router.nodo', 'pool.olt', 'cajaNapPuertoActivo'])
             ->orderBy('servicio_id', 'desc')
             ->get();
 
@@ -130,6 +131,14 @@ class ListaClienteServicioViewData
 
     private static function servicioEsFibra(Servicio $servicio): bool
     {
+        $techDesc = $servicio->plan?->tipoTecnologia?->descripcion;
+        if (PedidoNodoOpcionesService::descripcionEsGpon($techDesc)) {
+            return true;
+        }
+        if (PedidoNodoOpcionesService::descripcionEsWireless($techDesc)) {
+            return false;
+        }
+
         if ($servicio->cajaNapPuertoActivo) {
             return true;
         }

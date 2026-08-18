@@ -41,4 +41,27 @@ class PushAviso extends Model
             'promocion' => 'Promoción',
         ];
     }
+
+    public function etiquetaDestino(): string
+    {
+        if ($this->destino === 'todos') {
+            return 'Todos';
+        }
+
+        $ids = collect($this->cliente_ids ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return 'Seleccionados (0)';
+        }
+
+        if ($ids->count() <= 3) {
+            return $ids->map(fn ($id) => 'Cliente #'.$id)->implode(', ');
+        }
+
+        return 'Cliente #'.$ids->first().' y '.($ids->count() - 1).' más';
+    }
 }

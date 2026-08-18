@@ -13,7 +13,6 @@ use App\Support\CobrosMesVentana;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -75,12 +74,12 @@ class CobroController extends Controller
             $cobrosMes = (float) $mesQuery->sum('cobros.monto');
         }
 
-        $totalPendienteMes = CobroResumen::totalPendienteParaMes($mesReferenciaCobros);
-        $totalPendiente = (float) (DB::table('factura_internas')
-            ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total')
-            ->whereIn('estado', ['pendiente', 'emitida'])
-            ->whereRaw('total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)')
-            ->value('total') ?? 0);
+        $pendienteMes = CobrosMesVentana::totalesPendientePorVencimiento($mesReferenciaCobros);
+        $pendienteTotal = CobrosMesVentana::totalesPendientePorVencimiento();
+        $totalPendienteMes = $pendienteMes['vencidas'];
+        $totalPendienteMesPorVencer = $pendienteMes['por_vencer'];
+        $totalPendiente = $pendienteTotal['vencidas'];
+        $totalPendientePorVencer = $pendienteTotal['por_vencer'];
 
         $formasPago = Cobro::formasPago();
 
@@ -92,7 +91,9 @@ class CobroController extends Controller
             'cobrosMes',
             'cobrosMesVentanaQuery',
             'totalPendienteMes',
+            'totalPendienteMesPorVencer',
             'totalPendiente',
+            'totalPendientePorVencer',
             'esAdmin',
             'usuariosConCobros',
             'formasPago',

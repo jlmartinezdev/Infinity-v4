@@ -2,78 +2,150 @@
 
 @section('title', 'Tickets')
 
+@push('styles')
+<style>
+    mark.search-mark {
+        background-color: #facc15;
+        color: inherit;
+        padding: 0 0.12em;
+        border-radius: 0.15rem;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+    }
+    .dark mark.search-mark {
+        background-color: rgba(250, 204, 21, 0.45);
+        color: inherit;
+    }
+</style>
+@endpush
+
 @section('content')
+@php
+    $busqueda = $busqueda ?? '';
+    $clienteFiltro = $clienteFiltro ?? null;
+    $cantidadFiltrosPanel = (int) (
+        request()->filled('estado')
+        + request()->filled('ticket_asunto_id')
+        + request()->boolean('ocultar_resuelto_cerrado')
+    );
+    $resaltar = fn (?string $texto): string => \App\Support\SearchHighlight::html($texto, $busqueda);
+    $mapsUrlCliente = fn (?\App\Models\Cliente $cliente): ?string => \App\Helpers\MapsUrlHelper::toGoogleMapsUrl($cliente?->url_ubicacion);
+    $etiquetaAntiguedad = function (?\Illuminate\Support\Carbon $fecha): string {
+        if (! $fecha) {
+            return '';
+        }
+        $dias = (int) $fecha->copy()->startOfDay()->diffInDays(now()->startOfDay());
+
+        return match (true) {
+            $dias <= 0 => 'hoy',
+            $dias === 1 => 'hace 1 día',
+            default => 'hace '.$dias.' días',
+        };
+    };
+@endphp
 <div class="max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Tickets</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+            Tickets
+            <a href="{{ route('tickets.index', ['estado' => 'pendiente']) }}"
+                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                title="Ver tickets pendientes">
+                {{ $ticketsPendientesCount }} pendiente{{ (int) $ticketsPendientesCount === 1 ? '' : 's' }}
+            </a>
+        </h1>
         <a href="{{ route('tickets.create') }}"
             class="inline-flex items-center rounded-lg bg-purple-600 px-4 py-2 font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400 dark:focus:ring-offset-gray-900">
             Nuevo ticket
         </a>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <form method="GET" action="{{ route('tickets.index') }}" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <div class="sm:w-48">
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado</label>
-                    <select name="estado" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                        <option value="">Todos</option>
-                        @foreach (App\Models\Ticket::estados() as $key => $label)
-                            <option value="{{ $key }}" {{ request('estado') == $key ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+        <form method="GET" action="{{ route('tickets.index') }}" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 rounded-t-xl">
+            @if($clienteFiltro && $busqueda === '')
+                <input type="hidden" name="cliente_id" value="{{ $clienteFiltro->cliente_id }}">
+            @endif
+            <input type="hidden" name="per_page" value="{{ $tickets->perPage() }}">
+            <div class="flex items-stretch gap-2">
+                <div class="flex items-center flex-1 min-w-0 min-h-[2.75rem] sm:min-h-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20">
+                    <span class="pl-3 flex items-center shrink-0 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
+                        </svg>
+                    </span>
+                    <input type="search" name="q" id="ticket-busqueda" value="{{ $busqueda }}"
+                        placeholder="Cliente, cédula, IP, asunto o #ticket"
+                        aria-label="Buscar tickets"
+                        autocomplete="off"
+                        enterkeyhint="search"
+                        class="flex-1 min-w-0 border-0 bg-transparent pl-2 pr-3 py-2.5 sm:py-2 text-base sm:text-sm leading-normal focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 [appearance:textfield] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden">
                 </div>
-                <div class="sm:w-56">
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Asunto</label>
-                    <select name="ticket_asunto_id" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                        <option value="">Todos</option>
-                        @foreach ($asuntos as $a)
-                            <option value="{{ $a->id }}" {{ request('ticket_asunto_id') == $a->id ? 'selected' : '' }}>{{ $a->nombre }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="sm:w-48">
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Cliente</label>
-                    <select name="cliente_id" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                        <option value="">Todos</option>
-                        @foreach ($clientes as $c)
-                            <option value="{{ $c->cliente_id }}" {{ request('cliente_id') == $c->cliente_id ? 'selected' : '' }}>{{ $c->nombre }} {{ $c->apellido }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="flex items-end pb-0.5">
-                    <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 select-none">
-                        <input type="checkbox" name="ocultar_resuelto_cerrado" value="1" {{ request()->boolean('ocultar_resuelto_cerrado') ? 'checked' : '' }}
-                            class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 dark:bg-gray-700">
-                        <span>Ocultar resuelto y cerrado</span>
-                    </label>
-                </div>
-                <div class="flex items-end">
-                    <button type="submit" class="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400 dark:focus:ring-offset-gray-900">
-                        Filtrar
+                <div class="relative shrink-0" id="ticket-filtros-wrap">
+                    <button
+                        type="button"
+                        id="ticket-filtros-btn"
+                        class="relative inline-flex items-center gap-2 h-full px-4 py-2.5 rounded-lg border font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/20 {{ $cantidadFiltrosPanel ? 'border-purple-600 bg-purple-600 text-white hover:bg-purple-700' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600' }}"
+                        aria-expanded="false"
+                        aria-controls="ticket-filtros-menu"
+                        title="Filtros"
+                    >
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        <span class="hidden sm:inline">Filtros</span>
+                        @if($cantidadFiltrosPanel)
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold bg-white text-purple-700">{{ $cantidadFiltrosPanel }}</span>
+                        @endif
                     </button>
+                    <div
+                        id="ticket-filtros-menu"
+                        class="hidden absolute right-0 mt-2 w-80 max-w-sm py-3 px-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl z-30"
+                    >
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</p>
+                            @if($cantidadFiltrosPanel || $busqueda !== '' || $clienteFiltro)
+                                <a href="{{ route('tickets.index') }}" class="text-xs text-purple-600 dark:text-purple-400 hover:underline">Limpiar</a>
+                            @endif
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Estado</label>
+                                <select name="estado" aria-label="Estado"
+                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                    <option value="">Todos</option>
+                                    @foreach (App\Models\Ticket::estados() as $key => $label)
+                                        <option value="{{ $key }}" {{ request('estado') == $key ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Asunto</label>
+                                <select name="ticket_asunto_id" aria-label="Asunto"
+                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                    <option value="">Todos</option>
+                                    @foreach ($asuntos as $a)
+                                        <option value="{{ $a->id }}" {{ request('ticket_asunto_id') == $a->id ? 'selected' : '' }}>{{ $a->nombre }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 select-none">
+                                <input type="checkbox" name="ocultar_resuelto_cerrado" value="1" {{ request()->boolean('ocultar_resuelto_cerrado') ? 'checked' : '' }}
+                                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 dark:bg-gray-700">
+                                <span>Ocultar resuelto y cerrado</span>
+                            </label>
+                            <button type="submit" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">Aplicar</button>
+                        </div>
+                    </div>
                 </div>
             </div>
+            @if($clienteFiltro && $busqueda === '')
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                    Cliente: <span class="font-medium">{{ trim($clienteFiltro->nombre.' '.($clienteFiltro->apellido ?? '')) }}</span>
+                    · <a href="{{ route('tickets.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver todos</a>
+                </p>
+            @endif
         </form>
 
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asunto</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente / Pedido</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Prioridad</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reportado</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asignado</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cobro</th>
-                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
                     @forelse ($tickets as $ticket)
                         @php
                             $servicioConIp = $ticket->cliente
@@ -83,79 +155,79 @@
                                     ->first()
                                 : null;
                             $ipClienteTicket = $servicioConIp?->ip;
+                            $nombreClienteTicket = $ticket->cliente
+                                ? trim($ticket->cliente->nombre.' '.($ticket->cliente->apellido ?? ''))
+                                : '';
+                            $estados = App\Models\Ticket::estados();
+                            $prioridades = App\Models\Ticket::prioridades();
+                            $reportado = App\Models\Ticket::reportadoDesdeOpciones();
                         @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ $ticket->id }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $ticket->ticketAsunto?->nombre ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm">
-                                @if($ticket->cliente)
-                                    <a href="{{ route('clientes.edit', $ticket->cliente) }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ $ticket->cliente->nombre }} {{ $ticket->cliente->apellido }}</a>
-                                    @if($ipClienteTicket)
-                                        <div class="mt-1">
-                                            <a href="http://{{ $ipClienteTicket }}" target="_blank" rel="noopener noreferrer" title="Abrir en el navegador (equipo del cliente)" class="font-mono text-xs text-cyan-600 dark:text-cyan-400 hover:underline">{{ $ipClienteTicket }}</a>
+                        <article class="p-4 {{ $loop->even ? 'bg-gray-50 dark:bg-gray-700/30' : 'bg-white dark:bg-gray-800' }} hover:bg-gray-100 dark:hover:bg-gray-700/40">
+                            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                        <span class="font-medium text-gray-400">#{!! $resaltar((string) $ticket->id) !!}</span>
+                                        {!! $resaltar($ticket->ticketAsunto?->nombre ?? '—') !!}
+                                    </p>
+                                    <div class="mt-2">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                            @if($ticket->estado === 'resuelto' || $ticket->estado === 'cerrado') bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
+                                            @elseif($ticket->estado === 'cancelado') bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                                            @elseif($ticket->estado === 'en_proceso') bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300
+                                            @else bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 @endif">
+                                            {{ $estados[$ticket->estado] ?? $ticket->estado }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 lg:col-span-2">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-4 h-4 mt-1 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true" title="Cliente">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                        </svg>
+                                        <div class="min-w-0">
+                                            @if($ticket->cliente)
+                                                <a href="{{ route('clientes.detalle', $ticket->cliente) }}" class="inline-block text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline" title="Ver detalle del cliente">{!! $resaltar($nombreClienteTicket) !!}</a>
+                                                @if($ticket->cliente->cedula)
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{!! $resaltar($ticket->cliente->cedula) !!}</p>
+                                                @endif
+                                            @else
+                                                <p class="text-sm text-gray-500 dark:text-gray-400">—</p>
+                                            @endif
+                                            @if($ticket->pedido_id)
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pedido #{!! $resaltar((string) $ticket->pedido_id) !!}</p>
+                                            @endif
                                         </div>
-                                    @endif
-                                @else
-                                    —
-                                @endif
-                                @if($ticket->pedido_id)
-                                    <span class="text-gray-500 dark:text-gray-400"> · Pedido #{{ $ticket->pedido_id }}</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                @php $prioridades = App\Models\Ticket::prioridades(); @endphp
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                    @if(($ticket->prioridad ?? 'media') === 'alta') bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
-                                    @elseif(($ticket->prioridad ?? '') === 'baja') bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
-                                    @else bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 @endif">
-                                    {{ $prioridades[$ticket->prioridad ?? 'media'] ?? $ticket->prioridad }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                                @php $reportado = App\Models\Ticket::reportadoDesdeOpciones(); @endphp
-                                {{ $ticket->reportado_desde ? ($reportado[$ticket->reportado_desde] ?? $ticket->reportado_desde) : '—' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                @php $estados = App\Models\Ticket::estados(); @endphp
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    @if($ticket->estado === 'resuelto' || $ticket->estado === 'cerrado') bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300
-                                    @elseif($ticket->estado === 'cancelado') bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
-                                    @elseif($ticket->estado === 'en_proceso') bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300
-                                    @else bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 @endif">
-                                    {{ $estados[$ticket->estado] ?? $ticket->estado }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $ticket->asignado?->name ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $ticket->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                @if ($ticket->factura_interna_id)
-                                    @if (auth()->user()?->tienePermiso('factura-interna.ver') ?? false)
-                                        <a href="{{ route('factura-internas.show', $ticket->factura_interna_id) }}" class="font-medium text-emerald-600 dark:text-emerald-400 hover:underline">Sí</a>
-                                    @else
-                                        <span class="font-medium text-emerald-600 dark:text-emerald-400">Sí</span>
-                                    @endif
-                                    <span class="text-gray-500 dark:text-gray-400"> · {{ number_format((float) ($ticket->monto_cobro_ticket ?? 0), 0, ',', '.') }} Gs.</span>
-                                @else
-                                    <span class="text-gray-400 dark:text-gray-500">No</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-right">
+                                    </div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-4 h-4 mt-1 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true" title="Fecha">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                        </svg>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $ticket->created_at?->format('d/m/Y H:i') ?? '—' }}</p>
+                                            @if($ticket->created_at)
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $etiquetaAntiguedad($ticket->created_at) }}</p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-span-2 lg:col-span-1 flex items-start justify-end gap-1">
                                 @php
-                                    $_est = App\Models\Ticket::estados();
-                                    $_pri = App\Models\Ticket::prioridades();
-                                    $_rep = App\Models\Ticket::reportadoDesdeOpciones();
+                                    $mapsUrl = $mapsUrlCliente($ticket->cliente);
                                     $detalleTicket = [
                                         'id' => $ticket->id,
                                         'asunto' => $ticket->ticketAsunto?->nombre,
-                                        'cliente' => $ticket->cliente ? trim($ticket->cliente->nombre.' '.($ticket->cliente->apellido ?? '')) : null,
+                                        'cliente' => $nombreClienteTicket !== '' ? $nombreClienteTicket : null,
                                         'ip_cliente' => $ipClienteTicket,
                                         'pedido_id' => $ticket->pedido_id,
                                         'descripcion' => $ticket->descripcion,
-                                        'diagnostico_vista' => (new \App\Support\TicketDiagnosticoPresenter($ticket->datos_diagnostico))->secciones(),
                                         'observaciones' => $ticket->observaciones,
-                                        'estado' => $_est[$ticket->estado] ?? $ticket->estado,
-                                        'prioridad' => $_pri[$ticket->prioridad ?? 'media'] ?? $ticket->prioridad,
-                                        'reportado' => $ticket->reportado_desde ? ($_rep[$ticket->reportado_desde] ?? $ticket->reportado_desde) : null,
+                                        'nota_tecnico' => $ticket->nota_tecnico,
+                                        'diagnostico_vista' => (new \App\Support\TicketDiagnosticoPresenter($ticket->datos_diagnostico))->secciones(),
+                                        'estado' => $estados[$ticket->estado] ?? $ticket->estado,
+                                        'prioridad' => $prioridades[$ticket->prioridad ?? 'media'] ?? $ticket->prioridad,
+                                        'reportado' => $ticket->reportado_desde ? ($reportado[$ticket->reportado_desde] ?? $ticket->reportado_desde) : null,
                                         'creador' => $ticket->usuario?->name,
                                         'asignado' => $ticket->asignado?->name,
                                         'imagen_url' => $ticket->imagen ? asset('storage/'.$ticket->imagen) : null,
@@ -172,6 +244,9 @@
                                         : null;
                                     $menuCfg = [
                                         'estado' => $ticket->estado,
+                                        'asignado_id' => $ticket->asignado_id,
+                                        'ticket_id' => $ticket->id,
+                                        'cliente' => $nombreClienteTicket !== '' ? $nombreClienteTicket : null,
                                         'update_estado_url' => route('tickets.update-estado', $ticket),
                                         'edit_ticket_url' => route('tickets.edit', $ticket),
                                         'agenda_url' => route('tickets.crear-agenda', $ticket),
@@ -189,13 +264,33 @@
                                         'facturar_url' => $canFacturaInternaCrear ? route('tickets.facturar', $ticket) : '',
                                     ];
                                 @endphp
-                                <div class="inline-flex items-center justify-end gap-1">
+                                    @if($ipClienteTicket)
+                                        <a href="http://{{ $ipClienteTicket }}" target="_blank" rel="noopener noreferrer"
+                                            class="p-2 rounded-lg text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 transition-colors"
+                                            title="Abrir equipo {{ $ipClienteTicket }}"
+                                            aria-label="Abrir IP del cliente">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                                            </svg>
+                                        </a>
+                                    @endif
+                                    @if($mapsUrl)
+                                        <a href="{{ $mapsUrl }}" target="_blank" rel="noopener noreferrer"
+                                            class="p-2 rounded-lg text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
+                                            title="Abrir ubicación en Google Maps"
+                                            aria-label="Abrir ubicación en Google Maps">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            </svg>
+                                        </a>
+                                    @endif
                                     <button type="button"
-                                        class="btn-ver-detalle-ticket p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                        title="Ver detalle"
-                                        aria-label="Ver detalle"
+                                        class="btn-ver-detalle-ticket p-2 rounded-lg {{ filled($ticket->observaciones) || filled($ticket->descripcion) ? 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700' }} hover:text-purple-600 dark:hover:text-purple-300 transition-colors"
+                                        title="Ver observaciones"
+                                        aria-label="Ver observaciones"
                                         data-detalle-b64="{{ base64_encode(json_encode($detalleTicket, JSON_UNESCAPED_UNICODE)) }}">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                     </button>
                                     <button type="button"
                                         class="ticket-acciones-kebab p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -205,21 +300,80 @@
                                         data-menu-b64="{{ base64_encode(json_encode($menuCfg, JSON_UNESCAPED_UNICODE)) }}">
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                                     </button>
+                                    <button type="button"
+                                        class="ticket-expandir-btn p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        title="Más datos"
+                                        aria-label="Mostrar más datos"
+                                        aria-expanded="false"
+                                        aria-controls="ticket-extra-{{ $ticket->id }}">
+                                        <svg class="ticket-expandir-icon w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                    </button>
                                 </div>
-                            </td>
-                        </tr>
+                            </div>
+                            <div id="ticket-extra-{{ $ticket->id }}" class="hidden mt-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 p-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Prioridad</p>
+                                    <span class="mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                        @if(($ticket->prioridad ?? 'media') === 'alta') bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300
+                                        @elseif(($ticket->prioridad ?? '') === 'baja') bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
+                                        @else bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 @endif">
+                                        {{ $prioridades[$ticket->prioridad ?? 'media'] ?? $ticket->prioridad }}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Reportado</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $ticket->reportado_desde ? ($reportado[$ticket->reportado_desde] ?? $ticket->reportado_desde) : '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Asignado</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{!! $resaltar($ticket->asignado?->name ?? '—') !!}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Cobro</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                                        @if ($ticket->factura_interna_id)
+                                            @if (auth()->user()?->tienePermiso('factura-interna.ver') ?? false)
+                                                <a href="{{ route('factura-internas.show', $ticket->factura_interna_id) }}" class="font-medium text-emerald-600 dark:text-emerald-400 hover:underline">Sí</a>
+                                            @else
+                                                <span class="font-medium text-emerald-600 dark:text-emerald-400">Sí</span>
+                                            @endif
+                                            <span class="text-gray-500 dark:text-gray-400"> · {{ number_format((float) ($ticket->monto_cobro_ticket ?? 0), 0, ',', '.') }} Gs.</span>
+                                        @else
+                                            <span class="text-gray-400 dark:text-gray-500">No</span>
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+                        </article>
                     @empty
-                        <tr>
-                            <td colspan="10" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay tickets. <a href="{{ route('tickets.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
-                        </tr>
+                        <div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            @if($busqueda !== '')
+                                Ningún ticket coincide con la búsqueda "{{ $busqueda }}".
+                                <a href="{{ route('tickets.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver todos</a>
+                            @else
+                                No hay tickets. <a href="{{ route('tickets.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.
+                            @endif
+                        </div>
                     @endforelse
-                </tbody>
-            </table>
         </div>
 
-        @if ($tickets->hasPages())
-            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                {{ $tickets->links() }}
+        @if ($tickets->total() > 0)
+            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 rounded-b-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <span>Filas</span>
+                    <select id="ticket-per-page" aria-label="Filas por página"
+                        class="px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                        @foreach ([10, 15, 25, 50, 100] as $n)
+                            <option value="{{ $n }}" @selected($tickets->perPage() === $n)>{{ $n }}</option>
+                        @endforeach
+                    </select>
+                    <span>por página</span>
+                </label>
+                @if ($tickets->hasPages())
+                    <div class="min-w-0">{{ $tickets->links() }}</div>
+                @endif
             </div>
         @endif
     </div>
@@ -228,14 +382,127 @@
 {{-- Menú acciones (mismo patrón visual que servicios: kebab + panel fijo) --}}
 <div id="ticket-acciones-dropdown" class="fixed z-[9999] hidden py-1 min-w-[220px] bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg" role="menu" aria-hidden="true"></div>
 
+@php
+    $tecnicos = $tecnicos ?? collect();
+    $claseEstadoTarjeta = function (string $estado): string {
+        return match ($estado) {
+            'resuelto', 'cerrado' => 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300',
+            'cancelado' => 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300',
+            'en_proceso' => 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300',
+            'en_camino' => 'bg-cyan-50 dark:bg-gray-700 text-cyan-600 dark:text-cyan-400',
+            'no_realizado' => 'bg-amber-50 dark:bg-gray-700 text-amber-800 dark:text-gray-300',
+            default => 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
+        };
+    };
+    $iconoEstadoTarjeta = function (string $estado): string {
+        return match ($estado) {
+            'pendiente' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+            'en_camino' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>',
+            'en_proceso' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>',
+            'resuelto' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+            'no_realizado' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>',
+            'cerrado' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>',
+            'cancelado' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+            default => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>',
+        };
+    };
+@endphp
+<div id="ticket-estado-modal" class="fixed inset-0 z-[9999] hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-estado-modal-title" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/50" id="ticket-estado-modal-backdrop"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4 overflow-y-auto">
+        <div class="w-full max-w-xl rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div class="min-w-0">
+                    <h3 id="ticket-estado-modal-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Cambiar estado</h3>
+                    <p id="ticket-estado-modal-sub" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></p>
+                </div>
+                <button type="button" id="ticket-estado-modal-cerrar" class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Cerrar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Estado</p>
+            <div id="ticket-estado-cards" class="grid grid-cols-4 gap-2 mb-4">
+                @foreach (App\Models\Ticket::estados() as $key => $label)
+                    <button type="button"
+                        class="ticket-estado-card relative h-20 w-full rounded-lg border border-gray-200 dark:border-gray-600 p-2 cursor-pointer flex flex-col items-center justify-center {{ $claseEstadoTarjeta($key) }}"
+                        data-estado="{{ $key }}">
+                        <span class="ticket-estado-check hidden absolute top-1 right-2 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center pointer-events-none" aria-hidden="true">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                        </span>
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">{!! $iconoEstadoTarjeta($key) !!}</svg>
+                        <span class="mt-1 block text-xs font-semibold leading-tight">{{ $label }}</span>
+                    </button>
+                @endforeach
+            </div>
+            <label for="ticket-estado-tecnico" class="block text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Asignar técnico</label>
+            <select id="ticket-estado-tecnico"
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                <option value="">Sin asignar</option>
+                @foreach ($tecnicos as $t)
+                    <option value="{{ $t->usuario_id }}">{{ $t->name }}</option>
+                @endforeach
+            </select>
+            <div class="mt-4 flex justify-end gap-2">
+                <button type="button" id="ticket-estado-modal-cancelar" class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>
+                <button type="button" id="ticket-estado-modal-guardar" class="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 @include('partials.ticket-diagnostico-app-styles')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function() {
-    var estados = @json(App\Models\Ticket::estados());
     var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     var filtroOcultarStorageKey = 'tickets_filtro_ocultar_resuelto_cerrado';
+    var selPerPage = document.getElementById('ticket-per-page');
+    if (selPerPage) {
+        selPerPage.addEventListener('change', function () {
+            var url = new URL(window.location.href);
+            url.searchParams.set('per_page', this.value);
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.ticket-expandir-btn');
+        if (!btn) return;
+        var panel = document.getElementById(btn.getAttribute('aria-controls'));
+        if (!panel) return;
+        var abierto = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !abierto);
+        btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+        btn.setAttribute('title', abierto ? 'Ocultar datos' : 'Más datos');
+        btn.setAttribute('aria-label', abierto ? 'Ocultar datos' : 'Mostrar más datos');
+        var icono = btn.querySelector('.ticket-expandir-icon');
+        if (icono) icono.classList.toggle('rotate-180', abierto);
+    });
+
+    var wrapFiltros = document.getElementById('ticket-filtros-wrap');
+    var btnFiltros = document.getElementById('ticket-filtros-btn');
+    var menuFiltros = document.getElementById('ticket-filtros-menu');
+    if (wrapFiltros && btnFiltros && menuFiltros) {
+        function filtrosAbiertos() {
+            return !menuFiltros.classList.contains('hidden');
+        }
+        function setFiltrosOpen(open) {
+            menuFiltros.classList.toggle('hidden', !open);
+            btnFiltros.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        btnFiltros.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setFiltrosOpen(!filtrosAbiertos());
+        });
+        document.addEventListener('click', function (e) {
+            if (!wrapFiltros.contains(e.target)) setFiltrosOpen(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') setFiltrosOpen(false);
+        });
+    }
 
     var filtroOcultarCheck = document.querySelector('input[name="ocultar_resuelto_cerrado"]');
     if (filtroOcultarCheck) {
@@ -325,45 +592,42 @@
         return html;
     }
 
+    function bloqueNota(titulo, texto, isDark) {
+        var box = isDark ? 'bg-gray-900/40 border-gray-600' : 'bg-gray-50 border-gray-200';
+        var lbl = isDark ? 'text-gray-400' : 'text-gray-500';
+        var val = isDark ? 'text-gray-100' : 'text-gray-900';
+        var cuerpo = (texto === null || texto === undefined || String(texto).trim() === '')
+            ? '<p class="text-sm ' + (isDark ? 'text-gray-500' : 'text-gray-400') + '">Sin datos</p>'
+            : '<p class="text-sm ' + val + ' whitespace-pre-wrap break-words">' + escapeHtml(texto) + '</p>';
+        return '<div class="rounded-lg border p-3 ' + box + '"><p class="text-xs font-medium uppercase tracking-wide ' + lbl + ' mb-1">' + escapeHtml(titulo) + '</p>' + cuerpo + '</div>';
+    }
+
     function abrirDetalleTicketDesdeB64(raw) {
         if (!raw) return;
         var t;
         try {
             t = JSON.parse(base64ToUtf8(raw));
         } catch (e) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo leer el detalle.' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo leer las observaciones.' });
             return;
         }
         var isDark = document.documentElement.classList.contains('dark');
-        var wrap = isDark ? 'text-left text-sm max-h-[60vh] overflow-y-auto text-gray-100' : 'text-left text-sm max-h-[60vh] overflow-y-auto text-gray-900';
+        var wrap = isDark ? 'text-left text-sm max-h-[60vh] overflow-y-auto text-gray-100 space-y-3' : 'text-left text-sm max-h-[60vh] overflow-y-auto text-gray-900 space-y-3';
         var html = '<div class="' + wrap + '">';
-        html += filaDetalle('Asunto', t.asunto, isDark);
-        html += filaDetalle('Cliente', t.cliente, isDark);
-        if (t.ip_cliente) {
-            var bt = isDark ? 'border-gray-700' : 'border-gray-100';
-            var lk = isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-800';
-            html += '<div class="flex flex-col sm:flex-row sm:gap-2 py-1.5 border-b ' + bt + ' last:border-0"><span class="' + (isDark ? 'text-gray-400' : 'text-gray-500') + ' shrink-0 min-w-[7rem]">IP cliente</span><span class="' + (isDark ? 'text-gray-100' : 'text-gray-900') + ' break-words"><a href="http://' + escapeHtml(t.ip_cliente) + '" target="_blank" rel="noopener noreferrer" class="' + lk + ' underline-offset-2 hover:underline font-mono">' + escapeHtml(t.ip_cliente) + '</a></span></div>';
+        if (t.asunto) {
+            html += '<p class="' + (isDark ? 'text-gray-300' : 'text-gray-600') + '">' + escapeHtml(t.asunto) + (t.cliente ? ' · ' + escapeHtml(t.cliente) : '') + '</p>';
         }
-        if (t.pedido_id) html += filaDetalle('Pedido', '#' + t.pedido_id, isDark);
-        html += filaDetalle('Estado', t.estado, isDark);
-        html += filaDetalle('Prioridad', t.prioridad, isDark);
-        html += filaDetalle('Reportado desde', t.reportado, isDark);
-        html += filaDetalle('Creado por', t.creador, isDark);
-        html += filaDetalle('Asignado', t.asignado, isDark);
-        html += filaDetalle('Alta', t.created_at, isDark);
-        html += filaDetalle('Última actualización', t.updated_at, isDark);
-        if (t.fecha_cierre) html += filaDetalle('Cierre', t.fecha_cierre, isDark);
-        html += filaDetalle('Descripción', t.descripcion, isDark);
+        html += bloqueNota('Descripción', t.descripcion, isDark);
+        html += bloqueNota('Observaciones', t.observaciones, isDark);
+        if (t.nota_tecnico) html += bloqueNota('Nota del técnico', t.nota_tecnico, isDark);
         html += renderDiagnosticoApp(t.diagnostico_vista);
-        html += filaDetalle('Observaciones', t.observaciones, isDark);
         if (t.imagen_url) {
-            var bt2 = isDark ? 'border-gray-600' : 'border-gray-200';
             var lk2 = isDark ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-800';
-            html += '<div class="mt-3 pt-2 border-t ' + bt2 + '"><a href="' + escapeHtml(t.imagen_url) + '" target="_blank" rel="noopener" class="' + lk2 + ' underline-offset-2 hover:underline">Ver imagen adjunta</a></div>';
+            html += '<a href="' + escapeHtml(t.imagen_url) + '" target="_blank" rel="noopener" class="' + lk2 + ' underline-offset-2 hover:underline text-sm">Ver imagen adjunta</a>';
         }
         html += '</div>';
         Swal.fire({
-            title: 'Ticket #' + t.id,
+            title: 'Notas — Ticket #' + t.id,
             html: html,
             width: (Array.isArray(t.diagnostico_vista) && t.diagnostico_vista.length) ? '42rem' : '36rem',
             confirmButtonText: 'Cerrar',
@@ -430,7 +694,7 @@
         if (cfg.herramientas_red_url) {
             h += '<a href="' + escapeHtml(cfg.herramientas_red_url) + '" class="block ' + baseBtn + ' text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30">' + icWifi + ' Herramientas de red</a>';
         }
-        h += '<button type="button" class="' + baseBtn + ' text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 ticket-menu-item" data-accion="estado" data-url="' + escapeHtml(cfg.update_estado_url) + '" data-estado="' + escapeHtml(cfg.estado) + '">' + icLista + ' Cambiar estado</button>';
+        h += '<button type="button" class="' + baseBtn + ' text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 ticket-menu-item" data-accion="estado" data-url="' + escapeHtml(cfg.update_estado_url) + '" data-estado="' + escapeHtml(cfg.estado || '') + '" data-asignado-id="' + escapeHtml(cfg.asignado_id != null ? String(cfg.asignado_id) : '') + '" data-ticket-id="' + escapeHtml(cfg.ticket_id != null ? String(cfg.ticket_id) : '') + '" data-cliente="' + escapeHtml(cfg.cliente || '') + '">' + icLista + ' Cambiar estado</button>';
         if (cfg.puede_facturar_ticket && cfg.facturar_url) {
             h += '<button type="button" class="' + baseBtn + ' text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 ticket-menu-item" data-accion="facturar-ticket" data-facturar-url="' + escapeHtml(cfg.facturar_url) + '">' + icDoc + ' Crear factura por ticket</button>';
         }
@@ -538,31 +802,12 @@
             } else if (accion === 'estado') {
                 e.preventDefault();
                 cerrarMenuTicketAcciones();
-                var urlE = t.getAttribute('data-url');
-                var estadoActual = t.getAttribute('data-estado');
-                Swal.fire({
-                    title: 'Cambiar estado del ticket',
-                    html: '<p class="text-gray-600 text-sm mb-3">Seleccione el nuevo estado:</p><select id="swal-estado" class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">' +
-                        Object.keys(estados).map(function(k) {
-                            return '<option value="' + k + '"' + (k === estadoActual ? ' selected' : '') + '>' + estados[k] + '</option>';
-                        }).join('') + '</select>',
-                    showCancelButton: true,
-                    confirmButtonText: 'Actualizar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#9333ea',
-                    focusConfirm: false,
-                    preConfirm: function() {
-                        return document.getElementById('swal-estado').value;
-                    }
-                }).then(function(result) {
-                    if (!result.isConfirmed) return;
-                    enviarEstadoTicket(urlE, result.value).then(function() {
-                        return Swal.fire({ icon: 'success', title: 'Guardado', text: 'Estado actualizado correctamente.' });
-                    }).then(function() {
-                        window.location.reload();
-                    }).catch(function() {
-                        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el estado.' });
-                    });
+                abrirModalEstadoTicket({
+                    url: t.getAttribute('data-url'),
+                    estado: t.getAttribute('data-estado') || '',
+                    asignadoId: t.getAttribute('data-asignado-id') || '',
+                    ticketId: t.getAttribute('data-ticket-id') || '',
+                    cliente: t.getAttribute('data-cliente') || ''
                 });
             } else if (accion === 'resuelto') {
                 e.preventDefault();
@@ -591,7 +836,11 @@
         });
     }
 
-    function enviarEstadoTicket(url, nuevoEstado) {
+    function enviarEstadoTicket(url, nuevoEstado, asignadoId) {
+        var body = { estado: nuevoEstado };
+        if (typeof asignadoId !== 'undefined') {
+            body.asignado_id = (asignadoId === '' || asignadoId === null) ? null : Number(asignadoId);
+        }
         return fetch(url, {
             method: 'PATCH',
             headers: {
@@ -599,10 +848,91 @@
                 'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ estado: nuevoEstado })
+            body: JSON.stringify(body)
         }).then(function(r) {
             if (!r.ok) throw new Error();
             return r.json();
+        });
+    }
+
+    var estadoModalEl = document.getElementById('ticket-estado-modal');
+    var estadoModalSub = document.getElementById('ticket-estado-modal-sub');
+    var estadoModalSelect = document.getElementById('ticket-estado-tecnico');
+    var estadoModalGuardar = document.getElementById('ticket-estado-modal-guardar');
+    var estadoModalCtx = { url: '', estado: '' };
+    var estadoCardSel = 'ring-2 ring-purple-500 border-purple-500';
+
+    function marcarTarjetaEstado(estado) {
+        estadoModalCtx.estado = estado || '';
+        document.querySelectorAll('.ticket-estado-card').forEach(function(card) {
+            var activo = card.getAttribute('data-estado') === estado;
+            estadoCardSel.split(' ').forEach(function(cls) {
+                card.classList.toggle(cls, activo);
+            });
+            var check = card.querySelector('.ticket-estado-check');
+            if (check) check.classList.toggle('hidden', !activo);
+            card.setAttribute('aria-pressed', activo ? 'true' : 'false');
+        });
+    }
+
+    function cerrarModalEstadoTicket() {
+        if (!estadoModalEl) return;
+        estadoModalEl.classList.add('hidden');
+        estadoModalEl.setAttribute('aria-hidden', 'true');
+        estadoModalCtx = { url: '', estado: '' };
+        if (estadoModalGuardar) estadoModalGuardar.disabled = false;
+    }
+
+    function abrirModalEstadoTicket(opts) {
+        if (!estadoModalEl) return;
+        estadoModalCtx = { url: opts.url || '', estado: opts.estado || '' };
+        var partes = [];
+        if (opts.ticketId) partes.push('Ticket #' + opts.ticketId);
+        if (opts.cliente) partes.push(opts.cliente);
+        if (estadoModalSub) estadoModalSub.textContent = partes.join(' · ');
+        marcarTarjetaEstado(opts.estado || '');
+        if (estadoModalSelect) estadoModalSelect.value = opts.asignadoId || '';
+        estadoModalEl.classList.remove('hidden');
+        estadoModalEl.setAttribute('aria-hidden', 'false');
+    }
+
+    document.querySelectorAll('.ticket-estado-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+            marcarTarjetaEstado(this.getAttribute('data-estado') || '');
+        });
+    });
+
+    function cerrarSiModalEstado(el) {
+        if (el) el.addEventListener('click', cerrarModalEstadoTicket);
+    }
+    cerrarSiModalEstado(document.getElementById('ticket-estado-modal-backdrop'));
+    cerrarSiModalEstado(document.getElementById('ticket-estado-modal-cerrar'));
+    cerrarSiModalEstado(document.getElementById('ticket-estado-modal-cancelar'));
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        if (estadoModalEl && !estadoModalEl.classList.contains('hidden')) {
+            cerrarModalEstadoTicket();
+        }
+    });
+
+    if (estadoModalGuardar) {
+        estadoModalGuardar.addEventListener('click', function() {
+            if (!estadoModalCtx.url || !estadoModalCtx.estado) {
+                Swal.fire({ icon: 'warning', title: 'Seleccione un estado', text: 'Elija el estado del ticket.' });
+                return;
+            }
+            var asignadoId = estadoModalSelect ? estadoModalSelect.value : '';
+            estadoModalGuardar.disabled = true;
+            enviarEstadoTicket(estadoModalCtx.url, estadoModalCtx.estado, asignadoId).then(function() {
+                cerrarModalEstadoTicket();
+                return Swal.fire({ icon: 'success', title: 'Guardado', text: 'Estado y técnico actualizados.' });
+            }).then(function() {
+                window.location.reload();
+            }).catch(function() {
+                estadoModalGuardar.disabled = false;
+                Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el ticket.' });
+            });
         });
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PushAviso;
+use App\Models\User;
 use App\Services\ClienteAvisoPushService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -37,6 +38,9 @@ class AvisoPushWebController extends Controller
             'destino' => ['required', 'in:todos,seleccionados'],
             'cliente_ids' => ['nullable', 'array'],
             'cliente_ids.*' => ['integer', 'min:1'],
+            'cliente_id' => ['nullable', 'integer', 'min:1'],
+            'usuario_ids' => ['nullable', 'array'],
+            'usuario_ids.*' => ['integer', 'min:1'],
             'confirmar_todos' => ['nullable', 'accepted'],
         ], [
             'titulo.required' => 'Indicá un título.',
@@ -50,7 +54,7 @@ class AvisoPushWebController extends Controller
                 ->with('error', 'Para enviar a todos, marcá la casilla de confirmación.');
         }
 
-        $clienteIds = $validated['cliente_ids'] ?? [];
+        $clienteIds = $this->resolverClienteIds($validated);
         if ($validated['destino'] === 'seleccionados' && $clienteIds === []) {
             return back()
                 ->withInput()
@@ -66,20 +70,32 @@ class AvisoPushWebController extends Controller
             auth()->user()?->usuario_id
         );
 
-        if ($aviso->total_destinatarios === 0) {
+        $detalleOmitidos = $aviso->omitidos
+            ? sprintf(' · %d sin token', $aviso->omitidos)
+            : '';
+
+        if ((int) $aviso->enviados === 0) {
             return redirect()
                 ->route('avisos-push.index')
-                ->with('warning', 'No hay clientes con push activo para ese destino.');
+                ->with('warning', sprintf(
+                    'Aviso #%d: %d OK de %d%s. Destino: %s.',
+                    $aviso->id,
+                    $aviso->enviados,
+                    $aviso->total_destinatarios,
+                    $detalleOmitidos,
+                    $aviso->etiquetaDestino()
+                ));
         }
 
         return redirect()
             ->route('avisos-push.index')
             ->with('success', sprintf(
-                'Aviso #%d enviado: %d OK, %d fallidos (de %d).',
+                'Aviso #%d enviado: %d OK, %d fallidos (de %d)%s.',
                 $aviso->id,
                 $aviso->enviados,
                 $aviso->fallidos,
-                $aviso->total_destinatarios
+                $aviso->total_destinatarios,
+                $detalleOmitidos
             ));
     }
 
@@ -87,20 +103,28 @@ class AvisoPushWebController extends Controller
     {
         $nuevo = $this->avisos->reenviar($aviso, auth()->user()?->usuario_id);
 
-        if ($nuevo->total_destinatarios === 0) {
+        if ((int) $nuevo->enviados === 0) {
             return redirect()
                 ->route('avisos-push.index')
-                ->with('warning', 'No hay destinatarios con push activo para reenviar.');
+                ->with('warning', sprintf(
+                    'Reenviado (#%d → #%d): %d OK de %d. Destino: %s.',
+                    $aviso->id,
+                    $nuevo->id,
+                    $nuevo->enviados,
+                    $nuevo->total_destinatarios,
+                    $nuevo->etiquetaDestino()
+                ));
         }
 
         return redirect()
             ->route('avisos-push.index')
             ->with('success', sprintf(
-                'Reenviado (#%d → #%d): %d OK, %d fallidos.',
+                'Reenviado (#%d → #%d): %d OK, %d fallidos (de %d).',
                 $aviso->id,
                 $nuevo->id,
                 $nuevo->enviados,
-                $nuevo->fallidos
+                $nuevo->fallidos,
+                $nuevo->total_destinatarios
             ));
     }
 
@@ -119,5 +143,44 @@ class AvisoPushWebController extends Controller
         $q = trim((string) $request->get('q', ''));
 
         return response()->json($this->avisos->buscarConPush($q));
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return list<int>
+     */
+    private function resolverClienteIds(array $validated): array
+    {
+        $ids = collect($validated['cliente_ids'] ?? [])
+            ->when(! empty($validated['cliente_id']), fn ($c) => $c->push($validated['cliente_id']))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isNotEmpty()) {
+            return $ids->all();
+        }
+
+        $usuarioIds = collect($validated['usuario_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($usuarioIds === []) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('usuario_id', $usuarioIds)
+            ->whereNotNull('cliente_id')
+            ->pluck('cliente_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

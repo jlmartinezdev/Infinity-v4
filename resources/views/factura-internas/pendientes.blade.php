@@ -3,6 +3,7 @@
 @section('title', 'Pendiente de pago')
 
 @section('content')
+@include('partials.whatsapp-chat-theme')
 <div id="pendientes-pago-app"></div>
 
 @php
@@ -20,6 +21,10 @@
             'promesasIndex' => route('promesas-pago.index'),
             'cobrosCreate' => route('cobros.create'),
             'multicobro' => route('cobros.multicobro'),
+            'whatsappDetalle' => str_replace('/'.$phC, '/{id}', route('factura-internas.pendientes.whatsapp', ['cliente' => $phC])),
+            'whatsappReenviar' => str_replace('/'.$phC, '/{id}', route('factura-internas.pendientes.whatsapp.reenviar', ['cliente' => $phC])),
+            'whatsappReclamo' => str_replace('/'.$phC, '/{id}', route('factura-internas.pendientes.whatsapp.reclamo', ['cliente' => $phC])),
+            'whatsappMasivo' => route('factura-internas.pendientes.whatsapp.masivo'),
         ],
         'templates' => [
             'facturaShow' => str_replace('/'.$phF, '/{id}', route('factura-internas.show', ['factura_interna' => $phF])),

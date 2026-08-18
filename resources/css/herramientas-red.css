@@ -32,6 +32,28 @@
     color: #64748b;
 }
 .dark .noc-card-sub { color: #94a3b8; }
+
+.noc-tools-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+    .noc-tools-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (min-width: 1024px) {
+    .noc-tools-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+@media (min-width: 1280px) {
+    .noc-tools-grid.is-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+.dark .noc-card-sub { color: #94a3b8; }
 .noc-icon {
     display: inline-flex;
     align-items: center;
@@ -46,11 +68,13 @@
 .noc-icon--amber { background: #ffedd5; color: #ea580c; }
 .noc-icon--sky { background: #e0f2fe; color: #0284c7; }
 .noc-icon--teal { background: #ccfbf1; color: #0d9488; }
+.noc-icon--violet { background: #ede9fe; color: #7c3aed; }
 .dark .noc-icon--blue { background: rgb(30 58 138 / 0.45); color: #93c5fd; }
 .dark .noc-icon--indigo { background: rgb(49 46 129 / 0.45); color: #a5b4fc; }
 .dark .noc-icon--amber { background: rgb(124 45 18 / 0.45); color: #fdba74; }
 .dark .noc-icon--sky { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }
 .dark .noc-icon--teal { background: rgb(19 78 74 / 0.45); color: #5eead4; }
+.dark .noc-icon--violet { background: rgb(76 29 149 / 0.45); color: #c4b5fd; }
 .noc-input-display {
     padding: 0.625rem 0.75rem;
     border-radius: 0.5rem;

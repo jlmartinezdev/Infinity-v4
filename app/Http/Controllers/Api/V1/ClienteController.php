@@ -7,6 +7,7 @@ use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\Ticket;
+use App\Services\WhatsApp\ClientePorTelefonoService;
 use Illuminate\Http\Request;
 
 class ClienteController extends ApiController
@@ -34,6 +35,16 @@ class ClienteController extends ApiController
         $clientes = $query->paginate($perPage);
 
         return $this->ok($clientes);
+    }
+
+    public function porTelefono(Request $request, ClientePorTelefonoService $lookup)
+    {
+        $telefono = trim((string) $request->query('telefono', ''));
+        if ($telefono === '') {
+            return $this->fail('Indicá telefono.', 422);
+        }
+
+        return $this->ok($lookup->buscar($telefono));
     }
 
     public function buscar(Request $request)

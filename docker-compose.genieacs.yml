@@ -1,0 +1,39 @@
+# ACS TR-069 (GenieACS). No forma parte del stack de Infinity:
+# Infinity habla con la API NBI (puerto 7557). Los CPE informan al CWMP (7547).
+#
+# Uso:
+#   docker compose -f docker-compose.genieacs.yml up -d
+#   UI:  http://localhost:3000  (admin / admin en la 1ª vez)
+#   NBI: http://127.0.0.1:7557
+#   CWMP (URL en el CPE): http://IP-PUBLICA-O-LAN:7547
+#
+# El NBI no debe exponerse a Internet. Dejá 7557 y 3000 en LAN/VPN.
+
+services:
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    volumes:
+      - genieacs-mongo:/data/db
+    command: ["mongod", "--bind_ip_all"]
+
+  genieacs:
+    image: drumsergio/genieacs:1.2.13
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      GENIEACS_MONGODB_CONNECTION_URL: mongodb://mongo/genieacs
+      GENIEACS_UI_JWT_SECRET: ${GENIEACS_UI_JWT_SECRET:-cambiar-este-secreto-jwt}
+      GENIEACS_CWMP_INTERFACE: 0.0.0.0
+      GENIEACS_NBI_INTERFACE: 0.0.0.0
+      GENIEACS_FS_INTERFACE: 0.0.0.0
+      GENIEACS_UI_INTERFACE: 0.0.0.0
+    ports:
+      - "7547:7547"
+      - "7557:7557"
+      - "7567:7567"
+      - "3000:3000"
+
+volumes:
+  genieacs-mongo:

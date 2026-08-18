@@ -59,7 +59,15 @@ class FcmPushService
             return false;
         }
 
-        return $this->notifyToken($token, $title, $body, $data, $user->esClientePortal() ? 'clientes' : null);
+        return $this->notifyToken(
+            $token,
+            $title,
+            $body,
+            $data,
+            $user->esClientePortal()
+                ? (string) config('services.fcm.client_android_channel_id', 'interplus_avisos_v2')
+                : (string) config('services.fcm.android_channel_id', 'staff')
+        );
     }
 
     /**
@@ -101,7 +109,7 @@ class FcmPushService
 
         [$projectId, $accessToken] = $ctx;
         $channel = $channelOverride
-            ?: config('services.fcm.client_android_channel_id', 'clientes');
+            ?: (string) config('services.fcm.client_android_channel_id', 'interplus_avisos_v2');
         $message = array_merge(
             $this->messageBase($title, $body, $data, $channel),
             ['token' => $token]
@@ -142,8 +150,17 @@ class FcmPushService
     private function messageBase(string $title, string $body, array $data, string $channel): array
     {
         $dataPayload = [];
-        foreach (array_merge($data, ['title' => $title, 'body' => $body]) as $k => $v) {
+        foreach (array_merge($data, [
+            'title' => $title,
+            'body' => $body,
+            'titulo' => $title,
+            'mensaje' => $body,
+        ]) as $k => $v) {
             $dataPayload[(string) $k] = is_scalar($v) || $v === null ? (string) $v : json_encode($v);
+        }
+
+        if (! isset($dataPayload['tab']) && isset($dataPayload['tipo'])) {
+            $dataPayload['tab'] = $dataPayload['tipo'];
         }
 
         return [
@@ -156,6 +173,7 @@ class FcmPushService
                 'notification' => [
                     'sound' => 'default',
                     'channel_id' => $channel,
+                    'notification_priority' => 'PRIORITY_HIGH',
                     'default_sound' => true,
                     'default_vibrate_timings' => true,
                 ],

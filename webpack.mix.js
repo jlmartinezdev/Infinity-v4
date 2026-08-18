@@ -53,6 +53,7 @@ mix.js('resources/js/compras-create.js', 'public/js').vue();
 mix.js('resources/js/pendientes-pago.js', 'public/js').vue();
 mix.js('resources/js/nodo-migrar-pppoe.js', 'public/js').vue();
 mix.js('resources/js/red-monitoreo.js', 'public/js').vue();
+mix.js('resources/js/aps-wireless.js', 'public/js').vue();
 mix.js('resources/js/herramientas-red.js', 'public/js').vue();
 mix.js('resources/js/tareas-dashboard.js', 'public/js').vue();
 mix.js('resources/js/whatsapp-mensajes.js', 'public/js').vue();

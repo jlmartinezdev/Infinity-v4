@@ -19,6 +19,8 @@ $accesoRapidoCatalogo = [
     ['name' => 'rapido-solicitudes', 'label' => 'Solicitudes app', 'path' => '/solicitudes-acceso', 'permiso' => 'solicitudes-acceso.ver'],
     ['name' => 'rapido-tv', 'label' => 'TV streaming', 'path' => '/tv-cuentas', 'permiso' => 'tv.ver'],
     ['name' => 'rapido-red-monitoreo', 'label' => 'Monitoreo de red', 'path' => '/sistema/red-monitoreo', 'permiso' => 'sistema-red-monitoreo.ver'],
+    ['name' => 'rapido-aps-wireless', 'label' => 'APs wireless', 'path' => '/sistema/aps-wireless', 'permiso' => 'sistema-aps-wireless.ver'],
+    ['name' => 'rapido-aps-wireless-avisos', 'label' => 'Alertas caída AP', 'path' => '/sistema/aps-wireless-avisos', 'permiso' => 'sistema-aps-wireless-avisos.ver', 'admin_only' => true],
     ['name' => 'rapido-isp-failover', 'label' => 'Failover ISP', 'path' => '/sistema/isp-failover', 'permiso' => 'sistema-isp-failover.ver'],
 ];
 
@@ -40,6 +42,7 @@ return [
             'rapido-whatsapp',
             'rapido-mapa-tecnicos',
             'rapido-red-monitoreo',
+            'rapido-aps-wireless',
             'rapido-isp-failover',
         ],
         'catalogo' => $accesoRapidoCatalogo,
@@ -207,6 +210,8 @@ return [
             'icon' => 'server',
             'submenu' => [
                 ['name' => 'red-monitoreo', 'label' => 'Monitoreo de red', 'path' => '/sistema/red-monitoreo', 'permiso' => 'sistema-red-monitoreo.ver'],
+                ['name' => 'aps-wireless', 'label' => 'APs wireless', 'path' => '/sistema/aps-wireless', 'permiso' => 'sistema-aps-wireless.ver'],
+                ['name' => 'aps-wireless-avisos', 'label' => 'Alertas caída AP', 'path' => '/sistema/aps-wireless-avisos', 'permiso' => 'sistema-aps-wireless-avisos.ver', 'admin_only' => true],
                 ['name' => 'router-caida-avisos', 'label' => 'Alertas caída router', 'path' => '/sistema/router-caida-avisos', 'permiso' => 'sistema-red-monitoreo.ver'],
                 ['name' => 'isp-failover', 'label' => 'Failover ISP', 'path' => '/sistema/isp-failover', 'permiso' => 'sistema-isp-failover.ver'],
                 ['name' => 'auditoria', 'label' => 'Auditoría', 'path' => '/sistema/auditoria', 'permiso' => 'sistema-routers.ver'],
