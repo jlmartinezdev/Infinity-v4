@@ -40,19 +40,28 @@
         overlay.classList.remove('flex');
     }
 
-    function flashReplace(type, message) {
+    function flashReplace(type, message, preview) {
         var main = document.querySelector('main');
         if (!main || !message) return;
         var cls = {
             success: 'mb-6 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-green-800 dark:text-green-200 print:hidden break-words text-sm',
-            error: 'mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden',
+            error: 'mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden break-words text-sm',
             warning: 'mb-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-amber-900 dark:text-amber-200 print:hidden break-words text-sm'
         };
         main.querySelectorAll('[data-olt-flash]').forEach(function (n) { n.remove(); });
         var div = document.createElement('div');
         div.setAttribute('data-olt-flash', '1');
         div.className = cls[type] || cls.warning;
-        div.textContent = message;
+        var p = document.createElement('p');
+        p.className = 'whitespace-pre-wrap';
+        p.textContent = message;
+        div.appendChild(p);
+        if (preview) {
+            var pre = document.createElement('pre');
+            pre.className = 'mt-2 max-h-64 overflow-auto rounded border border-black/10 bg-black/5 p-2 text-xs font-mono whitespace-pre-wrap break-words dark:border-white/10 dark:bg-black/20';
+            pre.textContent = preview;
+            div.appendChild(pre);
+        }
         main.insertBefore(div, main.firstChild);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -95,9 +104,10 @@
                 hideOverlay();
                 var data = result.data || {};
                 var msg = data.message || (result.ok ? 'Consulta finalizada' : 'Error al consultar el OLT');
+                var preview = data.preview || data.raw || '';
 
                 if (!result.ok || data.success === false) {
-                    flashReplace('error', msg);
+                    flashReplace('error', msg, preview);
                     if (typeof options.onError === 'function') options.onError(data);
                     return data;
                 }
@@ -109,6 +119,11 @@
 
                 if (typeof options.onSuccess === 'function') {
                     options.onSuccess(data);
+                    return data;
+                }
+
+                if (options.keepPage) {
+                    flashReplace('success', msg, preview);
                     return data;
                 }
 
@@ -139,7 +154,8 @@
 
         window.OltConsulta.post(action, {
             message: form.dataset.loading || 'Consultando OLT…',
-            reloadUrl: form.dataset.reload || null
+            reloadUrl: form.dataset.reload || null,
+            keepPage: form.dataset.keepPage === '1'
         });
     });
 

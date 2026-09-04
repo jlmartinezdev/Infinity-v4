@@ -14,7 +14,9 @@ Contrato alineado a `API_BACKEND_COMPLETO_V320.md`.
 | POST | `/portal/v1/referidos/canjear` | `{ "codigo": "IP-…" }` |
 | GET/POST | `/portal/v1/pago-online` | Link TPago (o template legacy) |
 | GET | `/portal/v1/faqs` | CMS FAQs (`?topic=`) |
-| GET | `/portal/v1/cpe/dhcp-clients` | DHCP LAN del CPE (soft-fail vacío). Doc: `INFINITY_CPE_DHCP_CLIENTS.md` |
+| GET | `/portal/v1/cpe/dhcp-clients` | LAN del CPE: TR-069 hosts (FTTH/ACS) o SSH Ubnt. Soft-fail vacío. Doc: `INFINITY_CPE_DHCP_CLIENTS.md` |
+| GET | `/portal/v1/cpe/wifi` | SSIDs + `can_change` / `can_rename`. Doc: `INFINITY_CPE_WIFI.md` |
+| POST | `/portal/v1/cpe/wifi` | Clave y/o nombre SSID (TR-069, write-only la clave). Doc: `INFINITY_CPE_WIFI.md` |
 
 ## Ya existentes (sin breaking)
 

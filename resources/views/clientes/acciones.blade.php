@@ -60,6 +60,7 @@
                     <thead class="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Alias</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plan</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
@@ -70,6 +71,7 @@
                         @foreach($cliente->servicios as $s)
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td class="px-3 py-2 text-gray-900 dark:text-gray-100">{{ $s->servicio_id }}</td>
+                                <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ $s->aliasNormalizado() ?? '—' }}</td>
                                 <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ $s->plan?->nombre ?? '—' }}</td>
                                 <td class="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-400">{{ $s->ip ?? '—' }}</td>
                                 <td class="px-3 py-2">{{ $estadosServicio[$s->estado] ?? $s->estado }}</td>
@@ -149,8 +151,8 @@
             @endif
             @if($u?->tienePermiso('pedidos.crear'))
                 <li>
-                    <a href="{{ route('pedidos.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline font-medium">Nuevo pedido</a>
-                    <span class="text-gray-500 dark:text-gray-400"> — Alta de pedido / instalación.</span>
+                    <a href="{{ route('pedidos.create', ['cliente_id' => $cliente->cliente_id]) }}" class="text-purple-600 dark:text-purple-400 hover:underline font-medium">Nuevo pedido</a>
+                    <span class="text-gray-500 dark:text-gray-400"> — Instalación en este mismo cliente (servicio adicional si ya tiene uno).</span>
                 </li>
             @endif
             @if($u?->tienePermiso('pagos-pendientes.ver'))

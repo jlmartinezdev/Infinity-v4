@@ -19,6 +19,11 @@
           <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
           Pedidos ({{ pedidos.length }})
         </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer">
+          <input v-model="capaTickets" type="checkbox" class="rounded border-gray-300" />
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
+          Tickets ({{ tickets.length }})
+        </label>
       </div>
       <div class="flex flex-wrap gap-2 pointer-events-auto">
         <button type="button" class="rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200" @click="toggleSatelite">
@@ -47,6 +52,7 @@ const props = defineProps({
   urlUbicaciones: { type: String, required: true },
   urlClientes: { type: String, default: '' },
   urlPedidos: { type: String, default: '' },
+  urlTickets: { type: String, default: '' },
   pollSegundos: { type: Number, default: 15 },
   centerLat: { type: Number, default: -25.2867 },
   centerLng: { type: Number, default: -57.647 },
@@ -58,9 +64,11 @@ const error = ref('');
 const tecnicos = ref([]);
 const clientes = ref([]);
 const pedidos = ref([]);
+const tickets = ref([]);
 const capaTecnicos = ref(true);
 const capaClientes = ref(false);
 const capaPedidos = ref(false);
+const capaTickets = ref(false);
 const satelite = ref(false);
 
 let map = null;
@@ -68,11 +76,13 @@ let googleRef = null;
 let markersTecnicos = new Map();
 let markersClientes = [];
 let markersPedidos = [];
+let markersTickets = [];
 let infoWindow = null;
 let pollTimer = null;
 let fittedOnce = false;
 let clientesCargados = false;
 let pedidosCargados = false;
+let ticketsCargados = false;
 const OFFLINE_MS = 5 * 60 * 1000;
 
 function isOnline(item) {
@@ -157,12 +167,27 @@ function popupTecnico(item) {
 }
 
 function popupPunto(item, tipo) {
+  const extra = [];
+  if (item.asunto) {
+    extra.push(`<div style="color:#374151">Asunto: ${escapeHtml(item.asunto)}</div>`);
+  }
+  if (item.estado) {
+    extra.push(`<div style="color:#374151">Estado: ${escapeHtml(item.estado)}</div>`);
+  }
+  if (tipo === 'ticket') {
+    extra.push(
+      item.asignado
+        ? `<div style="color:#374151">Técnico: ${escapeHtml(item.asignado)}</div>`
+        : `<div style="color:#6b7280">Sin técnico asignado</div>`
+    );
+  }
   const link = item.url
     ? `<div style="margin-top:6px"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" style="color:#2563eb;font-weight:600;text-decoration:underline">Ver ${tipo}</a></div>`
     : '';
   return (
     `<div style="min-width:160px;font:13px/1.4 system-ui,sans-serif;color:#111827;background:#fff">` +
     `<div style="font-weight:700;color:#111827">${escapeHtml(item.nombre || tipo)}</div>` +
+    extra.join('') +
     (item.direccion ? `<div style="color:#374151">${escapeHtml(item.direccion)}</div>` : '') +
     link +
     '</div>'
@@ -227,6 +252,25 @@ function syncPedidosMarkers() {
       infoWindow.open({ map, anchor: marker });
     });
     markersPedidos.push(marker);
+  });
+}
+
+function syncTicketsMarkers() {
+  clearMarkers(markersTickets);
+  if (!capaTickets.value || !map || !googleRef) return;
+  tickets.value.forEach((item) => {
+    const marker = new googleRef.maps.Marker({
+      map,
+      position: { lat: Number(item.lat), lng: Number(item.lng) },
+      title: item.nombre,
+      icon: pinIcon(googleRef, '#0284c7', '#'),
+      zIndex: 25,
+    });
+    marker.addListener('click', () => {
+      infoWindow.setContent(popupPunto(item, 'ticket'));
+      infoWindow.open({ map, anchor: marker });
+    });
+    markersTickets.push(marker);
   });
 }
 
@@ -345,6 +389,13 @@ async function ensurePedidos() {
   syncPedidosMarkers();
 }
 
+async function ensureTickets() {
+  if (ticketsCargados || !props.urlTickets) return;
+  tickets.value = await fetchJson(props.urlTickets);
+  ticketsCargados = true;
+  syncTicketsMarkers();
+}
+
 watch(capaTecnicos, syncTecnicosVisibility);
 watch(capaClientes, async (on) => {
   if (on) {
@@ -369,6 +420,18 @@ watch(capaPedidos, async (on) => {
     }
   }
   syncPedidosMarkers();
+});
+watch(capaTickets, async (on) => {
+  if (on) {
+    try {
+      await ensureTickets();
+    } catch (e) {
+      error.value = e.message || 'No se pudieron cargar tickets.';
+      capaTickets.value = false;
+      return;
+    }
+  }
+  syncTicketsMarkers();
 });
 
 onMounted(async () => {
@@ -402,6 +465,7 @@ onBeforeUnmount(() => {
   markersTecnicos.clear();
   clearMarkers(markersClientes);
   clearMarkers(markersPedidos);
+  clearMarkers(markersTickets);
 });
 </script>
 

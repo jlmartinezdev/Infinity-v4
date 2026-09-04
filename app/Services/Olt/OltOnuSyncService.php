@@ -39,22 +39,21 @@ class OltOnuSyncService
             }
 
             $parsed = $this->filtrarOnusRegistradas($this->mergeFilasOnuParsed(
-                $this->parser->parse($cliBlob, ''),
+                $this->parser->parse((string) ($raw['onu_info'] ?? ''), (string) ($raw['onu_state'] ?? '')),
                 $this->parser->parseOptical($opticalBlob),
             ));
 
             if ($parsed === []) {
-                $preview = mb_substr($cliBlob, 0, 400);
+                $preview = trim(mb_substr($cliBlob, 0, 1500));
                 Log::warning('OLT import ONUs: parser sin resultados', [
                     'olt_id' => $olt->olt_id,
                     'preview' => $preview,
                 ]);
 
-                throw new RuntimeException(
-                    'No se pudieron interpretar las ONUs del OLT. '
-                    .'El formato CLI puede no coincidir con este firmware VSOL.'
-                    .($preview !== '' ? ' Vista previa: '.preg_replace('/\s+/', ' ', $preview) : '')
-                );
+                throw new RuntimeException($this->mensajeConSalidaCli(
+                    'No se pudieron interpretar las ONUs del OLT. El formato CLI puede no coincidir con este firmware VSOL.',
+                    $preview
+                ));
             }
 
             $imported = DB::transaction(function () use ($olt, $parsed, $syncStarted) {
@@ -168,9 +167,13 @@ class OltOnuSyncService
                 'onus_sync_error' => $e->getMessage(),
             ]);
 
+            $message = $e->getMessage();
+            $preview = $this->previewDesdeMensaje($message);
+
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $preview ? $this->mensajeSinDump($message) : $message,
+                'preview' => $preview,
             ];
         }
     }
@@ -196,16 +199,16 @@ class OltOnuSyncService
         ));
 
         if ($parsed === []) {
-            $preview = mb_substr($stateBlob."\n".$infoBlob, 0, 400);
+            $preview = trim(mb_substr($stateBlob."\n".$infoBlob, 0, 1500));
             Log::warning('OLT update ONUs state: parser sin resultados', [
                 'olt_id' => $olt->olt_id,
                 'preview' => $preview,
             ]);
 
-            throw new RuntimeException(
-                'No se pudieron interpretar los estados de las ONUs del OLT.'
-                .($preview !== '' ? ' Vista previa: '.preg_replace('/\s+/', ' ', $preview) : '')
-            );
+            throw new RuntimeException($this->mensajeConSalidaCli(
+                'No se pudieron interpretar los estados de las ONUs del OLT.',
+                $preview
+            ));
         }
 
         $updated = DB::transaction(function () use ($olt, $parsed, $syncStarted) {
@@ -552,8 +555,9 @@ class OltOnuSyncService
 
         foreach ($grupos as $grupo) {
             foreach ($grupo as $row) {
+                $row = $this->normalizarSlotVsol($row);
                 $key = ($row['pon_key'] ?? '').':'.($row['onu_index'] ?? '');
-                if ($key === ':') {
+                if ($key === ':' || $key === '0:') {
                     continue;
                 }
 
@@ -572,6 +576,22 @@ class OltOnuSyncService
         }
 
         return array_values($merged);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function normalizarSlotVsol(array $row): array
+    {
+        $slot = (int) ($row['pon_slot'] ?? 0);
+        $port = (int) ($row['pon_port'] ?? 0);
+        if ($slot === 1 && $port > 0) {
+            $row['pon_slot'] = 0;
+            $row['pon_key'] = '0/'.$port;
+        }
+
+        return $row;
     }
 
     /**
@@ -727,10 +747,55 @@ class OltOnuSyncService
                 'preview' => $preview,
             ];
         } catch (Throwable $e) {
+            $message = $e->getMessage();
+            $preview = $this->previewDesdeMensaje($message);
+
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $preview ? $this->mensajeSinDump($message) : $message,
+                'preview' => $preview,
             ];
         }
+    }
+
+    private function mensajeConSalidaCli(string $mensaje, string $cli, int $max = 1500): string
+    {
+        $cli = trim($cli);
+        if ($cli === '') {
+            return $mensaje;
+        }
+        if (mb_strlen($cli) > $max) {
+            $cli = mb_substr($cli, 0, $max)."\n…";
+        }
+
+        return $mensaje."\n\nSalida CLI:\n".$cli;
+    }
+
+    private function previewDesdeMensaje(string $message): ?string
+    {
+        foreach (['Respuesta del equipo:', 'Salida CLI:', 'Vista previa:'] as $marker) {
+            $pos = mb_stripos($message, $marker);
+            if ($pos !== false) {
+                $preview = trim(mb_substr($message, $pos + mb_strlen($marker)));
+
+                return $preview !== '' ? $preview : null;
+            }
+        }
+
+        return null;
+    }
+
+    private function mensajeSinDump(string $message): string
+    {
+        foreach (['Respuesta del equipo:', 'Salida CLI:', 'Vista previa:'] as $marker) {
+            $pos = mb_stripos($message, $marker);
+            if ($pos !== false) {
+                $corto = trim(mb_substr($message, 0, $pos));
+
+                return $corto !== '' ? $corto : $message;
+            }
+        }
+
+        return $message;
     }
 }

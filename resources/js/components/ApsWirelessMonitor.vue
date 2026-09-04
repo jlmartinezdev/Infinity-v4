@@ -52,23 +52,51 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" role="group" aria-label="Filtrar por estado de ping">
+      <button
+        type="button"
+        class="rounded-xl border px-4 py-3 text-left transition cursor-pointer border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
+        :class="filtroPing === '' ? 'ring-2 ring-offset-1 ring-gray-400 dark:ring-gray-500 dark:ring-offset-gray-900' : ''"
+        :aria-pressed="filtroPing === ''"
+        title="Mostrar todos los APs"
+        @click="filtroPing = ''"
+      >
         <p class="text-xs text-gray-500 dark:text-gray-400">Registrados</p>
         <p class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ aps.length }}</p>
-      </div>
-      <div class="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
+      </button>
+      <button
+        type="button"
+        class="rounded-xl border px-4 py-3 text-left transition cursor-pointer border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 hover:border-emerald-400 dark:hover:border-emerald-600"
+        :class="filtroPing === 'online' ? 'ring-2 ring-offset-1 ring-emerald-500 dark:ring-offset-gray-900' : ''"
+        :aria-pressed="filtroPing === 'online'"
+        title="Filtrar APs en línea"
+        @click="seleccionarFiltroPing('online')"
+      >
         <p class="text-xs text-emerald-700 dark:text-emerald-300">En línea</p>
         <p class="text-xl font-semibold text-emerald-800 dark:text-emerald-200">{{ resumen.online }}</p>
-      </div>
-      <div class="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 px-4 py-3">
+      </button>
+      <button
+        type="button"
+        class="rounded-xl border px-4 py-3 text-left transition cursor-pointer border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 hover:border-rose-400 dark:hover:border-rose-600"
+        :class="filtroPing === 'offline' ? 'ring-2 ring-offset-1 ring-rose-500 dark:ring-offset-gray-900' : ''"
+        :aria-pressed="filtroPing === 'offline'"
+        title="Filtrar APs sin ping"
+        @click="seleccionarFiltroPing('offline')"
+      >
         <p class="text-xs text-rose-700 dark:text-rose-300">Sin ping</p>
         <p class="text-xl font-semibold text-rose-800 dark:text-rose-200">{{ resumen.offline }}</p>
-      </div>
-      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
+      </button>
+      <button
+        type="button"
+        class="rounded-xl border px-4 py-3 text-left transition cursor-pointer border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
+        :class="filtroPing === 'desconocido' ? 'ring-2 ring-offset-1 ring-gray-400 dark:ring-gray-500 dark:ring-offset-gray-900' : ''"
+        :aria-pressed="filtroPing === 'desconocido'"
+        title="Filtrar APs sin consultar"
+        @click="seleccionarFiltroPing('desconocido')"
+      >
         <p class="text-xs text-gray-500 dark:text-gray-400">Sin consultar</p>
         <p class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ resumen.desconocido }}</p>
-      </div>
+      </button>
     </div>
 
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
@@ -92,6 +120,12 @@
 
     <div v-if="!gruposFiltrados.length" class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
       {{ aps.length ? 'Ningún AP coincide con el filtro.' : 'Todavía no hay APs. Registrá la IP de cada access point por nodo.' }}
+      <button
+        v-if="aps.length && (filtroPing || filtroNodo || busqueda.trim())"
+        type="button"
+        class="mt-2 block mx-auto text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        @click="limpiarFiltros"
+      >Quitar filtros</button>
     </div>
 
     <section
@@ -132,6 +166,9 @@
                     <span class="h-2.5 w-2.5 rounded-full" :class="clasePunto(ap)"></span>
                     <span class="font-medium" :class="claseTextoPing(ap)">{{ etiquetaPing(ap) }}</span>
                   </span>
+                  <p v-if="ap.ping_ok === false && ap.ping_caido_desde" class="text-[11px] text-rose-500 mt-0.5 tabular-nums" :title="ap.caido_desde || ''">
+                    {{ caidoHace(ap) }}
+                  </p>
                   <p v-if="ap.ping_error && ap.ping_ok === false" class="text-[11px] text-rose-500 mt-0.5 max-w-[9rem] truncate" :title="ap.ping_error">{{ ap.ping_error }}</p>
                 </td>
                 <td class="px-3 py-2">
@@ -214,6 +251,11 @@
                     <div><span class="text-gray-400">CCQ</span><br>{{ extraVal(ap, 'ccq') }}</div>
                     <div><span class="text-gray-400">CPU</span><br>{{ extraVal(ap, 'cpu') }}</div>
                     <div><span class="text-gray-400">Último ping</span><br>{{ formatearFecha(ap.ping_at) }}</div>
+                    <div v-if="ap.ping_ok === false && ap.ping_caido_desde">
+                      <span class="text-gray-400">Caído desde</span><br>
+                      {{ ap.caido_desde || formatearFecha(ap.ping_caido_desde) }}
+                      <span class="text-rose-500"> · {{ caidoHace(ap) }}</span>
+                    </div>
                     <div><span class="text-gray-400">Último SSH</span><br>{{ formatearFecha(ap.ssh_at) }}</div>
                     <div v-if="ap.notas" class="sm:col-span-2"><span class="text-gray-400">Notas</span><br>{{ ap.notas }}</div>
                   </div>
@@ -271,9 +313,10 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import Espectro5GhzNodo from '@/components/Espectro5GhzNodo.vue';
 import { colorAp } from '@/espectro5ghz';
+import { formatearCaidoHace } from '@/monitoreo-duracion';
 
 const props = defineProps({
   initialConfig: { type: Object, default: () => ({}) },
@@ -289,6 +332,7 @@ const urlAvisos = props.initialConfig.urlAvisos || '';
 
 const busqueda = ref('');
 const filtroNodo = ref('');
+const filtroPing = ref('');
 const aviso = ref('');
 const errorGlobal = ref('');
 const ocupadoId = ref(null);
@@ -297,6 +341,8 @@ const sshTodosActivo = ref(false);
 const progresoPing = ref('Pingeando…');
 const progresoSsh = ref('SSH…');
 const detalleId = ref(null);
+const ahora = ref(Date.now());
+let tickCaido = null;
 const formAbierto = ref(false);
 const guardando = ref(false);
 const errorForm = ref('');
@@ -324,11 +370,29 @@ const resumen = computed(() => {
   return { online, offline, desconocido };
 });
 
+function coincidenciaPing(ap) {
+  if (!filtroPing.value) return true;
+  if (filtroPing.value === 'online') return ap.ping_ok === true;
+  if (filtroPing.value === 'offline') return ap.ping_ok === false;
+  return ap.ping_ok !== true && ap.ping_ok !== false;
+}
+
+function seleccionarFiltroPing(valor) {
+  filtroPing.value = filtroPing.value === valor ? '' : valor;
+}
+
+function limpiarFiltros() {
+  filtroPing.value = '';
+  filtroNodo.value = '';
+  busqueda.value = '';
+}
+
 const gruposFiltrados = computed(() => {
   const q = busqueda.value.trim().toLowerCase();
   const nodo = filtroNodo.value;
   const filtrados = aps.value.filter((ap) => {
     if (nodo && String(ap.nodo_id) !== String(nodo)) return false;
+    if (!coincidenciaPing(ap)) return false;
     if (!q) return true;
     const blob = [ap.nombre, ap.ip, ap.ssid, ap.hostname, ap.nodo].filter(Boolean).join(' ').toLowerCase();
     return blob.includes(q);
@@ -366,6 +430,10 @@ function etiquetaPing(ap) {
   }
   if (ap.ping_ok === false) return 'Caído';
   return '—';
+}
+
+function caidoHace(ap) {
+  return formatearCaidoHace(ap?.ping_caido_desde, ahora.value) || ap?.caido_hace || null;
 }
 
 function extraVal(ap, key) {
@@ -516,4 +584,14 @@ async function eliminar(ap) {
     errorGlobal.value = mensajeAxios(err, 'No se pudo eliminar.');
   }
 }
+
+onMounted(() => {
+  tickCaido = setInterval(() => {
+    ahora.value = Date.now();
+  }, 30000);
+});
+
+onUnmounted(() => {
+  if (tickCaido) clearInterval(tickCaido);
+});
 </script>

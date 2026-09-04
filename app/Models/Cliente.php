@@ -106,6 +106,128 @@ class Cliente extends Model
         return $this->hasMany(Servicio::class, 'cliente_id', 'cliente_id');
     }
 
+    public static function cedulaSinSeparadores(?string $cedula): string
+    {
+        return str_replace(['.', '-', ' ', '/'], '', trim((string) $cedula));
+    }
+
+    /**
+     * Localiza cliente por cédula exacta o sin separadores. Si hay duplicados, prefiere el que ya tiene servicio.
+     */
+    public static function buscarPorCedula(?string $cedula): ?self
+    {
+        $raw = trim((string) $cedula);
+        if ($raw === '') {
+            return null;
+        }
+
+        $sinSep = self::cedulaSinSeparadores($raw);
+        $digits = preg_replace('/\D+/', '', $sinSep) ?? '';
+        $needle = (preg_match('/[A-Za-z]/', $sinSep) || strlen($digits) < 5) ? $sinSep : $digits;
+        if ($needle === '') {
+            $needle = $raw;
+        }
+
+        $query = self::query()->where(function ($q) use ($raw, $needle) {
+            $q->where('cedula', $raw);
+            if ($needle !== $raw) {
+                $q->orWhereRaw(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(cedula, '.', ''), '-', ''), ' ', ''), '/', '') = ?",
+                    [$needle]
+                );
+            }
+        });
+
+        return $query
+            ->withCount([
+                'servicios as servicios_vigentes_count' => fn ($q) => $q->where('estado', '!=', Servicio::ESTADO_CANCELADO),
+            ])
+            ->orderByDesc('servicios_vigentes_count')
+            ->orderByRaw("CASE estado WHEN 'activo' THEN 0 WHEN 'suspendido' THEN 1 WHEN 'solo_pedido' THEN 2 ELSE 3 END")
+            ->first();
+    }
+
+    public function tieneServiciosVigentes(): bool
+    {
+        if ($this->relationLoaded('servicios')) {
+            return $this->servicios->contains(fn (Servicio $s) => $s->estado !== Servicio::ESTADO_CANCELADO);
+        }
+
+        return $this->servicios()->where('estado', '!=', Servicio::ESTADO_CANCELADO)->exists();
+    }
+
+    /**
+     * Reutiliza el cliente existente (p. ej. ya con servicio) o crea uno solo_pedido.
+     *
+     * @param  array{cedula: string, nombre?: string, apellido?: ?string, telefono?: ?string}  $datos
+     */
+    public static function resolverParaPedido(array $datos): self
+    {
+        $cedula = trim((string) ($datos['cedula'] ?? ''));
+        $cliente = self::buscarPorCedula($cedula);
+        if (! $cliente) {
+            return self::create([
+                'cedula' => $cedula,
+                'nombre' => $datos['nombre'] ?? '',
+                'apellido' => $datos['apellido'] ?? null,
+                'telefono' => $datos['telefono'] ?? null,
+                'estado' => 'solo_pedido',
+            ]);
+        }
+
+        $updates = [];
+        $yaTieneServicio = $cliente->tieneServiciosVigentes();
+        if (! $yaTieneServicio) {
+            if (! empty($datos['nombre'])) {
+                $updates['nombre'] = $datos['nombre'];
+            }
+            if (! empty($datos['apellido'])) {
+                $updates['apellido'] = $datos['apellido'];
+            }
+            if (! empty($datos['telefono'])) {
+                $updates['telefono'] = $datos['telefono'];
+            }
+        } elseif (empty($cliente->telefono) && ! empty($datos['telefono'])) {
+            $updates['telefono'] = $datos['telefono'];
+        }
+
+        if ($updates !== []) {
+            $cliente->update($updates);
+        }
+
+        return $cliente;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function payloadParaPedido(): array
+    {
+        $this->loadMissing('servicios.plan');
+        $vigentes = $this->servicios
+            ->filter(fn (Servicio $s) => $s->estado !== Servicio::ESTADO_CANCELADO)
+            ->values();
+
+        return [
+            'cliente_id' => $this->cliente_id,
+            'cedula' => $this->cedula,
+            'nombre' => $this->nombre,
+            'apellido' => $this->apellido,
+            'telefono' => $this->telefono,
+            'email' => $this->email,
+            'direccion' => $this->direccion,
+            'url_ubicacion' => $this->url_ubicacion,
+            'estado' => $this->estado,
+            'tiene_servicios' => $vigentes->isNotEmpty(),
+            'servicios_count' => $vigentes->count(),
+            'servicios' => $vigentes->map(fn (Servicio $s) => [
+                'servicio_id' => $s->servicio_id,
+                'alias' => $s->aliasNormalizado(),
+                'etiqueta' => $s->etiqueta(),
+            ])->all(),
+        ];
+    }
+
     public function cobros(): HasMany
     {
         return $this->hasMany(Cobro::class, 'cliente_id', 'cliente_id');

@@ -12,6 +12,15 @@
       <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
         <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" :style="{ width: progressPercentage + '%' }"></div>
       </div>
+      <p
+        v-if="clienteFijo"
+        class="mt-3 text-sm text-purple-800 dark:text-purple-200"
+      >
+        Pedido de instalación para
+        <span class="font-semibold">{{ formData.nombre }} {{ formData.apellido }}</span>
+        <span v-if="formData.cliente_id"> (#{{ formData.cliente_id }})</span>.
+        El servicio se creará en este mismo cliente.
+      </p>
     </div>
 
     <!-- Form Content -->
@@ -27,20 +36,23 @@
         <div :class="{ 'sm:col-span-2': modalMode }" class="min-w-0">
           <label for="cedula" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula *</label>
           <div
-            class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            :class="clienteFijo
+              ? 'grid grid-cols-1'
+              : 'grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'"
           >
             <input
               type="text"
               id="cedula"
               v-model="formData.cedula"
               @blur="buscarCliente"
-              :disabled="sinDatosCedula"
+              :disabled="sinDatosCedula || clienteFijo"
               autocomplete="off"
               class="h-11 w-full min-w-0 px-3 sm:px-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed row-start-1 col-start-1"
               placeholder="1234567"
               :required="!sinDatosCedula"
             />
             <button
+              v-if="!clienteFijo"
               type="button"
               @click="buscarCliente"
               :disabled="sinDatosCedula || buscando || cargandoCedulaTemporal"
@@ -53,6 +65,7 @@
               <span class="truncate">{{ buscando ? 'Consultando...' : 'Buscar' }}</span>
             </button>
             <label
+              v-if="!clienteFijo"
               class="col-span-2 row-start-2 flex h-11 w-full min-w-0 cursor-pointer select-none items-center justify-center gap-2 rounded-lg  px-2 text-xs font-medium text-gray-700 dark:text-gray-300  sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:text-sm"
             >
               <input
@@ -76,7 +89,8 @@
             type="text"
             id="nombre"
             v-model="formData.nombre"
-            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
+            :disabled="clienteFijo"
+            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed"
             required
           />
         </div>
@@ -88,7 +102,8 @@
             type="text"
             id="apellido"
             v-model="formData.apellido"
-            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
+            :disabled="clienteFijo"
+            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed"
             required
           />
         </div>
@@ -250,6 +265,8 @@ const props = defineProps({
   modalMode: { type: Boolean, default: false },
   /** Prefill desde WhatsApp u otro contexto */
   initialValues: { type: Object, default: null },
+  /** Pedido atado a un cliente existente (p. ej. desde su ficha). */
+  clienteFijo: { type: Boolean, default: false },
 });
 
 const currentStep = ref(1);
@@ -289,6 +306,27 @@ if (props.initialValues && typeof props.initialValues === 'object') {
       formData.value[k] = iv[k];
     }
   }
+  if (iv.tiene_servicios) {
+    const nombres = (iv.servicios || [])
+      .map((s) => s.etiqueta || s.alias)
+      .filter(Boolean)
+      .join(', ');
+    mensajeClienteSuccess.value = nombres
+      ? `Cliente existente con ${iv.servicios_count} servicio(s): ${nombres}. El pedido se instalará en este mismo cliente.`
+      : `Cliente existente con ${iv.servicios_count} servicio(s). El pedido se instalará en este mismo cliente.`;
+  } else if (iv.cliente_id) {
+    mensajeClienteSuccess.value = 'Cliente encontrado.';
+  }
+}
+
+if (
+  props.clienteFijo
+  && formData.value.cedula
+  && formData.value.nombre
+  && formData.value.apellido
+  && formData.value.telefono
+) {
+  currentStep.value = 2;
 }
 
 const limpiarTelefonoAsociacion = () => {
@@ -395,7 +433,7 @@ const onSinDatosCedulaToggle = async (ev) => {
 };
 
 const buscarCliente = async () => {
-  if (sinDatosCedula.value || !formData.value.cedula) return;
+  if (props.clienteFijo || sinDatosCedula.value || !formData.value.cedula) return;
 
   buscando.value = true;
   errorCliente.value = '';
@@ -431,16 +469,32 @@ const buscarCliente = async () => {
 
       const cliente = clienteResponse.data;
       formData.value.cliente_id = cliente.cliente_id;
-      // Si no hay datos del padrón, usar datos del cliente
-      if (!datosPadron) {
+      if (cliente.tiene_servicios) {
         formData.value.nombre = cliente.nombre || formData.value.nombre;
         formData.value.apellido = cliente.apellido || formData.value.apellido;
         formData.value.telefono = cliente.telefono || formData.value.telefono;
-      } else {
-        // Si hay datos del padrón pero también cliente, priorizar padrón pero mantener teléfono del cliente
+        if (cliente.direccion && !formData.value.ubicacion) {
+          formData.value.ubicacion = cliente.direccion;
+        }
+        if (cliente.url_ubicacion && !formData.value.maps_gps) {
+          formData.value.maps_gps = cliente.url_ubicacion;
+        }
+        const nombres = (cliente.servicios || [])
+          .map((s) => s.etiqueta || s.alias)
+          .filter(Boolean)
+          .join(', ');
+        mensajeClienteSuccess.value = nombres
+          ? `Cliente existente con ${cliente.servicios_count} servicio(s): ${nombres}. El pedido se instalará en este mismo cliente.`
+          : `Cliente existente con ${cliente.servicios_count} servicio(s). El pedido se instalará en este mismo cliente.`;
+      } else if (!datosPadron) {
+        formData.value.nombre = cliente.nombre || formData.value.nombre;
+        formData.value.apellido = cliente.apellido || formData.value.apellido;
         formData.value.telefono = cliente.telefono || formData.value.telefono;
+        mensajeClienteSuccess.value = 'Cliente encontrado.';
+      } else {
+        formData.value.telefono = cliente.telefono || formData.value.telefono;
+        mensajeClienteSuccess.value = 'Cliente encontrado.';
       }
-      mensajeClienteSuccess.value = 'Cliente encontrado.';
       errorCliente.value = '';
     } catch (clienteError) {
       if (clienteError.response?.status === 404) {
@@ -496,6 +550,8 @@ const submitForm = async () => {
     nombre: formData.value.nombre,
     apellido: formData.value.apellido,
     telefono: formData.value.telefono,
+    cliente_id: formData.value.cliente_id || null,
+    cliente_fijo: props.clienteFijo ? 1 : 0,
     estado_id: props.estadoId,
     fecha_pedido: formData.value.fecha_pedido,
     ubicacion: formData.value.ubicacion,
@@ -517,12 +573,12 @@ const submitForm = async () => {
       if (props.modalMode) {
         window.dispatchEvent(new CustomEvent('pedido-created', { detail: response.data || {} }));
       } else {
-        window.location.href = props.cancelUrl;
+        window.location.href = response.data?.redirect || props.cancelUrl;
       }
       return;
     }
     if (!props.modalMode) {
-      window.location.href = props.cancelUrl;
+      window.location.href = response.data?.redirect || props.cancelUrl;
     }
   } catch (error) {
     console.error('Error al guardar pedido:', error);

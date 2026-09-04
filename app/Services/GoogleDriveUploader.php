@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class GoogleDriveUploader
 {
+    public const TOKEN_STATUS_CACHE_KEY = 'backup.drive.token_status';
+
     public function isConfigured(): bool
     {
         $d = config('backup.drive', []);
@@ -16,6 +19,46 @@ class GoogleDriveUploader
             && filled($d['client_secret'] ?? null)
             && filled($d['refresh_token'] ?? null)
             && filled($d['folder_id'] ?? null);
+    }
+
+    public static function isExpiredTokenMessage(string $message): bool
+    {
+        $haystack = strtolower($message);
+
+        return str_contains($haystack, 'invalid_grant')
+            || str_contains($haystack, 'token has been expired')
+            || str_contains($haystack, 'token has expired')
+            || str_contains($haystack, 'expired or revoked')
+            || str_contains($haystack, 'refresh token expir');
+    }
+
+    /**
+     * @return 'ok'|'expired'|'missing'|'error'|'no_client'
+     */
+    public function probeRefreshToken(): string
+    {
+        $d = config('backup.drive', []);
+        if (! filled($d['client_id'] ?? null) || ! filled($d['client_secret'] ?? null)) {
+            return 'no_client';
+        }
+        if (! filled($d['refresh_token'] ?? null)) {
+            return 'missing';
+        }
+
+        return Cache::remember(self::TOKEN_STATUS_CACHE_KEY, 180, function () {
+            try {
+                $this->accessToken();
+
+                return 'ok';
+            } catch (\Throwable $e) {
+                return self::isExpiredTokenMessage($e->getMessage()) ? 'expired' : 'error';
+            }
+        });
+    }
+
+    public function forgetTokenStatusCache(): void
+    {
+        Cache::forget(self::TOKEN_STATUS_CACHE_KEY);
     }
 
     /**
@@ -109,7 +152,7 @@ class GoogleDriveUploader
 
     private function accessToken(): string
     {
-        $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+        $response = Http::asForm()->timeout(15)->post('https://oauth2.googleapis.com/token', [
             'client_id' => config('backup.drive.client_id'),
             'client_secret' => config('backup.drive.client_secret'),
             'refresh_token' => config('backup.drive.refresh_token'),
@@ -120,7 +163,7 @@ class GoogleDriveUploader
             $error = (string) ($response->json('error') ?? '');
             $desc = (string) ($response->json('error_description') ?? $response->body());
             $hint = ($error === 'invalid_grant')
-                ? ' El refresh token expiró o fue revocado. Ejecutá: php artisan backup:drive-auth'
+                ? ' El refresh token expiró o fue revocado. En Backup, pulsá «Solicitar acceso».'
                 : '';
 
             throw new RuntimeException(

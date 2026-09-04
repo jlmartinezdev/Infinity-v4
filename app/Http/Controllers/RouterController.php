@@ -251,6 +251,8 @@ class RouterController extends Controller
             'dhcp_total' => $result['dhcp_total'] ?? 0,
             'pppoe_activos' => $result['pppoe_activos'] ?? 0,
             'dhcp_leases' => $result['dhcp_leases'] ?? [],
+            'pppoe_sesiones' => $result['pppoe_sesiones'] ?? [],
+            'partial' => $result['partial'] ?? false,
         ]);
     }
 

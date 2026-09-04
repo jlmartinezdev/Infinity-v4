@@ -166,7 +166,7 @@
         @foreach($facturas as $fi)
         <div class="pl-2 border-l-2 border-gray-300 mb-2">
             <div class="flex justify-between">
-                <span>#{{ $fi->id }}</span>
+                <span>#{{ $fi->id }}@if($fi->aliasesServicioTexto()) · {{ $fi->aliasesServicioTexto() }}@endif</span>
                 <span>{{ number_format($fi->pivot->monto ?? $fi->total, 0, ',', '.') }} PYG</span>
             </div>
             <div class="flex justify-between mt-0.5 text-gray-600">
@@ -275,7 +275,7 @@
     @if($facturas->isNotEmpty())
         <p class="mt-2 font-semibold">{{ $facturas->count() > 1 ? 'FACTURAS INTERNAS:' : 'FACTURA INTERNA:' }}</p>
         @foreach($facturas as $fi)
-            <p>#{{ $fi->id }} {{ number_format($fi->pivot->monto ?? $fi->total, 0, ',', '.') }} PYG | PERIODO {{ $fi->periodo_desde?->format('d/m/Y') }} - {{ $fi->periodo_hasta?->format('d/m/Y') }}</p>
+            <p>#{{ $fi->id }}@if($fi->aliasesServicioTexto()) · {{ $fi->aliasesServicioTexto() }}@endif {{ number_format($fi->pivot->monto ?? $fi->total, 0, ',', '.') }} PYG | PERIODO {{ $fi->periodo_desde?->format('d/m/Y') }} - {{ $fi->periodo_hasta?->format('d/m/Y') }}</p>
         @endforeach
     @endif
 

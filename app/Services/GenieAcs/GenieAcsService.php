@@ -135,6 +135,10 @@ class GenieAcsService
      */
     public function setPassword(Servicio $servicio, string $tipo, string $password, ?string $wifiId = null): array
     {
+        if ($tipo !== 'admin') {
+            return $this->setWifi($servicio, $password, null, $wifiId);
+        }
+
         $hallado = $this->buscarDispositivo($servicio);
         if (! ($hallado['ok'] ?? false)) {
             return $hallado;
@@ -145,44 +149,15 @@ class GenieAcsService
         $id = (string) ($device['_id'] ?? '');
         $crOk = CwmpValues::connectionRequestOk($device);
 
-        if ($tipo === 'admin') {
-            $path = CwmpValues::adminPasswordPath($device);
-            if ($path === null) {
-                return [
-                    'success' => false,
-                    'message' => 'Este CPE no expone un parámetro de clave de administrador por TR-069.',
-                ];
-            }
-            $valores = [[$path, $password, 'xsd:string']];
-            $okMsg = 'Clave del router encolada en el ACS.';
-        } else {
-            $redes = CwmpValues::wifiNetworks($device);
-            if ($wifiId && $wifiId !== 'all') {
-                $redes = array_values(array_filter($redes, fn (array $n) => ($n['id'] ?? '') === $wifiId));
-            } else {
-                $redes = array_values(array_filter($redes, fn (array $n) => (bool) ($n['enabled'] ?? false)));
-            }
-            if ($redes === []) {
-                return [
-                    'success' => false,
-                    'message' => $wifiId && $wifiId !== 'all'
-                        ? 'No se encontró esa red WiFi en el CPE.'
-                        : 'No hay SSIDs activos para cambiar la clave.',
-                ];
-            }
-            $valores = [];
-            foreach ($redes as $net) {
-                $valores[] = [$net['passphrase_path'], $password, 'xsd:string'];
-                $sec = strtolower((string) ($net['security'] ?? ''));
-                if (($net['mode_path'] ?? null) && ($sec === '' || $sec === 'none')) {
-                    $valores[] = [$net['mode_path'], 'WPA2-Personal', 'xsd:string'];
-                }
-            }
-            $nombres = array_values(array_unique(array_map(fn (array $n) => (string) $n['ssid'], $redes)));
-            $okMsg = count($nombres) === 1
-                ? 'Clave WiFi encolada para «'.$nombres[0].'».'
-                : 'Clave WiFi encolada para '.count($nombres).' SSIDs.';
+        $path = CwmpValues::adminPasswordPath($device);
+        if ($path === null) {
+            return [
+                'success' => false,
+                'message' => 'Este CPE no expone un parámetro de clave de administrador por TR-069.',
+            ];
         }
+        $valores = [[$path, $password, 'xsd:string']];
+        $okMsg = 'Clave del router encolada en el ACS.';
 
         $res = $this->postTarea($id, [
             'name' => 'setParameterValues',
@@ -197,6 +172,114 @@ class GenieAcsService
             'device_id' => $id,
             'tipo' => $tipo,
             'wifi_id' => $wifiId,
+            'paths' => array_map(static fn (array $row) => $row[0], $valores),
+        ]);
+
+        if (! $crOk) {
+            $okMsg .= ' Connection Request no disponible: se aplica en el próximo Inform.';
+        }
+
+        return [
+            'success' => true,
+            'message' => $okMsg,
+            'device_id' => $id,
+        ];
+    }
+
+    /**
+     * Cambia clave y/o nombre (SSID) de las redes WiFi (SetParameterValues).
+     *
+     * @return array<string, mixed>
+     */
+    public function setWifi(Servicio $servicio, ?string $password, ?string $ssid, ?string $wifiId = null): array
+    {
+        $password = $password !== null && $password !== '' ? $password : null;
+        $ssid = $ssid !== null ? trim($ssid) : null;
+        $ssid = ($ssid !== null && $ssid !== '') ? $ssid : null;
+
+        if ($password === null && $ssid === null) {
+            return [
+                'success' => false,
+                'message' => 'Indicá una clave o un nombre de red Wi‑Fi.',
+            ];
+        }
+
+        $hallado = $this->buscarDispositivo($servicio);
+        if (! ($hallado['ok'] ?? false)) {
+            return $hallado;
+        }
+
+        /** @var array<string, mixed> $device */
+        $device = $hallado['device'];
+        $id = (string) ($device['_id'] ?? '');
+        $crOk = CwmpValues::connectionRequestOk($device);
+
+        $redes = CwmpValues::wifiNetworks($device);
+        if ($wifiId && $wifiId !== 'all') {
+            $redes = array_values(array_filter($redes, fn (array $n) => ($n['id'] ?? '') === $wifiId));
+        } else {
+            $redes = array_values(array_filter($redes, fn (array $n) => (bool) ($n['enabled'] ?? false)));
+        }
+        if ($redes === []) {
+            return [
+                'success' => false,
+                'message' => $wifiId && $wifiId !== 'all'
+                    ? 'No se encontró esa red WiFi en el CPE.'
+                    : 'No hay SSIDs activos para cambiar.',
+            ];
+        }
+
+        $valores = [];
+        if ($password !== null) {
+            foreach ($redes as $net) {
+                $valores[] = [$net['passphrase_path'], $password, 'xsd:string'];
+                $sec = strtolower((string) ($net['security'] ?? ''));
+                if (($net['mode_path'] ?? null) && ($sec === '' || $sec === 'none')) {
+                    $valores[] = [$net['mode_path'], 'WPA2-Personal', 'xsd:string'];
+                }
+            }
+        }
+        if ($ssid !== null) {
+            foreach ($redes as $net) {
+                $path = $net['ssid_path'] ?? null;
+                if (! is_string($path) || $path === '') {
+                    return [
+                        'success' => false,
+                        'message' => 'Este CPE no expone el parámetro de nombre Wi‑Fi (SSID) por TR-069.',
+                    ];
+                }
+                $valores[] = [$path, $ssid, 'xsd:string'];
+            }
+        }
+
+        $nombresActuales = array_values(array_unique(array_map(fn (array $n) => (string) $n['ssid'], $redes)));
+        $partes = [];
+        if ($ssid !== null) {
+            $partes[] = count($nombresActuales) === 1
+                ? 'Nombre WiFi «'.$ssid.'»'
+                : 'Nombre WiFi «'.$ssid.'» en '.count($redes).' bandas';
+        }
+        if ($password !== null) {
+            $partes[] = count($nombresActuales) === 1
+                ? 'clave de «'.$nombresActuales[0].'»'
+                : 'clave de '.count($redes).' SSIDs';
+        }
+        $okMsg = implode(' y ', $partes).' encolado en el ACS.';
+
+        $res = $this->postTarea($id, [
+            'name' => 'setParameterValues',
+            'parameterValues' => $valores,
+        ]);
+        if (! $res['ok']) {
+            return ['success' => false, 'message' => $res['message']];
+        }
+
+        Log::info('[GenieACS] SetParameterValues wifi', [
+            'servicio_id' => $servicio->servicio_id,
+            'device_id' => $id,
+            'wifi_id' => $wifiId,
+            'cambia_clave' => $password !== null,
+            'cambia_ssid' => $ssid !== null,
             'paths' => array_map(static fn (array $row) => $row[0], $valores),
         ]);
 

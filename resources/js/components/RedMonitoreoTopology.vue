@@ -176,6 +176,7 @@
             >
               <span class="truncate text-gray-800 dark:text-gray-200">{{ n.nombre }}</span>
               <span class="flex items-center gap-1.5 shrink-0">
+                <span v-if="n.status === 'down' && n.ping_caido_desde" class="text-[10px] tabular-nums text-rose-500 font-medium">{{ caidoHace(n) }}</span>
                 <span v-if="(n.clientes_activos || 0) > 0" class="text-[10px] tabular-nums text-sky-600 dark:text-sky-400 font-medium">{{ n.clientes_online || 0 }}/{{ n.clientes_activos }}</span>
                 <span v-if="n.latencia_ms != null" class="text-[10px] tabular-nums font-medium" :class="latenciaTextClass(n.latencia_ms)">{{ n.latencia_ms }}ms</span>
                 <span class="w-2 h-2 rounded-full" :class="statusDot(n.status)"></span>
@@ -188,7 +189,7 @@
       <!-- Canvas -->
       <div
         ref="canvasWrap"
-        class="relative rounded-xl border border-gray-200 dark:border-slate-700 bg-slate-100 dark:bg-[#0b1220] overflow-hidden shadow-sm min-h-[640px]"
+        class="rm-canvas relative rounded-xl border border-gray-200 dark:border-slate-700 bg-slate-100 dark:bg-[#0b1220] overflow-hidden shadow-sm min-h-[640px]"
       >
         <div class="absolute inset-0 opacity-[0.35] dark:opacity-100 pointer-events-none"
           style="background-image: radial-gradient(rgba(148,163,184,0.18) 1px, transparent 1px); background-size: 24px 24px;"
@@ -207,13 +208,14 @@
         </div>
 
         <svg
-          class="relative w-full h-full min-h-[640px] select-none"
+          class="rm-canvas relative w-full h-full min-h-[640px] select-none"
+          :class="panning ? 'cursor-grabbing' : 'cursor-grab'"
           :viewBox="`${view.x} ${view.y} ${view.w} ${view.h}`"
           @wheel.prevent="onWheel"
-          @mousedown="onPanStart"
-          @mousemove="onPanMove"
-          @mouseup="onPanEnd"
-          @mouseleave="onPanEnd"
+          @pointerdown="onPointerDown"
+          @pointermove="onPointerMove"
+          @pointerup="onPointerUp"
+          @pointercancel="onPointerUp"
         >
           <defs>
             <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -373,6 +375,13 @@
               <dt class="text-gray-500 dark:text-gray-400">Último ping</dt>
               <dd class="text-gray-900 dark:text-gray-100">{{ nodoSeleccionado.ping_at || '—' }}</dd>
             </div>
+            <div v-if="nodoSeleccionado.status === 'down'">
+              <dt class="text-gray-500 dark:text-gray-400">Caído desde</dt>
+              <dd class="font-medium text-rose-600 dark:text-rose-400">
+                {{ nodoSeleccionado.caido_desde || '—' }}
+                <span v-if="caidoHace(nodoSeleccionado)" class="block text-[11px] font-normal tabular-nums">{{ caidoHace(nodoSeleccionado) }}</span>
+              </dd>
+            </div>
             <div>
               <dt class="text-gray-500 dark:text-gray-400">Clientes online</dt>
               <dd class="font-semibold tabular-nums" :class="clientesTextClass(nodoSeleccionado)">
@@ -405,6 +414,7 @@
 <script>
 import axios from 'axios';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { formatearCaidoHace } from '@/monitoreo-duracion';
 
 export default {
   name: 'RedMonitoreoTopology',
@@ -446,10 +456,14 @@ export default {
     const notificando = ref(false);
     const flashMsg = ref('');
     const flashOk = ref(true);
+    const ahora = ref(Date.now());
     const animarPaquetes = ref(true);
+    const canvasWrap = ref(null);
     const view = ref({ x: 0, y: 0, w: 1200, h: 720 });
     const panning = ref(false);
     const panOrigin = ref({ x: 0, y: 0, vx: 0, vy: 0 });
+    const pointers = new Map();
+    let pinchOrigin = null;
 
     const byId = computed(() => {
       const m = {};
@@ -497,7 +511,7 @@ export default {
           list.push({
             id: 'down-' + n.id,
             titulo: n.nombre + ' offline',
-            detalle: n.ip || 'Sin IP',
+            detalle: [n.ip || 'Sin IP', caidoHace(n)].filter(Boolean).join(' · '),
             dot: 'bg-rose-500',
           });
         } else if (n.latencia_ms != null && n.latencia_ms >= 100) {
@@ -571,9 +585,15 @@ export default {
       return '#fb7185';
     }
     function latenciaLabel(n) {
-      if (n.status === 'down') return 'timeout';
+      if (n.status === 'down') {
+        const hace = caidoHace(n);
+        return hace ? hace : 'timeout';
+      }
       if (n.latencia_ms == null) return 'sin ping';
       return `${n.latencia_ms} ms`;
+    }
+    function caidoHace(n) {
+      return formatearCaidoHace(n?.ping_caido_desde, ahora.value) || n?.caido_hace || null;
     }
     function clientesLabel(n) {
       const activos = n.clientes_activos || 0;
@@ -740,28 +760,99 @@ export default {
       if (e.deltaY < 0) zoomIn();
       else zoomOut();
     }
-    function onPanStart(e) {
-      if (e.button !== 0) return;
-      panning.value = true;
-      panOrigin.value = { x: e.clientX, y: e.clientY, vx: view.value.x, vy: view.value.y };
+    function canvasSize() {
+      const el = canvasWrap.value;
+      return {
+        w: el?.clientWidth || 900,
+        h: el?.clientHeight || 640,
+        rect: el?.getBoundingClientRect?.() || null,
+      };
     }
-    function onPanMove(e) {
+    function onPointerDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (_) { /* ignore */ }
+
+      if (pointers.size === 1) {
+        panning.value = true;
+        pinchOrigin = null;
+        panOrigin.value = { x: e.clientX, y: e.clientY, vx: view.value.x, vy: view.value.y };
+        return;
+      }
+
+      panning.value = false;
+      const pts = [...pointers.values()];
+      const d = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      pinchOrigin = {
+        dist: d,
+        view: { ...view.value },
+        mid: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 },
+      };
+    }
+    function onPointerMove(e) {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pinchOrigin && pointers.size >= 2) {
+        const pts = [...pointers.values()];
+        const d = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        if (pinchOrigin.dist < 8) return;
+        const factor = pinchOrigin.dist / d;
+        const newW = Math.min(2400, Math.max(400, pinchOrigin.view.w * factor));
+        const newH = Math.min(1440, Math.max(240, pinchOrigin.view.h * factor));
+        const { rect, w, h } = canvasSize();
+        const cx = rect ? pinchOrigin.mid.x - rect.left : w / 2;
+        const cy = rect ? pinchOrigin.mid.y - rect.top : h / 2;
+        const relX = w ? cx / w : 0.5;
+        const relY = h ? cy / h : 0.5;
+        view.value = {
+          x: pinchOrigin.view.x + (pinchOrigin.view.w - newW) * relX,
+          y: pinchOrigin.view.y + (pinchOrigin.view.h - newH) * relY,
+          w: newW,
+          h: newH,
+        };
+        return;
+      }
+
       if (!panning.value) return;
-      const dx = (e.clientX - panOrigin.value.x) * (view.value.w / 900);
-      const dy = (e.clientY - panOrigin.value.y) * (view.value.h / 640);
+      const { w, h } = canvasSize();
+      const dx = (e.clientX - panOrigin.value.x) * (view.value.w / w);
+      const dy = (e.clientY - panOrigin.value.y) * (view.value.h / h);
       view.value = {
         ...view.value,
         x: panOrigin.value.vx - dx,
         y: panOrigin.value.vy - dy,
       };
     }
-    function onPanEnd() {
-      panning.value = false;
+    function onPointerUp(e) {
+      pointers.delete(e.pointerId);
+      try {
+        if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) { /* ignore */ }
+
+      if (pointers.size === 0) {
+        panning.value = false;
+        pinchOrigin = null;
+        return;
+      }
+
+      const pt = [...pointers.values()][0];
+      panning.value = true;
+      pinchOrigin = null;
+      panOrigin.value = { x: pt.x, y: pt.y, vx: view.value.x, vy: view.value.y };
     }
 
     let timer = null;
+    let tickCaido = null;
     const PING_INTERVALO_MS = 60000;
     onMounted(() => {
+      tickCaido = setInterval(() => {
+        ahora.value = Date.now();
+      }, 30000);
       if (urlPing.value) {
         ejecutarPing();
         timer = setInterval(ejecutarPing, PING_INTERVALO_MS);
@@ -771,6 +862,7 @@ export default {
     });
     onUnmounted(() => {
       if (timer) clearInterval(timer);
+      if (tickCaido) clearInterval(tickCaido);
     });
 
     watch(buscar, (q) => {
@@ -799,6 +891,8 @@ export default {
       flashOk,
       animarPaquetes,
       view,
+      panning,
+      canvasWrap,
       paths,
       nodosFiltrados,
       nodoSeleccionado,
@@ -810,6 +904,7 @@ export default {
       latenciaTextClass,
       latenciaSvgColor,
       latenciaLabel,
+      caidoHace,
       clientesLabel,
       clientesSvgColor,
       clientesTextClass,
@@ -826,10 +921,19 @@ export default {
       zoomOut,
       resetView,
       onWheel,
-      onPanStart,
-      onPanMove,
-      onPanEnd,
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
     };
   },
 };
 </script>
+
+<style scoped>
+.rm-canvas {
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+</style>

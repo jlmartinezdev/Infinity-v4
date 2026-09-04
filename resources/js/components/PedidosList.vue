@@ -1641,7 +1641,7 @@ const finalizarPedido = async (pedido) => {
 
     const confirmResult = await Swal.fire({
         title: '¿Finalizar pedido?',
-        html: 'Se marcará el pedido como instalado y los servicios asociados quedarán con estado activo. ¿Continuar?',
+        html: 'Se marcará el pedido como instalado y los servicios asociados quedarán activos. Si el servicio tiene acuerdo de no facturación, no se genera factura interna.',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#16a34a',

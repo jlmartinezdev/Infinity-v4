@@ -26,6 +26,7 @@ class RouterPingStatusService
         $tieneLatencia = Schema::hasColumn('routers', 'ping_latencia_ms');
         $tieneFallos = Schema::hasColumn('routers', 'ping_fallos_seguidos');
         $tieneAlerta = Schema::hasColumn('routers', 'ping_alerta_enviada');
+        $tieneCaidoDesde = Schema::hasColumn('routers', 'ping_caido_desde');
 
         if ($ipInvalida) {
             $update = ['estado' => Router::ESTADO_DESCONOCIDO];
@@ -35,6 +36,9 @@ class RouterPingStatusService
             }
             if ($tieneFallos) {
                 $update['ping_fallos_seguidos'] = 0;
+            }
+            if ($tieneCaidoDesde) {
+                $update['ping_caido_desde'] = null;
             }
             // No resetear alerta en IP inválida: evita re-spam si vuelve a ser pinguable caído.
             $router->fill($update)->saveQuietly();
@@ -56,10 +60,19 @@ class RouterPingStatusService
         $alertaEnviada = (bool) ($router->ping_alerta_enviada ?? false);
 
         if ($ok) {
+            // Igual que APs: un OK suelto no libera el flag (evita re-spam por flap).
+            if ($fallos === 0) {
+                $alertaEnviada = false;
+            }
             $fallos = 0;
-            $alertaEnviada = false;
+            if ($tieneCaidoDesde) {
+                $update['ping_caido_desde'] = null;
+            }
         } else {
             $fallos = min(255, $fallos + 1);
+            if ($tieneCaidoDesde && ! $router->ping_caido_desde) {
+                $update['ping_caido_desde'] = now();
+            }
         }
 
         if ($tieneFallos) {

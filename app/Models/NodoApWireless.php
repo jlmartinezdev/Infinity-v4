@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\MonitoreoDuracion;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ class NodoApWireless extends Model
         'ping_ok',
         'ping_latencia_ms',
         'ping_at',
+        'ping_caido_desde',
         'ping_error',
         'ping_fallos_seguidos',
         'ping_alerta_enviada',
@@ -53,6 +55,7 @@ class NodoApWireless extends Model
             'ping_ok' => 'boolean',
             'ping_latencia_ms' => 'integer',
             'ping_at' => 'datetime',
+            'ping_caido_desde' => 'datetime',
             'ping_fallos_seguidos' => 'integer',
             'ping_alerta_enviada' => 'boolean',
             'uptime_segundos' => 'integer',
@@ -83,9 +86,18 @@ class NodoApWireless extends Model
         $this->ping_at = now();
         $this->ping_error = $result['ok'] ? null : ($result['error'] ?? 'Sin respuesta');
         if ($result['ok']) {
+            // Un ping OK suelto NO libera el flag de aviso: si el AP parpadea
+            // (1 ok / varios fail) re-spamaba WhatsApp cada pocos minutos.
+            // Solo tras 2 OK seguidos (fallos ya en 0) se puede alertar otra caída.
+            if ($fallos === 0) {
+                $this->ping_alerta_enviada = false;
+            }
             $this->ping_fallos_seguidos = 0;
-            $this->ping_alerta_enviada = false;
+            $this->ping_caido_desde = null;
         } else {
+            if ($this->ping_caido_desde === null) {
+                $this->ping_caido_desde = now();
+            }
             $this->ping_fallos_seguidos = min(65535, $fallos + 1);
         }
         $this->saveQuietly();
@@ -129,6 +141,11 @@ class NodoApWireless extends Model
             'ping_ok' => $this->ping_ok,
             'ping_latencia_ms' => $this->ping_latencia_ms,
             'ping_at' => $this->ping_at?->toIso8601String(),
+            'ping_caido_desde' => $this->ping_caido_desde?->toIso8601String(),
+            'caido_desde' => $this->ping_caido_desde
+                ? $this->ping_caido_desde->timezone(config('app.timezone'))->format('d/m/Y H:i')
+                : null,
+            'caido_hace' => MonitoreoDuracion::formatear($this->ping_caido_desde),
             'ping_error' => $this->ping_error,
             'hostname' => $this->hostname,
             'ssid' => $this->ssid,

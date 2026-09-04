@@ -1,6 +1,63 @@
 <template>
-  <div class="relative w-full h-full min-h-[300px]">
-    <div ref="mapContainer" class="absolute inset-0 w-full h-full rounded-lg"></div>
+  <div class="relative w-full h-full min-h-[300px] flex flex-col">
+    <div class="relative z-20 flex-shrink-0 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div class="relative max-w-xl">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+        </svg>
+        <input
+          v-model="busqueda"
+          type="search"
+          autocomplete="off"
+          placeholder="Buscar cliente por nombre, cédula, teléfono o plan…"
+          class="w-full pl-9 pr-9 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+          @focus="mostrarResultados = true"
+          @input="mostrarResultados = true"
+          @keydown.enter.prevent="abrirPrimerResultado"
+          @keydown.escape="mostrarResultados = false"
+          @blur="onBlurBusqueda"
+        />
+        <button
+          v-if="busqueda"
+          type="button"
+          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          title="Limpiar"
+          @mousedown.prevent="limpiarBusqueda"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <ul
+          v-if="mostrarResultados && busqueda.trim() && resultadosBusqueda.length"
+          class="absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg divide-y divide-gray-100 dark:divide-gray-700"
+        >
+          <li v-for="punto in resultadosBusqueda" :key="punto.cliente_id">
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+              @mousedown.prevent="enfocarCliente(punto.cliente_id)"
+              @click.stop.prevent="enfocarCliente(punto.cliente_id)"
+            >
+              <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                {{ punto.nombre || ('Cliente #' + punto.cliente_id) }}
+              </div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <span v-if="punto.cedula">CI {{ punto.cedula }}</span>
+                <span v-if="punto.telefono">{{ punto.cedula ? ' · ' : '' }}{{ punto.telefono }}</span>
+                <span v-if="punto.plan">{{ (punto.cedula || punto.telefono) ? ' · ' : '' }}{{ punto.plan }}</span>
+              </div>
+            </button>
+          </li>
+        </ul>
+        <p
+          v-else-if="mostrarResultados && busqueda.trim() && !resultadosBusqueda.length"
+          class="absolute left-0 right-0 mt-1 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2"
+        >
+          Sin coincidencias para “{{ busqueda.trim() }}”
+        </p>
+      </div>
+    </div>
+    <div class="relative flex-1 min-h-0">
+    <div ref="mapContainer" class="absolute inset-0 w-full h-full"></div>
     <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 rounded-lg">
       <div class="w-[min(360px,92%)] px-4">
         <p class="text-center text-gray-700 dark:text-gray-300">{{ loadingMessage }}</p>
@@ -19,6 +76,7 @@
     </div>
     <div v-if="!apiKey" class="absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg p-4">
       <p class="text-amber-800 dark:text-amber-200 text-center">Falta configurar GOOGLE_MAPS_API_KEY en .env</p>
+    </div>
     </div>
   </div>
 </template>
@@ -42,6 +100,8 @@ const loadingMessage = ref('Cargando mapa...');
 const puntosProcesados = ref(0);
 const totalPuntos = ref(0);
 const error = ref('');
+const busqueda = ref('');
+const mostrarResultados = ref(false);
 let map = null;
 let googleRef = null;
 let markers = [];
@@ -49,11 +109,120 @@ let markerMeta = [];
 let puntosByClienteId = {};
 let sharedInfoWindow = null;
 let pingPollTimer = null;
+let pendingFocusId = null;
+let focusedClienteId = null;
+let bounceTimer = null;
 const iconCache = new Map();
 const progressPercent = computed(() => {
   if (!totalPuntos.value) return 0;
   return Math.round((puntosProcesados.value / totalPuntos.value) * 100);
 });
+
+function normalizarTexto(valor) {
+  return (valor || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function clienteCoincide(punto, termino) {
+  if (!termino) return true;
+  const tokens = normalizarTexto(termino).split(' ').filter(Boolean);
+  if (!tokens.length) return true;
+  const haystack = normalizarTexto([
+    punto.cliente_id,
+    punto.nombre,
+    punto.cedula,
+    punto.telefono,
+    punto.plan,
+    punto.tecnologia,
+  ].filter(Boolean).join(' '));
+  return tokens.every((token) => haystack.includes(token));
+}
+
+const resultadosBusqueda = computed(() => {
+  const q = busqueda.value.trim();
+  if (!q) return [];
+  const fuente = Object.keys(puntosByClienteId).length
+    ? Object.values(puntosByClienteId)
+    : props.puntos;
+  return fuente.filter((p) => clienteCoincide(p, q) && pasaFiltroPingEstado(p)).slice(0, 12);
+});
+
+function onBlurBusqueda() {
+  window.setTimeout(() => {
+    mostrarResultados.value = false;
+  }, 180);
+}
+
+function limpiarBusqueda() {
+  busqueda.value = '';
+  mostrarResultados.value = false;
+  pendingFocusId = null;
+  focusedClienteId = null;
+}
+
+function abrirPrimerResultado() {
+  const primero = resultadosBusqueda.value[0];
+  if (primero) {
+    enfocarCliente(primero.cliente_id);
+  }
+}
+
+function enfocarCliente(clienteId) {
+  const id = Number(clienteId);
+  const punto = puntosByClienteId[id]
+    || puntosByClienteId[clienteId]
+    || props.puntos.find((p) => Number(p.cliente_id) === id);
+  if (!punto) return;
+
+  if (punto.nombre) {
+    busqueda.value = punto.nombre;
+  }
+  mostrarResultados.value = false;
+  focusedClienteId = id;
+
+  const meta = markerMeta.find((m) => Number(m.clienteId) === id);
+  if (!map || !googleRef) {
+    pendingFocusId = id;
+    return;
+  }
+
+  pendingFocusId = meta ? null : id;
+  const pos = (meta && meta.marker && meta.marker.getPosition())
+    || (punto.lat != null && punto.lon != null ? { lat: Number(punto.lat), lng: Number(punto.lon) } : null);
+  if (!pos) return;
+
+  map.panTo(pos);
+  const zoom = map.getZoom();
+  if (!zoom || zoom < 16) {
+    map.setZoom(16);
+  }
+
+  sharedInfoWindow.setContent(buildInfoWindowContent(punto));
+  if (meta && meta.marker) {
+    sharedInfoWindow.open(map, meta.marker);
+    if (bounceTimer) {
+      clearTimeout(bounceTimer);
+      bounceTimer = null;
+    }
+    if (googleRef.maps.Animation) {
+      meta.marker.setAnimation(googleRef.maps.Animation.BOUNCE);
+      bounceTimer = window.setTimeout(() => {
+        meta.marker.setAnimation(null);
+        bounceTimer = null;
+      }, 1400);
+    }
+  } else {
+    sharedInfoWindow.setPosition(pos);
+    sharedInfoWindow.open(map);
+  }
+}
 
 function getHomeMarkerIcon(google, color = '#9333ea') {
   const w = 48;
@@ -102,11 +271,11 @@ function pingEstadoLabel(estado) {
     case 'online':
       return 'Online';
     case 'offline':
-      return 'Sin respuesta';
+      return 'PPPoE caído';
     case 'mixed':
       return 'Parcial';
     default:
-      return 'Sin ping';
+      return 'Sin dato';
   }
 }
 
@@ -156,12 +325,8 @@ function buildInfoWindowContent(p) {
   const detalleHref = urlDetalle(p.cliente_id);
   const pingLabel = pingEstadoLabel(p.ping_estado);
   const pingColor = markerColorByPingEstado(p.ping_estado);
-  const latencia =
-    p.ping_latencia_ms != null && p.ping_latencia_ms !== ''
-      ? `${Math.round(Number(p.ping_latencia_ms))} ms`
-      : '—';
   const serviciosPing =
-    p.ping_total > 0 ? `${p.ping_en_linea ?? 0} / ${p.ping_total} servicios` : 'Sin IP pinguable';
+    p.ping_total > 0 ? `${p.ping_en_linea ?? 0} / ${p.ping_total} servicios` : 'Sin PPPoE para consultar';
 
   return `
     <div class="p-2 min-w-[200px] max-w-[320px]">
@@ -171,8 +336,8 @@ function buildInfoWindowContent(p) {
         <span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${pingColor}"></span>
         <span class="text-gray-800">${escapeHtml(pingLabel)}</span>
       </div>
-      <div class="text-xs text-gray-600 mt-1">Latencia: ${escapeHtml(latencia)} · ${escapeHtml(serviciosPing)}</div>
-      <div class="text-xs text-gray-500 mt-0.5">Último ping: ${escapeHtml(formatVerificadoAt(p.ping_verificado_at))}</div>
+      <div class="text-xs text-gray-600 mt-1">${escapeHtml(serviciosPing)}</div>
+      <div class="text-xs text-gray-500 mt-0.5">Última consulta: ${escapeHtml(formatVerificadoAt(p.ping_verificado_at))}</div>
       ${p.url_ubicacion ? `<a href="${escapeHtml(p.url_ubicacion)}" target="_blank" rel="noopener" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir ubicación</a>` : ''}
       ${detalleHref ? `<a href="${escapeHtml(detalleHref)}" class="inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline">Ver cliente</a>` : ''}
     </div>
@@ -272,10 +437,19 @@ async function initMap(google) {
       if (pasaFiltroPingEstado(p)) {
         bounds.extend(position);
       }
+      if (pendingFocusId === p.cliente_id) {
+        enfocarCliente(p.cliente_id);
+      }
     });
 
     puntosProcesados.value = Math.min(i + batch.length, totalPuntos.value);
     await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  const focusId = pendingFocusId || focusedClienteId;
+  if (focusId) {
+    enfocarCliente(focusId);
+    return;
   }
 
   if (props.puntos.filter(pasaFiltroPingEstado).length > 1) {
@@ -299,7 +473,7 @@ function escapeHtml(text) {
 function updateUltimaActualizacionLabel(isoString) {
   const el = document.getElementById('mapa-ping-ultima-actualizacion');
   if (!el) return;
-  el.textContent = `Ping actualizado: ${formatVerificadoAt(isoString)}`;
+  el.textContent = `PPPoE actualizado: ${formatVerificadoAt(isoString)}`;
   el.classList.remove('hidden');
 }
 
@@ -381,6 +555,10 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (window.__mapaClientesActivosRefrescarPing__ === refrescarPingEstados) {
     delete window.__mapaClientesActivosRefrescarPing__;
+  }
+  if (bounceTimer) {
+    clearTimeout(bounceTimer);
+    bounceTimer = null;
   }
   if (pingPollTimer) {
     clearInterval(pingPollTimer);

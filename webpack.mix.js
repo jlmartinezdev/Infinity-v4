@@ -57,6 +57,7 @@ mix.js('resources/js/aps-wireless.js', 'public/js').vue();
 mix.js('resources/js/herramientas-red.js', 'public/js').vue();
 mix.js('resources/js/tareas-dashboard.js', 'public/js').vue();
 mix.js('resources/js/whatsapp-mensajes.js', 'public/js').vue();
+mix.js('resources/js/whatsapp-test-n8n.js', 'public/js').vue();
 
 mix.postCss('resources/css/app.css', 'public/css', [
     require('tailwindcss'),

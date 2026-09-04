@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\FacturaInterna;
 use App\Services\Portal\PortalAppConfigService;
 use App\Services\Portal\PortalCpeDhcpService;
+use App\Services\Portal\PortalCpeWifiService;
 use App\Services\Portal\PortalFeatureFlagsService;
 use App\Services\Portal\PortalInsightsService;
 use App\Services\Portal\PortalReferidosService;
@@ -28,6 +29,7 @@ class PortalV1Controller extends ApiController
         private readonly PortalReferidosService $referidos,
         private readonly PortalAppConfigService $appConfig,
         private readonly PortalCpeDhcpService $cpeDhcp,
+        private readonly PortalCpeWifiService $cpeWifi,
         private readonly TpagoPaymentLinkService $tpagoLinks,
         private readonly TpagoClient $tpago,
     ) {}
@@ -255,5 +257,63 @@ class PortalV1Controller extends ApiController
             : 'Sin clientes DHCP del CPE (soft-fail / vacío)';
 
         return $this->ok($data, $message);
+    }
+
+    /**
+     * GET Wi‑Fi del CPE (SSID, si se puede cambiar clave). Nunca incluye la clave actual.
+     * Query opcional: servicio_id
+     */
+    public function cpeWifi(Request $request): JsonResponse
+    {
+        $cliente = $request->user()->cliente()->firstOrFail();
+        $servicioId = (int) $request->query('servicio_id', 0);
+        $data = $this->cpeWifi->estado(
+            $cliente,
+            $servicioId > 0 ? $servicioId : null
+        );
+
+        $message = ($data['can_change'] ?? false)
+            ? 'Wi‑Fi del CPE'
+            : (string) ($data['hint'] ?? 'No se puede cambiar la clave desde la app.');
+
+        return $this->ok($data, $message);
+    }
+
+    /**
+     * POST clave y/o nombre Wi‑Fi (TR-069). Body: password y/o ssid, wifi_id opcional, servicio_id opcional.
+     */
+    public function cpeWifiCambiar(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => ['nullable', 'string', 'min:8', 'max:63', 'required_without:ssid'],
+            'ssid' => ['nullable', 'string', 'min:1', 'max:32', 'required_without:password'],
+            'wifi_id' => ['nullable', 'string', 'max:64'],
+            'servicio_id' => ['nullable', 'integer'],
+        ]);
+
+        $cliente = $request->user()->cliente()->firstOrFail();
+        $servicioId = (int) ($validated['servicio_id'] ?? $request->query('servicio_id', 0));
+        $wifiId = isset($validated['wifi_id']) ? trim((string) $validated['wifi_id']) : null;
+        $wifiId = $wifiId !== '' ? $wifiId : null;
+        $password = isset($validated['password']) ? (string) $validated['password'] : null;
+        $ssid = isset($validated['ssid']) ? trim((string) $validated['ssid']) : null;
+
+        $result = $this->cpeWifi->cambiar(
+            $cliente,
+            $password !== '' ? $password : null,
+            $wifiId,
+            $servicioId > 0 ? $servicioId : null,
+            $ssid !== '' ? $ssid : null
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+                'data' => $result['data'] ?? null,
+            ], (int) ($result['http'] ?? 422));
+        }
+
+        return $this->ok($result['data'], $result['message']);
     }
 }

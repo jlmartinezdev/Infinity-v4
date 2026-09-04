@@ -27386,6 +27386,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     initialValues: {
       type: Object,
       default: null
+    },
+    /** Pedido atado a un cliente existente (p. ej. desde su ficha). */
+    clienteFijo: {
+      type: Boolean,
+      default: false
     }
   },
   setup: function setup(__props, _ref) {
@@ -27425,6 +27430,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           formData.value[k] = iv[k];
         }
       }
+      if (iv.tiene_servicios) {
+        var nombres = (iv.servicios || []).map(function (s) {
+          return s.etiqueta || s.alias;
+        }).filter(Boolean).join(', ');
+        mensajeClienteSuccess.value = nombres ? "Cliente existente con ".concat(iv.servicios_count, " servicio(s): ").concat(nombres, ". El pedido se instalar\xE1 en este mismo cliente.") : "Cliente existente con ".concat(iv.servicios_count, " servicio(s). El pedido se instalar\xE1 en este mismo cliente.");
+      } else if (iv.cliente_id) {
+        mensajeClienteSuccess.value = 'Cliente encontrado.';
+      }
+    }
+    if (props.clienteFijo && formData.value.cedula && formData.value.nombre && formData.value.apellido && formData.value.telefono) {
+      currentStep.value = 2;
     }
     var limpiarTelefonoAsociacion = function limpiarTelefonoAsociacion() {
       telefonoAsociacion.value = null;
@@ -27593,11 +27609,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }();
     var buscarCliente = /*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-        var datosPadron, padronResponse, clienteResponse, cliente, _clienteError$respons, _t3, _t4, _t5;
+        var datosPadron, padronResponse, clienteResponse, cliente, _nombres, _clienteError$respons, _t3, _t4, _t5;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.p = _context3.n) {
             case 0:
-              if (!(sinDatosCedula.value || !formData.value.cedula)) {
+              if (!(props.clienteFijo || sinDatosCedula.value || !formData.value.cedula)) {
                 _context3.n = 1;
                 break;
               }
@@ -27642,16 +27658,29 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               clienteResponse = _context3.v;
               cliente = clienteResponse.data;
               formData.value.cliente_id = cliente.cliente_id;
-              // Si no hay datos del padrón, usar datos del cliente
-              if (!datosPadron) {
+              if (cliente.tiene_servicios) {
                 formData.value.nombre = cliente.nombre || formData.value.nombre;
                 formData.value.apellido = cliente.apellido || formData.value.apellido;
                 formData.value.telefono = cliente.telefono || formData.value.telefono;
-              } else {
-                // Si hay datos del padrón pero también cliente, priorizar padrón pero mantener teléfono del cliente
+                if (cliente.direccion && !formData.value.ubicacion) {
+                  formData.value.ubicacion = cliente.direccion;
+                }
+                if (cliente.url_ubicacion && !formData.value.maps_gps) {
+                  formData.value.maps_gps = cliente.url_ubicacion;
+                }
+                _nombres = (cliente.servicios || []).map(function (s) {
+                  return s.etiqueta || s.alias;
+                }).filter(Boolean).join(', ');
+                mensajeClienteSuccess.value = _nombres ? "Cliente existente con ".concat(cliente.servicios_count, " servicio(s): ").concat(_nombres, ". El pedido se instalar\xE1 en este mismo cliente.") : "Cliente existente con ".concat(cliente.servicios_count, " servicio(s). El pedido se instalar\xE1 en este mismo cliente.");
+              } else if (!datosPadron) {
+                formData.value.nombre = cliente.nombre || formData.value.nombre;
+                formData.value.apellido = cliente.apellido || formData.value.apellido;
                 formData.value.telefono = cliente.telefono || formData.value.telefono;
+                mensajeClienteSuccess.value = 'Cliente encontrado.';
+              } else {
+                formData.value.telefono = cliente.telefono || formData.value.telefono;
+                mensajeClienteSuccess.value = 'Cliente encontrado.';
               }
-              mensajeClienteSuccess.value = 'Cliente encontrado.';
               errorCliente.value = '';
               _context3.n = 9;
               break;
@@ -27710,7 +27739,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var submitForm = /*#__PURE__*/function () {
       var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
         var _formData$value$lat, _formData$value$lon, _formData$value$prior;
-        var dataToSubmit, _response$data, _response$data2, response, _error$response, _error$response2, _error$response3, errors, msg, _error$response4, _t6;
+        var dataToSubmit, _response$data, _response$data2, response, _response$data3, _response$data4, _error$response, _error$response2, _error$response3, errors, msg, _error$response4, _t6;
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.p = _context4.n) {
             case 0:
@@ -27727,6 +27756,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 nombre: formData.value.nombre,
                 apellido: formData.value.apellido,
                 telefono: formData.value.telefono,
+                cliente_id: formData.value.cliente_id || null,
+                cliente_fijo: props.clienteFijo ? 1 : 0,
                 estado_id: props.estadoId,
                 fecha_pedido: formData.value.fecha_pedido,
                 ubicacion: formData.value.ubicacion,
@@ -27756,12 +27787,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                   detail: response.data || {}
                 }));
               } else {
-                window.location.href = props.cancelUrl;
+                window.location.href = ((_response$data3 = response.data) === null || _response$data3 === void 0 ? void 0 : _response$data3.redirect) || props.cancelUrl;
               }
               return _context4.a(2);
             case 4:
               if (!props.modalMode) {
-                window.location.href = props.cancelUrl;
+                window.location.href = ((_response$data4 = response.data) === null || _response$data4 === void 0 ? void 0 : _response$data4.redirect) || props.cancelUrl;
               }
               _context4.n = 6;
               break;
@@ -28955,7 +28986,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context4.n = 2;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Finalizar pedido?',
-                html: 'Se marcará el pedido como instalado y los servicios asociados quedarán con estado activo. ¿Continuar?',
+                html: 'Se marcará el pedido como instalado y los servicios asociados quedarán activos. Si el servicio tiene acuerdo de no facturación, no se genera factura interna.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#16a34a',
@@ -29436,51 +29467,57 @@ var _hoisted_5 = {
   class: "w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2"
 };
 var _hoisted_6 = {
-  class: "grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+  key: 0,
+  class: "mt-3 text-sm text-purple-800 dark:text-purple-200"
 };
-var _hoisted_7 = ["disabled", "required"];
-var _hoisted_8 = ["disabled"];
-var _hoisted_9 = {
+var _hoisted_7 = {
+  class: "font-semibold"
+};
+var _hoisted_8 = {
+  key: 0
+};
+var _hoisted_9 = ["disabled", "required"];
+var _hoisted_10 = ["disabled"];
+var _hoisted_11 = {
   key: 0,
   class: "animate-spin h-5 w-5 shrink-0 text-white",
   xmlns: "http://www.w3.org/2000/svg",
   fill: "none",
   viewBox: "0 0 24 24"
 };
-var _hoisted_10 = {
+var _hoisted_12 = {
   class: "truncate"
 };
-var _hoisted_11 = {
+var _hoisted_13 = {
+  key: 1,
   class: "col-span-2 row-start-2 flex h-11 w-full min-w-0 cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium text-gray-700 dark:text-gray-300 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:text-sm"
 };
-var _hoisted_12 = ["checked", "disabled"];
-var _hoisted_13 = {
+var _hoisted_14 = ["checked", "disabled"];
+var _hoisted_15 = {
   key: 0,
   class: "mt-1 text-sm text-green-600 dark:text-green-400"
 };
-var _hoisted_14 = {
+var _hoisted_16 = {
   key: 1,
   class: "mt-1 text-sm text-red-600 dark:text-red-400"
 };
-var _hoisted_15 = {
+var _hoisted_17 = ["disabled"];
+var _hoisted_18 = ["disabled"];
+var _hoisted_19 = {
   key: 0,
   class: "mt-1 text-xs text-gray-500 dark:text-gray-400"
 };
-var _hoisted_16 = {
+var _hoisted_20 = {
   class: "text-lg font-bold text-gray-900 dark:text-gray-100"
 };
-var _hoisted_17 = {
+var _hoisted_21 = {
   class: "text-sm text-gray-600 dark:text-gray-400"
 };
-var _hoisted_18 = {
+var _hoisted_22 = {
   key: 0,
   class: "mt-1 text-xs text-green-600"
 };
-var _hoisted_19 = ["disabled"];
-var _hoisted_20 = ["value"];
-var _hoisted_21 = ["value"];
-var _hoisted_22 = ["value"];
-var _hoisted_23 = ["value"];
+var _hoisted_23 = ["disabled"];
 var _hoisted_24 = ["value"];
 var _hoisted_25 = ["value"];
 var _hoisted_26 = ["value"];
@@ -29490,6 +29527,10 @@ var _hoisted_29 = ["value"];
 var _hoisted_30 = ["value"];
 var _hoisted_31 = ["value"];
 var _hoisted_32 = ["value"];
+var _hoisted_33 = ["value"];
+var _hoisted_34 = ["value"];
+var _hoisted_35 = ["value"];
+var _hoisted_36 = ["value"];
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Header "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Progress Bar "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)([$props.modalMode ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 py-4', "border-b border-gray-200 dark:border-gray-700"])
@@ -29498,7 +29539,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       width: $setup.progressPercentage + '%'
     })
-  }, null, 4 /* STYLE */)])], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Form Content "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
+  }, null, 4 /* STYLE */)]), $props.clienteFijo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_6, [_cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Pedido de instalación para ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_7, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.apellido), 1 /* TEXT */), $setup.formData.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_8, " (#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.cliente_id) + ")", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(". El servicio se creará en este mismo cliente. ", -1 /* CACHED */))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Form Content "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.submitForm, ["prevent"]),
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.modalMode ? 'p-4 sm:p-6' : 'p-6')
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Paso 1: Datos Básicos "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
@@ -29509,27 +29550,30 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)([{
       'sm:col-span-2': $props.modalMode
     }, "min-w-0"])
-  }, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "cedula",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-  }, "Cédula *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, "Cédula *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.clienteFijo ? 'grid grid-cols-1' : 'grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "text",
     id: "cedula",
     "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
       return $setup.formData.cedula = $event;
     }),
     onBlur: $setup.buscarCliente,
-    disabled: $setup.sinDatosCedula,
+    disabled: $setup.sinDatosCedula || $props.clienteFijo,
     autocomplete: "off",
     class: "h-11 w-full min-w-0 px-3 sm:px-4 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed row-start-1 col-start-1",
     placeholder: "1234567",
     required: !$setup.sinDatosCedula
-  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_7), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.cedula]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_9), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.cedula]]), !$props.clienteFijo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+    key: 0,
     type: "button",
     onClick: $setup.buscarCliente,
     disabled: $setup.sinDatosCedula || $setup.buscando || $setup.cargandoCedulaTemporal,
     class: "h-11 w-full min-w-[5.5rem] sm:min-w-0 px-3 sm:px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2 row-start-1 col-start-2 self-stretch"
-  }, [$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_9, _toConsumableArray(_cache[7] || (_cache[7] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, [$setup.buscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_11, _toConsumableArray(_cache[9] || (_cache[9] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29540,15 +29584,15 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "opacity-75",
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  }, null, -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscando ? 'Consultando...' : 'Buscar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_8), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_12, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscando ? 'Consultando...' : 'Buscar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_10)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.clienteFijo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("label", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "checkbox",
     checked: $setup.sinDatosCedula,
     disabled: $setup.cargandoCedulaTemporal || !($props.cedulaTemporalUrl || '').trim(),
     onChange: $setup.onSinDatosCedulaToggle,
     class: "h-4 w-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-500"
-  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_12), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_14), _cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "truncate text-center leading-tight"
-  }, "SIN DATOS", -1 /* CACHED */))])]), $setup.mensajeClienteSuccess && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.mensajeClienteSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorCliente && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCliente), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "SIN DATOS", -1 /* CACHED */))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), $setup.mensajeClienteSuccess && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.mensajeClienteSuccess), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorCliente && !$setup.buscando && !$setup.cargandoCedulaTemporal ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCliente), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "nombre",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Nombre *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29557,9 +29601,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
       return $setup.formData.nombre = $event;
     }),
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
+    disabled: $props.clienteFijo,
+    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed",
     required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.nombre]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Apellido "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 8 /* PROPS */, _hoisted_17), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.nombre]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Apellido "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "apellido",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Apellido *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29568,9 +29613,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "onUpdate:modelValue": _cache[2] || (_cache[2] = function ($event) {
       return $setup.formData.apellido = $event;
     }),
-    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
+    disabled: $props.clienteFijo,
+    class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed",
     required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.apellido]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Celular (en modal queda solo en la columna izquierda del grid) "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 8 /* PROPS */, _hoisted_18), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.apellido]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Celular (en modal queda solo en la columna izquierda del grid) "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "telefono",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Celular *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29584,7 +29630,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
     placeholder: "0981234567 o +595981234567",
     required: ""
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.telefono]]), $setup.verificandoTelefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, "Verificando teléfono…")) : $setup.telefonoAsociacion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", {
+  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.telefono]]), $setup.verificandoTelefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_19, "Verificando teléfono…")) : $setup.telefonoAsociacion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", {
     key: 1,
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["mt-1 text-sm", {
       'text-amber-700 dark:text-amber-300': $setup.telefonoAsociacion.tipo === 'conflicto',
@@ -29599,7 +29645,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "button",
     onClick: $setup.nextStep,
     class: "w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-  }, _toConsumableArray(_cache[13] || (_cache[13] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[15] || (_cache[15] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-6 h-6",
     fill: "none",
     stroke: "currentColor",
@@ -29614,7 +29660,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Nombre del cliente en header "), $setup.formData.nombre && $setup.formData.apellido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 0,
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["pb-4 border-b border-gray-200 dark:border-gray-700", $props.modalMode ? 'sm:col-span-2 mb-0' : 'mb-4'])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.cedula), 1 /* TEXT */)], 2 /* CLASS */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ubicación "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_20, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.cedula), 1 /* TEXT */)], 2 /* CLASS */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ubicación "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[16] || (_cache[16] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "ubicacion",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Dirección *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29626,7 +29672,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
     placeholder: "Esquina calle X",
     required: ""
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.ubicacion]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Maps/GPS "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.ubicacion]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Maps/GPS "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[17] || (_cache[17] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "maps_gps",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Maps/GPS", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
@@ -29638,7 +29684,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onInput: $setup.onMapsGpsInput,
     class: "w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100",
     placeholder: "Pega el link de Google Maps o coordenadas (lat, lon)"
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.maps_gps]]), $setup.formData.lat != null && $setup.formData.lon != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_18, " Coordenadas detectadas: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lon), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Notas "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[16] || (_cache[16] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.formData.maps_gps]]), $setup.formData.lat != null && $setup.formData.lon != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_22, " Coordenadas detectadas: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formData.lon), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Notas "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[18] || (_cache[18] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "observaciones",
     class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
   }, "Notas", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
@@ -29657,7 +29703,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "button",
     onClick: $setup.prevStep,
     class: "w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
-  }, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[19] || (_cache[19] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-6 h-6",
     fill: "none",
     stroke: "currentColor",
@@ -29671,7 +29717,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "submit",
     disabled: $setup.guardando,
     class: "inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-  }, [_cache[18] || (_cache[18] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, [_cache[20] || (_cache[20] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-5 h-5",
     fill: "none",
     stroke: "currentColor",
@@ -29681,59 +29727,59 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M5 13l4 4L19 7"
-  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.guardando ? 'Guardando...' : 'Guardar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_19)], 2 /* CLASS */)], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 2]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Campos ocultos para el formulario "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.guardando ? 'Guardando...' : 'Guardar'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_23)], 2 /* CLASS */)], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.currentStep === 2]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Campos ocultos para el formulario "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "cedula",
     value: $setup.formData.cedula
-  }, null, 8 /* PROPS */, _hoisted_20), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_24), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "nombre",
     value: $setup.formData.nombre
-  }, null, 8 /* PROPS */, _hoisted_21), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_25), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "apellido",
     value: $setup.formData.apellido
-  }, null, 8 /* PROPS */, _hoisted_22), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_26), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "telefono",
     value: $setup.formData.telefono
-  }, null, 8 /* PROPS */, _hoisted_23), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_27), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "estado_id",
     value: $props.estadoId
-  }, null, 8 /* PROPS */, _hoisted_24), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_28), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "fecha_pedido",
     value: $setup.formData.fecha_pedido
-  }, null, 8 /* PROPS */, _hoisted_25), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_29), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "ubicacion",
     value: $setup.formData.ubicacion
-  }, null, 8 /* PROPS */, _hoisted_26), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_30), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "maps_gps",
     value: $setup.formData.maps_gps
-  }, null, 8 /* PROPS */, _hoisted_27), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_31), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "lat",
     value: $setup.formData.lat
-  }, null, 8 /* PROPS */, _hoisted_28), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_32), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "lon",
     value: $setup.formData.lon
-  }, null, 8 /* PROPS */, _hoisted_29), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_33), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "plan_id",
     value: $setup.formData.plan_id
-  }, null, 8 /* PROPS */, _hoisted_30), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_34), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "prioridad_instalacion",
     value: $setup.formData.prioridad_instalacion
-  }, null, 8 /* PROPS */, _hoisted_31), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_35), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "observaciones",
     value: $setup.formData.observaciones
-  }, null, 8 /* PROPS */, _hoisted_32)], 34 /* CLASS, NEED_HYDRATION */)]);
+  }, null, 8 /* PROPS */, _hoisted_36)], 34 /* CLASS, NEED_HYDRATION */)]);
 }
 
 /***/ },

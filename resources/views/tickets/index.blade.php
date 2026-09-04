@@ -26,6 +26,7 @@
     $cantidadFiltrosPanel = (int) (
         request()->filled('estado')
         + request()->filled('ticket_asunto_id')
+        + request()->filled('asignado_id')
         + request()->boolean('ocultar_resuelto_cerrado')
     );
     $resaltar = fn (?string $texto): string => \App\Support\SearchHighlight::html($texto, $busqueda);
@@ -127,6 +128,16 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Técnico</label>
+                                <select name="asignado_id" aria-label="Técnico"
+                                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
+                                    <option value="">Todos</option>
+                                    @foreach ($tecnicos as $t)
+                                        <option value="{{ $t->usuario_id }}" {{ (string) request('asignado_id') === (string) $t->usuario_id ? 'selected' : '' }}>{{ $t->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 select-none">
                                 <input type="checkbox" name="ocultar_resuelto_cerrado" value="1" {{ request()->boolean('ocultar_resuelto_cerrado') ? 'checked' : '' }}
                                     class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 dark:bg-gray-700">
@@ -142,6 +153,15 @@
                     Cliente: <span class="font-medium">{{ trim($clienteFiltro->nombre.' '.($clienteFiltro->apellido ?? '')) }}</span>
                     · <a href="{{ route('tickets.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver todos</a>
                 </p>
+            @endif
+            @if(request()->filled('asignado_id'))
+                @php $tecnicoFiltro = ($tecnicos ?? collect())->firstWhere('usuario_id', (int) request('asignado_id')); @endphp
+                @if($tecnicoFiltro)
+                    <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                        Técnico: <span class="font-medium">{{ $tecnicoFiltro->name }}</span>
+                        · <a href="{{ route('tickets.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Ver todos</a>
+                    </p>
+                @endif
             @endif
         </form>
 

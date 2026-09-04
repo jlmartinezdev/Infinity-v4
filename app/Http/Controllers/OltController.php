@@ -105,6 +105,7 @@ class OltController extends Controller
 
         return $validated;
     }
+
     public function index(Request $request)
     {
         $query = Olt::with(['nodo', 'oltPuertos'])->orderBy('codigo')->orderBy('ip');
@@ -277,11 +278,7 @@ class OltController extends Controller
         try {
             $result = $syncService->sincronizarAlVisualizar($olt, forzar: true);
         } catch (Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'skipped' => false,
-            ], 422);
+            return $this->jsonErrorConsulta($e, ['skipped' => false]);
         }
 
         if ($result === null) {
@@ -303,10 +300,7 @@ class OltController extends Controller
             $result = $syncService->importarDesdeOlt($olt);
         } catch (Throwable $e) {
             if (request()->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $e->getMessage(),
-                ], 422);
+                return $this->jsonErrorConsulta($e);
             }
 
             return redirect()
@@ -330,7 +324,7 @@ class OltController extends Controller
             $result = $syncService->refrescarDetalleTodasLasOnus($olt);
         } catch (Throwable $e) {
             if (request()->expectsJson()) {
-                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+                return $this->jsonErrorConsulta($e);
             }
 
             return redirect()
@@ -354,7 +348,7 @@ class OltController extends Controller
             $result = $syncService->refrescarDetalleOnusPorPon($olt, $ponPort);
         } catch (Throwable $e) {
             if (request()->expectsJson()) {
-                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+                return $this->jsonErrorConsulta($e);
             }
 
             return redirect()
@@ -371,6 +365,49 @@ class OltController extends Controller
         return redirect()
             ->route('sistema.olts.pon-onus', ['olt' => $olt, 'ponPort' => $ponPort])
             ->with($result['success'] ? 'success' : 'warning', $result['message']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function jsonErrorConsulta(Throwable $e, array $extra = [])
+    {
+        $message = $e->getMessage();
+        $preview = $this->previewDesdeMensaje($message);
+
+        return response()->json(array_merge([
+            'success' => false,
+            'message' => $preview ? $this->mensajeSinDump($message) : $message,
+            'preview' => $preview,
+        ], $extra), 422);
+    }
+
+    private function previewDesdeMensaje(string $message): ?string
+    {
+        foreach (['Respuesta del equipo:', 'Salida CLI:', 'Vista previa:'] as $marker) {
+            $pos = mb_stripos($message, $marker);
+            if ($pos !== false) {
+                $preview = trim(mb_substr($message, $pos + mb_strlen($marker)));
+
+                return $preview !== '' ? $preview : null;
+            }
+        }
+
+        return null;
+    }
+
+    private function mensajeSinDump(string $message): string
+    {
+        foreach (['Respuesta del equipo:', 'Salida CLI:', 'Vista previa:'] as $marker) {
+            $pos = mb_stripos($message, $marker);
+            if ($pos !== false) {
+                $corto = trim(mb_substr($message, 0, $pos));
+
+                return $corto !== '' ? $corto : $message;
+            }
+        }
+
+        return $message;
     }
 
     /**

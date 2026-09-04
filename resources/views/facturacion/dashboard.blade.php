@@ -7,7 +7,7 @@
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard de Facturacion</h1>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Facturado, cobrado y pendiente del ciclo mensual: tabla `cobros_resumen` (mes anterior + facturas anticipadas desde el día 20).
+            Facturado, cobrado y pendiente del ciclo mensual: tabla `cobros_resumen` (facturas del mes anterior; las emitidas desde el día 20 cuentan en el mes siguiente).
             Por día: ingreso bruto por fecha de pago del mes actual.
         </p>
     </div>

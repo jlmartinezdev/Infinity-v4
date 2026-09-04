@@ -149,6 +149,33 @@ document.addEventListener('DOMContentLoaded', function() {
     let itemIndex = {{ count($oldItems) }};
     const container = document.getElementById('items-container');
     const addBtn = document.getElementById('add-item');
+    const periodoDesdeInput = document.getElementById('periodo_desde');
+    const periodoHastaInput = document.getElementById('periodo_hasta');
+
+    function formatearFechaIso(iso) {
+        if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+            return null;
+        }
+        const partes = iso.split('-');
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+
+    function sincronizarDescripcionPeriodo() {
+        const desc = document.querySelector('input[name="items[0][descripcion]"]');
+        const desde = formatearFechaIso(periodoDesdeInput && periodoDesdeInput.value);
+        const hasta = formatearFechaIso(periodoHastaInput && periodoHastaInput.value);
+        if (!desc || !desde || !hasta) {
+            return;
+        }
+        desc.value = desc.value.replace(/Período\s+\d{2}\/\d{2}\/\d{4}\s+a\s+\d{2}\/\d{2}\/\d{4}/u, 'Período ' + desde + ' a ' + hasta);
+    }
+
+    if (periodoDesdeInput) {
+        periodoDesdeInput.addEventListener('change', sincronizarDescripcionPeriodo);
+    }
+    if (periodoHastaInput) {
+        periodoHastaInput.addEventListener('change', sincronizarDescripcionPeriodo);
+    }
 
     addBtn.addEventListener('click', function() {
         const row = document.createElement('div');

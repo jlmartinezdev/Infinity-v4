@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Servicio extends Model
 {
@@ -26,6 +27,7 @@ class Servicio extends Model
         'servicio_id',
         'pool_id',
         'plan_id',
+        'alias',
         'pedido_id',
         'ip',
         'usuario_pppoe',
@@ -63,6 +65,8 @@ class Servicio extends Model
 
     const ESTADO_CANCELADO = 'X';
 
+    const ESTADO_PENDIENTE = 'P';
+
     public static function estadosDisponibles(): array
     {
         return [
@@ -70,6 +74,7 @@ class Servicio extends Model
             self::ESTADO_SUSPENDIDO => 'Suspendido',
             self::ESTADO_CORTADO => 'Cortado',
             self::ESTADO_CANCELADO => 'Cancelado',
+            self::ESTADO_PENDIENTE => 'Pendiente',
         ];
     }
 
@@ -90,7 +95,9 @@ class Servicio extends Model
     }
 
     public const ACUERDO_TIPO_NINGUNO = 'ninguno';
+
     public const ACUERDO_TIPO_LIBRE = 'libre';
+
     public const ACUERDO_TIPO_MESES = 'meses';
 
     public static function acuerdosDisponibles(): array
@@ -100,6 +107,126 @@ class Servicio extends Model
             self::ACUERDO_TIPO_LIBRE => 'Internet libre (sin facturar)',
             self::ACUERDO_TIPO_MESES => 'Meses sin facturar',
         ];
+    }
+
+    public function aliasNormalizado(): ?string
+    {
+        $alias = trim((string) ($this->alias ?? ''));
+
+        return $alias !== '' ? $alias : null;
+    }
+
+    public static function normalizarFragmentoUsuarioPppoe(?string $texto): string
+    {
+        $texto = str_replace(['ñ', 'Ñ'], 'n', trim((string) $texto));
+        $texto = str_replace(' ', '_', Str::upper(Str::ascii($texto)));
+
+        return (string) preg_replace('/[^A-Z0-9._-]/', '', $texto);
+    }
+
+    public static function baseUsuarioPppoeDesdeCliente(?Cliente $cliente = null, ?int $clienteId = null): string
+    {
+        $nombre = self::normalizarFragmentoUsuarioPppoe($cliente->nombre ?? '');
+        $apellido = self::normalizarFragmentoUsuarioPppoe($cliente->apellido ?? '');
+        $base = trim($nombre.($nombre !== '' && $apellido !== '' ? '_' : '').$apellido, '_');
+        if (strlen($base) < 2) {
+            return 'CLIENTE'.(int) ($cliente?->cliente_id ?? $clienteId ?? 0);
+        }
+
+        return $base;
+    }
+
+    public static function componerUsuarioPppoe(string $base, ?string $alias = null): string
+    {
+        $base = self::normalizarFragmentoUsuarioPppoe($base);
+        $aliasNorm = self::normalizarFragmentoUsuarioPppoe($alias);
+        if (strlen($base) < 2) {
+            $base = 'CLIENTE';
+        }
+        if ($aliasNorm === '' || $base === $aliasNorm || str_ends_with($base, '_'.$aliasNorm)) {
+            return $base;
+        }
+
+        return $base.'_'.$aliasNorm;
+    }
+
+    /**
+     * @param  list<string>  $ocupados
+     */
+    public static function siguienteUsuarioPppoeLibre(string $base, array $ocupados): string
+    {
+        $base = self::normalizarFragmentoUsuarioPppoe($base);
+        if (strlen($base) < 2) {
+            $base = 'CLIENTE';
+        }
+        $tomados = [];
+        foreach ($ocupados as $ocupado) {
+            $norm = trim((string) $ocupado);
+            if ($norm !== '') {
+                $tomados[$norm] = true;
+            }
+        }
+        $usuario = $base;
+        $n = 1;
+        while (isset($tomados[$usuario])) {
+            $n++;
+            $usuario = $base.'_'.$n;
+        }
+
+        return $usuario;
+    }
+
+    public static function usuarioPppoeDisponible(string $base, ?int $exceptoServicioId = null): string
+    {
+        $query = self::query()->whereNotNull('usuario_pppoe')->where('usuario_pppoe', '!=', '');
+        if ($exceptoServicioId) {
+            $query->where('servicio_id', '!=', $exceptoServicioId);
+        }
+
+        return self::siguienteUsuarioPppoeLibre($base, $query->pluck('usuario_pppoe')->all());
+    }
+
+    public static function usuarioPppoeDesdeClienteYAlias(?Cliente $cliente, ?string $alias = null, ?int $exceptoServicioId = null, ?int $clienteId = null): string
+    {
+        $base = self::componerUsuarioPppoe(
+            self::baseUsuarioPppoeDesdeCliente($cliente, $clienteId ?? $cliente?->cliente_id),
+            $alias
+        );
+
+        return self::usuarioPppoeDisponible($base, $exceptoServicioId);
+    }
+
+    /**
+     * @param  list<string>  $evitar
+     */
+    public static function generarPasswordPppoe(array $evitar = [], int $largo = 8): string
+    {
+        $evitar = array_values(array_filter(array_map('strval', $evitar), fn (string $p) => $p !== ''));
+        for ($i = 0; $i < 24; $i++) {
+            $password = Str::random($largo);
+            if (! in_array($password, $evitar, true)) {
+                return $password;
+            }
+        }
+
+        return Str::random($largo);
+    }
+
+    /**
+     * Texto para distinguir el servicio cuando el cliente tiene más de uno (alias + plan).
+     */
+    public function etiqueta(): string
+    {
+        $alias = $this->aliasNormalizado();
+        $plan = trim((string) ($this->plan?->nombre ?? ''));
+        if ($alias && $plan !== '') {
+            return $alias.' · '.$plan;
+        }
+        if ($alias) {
+            return $alias;
+        }
+
+        return $plan !== '' ? $plan : 'Servicio #'.$this->servicio_id;
     }
 
     public function acuerdoAplicaEnPeriodo(Carbon $periodoDesde, Carbon $periodoHasta): bool
@@ -181,6 +308,29 @@ class Servicio extends Model
     public function conexionEventos(): HasMany
     {
         return $this->hasMany(ServicioConexionEvento::class, 'servicio_id', 'servicio_id');
+    }
+
+    /**
+     * Servicio cargado a mano (p. ej. segundo enlace) y aún no cerrado como instalación este mes.
+     * Los que vienen de un pedido se finalizan desde pedidos.
+     */
+    public function esCandidatoFinalizarInstalacion(?Carbon $hoy = null): bool
+    {
+        if ($this->estado === self::ESTADO_CANCELADO) {
+            return false;
+        }
+        if (! empty($this->pedido_id)) {
+            return false;
+        }
+
+        $hoy = $hoy ? $hoy->copy()->startOfDay() : Carbon::now()->startOfDay();
+        if (! $this->fecha_instalacion) {
+            return true;
+        }
+
+        $fecha = Carbon::parse($this->fecha_instalacion)->startOfDay();
+
+        return $fecha->year === $hoy->year && $fecha->month === $hoy->month;
     }
 
     public function estaActivo(): bool

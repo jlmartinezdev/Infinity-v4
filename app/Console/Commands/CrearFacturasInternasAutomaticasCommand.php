@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Cliente;
-use App\Models\FacturaInterna;
 use App\Models\FacturacionParametro;
+use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 use Carbon\Carbon;
@@ -71,6 +71,7 @@ class CrearFacturasInternasAutomaticasCommand extends Command
                 if ($dryRun) {
                     $this->line("  - Omitido: Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido}) ya tiene factura para el período.");
                 }
+
                 continue;
             }
 
@@ -78,6 +79,7 @@ class CrearFacturasInternasAutomaticasCommand extends Command
                 if ($dryRun) {
                     $this->line("  - Crearía factura para: Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido})");
                     $creadas++;
+
                     continue;
                 }
 
@@ -89,7 +91,8 @@ class CrearFacturasInternasAutomaticasCommand extends Command
                     'pendiente',
                     $fechaVencimiento,
                     null,
-                    self::ESTADOS_SERVICIO_FACTURA_AUTOMATICA
+                    self::ESTADOS_SERVICIO_FACTURA_AUTOMATICA,
+                    enviarWhatsApp: false,
                 );
                 $creadas++;
                 $this->line("  ✓ Factura creada para Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido})");

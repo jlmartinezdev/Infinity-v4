@@ -124,6 +124,25 @@ class Plan extends Model
         ];
     }
 
+    /**
+     * Plan de destino con el precio más cercano al origen (empate: más barato, luego plan_id).
+     *
+     * @param  iterable<int, self>  $planesDestino
+     */
+    public static function equivalentePorPrecio(float $precioOrigen, iterable $planesDestino): ?self
+    {
+        $planes = collect($planesDestino)->filter(fn ($p) => $p instanceof self);
+        if ($planes->isEmpty()) {
+            return null;
+        }
+
+        return $planes->sortBy(fn (self $plan) => [
+            abs((float) $plan->precio - $precioOrigen),
+            (float) $plan->precio,
+            (int) ($plan->plan_id ?? 0),
+        ])->first();
+    }
+
     /** Abreviatura del plan para listados (ej. «Fibra 50» → «F5» o «50MB» → «50MB»). */
     public function iniciales(): string
     {

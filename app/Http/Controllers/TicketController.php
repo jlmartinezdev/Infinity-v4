@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Ticket;
-use App\Models\TicketAsunto;
 use App\Models\Cliente;
 use App\Models\Pedido;
+use App\Models\Ticket;
+use App\Models\TicketAsunto;
 use App\Models\User;
 use App\Services\FacturacionService;
 use Illuminate\Http\Request;
@@ -27,6 +27,9 @@ class TicketController extends Controller
         }
         if ($request->filled('ticket_asunto_id')) {
             $query->where('ticket_asunto_id', $request->ticket_asunto_id);
+        }
+        if ($request->filled('asignado_id')) {
+            $query->where('asignado_id', (int) $request->asignado_id);
         }
 
         if ($busqueda !== '') {
@@ -125,7 +128,7 @@ class TicketController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'ticket_asunto_id' => 'Ya existe un ticket muy reciente con los mismos datos (ID #' . $ticketDuplicado->id . '). Verifique antes de crear otro.',
+                    'ticket_asunto_id' => 'Ya existe un ticket muy reciente con los mismos datos (ID #'.$ticketDuplicado->id.'). Verifique antes de crear otro.',
                 ]);
         }
 
@@ -164,7 +167,7 @@ class TicketController extends Controller
             'imagen' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        if (in_array($validated['estado'], ['resuelto', 'cerrado', 'cancelado'], true) && !$ticket->fecha_cierre) {
+        if (in_array($validated['estado'], ['resuelto', 'cerrado', 'cancelado'], true) && ! $ticket->fecha_cierre) {
             $validated['fecha_cierre'] = now();
         }
 
@@ -186,6 +189,7 @@ class TicketController extends Controller
             Storage::disk('public')->delete($ticket->imagen);
         }
         $ticket->delete();
+
         return redirect()->route('tickets.index')->with('success', 'Ticket eliminado correctamente.');
     }
 
@@ -208,9 +212,10 @@ class TicketController extends Controller
             $params['pedido_id'] = $ticket->pedido_id;
         } else {
             $params['tipo'] = 'general';
-            $asunto = $ticket->ticketAsunto?->nombre ?? 'Ticket #' . $ticket->id;
+            $asunto = $ticket->ticketAsunto?->nombre ?? 'Ticket #'.$ticket->id;
             $params['titulo'] = \Str::limit($asunto, 120);
         }
+
         return redirect()->route('agenda.create', $params);
     }
 

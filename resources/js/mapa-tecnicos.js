@@ -11,6 +11,7 @@ if (el) {
     urlUbicaciones: cfg.urlUbicaciones || '',
     urlClientes: cfg.urlClientes || '',
     urlPedidos: cfg.urlPedidos || '',
+    urlTickets: cfg.urlTickets || '',
     pollSegundos: Number(cfg.pollSegundos) || 15,
     centerLat: Number(cfg.centerLat) || -25.2867,
     centerLng: Number(cfg.centerLng) || -57.647,

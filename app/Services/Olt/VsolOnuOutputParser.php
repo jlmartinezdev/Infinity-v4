@@ -8,10 +8,17 @@ namespace App\Services\Olt;
 class VsolOnuOutputParser
 {
     /** @var array<int, string> */
-    private const ESTADOS_ONLINE = ['working', 'work', 'online', 'up', 'active', 'normal'];
+    private const ESTADOS_ONLINE = [
+        'working', 'work', 'online', 'on-line', 'up', 'active', 'normal',
+        'operation', 'operational', 'ready', 'registered', 'sync', 'syncmib', 'sync-mib',
+    ];
 
     /** @var array<int, string> */
-    private const ESTADOS_OFFLINE = ['offline', 'down', 'deactive', 'deactivated', 'deactivate', 'deregister', 'deregistered', 'registering'];
+    private const ESTADOS_OFFLINE = [
+        'offline', 'off-line', 'down', 'deactive', 'deactivated', 'deactivate',
+        'deregister', 'deregistered', 'registering', 'inactive', 'power-off', 'poweroff',
+        'auto-find', 'autofind',
+    ];
 
     /** @var array<int, string> */
     private const ESTADOS_ALARMA = ['los', 'dyinggasp', 'dying-gasp', 'auth-fail', 'authfail', 'config-fail'];
@@ -73,6 +80,7 @@ class VsolOnuOutputParser
                 if ($desc !== null) {
                     return $desc;
                 }
+
                 continue;
             }
             if (preg_match('/^(none|null|n\/a|empty|desc(?:ription)?)$/i', $line)) {
@@ -265,10 +273,12 @@ class VsolOnuOutputParser
             PREG_SET_ORDER
         )) {
             foreach ($matches as $m) {
-                $slot = $contextPort !== null ? $contextSlot : (int) $m[1];
-                $port = $contextPort ?? (int) $m[3];
+                $parsed = $this->parseOnuIndexFromToken($m[1].'/'.$m[2].'/'.$m[3].':'.$m[4], $contextSlot, $contextPort);
+                if ($parsed === null) {
+                    continue;
+                }
                 $segment = $m[1].'/'.$m[2].'/'.$m[3].':'.$m[4].' '.trim($m[5]);
-                $this->ingestGponSegment($segment, $slot, $port, (int) $m[4], $onus);
+                $this->ingestGponSegment($segment, $parsed['slot'], $parsed['port'], $parsed['onu_index'], $onus);
             }
         }
     }
@@ -319,7 +329,7 @@ class VsolOnuOutputParser
      */
     private function parseGponOnuTokenLine(string $line, int $slot, ?int $port, array &$onus): bool
     {
-        if (! preg_match('/(?:^|\s)(GPON\d+\/\d+:\d+|\d+\/\d+\/\d+:\d+|\d+\/\d+:\d+)/i', $line, $m)) {
+        if (! preg_match('/(?:^|\s|_|-)(GPON\d+\/\d+:\d+|\d+\/\d+\/\d+:\d+|\d+\/\d+:\d+)/i', $line, $m)) {
             return false;
         }
 
@@ -349,18 +359,56 @@ class VsolOnuOutputParser
         }
 
         if (preg_match('/^(\d+)\/(\d+)\/(\d+):(\d+)$/', $token, $m)) {
+            $onuIndex = (int) $m[4];
+            if ($contextPort !== null) {
+                return [
+                    'slot' => $contextSlot,
+                    'port' => $contextPort,
+                    'onu_index' => $onuIndex,
+                ];
+            }
+
+            $shelf = (int) $m[1];
+            $slotPart = (int) $m[2];
+            $portPart = (int) $m[3];
+
+            // VSOL: 1/1/{pon}:{onu} en show onu state ≡ GPON0/{pon}:{onu} en show onu info
+            if ($shelf === 1 && $slotPart === 1) {
+                return [
+                    'slot' => 0,
+                    'port' => $portPart,
+                    'onu_index' => $onuIndex,
+                ];
+            }
+
             return [
-                'slot' => $contextPort !== null ? $contextSlot : (int) $m[1],
-                'port' => $contextPort ?? (int) $m[3],
-                'onu_index' => (int) $m[4],
+                'slot' => $shelf,
+                'port' => $portPart,
+                'onu_index' => $onuIndex,
             ];
         }
 
         if (preg_match('/^(\d+)\/(\d+):(\d+)$/', $token, $m)) {
+            $onuIndex = (int) $m[3];
+            if ($contextPort !== null) {
+                return [
+                    'slot' => $contextSlot,
+                    'port' => $contextPort,
+                    'onu_index' => $onuIndex,
+                ];
+            }
+
+            $slot = (int) $m[1];
+            $port = (int) $m[2];
+            // 1/{pon}:{onu} (sin shelf) también equivale a GPON0/{pon}
+            if ($slot === 1) {
+                $slot = 0;
+            }
+
             return [
-                'slot' => $contextPort !== null ? $contextSlot : (int) $m[1],
-                'port' => $contextPort ?? (int) $m[2],
-                'onu_index' => (int) $m[3],
+                'slot' => $slot,
+                'port' => $port,
+                'onu_index' => $onuIndex,
             ];
         }
 
@@ -479,8 +527,9 @@ class VsolOnuOutputParser
     private function tokenEsEstado(string $token): bool
     {
         $t = strtolower(str_replace('_', '-', trim($token)));
+        $t = preg_replace('/[^a-z0-9-]/', '', $t) ?? $t;
 
-        return in_array($t, array_merge(self::ESTADOS_ONLINE, self::ESTADOS_OFFLINE, self::ESTADOS_ALARMA), true);
+        return $t !== '' && in_array($t, array_merge(self::ESTADOS_ONLINE, self::ESTADOS_OFFLINE, self::ESTADOS_ALARMA), true);
     }
 
     private function isSeparatorLine(string $line): bool
@@ -778,6 +827,7 @@ class VsolOnuOutputParser
     private function normalizeEstado(?string $estado): string
     {
         $e = strtolower(str_replace('_', '-', trim((string) $estado)));
+        $e = preg_replace('/[^a-z0-9-]/', '', $e) ?? $e;
 
         if (in_array($e, self::ESTADOS_ONLINE, true)) {
             return 'working';
@@ -785,7 +835,7 @@ class VsolOnuOutputParser
         if (in_array($e, self::ESTADOS_OFFLINE, true)) {
             return 'offline';
         }
-        if ($e === 'dying-gasp') {
+        if ($e === 'dying-gasp' || $e === 'dyinggasp') {
             return 'dyinggasp';
         }
         if (in_array($e, self::ESTADOS_ALARMA, true)) {

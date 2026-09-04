@@ -97,29 +97,14 @@ class StaffPedidoInstalacionController extends ApiController
 
         $telefonoNorm = TelefonoParaguayHelper::normalize($validated['telefono'] ?? null);
         if ($telefonoNorm !== null && $telefonoNorm !== '') {
-            $clienteMismaCedula = Cliente::where('cedula', $validated['cedula'])->first();
+            $clienteMismaCedula = Cliente::buscarPorCedula($validated['cedula']);
             $excluirClienteId = $clienteMismaCedula?->cliente_id;
             if (TelefonoParaguayHelper::telefonoUsadoPorOtroClienteConPedido($telefonoNorm, $excluirClienteId)) {
                 return $this->fail('Este teléfono ya está en otro pedido (cliente distinto).', 422);
             }
         }
 
-        $cliente = Cliente::where('cedula', $validated['cedula'])->first();
-        if (! $cliente) {
-            $cliente = Cliente::create([
-                'cedula' => $validated['cedula'],
-                'nombre' => $validated['nombre'],
-                'apellido' => $validated['apellido'] ?? null,
-                'telefono' => $validated['telefono'] ?? null,
-                'estado' => 'solo_pedido',
-            ]);
-        } else {
-            $cliente->update([
-                'nombre' => $validated['nombre'],
-                'apellido' => $validated['apellido'] ?? $cliente->apellido,
-                'telefono' => $validated['telefono'] ?? $cliente->telefono,
-            ]);
-        }
+        $cliente = Cliente::resolverParaPedido($validated);
 
         $lat = $validated['lat'] ?? null;
         if (($lat === null || $lon === null) && ! empty($mapsGps)) {
@@ -175,7 +160,17 @@ class StaffPedidoInstalacionController extends ApiController
             'observaciones' => ['nullable', 'string'],
             'descripcion' => ['nullable', 'string'],
             'prioridad_instalacion' => ['nullable', 'integer', 'in:1,2,3'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'lon' => ['nullable', 'numeric', 'between:-180,180'],
+            'longitud' => ['nullable', 'numeric', 'between:-180,180'],
+            'maps_gps' => ['nullable', 'string', 'max:500'],
         ]);
+
+        $gps = $this->pedidos->resolverGpsBody($request->all());
+        if ($gps !== null) {
+            $this->pedidos->aplicarGps($pedido, $gps);
+        }
 
         $obs = $validated['observaciones'] ?? $validated['notas'] ?? null;
         if ($obs !== null) {

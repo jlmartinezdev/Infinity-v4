@@ -301,8 +301,9 @@
                     </svg>
                   </span>
                   <span>{{ s.plan?.nombre ?? '—' }}</span>
-                </span><br>
-                <span class="text-gray-600 dark:text-gray-400 text-xs">{{ s.fecha_instalacion_formatted ?? '—' }}</span>
+                </span>
+                <span v-if="s.alias" class="block text-xs text-purple-600 dark:text-purple-400 mt-0.5">{{ s.alias }}</span>
+                <span class="block text-gray-600 dark:text-gray-400 text-xs mt-0.5">{{ s.fecha_instalacion_formatted ?? '—' }}</span>
               </td>
               <td class="px-4 py-3 text-sm">
                 <div class="inline-flex items-start gap-1.5">
@@ -947,6 +948,7 @@ function coincideBusquedaServicio(servicio, termino) {
     servicio.ip,
     servicio.usuario_pppoe,
     servicio.plan?.nombre,
+    servicio.alias,
     servicio.pool?.router?.nombre,
     servicio.pool?.router?.nodo?.descripcion,
     servicio.servicio_id,

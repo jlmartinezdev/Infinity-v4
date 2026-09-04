@@ -18,6 +18,7 @@ use App\Models\WhatsappAsunto;
 use App\Models\WhatsappContacto;
 use App\Models\WhatsappMensaje;
 use App\Services\FacturacionService;
+use App\Services\WhatsApp\WhatsAppAgentService;
 use App\Services\WhatsApp\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,20 +37,22 @@ class WhatsAppWebController extends Controller
     public function index(): View
     {
         $ultimos = WhatsappMensaje::query()
+            ->excluirSandboxN8n()
             ->latest('id')
             ->limit(8)
             ->get();
 
         $desdeFallidos = now()->subDays(7);
         $fallidosQuery = WhatsappMensaje::query()
+            ->excluirSandboxN8n()
             ->where('direccion', WhatsappMensaje::DIRECCION_SALIDA)
             ->where('estado', WhatsappMensaje::ESTADO_FALLIDO)
             ->where('created_at', '>=', $desdeFallidos);
 
         $conteos = [
-            'hoy' => WhatsappMensaje::query()->whereDate('created_at', today())->count(),
-            'salida' => WhatsappMensaje::query()->where('direccion', 'salida')->whereDate('created_at', today())->count(),
-            'entrada' => WhatsappMensaje::query()->where('direccion', 'entrada')->whereDate('created_at', today())->count(),
+            'hoy' => WhatsappMensaje::query()->excluirSandboxN8n()->whereDate('created_at', today())->count(),
+            'salida' => WhatsappMensaje::query()->excluirSandboxN8n()->where('direccion', 'salida')->whereDate('created_at', today())->count(),
+            'entrada' => WhatsappMensaje::query()->excluirSandboxN8n()->where('direccion', 'entrada')->whereDate('created_at', today())->count(),
             'fallidos' => (clone $fallidosQuery)->count(),
         ];
 
@@ -131,6 +134,8 @@ class WhatsAppWebController extends Controller
                 'marcarLeidos' => route('whatsapp.marcar-leidos'),
                 'asignarAsunto' => route('whatsapp.asignar-asunto'),
                 'guardarContacto' => route('whatsapp.guardar-contacto'),
+                'eliminarMensajeTpl' => url('/whatsapp/mensajes/__ID__'),
+                'eliminarConversacion' => route('whatsapp.conversacion.destroy'),
                 'buscarClienteContacto' => route('whatsapp.buscar-cliente'),
                 'asuntos' => route('whatsapp.asuntos.json'),
                 'enviar' => route('whatsapp.enviar.store'),
@@ -157,6 +162,112 @@ class WhatsAppWebController extends Controller
                 'success' => session('success'),
                 'error' => session('error'),
             ],
+        ]);
+    }
+
+    public function testN8n(Request $request): View
+    {
+        $tel = WhatsAppAgentService::telefonoSandbox($request->get('tel'));
+
+        return view('whatsapp.test-n8n', [
+            'telInicial' => $tel,
+            'urls' => [
+                'hilo' => route('whatsapp.test-n8n.hilo'),
+                'mensaje' => route('whatsapp.test-n8n.mensaje'),
+                'ubicacionAprobada' => route('whatsapp.test-n8n.ubicacion-aprobada'),
+                'borrar' => route('whatsapp.test-n8n.hilo.destroy'),
+            ],
+        ]);
+    }
+
+    public function testN8nHilo(Request $request, WhatsAppAgentService $agent): JsonResponse
+    {
+        $tel = WhatsAppAgentService::telefonoSandbox($request->get('tel'));
+        $mensajes = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->orderBy('id')
+            ->limit(300)
+            ->get()
+            ->filter(fn (WhatsappMensaje $m) => ! data_get($m->payload, 'oculto_hilo'))
+            ->map(fn (WhatsappMensaje $m) => $this->serializeMensaje($m));
+
+        return response()->json([
+            'telefono' => $tel,
+            'mensajes' => $mensajes->values(),
+            'recientes' => $agent->telefonosTestRecientes(),
+        ]);
+    }
+
+    public function testN8nMensaje(Request $request, WhatsAppAgentService $agent): JsonResponse
+    {
+        $validated = $request->validate([
+            'telefono' => ['nullable', 'string', 'max:32'],
+            'mensaje' => ['required', 'string', 'max:2000'],
+        ]);
+
+        @set_time_limit(60);
+        $sim = $agent->simularMensajeCliente(
+            (string) ($validated['telefono'] ?? ''),
+            (string) $validated['mensaje'],
+        );
+        $tel = $sim['telefono'];
+        $mensajes = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->orderBy('id')
+            ->limit(300)
+            ->get()
+            ->filter(fn (WhatsappMensaje $m) => ! data_get($m->payload, 'oculto_hilo'))
+            ->map(fn (WhatsappMensaje $m) => $this->serializeMensaje($m));
+
+        return response()->json([
+            'ok' => $sim['ok'],
+            'telefono' => $tel,
+            'error' => $sim['error'],
+            'agent' => $sim['agent'],
+            'flags' => $sim['flags'],
+            'mensajes' => $mensajes->values(),
+            'recientes' => $agent->telefonosTestRecientes(),
+        ], $sim['error'] === 'mensaje_vacio' ? 422 : 200);
+    }
+
+    public function testN8nUbicacionAprobada(Request $request, WhatsAppAgentService $agent): JsonResponse
+    {
+        $validated = $request->validate([
+            'telefono' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        @set_time_limit(60);
+        $sim = $agent->simularUbicacionAprobada((string) ($validated['telefono'] ?? ''));
+        $tel = $sim['telefono'];
+        $mensajes = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->orderBy('id')
+            ->limit(300)
+            ->get()
+            ->filter(fn (WhatsappMensaje $m) => ! data_get($m->payload, 'oculto_hilo'))
+            ->map(fn (WhatsappMensaje $m) => $this->serializeMensaje($m));
+
+        return response()->json([
+            'ok' => $sim['ok'],
+            'telefono' => $tel,
+            'error' => $sim['error'],
+            'agent' => $sim['agent'],
+            'flags' => $sim['flags'],
+            'mensajes' => $mensajes->values(),
+            'recientes' => $agent->telefonosTestRecientes(),
+        ]);
+    }
+
+    public function testN8nBorrarHilo(Request $request, WhatsAppAgentService $agent): JsonResponse
+    {
+        $tel = WhatsAppAgentService::telefonoSandbox($request->input('telefono') ?: $request->query('telefono'));
+        $borrados = $agent->borrarHiloTest($tel);
+
+        return response()->json([
+            'ok' => true,
+            'telefono' => $tel,
+            'borrados' => $borrados,
+            'recientes' => $agent->telefonosTestRecientes(),
         ]);
     }
 
@@ -320,7 +431,7 @@ class WhatsAppWebController extends Controller
 
         $telefonoNorm = TelefonoParaguayHelper::normalize($validated['telefono'] ?? null);
         if ($telefonoNorm !== null && $telefonoNorm !== '') {
-            $clienteMismaCedula = Cliente::where('cedula', $validated['cedula'])->first();
+            $clienteMismaCedula = Cliente::buscarPorCedula($validated['cedula']);
             $excluirClienteId = $clienteMismaCedula?->cliente_id;
             if (TelefonoParaguayHelper::telefonoUsadoPorOtroClienteConPedido($telefonoNorm, $excluirClienteId)) {
                 return response()->json([
@@ -331,22 +442,7 @@ class WhatsAppWebController extends Controller
             }
         }
 
-        $cliente = Cliente::where('cedula', $validated['cedula'])->first();
-        if (! $cliente) {
-            $cliente = Cliente::create([
-                'cedula' => $validated['cedula'],
-                'nombre' => $validated['nombre'],
-                'apellido' => $validated['apellido'] ?? null,
-                'telefono' => $validated['telefono'] ?? null,
-                'estado' => 'solo_pedido',
-            ]);
-        } else {
-            $cliente->update([
-                'nombre' => $validated['nombre'],
-                'apellido' => $validated['apellido'] ?? $cliente->apellido,
-                'telefono' => $validated['telefono'] ?? $cliente->telefono,
-            ]);
-        }
+        $cliente = Cliente::resolverParaPedido($validated);
 
         $lat = $validated['lat'] ?? null;
         $lon = $validated['lon'] ?? null;
@@ -695,6 +791,36 @@ class WhatsAppWebController extends Controller
         ]);
     }
 
+    /**
+     * Quita un mensaje de Infinity (no lo borra en el WhatsApp del cliente).
+     */
+    public function eliminarMensaje(WhatsappMensaje $mensaje): JsonResponse
+    {
+        $id = (int) $mensaje->id;
+        $this->whatsapp->borrarMensajeLocal($mensaje);
+
+        return response()->json(['ok' => true, 'id' => $id]);
+    }
+
+    /**
+     * Quita todo el hilo de Infinity (no lo borra en el WhatsApp del cliente).
+     */
+    public function eliminarConversacion(Request $request): JsonResponse
+    {
+        $tel = $this->normalizeTel($request->input('telefono') ?: $request->query('telefono'));
+        if (! $tel) {
+            return response()->json(['ok' => false, 'error' => 'Teléfono requerido'], 422);
+        }
+
+        $borrados = $this->whatsapp->borrarChatLocal($tel);
+
+        return response()->json([
+            'ok' => true,
+            'telefono' => $tel,
+            'borrados' => $borrados,
+        ]);
+    }
+
     public function hiloJson(Request $request): JsonResponse
     {
         $tel = $this->normalizeTel($request->get('tel'));
@@ -779,7 +905,9 @@ class WhatsAppWebController extends Controller
 
         return response()->json([
             'telefono' => $tel,
-            'nombre' => $contacto?->nombre,
+            'nombre' => ($contacto?->cliente
+                ? trim(($contacto->cliente->nombre ?? '').' '.($contacto->cliente->apellido ?? ''))
+                : '') ?: (trim((string) ($contacto?->nombre ?? '')) ?: null),
             'cliente_id' => $contacto?->cliente_id,
             'cliente_nombre' => $contacto?->cliente
                 ? trim(($contacto->cliente->nombre ?? '').' '.($contacto->cliente->apellido ?? ''))
@@ -1127,6 +1255,7 @@ class WhatsAppWebController extends Controller
     private function buildConversaciones(string $buscar = '', ?int $asuntoId = null, int $limit = 100, int $offset = 0): array
     {
         $conversacionesQuery = WhatsappMensaje::query()
+            ->excluirSandboxN8n()
             ->whereNotNull('telefono')
             ->where('telefono', '!=', '')
             ->selectRaw("telefono, MAX(id) as ultimo_id, COUNT(*) as total, SUM(CASE WHEN direccion = 'salida' AND estado = 'fallido' THEN 1 ELSE 0 END) as fallidos, SUM(CASE WHEN direccion = 'entrada' AND estado != 'leido' THEN 1 ELSE 0 END) as sin_leer")
@@ -1206,7 +1335,11 @@ class WhatsAppWebController extends Controller
         $items = $agg->map(function ($row) use ($ultimosMsgs, $contactos, $clasificaciones) {
             $ultimo = $ultimosMsgs->get($row->ultimo_id);
             $contacto = $contactos->get($row->telefono);
-            $nombre = $contacto?->nombre ?: $ultimo?->contacto_nombre;
+            $nombreCrm = $contacto?->cliente
+                ? trim(($contacto->cliente->nombre ?? '').' '.($contacto->cliente->apellido ?? ''))
+                : '';
+            $nombreGuardado = trim((string) ($contacto?->nombre ?? ''));
+            $nombre = $nombreCrm !== '' ? $nombreCrm : ($nombreGuardado !== '' ? $nombreGuardado : null);
             $clasif = $clasificaciones->get($row->telefono, [
                 'tipo' => null,
                 'label' => null,

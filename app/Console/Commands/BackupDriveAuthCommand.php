@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Services\GoogleDriveAuthService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 
 class BackupDriveAuthCommand extends Command
 {
@@ -12,14 +12,11 @@ class BackupDriveAuthCommand extends Command
 
     protected $description = 'Autoriza Google Drive (OAuth) y guarda GOOGLE_DRIVE_REFRESH_TOKEN en .env';
 
-    public function handle(): int
+    public function handle(GoogleDriveAuthService $auth): int
     {
-        $clientId = (string) config('backup.drive.client_id');
-        $clientSecret = (string) config('backup.drive.client_secret');
-        $scope = (string) config('backup.drive.scope', 'https://www.googleapis.com/auth/drive.file');
         $port = (int) $this->option('port');
 
-        if ($clientId === '' || $clientSecret === '') {
+        if (! $auth->hasOAuthClient()) {
             $this->error('Faltan GOOGLE_DRIVE_CLIENT_ID / GOOGLE_DRIVE_CLIENT_SECRET en .env');
 
             return self::FAILURE;
@@ -27,16 +24,7 @@ class BackupDriveAuthCommand extends Command
 
         $redirectUri = "http://127.0.0.1:{$port}/";
         $state = bin2hex(random_bytes(16));
-
-        $authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?'.http_build_query([
-            'client_id' => $clientId,
-            'redirect_uri' => $redirectUri,
-            'response_type' => 'code',
-            'scope' => $scope,
-            'access_type' => 'offline',
-            'prompt' => 'consent',
-            'state' => $state,
-        ]);
+        $authUrl = $auth->authorizationUrl($state, $redirectUri);
 
         $this->warn('Abrí la URL en Chrome o Edge normal (NO en el navegador de Cursor).');
         $this->info('1) URL de autorización:');
@@ -61,6 +49,7 @@ class BackupDriveAuthCommand extends Command
             $conn = @stream_socket_accept($socket, 1);
             if ($conn === false) {
                 usleep(200000);
+
                 continue;
             }
 
@@ -104,52 +93,18 @@ class BackupDriveAuthCommand extends Command
             return self::FAILURE;
         }
 
-        $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
-            'code' => $params['code'],
-            'client_id' => $clientId,
-            'client_secret' => $clientSecret,
-            'redirect_uri' => $redirectUri,
-            'grant_type' => 'authorization_code',
-        ]);
-
-        if (! $response->successful()) {
-            $this->error('Error al intercambiar el code: '.$response->body());
+        try {
+            $refresh = $auth->exchangeCode($params['code'], $redirectUri);
+            $auth->persistRefreshToken($refresh);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
 
             return self::FAILURE;
         }
-
-        $refresh = (string) ($response->json('refresh_token') ?? '');
-        if ($refresh === '') {
-            $this->error('Google no devolvió refresh_token. Revocá el acceso de la app en la cuenta Google y reintentá con prompt=consent.');
-
-            return self::FAILURE;
-        }
-
-        $this->writeEnvValue('GOOGLE_DRIVE_REFRESH_TOKEN', $refresh);
-        $this->writeEnvValue('BACKUP_DRIVE_ENABLED', 'true');
 
         $this->info('Listo. GOOGLE_DRIVE_REFRESH_TOKEN guardado en .env y BACKUP_DRIVE_ENABLED=true.');
         $this->comment('Siguiente: creá una carpeta en Drive, copiá su ID (en la URL) a GOOGLE_DRIVE_FOLDER_ID.');
 
         return self::SUCCESS;
-    }
-
-    private function writeEnvValue(string $key, string $value): void
-    {
-        $path = base_path('.env');
-        if (! is_file($path)) {
-            throw new \RuntimeException('.env no encontrado');
-        }
-
-        $content = file_get_contents($path) ?: '';
-        $line = $key.'='.$value;
-
-        if (preg_match('/^'.preg_quote($key, '/').'=.*$/m', $content)) {
-            $content = preg_replace('/^'.preg_quote($key, '/').'=.*$/m', $line, $content) ?? $content;
-        } else {
-            $content = rtrim($content)."\n".$line."\n";
-        }
-
-        file_put_contents($path, $content);
     }
 }

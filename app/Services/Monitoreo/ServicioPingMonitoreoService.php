@@ -3,7 +3,9 @@
 namespace App\Services\Monitoreo;
 
 use App\Models\MonitoreoPingServicio;
+use App\Models\Router;
 use App\Models\Servicio;
+use App\Services\MikroTikService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -11,72 +13,118 @@ use Illuminate\Support\Facades\Schema;
 class ServicioPingMonitoreoService
 {
     public function __construct(
-        private PingExecutor $pingExecutor
+        private MikroTikService $mikroTik
     ) {}
 
     /**
-     * Ejecuta ping a servicios activos con IP válida.
+     * Consulta sesiones PPPoE activas en cada MikroTik y actualiza el estado de los servicios.
      *
-     * @return array{procesados: int, en_linea: int, sin_respuesta: int, omitidos: int}
+     * @return array{procesados: int, en_linea: int, sin_respuesta: int, omitidos: int, errores: int}
      */
-    public function ejecutarRonda(?int $limite = null, ?int $nodoId = null): array
+    public function ejecutarRonda(?int $limite = null, ?int $nodoId = null, ?int $routerId = null): array
     {
         if (! config('monitoreo.habilitado', true)) {
-            return ['procesados' => 0, 'en_linea' => 0, 'sin_respuesta' => 0, 'omitidos' => 0];
+            return ['procesados' => 0, 'en_linea' => 0, 'sin_respuesta' => 0, 'omitidos' => 0, 'errores' => 0];
         }
 
-        $stats = ['procesados' => 0, 'en_linea' => 0, 'sin_respuesta' => 0, 'omitidos' => 0];
-        $lote = (int) config('monitoreo.lote', 40);
+        $stats = ['procesados' => 0, 'en_linea' => 0, 'sin_respuesta' => 0, 'omitidos' => 0, 'errores' => 0];
 
         $query = Servicio::query()
             ->where('estado', Servicio::ESTADO_ACTIVO)
-            ->whereNotNull('ip')
-            ->where('ip', '!=', '')
-            ->select(['servicio_id', 'cliente_id', 'ip'])
-            ->orderBy('servicio_id');
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->whereNotNull('usuario_pppoe')->where('usuario_pppoe', '!=', '');
+                })->orWhere(function ($q2) {
+                    $q2->whereNotNull('ip')->where('ip', '!=', '');
+                });
+            })
+            ->with(['pool.router'])
+            ->orderBy('servicio_id')
+            ->select(['servicio_id', 'cliente_id', 'ip', 'usuario_pppoe', 'pool_id']);
 
         $this->aplicarFiltroNodo($query, $nodoId);
+        if ($routerId !== null && $routerId > 0) {
+            $query->whereHas('pool', fn ($q) => $q->where('router_id', $routerId));
+        }
 
         if ($limite !== null && $limite > 0) {
             $query->limit($limite);
         }
 
-        $query->chunkById($lote, function ($servicios) use (&$stats) {
-            foreach ($servicios as $servicio) {
+        $servicios = $query->get();
+        $porRouter = $servicios->groupBy(fn (Servicio $s) => (int) ($s->pool?->router_id ?? 0));
+
+        foreach ($porRouter as $routerId => $grupo) {
+            $router = $this->routerDelGrupo($grupo);
+            if ((int) $routerId <= 0 || $router === null) {
+                $stats['omitidos'] += $grupo->count();
+
+                continue;
+            }
+
+            $sesiones = $this->mikroTik->listarSesionesPppoeActivas($router);
+            if (! ($sesiones['success'] ?? false)) {
+                $stats['errores'] += $grupo->count();
+
+                continue;
+            }
+
+            $byName = $sesiones['by_name'] ?? [];
+            $byAddress = $sesiones['by_address'] ?? [];
+
+            foreach ($grupo as $servicio) {
+                $usuario = strtolower(trim((string) $servicio->usuario_pppoe));
                 $ip = trim((string) $servicio->ip);
-                if (! $this->pingExecutor->ipEsPinguable($ip)) {
+                if (str_contains($ip, '/')) {
+                    $ip = explode('/', $ip, 2)[0];
+                }
+
+                if ($usuario === '' && $ip === '') {
                     $stats['omitidos']++;
 
                     continue;
                 }
 
-                $resultado = $this->pingExecutor->ping($ip);
+                $sesion = null;
+                if ($usuario !== '') {
+                    $sesion = $byName[$usuario]
+                        ?? $byName[str_replace(' ', '_', $usuario)]
+                        ?? $byName[str_replace('_', ' ', $usuario)]
+                        ?? null;
+                }
+                if ($sesion === null && $ip !== '' && isset($byAddress[$ip])) {
+                    $sesion = $byAddress[$ip];
+                }
+
+                $enLinea = $sesion !== null;
                 $stats['procesados']++;
-                if ($resultado['ok']) {
+                if ($enLinea) {
                     $stats['en_linea']++;
                 } else {
                     $stats['sin_respuesta']++;
                 }
 
+                $ipGuardar = $ip !== '' ? $ip : (string) ($sesion['address'] ?? '');
+
                 MonitoreoPingServicio::query()->updateOrCreate(
                     ['servicio_id' => $servicio->servicio_id],
                     [
                         'cliente_id' => $servicio->cliente_id,
-                        'ip' => $ip,
-                        'en_linea' => $resultado['ok'],
-                        'latencia_ms' => $resultado['latency_ms'],
+                        'ip' => $ipGuardar,
+                        'en_linea' => $enLinea,
+                        'latencia_ms' => null,
                         'verificado_at' => now(),
-                        'error' => $resultado['error'],
+                        'error' => $enLinea ? null : 'PPPoE no activo en MikroTik',
                     ]
                 );
             }
-        }, 'servicio_id');
+        }
 
         return $stats;
     }
 
     /**
-     * Estado agregado de ping por cliente (solo servicios activos monitoreados).
+     * Estado agregado de PPPoE por cliente (solo servicios activos monitoreados).
      *
      * @param  list<int>  $clienteIds
      * @return array<int, array{estado: string, en_linea: int, total: int, latencia_ms: int|null, verificado_at: string|null}>
@@ -106,25 +154,25 @@ class ServicioPingMonitoreoService
 
         $activosPorCliente = Servicio::query()
             ->whereIn('servicio_id', $servicioIds)
-            ->get(['servicio_id', 'cliente_id', 'ip'])
+            ->get(['servicio_id', 'cliente_id', 'ip', 'usuario_pppoe'])
             ->groupBy('cliente_id');
 
         $resultado = [];
         foreach ($clienteIds as $clienteId) {
             $clienteId = (int) $clienteId;
             $serviciosCliente = $activosPorCliente->get($clienteId, collect());
-            $pingables = $serviciosCliente->filter(
-                fn (Servicio $s) => $this->pingExecutor->ipEsPinguable($s->ip)
+            $monitoreables = $serviciosCliente->filter(
+                fn (Servicio $s) => $this->servicioEsMonitoreable($s)
             );
 
-            if ($pingables->isEmpty()) {
+            if ($monitoreables->isEmpty()) {
                 continue;
             }
 
             $registros = $pings->get($clienteId, collect());
             $online = $registros->where('en_linea', true)->count();
             $totalPing = $registros->count();
-            $totalEsperado = $pingables->count();
+            $totalEsperado = $monitoreables->count();
 
             if ($totalPing === 0) {
                 $estado = 'unknown';
@@ -168,7 +216,7 @@ class ServicioPingMonitoreoService
     }
 
     /**
-     * Conteos de servicios activos y online (ping) agrupados por router_id del pool.
+     * Conteos de servicios activos y online (PPPoE) agrupados por router_id del pool.
      *
      * @param  list<int>  $routerIds
      * @return array<int, array{activos: int, online: int, offline: int, sin_dato: int}>
@@ -240,5 +288,21 @@ class ServicioPingMonitoreoService
         }
 
         $query->enNodo($nodoId);
+    }
+
+    private function servicioEsMonitoreable(Servicio $servicio): bool
+    {
+        return trim((string) $servicio->usuario_pppoe) !== ''
+            || trim((string) $servicio->ip) !== '';
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Servicio>  $grupo
+     */
+    private function routerDelGrupo($grupo): ?Router
+    {
+        $router = $grupo->first()?->pool?->router;
+
+        return $router instanceof Router ? $router : null;
     }
 }

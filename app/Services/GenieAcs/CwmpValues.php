@@ -179,7 +179,7 @@ final class CwmpValues
      * Redes WiFi con path de KeyPassphrase para SetParameterValues.
      * No incluye la clave actual: el ACS casi nunca la devuelve.
      *
-     * @return list<array{id: string, ssid: string, enabled: bool, band: ?string, security: ?string, passphrase_path: string, mode_path: ?string}>
+     * @return list<array{id: string, ssid: string, enabled: bool, band: ?string, security: ?string, passphrase_path: string, mode_path: ?string, ssid_path: string|null}>
      */
     public static function wifiNetworks(array $device): array
     {
@@ -388,7 +388,7 @@ final class CwmpValues
     }
 
     /**
-     * @return list<array{id: string, ssid: string, enabled: bool, band: ?string, security: ?string, passphrase_path: string, mode_path: ?string}>
+     * @return list<array{id: string, ssid: string, enabled: bool, band: ?string, security: ?string, passphrase_path: string, mode_path: ?string, ssid_path: string|null}>
      */
     private static function wifiNetworksTr181(array $device): array
     {
@@ -436,6 +436,7 @@ final class CwmpValues
                 'security' => self::scalarOrNull(self::path($ap, 'Security.ModeEnabled')),
                 'passphrase_path' => 'Device.WiFi.AccessPoint.'.$key.'.Security.KeyPassphrase',
                 'mode_path' => 'Device.WiFi.AccessPoint.'.$key.'.Security.ModeEnabled',
+                'ssid_path' => $ssidIdx !== null ? 'Device.WiFi.SSID.'.$ssidIdx.'.SSID' : null,
             ];
         }
 
@@ -443,7 +444,7 @@ final class CwmpValues
     }
 
     /**
-     * @return list<array{id: string, ssid: string, enabled: bool, band: ?string, security: ?string, passphrase_path: string, mode_path: ?string}>
+     * @return list<array{id: string, ssid: string, enabled: bool, band: ?string, security: ?string, passphrase_path: string, mode_path: ?string, ssid_path: string|null}>
      */
     private static function wifiNetworksTr098(array $device): array
     {
@@ -476,6 +477,7 @@ final class CwmpValues
                     'security' => self::scalarOrNull(self::path($wlan, 'BeaconType') ?? self::path($wlan, 'IEEE11iEncryptionMode')),
                     'passphrase_path' => $base.'.KeyPassphrase',
                     'mode_path' => null,
+                    'ssid_path' => $base.'.SSID',
                 ];
             }
         }

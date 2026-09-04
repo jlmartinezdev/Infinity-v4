@@ -8,15 +8,16 @@ use Illuminate\Console\Command;
 class MonitoreoPingServiciosCommand extends Command
 {
     protected $signature = 'monitoreo:ping-servicios
-                            {--limite= : Máximo de servicios a pingear en esta ejecución}
-                            {--nodo= : Solo servicios del nodo (pool/router o caja NAP)}';
+                            {--limite= : Máximo de servicios a consultar en esta ejecución}
+                            {--nodo= : Solo servicios del nodo (pool/router o caja NAP)}
+                            {--router= : Solo servicios de este router_id}';
 
-    protected $description = 'Ejecuta ping ICMP a servicios activos y guarda el estado en monitoreo_ping_servicios.';
+    protected $description = 'Consulta sesiones PPPoE activas en MikroTik y guarda el estado en monitoreo_ping_servicios.';
 
     public function handle(ServicioPingMonitoreoService $monitoreo): int
     {
         if (! config('monitoreo.habilitado', true)) {
-            $this->warn('Monitoreo ping deshabilitado (MONITOREO_PING_HABILITADO=false).');
+            $this->warn('Monitoreo PPPoE deshabilitado (MONITOREO_PING_HABILITADO=false).');
 
             return self::SUCCESS;
         }
@@ -30,16 +31,23 @@ class MonitoreoPingServiciosCommand extends Command
             $this->info("Filtro por nodo_id: {$nodoId}");
         }
 
-        $this->info('Iniciando ronda de ping a servicios activos…');
-        $stats = $monitoreo->ejecutarRonda($limite, $nodoId);
+        $routerOpt = $this->option('router');
+        $routerId = $routerOpt !== null && $routerOpt !== '' ? (int) $routerOpt : null;
+        if ($routerId !== null) {
+            $this->info("Filtro por router_id: {$routerId}");
+        }
+
+        $this->info('Consultando PPPoE activo en MikroTik…');
+        $stats = $monitoreo->ejecutarRonda($limite, $nodoId, $routerId);
 
         $this->table(
             ['Métrica', 'Valor'],
             [
                 ['Procesados', $stats['procesados']],
                 ['En línea', $stats['en_linea']],
-                ['Sin respuesta', $stats['sin_respuesta']],
-                ['Omitidos (IP inválida)', $stats['omitidos']],
+                ['PPPoE caído', $stats['sin_respuesta']],
+                ['Omitidos (sin router)', $stats['omitidos']],
+                ['Errores MikroTik', $stats['errores'] ?? 0],
             ]
         );
 

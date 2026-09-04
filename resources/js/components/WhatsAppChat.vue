@@ -97,13 +97,13 @@
                 <div class="flex items-baseline justify-between gap-2">
                   <p
                     class="wa-title truncate text-[15px]"
-                    :class="(conv.sin_leer || 0) > 0 && telActivo !== conv.telefono ? 'font-semibold' : 'font-normal'"
+                    :class="(conv.sin_leer || 0) > 0 ? 'font-semibold' : 'font-normal'"
                   >
                     {{ conv.nombre || conv.telefono }}
                   </p>
                   <span
                     class="shrink-0 text-[11px]"
-                    :class="(conv.sin_leer || 0) > 0 && telActivo !== conv.telefono ? 'wa-accent' : 'wa-muted'"
+                    :class="(conv.sin_leer || 0) > 0 ? 'wa-accent' : 'wa-muted'"
                   >{{ conv.ultimo_at_label || '' }}</span>
                 </div>
                 <div class="mt-0.5 flex items-center justify-between gap-2">
@@ -126,7 +126,7 @@
                       title="Mensajes fallidos"
                     >{{ conv.fallidos }}</span>
                     <span
-                      v-if="(conv.sin_leer || 0) > 0 && telActivo !== conv.telefono"
+                      v-if="(conv.sin_leer || 0) > 0"
                       class="wa-unread flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold"
                     >{{ conv.sin_leer }}</span>
                   </div>
@@ -239,6 +239,18 @@
                 :href="plantillaUrl(telActivo)"
                 class="wa-accent rounded-lg px-2.5 py-1.5 text-xs font-medium hover:opacity-80"
               >Plantilla</a>
+              <button
+                v-if="puedeEditar"
+                type="button"
+                class="wa-icon-btn rounded-lg p-1.5 text-rose-600 hover:bg-rose-500/10 disabled:opacity-40 dark:text-rose-300"
+                title="Eliminar chat de Infinity (no se borra en el WhatsApp del cliente)"
+                :disabled="eliminandoChat || !telActivo"
+                @click="eliminarChat"
+              >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-9 0h12" />
+                </svg>
+              </button>
             </div>
           </header>
 
@@ -379,6 +391,18 @@
                   <div v-else-if="m.error_message" class="mt-1 text-[11px] text-rose-600 dark:text-rose-200/90">{{ m.error_message }}</div>
 
                   <div class="wa-muted mt-0.5 flex items-center justify-end gap-1.5 text-[11px]">
+                    <button
+                      v-if="puedeEditar"
+                      type="button"
+                      class="wa-msg-del rounded p-0.5 hover:bg-black/10 hover:text-rose-600 disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-rose-300"
+                      title="Eliminar mensaje de Infinity (no se borra en el WhatsApp del cliente)"
+                      :disabled="eliminandoId === m.id"
+                      @click="eliminarMensaje(m)"
+                    >
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-9 0h12" />
+                      </svg>
+                    </button>
                     <span>{{ m.hora }}</span>
                     <template v-if="m.direccion === 'salida' && m.estado === 'fallido' && puedeEditar && configured">
                       <a
@@ -1049,6 +1073,8 @@ export default {
       mediaFailed: {},
       mediaHydrating: {},
       reintentandoId: null,
+      eliminandoId: null,
+      eliminandoChat: false,
       marcandoLeidos: false,
       guardandoAsunto: false,
       texto: '',
@@ -1390,9 +1416,6 @@ export default {
         if (data.ultimo_id) this.ultimoId = Math.max(this.ultimoId, data.ultimo_id);
         if (data.server_now) this.lastSyncAt = data.server_now;
 
-        if (this.puedeEditar && this.configured && (data.sin_leer || 0) > 0) {
-          await this.marcarLeidos(t);
-        }
         if (!incremental && this.puedeEditar && this.configured) {
           this.aplicarSugerenciaSiCorresponde();
           this.focusComposer();
@@ -1602,6 +1625,7 @@ export default {
         this.hiloMeta = { ...this.hiloMeta, sugerencia_ia: null };
         this.textoDesdeIa = false;
         this.sugerenciaAplicadaId = null;
+        await this.marcarLeidos(this.telActivo);
         await this.cargarConversaciones(true);
       } catch (e) {
         const msg = e.response?.data?.error || e.response?.data?.message || 'Falló el envío';
@@ -1645,6 +1669,7 @@ export default {
         } else {
           await this.cargarHilo(this.telActivo, false);
         }
+        await this.marcarLeidos(this.telActivo);
         await this.cargarConversaciones(true);
       } catch (e) {
         const msg = e.response?.data?.error || e.response?.data?.message || 'Falló el envío del archivo';
@@ -1675,6 +1700,52 @@ export default {
         await this.cargarHilo(this.telActivo, false);
       } finally {
         this.reintentandoId = null;
+      }
+    },
+    revokeMedia(id) {
+      if (!id || !this.mediaObjectUrls[id]) return;
+      try { URL.revokeObjectURL(this.mediaObjectUrls[id]); } catch (_) {}
+      const urls = { ...this.mediaObjectUrls };
+      delete urls[id];
+      this.mediaObjectUrls = urls;
+    },
+    async eliminarMensaje(m) {
+      if (!this.puedeEditar || !m?.id) return;
+      if (!confirm('¿Eliminar este mensaje de Infinity?\nNo se borra en el WhatsApp del cliente.')) return;
+      this.eliminandoId = m.id;
+      const url = (this.urls.eliminarMensajeTpl || '/whatsapp/mensajes/__ID__').replace('__ID__', m.id);
+      try {
+        await window.axios.delete(url, { headers: { Accept: 'application/json' } });
+        this.revokeMedia(m.id);
+        this.mensajes = this.mensajes.filter((x) => x.id !== m.id);
+        this.showToast('Mensaje eliminado de Infinity', true);
+        await this.cargarConversaciones(true);
+      } catch (e) {
+        this.showToast(e.response?.data?.error || e.response?.data?.message || 'No se pudo eliminar el mensaje', false);
+      } finally {
+        this.eliminandoId = null;
+      }
+    },
+    async eliminarChat() {
+      if (!this.puedeEditar || !this.telActivo || !this.urls.eliminarConversacion) return;
+      const nombre = this.hiloMeta.nombre || this.telActivo;
+      if (!confirm(`¿Eliminar todo el chat de ${nombre}?\nSe borra solo en Infinity, no en el WhatsApp del cliente.`)) return;
+      this.eliminandoChat = true;
+      const tel = this.telActivo;
+      try {
+        const { data } = await window.axios.delete(this.urls.eliminarConversacion, {
+          params: { telefono: tel },
+          data: { telefono: tel },
+          headers: { Accept: 'application/json' },
+        });
+        this.mensajes.forEach((m) => this.revokeMedia(m.id));
+        this.cerrarChat();
+        this.showToast(`Chat eliminado (${data.borrados ?? 0} mensajes)`, true);
+        await this.cargarConversaciones(true);
+      } catch (e) {
+        this.showToast(e.response?.data?.error || e.response?.data?.message || 'No se pudo eliminar el chat', false);
+      } finally {
+        this.eliminandoChat = false;
       }
     },
 

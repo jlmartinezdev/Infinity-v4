@@ -20,7 +20,7 @@ class ProcesarWhatsappAgentJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 40;
+    public int $timeout = 55;
 
     public function __construct(public int $whatsappMensajeId) {}
 

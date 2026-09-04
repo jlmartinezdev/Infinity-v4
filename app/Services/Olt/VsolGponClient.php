@@ -55,7 +55,11 @@ class VsolGponClient
             $onuState = trim(implode("\n\n", array_filter($stateChunks)));
 
             if ($onuInfo === '' && $onuState === '') {
-                throw new RuntimeException('El OLT no devolvió datos de ONUs. Verifique Telnet y permisos CLI.');
+                $raw = trim(implode("\n\n", array_merge($infoChunks, $stateChunks)));
+                throw new RuntimeException(
+                    'El OLT no devolvió datos de ONUs. Verifique Telnet y permisos CLI.'
+                    .($raw !== '' ? "\n\nSalida CLI:\n".mb_substr($raw, 0, 1500) : '')
+                );
             }
 
             return [
@@ -674,6 +678,7 @@ class VsolGponClient
                         }
                     }
                     $session->exec('exit', 8);
+
                     continue;
                 }
                 if (! $this->salidaInvalida($rawWrite)) {
@@ -697,7 +702,7 @@ class VsolGponClient
                 'message' => $ok
                     ? "Descripción ONU {$ponPort}:{$onuIndex} actualizada a {$desc}."
                     : ($comandoUsado
-                        ? "Se envió el comando, pero la OLT leyó «".($leida ?: 'vacío')."». Verificá en el CLI."
+                        ? 'Se envió el comando, pero la OLT leyó «'.($leida ?: 'vacío').'». Verificá en el CLI.'
                         : 'No se pudo aplicar la descripción en la OLT (comando rechazado).'),
                 'pon_port' => $ponPort,
                 'onu_index' => $onuIndex,

@@ -3,12 +3,12 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class FacturaInterna extends Model
 {
@@ -88,6 +88,48 @@ class FacturaInterna extends Model
         return $this->hasMany(FacturaInternaDetalle::class)->orderBy('id');
     }
 
+    /**
+     * Aliases de los servicios de las líneas (para distinguir varios en la misma casa).
+     *
+     * @return list<string>
+     */
+    public function aliasesServicio(): array
+    {
+        $this->loadMissing('detalles.servicio');
+
+        return $this->detalles
+            ->map(fn (FacturaInternaDetalle $d) => $d->servicio?->aliasNormalizado())
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function aliasesServicioTexto(): ?string
+    {
+        $aliases = $this->aliasesServicio();
+
+        return $aliases === [] ? null : implode(', ', $aliases);
+    }
+
+    public function conceptoConAlias(): string
+    {
+        $this->loadMissing('detalles.servicio');
+
+        return $this->detalles
+            ->map(function (FacturaInternaDetalle $d) {
+                $alias = $d->servicio?->aliasNormalizado();
+                $desc = trim((string) ($d->descripcion ?? ''));
+                if ($alias && $desc !== '') {
+                    return $alias.' · '.$desc;
+                }
+
+                return $alias ?: $desc;
+            })
+            ->filter()
+            ->implode(' / ');
+    }
+
     /** Promesa de pago registrada para esta factura (como máximo una vigente). */
     public function promesaPago(): HasOne
     {
@@ -118,6 +160,7 @@ class FacturaInterna extends Model
         $suma = (float) DB::table('cobro_factura_interna')
             ->where('factura_interna_id', $this->id)
             ->sum('monto');
+
         return min((float) $this->total, $suma);
     }
 

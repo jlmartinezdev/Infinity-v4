@@ -14,9 +14,6 @@
     <div class="mb-4 flex-shrink-0 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
         <div class="min-w-0">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Clientes activos en mapa</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Clientes con al menos un servicio activo y coordenadas válidas (URL de ubicación, enlace corto de Maps, coordenadas del pedido o lat/lon del pedido).
-            </p>
             @if(!empty($nodoSeleccionado))
                 <p class="mt-1 text-sm text-purple-700 dark:text-purple-300">
                     Filtro de nodo: <strong>{{ $nodoSeleccionado->descripcion }}</strong>
@@ -24,7 +21,7 @@
             @endif
             @if(!empty($pingEstadoFiltro))
                 <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                    Filtro de ping: <strong>{{ ($pingEstadoFiltroLabels ?? [])[$pingEstadoFiltro] ?? $pingEstadoFiltro }}</strong>
+                    Filtro PPPoE: <strong>{{ ($pingEstadoFiltroLabels ?? [])[$pingEstadoFiltro] ?? $pingEstadoFiltro }}</strong>
                 </p>
             @endif
             @if(!empty($statsMapa))
@@ -41,11 +38,11 @@
                 </p>
                 <div class="mt-2 flex flex-wrap gap-3 text-xs">
                     <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-600"></span> Online ({{ number_format($statsMapa['ping_online'] ?? 0) }})</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-600"></span> Sin respuesta ({{ number_format($statsMapa['ping_offline'] ?? 0) }})</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-600"></span> PPPoE caído ({{ number_format($statsMapa['ping_offline'] ?? 0) }})</span>
                     <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Parcial ({{ number_format($statsMapa['ping_mixed'] ?? 0) }})</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-400"></span> Sin ping ({{ number_format($statsMapa['ping_unknown'] ?? 0) }})</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-400"></span> Sin dato ({{ number_format($statsMapa['ping_unknown'] ?? 0) }})</span>
                 </div>
-                <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Ping automático cada 7 min · CLI: <code class="text-[10px]">php artisan monitoreo:ping-servicios --nodo=ID</code></p>
+                <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Consulta PPPoE en MikroTik cada 7 min · CLI: <code class="text-[10px]">php artisan monitoreo:ping-servicios --nodo=ID</code></p>
             @endif
         </div>
         <div class="flex flex-col gap-2 shrink-0 w-full lg:w-auto">
@@ -61,14 +58,14 @@
                     </select>
                 </div>
                 <div>
-                    <label for="ping_estado" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Estado ping</label>
+                    <label for="ping_estado" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Estado PPPoE</label>
                     <select name="ping_estado" id="ping_estado"
                             class="block min-w-[160px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm px-3 py-2">
                         <option value="">Todos</option>
                         <option value="online" @selected(($pingEstadoFiltro ?? null) === 'online')>Online</option>
-                        <option value="offline" @selected(($pingEstadoFiltro ?? null) === 'offline')>Sin respuesta</option>
+                        <option value="offline" @selected(($pingEstadoFiltro ?? null) === 'offline')>PPPoE caído</option>
                         <option value="mixed" @selected(($pingEstadoFiltro ?? null) === 'mixed')>Parcial</option>
-                        <option value="unknown" @selected(($pingEstadoFiltro ?? null) === 'unknown')>Sin ping</option>
+                        <option value="unknown" @selected(($pingEstadoFiltro ?? null) === 'unknown')>Sin dato</option>
                     </select>
                 </div>
                 <button type="submit"
@@ -82,9 +79,9 @@
                         data-csrf="{{ csrf_token() }}"
                         data-nodo-id="{{ $nodoIdSeleccionado ?? '' }}"
                         class="inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium text-white bg-purple-600 hover:bg-purple-700 text-sm disabled:opacity-60 disabled:cursor-not-allowed">
-                    Ejecutar ping ahora
+                    Consultar PPPoE ahora
                 </button>
-                <span id="mapa-ping-ejecutando" class="text-xs text-gray-500 dark:text-gray-400 hidden">Ejecutando ping…</span>
+                <span id="mapa-ping-ejecutando" class="text-xs text-gray-500 dark:text-gray-400 hidden">Consultando MikroTik…</span>
                 <span id="mapa-ping-ultima-actualizacion" class="text-xs text-gray-500 dark:text-gray-400 hidden"></span>
                 <a href="{{ route('clientes.index') }}"
                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm">
@@ -107,7 +104,7 @@
         <div class="mt-4 px-4 py-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             No hay clientes con estado «{{ ($pingEstadoFiltroLabels ?? [])[$pingEstadoFiltro] ?? $pingEstadoFiltro }}» en el mapa actual.
             @if(($statsMapa['en_mapa_total'] ?? 0) > 0)
-                Hay {{ number_format($statsMapa['en_mapa_total']) }} cliente(s) con otro estado de ping.
+                Hay {{ number_format($statsMapa['en_mapa_total']) }} cliente(s) con otro estado PPPoE.
             @endif
         </div>
     @endif
@@ -143,7 +140,7 @@
 
         const nodoId = selectNodo && selectNodo.value ? selectNodo.value : '';
         const scope = nodoId ? 'el nodo seleccionado' : 'todos los nodos';
-        if (!confirm('¿Ejecutar ping ahora para ' + scope + '? Puede tardar unos segundos.')) {
+        if (!confirm('¿Consultar PPPoE ahora para ' + scope + '? Puede tardar unos segundos.')) {
             return;
         }
 
@@ -171,11 +168,11 @@
 
             const data = await response.json().catch(function () { return {}; });
             if (!response.ok || !data.ok) {
-                throw new Error(data.message || 'No se pudo ejecutar el ping.');
+                throw new Error(data.message || 'No se pudo consultar PPPoE.');
             }
 
             if (labelResultado) {
-                labelResultado.textContent = data.message || 'Ping ejecutado.';
+                labelResultado.textContent = data.message || 'PPPoE consultado.';
                 labelResultado.classList.remove('hidden');
             }
 
@@ -185,7 +182,7 @@
                 window.location.reload();
             }
         } catch (err) {
-            alert(err.message || 'Error al ejecutar ping.');
+            alert(err.message || 'Error al consultar PPPoE.');
         } finally {
             btn.disabled = false;
             labelEjecutando?.classList.add('hidden');

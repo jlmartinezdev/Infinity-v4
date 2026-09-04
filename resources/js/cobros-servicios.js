@@ -7,7 +7,7 @@ const el = document.getElementById('cobros-servicios-app');
 if (el) {
   const cfg = typeof window.__COBROS_SERVICIOS_CONFIG__ !== 'undefined' ? window.__COBROS_SERVICIOS_CONFIG__ : {};
   const app = createApp(CobrosServiciosList, {
-    servicios: cfg.servicios || [],
+    urlDatos: cfg.urlDatos || '',
     urlCobrosIndex: cfg.urlCobrosIndex || '',
     urlEditServicioBase: cfg.urlEditServicioBase || '',
     urlCrearCobroBase: cfg.urlCrearCobroBase || '',

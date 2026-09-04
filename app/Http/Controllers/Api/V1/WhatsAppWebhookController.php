@@ -148,18 +148,6 @@ class WhatsAppWebhookController extends ApiController
                 $this->inboundTickets->handle($registro);
             }
         }
-
-        // Contactos sin mensaje (solo metadatos) también sincronizan nombre.
-        foreach (data_get($value, 'contacts', []) as $contact) {
-            if (! is_array($contact)) {
-                continue;
-            }
-            $telefono = (string) ($contact['wa_id'] ?? '');
-            $nombre = trim((string) data_get($contact, 'profile.name', ''));
-            if ($telefono !== '' && $nombre !== '') {
-                $this->whatsapp->sincronizarContacto($telefono, $nombre);
-            }
-        }
     }
 
     /**
@@ -167,18 +155,6 @@ class WhatsAppWebhookController extends ApiController
      */
     private function procesarEstados(array $value): void
     {
-        // Status webhooks a veces traen contacts[].profile.name
-        foreach (data_get($value, 'contacts', []) as $contact) {
-            if (! is_array($contact)) {
-                continue;
-            }
-            $telefono = (string) ($contact['wa_id'] ?? '');
-            $nombre = trim((string) data_get($contact, 'profile.name', ''));
-            if ($telefono !== '' && $nombre !== '') {
-                $this->whatsapp->sincronizarContacto($telefono, $nombre);
-            }
-        }
-
         foreach (data_get($value, 'statuses', []) as $status) {
             if (! is_array($status)) {
                 continue;

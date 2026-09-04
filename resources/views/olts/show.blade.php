@@ -202,14 +202,15 @@
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Aún no se importaron ONUs desde el equipo.</p>
                 @endif
                 @if($olt->onus_sync_error)
-                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">Último error: {{ $olt->onus_sync_error }}</p>
+                    <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">Último error:
+{{ $olt->onus_sync_error }}</pre>
                 @endif
             </div>
             <div class="flex flex-wrap gap-2">
                 @if($olt->tieneCredencialesGestion())
                     <form action="{{ route('sistema.olts.test-gestion', $olt) }}" method="POST" class="inline js-olt-consulta"
                           data-loading="Probando conexión…"
-                          data-reload="{{ route('sistema.olts.show', ['olt' => $olt, 'sin_sync' => 1]) }}">
+                          data-keep-page="1">
                         @csrf
                         <button type="submit" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                             Probar conexión

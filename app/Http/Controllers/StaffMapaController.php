@@ -6,6 +6,7 @@ use App\Helpers\MapsUrlHelper;
 use App\Models\Cliente;
 use App\Models\Pedido;
 use App\Models\Servicio;
+use App\Models\Ticket;
 use App\Services\Staff\StaffUbicacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +26,7 @@ class StaffMapaController extends Controller
             'urlUbicaciones' => route('staff.mapa-tecnicos.ubicaciones'),
             'urlClientes' => route('staff.mapa-tecnicos.clientes'),
             'urlPedidos' => route('staff.mapa-tecnicos.pedidos'),
+            'urlTickets' => route('staff.mapa-tecnicos.tickets'),
             'pollSegundos' => 15,
         ]);
     }
@@ -154,6 +156,85 @@ class StaffMapaController extends Controller
                 'message' => 'No se pudieron cargar los pedidos en el mapa.',
             ], 500);
         }
+    }
+
+    public function tickets(): JsonResponse
+    {
+        try {
+            $tickets = Ticket::query()
+                ->with([
+                    'ticketAsunto:id,nombre',
+                    'asignado:usuario_id,name',
+                    'pedido:pedido_id,lat,lon,maps_gps,ubicacion',
+                    'cliente:cliente_id,nombre,apellido,url_ubicacion,direccion',
+                    'cliente.pedidos' => fn ($q) => $q->latest('pedido_id')->limit(1)
+                        ->select(['pedido_id', 'cliente_id', 'maps_gps', 'lat', 'lon']),
+                ])
+                ->whereNotIn('estado', Ticket::estadosStaffCerrados())
+                ->orderByDesc('id')
+                ->limit(1500)
+                ->get();
+
+            $puntos = [];
+            foreach ($tickets as $ticket) {
+                $coords = $this->coordsTicket($ticket);
+                if ($coords['lat'] === null || $coords['lng'] === null) {
+                    continue;
+                }
+                $nombre = trim(implode(' ', array_filter([
+                    $ticket->cliente?->nombre,
+                    $ticket->cliente?->apellido,
+                ])));
+                $puntos[] = [
+                    'id' => (int) $ticket->id,
+                    'nombre' => $nombre !== '' ? $nombre : 'Ticket #'.$ticket->id,
+                    'asunto' => $ticket->ticketAsunto?->nombre ?: 'Sin asunto',
+                    'estado' => Ticket::estados()[$ticket->estado] ?? (string) $ticket->estado,
+                    'asignado' => $ticket->asignado?->name,
+                    'lat' => $coords['lat'],
+                    'lng' => $coords['lng'],
+                    'direccion' => trim((string) ($ticket->cliente?->direccion ?? $ticket->pedido?->ubicacion ?? '')),
+                    'url' => route('tickets.edit', $ticket->id),
+                ];
+            }
+
+            return response()->json(['success' => true, 'data' => $puntos]);
+        } catch (Throwable $e) {
+            Log::error('mapa-tecnicos.tickets', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudieron cargar los tickets en el mapa.',
+            ], 500);
+        }
+    }
+
+    /**
+     * @return array{lat: float|null, lng: float|null}
+     */
+    private function coordsTicket(Ticket $ticket): array
+    {
+        $pedido = $ticket->pedido;
+        if ($pedido) {
+            $lat = $pedido->lat !== null ? (float) $pedido->lat : null;
+            $lon = $pedido->lon !== null ? (float) $pedido->lon : null;
+            if ($lat !== null && $lon !== null) {
+                return ['lat' => $lat, 'lng' => $lon];
+            }
+            $mapsGps = trim((string) ($pedido->maps_gps ?? ''));
+            if ($mapsGps !== '') {
+                $coords = MapsUrlHelper::extractLatLonFromMapsUrl($mapsGps, false);
+                if ($coords['lat'] !== null && $coords['lon'] !== null) {
+                    return ['lat' => (float) $coords['lat'], 'lng' => (float) $coords['lon']];
+                }
+            }
+        }
+
+        if ($ticket->cliente) {
+            return $this->coordsCliente($ticket->cliente);
+        }
+
+        return ['lat' => null, 'lng' => null];
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Services\Monitoreo\PingExecutor;
 use App\Services\Monitoreo\RouterPingStatusService;
 use App\Services\Monitoreo\ServicioPingMonitoreoService;
 use App\Support\IspFailoverConfig;
+use App\Support\MonitoreoDuracion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -157,6 +158,7 @@ class RedMonitoreoController extends Controller
         $layout = config('red_monitoreo.layout', []);
         $enlacesCfg = config('red_monitoreo.enlaces', []);
         $tieneCols = Schema::hasColumn('routers', 'ping_latencia_ms');
+        $tieneCaidoDesde = Schema::hasColumn('routers', 'ping_caido_desde');
 
         $routers = Router::with('nodo')
             ->orderBy('nombre')
@@ -185,6 +187,9 @@ class RedMonitoreoController extends Controller
             $pingAt = $tieneCols && $router && $router->ping_at
                 ? $router->ping_at->timezone(config('app.timezone'))->format('d/m/Y H:i:s')
                 : null;
+            $caidoDesde = $tieneCaidoDesde && $router && $router->ping_caido_desde
+                ? $router->ping_caido_desde->timezone(config('app.timezone'))
+                : null;
 
             if ($latencia !== null) {
                 $latencias[] = (int) $latencia;
@@ -208,6 +213,9 @@ class RedMonitoreoController extends Controller
                 'status' => $status,
                 'latencia_ms' => $latencia,
                 'ping_at' => $pingAt,
+                'ping_caido_desde' => $caidoDesde?->toIso8601String(),
+                'caido_desde' => $caidoDesde?->format('d/m/Y H:i'),
+                'caido_hace' => MonitoreoDuracion::formatear($caidoDesde),
                 'clientes_activos' => (int) $conteo['activos'],
                 'clientes_online' => (int) $conteo['online'],
                 'clientes_offline' => (int) $conteo['offline'],

@@ -8,7 +8,7 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Técnicos en mapa</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Flota en vivo desde la app ISP Staff. Verde = reporte en los últimos 5 minutos; gris = offline.
-            Podés activar capas de clientes y pedidos, y satélite. El mapa mantiene el estilo claro de Google.
+            Podés activar capas de clientes, pedidos y tickets, y satélite. El mapa mantiene el estilo claro de Google.
         </p>
     </div>
 
@@ -24,6 +24,7 @@
         'urlUbicaciones' => $urlUbicaciones ?? '',
         'urlClientes' => $urlClientes ?? '',
         'urlPedidos' => $urlPedidos ?? '',
+        'urlTickets' => $urlTickets ?? '',
         'pollSegundos' => (int) ($pollSegundos ?? 15),
         'centerLat' => -25.2867,
         'centerLng' => -57.647,

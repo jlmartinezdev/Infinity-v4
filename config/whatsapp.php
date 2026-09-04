@@ -98,6 +98,78 @@ return [
         'auto_send' => (bool) env('WA_AGENT_AUTO_SEND', false),
         /** Crear ticket si escalate=true. En entrenamiento conviene false. */
         'auto_ticket' => (bool) env('WA_AGENT_AUTO_TICKET', false),
+        /** Últimos N mensajes del hilo que se mandan a N8N (no incluye el actual). */
+        'historial_limite' => max(0, (int) env('WA_AGENT_HISTORIAL_LIMITE', 12)),
+        /** true = solo el chat de hoy (zona horaria de la app). Días anteriores no entran al prompt. */
+        'historial_solo_hoy' => filter_var(env('WA_AGENT_HISTORIAL_SOLO_HOY', true), FILTER_VALIDATE_BOOLEAN),
+        /** Si historial_solo_hoy es false: mensajes de los últimos N días. 0 = sin recorte por fecha. */
+        'historial_dias' => max(0, (int) env('WA_AGENT_HISTORIAL_DIAS', 1)),
+        /** Lunes a viernes, hora local de APP_TIMEZONE. */
+        'horario_desde' => env('WA_AGENT_HORARIO_DESDE', '09:00'),
+        'horario_hasta' => env('WA_AGENT_HORARIO_HASTA', '18:00'),
+        /** Visión para clasificar fotos (mapa vs comprobante). Misma API que n8n Gemini. */
+        'gemini_api_key' => env('WA_AGENT_GEMINI_API_KEY'),
+        'gemini_model' => env('WA_AGENT_GEMINI_MODEL', 'gemini-3.6-flash'),
+        /**
+         * Respuestas fijas que el staff ya usa en WhatsApp. El agente las copia tal cual
+         * (sobre todo la cuenta: no dejar que Gemini invente números).
+         */
+        'canned' => [
+            'beneficios' => env('WA_AGENT_TEXTO_BENEFICIOS') ?: <<<'TXT'
+Usted sabe que lo planes Estandar y Premiun tiene mas beneficios aparte de la velocidad?
+-Ejemplo:
+Tenes trafico prioritario por sobre el basico, osea que tu navegacion sale primero a internet, asegurando tu coneccion estable.
+-Los cambios de contraseña son totalmente bonificado, en cambio con el plan básico tenes uno solo gratis, luego ya tiene costo adicional.
+Y el servicio técnico para planes mejores tienen prioridad si le pasa algo a su servicio.
+Son algunos beneficios que tienen los planes mas elevados.
+TXT,
+            'transferencia' => env('WA_AGENT_TEXTO_TRANSFERENCIA') ?: <<<'TXT'
+Transferencias a esta cuenta:
+Titular: Jose Luis Martinez Martinez
+CI: 5263934
+Entidad: ueno bank
+N° de cuenta: 619556130
+Moneda: GS
+Alias:  0983-74 28 97
+
+ Tigo  money
++595 983 742897
+
+Luego de Realizar el Pago necesitare que me pases el comprobante para terminar la carga de su pago!
+TXT,
+            'condiciones' => env('WA_AGENT_TEXTO_CONDICIONES') ?: <<<'TXT'
+📌 CONDICIONES DEL SERVICIO – InterPlus+
+
+Estimado cliente, le recordamos las condiciones de nuestro servicio:
+
+🔹 Planes
+• Todos los planes son ilimitados y sin contrato de permanencia.
+• La velocidad puede variar según la cantidad de dispositivos conectados y condiciones técnicas del lugar.
+• El uso del servicio es responsabilidad del cliente.
+• Es fundamental mantener segura la contraseña WiFi para evitar accesos no autorizados.
+
+💳 Pagos y Suspensión
+• Fecha de pago: del 1 al 5 de cada mes.
+• Si no se registra el pago dentro del plazo, el servicio se suspende automáticamente.
+• No se realizan descuentos por días suspendidos por falta de pago.
+• La reactivación es automática una vez acreditado el pago.
+• No se aplican descuentos por cortes de energía, problemas eléctricos internos, falta de poda u otros factores ajenos a la empresa.
+
+📦 Equipos
+• Los equipos (antena, router, cables, etc.) son entregados en comodato y son propiedad de InterPlus+.
+• Cualquier daño, manipulación o pérdida deberá ser abonado por el cliente.
+
+🛠 Soporte Técnico
+• Los reportes se atienden en un plazo estimado de 24 a 72 horas hábiles (según el caso).
+• El cambio de contraseña WiFi es sin costo una vez; posteriores solicitudes tienen costo administrativo.
+
+❌ Cancelación
+• Para dar de baja el servicio se debe abonar el último mes utilizado.
+• Se procederá al retiro de los equipos instalados.
+
+La utilización del servicio implica la aceptación de estas condiciones.
+TXT,
+        ],
     ],
 
     /*

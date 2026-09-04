@@ -4,14 +4,12 @@ namespace App\Services;
 
 use App\Models\Cliente;
 use App\Models\Cobro;
-use App\Support\CobrosMesVentana;
-use App\Services\CobrosResumenService;
 use App\Models\Factura;
+use App\Models\FacturacionParametro;
 use App\Models\FacturaDetalle;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
 use App\Models\FacturaInternaNotaCredito;
-use App\Models\FacturacionParametro;
 use App\Models\Impuesto;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\Plan;
@@ -31,6 +29,41 @@ class FacturacionService
 
     /** @var list<string> Avisos MikroTik tras el último registrarCobro (p. ej. router apagado). */
     public array $avisosUltimoCobro = [];
+
+    /**
+     * Misma regla que al finalizar un pedido: factura de instalación solo desde el día 7.
+     */
+    public static function puedeEmitirFacturaPorInstalacion(?Carbon $ahora = null): bool
+    {
+        return ($ahora ?? Carbon::now())->day >= 7;
+    }
+
+    /**
+     * Servicios que ya tienen línea en una factura interna vigente del período (no anulada/cancelada).
+     *
+     * @param  list<int>  $servicioIds
+     * @return list<int>
+     */
+    public function servicioIdsConFacturaEnPeriodo(array $servicioIds, Carbon $periodoDesde, Carbon $periodoHasta): array
+    {
+        $servicioIds = array_values(array_unique(array_filter(array_map('intval', $servicioIds))));
+        if ($servicioIds === []) {
+            return [];
+        }
+
+        return FacturaInternaDetalle::query()
+            ->whereIn('servicio_id', $servicioIds)
+            ->whereHas('facturaInterna', function ($q) use ($periodoDesde, $periodoHasta) {
+                $q->whereNotIn('estado', ['anulada', 'cancelada'])
+                    ->whereDate('periodo_desde', '<=', $periodoHasta->toDateString())
+                    ->whereDate('periodo_hasta', '>=', $periodoDesde->toDateString());
+            })
+            ->pluck('servicio_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
 
     /**
      * Calcula el precio prorrateado cuando la instalación es en medio del mes.
@@ -111,6 +144,31 @@ class FacturacionService
     }
 
     /**
+     * Inicio real del período facturado: si el servicio se instaló dentro del mes, usa esa fecha
+     * (no el día 1). Así el encabezado y las observaciones coinciden con la línea prorrateada.
+     */
+    public static function periodoDesdeFacturado(Servicio $servicio, Carbon $periodoDesde, Carbon $periodoHasta): Carbon
+    {
+        $desde = $periodoDesde->copy()->startOfDay();
+        $hasta = $periodoHasta->copy()->endOfDay();
+        if (! $servicio->fecha_instalacion) {
+            return $desde;
+        }
+
+        $instalacion = Carbon::parse($servicio->fecha_instalacion)->startOfDay();
+        if ($instalacion->gte($desde) && $instalacion->lte($hasta)) {
+            return $instalacion;
+        }
+
+        return $desde;
+    }
+
+    private function sincronizarResumenPorFactura(FacturaInterna $factura): void
+    {
+        app(CobrosResumenService::class)->aplicarImpactoFactura($factura);
+    }
+
+    /**
      * Genera una factura interna (mensual) para un cliente a partir de sus servicios activos.
      * Un detalle por cada servicio con el precio del plan.
      *
@@ -118,12 +176,8 @@ class FacturacionService
      * @param  string|null  $fechaVencimiento  Fecha de vencimiento Y-m-d (por defecto: día configurado del mes siguiente a la emisión)
      * @param  string|null  $fechaEmision  Fecha de emisión Y-m-d (por defecto: hoy)
      * @param  list<string>|null  $estadosServicio  Estados de servicio a incluir (por defecto solo activo)
+     * @param  bool  $enviarWhatsApp  Aviso WhatsApp al cliente (desactivado en el scheduler masivo)
      */
-    private function sincronizarResumenPorFactura(FacturaInterna $factura): void
-    {
-        app(CobrosResumenService::class)->aplicarImpactoFactura($factura);
-    }
-
     public function generarFacturaInterna(
         Cliente $cliente,
         Carbon $periodoDesde,
@@ -133,6 +187,7 @@ class FacturacionService
         ?string $fechaVencimiento = null,
         ?string $fechaEmision = null,
         ?array $estadosServicio = null,
+        bool $enviarWhatsApp = true,
     ): FacturaInterna {
         $estadosServicio = $estadosServicio ?? [Servicio::ESTADO_ACTIVO];
         $soloActivos = count($estadosServicio) === 1 && $estadosServicio[0] === Servicio::ESTADO_ACTIVO;
@@ -176,6 +231,7 @@ class FacturacionService
                 return false;
             }
             $f = Carbon::parse($s->fecha_instalacion)->startOfDay();
+
             return $f->gte($periodoDesde->copy()->startOfDay()) && $f->lte($periodoHasta->copy()->endOfDay());
         });
         if ($instalacionesEnPeriodo->isNotEmpty()) {
@@ -213,7 +269,7 @@ class FacturacionService
                 $desdeServicio = $servicio->fecha_instalacion && Carbon::parse($servicio->fecha_instalacion)->between($periodoDesde, $periodoHasta)
                     ? Carbon::parse($servicio->fecha_instalacion)->format('d/m/Y')
                     : $periodoDesde->format('d/m/Y');
-                $periodoStr = $desdeServicio . ' hasta ' . $periodoHasta->format('d/m/Y');
+                $periodoStr = $desdeServicio.' hasta '.$periodoHasta->format('d/m/Y');
                 $descripcion = sprintf('%s - %s Gs. - Desde %s', $nombrePlan, $precioFormateado, $periodoStr);
 
                 $calc = FacturaDetalle::calcularDesdePrecioIvaIncluido(1, $precio, $impuestoPlan);
@@ -269,7 +325,7 @@ class FacturacionService
 
         $this->sincronizarResumenPorFactura($factura);
 
-        $this->avisarWhatsAppFactura($factura);
+        $this->avisarWhatsAppFactura($factura, $enviarWhatsApp);
 
         return $factura;
     }
@@ -279,7 +335,7 @@ class FacturacionService
      * Agrupa por cliente: un cliente puede tener varios servicios seleccionados y se genera una factura por cliente.
      * Solo se consideran servicios activos.
      *
-     * @param array<int> $servicioIds
+     * @param  array<int>  $servicioIds
      * @param  string|null  $observacionesExtra  Texto opcional añadido al final de observaciones (ej. referencia a pedido).
      * @return array{facturas: \Illuminate\Support\Collection<int, FacturaInterna>, primera: FacturaInterna|null}
      */
@@ -313,7 +369,7 @@ class FacturacionService
 
         foreach ($porCliente as $clienteId => $serviciosCliente) {
             $cliente = $serviciosCliente->first()->cliente;
-            if (!$cliente) {
+            if (! $cliente) {
                 continue;
             }
 
@@ -502,8 +558,9 @@ class FacturacionService
 
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $cliente = $servicio->cliente;
+        $periodoDesdeEfectivo = self::periodoDesdeFacturado($servicio, $periodoDesde, $periodoHasta);
 
-        $factura = DB::transaction(function () use ($servicio, $cliente, $periodoDesde, $periodoHasta, $fechaEmision, $fechaVencimiento, $fechaPago, $descuento, $items, $impuestoExento, $usuarioId, $observacionesFactura) {
+        $factura = DB::transaction(function () use ($servicio, $cliente, $periodoDesdeEfectivo, $periodoHasta, $fechaEmision, $fechaVencimiento, $fechaPago, $descuento, $items, $impuestoExento, $usuarioId, $observacionesFactura) {
             $subtotal = 0;
             $totalImpuestos = 0;
             $total = 0;
@@ -511,7 +568,7 @@ class FacturacionService
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
                 'tipo_factura' => FacturaInterna::TIPO_SERVICIO,
-                'periodo_desde' => $periodoDesde->toDateString(),
+                'periodo_desde' => $periodoDesdeEfectivo->toDateString(),
                 'periodo_hasta' => $periodoHasta->toDateString(),
                 'fecha_emision' => $fechaEmision,
                 'fecha_vencimiento' => $fechaVencimiento,
@@ -523,7 +580,7 @@ class FacturacionService
                 'total_impuestos' => 0,
                 'total' => 0,
                 'descuento' => $descuento,
-                'observaciones' => $observacionesFactura ?? sprintf('Factura interna - Período %s a %s', $periodoDesde->format('d/m/Y'), $periodoHasta->format('d/m/Y')),
+                'observaciones' => $observacionesFactura ?? sprintf('Factura interna - Período %s a %s', $periodoDesdeEfectivo->format('d/m/Y'), $periodoHasta->format('d/m/Y')),
             ]);
 
             foreach ($items as $item) {
@@ -1174,20 +1231,20 @@ class FacturacionService
     {
         $this->avisosUltimoCobro = [];
         $items = $data['factura_interna_items'] ?? null;
-        if (empty($items) && !empty($data['factura_interna_id'])) {
+        if (empty($items) && ! empty($data['factura_interna_id'])) {
             $items = [['id' => (int) $data['factura_interna_id'], 'monto' => (float) ($data['monto'] ?? 0)]];
         }
         $items = is_array($items) ? $items : [];
 
         $concepto = $data['concepto'] ?? null;
-        if (empty($concepto) && !empty($items)) {
+        if (empty($concepto) && ! empty($items)) {
             $ids = array_column($items, 'id');
             $conceptos = array_filter(array_map(fn ($id) => $this->conceptoCobroDesdeFactura($id), $ids));
             $concepto = \Illuminate\Support\Str::limit(implode(' | ', $conceptos), 500, '');
         }
 
         $fechaPagoFinal = $data['fecha_pago'];
-        $primeraFactura = !empty($items) ? FacturaInterna::find($items[0]['id']) : null;
+        $primeraFactura = ! empty($items) ? FacturaInterna::find($items[0]['id']) : null;
         if ($primeraFactura && $primeraFactura->fecha_pago) {
             $fechaCobro = \Carbon\Carbon::parse($data['fecha_pago']);
             $fechaRefFactura = $primeraFactura->fecha_pago instanceof \Carbon\Carbon
@@ -1199,7 +1256,7 @@ class FacturacionService
         }
 
         $montoTotal = (float) ($data['monto'] ?? 0);
-        if (!empty($items)) {
+        if (! empty($items)) {
             $montoTotal = array_sum(array_column($items, 'monto'));
         }
 
@@ -1221,7 +1278,7 @@ class FacturacionService
             $numeros = Cobro::reservarSiguientesNumerosRecibo(1);
             $numeroRecibo = $numeros[0];
 
-            $primeraId = !empty($items) ? (int) $items[0]['id'] : null;
+            $primeraId = ! empty($items) ? (int) $items[0]['id'] : null;
             $cobro = Cobro::create([
                 'cliente_id' => $data['cliente_id'],
                 'factura_interna_id' => $primeraId,
@@ -1316,7 +1373,7 @@ class FacturacionService
      */
     public function conceptoCobroDesdeFactura(?int $facturaInternaId): ?string
     {
-        if (!$facturaInternaId) {
+        if (! $facturaInternaId) {
             return null;
         }
         $descripciones = FacturaInternaDetalle::where('factura_interna_id', $facturaInternaId)
@@ -1802,8 +1859,7 @@ class FacturacionService
      * Tras eliminar una factura interna: si el cliente no tiene otra factura interna con saldo pendiente,
      * actualiza estado_pago a 'pagado' en los servicios que estaban en esa factura.
      *
-     * @param int $clienteId
-     * @param array<int> $servicioIds Servicio IDs que estaban en la factura eliminada.
+     * @param  array<int>  $servicioIds  Servicio IDs que estaban en la factura eliminada.
      */
     public function revisarEstadoPagoServiciosTrasEliminarFacturaInterna(int $clienteId, array $servicioIds): void
     {
@@ -1815,7 +1871,7 @@ class FacturacionService
             ->get()
             ->contains(fn (FacturaInterna $f) => $f->saldo_pendiente > 0);
 
-        if (!$tieneOtraPendiente) {
+        if (! $tieneOtraPendiente) {
             Servicio::whereIn('servicio_id', $servicioIds)->update(['estado_pago' => 'pagado']);
         }
     }
@@ -1835,12 +1891,13 @@ class FacturacionService
         $total = $cobros->count();
         if ($total === 0) {
             $cliente->update(['calificacion_pago' => null]);
+
             return;
         }
 
         $aTiempo = $cobros->filter(function (Cobro $cobro) {
             $factura = $cobro->facturaInternas->first();
-            if (!$factura || !$factura->fecha_vencimiento) {
+            if (! $factura || ! $factura->fecha_vencimiento) {
                 return false;
             }
             $fechaPago = $cobro->fecha_pago instanceof \DateTimeInterface
@@ -1925,7 +1982,7 @@ class FacturacionService
             ->values()
             ->all();
 
-        if (!empty($servicioIds)) {
+        if (! empty($servicioIds)) {
             Servicio::whereIn('servicio_id', $servicioIds)->update(['estado_pago' => $estadoPago]);
         }
     }
@@ -2344,14 +2401,16 @@ class FacturacionService
             ?? Impuesto::activos()->firstWhere('porcentaje', 10);
     }
 
-    private function avisarWhatsAppFactura(FacturaInterna $factura): void
+    private function avisarWhatsAppFactura(FacturaInterna $factura, bool $enviarWhatsApp = true): void
     {
-        try {
-            app(\App\Services\WhatsApp\WhatsAppOutboundNotifier::class)->facturaGenerada($factura);
-        } catch (Throwable $e) {
-            Log::warning('[WhatsApp] Aviso factura omitido: '.$e->getMessage(), [
-                'factura_id' => $factura->id ?? null,
-            ]);
+        if ($enviarWhatsApp) {
+            try {
+                app(\App\Services\WhatsApp\WhatsAppOutboundNotifier::class)->facturaGenerada($factura);
+            } catch (Throwable $e) {
+                Log::warning('[WhatsApp] Aviso factura omitido: '.$e->getMessage(), [
+                    'factura_id' => $factura->id ?? null,
+                ]);
+            }
         }
 
         try {

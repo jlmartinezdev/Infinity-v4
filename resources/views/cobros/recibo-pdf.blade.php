@@ -64,7 +64,7 @@
         @if($facturas->isNotEmpty())
             <p class="bold" style="margin:8px 0 4px 0;">{{ $facturas->count() > 1 ? 'FACTURAS INTERNAS' : 'FACTURA INTERNA' }}</p>
             @foreach($facturas as $fi)
-                <p style="margin:3px 0;">#{{ $fi->id }} {{ number_format($fi->pivot->monto ?? $fi->total, 0, ',', '.') }} PYG | PERIODO {{ $fi->periodo_desde?->format('d/m/Y') }} - {{ $fi->periodo_hasta?->format('d/m/Y') }}</p>
+                <p style="margin:3px 0;">#{{ $fi->id }}@if($fi->aliasesServicioTexto()) · {{ $fi->aliasesServicioTexto() }}@endif {{ number_format($fi->pivot->monto ?? $fi->total, 0, ',', '.') }} PYG | PERIODO {{ $fi->periodo_desde?->format('d/m/Y') }} - {{ $fi->periodo_hasta?->format('d/m/Y') }}</p>
             @endforeach
         @endif
         @if($cobro->concepto)
@@ -137,7 +137,7 @@
             @foreach($facturas as $fi)
                 <div class="pl">
                     <div class="row">
-                        <span>#{{ $fi->id }}</span>
+                        <span>#{{ $fi->id }}@if($fi->aliasesServicioTexto()) · {{ $fi->aliasesServicioTexto() }}@endif</span>
                         <span class="r">{{ number_format($fi->pivot->monto ?? $fi->total, 0, ',', '.') }} PYG</span>
                     </div>
                     <p class="muted" style="margin:2px 0 0 0;">PERIODO: {{ $fi->periodo_desde?->format('d/m/Y') }} - {{ $fi->periodo_hasta?->format('d/m/Y') }}</p>

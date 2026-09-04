@@ -338,29 +338,52 @@
             <div class="p-4 flex-shrink-0 space-y-3 border-b border-gray-100 dark:border-gray-700">
                 <div class="flex flex-wrap gap-2" id="router-dhcp-modal-stats"></div>
                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-                    <input type="search" id="router-dhcp-filter" placeholder="Filtrar por IP, MAC, hostname…"
+                    <input type="search" id="router-dhcp-filter" placeholder="Filtrar por usuario, IP, MAC, hostname…"
                         class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500/30">
                     <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <input type="checkbox" id="router-dhcp-solo-activos" class="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500" checked>
-                        Solo activos (bound)
+                        Solo DHCP bound
                     </label>
                 </div>
             </div>
-            <div class="overflow-auto flex-1 min-h-0">
-                <table class="min-w-full text-sm">
-                    <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900/90 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        <tr>
-                            <th class="px-4 py-2.5 font-semibold">IP</th>
-                            <th class="px-4 py-2.5 font-semibold">MAC</th>
-                            <th class="px-4 py-2.5 font-semibold">Hostname</th>
-                            <th class="px-4 py-2.5 font-semibold">Estado</th>
-                            <th class="px-4 py-2.5 font-semibold">Server</th>
-                            <th class="px-4 py-2.5 font-semibold">Expira</th>
-                        </tr>
-                    </thead>
-                    <tbody id="router-dhcp-modal-tbody" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
-                </table>
-                <p id="router-dhcp-modal-empty" class="hidden px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No hay leases para mostrar.</p>
+            <div class="overflow-auto flex-1 min-h-0 p-4 space-y-5">
+                <section>
+                    <h3 class="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">PPPoE conectados</h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-900/90 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <th class="px-4 py-2.5 font-semibold">Usuario</th>
+                                    <th class="px-4 py-2.5 font-semibold">IP</th>
+                                    <th class="px-4 py-2.5 font-semibold">Uptime</th>
+                                    <th class="px-4 py-2.5 font-semibold">Caller ID</th>
+                                    <th class="px-4 py-2.5 font-semibold">Servicio</th>
+                                </tr>
+                            </thead>
+                            <tbody id="router-pppoe-modal-tbody" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        </table>
+                        <p id="router-pppoe-modal-empty" class="hidden px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">No hay sesiones PPPoE activas.</p>
+                    </div>
+                </section>
+                <section>
+                    <h3 class="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">DHCP leases</h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table class="min-w-full text-sm">
+                            <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900/90 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <th class="px-4 py-2.5 font-semibold">IP</th>
+                                    <th class="px-4 py-2.5 font-semibold">MAC</th>
+                                    <th class="px-4 py-2.5 font-semibold">Hostname</th>
+                                    <th class="px-4 py-2.5 font-semibold">Estado</th>
+                                    <th class="px-4 py-2.5 font-semibold">Server</th>
+                                    <th class="px-4 py-2.5 font-semibold">Expira</th>
+                                </tr>
+                            </thead>
+                            <tbody id="router-dhcp-modal-tbody" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        </table>
+                        <p id="router-dhcp-modal-empty" class="hidden px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">No hay leases para mostrar.</p>
+                    </div>
+                </section>
             </div>
             <div class="flex justify-end p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
                 <button type="button" id="router-dhcp-modal-close-btn" class="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600">Cerrar</button>
@@ -442,6 +465,9 @@
     var dhcpFilter = document.getElementById('router-dhcp-filter');
     var dhcpSoloActivos = document.getElementById('router-dhcp-solo-activos');
     var dhcpLeasesCache = [];
+    var pppoeTbody = document.getElementById('router-pppoe-modal-tbody');
+    var pppoeEmpty = document.getElementById('router-pppoe-modal-empty');
+    var pppoeSesionesCache = [];
 
     function escHtml(s) {
         return String(s == null ? '' : s)
@@ -524,10 +550,39 @@
         }).join('');
     }
 
+    function renderPppoeTable() {
+        if (!pppoeTbody) return;
+        var q = (dhcpFilter?.value || '').trim().toLowerCase();
+        var rows = pppoeSesionesCache.filter(function(s) {
+            if (!q) return true;
+            var hay = [s.name, s.address, s.uptime, s.caller_id, s.service].join(' ').toLowerCase();
+            return hay.indexOf(q) !== -1;
+        });
+        if (!rows.length) {
+            pppoeTbody.innerHTML = '';
+            pppoeEmpty?.classList.remove('hidden');
+            return;
+        }
+        pppoeEmpty?.classList.add('hidden');
+        pppoeTbody.innerHTML = rows.map(function(s) {
+            var href = ipHref(s.address);
+            var ipCell = href
+                ? '<a href="' + escHtml(href) + '" target="_blank" rel="noopener noreferrer" class="font-mono text-xs text-sky-600 dark:text-sky-400 hover:underline">' + escHtml(s.address) + '</a>'
+                : '<span class="font-mono text-xs text-gray-900 dark:text-gray-100">' + escHtml(s.address || '-') + '</span>';
+            return '<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">'
+                + '<td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">' + escHtml(s.name || '-') + '</td>'
+                + '<td class="px-4 py-2 whitespace-nowrap">' + ipCell + '</td>'
+                + '<td class="px-4 py-2 font-mono text-xs text-gray-600 dark:text-gray-400">' + escHtml(s.uptime || '-') + '</td>'
+                + '<td class="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">' + escHtml(s.caller_id || '-') + '</td>'
+                + '<td class="px-4 py-2 text-gray-600 dark:text-gray-400">' + escHtml(s.service || 'pppoe') + '</td>'
+                + '</tr>';
+        }).join('');
+    }
+
     document.getElementById('router-dhcp-modal-close')?.addEventListener('click', closeDhcpModal);
     document.getElementById('router-dhcp-modal-close-btn')?.addEventListener('click', closeDhcpModal);
     document.getElementById('router-dhcp-modal-backdrop')?.addEventListener('click', closeDhcpModal);
-    dhcpFilter?.addEventListener('input', renderDhcpTable);
+    dhcpFilter?.addEventListener('input', function() { renderDhcpTable(); renderPppoeTable(); });
     dhcpSoloActivos?.addEventListener('change', renderDhcpTable);
 
     document.querySelectorAll('.router-dhcp-pppoe-btn').forEach(function(btn) {
@@ -544,6 +599,7 @@
                     setStatus(btn, msg, !!res.ok);
                     if (!res.ok) return;
                     dhcpLeasesCache = Array.isArray(d.dhcp_leases) ? d.dhcp_leases : [];
+                    pppoeSesionesCache = Array.isArray(d.pppoe_sesiones) ? d.pppoe_sesiones : [];
                     if (dhcpSubtitle) {
                         dhcpSubtitle.textContent = (d.router?.nombre || nombre) + ' · ' + (d.message || '');
                     }
@@ -551,6 +607,7 @@
                     if (dhcpSoloActivos) dhcpSoloActivos.checked = true;
                     renderDhcpStats(d);
                     renderDhcpTable();
+                    renderPppoeTable();
                     openDhcpModal();
                 })
                 .catch(function() { setStatus(btn, 'Error de red', false); })

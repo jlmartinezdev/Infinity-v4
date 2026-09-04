@@ -11,7 +11,7 @@
         </button>
     </div>
 
-    <div id="kude-pos-contenido" class="kude-pos-ticket bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 mx-auto shadow border border-gray-300 dark:border-gray-600 rounded-lg print:shadow-none print:border-0 print:rounded-none">
+    <div id="kude-pos-contenido" class="kude-pos-ticket mx-auto shadow border rounded-lg print:shadow-none print:border-0 print:rounded-none">
         @if(!empty($logoBase64))
             <div class="text-center mb-2">
                 <img src="{{ $logoBase64 }}" alt="Logo" class="kude-pos-logo inline-block">
@@ -38,7 +38,7 @@
         <div class="kude-pos-sep"></div>
 
         <p class="text-xs"><span class="font-semibold">Fecha:</span> {{ $fechaEmisionFmt }}</p>
-        <p class="text-xs"><span class="font-semibold">Cliente:</span> {{ $factura->receptorNombreCompleto() }}</p>
+        <p class="text-xs"><span class="font-semibold">Razón social:</span> {{ $factura->receptorNombreCompleto() }}</p>
         <p class="text-xs"><span class="font-semibold">RUC/CI:</span> {{ $factura->receptorDocumentoEfectivo() }}</p>
         @if($factura->receptorDireccionEfectiva())
             <p class="text-xs"><span class="font-semibold">Dir.:</span> {{ $factura->receptorDireccionEfectiva() }}</p>
@@ -102,11 +102,25 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 11px;
     line-height: 1.35;
+    color-scheme: light;
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #d1d5db !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+}
+#kude-pos-contenido,
+#kude-pos-contenido * {
+    color: #111 !important;
+    background-color: transparent;
+}
+#kude-pos-contenido {
+    background: #fff !important;
 }
 .kude-pos-logo { max-height: 48px; max-width: 120px; }
 .kude-pos-qr { width: 150px; height: 150px; }
 .kude-pos-sep {
-    border-top: 1px dashed currentColor;
+    border-top: 1px dashed #111;
     opacity: 0.45;
     margin: 8px 0;
 }
@@ -114,6 +128,11 @@
 
 @media print {
     @page { margin: 3mm; size: 80mm auto; }
+    html, body {
+        background: #fff !important;
+        color: #000 !important;
+        color-scheme: light;
+    }
     body * { visibility: hidden; }
     #kude-pos-print, #kude-pos-print * { visibility: visible; }
     #kude-pos-print {
@@ -124,6 +143,8 @@
         max-width: none !important;
         margin: 0;
         padding: 0;
+        background: #fff !important;
+        color: #000 !important;
     }
     #kude-pos-contenido {
         max-width: 80mm !important;
@@ -135,7 +156,7 @@
         color: #000 !important;
         background: #fff !important;
     }
-    #kude-pos-contenido * { color: #000 !important; }
+    #kude-pos-contenido * { color: #000 !important; background: transparent !important; }
     .kude-pos-sep { border-color: #000; opacity: 1; }
 }
 </style>

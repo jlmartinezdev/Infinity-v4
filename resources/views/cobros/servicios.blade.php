@@ -9,7 +9,7 @@
 
 @php
     $config = [
-        'servicios' => $servicios,
+        'urlDatos' => $urlDatos ?? route('cobros.servicios.datos'),
         'urlCobrosIndex' => $urlCobrosIndex ?? route('cobros.index'),
         'urlEditServicioBase' => $urlEditServicioBase ?? url('servicios') . '/__servicio_id__/edit',
         'urlCrearCobroBase' => $urlCrearCobroBase ?? route('cobros.create') . '?cliente_id=__cliente_id__',

@@ -62,7 +62,7 @@ OnuId    State
 1        working
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertCount(4, $onus);
@@ -82,7 +82,7 @@ PON port 0/1
 1/1/1:2 enable disable offline 1(GPON)
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $this->filtrarRegistradas($parser, $this->mergeFilasOnu(
             $parser->parse($info, ''),
             $parser->parse('', $state),
@@ -101,7 +101,7 @@ GPON0/1:2   HWTC12345678   enable   disable  offline
 GPON0/2:5   VSOLABCDEF01   enable   enable   working
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertCount(3, $onus);
@@ -119,7 +119,7 @@ OnuId    PhaseState
 2        offline
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse('', $output);
 
         $this->assertCount(2, $onus);
@@ -140,7 +140,7 @@ OnuId    PhaseState
 2        offline
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $this->filtrarRegistradas($parser, $this->mergeFilasOnu(
             $parser->parse($info, ''),
             $parser->parse('', $output),
@@ -161,7 +161,7 @@ OnuIndex Admin State OMCC State Phase State Config State Channel
 1/1/1:3 enable enable los succeeded 1(GPON)
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse('', $output);
 
         $this->assertCount(3, $onus);
@@ -186,7 +186,7 @@ OnuIndex Admin State OMCC State Phase State Config State Channel
 1/1/1:3 enable enable los succeeded 1(GPON)
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $this->filtrarRegistradas($parser, $this->mergeFilasOnu(
             $parser->parse($info, ''),
             $parser->parse('', $output),
@@ -208,7 +208,7 @@ TXT;
     {
         $output = 'show onu info Onuindex Model Profile Mode AuthInfo --------------------------------------------------------------------------------------------------------------------------- GPON0/1:1 EG8145V5 default sn HWTCa2a64da3 GPON0/1:2 EG8145V5 default sn HWTC2699679f GPON0/1:3 HS8346V5 default sn HWTCa9307ca3 GPON0/1:4 EG8145V5 default sn HWTCa20f19a3 GPON0/1:5 EG8145V5 default';
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertGreaterThanOrEqual(4, count($onus));
@@ -223,7 +223,7 @@ show onu info Onuindex Model Profile Mode AuthInfo
 GPON0/1:1 EG8145V5 default sn HWTCa2a64da3 GPON0/1:2 EG8145V5 default sn HWTC2699679f GPON0/1:3 HS8346V5 default sn HWTCa9307ca3
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertCount(3, $onus);
@@ -243,7 +243,7 @@ TXT;
         $info = 'configure terminal PON 0/1 show onu info GPON0/1:1 EG8145V5 default sn HWTCa2a64da3 GPON0/1:2 EG8145V5 default sn HWTC2699679f GPON0/1:3 HS8346V5 default sn HWTCa9307ca3 GPON0/1:4 EG8145V5 default sn HWTCa20f19a3 GPON0/1:5 EG8145V5 default sn HWTCa2a64da4 GPON0/1:6 EG8145V5 default sn HWTCa2a64da5';
         $output = 'configure terminal PON 0/1 show onu state OnuIndex Admin State OMCC State Phase State Channel --------------------------------------------------------------- 1/1/1:1 enable enable working 1(GPON) 1/1/1:2 enable enable working 1(GPON) 1/1/1:3 enable enable working 1(GPON) 1/1/1:4 enable enable working 1(GPON) 1/1/1:5 enable enable working 1(GPON) 1/1/1:6 enable enable working 1(GPON)';
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $this->filtrarRegistradas($parser, $this->mergeFilasOnu(
             $parser->parse($info, ''),
             $parser->parse('', $output),
@@ -268,7 +268,7 @@ GPON0/1:2  -19.80  2.10
 1/1/1:3 Rx:-21.5 Tx:2.0
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parseOptical($output);
 
         $this->assertCount(3, $onus);
@@ -279,7 +279,7 @@ TXT;
 
     public function test_parse_onu_desc_y_optical_info(): void
     {
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
 
         $desc = $parser->parseOnuDescOutput("show onu 2 desc\nDescription: Cliente Juan Pérez\n");
         $this->assertSame('Cliente Juan Pérez', $desc);
@@ -299,7 +299,7 @@ TXT);
     {
         $output = 'GPON0/1:1 PEDRO_CIBILS AN5506-01-A default sn FHTT10A02568';
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertCount(1, $onus);
@@ -317,7 +317,7 @@ GPON0/1:2 Online NELSON_CIBILS AN5506-01-A default Sn FHTT10A025B8
 GPON0/1:9 Online SABINA_LOPEZ_DE_ARAUJO EG8145V5 onu_profile_2 Sn HWTCD4A0A29E
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertCount(3, $onus);
@@ -331,7 +331,7 @@ TXT;
 
     public function test_parse_onu_desc_formato_vsol_desc_nombre(): void
     {
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
 
         $this->assertSame('PEDRO_CIBILS', $parser->parseOnuDescOutput('desc PEDRO_CIBILS'));
         $this->assertSame('PEDRO_CIBILS', $parser->parseOnuDescOutput("show onu 1 desc\ndesc PEDRO_CIBILS"));
@@ -341,7 +341,7 @@ TXT;
 
     public function test_parse_onu_desc_comando_primero_firmware(): void
     {
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
 
         // Firmware: show onu desc 1 → "onu 1 Description: NOMBRE"
         $this->assertSame(
@@ -355,7 +355,7 @@ TXT;
         $info = 'GPON0/1:9 Online SABINA_LOPEZ_DE_ARAUJO EG8145V5 onu_profile_2 Sn HWTCD4A0A29E';
         $state = "OnuIndex Admin OMCC OMT Phase state\nGPON0/1:9 enable enable enable LOS";
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         // Simula merge del sync: state primero, info después
         $fromState = $parser->parse('', $state);
         $fromInfo = $parser->parse($info, '');
@@ -556,9 +556,75 @@ TXT;
 3 enable
 TXT;
 
-        $parser = new VsolOnuOutputParser();
+        $parser = new VsolOnuOutputParser;
         $onus = $parser->parse($output, '');
 
         $this->assertCount(0, $onus);
+    }
+
+    public function test_estado_1_1_1_sin_encabezado_pon_se_cruza_con_gpon0(): void
+    {
+        $info = <<<'TXT'
+GPON0/1:1 EG8145V5 default sn HWTCA2A64DA3
+GPON0/1:2 EG8145V5 default sn HWTC2699679F
+GPON0/2:1 HS8346V5 default sn HWTCA9307CA3
+TXT;
+        $state = <<<'TXT'
+OnuIndex Admin State OMCC State Phase State Channel
+1/1/1:1 enable enable working 1(GPON)
+1/1/1:2 enable disable offline 1(GPON)
+1/1/2:1 enable enable los 1(GPON)
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $onus = $this->filtrarRegistradas($parser, $this->mergeFilasOnu(
+            $parser->parse($info, ''),
+            $parser->parse('', $state),
+        ));
+
+        $this->assertCount(3, $onus);
+
+        $onu1 = collect($onus)->firstWhere(fn ($o) => $o['pon_key'] === '0/1' && $o['onu_index'] === 1);
+        $this->assertNotNull($onu1);
+        $this->assertSame('working', $onu1['estado']);
+
+        $onu2 = collect($onus)->firstWhere(fn ($o) => $o['pon_key'] === '0/1' && $o['onu_index'] === 2);
+        $this->assertSame('offline', $onu2['estado']);
+
+        $onuP2 = collect($onus)->firstWhere(fn ($o) => $o['pon_key'] === '0/2' && $o['onu_index'] === 1);
+        $this->assertSame('los', $onuP2['estado']);
+    }
+
+    public function test_parse_info_y_state_juntos_sin_pon_header(): void
+    {
+        $blob = <<<'TXT'
+GPON0/1:1 EG8145V5 default sn HWTCA2A64DA3
+GPON0/1:2 EG8145V5 default sn HWTC2699679F
+OnuIndex Admin State OMCC State Phase State Channel
+1/1/1:1 enable enable working 1(GPON)
+1/1/1:2 enable enable working 1(GPON)
+TXT;
+
+        $parser = new VsolOnuOutputParser;
+        $onus = $this->filtrarRegistradas($parser, $parser->parse($blob, ''));
+
+        $this->assertCount(2, $onus);
+        $this->assertSame('working', collect($onus)->firstWhere(fn ($o) => $o['onu_index'] === 1)['estado']);
+        $this->assertSame('working', collect($onus)->firstWhere(fn ($o) => $o['onu_index'] === 2)['estado']);
+    }
+
+    public function test_estado_operation_y_auto_find(): void
+    {
+        $info = "GPON0/1:1 EG8145V5 default sn HWTCA2A64DA3\nGPON0/1:2 EG8145V5 default sn HWTC2699679F";
+        $state = "1/1/1:1 enable enable operation 1(GPON)\n1/1/1:2 enable disable auto-find 1(GPON)";
+
+        $parser = new VsolOnuOutputParser;
+        $onus = $this->filtrarRegistradas($parser, $this->mergeFilasOnu(
+            $parser->parse($info, ''),
+            $parser->parse('', $state),
+        ));
+
+        $this->assertSame('working', collect($onus)->firstWhere(fn ($o) => $o['onu_index'] === 1)['estado']);
+        $this->assertSame('offline', collect($onus)->firstWhere(fn ($o) => $o['onu_index'] === 2)['estado']);
     }
 }

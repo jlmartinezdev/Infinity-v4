@@ -115,8 +115,16 @@
         border-top: 1px solid var(--cd-row-border);
         vertical-align: middle;
     }
-    .cliente-detalle-page .cd-table tbody tr:hover {
-        background: var(--cd-row-hover);
+    .cliente-detalle-page .cd-table tbody tr[data-cd-servicio-row] {
+        cursor: pointer;
+    }
+    .cliente-detalle-page .cd-table tbody tr[data-cd-servicio-row].is-selected {
+        background: rgb(37 99 235 / 0.08);
+        box-shadow: inset 3px 0 0 #2563eb;
+    }
+    html.dark .cliente-detalle-page .cd-table tbody tr[data-cd-servicio-row].is-selected {
+        background: rgb(96 165 250 / 0.12);
+        box-shadow: inset 3px 0 0 #60a5fa;
     }
     .cliente-detalle-page .cd-table-scroll {
         overflow-x: auto;
@@ -192,6 +200,14 @@
         background: #6b7280;
         box-shadow: 0 0 8px 2px rgb(107 114 128 / 0.45);
     }
+    .cliente-detalle-page .cd-status--pendiente {
+        background: rgb(59 130 246 / 0.14);
+        color: #1d4ed8;
+    }
+    .cliente-detalle-page .cd-status--pendiente .cd-status__dot {
+        background: #3b82f6;
+        box-shadow: 0 0 8px 2px rgb(59 130 246 / 0.5);
+    }
     html.dark .cliente-detalle-page .cd-status--activo {
         background: rgb(16 185 129 / 0.2);
         color: #6ee7b7;
@@ -207,6 +223,10 @@
     html.dark .cliente-detalle-page .cd-status--cancelado {
         background: rgb(107 114 128 / 0.28);
         color: #d1d5db;
+    }
+    html.dark .cliente-detalle-page .cd-status--pendiente {
+        background: rgb(59 130 246 / 0.22);
+        color: #93c5fd;
     }
     .cliente-detalle-page .cd-icon-btn {
         display: inline-flex;
@@ -485,6 +505,10 @@
     .cliente-detalle-page .cd-action--warn:hover {
         border-color: #ea580c;
         background: rgb(234 88 12 / 0.06);
+    }
+    .cliente-detalle-page .cd-action--ok:hover {
+        border-color: #16a34a;
+        background: rgb(22 163 74 / 0.06);
     }
     .cliente-detalle-page .cd-select {
         min-width: 14rem;

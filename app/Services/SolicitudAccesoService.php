@@ -328,18 +328,8 @@ class SolicitudAccesoService
 
     public function registrarTelemetriaLogin(Cliente $cliente, ?string $deviceName, ?string $appVersion): void
     {
-        $data = [
-            'ultimo_ingreso' => now(),
-            'dispositivo' => $deviceName ? Str::limit($deviceName, 120, '') : $cliente->dispositivo,
-            'app_version' => $appVersion ? Str::limit($appVersion, 40, '') : $cliente->app_version,
-        ];
-
-        if (! $cliente->app_activa) {
-            $data['app_activa'] = true;
-            $data['fecha_activacion_app'] = now();
-        }
-
-        $cliente->update($data);
+        app(\App\Services\Portal\DispositivoHeartbeatService::class)
+            ->registrarLogin($cliente, $deviceName, $appVersion);
     }
 
     /**

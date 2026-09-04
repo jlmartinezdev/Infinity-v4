@@ -142,7 +142,7 @@ class CajaNapController extends Controller
                 'servicio_id' => (int) $s->servicio_id,
                 'estado' => $s->estado,
                 'plan' => $s->plan?->nombre,
-                'label' => '#'.$s->servicio_id.($s->plan ? ' — '.$s->plan->nombre : ''),
+                'label' => '#'.$s->servicio_id.' — '.$s->etiqueta(),
             ])
         );
     }

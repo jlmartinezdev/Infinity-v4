@@ -4,18 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ConsultarLoteSifenJob;
 use App\Jobs\EmitirFacturaSifenJob;
-use App\Models\Cliente;
 use App\Models\CedulaPadron;
+use App\Models\Cliente;
 use App\Models\Factura;
-use App\Models\FacturaDetalle;
 use App\Models\FacturacionParametro;
+use App\Models\FacturaDetalle;
 use App\Models\Impuesto;
 use App\Models\Servicio;
 use App\Models\SifenConfiguracion;
 use App\Services\FacturacionService;
 use App\Services\Sifen\SifenBackground;
 use App\Services\Sifen\SifenKudeService;
-use App\Services\Sifen\SifenService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -234,7 +233,7 @@ class FacturaController extends Controller
     /**
      * @return array{desde: Carbon, hasta: Carbon, label: string, ym: string, marcador: string}
      */
-    private function resolverPeriodoFacturacion(null|string $periodoYm = null): array
+    private function resolverPeriodoFacturacion(?string $periodoYm = null): array
     {
         $mes = now()->startOfMonth();
 
@@ -473,6 +472,7 @@ class FacturaController extends Controller
 
             $factura->load('detalles');
             $factura->recalcularTotales();
+
             return $factura;
         });
 
@@ -525,11 +525,13 @@ class FacturaController extends Controller
 
             if (! $cliente) {
                 $errores[] = $etiqueta.': no encontrado.';
+
                 continue;
             }
 
             if (blank($cliente->cedula)) {
                 $errores[] = $etiqueta.': sin cédula/RUC.';
+
                 continue;
             }
 
@@ -541,6 +543,7 @@ class FacturaController extends Controller
             );
             if ($detalles === []) {
                 $errores[] = $etiqueta.': sin servicios activos con precio.';
+
                 continue;
             }
 
@@ -856,6 +859,7 @@ class FacturaController extends Controller
             return redirect()->route('facturas.index')->with('error', 'Solo se pueden eliminar facturas en borrador.');
         }
         $factura->delete();
+
         return redirect()->route('facturas.index')->with('success', 'Factura eliminada.');
     }
 
@@ -1076,6 +1080,7 @@ class FacturaController extends Controller
                 $hasta,
                 $request->user()?->usuario_id
             );
+
             return redirect()->route('factura-internas.show', $factura)
                 ->with('success', 'Factura interna generada correctamente.');
         } catch (\InvalidArgumentException $e) {
@@ -1099,6 +1104,7 @@ class FacturaController extends Controller
         }
 
         session(['factura_interna_servicio_ids' => $ids]);
+
         return redirect()->route('facturas.generar-interna-desde-servicios');
     }
 
@@ -1215,11 +1221,13 @@ class FacturaController extends Controller
         $periodoDesdeCarbon = Carbon::parse($periodoDesde);
         $periodoHastaCarbon = Carbon::parse($periodoHasta);
         $precio = \App\Services\FacturacionService::calcularPrecioProrrateado($servicio, $periodoDesdeCarbon, $periodoHastaCarbon, $precioPlan);
-        $descripcion = $servicio->plan
-            ? sprintf('%s - %s Gs. - Período %s a %s', $servicio->plan->nombre, number_format($precio, 0, ',', '.'), now()->format('d/m/Y'), now()->endOfMonth()->format('d/m/Y'))
-            : 'Servicio';
-
         $prorrateoInfo = \App\Services\FacturacionService::obtenerDetalleProrrateo($servicio, $periodoDesdeCarbon, $periodoHastaCarbon, $precioPlan);
+
+        $periodoDesdeFacturado = \App\Services\FacturacionService::periodoDesdeFacturado($servicio, $periodoDesdeCarbon, $periodoHastaCarbon);
+        $periodoDesde = $periodoDesdeFacturado->toDateString();
+        $descripcion = $servicio->plan
+            ? sprintf('%s - %s Gs. - Período %s a %s', $servicio->plan->nombre, number_format($precio, 0, ',', '.'), $periodoDesdeFacturado->format('d/m/Y'), $periodoHastaCarbon->format('d/m/Y'))
+            : 'Servicio';
 
         return view('facturas.crear-interna-servicio', compact(
             'servicio',

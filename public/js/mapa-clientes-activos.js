@@ -27382,6 +27382,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var puntosProcesados = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(0);
     var totalPuntos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(0);
     var error = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var busqueda = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var mostrarResultados = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var map = null;
     var googleRef = null;
     var markers = [];
@@ -27389,11 +27391,99 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var puntosByClienteId = {};
     var sharedInfoWindow = null;
     var pingPollTimer = null;
+    var pendingFocusId = null;
+    var focusedClienteId = null;
+    var bounceTimer = null;
     var iconCache = new Map();
     var progressPercent = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
       if (!totalPuntos.value) return 0;
       return Math.round(puntosProcesados.value / totalPuntos.value * 100);
     });
+    function normalizarTexto(valor) {
+      return (valor || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+    function clienteCoincide(punto, termino) {
+      if (!termino) return true;
+      var tokens = normalizarTexto(termino).split(' ').filter(Boolean);
+      if (!tokens.length) return true;
+      var haystack = normalizarTexto([punto.cliente_id, punto.nombre, punto.cedula, punto.telefono, punto.plan, punto.tecnologia].filter(Boolean).join(' '));
+      return tokens.every(function (token) {
+        return haystack.includes(token);
+      });
+    }
+    var resultadosBusqueda = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      var q = busqueda.value.trim();
+      if (!q) return [];
+      var fuente = Object.keys(puntosByClienteId).length ? Object.values(puntosByClienteId) : props.puntos;
+      return fuente.filter(function (p) {
+        return clienteCoincide(p, q) && pasaFiltroPingEstado(p);
+      }).slice(0, 12);
+    });
+    function onBlurBusqueda() {
+      window.setTimeout(function () {
+        mostrarResultados.value = false;
+      }, 180);
+    }
+    function limpiarBusqueda() {
+      busqueda.value = '';
+      mostrarResultados.value = false;
+      pendingFocusId = null;
+      focusedClienteId = null;
+    }
+    function abrirPrimerResultado() {
+      var primero = resultadosBusqueda.value[0];
+      if (primero) {
+        enfocarCliente(primero.cliente_id);
+      }
+    }
+    function enfocarCliente(clienteId) {
+      var id = Number(clienteId);
+      var punto = puntosByClienteId[id] || puntosByClienteId[clienteId] || props.puntos.find(function (p) {
+        return Number(p.cliente_id) === id;
+      });
+      if (!punto) return;
+      if (punto.nombre) {
+        busqueda.value = punto.nombre;
+      }
+      mostrarResultados.value = false;
+      focusedClienteId = id;
+      var meta = markerMeta.find(function (m) {
+        return Number(m.clienteId) === id;
+      });
+      if (!map || !googleRef) {
+        pendingFocusId = id;
+        return;
+      }
+      pendingFocusId = meta ? null : id;
+      var pos = meta && meta.marker && meta.marker.getPosition() || (punto.lat != null && punto.lon != null ? {
+        lat: Number(punto.lat),
+        lng: Number(punto.lon)
+      } : null);
+      if (!pos) return;
+      map.panTo(pos);
+      var zoom = map.getZoom();
+      if (!zoom || zoom < 16) {
+        map.setZoom(16);
+      }
+      sharedInfoWindow.setContent(buildInfoWindowContent(punto));
+      if (meta && meta.marker) {
+        sharedInfoWindow.open(map, meta.marker);
+        if (bounceTimer) {
+          clearTimeout(bounceTimer);
+          bounceTimer = null;
+        }
+        if (googleRef.maps.Animation) {
+          meta.marker.setAnimation(googleRef.maps.Animation.BOUNCE);
+          bounceTimer = window.setTimeout(function () {
+            meta.marker.setAnimation(null);
+            bounceTimer = null;
+          }, 1400);
+        }
+      } else {
+        sharedInfoWindow.setPosition(pos);
+        sharedInfoWindow.open(map);
+      }
+    }
     function getHomeMarkerIcon(google) {
       var color = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '#9333ea';
       var w = 48;
@@ -27425,11 +27515,11 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         case 'online':
           return 'Online';
         case 'offline':
-          return 'Sin respuesta';
+          return 'PPPoE caído';
         case 'mixed':
           return 'Parcial';
         default:
-          return 'Sin ping';
+          return 'Sin dato';
       }
     }
     function loadGoogleMaps() {
@@ -27482,9 +27572,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       var detalleHref = urlDetalle(p.cliente_id);
       var pingLabel = pingEstadoLabel(p.ping_estado);
       var pingColor = markerColorByPingEstado(p.ping_estado);
-      var latencia = p.ping_latencia_ms != null && p.ping_latencia_ms !== '' ? "".concat(Math.round(Number(p.ping_latencia_ms)), " ms") : '—';
-      var serviciosPing = p.ping_total > 0 ? "".concat((_p$ping_en_linea = p.ping_en_linea) !== null && _p$ping_en_linea !== void 0 ? _p$ping_en_linea : 0, " / ").concat(p.ping_total, " servicios") : 'Sin IP pinguable';
-      return "\n    <div class=\"p-2 min-w-[200px] max-w-[320px]\">\n      <div class=\"font-semibold text-gray-900\">".concat(escapeHtml(titulo), "</div>\n      ").concat(p.plan ? "<div class=\"text-sm text-gray-700 mt-1\">Plan: ".concat(escapeHtml(p.plan), "</div>") : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>', "\n      <div class=\"mt-2 text-sm flex items-center gap-1.5\">\n        <span class=\"inline-block w-2.5 h-2.5 rounded-full\" style=\"background:").concat(pingColor, "\"></span>\n        <span class=\"text-gray-800\">").concat(escapeHtml(pingLabel), "</span>\n      </div>\n      <div class=\"text-xs text-gray-600 mt-1\">Latencia: ").concat(escapeHtml(latencia), " \xB7 ").concat(escapeHtml(serviciosPing), "</div>\n      <div class=\"text-xs text-gray-500 mt-0.5\">\xDAltimo ping: ").concat(escapeHtml(formatVerificadoAt(p.ping_verificado_at)), "</div>\n      ").concat(p.url_ubicacion ? "<a href=\"".concat(escapeHtml(p.url_ubicacion), "\" target=\"_blank\" rel=\"noopener\" class=\"inline-block mt-2 text-sm text-blue-600 hover:underline\">Abrir ubicaci\xF3n</a>") : '', "\n      ").concat(detalleHref ? "<a href=\"".concat(escapeHtml(detalleHref), "\" class=\"inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline\">Ver cliente</a>") : '', "\n    </div>\n  ");
+      var serviciosPing = p.ping_total > 0 ? "".concat((_p$ping_en_linea = p.ping_en_linea) !== null && _p$ping_en_linea !== void 0 ? _p$ping_en_linea : 0, " / ").concat(p.ping_total, " servicios") : 'Sin PPPoE para consultar';
+      return "\n    <div class=\"p-2 min-w-[200px] max-w-[320px]\">\n      <div class=\"font-semibold text-gray-900\">".concat(escapeHtml(titulo), "</div>\n      ").concat(p.plan ? "<div class=\"text-sm text-gray-700 mt-1\">Plan: ".concat(escapeHtml(p.plan), "</div>") : '<div class="text-sm text-gray-500 mt-1">Sin plan asociado</div>', "\n      <div class=\"mt-2 text-sm flex items-center gap-1.5\">\n        <span class=\"inline-block w-2.5 h-2.5 rounded-full\" style=\"background:").concat(pingColor, "\"></span>\n        <span class=\"text-gray-800\">").concat(escapeHtml(pingLabel), "</span>\n      </div>\n      <div class=\"text-xs text-gray-600 mt-1\">").concat(escapeHtml(serviciosPing), "</div>\n      <div class=\"text-xs text-gray-500 mt-0.5\">\xDAltima consulta: ").concat(escapeHtml(formatVerificadoAt(p.ping_verificado_at)), "</div>\n      ").concat(p.url_ubicacion ? "<a href=\"".concat(escapeHtml(p.url_ubicacion), "\" target=\"_blank\" rel=\"noopener\" class=\"inline-block mt-2 text-sm text-blue-600 hover:underline\">Abrir ubicaci\xF3n</a>") : '', "\n      ").concat(detalleHref ? "<a href=\"".concat(escapeHtml(detalleHref), "\" class=\"inline-block mt-2 ml-2 text-sm text-purple-600 hover:underline\">Ver cliente</a>") : '', "\n    </div>\n  ");
     }
     function markerIconForPunto(google, punto) {
       var color = markerColorByPingEstado(punto.ping_estado);
@@ -27524,7 +27613,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     }
     function _initMap() {
       _initMap = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(google) {
-        var center, bounds, batchSize, i, batch, visible;
+        var center, bounds, batchSize, i, batch, focusId, visible;
         return _regenerator().w(function (_context2) {
           while (1) switch (_context2.n) {
             case 0:
@@ -27593,6 +27682,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 if (pasaFiltroPingEstado(p)) {
                   bounds.extend(position);
                 }
+                if (pendingFocusId === p.cliente_id) {
+                  enfocarCliente(p.cliente_id);
+                }
               });
               puntosProcesados.value = Math.min(i + batch.length, totalPuntos.value);
               _context2.n = 3;
@@ -27604,6 +27696,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context2.n = 2;
               break;
             case 4:
+              focusId = pendingFocusId || focusedClienteId;
+              if (!focusId) {
+                _context2.n = 5;
+                break;
+              }
+              enfocarCliente(focusId);
+              return _context2.a(2);
+            case 5:
               if (props.puntos.filter(pasaFiltroPingEstado).length > 1) {
                 map.fitBounds(bounds);
               } else if (props.puntos.filter(pasaFiltroPingEstado).length === 1) {
@@ -27616,7 +27716,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                   map.setZoom(14);
                 }
               }
-            case 5:
+            case 6:
               return _context2.a(2);
           }
         }, _callee2);
@@ -27632,7 +27732,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     function updateUltimaActualizacionLabel(isoString) {
       var el = document.getElementById('mapa-ping-ultima-actualizacion');
       if (!el) return;
-      el.textContent = "Ping actualizado: ".concat(formatVerificadoAt(isoString));
+      el.textContent = "PPPoE actualizado: ".concat(formatVerificadoAt(isoString));
       el.classList.remove('hidden');
     }
     function applyPingEstados(estados, actualizadoAt) {
@@ -27769,6 +27869,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       if (window.__mapaClientesActivosRefrescarPing__ === refrescarPingEstados) {
         delete window.__mapaClientesActivosRefrescarPing__;
       }
+      if (bounceTimer) {
+        clearTimeout(bounceTimer);
+        bounceTimer = null;
+      }
       if (pingPollTimer) {
         clearInterval(pingPollTimer);
         pingPollTimer = null;
@@ -27791,6 +27895,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       puntosProcesados: puntosProcesados,
       totalPuntos: totalPuntos,
       error: error,
+      busqueda: busqueda,
+      mostrarResultados: mostrarResultados,
       get map() {
         return map;
       },
@@ -27833,8 +27939,33 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       set pingPollTimer(v) {
         pingPollTimer = v;
       },
+      get pendingFocusId() {
+        return pendingFocusId;
+      },
+      set pendingFocusId(v) {
+        pendingFocusId = v;
+      },
+      get focusedClienteId() {
+        return focusedClienteId;
+      },
+      set focusedClienteId(v) {
+        focusedClienteId = v;
+      },
+      get bounceTimer() {
+        return bounceTimer;
+      },
+      set bounceTimer(v) {
+        bounceTimer = v;
+      },
       iconCache: iconCache,
       progressPercent: progressPercent,
+      normalizarTexto: normalizarTexto,
+      clienteCoincide: clienteCoincide,
+      resultadosBusqueda: resultadosBusqueda,
+      onBlurBusqueda: onBlurBusqueda,
+      limpiarBusqueda: limpiarBusqueda,
+      abrirPrimerResultado: abrirPrimerResultado,
+      enfocarCliente: enfocarCliente,
       getHomeMarkerIcon: getHomeMarkerIcon,
       markerColorByPingEstado: markerColorByPingEstado,
       pingEstadoLabel: pingEstadoLabel,
@@ -27886,52 +28017,143 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 
 var _hoisted_1 = {
-  class: "relative w-full h-full min-h-[300px]"
+  class: "relative w-full h-full min-h-[300px] flex flex-col"
 };
 var _hoisted_2 = {
-  ref: "mapContainer",
-  class: "absolute inset-0 w-full h-full rounded-lg"
+  class: "relative z-20 flex-shrink-0 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
 };
 var _hoisted_3 = {
+  class: "relative max-w-xl"
+};
+var _hoisted_4 = ["onKeydown"];
+var _hoisted_5 = {
+  key: 1,
+  class: "absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg divide-y divide-gray-100 dark:divide-gray-700"
+};
+var _hoisted_6 = ["onMousedown", "onClick"];
+var _hoisted_7 = {
+  class: "text-sm font-medium text-gray-900 dark:text-gray-100 truncate"
+};
+var _hoisted_8 = {
+  class: "text-xs text-gray-500 dark:text-gray-400 truncate"
+};
+var _hoisted_9 = {
+  key: 0
+};
+var _hoisted_10 = {
+  key: 1
+};
+var _hoisted_11 = {
+  key: 2
+};
+var _hoisted_12 = {
+  key: 2,
+  class: "absolute left-0 right-0 mt-1 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2"
+};
+var _hoisted_13 = {
+  class: "relative flex-1 min-h-0"
+};
+var _hoisted_14 = {
+  ref: "mapContainer",
+  class: "absolute inset-0 w-full h-full"
+};
+var _hoisted_15 = {
   key: 0,
   class: "absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 rounded-lg"
 };
-var _hoisted_4 = {
+var _hoisted_16 = {
   class: "w-[min(360px,92%)] px-4"
 };
-var _hoisted_5 = {
+var _hoisted_17 = {
   class: "text-center text-gray-700 dark:text-gray-300"
 };
-var _hoisted_6 = {
+var _hoisted_18 = {
   key: 0,
   class: "mt-3"
 };
-var _hoisted_7 = {
+var _hoisted_19 = {
   class: "h-2 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden"
 };
-var _hoisted_8 = {
+var _hoisted_20 = {
   class: "mt-2 text-xs text-center text-gray-600 dark:text-gray-400"
 };
-var _hoisted_9 = {
+var _hoisted_21 = {
   key: 1,
   class: "absolute inset-0 flex items-center justify-center bg-red-50/90 dark:bg-red-900/20 rounded-lg p-4"
 };
-var _hoisted_10 = {
+var _hoisted_22 = {
   class: "text-red-700 dark:text-red-300 text-center"
 };
-var _hoisted_11 = {
+var _hoisted_23 = {
   key: 2,
   class: "absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg p-4"
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, null, 512 /* NEED_PATCH */), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_3, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_4, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loadingMessage), 1 /* TEXT */), $setup.totalPuntos > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_3, [_cache[5] || (_cache[5] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"
+  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
+      return $setup.busqueda = $event;
+    }),
+    type: "search",
+    autocomplete: "off",
+    placeholder: "Buscar cliente por nombre, cédula, teléfono o plan…",
+    class: "w-full pl-9 pr-9 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40",
+    onFocus: _cache[1] || (_cache[1] = function ($event) {
+      return $setup.mostrarResultados = true;
+    }),
+    onInput: _cache[2] || (_cache[2] = function ($event) {
+      return $setup.mostrarResultados = true;
+    }),
+    onKeydown: [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withKeys)((0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.abrirPrimerResultado, ["prevent"]), ["enter"]), _cache[3] || (_cache[3] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withKeys)(function ($event) {
+      return $setup.mostrarResultados = false;
+    }, ["escape"]))],
+    onBlur: $setup.onBlurBusqueda
+  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_4), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.busqueda]]), $setup.busqueda ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+    key: 0,
+    type: "button",
+    class: "absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200",
+    title: "Limpiar",
+    onMousedown: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.limpiarBusqueda, ["prevent"])
+  }, _toConsumableArray(_cache[4] || (_cache[4] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "w-4 h-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M6 18L18 6M6 6l12 12"
+  })], -1 /* CACHED */)])), 32 /* NEED_HYDRATION */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.mostrarResultados && $setup.busqueda.trim() && $setup.resultadosBusqueda.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_5, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.resultadosBusqueda, function (punto) {
+    return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
+      key: punto.cliente_id
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+      type: "button",
+      class: "w-full text-left px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors",
+      onMousedown: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
+        return $setup.enfocarCliente(punto.cliente_id);
+      }, ["prevent"]),
+      onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
+        return $setup.enfocarCliente(punto.cliente_id);
+      }, ["stop", "prevent"])
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.nombre || 'Cliente #' + punto.cliente_id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_8, [punto.cedula ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_9, "CI " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), punto.telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula ? ' · ' : '') + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), punto.plan ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula || punto.telefono ? ' · ' : '') + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.plan), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 40 /* PROPS, NEED_HYDRATION */, _hoisted_6)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : $setup.mostrarResultados && $setup.busqueda.trim() && !$setup.resultadosBusqueda.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_12, " Sin coincidencias para “" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.busqueda.trim()) + "” ", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, null, 512 /* NEED_PATCH */), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_15, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_16, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loadingMessage), 1 /* TEXT */), $setup.totalPuntos > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_18, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_19, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "h-full bg-purple-600 transition-all duration-200",
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       width: "".concat($setup.progressPercent, "%")
     })
-  }, null, 4 /* STYLE */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_8, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.puntosProcesados) + " / " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.totalPuntos) + " clientes (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.progressPercent) + "%) ", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, _toConsumableArray(_cache[0] || (_cache[0] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, null, 4 /* STYLE */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_20, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.puntosProcesados) + " / " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.totalPuntos) + " clientes (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.progressPercent) + "%) ", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_21, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_22, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_23, _toConsumableArray(_cache[6] || (_cache[6] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-amber-800 dark:text-amber-200 text-center"
-  }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
+  }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]);
 }
 
 /***/ },

@@ -578,12 +578,18 @@ class WhatsAppOutboundNotifier
         $cuando = $router->ping_at
             ? $router->ping_at->timezone(config('app.timezone'))->format('d/m/Y H:i:s')
             : now()->timezone(config('app.timezone'))->format('d/m/Y H:i:s');
+        $caidoDesde = $router->ping_caido_desde
+            ? $router->ping_caido_desde->timezone(config('app.timezone'))->format('d/m/Y H:i')
+            : $cuando;
+        $caidoHace = \App\Support\MonitoreoDuracion::formatear($router->ping_caido_desde);
 
         $texto = sprintf(
-            "%sAlerta de red\nRouter: %s\nIP: %s\nEstado: sin respuesta al ping\nFallos seguidos: %d\nÚltimo chequeo: %s\nRevisá Monitoreo de red en el panel.",
+            "%sAlerta de red\nRouter: %s\nIP: %s\nEstado: sin respuesta al ping\nCaído desde: %s%s\nFallos seguidos: %d\nÚltimo chequeo: %s\nRevisá Monitoreo de red en el panel.",
             $esPrueba ? "[PRUEBA]\n" : '',
             $nombre,
             $ip,
+            $caidoDesde,
+            $caidoHace ? " ({$caidoHace})" : '',
             $fallos,
             $cuando
         );
@@ -648,13 +654,19 @@ class WhatsAppOutboundNotifier
         $cuando = $ap->ping_at
             ? $ap->ping_at->timezone(config('app.timezone'))->format('d/m/Y H:i:s')
             : now()->timezone(config('app.timezone'))->format('d/m/Y H:i:s');
+        $caidoDesde = $ap->ping_caido_desde
+            ? $ap->ping_caido_desde->timezone(config('app.timezone'))->format('d/m/Y H:i')
+            : $cuando;
+        $caidoHace = \App\Support\MonitoreoDuracion::formatear($ap->ping_caido_desde);
 
         $texto = sprintf(
-            "%sAlerta de red\nAP wireless: %s\nIP: %s\nSSID: %s\nEstado: sin respuesta al ping\nFallos seguidos: %d\nÚltimo chequeo: %s\nRevisá APs wireless en el panel.",
+            "%sAlerta de red\nAP wireless: %s\nIP: %s\nSSID: %s\nEstado: sin respuesta al ping\nCaído desde: %s%s\nFallos seguidos: %d\nÚltimo chequeo: %s\nRevisá APs wireless en el panel.",
             $esPrueba ? "[PRUEBA]\n" : '',
             $nombre,
             $ip,
             trim((string) ($ap->ssid ?: '-')),
+            $caidoDesde,
+            $caidoHace ? " ({$caidoHace})" : '',
             $fallos,
             $cuando
         );

@@ -2,6 +2,7 @@
 
 $accesoRapidoCatalogo = [
     ['name' => 'rapido-clientes', 'label' => 'Lista clientes', 'path' => '/clientes', 'permiso' => 'clientes-lista.ver'],
+    ['name' => 'rapido-clientes-activos', 'label' => 'Clientes activos', 'path' => '/clientes/mapa-activos', 'permiso' => 'clientes-lista.ver'],
     ['name' => 'rapido-nuevo-cliente', 'label' => 'Nuevo cliente', 'path' => '/clientes/create', 'permiso_any' => ['clientes.crear', 'clientes-lista.crear']],
     ['name' => 'rapido-cobro', 'label' => 'Registrar cobro', 'path' => '/cobros/servicios', 'permiso_any' => ['cobros-servicios.ver', 'cobros-servicios.crear', 'cobros.crear']],
     ['name' => 'rapido-cobros', 'label' => 'Cobros y recibos', 'path' => '/cobros', 'permiso' => 'cobros.ver'],
@@ -92,6 +93,7 @@ return [
             'submenu' => [
                 ['name' => 'clientes-dashboard', 'label' => 'Dashboard', 'path' => '/clientes/dashboard', 'permiso' => 'clientes-dashboard.ver'],
                 ['name' => 'lista-clientes', 'label' => 'Lista clientes', 'path' => '/clientes', 'permiso' => 'clientes-lista.ver'],
+                ['name' => 'clientes-activos', 'label' => 'Clientes activos', 'path' => '/clientes/mapa-activos', 'permiso' => 'clientes-lista.ver'],
                 ['name' => 'solicitudes-acceso', 'label' => 'Solicitudes app', 'path' => '/solicitudes-acceso', 'permiso' => 'solicitudes-acceso.ver'],
                 ['name' => 'avisos-push', 'label' => 'Avisos push', 'path' => '/avisos-push', 'permiso' => 'avisos-push.ver'],
                 ['name' => 'lista-pedidos', 'label' => 'Lista pedidos', 'path' => '/pedidos', 'permiso' => 'clientes-pedidos.ver'],

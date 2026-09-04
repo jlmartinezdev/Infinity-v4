@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\AccesoRapidoController;
 use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\ApWirelessCaidaAvisoController;
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvisoPushWebController;
 use App\Http\Controllers\CajaNapController;
 use App\Http\Controllers\CategoriaGastoController;
 use App\Http\Controllers\CategoriaProductoController;
@@ -11,16 +13,13 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
 use App\Http\Controllers\CobroRendicionController;
-use App\Http\Controllers\TpagoPaymentLinkController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\SifenConfiguracionController;
-use App\Http\Controllers\SifenPruebaController;
 use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EstadoPedidoController;
-use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FacturacionDashboardController;
+use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FacturaInternaController;
 use App\Http\Controllers\FacturaInternaNotaCreditoController;
 use App\Http\Controllers\GastoController;
@@ -28,8 +27,17 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\HotspotPerfilController;
 use App\Http\Controllers\ImportarCsvClientesController;
+use App\Http\Controllers\IspFailoverController;
 use App\Http\Controllers\LineaCableController;
+use App\Http\Controllers\LiquidacionSueldoController;
+use App\Http\Controllers\Loyalty\CanjeController as LoyaltyCanjeController;
+use App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboardController;
+use App\Http\Controllers\Loyalty\NovedadController as LoyaltyNovedadController;
+use App\Http\Controllers\Loyalty\PlanUpsellController as LoyaltyPlanUpsellController;
+use App\Http\Controllers\Loyalty\PremioController as LoyaltyPremioController;
+use App\Http\Controllers\Loyalty\PuntosController as LoyaltyPuntosController;
 use App\Http\Controllers\MikrotikPendienteController;
+use App\Http\Controllers\NodoApWirelessController;
 use App\Http\Controllers\NodoController;
 use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\OltController;
@@ -44,44 +52,36 @@ use App\Http\Controllers\PoolIpAsignadaController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\PromesaPagoController;
 use App\Http\Controllers\ProveedorController;
-use App\Http\Controllers\RolController;
 use App\Http\Controllers\RedMonitoreoController;
-use App\Http\Controllers\NodoApWirelessController;
-use App\Http\Controllers\ApWirelessCaidaAvisoController;
+use App\Http\Controllers\RolController;
 use App\Http\Controllers\RouterCaidaAvisoController;
-use App\Http\Controllers\IspFailoverController;
 use App\Http\Controllers\RouterController;
-use App\Http\Controllers\RouterScriptController;
-use App\Http\Controllers\RouterSchedulerController;
-use App\Http\Controllers\RouterNetworkBackupController;
 use App\Http\Controllers\RouterIpPoolController;
 use App\Http\Controllers\RouterModeloController;
+use App\Http\Controllers\RouterNetworkBackupController;
+use App\Http\Controllers\RouterSchedulerController;
+use App\Http\Controllers\RouterScriptController;
 use App\Http\Controllers\SalidaPonController;
 use App\Http\Controllers\ServicioController;
-use App\Http\Controllers\StaffMapaController;
 use App\Http\Controllers\ServicioPppoeEventoController;
+use App\Http\Controllers\SifenConfiguracionController;
+use App\Http\Controllers\SifenPruebaController;
 use App\Http\Controllers\SolicitudAccesoWebController;
-use App\Http\Controllers\AvisoPushWebController;
-use App\Http\Controllers\Loyalty\CanjeController as LoyaltyCanjeController;
-use App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboardController;
-use App\Http\Controllers\Loyalty\NovedadController as LoyaltyNovedadController;
-use App\Http\Controllers\Loyalty\PlanUpsellController as LoyaltyPlanUpsellController;
-use App\Http\Controllers\Loyalty\PremioController as LoyaltyPremioController;
-use App\Http\Controllers\Loyalty\PuntosController as LoyaltyPuntosController;
-use App\Http\Controllers\WhatsAppAsuntoController;
-use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\SplitterPrimarioController;
 use App\Http\Controllers\SplitterSecundarioController;
+use App\Http\Controllers\StaffMapaController;
 use App\Http\Controllers\TareaController;
 use App\Http\Controllers\TareaPeriodicaController;
-use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketAsuntoController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TipoTecnologiaController;
+use App\Http\Controllers\TpagoPaymentLinkController;
 use App\Http\Controllers\TvCuentaController;
-use App\Http\Controllers\LiquidacionSueldoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
+use App\Http\Controllers\WhatsAppAsuntoController;
+use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\WispHubImportController;
 use Illuminate\Support\Facades\Route;
 
@@ -186,6 +186,10 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::put('/configuracion/backup-bd/hora', [DatabaseBackupController::class, 'updateHora'])->name('configuracion.backup.hora');
     Route::post('/configuracion/backup-bd/descargar', [DatabaseBackupController::class, 'download'])->name('configuracion.backup.download');
     Route::post('/configuracion/backup-bd/drive', [DatabaseBackupController::class, 'uploadDrive'])->name('configuracion.backup.drive');
+    Route::post('/configuracion/backup-bd/drive/auth', [DatabaseBackupController::class, 'solicitarAcceso'])->name('configuracion.backup.drive.auth');
+    Route::get('/configuracion/backup-bd/drive/auth', [DatabaseBackupController::class, 'mostrarSolicitarAcceso'])->name('configuracion.backup.drive.auth.show');
+    Route::post('/configuracion/backup-bd/drive/auth/completar', [DatabaseBackupController::class, 'completarDesdeUrl'])->name('configuracion.backup.drive.auth.completar');
+    Route::get('/configuracion/backup-bd/drive/callback', [DatabaseBackupController::class, 'driveCallback'])->name('configuracion.backup.drive.callback');
 });
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
@@ -199,6 +203,7 @@ Route::middleware(['auth', 'flota.staff'])->group(function () {
     Route::get('/staff/mapa-tecnicos/ubicaciones', [StaffMapaController::class, 'ubicaciones'])->name('staff.mapa-tecnicos.ubicaciones');
     Route::get('/staff/mapa-tecnicos/clientes', [StaffMapaController::class, 'clientes'])->name('staff.mapa-tecnicos.clientes');
     Route::get('/staff/mapa-tecnicos/pedidos', [StaffMapaController::class, 'pedidos'])->name('staff.mapa-tecnicos.pedidos');
+    Route::get('/staff/mapa-tecnicos/tickets', [StaffMapaController::class, 'tickets'])->name('staff.mapa-tecnicos.tickets');
 });
 
 // Clientes (CRUD)
@@ -281,6 +286,11 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
 
     Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
     Route::get('/whatsapp/mensajes', [WhatsAppWebController::class, 'mensajes'])->name('whatsapp.mensajes');
+    Route::get('/whatsapp/test-n8n', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-n8n');
+    Route::get('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nHilo'])->name('whatsapp.test-n8n.hilo');
+    Route::post('/whatsapp/test-n8n/mensaje', [WhatsAppWebController::class, 'testN8nMensaje'])->name('whatsapp.test-n8n.mensaje');
+    Route::post('/whatsapp/test-n8n/ubicacion-aprobada', [WhatsAppWebController::class, 'testN8nUbicacionAprobada'])->name('whatsapp.test-n8n.ubicacion-aprobada');
+    Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
     Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
     Route::get('/whatsapp/hilo', [WhatsAppWebController::class, 'hiloJson'])->name('whatsapp.hilo');
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
@@ -299,6 +309,8 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::post('/whatsapp/conversacion/asunto', [WhatsAppWebController::class, 'asignarAsunto'])->name('whatsapp.asignar-asunto');
     Route::get('/whatsapp/conversacion/buscar-cliente', [WhatsAppWebController::class, 'buscarClientes'])->name('whatsapp.buscar-cliente');
     Route::post('/whatsapp/conversacion/contacto', [WhatsAppWebController::class, 'guardarContacto'])->name('whatsapp.guardar-contacto');
+    Route::delete('/whatsapp/mensajes/{mensaje}', [WhatsAppWebController::class, 'eliminarMensaje'])->name('whatsapp.mensajes.destroy');
+    Route::delete('/whatsapp/conversacion', [WhatsAppWebController::class, 'eliminarConversacion'])->name('whatsapp.conversacion.destroy');
     Route::get('/whatsapp/asuntos/create', [WhatsAppAsuntoController::class, 'create'])->name('whatsapp.asuntos.create');
     Route::post('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'store'])->name('whatsapp.asuntos.store');
     Route::get('/whatsapp/asuntos/{asunto}/edit', [WhatsAppAsuntoController::class, 'edit'])->name('whatsapp.asuntos.edit');
@@ -550,12 +562,14 @@ Route::delete('/facturas/{factura}', [FacturaController::class, 'destroy'])->nam
 // Cobros y recibos de pago (orden: rutas específicas antes de {cobro} para evitar que "create" coincida con el parámetro)
 Route::middleware(['auth', 'permiso:cobros.crear'])->group(function () {
     Route::get('/cobros/create', [CobroController::class, 'create'])->name('cobros.create');
+    Route::get('/cobros/clientes/{cliente}/facturas-pendientes', [CobroController::class, 'facturasPendientes'])->name('cobros.facturas-pendientes');
     Route::get('/cobros/multicobro', [CobroController::class, 'multicobro'])->name('cobros.multicobro');
     Route::post('/cobros', [CobroController::class, 'store'])->name('cobros.store');
     Route::post('/cobros/multicobro', [CobroController::class, 'storeMulticobro'])->name('cobros.store-multicobro');
 });
 Route::middleware(['auth', 'permiso:cobros.ver'])->group(function () {
     Route::get('/cobros', [CobroController::class, 'index'])->name('cobros.index');
+    Route::get('/cobros/servicios/datos', [CobroController::class, 'serviciosDatos'])->name('cobros.servicios.datos');
     Route::get('/cobros/servicios', [CobroController::class, 'servicios'])->name('cobros.servicios');
     Route::get('/cobros/pdf-resumen', [CobroController::class, 'pdfResumen'])->name('cobros.pdf-resumen');
     Route::get('/cobros/exportar-excel', [CobroController::class, 'exportarExcel'])->name('cobros.exportar-excel');
@@ -585,11 +599,12 @@ Route::get('/factura-internas/pendientes', [FacturaInternaController::class, 'pe
 Route::get('/factura-internas/pendientes/list', [FacturaInternaController::class, 'pendientesList'])->name('factura-internas.pendientes.list')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/mapa-puntos', [FacturaInternaController::class, 'pendientesMapaPuntos'])->name('factura-internas.pendientes.mapa-puntos')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::get('/factura-internas/pendientes/exportar-excel', [FacturaInternaController::class, 'exportarPendientesExcel'])->name('factura-internas.pendientes.exportar-excel')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
-    Route::get('/factura-internas/pendientes/pdf-cliente/{cliente}', [FacturaInternaController::class, 'pdfPendientesPorCliente'])->name('factura-internas.pendientes.pdf-cliente')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
-    Route::get('/factura-internas/pendientes/whatsapp/{cliente}', [FacturaInternaController::class, 'pendientesWhatsApp'])->name('factura-internas.pendientes.whatsapp')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
-    Route::post('/factura-internas/pendientes/whatsapp/{cliente}/reenviar-aviso', [FacturaInternaController::class, 'pendientesWhatsAppReenviarAviso'])->name('factura-internas.pendientes.whatsapp.reenviar')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
-    Route::post('/factura-internas/pendientes/whatsapp/{cliente}/reclamo', [FacturaInternaController::class, 'pendientesWhatsAppReclamo'])->name('factura-internas.pendientes.whatsapp.reclamo')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
-    Route::post('/factura-internas/pendientes/whatsapp-masivo', [FacturaInternaController::class, 'pendientesWhatsAppMasivo'])->name('factura-internas.pendientes.whatsapp.masivo')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/exportar-excel-vencidos', [FacturaInternaController::class, 'exportarPendientesExcelAgrupadoVencidas'])->name('factura-internas.pendientes.exportar-excel-vencidos')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/pdf-cliente/{cliente}', [FacturaInternaController::class, 'pdfPendientesPorCliente'])->name('factura-internas.pendientes.pdf-cliente')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::get('/factura-internas/pendientes/whatsapp/{cliente}', [FacturaInternaController::class, 'pendientesWhatsApp'])->name('factura-internas.pendientes.whatsapp')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::post('/factura-internas/pendientes/whatsapp/{cliente}/reenviar-aviso', [FacturaInternaController::class, 'pendientesWhatsAppReenviarAviso'])->name('factura-internas.pendientes.whatsapp.reenviar')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::post('/factura-internas/pendientes/whatsapp/{cliente}/reclamo', [FacturaInternaController::class, 'pendientesWhatsAppReclamo'])->name('factura-internas.pendientes.whatsapp.reclamo')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
+Route::post('/factura-internas/pendientes/whatsapp-masivo', [FacturaInternaController::class, 'pendientesWhatsAppMasivo'])->name('factura-internas.pendientes.whatsapp.masivo')->middleware(['auth', 'permiso:pagos-pendientes.ver']);
 Route::middleware(['auth', 'permiso:pagos-pendientes.ver'])->group(function () {
     Route::get('/promesas-pago', [PromesaPagoController::class, 'index'])->name('promesas-pago.index');
 });
@@ -662,13 +677,16 @@ Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
 Route::middleware(['auth', 'permiso:servicios.crear,servicios.editar'])->group(function () {
     Route::get('/servicios/{servicio_id}/edit', [ServicioController::class, 'edit'])->name('servicios.edit');
     Route::get('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarForm'])->name('servicios.migrar');
+    Route::get('/servicios/{servicio_id}/cambiar-tecnologia', [ServicioController::class, 'cambiarTecnologiaForm'])->name('servicios.cambiar-tecnologia');
     Route::put('/servicios/{servicio_id}', [ServicioController::class, 'update'])->name('servicios.update');
     Route::post('/servicios/{servicio_id}/activar', [ServicioController::class, 'activar'])->name('servicios.activar');
+    Route::post('/servicios/{servicio_id}/finalizar-instalacion', [ServicioController::class, 'finalizarInstalacion'])->name('servicios.finalizar-instalacion');
     Route::post('/servicios/{servicio_id}/suspender', [ServicioController::class, 'suspender'])->name('servicios.suspender');
     Route::post('/servicios/{servicio_id}/cancelar', [ServicioController::class, 'cancelar'])->name('servicios.cancelar');
     Route::post('/servicios/{servicio_id}/dar-baja', [ServicioController::class, 'darBaja'])->name('servicios.dar-baja');
     Route::post('/servicios/{servicio_id}/sync-pppoe', [ServicioController::class, 'syncPppoe'])->name('servicios.sync-pppoe');
     Route::post('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarStore'])->name('servicios.migrar-store');
+    Route::post('/servicios/{servicio_id}/cambiar-tecnologia', [ServicioController::class, 'cambiarTecnologiaStore'])->name('servicios.cambiar-tecnologia-store');
 });
 Route::delete('/servicios/{servicio_id}', [ServicioController::class, 'destroy'])->name('servicios.destroy')->middleware(['auth', 'permiso:servicios.eliminar']);
 

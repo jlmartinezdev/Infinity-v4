@@ -90,7 +90,7 @@
                 </div>
             @endif
             @if (session('error'))
-                <div class="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden">
+                <div class="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden break-words text-sm whitespace-pre-wrap">
                     {{ session('error') }}
                 </div>
             @endif

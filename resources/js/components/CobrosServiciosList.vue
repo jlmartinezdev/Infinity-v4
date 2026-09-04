@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-7xl mx-auto">
+  <div class="max-w-7xl mx-auto pb-16">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cobros</h1>
       <a :href="urlCobrosIndex"
@@ -48,7 +48,20 @@
         >
           <!-- Estado vacío -->
           <div
-            v-if="serviciosFiltrados.length === 0"
+            v-if="cargando"
+            class="px-4 py-12 text-center text-gray-500 dark:text-gray-400"
+          >
+            <p class="text-sm">Consultando cuentas pendientes…</p>
+            <p class="text-xs mt-1">Ya podés escribir; los resultados aparecen al terminar la consulta</p>
+          </div>
+          <div
+            v-else-if="errorCarga"
+            class="px-4 py-12 text-center text-red-600 dark:text-red-400"
+          >
+            <p class="text-sm">{{ errorCarga }}</p>
+          </div>
+          <div
+            v-else-if="clientesFiltrados.length === 0"
             class="px-4 py-12 text-center text-gray-500 dark:text-gray-400"
           >
             <p class="text-sm">No hay resultados para "{{ buscar.trim() }}"</p>
@@ -59,41 +72,54 @@
           <div v-else class="max-h-[70vh] overflow-y-auto">
             <div class="py-2">
               <p class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Resultados ({{ serviciosFiltrados.length }})
+                Resultados ({{ clientesFiltrados.length }})
               </p>
               <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
                 <div
-                  v-for="s in serviciosFiltrados"
-                  :key="s.servicio_id"
+                  v-for="g in clientesFiltrados"
+                  :key="g.cliente_id"
                   class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                 >
                   <div class="w-full sm:flex-1 min-w-0">
                     <p class="font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {{ nombresCompletos(s) || '—' }}
+                      {{ nombresCompletos(g) || '—' }}
                     </p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                      {{ s.cliente?.cedula ?? '—' }}
-                      <span v-if="s.plan?.nombre" class="text-gray-400 dark:text-gray-500"> · {{ s.plan.nombre }}- {{ formatMonto(s.plan?.precio ?? 0) }} PYG</span>
+                      {{ g.cliente?.cedula ?? '—' }}
+                      <span v-if="g.servicios.length === 1 && etiquetaServicio(g.servicios[0])" class="text-gray-400 dark:text-gray-500">
+                        · {{ etiquetaServicio(g.servicios[0]) }}- {{ formatMonto(g.servicios[0].plan?.precio ?? 0) }} PYG
+                      </span>
+                      <span v-else-if="g.servicios.length > 1" class="text-gray-400 dark:text-gray-500">
+                        · {{ g.servicios.length }} servicios
+                      </span>
                     </p>
-                    <p v-if="s.cliente?.direccion" class="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                      {{ s.cliente.direccion }}
+                    <ul v-if="g.servicios.length > 1" class="mt-0.5 space-y-0.5">
+                      <li
+                        v-for="sv in g.servicios"
+                        :key="sv.servicio_id"
+                        class="text-sm text-gray-500 dark:text-gray-400"
+                      >
+                        <span v-if="etiquetaServicio(sv)">{{ etiquetaServicio(sv) }}- {{ formatMonto(sv.plan?.precio ?? 0) }} PYG</span>
+                        <span v-else>Servicio #{{ sv.servicio_id }}</span>
+                      </li>
+                    </ul>
+                    <p v-if="g.cliente?.direccion" class="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                      {{ g.cliente.direccion }}
                     </p>
                   </div>
                   <div class="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shrink-0">
                     <div class="flex items-center gap-3">
-                    
                       <span
-                        v-if="(s.facturas_pendientes?.cantidad ?? 0) > 0"
+                        v-if="(g.facturas_pendientes?.cantidad ?? 0) > 0"
                         class="text-xs px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200"
                       >
-                        {{ s.facturas_pendientes.cantidad }} factura(s) pendiente(s): {{ formatMonto(s.facturas_pendientes.monto ?? 0) }}
+                        {{ g.facturas_pendientes.cantidad }} factura(s) pendiente(s): {{ formatMonto(g.facturas_pendientes.monto ?? 0) }}
                       </span>
                     </div>
                     <div class="flex items-center gap-2">
-                     
                       <a
                         v-if="canCrearCobro"
-                        :href="urlCrearCobro(s.cliente?.cliente_id)"
+                        :href="urlCrearCobro(g.cliente_id)"
                         class="inline-flex items-center gap-2 p-2 rounded-lg text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
                         title="Registrar cobro"
                       >
@@ -123,14 +149,38 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="cargando"
+      class="fixed bottom-0 inset-x-0 z-[60] print:hidden"
+      aria-live="polite"
+    >
+      <div class="h-1.5 bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div class="cobro-bar-indeterminate h-full bg-green-500"></div>
+      </div>
+      <div class="bg-white/95 dark:bg-gray-800/95 border-t border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
+        Consultando cuentas pendientes…
+      </div>
+    </div>
   </div>
 </template>
 
+<style scoped>
+@keyframes cobro-bar-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+.cobro-bar-indeterminate {
+  width: 32%;
+  animation: cobro-bar-slide 1.15s ease-in-out infinite;
+}
+</style>
+
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 const props = defineProps({
-  servicios: { type: Array, default: () => [] },
+  urlDatos: { type: String, default: '' },
   urlCobrosIndex: { type: String, default: '' },
   urlEditServicioBase: { type: String, default: '' },
   urlCrearCobroBase: { type: String, default: '' },
@@ -139,6 +189,9 @@ const props = defineProps({
 
 const buscar = ref('');
 const searchInputRef = ref(null);
+const servicios = ref([]);
+const cargando = ref(true);
+const errorCarga = ref('');
 
 /**
  * Texto donde buscar: cédula + nombre + apellido + nombre completo (por si el nombre largo está en un solo campo).
@@ -154,6 +207,7 @@ function textoBusquedaCliente(s) {
     nombre,
     apellido,
     full,
+    ...(Array.isArray(s.servicios) ? s.servicios.flatMap((sv) => [sv.alias, sv.plan?.nombre]) : []),
   ]
     .filter(Boolean)
     .join(' ');
@@ -172,11 +226,34 @@ function coincideBusquedaPorPalabras(texto, consulta) {
   return tokens.every(t => h.includes(t));
 }
 
-const serviciosFiltrados = computed(() => {
+const clientesAgrupados = computed(() => {
+  const map = new Map();
+  for (const s of servicios.value) {
+    const clienteId = s.cliente?.cliente_id;
+    if (!clienteId) continue;
+    if (!map.has(clienteId)) {
+      map.set(clienteId, {
+        cliente_id: clienteId,
+        cliente: s.cliente,
+        servicios: [],
+        facturas_pendientes: s.facturas_pendientes ?? { cantidad: 0, monto: 0 },
+      });
+    }
+    const grupo = map.get(clienteId);
+    grupo.servicios.push({
+      servicio_id: s.servicio_id,
+      plan: s.plan,
+      alias: s.alias || null,
+    });
+  }
+  return Array.from(map.values());
+});
+
+const clientesFiltrados = computed(() => {
   const q = buscar.value?.trim() ?? '';
   if (!q) return [];
-  return props.servicios.filter(s => {
-    const texto = textoBusquedaCliente(s);
+  return clientesAgrupados.value.filter(g => {
+    const texto = textoBusquedaCliente(g);
     return coincideBusquedaPorPalabras(texto, q);
   });
 });
@@ -185,6 +262,13 @@ function nombresCompletos(s) {
   const n = (s.cliente?.nombre ?? '').trim();
   const a = (s.cliente?.apellido ?? '').trim();
   return `${n} ${a}`.trim() || null;
+}
+
+function etiquetaServicio(sv) {
+  const alias = String(sv?.alias ?? '').trim();
+  const plan = String(sv?.plan?.nombre ?? '').trim();
+  if (alias && plan) return `${alias} · ${plan}`;
+  return alias || plan || '';
 }
 
 function formatMonto(val) {
@@ -204,4 +288,35 @@ function onEscape() {
   buscar.value = '';
   searchInputRef.value?.blur();
 }
+
+async function cargarDatos() {
+  if (!props.urlDatos) {
+    cargando.value = false;
+    errorCarga.value = 'No se configuró la consulta de cuentas.';
+    return;
+  }
+  cargando.value = true;
+  errorCarga.value = '';
+  try {
+    const res = await fetch(props.urlDatos, {
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || 'No se pudieron cargar las cuentas pendientes.');
+    }
+    servicios.value = Array.isArray(data.servicios) ? data.servicios : [];
+  } catch (e) {
+    errorCarga.value = e?.message || 'No se pudieron cargar las cuentas pendientes. Reintentá.';
+    servicios.value = [];
+  } finally {
+    cargando.value = false;
+  }
+}
+
+onMounted(cargarDatos);
 </script>

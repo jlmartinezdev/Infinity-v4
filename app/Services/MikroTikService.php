@@ -25,6 +25,11 @@ class MikroTikService
 
     protected ?Router $router = null;
 
+    /** @var resource|null */
+    protected $routerLock = null;
+
+    protected ?int $lockedRouterId = null;
+
     public function __construct(
         protected int $timeout = 30,
         protected int $socketTimeout = 60,
@@ -40,6 +45,8 @@ class MikroTikService
      */
     public function connect(Router $router): Client
     {
+        $this->adquirirLockRouter($router);
+
         $port = (int) ($router->api_port ?: config('mikrotik.port', 8728));
         $ssl = $this->ssl || $port === 8729;
 
@@ -64,12 +71,63 @@ class MikroTikService
     }
 
     /**
-     * Cierra la conexión actual (el cliente no suele exponer disconnect; se deja a GC).
+     * Cierra la conexión actual.
      */
-    public function disconnect(): void
+    public function disconnect(bool $liberarLock = true): void
     {
+        if ($this->client instanceof Client) {
+            try {
+                $ref = new \ReflectionObject($this->client);
+                if ($ref->hasProperty('connector')) {
+                    $prop = $ref->getProperty('connector');
+                    $prop->setAccessible(true);
+                    $connector = $prop->getValue($this->client);
+                    if (is_object($connector) && method_exists($connector, 'close')) {
+                        $connector->close();
+                    }
+                }
+            } catch (Throwable) {
+                // el socket puede estar ya cerrado
+            }
+        }
         $this->client = null;
         $this->router = null;
+        if ($liberarLock) {
+            $this->liberarLockRouter();
+        }
+    }
+
+    private function adquirirLockRouter(Router $router): void
+    {
+        $id = (int) $router->router_id;
+        if ($id > 0 && $this->lockedRouterId === $id && is_resource($this->routerLock)) {
+            return;
+        }
+        $this->liberarLockRouter();
+        if ($id <= 0) {
+            return;
+        }
+        $dir = storage_path('framework/cache');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+        $fp = @fopen($dir.'/mikrotik-api-'.$id.'.lock', 'c');
+        if ($fp === false) {
+            return;
+        }
+        flock($fp, LOCK_EX);
+        $this->routerLock = $fp;
+        $this->lockedRouterId = $id;
+    }
+
+    private function liberarLockRouter(): void
+    {
+        if (is_resource($this->routerLock)) {
+            flock($this->routerLock, LOCK_UN);
+            fclose($this->routerLock);
+        }
+        $this->routerLock = null;
+        $this->lockedRouterId = null;
     }
 
     /**
@@ -82,115 +140,304 @@ class MikroTikService
             $query = new Query('/system/resource/print');
             $response = $client->query($query)->read();
             $this->disconnect();
+
             return ['success' => true, 'data' => $response];
         } catch (Throwable $e) {
             Log::warning('MikroTik testConnection failed', ['router' => $router->router_id, 'error' => $e->getMessage()]);
+
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
     /**
      * Consulta leases DHCP y sesiones PPPoE activas (/ppp/active).
+     * Si una consulta timeout, se reintenta la otra en una conexión nueva.
      *
      * @return array{
      *   success: bool,
+     *   partial?: bool,
      *   dhcp_activos?: int,
      *   dhcp_total?: int,
      *   pppoe_activos?: int,
      *   dhcp_leases?: list<array{address: string, mac: string, hostname: string, status: string, server: string, expires: string, active: bool, static: bool}>,
+     *   pppoe_sesiones?: list<array{name: string, address: string, uptime: string, caller_id: string, service: string}>,
      *   message?: string,
      *   error?: string
      * }
      */
     public function consultarDhcpYPppoeActivos(Router $router): array
     {
+        @set_time_limit(120);
+        $prevSocket = $this->socketTimeout;
+        $this->socketTimeout = max($prevSocket, 90);
+
         try {
             $client = $this->connect($router);
 
-            $leasesRaw = $client->query(new Query('/ip/dhcp-server/lease/print'))->read();
-            $leasesRaw = is_array($leasesRaw) ? $leasesRaw : [];
-            $dhcpLeases = [];
-            $dhcpActivos = 0;
+            $dhcp = ['ok' => false, 'rows' => [], 'error' => null];
+            $ppp = ['ok' => false, 'rows' => [], 'error' => null];
 
-            foreach ($leasesRaw as $lease) {
-                if (! is_array($lease)) {
-                    continue;
+            try {
+                $raw = $client->query(
+                    (new Query('/ppp/active/print'))
+                        ->equal('.proplist', '.id,name,address,uptime,caller-id,service')
+                )->read();
+                $ppp = ['ok' => true, 'rows' => is_array($raw) ? $raw : [], 'error' => null];
+            } catch (Throwable $e) {
+                Log::warning('MikroTik PPPoE print (proplist) failed', ['router' => $router->router_id, 'error' => $e->getMessage()]);
+                $this->disconnect();
+                $client = $this->connect($router);
+                try {
+                    $raw = $client->query(new Query('/ppp/active/print'))->read();
+                    $ppp = ['ok' => true, 'rows' => is_array($raw) ? $raw : [], 'error' => null];
+                } catch (Throwable $e2) {
+                    $ppp['error'] = $e2->getMessage();
+                    Log::warning('MikroTik PPPoE print failed', ['router' => $router->router_id, 'error' => $e2->getMessage()]);
+                    $this->disconnect();
+                    $client = $this->connect($router);
                 }
-                $status = strtolower(trim((string) ($lease['status'] ?? '')));
-                // bound = lease en uso; sin status (algunas versiones) también se cuenta como activo
-                $activo = $status === 'bound' || $status === '';
-                if ($activo) {
-                    $dhcpActivos++;
-                }
+            }
 
-                // RouterOS: dynamic=true → lease dinámico; false/ausente con make-static → estático
-                $dynRaw = strtolower(trim((string) ($lease['dynamic'] ?? 'true')));
-                $esEstatico = ! in_array($dynRaw, ['true', 'yes', '1'], true);
+            try {
+                $raw = $client->query(
+                    (new Query('/ip/dhcp-server/lease/print'))
+                        ->equal('.proplist', '.id,address,mac-address,host-name,status,server,expires-after,dynamic')
+                )->read();
+                $dhcp = ['ok' => true, 'rows' => is_array($raw) ? $raw : [], 'error' => null];
+            } catch (Throwable $e) {
+                $dhcp['error'] = $e->getMessage();
+                Log::warning('MikroTik DHCP print failed', ['router' => $router->router_id, 'error' => $e->getMessage()]);
+            }
 
-                $dhcpLeases[] = [
-                    'address' => trim((string) ($lease['address'] ?? '')),
-                    'mac' => trim((string) ($lease['mac-address'] ?? $lease['mac_address'] ?? '')),
-                    'hostname' => trim((string) ($lease['host-name'] ?? $lease['host_name'] ?? '')),
-                    'status' => $status !== '' ? $status : 'bound',
-                    'server' => trim((string) ($lease['server'] ?? '')),
-                    'expires' => trim((string) ($lease['expires-after'] ?? $lease['expires_after'] ?? '')),
-                    'active' => $activo,
-                    'static' => $esEstatico,
+            $dhcpLeases = $this->mapearDhcpLeases($dhcp['rows']);
+            $pppoeSesiones = $this->mapearPppoeSesiones($ppp['rows']);
+
+            $errores = [];
+            if (! $dhcp['ok']) {
+                $errores[] = 'DHCP: '.$dhcp['error'];
+            }
+            if (! $ppp['ok']) {
+                $errores[] = 'PPPoE: '.$ppp['error'];
+            }
+
+            if ($errores !== [] && ! $dhcp['ok'] && ! $ppp['ok']) {
+                $msg = implode(' · ', $errores);
+
+                return [
+                    'success' => false,
+                    'error' => $msg,
+                    'message' => $msg,
                 ];
             }
 
-            usort($dhcpLeases, function (array $a, array $b): int {
-                if ($a['active'] !== $b['active']) {
-                    return $a['active'] ? -1 : 1;
-                }
-
-                return strnatcmp($a['address'], $b['address']);
-            });
-
-            $pppActive = $client->query(new Query('/ppp/active/print'))->read();
-            $pppActive = is_array($pppActive) ? $pppActive : [];
-            $pppoeActivos = 0;
-            foreach ($pppActive as $row) {
-                if (! is_array($row)) {
-                    continue;
-                }
-                $service = strtolower(trim((string) ($row['service'] ?? 'pppoe')));
-                // Contar PPPoE; si no hay service, asumir pppoe (comportamiento habitual)
-                if ($service === '' || $service === 'pppoe' || $service === 'any') {
-                    $pppoeActivos++;
-                }
-            }
-
-            $this->disconnect();
-
+            $dhcpActivos = count(array_filter($dhcpLeases, fn (array $l) => $l['active']));
             $dhcpTotal = count($dhcpLeases);
+            $pppoeActivos = count($pppoeSesiones);
+
+            $message = sprintf(
+                'DHCP activos: %d%s · PPPoE activos: %d',
+                $dhcpActivos,
+                $dhcpTotal !== $dhcpActivos ? " (total {$dhcpTotal})" : '',
+                $pppoeActivos
+            );
+            if ($errores !== []) {
+                $message .= ' · '.implode(' · ', $errores);
+            }
 
             return [
                 'success' => true,
+                'partial' => $errores !== [],
                 'dhcp_activos' => $dhcpActivos,
                 'dhcp_total' => $dhcpTotal,
                 'pppoe_activos' => $pppoeActivos,
                 'dhcp_leases' => $dhcpLeases,
-                'message' => sprintf(
-                    'DHCP activos: %d%s · PPPoE activos: %d',
-                    $dhcpActivos,
-                    $dhcpTotal !== $dhcpActivos ? " (total {$dhcpTotal})" : '',
-                    $pppoeActivos
-                ),
+                'pppoe_sesiones' => $pppoeSesiones,
+                'message' => $message,
+                'error' => $errores !== [] ? implode(' · ', $errores) : null,
             ];
-        } catch (Throwable $e) {
+        } finally {
+            $this->socketTimeout = $prevSocket;
             $this->disconnect();
-            Log::warning('MikroTik consultarDhcpYPppoeActivos failed', [
-                'router' => $router->router_id,
-                'error' => $e->getMessage(),
-            ]);
+        }
+    }
+
+    /**
+     * @param  list<mixed>  $leasesRaw
+     * @return list<array{address: string, mac: string, hostname: string, status: string, server: string, expires: string, active: bool, static: bool}>
+     */
+    public static function mapearDhcpLeases(array $leasesRaw): array
+    {
+        $dhcpLeases = [];
+        foreach ($leasesRaw as $lease) {
+            if (! is_array($lease)) {
+                continue;
+            }
+            $status = strtolower(trim((string) ($lease['status'] ?? '')));
+            $activo = $status === 'bound' || $status === '';
+            $dynRaw = strtolower(trim((string) ($lease['dynamic'] ?? 'true')));
+            $esEstatico = ! in_array($dynRaw, ['true', 'yes', '1'], true);
+
+            $dhcpLeases[] = [
+                'address' => trim((string) ($lease['address'] ?? '')),
+                'mac' => trim((string) ($lease['mac-address'] ?? $lease['mac_address'] ?? '')),
+                'hostname' => trim((string) ($lease['host-name'] ?? $lease['host_name'] ?? '')),
+                'status' => $status !== '' ? $status : 'bound',
+                'server' => trim((string) ($lease['server'] ?? '')),
+                'expires' => trim((string) ($lease['expires-after'] ?? $lease['expires_after'] ?? '')),
+                'active' => $activo,
+                'static' => $esEstatico,
+            ];
+        }
+
+        usort($dhcpLeases, function (array $a, array $b): int {
+            if ($a['active'] !== $b['active']) {
+                return $a['active'] ? -1 : 1;
+            }
+
+            return strnatcmp($a['address'], $b['address']);
+        });
+
+        return $dhcpLeases;
+    }
+
+    /**
+     * @param  list<mixed>  $pppActive
+     * @return list<array{name: string, address: string, uptime: string, caller_id: string, service: string}>
+     */
+    public static function mapearPppoeSesiones(array $pppActive): array
+    {
+        $sesiones = [];
+        foreach ($pppActive as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $service = strtolower(trim((string) ($row['service'] ?? 'pppoe')));
+            if ($service !== '' && $service !== 'pppoe' && $service !== 'any') {
+                continue;
+            }
+            $address = trim((string) ($row['address'] ?? ''));
+            if (preg_match('/^(\d{1,3}(?:\.\d{1,3}){3})(?:\/\d{1,2})?$/', $address, $m)) {
+                $address = $m[1];
+            }
+            $sesiones[] = [
+                'name' => trim((string) ($row['name'] ?? '')),
+                'address' => $address,
+                'uptime' => trim((string) ($row['uptime'] ?? '')),
+                'caller_id' => trim((string) ($row['caller-id'] ?? $row['caller_id'] ?? '')),
+                'service' => $service !== '' ? $service : 'pppoe',
+            ];
+        }
+
+        usort($sesiones, fn (array $a, array $b) => strnatcasecmp($a['name'], $b['name']));
+
+        return $sesiones;
+    }
+
+    /**
+     * Lista sesiones PPP activas (/ppp/active) indexadas por usuario e IP asignada.
+     *
+     * @return array{
+     *   success: bool,
+     *   by_name: array<string, array{name: string, address: string|null, uptime: string|null}>,
+     *   by_address: array<string, array{name: string, address: string|null, uptime: string|null}>,
+     *   total: int,
+     *   error?: string
+     * }
+     */
+    public function listarSesionesPppoeActivas(Router $router): array
+    {
+        @set_time_limit(90);
+        $prevSocket = $this->socketTimeout;
+        $this->socketTimeout = max($prevSocket, 90);
+        $ultimoError = 'Sin respuesta del router';
+
+        try {
+            for ($intento = 1; $intento <= 3; $intento++) {
+                try {
+                    $client = $this->connect($router);
+                    $pppActive = $client->query(
+                        (new Query('/ppp/active/print'))->equal('.proplist', 'name,address,uptime,caller-id,service')
+                    )->read();
+                    $this->disconnect();
+
+                    $pppActive = is_array($pppActive) ? $pppActive : [];
+                    $byName = [];
+                    $byAddress = [];
+                    $total = 0;
+
+                    foreach ($pppActive as $row) {
+                        if (! is_array($row)) {
+                            continue;
+                        }
+                        $service = strtolower(trim((string) ($row['service'] ?? 'pppoe')));
+                        if ($service !== '' && $service !== 'pppoe' && $service !== 'any') {
+                            continue;
+                        }
+
+                        $name = trim((string) ($row['name'] ?? ''));
+                        $address = $this->extraerIpv4DeAddress((string) ($row['address'] ?? ''));
+                        $session = [
+                            'name' => $name,
+                            'address' => $address,
+                            'uptime' => (string) ($row['uptime'] ?? '') ?: null,
+                        ];
+
+                        if ($name !== '') {
+                            $key = strtolower($name);
+                            $byName[$key] = $session;
+                            $byName[str_replace(' ', '_', $key)] = $session;
+                            $byName[str_replace('_', ' ', $key)] = $session;
+                        }
+                        if ($address !== null) {
+                            $byAddress[$address] = $session;
+                        }
+                        $total++;
+                    }
+
+                    return [
+                        'success' => true,
+                        'by_name' => $byName,
+                        'by_address' => $byAddress,
+                        'total' => $total,
+                    ];
+                } catch (Throwable $e) {
+                    $ultimoError = $e->getMessage();
+                    Log::warning('MikroTik listarSesionesPppoeActivas intento fallido', [
+                        'router' => $router->router_id,
+                        'intento' => $intento,
+                        'error' => $ultimoError,
+                    ]);
+                    $this->disconnect(false);
+                    if ($intento < 3) {
+                        usleep(300000);
+                    }
+                }
+            }
 
             return [
                 'success' => false,
-                'error' => $e->getMessage(),
-                'message' => $e->getMessage(),
+                'by_name' => [],
+                'by_address' => [],
+                'total' => 0,
+                'error' => $ultimoError,
             ];
+        } finally {
+            $this->socketTimeout = $prevSocket;
+            $this->disconnect();
         }
+    }
+
+    private function extraerIpv4DeAddress(string $address): ?string
+    {
+        $address = trim($address);
+        if ($address === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{1,3}(?:\.\d{1,3}){3})(?:\/\d{1,2})?$/', $address, $m)) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     /**
@@ -202,6 +449,7 @@ class MikroTikService
         $query = new Query('/ppp/profile/print');
         $response = $client->query($query)->read();
         $this->disconnect();
+
         return is_array($response) ? $response : [];
     }
 
@@ -242,6 +490,7 @@ class MikroTikService
         $items = is_array($response) ? $response : [];
         $found = ! empty($items) ? $items[0] : null;
         Log::info('[MikroTik] getPppoeSecretByName: OK', ['router' => $router->ip, 'name' => $name, 'found' => (bool) $found]);
+
         return $found;
     }
 
@@ -280,6 +529,7 @@ class MikroTikService
         $response = $client->query($query)->read();
         Log::info('[MikroTik] addPppoeSecret: OK', ['router' => $router->ip, 'name' => $name]);
         $this->disconnect();
+
         return ['success' => true, 'response' => $response];
     }
 
@@ -300,6 +550,7 @@ class MikroTikService
         $client->query($query)->read();
         Log::info('[MikroTik] setPppoeSecret: OK', ['router' => $router->ip, 'ros_id' => $rosId]);
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -312,6 +563,7 @@ class MikroTikService
         $query = (new Query('/ppp/secret/remove'))->equal('.id', $rosId);
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -402,7 +654,7 @@ class MikroTikService
         }
 
         foreach ($perfiles as $perfil) {
-            $name = $perfil->nombre ?: ('perfil-' . $perfil->perfil_pppoe_id);
+            $name = $perfil->nombre ?: ('perfil-'.$perfil->perfil_pppoe_id);
             $localAddress = $router->ip_loopback ?: null;
             $remoteAddress = null;
             $rateLimit = $perfil->rate_limit_tx_rx ?: null;
@@ -425,7 +677,7 @@ class MikroTikService
                     $added++;
                 }
             } catch (Throwable $e) {
-                $errors[] = $name . ': ' . $e->getMessage();
+                $errors[] = $name.': '.$e->getMessage();
                 Log::error('MikroTik sync profile error', ['perfil' => $name, 'error' => $e->getMessage()]);
             }
         }
@@ -456,6 +708,7 @@ class MikroTikService
         }
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -476,6 +729,7 @@ class MikroTikService
         }
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -590,7 +844,7 @@ class MikroTikService
         $password = $servicio->password_pppoe ?? '';
         $remoteAddress = $servicio->ip ?: null;
         $localAddress = $router->ip_loopback ?: null;
-        $nombreCliente = trim(($servicio->cliente?->nombre ?? '') . ' ' . ($servicio->cliente?->apellido ?? ''));
+        $nombreCliente = trim(($servicio->cliente?->nombre ?? '').' '.($servicio->cliente?->apellido ?? ''));
         $disabled = $servicio->estado === Servicio::ESTADO_SUSPENDIDO
             || $servicio->estado === Servicio::ESTADO_CORTADO;
 
@@ -614,6 +868,7 @@ class MikroTikService
             if (str_contains($msg, 'Error reading') || str_contains($msg, 'StreamException') || str_contains($msg, 'Stream timed out') || str_contains($msg, 'Connection')) {
                 $msg = 'No se pudo conectar al router MikroTik. Verifica IP, puerto, SSL y que el router esté accesible en la red.';
             }
+
             return ['success' => false, 'error' => $msg];
         }
         Log::info('[MikroTik] syncPppoeServicio: consulta OK, procediendo a add/set', [
@@ -672,6 +927,7 @@ class MikroTikService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -688,6 +944,7 @@ class MikroTikService
         }
         $response = $client->query($query)->read();
         $this->disconnect();
+
         return is_array($response) ? $response : [];
     }
 
@@ -717,6 +974,7 @@ class MikroTikService
             }
         }
         $this->disconnect();
+
         return is_array($response) ? $response : [];
     }
 
@@ -740,6 +998,7 @@ class MikroTikService
         }
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -757,6 +1016,7 @@ class MikroTikService
         }
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -769,6 +1029,7 @@ class MikroTikService
         $query = (new Query('/ip/hotspot/user/remove'))->equal('.id', $rosId);
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -781,6 +1042,7 @@ class MikroTikService
         $query = new Query('/ip/hotspot/user/profile/print');
         $response = $client->query($query)->read();
         $this->disconnect();
+
         return is_array($response) ? $response : [];
     }
 
@@ -799,6 +1061,7 @@ class MikroTikService
         }
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -819,6 +1082,7 @@ class MikroTikService
         }
         $client->query($query)->read();
         $this->disconnect();
+
         return ['success' => true];
     }
 
@@ -847,9 +1111,11 @@ class MikroTikService
                 $newUser = collect($users)->firstWhere('name', $sh->username);
                 $sh->update(['ros_id' => $newUser['.id'] ?? null, 'last_synced' => now()]);
             }
+
             return ['success' => true];
         } catch (Throwable $e) {
             Log::error('[MikroTik] syncHotspotServicio error', ['servicio' => $sh->servicio_id, 'error' => $e->getMessage()]);
+
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -2236,6 +2502,7 @@ class MikroTikService
                         // Si ya existe, no es error fatal
                         if (! str_contains(mb_strtolower($trap), 'already have') && ! str_contains(mb_strtolower($trap), 'exists')) {
                             $errors[] = "IP {$addr->address}: {$trap}";
+
                             continue;
                         }
                     }
@@ -2282,6 +2549,7 @@ class MikroTikService
                     if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
                         if (! str_contains(mb_strtolower($trap), 'already have') && ! str_contains(mb_strtolower($trap), 'exists')) {
                             $errors[] = "Ruta {$route->dst_address}: {$trap}";
+
                             continue;
                         }
                     }
@@ -2424,6 +2692,7 @@ class MikroTikService
         foreach ($raw as $word) {
             if ($word === '!trap') {
                 $inTrap = true;
+
                 continue;
             }
             if ($word === '!done' || $word === '!re' || $word === '!fatal' || $word === '') {
@@ -2431,6 +2700,7 @@ class MikroTikService
                     break;
                 }
                 $inTrap = false;
+
                 continue;
             }
             if (! $inTrap) {
@@ -2469,6 +2739,7 @@ class MikroTikService
                     $items[] = $current;
                 }
                 $current = [];
+
                 continue;
             }
 
@@ -2477,6 +2748,7 @@ class MikroTikService
                     $items[] = $current;
                     $current = null;
                 }
+
                 continue;
             }
 

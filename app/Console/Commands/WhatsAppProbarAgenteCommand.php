@@ -12,7 +12,9 @@ class WhatsAppProbarAgenteCommand extends Command
     protected $signature = 'whatsapp:probar-agente
                             {--wa-id=595981234567 : Teléfono formato Meta}
                             {--mensaje=Hola, cuanto sale el plan de 20 megas?}
+                            {--tipo=text : Tipo de mensaje Meta (text o image)}
                             {--nombre=Juan}
+                            {--url= : URL webhook N8N (override, ej. http://127.0.0.1:5678/webhook/interplus-wa-agent)}
                             {--lookup : Solo GET por-telefono local, sin llamar N8N}
                             {--enviar : Enviar el reply por WhatsApp (ventana 24h)}';
 
@@ -21,6 +23,9 @@ class WhatsAppProbarAgenteCommand extends Command
     public function handle(WhatsAppAgentService $agent, ClientePorTelefonoService $lookup): int
     {
         $waId = (string) $this->option('wa-id');
+        if (filled($this->option('url'))) {
+            config(['whatsapp.agent.url' => (string) $this->option('url')]);
+        }
         $this->table(['clave', 'valor'], [
             ['enabled', config('whatsapp.agent.enabled') ? 'true' : 'false'],
             ['url', (string) config('whatsapp.agent.url')],
@@ -36,11 +41,12 @@ class WhatsAppProbarAgenteCommand extends Command
             return self::SUCCESS;
         }
 
+        $tipo = (string) $this->option('tipo') ?: 'text';
         $mensaje = new WhatsappMensaje([
             'direccion' => WhatsappMensaje::DIRECCION_ENTRADA,
             'telefono' => $waId,
             'contacto_nombre' => (string) $this->option('nombre'),
-            'tipo' => 'text',
+            'tipo' => $tipo,
             'cuerpo' => (string) $this->option('mensaje'),
             'wamid' => 'test-cli-'.now()->timestamp,
             'estado' => WhatsappMensaje::ESTADO_RECIBIDO,
@@ -48,6 +54,26 @@ class WhatsAppProbarAgenteCommand extends Command
             'payload' => ['timestamp' => time(), 'origen' => 'artisan'],
         ]);
         $mensaje->save();
+
+        $hilo = $agent->hiloParaTelefono($waId, (int) $mensaje->id);
+        $parece = WhatsAppAgentService::detectarComprobante($tipo, (string) $this->option('mensaje'), $hilo['historial']);
+        $primera = $agent->esPrimeraConversacion($waId, (int) $mensaje->id);
+        $this->info('Hilo WhatsApp: '.count($hilo['historial']).' mensajes previos');
+        $this->line('horario_laboral='.(WhatsAppAgentService::horarioLaboral() ? 'true' : 'false')
+            .' parece_comprobante='.($parece ? 'true' : 'false')
+            .' primera_vez='.($primera ? 'true' : 'false')
+            .' nombre_corto='.(($data['encontrado'] ?? false)
+                ? WhatsAppAgentService::nombreCortoSaludo((string) ($data['nombre'] ?? ''))
+                : '(solo si está en Infinity)'));
+        if ($hilo['historial_texto'] !== '') {
+            $this->line($hilo['historial_texto']);
+        }
+
+        $catalogo = $agent->catalogoPlanes();
+        $this->info('Planes: '.count($catalogo['fibra']).' fibra + '.count($catalogo['antena']).' antena');
+        if ($catalogo['planes_texto'] !== '') {
+            $this->line($catalogo['planes_texto']);
+        }
 
         $this->info('POST a N8N (mensaje #'.$mensaje->id.')');
         $resultado = $agent->procesar($mensaje, (bool) $this->option('enviar'));

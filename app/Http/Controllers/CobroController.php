@@ -13,6 +13,7 @@ use App\Support\CobrosMesVentana;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -102,114 +103,136 @@ class CobroController extends Controller
     }
 
     /**
-     * Lista de servicios para cobros: búsqueda instantánea por CI/nombre (Vue).
+     * Lista de servicios para cobros: la vista abre al instante; los datos se consultan por AJAX.
      */
-    public function servicios(Request $request)
+    public function servicios()
     {
-        $serviciosCollection = Servicio::with(['cliente', 'plan'])
-            ->whereHas('cliente')
-            ->orderBy('servicio_id', 'desc')
-            ->get();
-
-        $clienteIds = $serviciosCollection->pluck('cliente_id')->unique()->filter()->values()->all();
-        $pendientesPorCliente = collect();
-        if (!empty($clienteIds)) {
-            $facturas = FacturaInterna::with('cobros')
-                ->whereIn('cliente_id', $clienteIds)
-                ->get();
-            $pendientesPorCliente = $facturas->groupBy('cliente_id')->map(function ($items) {
-                $conSaldo = $items->filter(fn ($f) => $f->saldo_pendiente > 0);
-                return ['cantidad' => $conSaldo->count(), 'monto' => $conSaldo->sum('saldo_pendiente')];
-            });
-        }
-
-        $servicios = $serviciosCollection->map(function ($s) use ($pendientesPorCliente) {
-            $pend = $pendientesPorCliente->get($s->cliente_id, ['cantidad' => 0, 'monto' => 0]);
-            return [
-                'servicio_id' => $s->servicio_id,
-                'cliente' => $s->cliente ? [
-                    'cliente_id' => $s->cliente->cliente_id,
-                    'cedula' => $s->cliente->cedula,
-                    'nombre' => $s->cliente->nombre,
-                    'apellido' => $s->cliente->apellido,
-                    'direccion' => $s->cliente->direccion,
-                ] : null,
-                'plan' => $s->plan ? [
-                    'nombre' => $s->plan->nombre,
-                    'precio' => $s->plan->precio,
-                ] : null,
-                'facturas_pendientes' => $pend,
-            ];
-        })->values()->all();
-
         return view('cobros.servicios', [
-            'servicios' => $servicios,
+            'urlDatos' => route('cobros.servicios.datos'),
             'urlCobrosIndex' => route('cobros.index'),
-            'urlEditServicioBase' => url('servicios') . '/__servicio_id__/edit',
-            'urlCrearCobroBase' => route('cobros.create') . '?cliente_id=__cliente_id__',
+            'urlEditServicioBase' => url('servicios').'/__servicio_id__/edit',
+            'urlCrearCobroBase' => route('cobros.create').'?cliente_id=__cliente_id__',
             'canCrearCobro' => auth()->user()?->tienePermiso('cobros.crear') ?? false,
+        ]);
+    }
+
+    /**
+     * Clientes/servicios y saldos pendientes para la búsqueda de cobros.
+     */
+    public function serviciosDatos()
+    {
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
+        $pendientesPorCliente = DB::query()
+            ->fromSub(function ($q) use ($saldoExpr) {
+                $q->from('factura_internas')
+                    ->where('estado', '!=', 'anulada')
+                    ->select('cliente_id')
+                    ->selectRaw($saldoExpr.' as saldo');
+            }, 'fi_saldo')
+            ->where('saldo', '>', 0)
+            ->select('cliente_id')
+            ->selectRaw('COUNT(*) as cantidad')
+            ->selectRaw('ROUND(SUM(saldo), 2) as monto')
+            ->groupBy('cliente_id')
+            ->get()
+            ->keyBy('cliente_id');
+
+        $servicios = Servicio::query()
+            ->with([
+                'cliente:cliente_id,cedula,nombre,apellido,direccion',
+                'plan:plan_id,nombre,precio',
+            ])
+            ->whereHas('cliente')
+            ->orderByDesc('servicio_id')
+            ->get(['servicio_id', 'cliente_id', 'plan_id', 'alias'])
+            ->map(function (Servicio $s) use ($pendientesPorCliente) {
+                $pend = $pendientesPorCliente->get($s->cliente_id);
+
+                return [
+                    'servicio_id' => $s->servicio_id,
+                    'cliente' => $s->cliente ? [
+                        'cliente_id' => $s->cliente->cliente_id,
+                        'cedula' => $s->cliente->cedula,
+                        'nombre' => $s->cliente->nombre,
+                        'apellido' => $s->cliente->apellido,
+                        'direccion' => $s->cliente->direccion,
+                    ] : null,
+                    'plan' => $s->plan ? [
+                        'nombre' => $s->plan->nombre,
+                        'precio' => $s->plan->precio,
+                    ] : null,
+                    'alias' => $s->aliasNormalizado(),
+                    'facturas_pendientes' => [
+                        'cantidad' => (int) ($pend->cantidad ?? 0),
+                        'monto' => (float) ($pend->monto ?? 0),
+                    ],
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'servicios' => $servicios,
         ]);
     }
 
     public function create(Request $request)
     {
         $clienteId = $request->get('cliente_id');
-        $facturaInternaId = $request->get('factura_interna_id');
+        $facturaInternaId = $request->integer('factura_interna_id') ?: null;
 
-        if (!$clienteId && $facturaInternaId) {
-            $fi = FacturaInterna::find($facturaInternaId);
-            if ($fi) {
-                $clienteId = $fi->cliente_id;
-            }
+        if (! $clienteId && $facturaInternaId) {
+            $clienteId = FacturaInterna::where('id', $facturaInternaId)->value('cliente_id');
         }
 
-        $facturasInternasPendientes = collect();
-        $cliente = null;
-        if ($clienteId) {
-            $cliente = Cliente::find($clienteId);
-            if ($cliente) {
-                $facturasInternasPendientes = FacturaInterna::where('cliente_id', $cliente->cliente_id)
-                    ->where('estado', '!=', 'anulada')
-                    ->with(['cobros', 'detalles'])
-                    ->get()
-                    ->filter(fn (FacturaInterna $f) => $f->saldo_pendiente > 0)
-                    ->map(fn (FacturaInterna $f) => [
-                        'id' => $f->id,
-                        'periodo_desde' => $f->periodo_desde,
-                        'periodo_hasta' => $f->periodo_hasta,
-                        'saldo_pendiente' => (float) $f->saldo_pendiente,
-                        'concepto' => $this->facturacionService->conceptoCobroDesdeFactura($f->id) ?? '',
-                    ])
-                    ->values();
-            }
+        $cliente = $clienteId ? Cliente::find($clienteId) : null;
+        $idsPreseleccionados = old('factura_interna_ids');
+        if (! is_array($idsPreseleccionados)) {
+            $idsPreseleccionados = $facturaInternaId ? [$facturaInternaId] : [];
         }
-
-        $clientes = Cliente::orderBy('nombre')->get(['cliente_id', 'nombre', 'apellido', 'cedula']);
-
-        $montoSugerido = null;
-        $facturaInternaIdsPreseleccionados = [];
-        if ($facturaInternaId) {
-            $fi = FacturaInterna::with('cobros')->find($facturaInternaId);
-            if ($fi && $fi->saldo_pendiente > 0) {
-                $montoSugerido = $fi->saldo_pendiente;
-                $facturaInternaIdsPreseleccionados = [$fi->id];
-            }
-        } elseif ($facturasInternasPendientes->isNotEmpty()) {
-            $facturaInternaIdsPreseleccionados = $facturasInternasPendientes->pluck('id')->values()->all();
-            $montoSugerido = $facturasInternasPendientes->sum('saldo_pendiente');
-        }
-
-        $conceptoSugerido = $this->facturacionService->conceptoCobroDesdeFactura($facturaInternaId);
+        $idsPreseleccionados = array_values(array_filter(array_map('intval', $idsPreseleccionados)));
 
         return view('cobros.create', [
-            'clientes' => $clientes,
             'cliente' => $cliente,
-            'facturasInternasPendientes' => $facturasInternasPendientes,
             'facturaInternaId' => $facturaInternaId,
-            'facturaInternaIdsPreseleccionados' => $facturaInternaIdsPreseleccionados,
+            'facturaInternaIdsPreseleccionados' => $idsPreseleccionados,
             'formasPago' => Cobro::formasPago(),
-            'montoSugerido' => $montoSugerido,
-            'conceptoSugerido' => $conceptoSugerido,
+            'urlPendientes' => $cliente ? route('cobros.facturas-pendientes', $cliente) : null,
+        ]);
+    }
+
+    /**
+     * Facturas internas con saldo para el formulario de cobro (carga asíncrona).
+     */
+    public function facturasPendientes(Cliente $cliente)
+    {
+        $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
+        $facturas = FacturaInterna::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->where('estado', '!=', 'anulada')
+            ->whereRaw($saldoExpr.' > 0')
+            ->with('detalles.servicio')
+            ->select('factura_internas.*')
+            ->selectRaw($saldoExpr.' as saldo_pendiente_sql')
+            ->orderBy('periodo_desde')
+            ->orderBy('id')
+            ->get()
+            ->map(function (FacturaInterna $f) {
+                return [
+                    'id' => $f->id,
+                    'periodo_desde' => $f->periodo_desde?->format('d/m/Y'),
+                    'periodo_hasta' => $f->periodo_hasta?->format('d/m/Y'),
+                    'saldo_pendiente' => round((float) ($f->saldo_pendiente_sql ?? $f->saldo_pendiente), 2),
+                    'alias' => $f->aliasesServicioTexto(),
+                    'concepto' => \Illuminate\Support\Str::limit($f->conceptoConAlias(), 500, ''),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'facturas' => $facturas,
+            'monto_sugerido' => round((float) $facturas->sum('saldo_pendiente'), 2),
         ]);
     }
 
@@ -242,7 +265,7 @@ class CobroController extends Controller
         $saldoAntes = null;
         $facturaOrigenId = null;
 
-        if (!empty($validated['factura_interna_id'])) {
+        if (! empty($validated['factura_interna_id'])) {
             $factura = FacturaInterna::find($validated['factura_interna_id']);
             if ($factura) {
                 $saldoAntes = $factura->saldo_pendiente;
@@ -271,7 +294,7 @@ class CobroController extends Controller
             $registroSaldoAFavor = true;
         }
 
-        $mensaje = 'Cobro registrado correctamente. Recibo: ' . $cobro->numero_recibo;
+        $mensaje = 'Cobro registrado correctamente. Recibo: '.$cobro->numero_recibo;
         if ($registroSaldoAFavor) {
             $mensaje .= ' El monto se registró como saldo a favor del servicio.';
         }
@@ -327,7 +350,8 @@ class CobroController extends Controller
             'factura_interna_items' => $items,
         ], $usuarioId);
 
-        $mensaje = 'Cobro registrado. Recibo: ' . $cobro->numero_recibo;
+        $mensaje = 'Cobro registrado. Recibo: '.$cobro->numero_recibo;
+
         return $this->redirectTrasCobro($cobro, $mensaje);
     }
 
@@ -449,8 +473,8 @@ class CobroController extends Controller
 
         $primero = $cobrosCreados[0];
         $mensaje = count($cobrosCreados) === 1
-            ? 'Cobro registrado. Recibo: ' . $primero->numero_recibo
-            : count($cobrosCreados) . ' cobros registrados (recibos: ' . collect($cobrosCreados)->pluck('numero_recibo')->join(', ') . ').';
+            ? 'Cobro registrado. Recibo: '.$primero->numero_recibo
+            : count($cobrosCreados).' cobros registrados (recibos: '.collect($cobrosCreados)->pluck('numero_recibo')->join(', ').').';
 
         if (count($cobrosCreados) > 1) {
             $redirect = redirect()->route('cobros.multicobro-result')
@@ -529,7 +553,8 @@ class CobroController extends Controller
             'hasta' => $request->hasta,
         ])->setPaper('a4', 'portrait');
 
-        $nombre = 'resumen-cobros-' . now()->format('Y-m-d-His') . '.pdf';
+        $nombre = 'resumen-cobros-'.now()->format('Y-m-d-His').'.pdf';
+
         return $pdf->download($nombre);
     }
 
@@ -547,11 +572,11 @@ class CobroController extends Controller
 
         $cobros = $query->get();
 
-        $filename = 'cobros-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'cobros-'.now()->format('Y-m-d-His').'.csv';
 
         return response()->streamDownload(function () use ($cobros) {
             $output = fopen('php://output', 'w');
-            fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
             fputcsv($output, [
                 'Recibo',
@@ -582,7 +607,7 @@ class CobroController extends Controller
             fclose($output);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
@@ -591,7 +616,7 @@ class CobroController extends Controller
      */
     protected function applyCobrosDimensionFilters(Request $request, Builder $query, $user, bool $esAdmin): void
     {
-        if (!$esAdmin) {
+        if (! $esAdmin) {
             $query->where('usuario_id', $user->usuario_id);
         }
         if ($esAdmin && $request->filled('usuario_id')) {
@@ -601,7 +626,7 @@ class CobroController extends Controller
             $query->where('cliente_id', $request->cliente_id);
         }
         if ($request->filled('numero_recibo')) {
-            $query->where('numero_recibo', 'like', '%' . $request->numero_recibo . '%');
+            $query->where('numero_recibo', 'like', '%'.$request->numero_recibo.'%');
         }
         if ($request->filled('forma_pago')) {
             $formas = array_keys(Cobro::formasPago());
@@ -645,13 +670,14 @@ class CobroController extends Controller
             return redirect()->route('cobros.index')->with('info', 'No hay recibos de multicobro para mostrar.');
         }
 
-        $cobros = Cobro::with(['cliente.servicios', 'facturaInternas', 'usuario'])
+        $cobros = Cobro::with(['cliente.servicios', 'facturaInternas.detalles.servicio', 'usuario'])
             ->whereIn('id', $ids)
             ->orderBy('id')
             ->get();
 
         if ($cobros->isEmpty()) {
             $request->session()->forget('cobros_multicobro_ids');
+
             return redirect()->route('cobros.index')->with('info', 'No se encontraron los cobros.');
         }
 
@@ -665,7 +691,7 @@ class CobroController extends Controller
      */
     public function show(Cobro $cobro)
     {
-        $cobro->load(['cliente.servicios', 'facturaInternas', 'usuario']);
+        $cobro->load(['cliente.servicios', 'facturaInternas.detalles.servicio', 'usuario']);
         $ajustes = \App\Models\AjustesGenerales::obtener();
 
         return view('cobros.show', compact('cobro', 'ajustes'));
@@ -756,7 +782,7 @@ class CobroController extends Controller
      */
     private function streamReciboPdf(Cobro $cobro)
     {
-        $cobro->load(['cliente.servicios', 'facturaInternas', 'usuario']);
+        $cobro->load(['cliente.servicios', 'facturaInternas.detalles.servicio', 'usuario']);
         $ajustes = \App\Models\AjustesGenerales::obtener();
 
         $modo = request()->query('recibo_modo', 'con_grafico');

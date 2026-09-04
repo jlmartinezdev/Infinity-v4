@@ -195,6 +195,7 @@
               <thead class="bg-gray-100 dark:bg-gray-700/50">
                 <tr>
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Alias</th>
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Plan</th>
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Fecha Instalación</th>
                   <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">IP</th>
@@ -205,6 +206,7 @@
               <tbody>
                 <tr v-for="s in c.servicios" :key="s.cliente_id + '-' + s.servicio_id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td class="px-3 py-2 text-gray-900 dark:text-gray-100">{{ s.servicio_id }}</td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ s.alias ? s.alias : '—' }}</td>
                   <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ s.plan && s.plan.nombre ? s.plan.nombre : '—' }}</td>
                 
                   <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ s.fecha_instalacion ? new Date(s.fecha_instalacion).toLocaleDateString() : '—' }}</td>
@@ -812,6 +814,7 @@ function coincideBusqueda(cliente, termino) {
     cliente.telefono,
     cliente.celular,
     cliente.direccion,
+    ...(Array.isArray(cliente.servicios) ? cliente.servicios.flatMap((s) => [s.alias, s.plan?.nombre, s.ip]) : []),
   ].filter(Boolean).join(' '));
 
   return tokens.every((token) => textoCliente.includes(token));

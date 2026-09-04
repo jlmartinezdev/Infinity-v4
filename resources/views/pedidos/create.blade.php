@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Nuevo pedido')
+@section('title', !empty($clienteFijo) && !empty($initialValues['nombre'])
+    ? 'Nuevo pedido — '.$initialValues['nombre'].' '.($initialValues['apellido'] ?? '')
+    : 'Nuevo pedido')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
@@ -18,8 +20,10 @@
         'cedulaTemporalUrl' => route('pedidos.cedula-temporal'),
         'consultarPadronUrl' => route('pedidos.consultar-padron'),
         'submitUrl' => route('pedidos.store'),
-        'cancelUrl' => route('pedidos.index'),
+        'cancelUrl' => $cancelUrl ?? route('pedidos.index'),
         'csrfToken' => csrf_token(),
+        'initialValues' => $initialValues ?? null,
+        'clienteFijo' => (bool) ($clienteFijo ?? false),
     ]) !!};
 </script>
 <script src="{{ asset(mix('js/pedido-form.js')) }}"></script>

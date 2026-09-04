@@ -53,9 +53,23 @@ class ApWirelessPingStatusService
             return false;
         }
 
+        // Claim atómico: un solo aviso por episodio de caída (aunque el cron se solape).
+        $claimed = NodoApWireless::query()
+            ->where('ap_id', $ap->ap_id)
+            ->where('ping_alerta_enviada', false)
+            ->where('ping_fallos_seguidos', '>=', $umbral)
+            ->update(['ping_alerta_enviada' => true]);
+
+        if ($claimed === 0) {
+            return false;
+        }
+
+        $ap->ping_alerta_enviada = true;
         $ok = $this->whatsapp->apWirelessCaido($ap, $destinatarios, false);
-        if ($ok) {
-            $ap->fill(['ping_alerta_enviada' => true])->saveQuietly();
+        if (! $ok) {
+            Log::warning('[ap-wireless-caida] aviso marcado pero WhatsApp no envió', [
+                'ap_id' => $ap->ap_id,
+            ]);
         }
 
         return $ok;

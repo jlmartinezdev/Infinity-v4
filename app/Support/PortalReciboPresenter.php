@@ -91,7 +91,7 @@ class PortalReciboPresenter
      */
     public function detalle(Cobro $cobro): array
     {
-        $cobro->loadMissing(['cliente.servicios', 'facturaInternas', 'usuario']);
+        $cobro->loadMissing(['cliente.servicios', 'facturaInternas.detalles.servicio', 'usuario']);
 
         $cliente = $cobro->cliente;
         $empresa = $this->empresa();
@@ -186,9 +186,10 @@ class PortalReciboPresenter
                 $bloques[] = [
                     'tipo' => 'factura',
                     'id' => $fi['id'],
-                    'izq' => '#'.$fi['id'],
+                    'izq' => '#'.$fi['id'].(! empty($fi['alias']) ? ' · '.$fi['alias'] : ''),
                     'der' => $fi['monto_formato'],
                     'periodo' => $fi['periodo'],
+                    'alias' => $fi['alias'] ?? null,
                 ];
             }
         }
@@ -263,7 +264,7 @@ class PortalReciboPresenter
         if ($facturas !== []) {
             $l[] = count($facturas) > 1 ? 'FACTURAS INTERNAS:' : 'FACTURA INTERNA:';
             foreach ($facturas as $fi) {
-                $l[] = '#'.$fi['id'].' '.$fi['monto_formato'];
+                $l[] = '#'.$fi['id'].(! empty($fi['alias']) ? ' · '.$fi['alias'] : '').' '.$fi['monto_formato'];
                 if (! empty($fi['periodo'])) {
                     $l[] = $fi['periodo'];
                 }
@@ -303,6 +304,7 @@ class PortalReciboPresenter
                 $monto = (float) ($fi->pivot->monto ?? $fi->total);
                 $desde = optional($fi->periodo_desde)?->format('d/m/Y');
                 $hasta = optional($fi->periodo_hasta)?->format('d/m/Y');
+                $alias = $fi->aliasesServicioTexto();
                 $periodo = ($desde || $hasta) ? 'PERIODO: '.($desde ?: '—').' - '.($hasta ?: '—') : null;
 
                 return [
@@ -312,6 +314,7 @@ class PortalReciboPresenter
                     'periodo_desde' => $desde,
                     'periodo_hasta' => $hasta,
                     'periodo' => $periodo,
+                    'alias' => $alias,
                 ];
             })
             ->values()

@@ -14,6 +14,7 @@ class ClientePorTelefonoService
 {
     public function __construct(
         private readonly WhatsAppService $whatsapp,
+        private readonly WhatsAppAgentService $agent,
     ) {}
 
     /**
@@ -25,15 +26,23 @@ class ClientePorTelefonoService
             ?? (preg_replace('/\D+/', '', (string) $telefono) ?: null);
 
         $cliente = $this->whatsapp->findClienteByPhone($telefono);
+        $catalogo = $this->agent->catalogoPlanes();
         if (! $cliente) {
+            $hilo = $this->agent->hiloParaTelefono($waId);
+
             return [
                 'encontrado' => false,
                 'whatsapp' => $waId,
+                'hilo' => $hilo['historial'],
+                'hilo_texto' => $hilo['historial_texto'],
+                'planes_fibra' => $catalogo['fibra'],
+                'planes_antena' => $catalogo['antena'],
+                'planes_texto' => $catalogo['planes_texto'],
             ];
         }
 
         $cliente->load([
-            'servicios.plan',
+            'servicios.plan.tipoTecnologia',
             'servicios.pool.router.nodo',
             'servicios.cajaNapPuertoActivo.cajaNap.nodo',
         ]);
@@ -42,14 +51,18 @@ class ClientePorTelefonoService
         $plan = $servicio?->plan;
         $saldos = $this->saldosYVencimientos((int) $cliente->cliente_id);
         $nombre = trim(trim((string) $cliente->nombre).' '.trim((string) $cliente->apellido));
+        $hilo = $this->agent->hiloParaTelefono($waId ?: $this->whatsapp->normalizePhone($cliente->telefono));
+        $planInfo = $plan ? WhatsAppAgentService::serializarPlanWa($plan) : null;
 
         return [
             'encontrado' => true,
             'cliente_id' => (int) $cliente->cliente_id,
             'nombre' => $nombre !== '' ? $nombre : (string) $cliente->nombre,
             'nombre_corto' => $this->nombreCorto((string) $cliente->nombre),
-            'plan' => $plan?->nombre,
+            'plan' => $planInfo['nombre'] ?? $plan?->nombre,
             'plan_id' => $plan?->plan_id ? (int) $plan->plan_id : null,
+            'plan_tecnologia' => $planInfo['tecnologia'] ?? null,
+            'plan_grupo' => $planInfo['grupo'] ?? null,
             'saldo_pendiente' => $saldos['saldo_pendiente'],
             'estado_servicio' => $this->estadoServicioLabel($servicio?->estado),
             'dias_mora' => $saldos['dias_mora'],
@@ -59,6 +72,11 @@ class ClientePorTelefonoService
             'localidad' => $this->localidad($servicio),
             'cliente_desde' => $this->clienteDesde($cliente, $servicio),
             'tiene_ticket_abierto' => $this->tieneTicketAbierto((int) $cliente->cliente_id),
+            'hilo' => $hilo['historial'],
+            'hilo_texto' => $hilo['historial_texto'],
+            'planes_fibra' => $catalogo['fibra'],
+            'planes_antena' => $catalogo['antena'],
+            'planes_texto' => $catalogo['planes_texto'],
         ];
     }
 

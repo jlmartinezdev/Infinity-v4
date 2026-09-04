@@ -25,6 +25,11 @@ class WhatsappMensaje extends Model
 
     public const ESTADO_RECIBIDO = 'recibido';
 
+    /** Conversaciones inventadas del playground Test n8n (no salen a Meta). */
+    public const CONTEXTO_TEST_N8N = 'test_n8n';
+
+    public const TELEFONO_SANDBOX_PREFIX = '595000';
+
     protected $fillable = [
         'direccion',
         'telefono',
@@ -75,6 +80,11 @@ class WhatsappMensaje extends Model
     public function esFallido(): bool
     {
         return $this->estado === self::ESTADO_FALLIDO;
+    }
+
+    public function scopeExcluirSandboxN8n($query)
+    {
+        return $query->where('telefono', 'not like', self::TELEFONO_SANDBOX_PREFIX.'%');
     }
 
     /**

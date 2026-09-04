@@ -39,7 +39,7 @@
                         <tr>
                             <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ $s->cliente->nombre ?? '' }} {{ $s->cliente->apellido ?? '' }}</td>
                             <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ $s->servicio_id }}</td>
-                            <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ $s->plan->nombre ?? '—' }}</td>
+                            <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ $s->etiqueta() }}</td>
                             <td class="px-4 py-2 text-gray-900 dark:text-gray-100">
                                 {{ number_format($monto, 0, ',', '.') }} Gs.
                                 @if($prorrateo)

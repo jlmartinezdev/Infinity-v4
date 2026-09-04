@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\MapsUrlHelper;
-use App\Models\Cliente;
-use App\Models\CedulaPadron;
 use App\Models\Canje;
+use App\Models\CedulaPadron;
+use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\Nodo;
@@ -14,15 +14,16 @@ use App\Models\PuntosMovimiento;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Services\ClientePortalUserService;
+use App\Services\FacturacionService;
 use App\Services\Loyalty\PuntosService;
 use App\Services\MikroTikService;
 use App\Services\Monitoreo\ServicioPingMonitoreoService;
+use App\Support\HerramientasRedPayload;
+use App\Support\ListaClienteServicioViewData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
-use App\Support\HerramientasRedPayload;
-use App\Support\ListaClienteServicioViewData;
 
 class ClienteController extends Controller
 {
@@ -82,7 +83,7 @@ class ClienteController extends Controller
                     ->limit(1)
                     ->select(['pedido_id', 'cliente_id', 'maps_gps', 'lat', 'lon']);
             }])
-            ->select(['cliente_id', 'nombre', 'apellido', 'url_ubicacion'])
+            ->select(['cliente_id', 'nombre', 'apellido', 'cedula', 'telefono', 'url_ubicacion'])
             ->orderBy('nombre');
 
         $clientes = $clientesQuery->get();
@@ -129,6 +130,8 @@ class ClienteController extends Controller
                 'lat' => $coords['lat'],
                 'lon' => $coords['lon'],
                 'nombre' => trim(implode(' ', array_filter([$cliente->nombre, $cliente->apellido]))),
+                'cedula' => trim((string) ($cliente->cedula ?? '')),
+                'telefono' => trim((string) ($cliente->telefono ?? '')),
                 'plan' => $infoServicioPorCliente[$cliente->cliente_id]->planes ?? null,
                 'tecnologia' => $infoServicioPorCliente[$cliente->cliente_id]->tecnologias ?? null,
                 'url_ubicacion' => trim((string) ($cliente->url_ubicacion ?? '')),
@@ -176,9 +179,9 @@ class ClienteController extends Controller
             'pingEstadoFiltro' => $pingEstadoFiltro !== '' ? $pingEstadoFiltro : null,
             'pingEstadoFiltroLabels' => [
                 'online' => 'Online',
-                'offline' => 'Sin respuesta',
+                'offline' => 'PPPoE caído',
                 'mixed' => 'Parcial',
-                'unknown' => 'Sin ping',
+                'unknown' => 'Sin dato',
             ],
             'googleMapsApiKey' => config('services.google.maps_key'),
             'urlPingEstados' => route('clientes.mapa-activos.ping-estados'),
@@ -188,12 +191,12 @@ class ClienteController extends Controller
     }
 
     /**
-     * Ejecuta ping manual (todos los servicios o solo los de un nodo).
+     * Consulta PPPoE activo en MikroTik (todos los servicios o solo los de un nodo).
      */
     public function mapaActivosEjecutarPing(Request $request, ServicioPingMonitoreoService $pingMonitoreo)
     {
         if (! config('monitoreo.habilitado', true)) {
-            $message = 'Monitoreo ping deshabilitado (MONITOREO_PING_HABILITADO=false).';
+            $message = 'Monitoreo PPPoE deshabilitado (MONITOREO_PING_HABILITADO=false).';
 
             if ($request->wantsJson()) {
                 return response()->json(['ok' => false, 'message' => $message], 422);
@@ -213,12 +216,14 @@ class ClienteController extends Controller
             ? (Nodo::query()->where('nodo_id', $nodoId)->value('descripcion') ?? "nodo #{$nodoId}")
             : 'todos los nodos';
 
+        $errores = (int) ($stats['errores'] ?? 0);
         $message = sprintf(
-            'Ping ejecutado (%s): %d procesados, %d en línea, %d sin respuesta.',
+            'PPPoE consultado (%s): %d procesados, %d en línea, %d caídos%s.',
             $nodoLabel,
             $stats['procesados'],
             $stats['en_linea'],
-            $stats['sin_respuesta']
+            $stats['sin_respuesta'],
+            $errores > 0 ? ", {$errores} errores MikroTik" : ''
         );
 
         if ($request->wantsJson()) {
@@ -372,6 +377,19 @@ class ClienteController extends Controller
             ->limit(15)
             ->get();
 
+        $serviciosFacturadosMes = [];
+        $servicioIdsCliente = $cliente->servicios->pluck('servicio_id')->map(fn ($id) => (int) $id)->all();
+        if ($servicioIdsCliente !== []) {
+            $serviciosFacturadosMes = array_fill_keys(
+                app(FacturacionService::class)->servicioIdsConFacturaEnPeriodo(
+                    $servicioIdsCliente,
+                    now()->startOfMonth(),
+                    now()->endOfMonth()
+                ),
+                true
+            );
+        }
+
         $herramientasRedConfig = null;
         if (auth()->user()?->tienePermiso('servicios.ver') && $cliente->servicios->isNotEmpty()) {
             $primero = $cliente->servicios->first();
@@ -398,6 +416,7 @@ class ClienteController extends Controller
             'loyaltyMovimientos',
             'loyaltyCanjes',
             'herramientasRedConfig',
+            'serviciosFacturadosMes',
         ));
     }
 
@@ -478,7 +497,7 @@ class ClienteController extends Controller
 
         $cliente = Cliente::where('cedula', $request->cedula)->first();
 
-        if (!$cliente) {
+        if (! $cliente) {
             return response()->json(['existe' => false]);
         }
 
@@ -512,12 +531,13 @@ class ClienteController extends Controller
         }
         try {
             $registros = DB::table('temp')
-                ->where('nombre', 'like', '%' . $nombre . '%')
+                ->where('nombre', 'like', '%'.$nombre.'%')
                 ->limit(10)
                 ->get(['celular', 'cedula', 'direccion', 'nombre', 'latitud', 'longitud']);
         } catch (\Throwable $e) {
             return response()->json(['encontrados' => [], 'error' => 'Tabla temp no disponible']);
         }
+
         return response()->json(['encontrados' => $registros]);
     }
 
@@ -919,7 +939,7 @@ class ClienteController extends Controller
         $lat = $validated['latitud'] ?? null;
         $lon = $validated['longitud'] ?? null;
         if (is_numeric($lat) && is_numeric($lon) && $lat >= -90 && $lat <= 90 && $lon >= -180 && $lon <= 180) {
-            $updates['url_ubicacion'] = 'https://www.google.com/maps?q=' . $lat . ',' . $lon;
+            $updates['url_ubicacion'] = 'https://www.google.com/maps?q='.$lat.','.$lon;
         }
 
         if (! empty($updates)) {
@@ -944,8 +964,9 @@ class ClienteController extends Controller
         }
         $len = strlen($s);
         if ($len >= 4 && $s[$len - 4] === '.') {
-            $s = substr($s, 0, $len - 4) . substr($s, $len - 3);
+            $s = substr($s, 0, $len - 4).substr($s, $len - 3);
         }
+
         return $s;
     }
 
@@ -973,6 +994,7 @@ class ClienteController extends Controller
             ->orderBy('nombre')
             ->limit(15)
             ->get(['cliente_id', 'nombre', 'apellido', 'cedula']);
+
         return response()->json($clientes);
     }
 
@@ -1008,11 +1030,11 @@ class ClienteController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'encontrado' => false,
-                'error' => 'Error al consultar el padrón: ' . $e->getMessage(),
+                'error' => 'Error al consultar el padrón: '.$e->getMessage(),
             ], 500);
         }
 
-        if (!$padron) {
+        if (! $padron) {
             return response()->json([
                 'encontrado' => false,
                 'mensaje' => 'No se encontró en el padrón',

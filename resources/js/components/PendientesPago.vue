@@ -14,6 +14,16 @@
           <span class="hidden sm:inline">Exportar Excel</span>
         </a>
         <a
+          :href="exportHrefVencidos"
+          class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-rose-300 dark:border-rose-700 rounded-lg text-sm font-medium text-rose-900 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+          title="Exportar deuda vencida agrupada por cliente (.xlsx)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          <span class="hidden sm:inline">Excel vencidos</span>
+        </a>
+        <a
           :href="urls.promesasIndex || '#'"
           class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg text-sm font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
           title="Lista de promesas de pago"
@@ -1034,6 +1044,7 @@ const props = defineProps({
   mapPuntosUrl: { type: String, default: '' },
   googleMapsApiKey: { type: String, default: '' },
   exportExcelUrl: { type: String, default: '' },
+  exportExcelVencidosUrl: { type: String, default: '' },
   pfKeys: { type: Array, default: () => [] },
   urls: { type: Object, default: () => ({}) },
   templates: { type: Object, default: () => ({}) },
@@ -1625,24 +1636,25 @@ async function enviarWhatsappMasivo() {
   }
 }
 
-const exportHref = computed(() => {
+const exportHref = computed(() => hrefExcel(props.exportExcelUrl, { incluirDeuda: true }));
+const exportHrefVencidos = computed(() => hrefExcel(props.exportExcelVencidosUrl, { incluirDeuda: false }));
+
+function hrefExcel(base, { incluirDeuda }) {
+  if (!base) return '#';
   const sp = new URLSearchParams();
   const b = (buscar.value || '').trim();
   if (b) sp.set('buscar', b);
   const nid = (nodoId.value || '').trim();
   if (nid) sp.set('nodo_id', nid);
   if (vista.value && vista.value !== 'activos') sp.set('vista', vista.value);
-  if (deuda.value && deuda.value !== 'todas') sp.set('deuda', deuda.value);
+  if (incluirDeuda && deuda.value && deuda.value !== 'todas') sp.set('deuda', deuda.value);
   Object.keys(pf).forEach((k) => {
     const v = (pf[k] || '').toString().trim();
     if (v !== '') sp.set(k, v);
   });
-  sp.set('sort', sortBy.value);
-  sp.set('direction', sortDir.value);
   const qs = sp.toString();
-  const base = props.exportExcelUrl || '';
   return qs ? `${base}?${qs}` : base;
-});
+}
 
 function tplReplace(tpl, id) {
   if (!tpl) return '#';

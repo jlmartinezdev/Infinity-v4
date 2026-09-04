@@ -31,6 +31,7 @@ Authorization: Bearer …
 | Lista | `GET` | `/api/v1/staff/pedidos-instalacion` | `pedidos.ver` |
 | Detalle | `GET` | `/api/v1/staff/pedidos-instalacion/{id}` | `pedidos.ver` |
 | Permisos | `GET` | `/api/v1/staff/me` | staff |
+| Actualizar (estado campo y/o GPS) | `POST` | `/api/v1/staff/pedidos-instalacion/{id}/actualizar` | `pedidos.editar` |
 | Aprobar estado | `POST` | `/api/v1/staff/pedidos-instalacion/{id}/aprobar-estado` | `pedidos.editar` |
 | Descartar estado | `POST` | `/api/v1/staff/pedidos-instalacion/{id}/descartar-estado` | `pedidos.editar` |
 | Reabrir estado | `POST` | `/api/v1/staff/pedidos-instalacion/{id}/reabrir-estado` | `pedidos.editar` |
@@ -327,7 +328,35 @@ Ejemplo pedido **664** (plan ya confirmado):
 ## Escritura adicional
 
 - `POST /staff/pedidos-instalacion` — crear  
-- `POST /staff/pedidos-instalacion/{id}/actualizar` — estado de campo (`en_camino`, notas)
+- `POST /staff/pedidos-instalacion/{id}/actualizar` — estado de campo (`en_camino`, notas) **y/o GPS del domicilio**
 - `POST /staff/avisos/en-camino` — WhatsApp oficial (`tipo: instalacion`, `recurso_id`). Ver `docs/whatsapp-plantilla-en-camino.md`  
 - `POST /staff/pedidos-instalacion/{id}/finalizar`  
 - `POST /staff/pedidos-instalacion/{id}/pppoe/generar`
+
+## Actualizar GPS del pedido (técnico en domicilio)
+
+Fuente de verdad **A**: `pedidos.lat` + `pedidos.lon` + `pedidos.maps_gps`.  
+Misma fuente que `GET` lista/detalle y que la grilla web `/pedidos` (`lat`/`lon`/`maps_gps`).  
+No se escribe `clientes.url_ubicacion` (se copia al finalizar instalación).  
+No se pisa `ubicacion` (barrio). El campo `ubicacion` del body se **ignora**.
+
+Permiso: `pedidos.editar` (403 si no). `estado` **no** es obligatorio.
+
+```http
+POST /api/v1/staff/pedidos-instalacion/{id}/actualizar
+Authorization: Bearer …
+Accept: application/json
+Content-Type: application/json
+```
+
+Cualquiera de estos bodies basta (se persisten los tres: `lat`, `lon`, `maps_gps`):
+
+```json
+{ "lat": -25.2867123, "lng": -57.6470456, "maps_gps": "-25.2867123, -57.6470456" }
+{ "lat": -25.28, "lon": -57.64 }
+{ "maps_gps": "-25.28, -57.64" }
+```
+
+Aliases de longitud: `lng` | `lon` | `longitud`. Rango WGS84; 422 si inválido.
+
+Respuesta: 200 + pedido completo (mismo shape que GET detalle) con `lat`, `lng`, `lon`, `maps_gps` **ya nuevos**. `ubicacion` / `direccion` sin cambio. Auditoría: `Pedido` usa `Auditable` (usuario staff + timestamp).

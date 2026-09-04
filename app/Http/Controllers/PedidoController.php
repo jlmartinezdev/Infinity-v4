@@ -2,31 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pedido;
+use App\Helpers\MapsUrlHelper;
+use App\Helpers\TelefonoParaguayHelper;
+use App\Models\CedulaPadron;
 use App\Models\Cliente;
 use App\Models\EstadoPedido;
 use App\Models\EstadoPedidoDetalle;
-use App\Models\Plan;
-use App\Models\Nodo;
-use App\Models\TipoTecnologia;
-use App\Models\CedulaPadron;
-use App\Models\Servicio;
-use App\Models\Router;
-use App\Models\RouterIpPool;
-use App\Models\PoolIpAsignada;
 use App\Models\MikrotikOperacionPendiente;
-use App\Helpers\MapsUrlHelper;
-use App\Helpers\TelefonoParaguayHelper;
+use App\Models\Nodo;
+use App\Models\Pedido;
+use App\Models\Plan;
+use App\Models\PoolIpAsignada;
+use App\Models\RouterIpPool;
+use App\Models\Servicio;
+use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
-use App\Services\PedidoNodoOpcionesService;
 use App\Services\MikroTikService;
+use App\Services\PedidoNodoOpcionesService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PedidoController extends Controller
 {
@@ -40,15 +39,14 @@ class PedidoController extends Controller
             ->orderBy('fecha_pedido', 'desc');
 
         // Filtros (estado_id, cliente_id, mostrar_instalados) se aplican en Vue (client-side)
-
-        // Cargar todos los pedidos (límite 500) para filtrado y búsqueda instantánea en Vue
-        $pedidos = $query->limit(500)->get();
+        $pedidos = $query->get();
         $pedidos->transform(function ($pedido) {
             $ultimoConTecnologia = $pedido->estadoPedidoDetalles
                 ->whereNotNull('tecnologia_id')
                 ->sortByDesc('created_at')
                 ->first();
             $pedido->tecnologia_id_seleccionado = $ultimoConTecnologia?->tecnologia_id;
+
             return $pedido;
         });
         $estados = EstadoPedido::orderBy('descripcion')->get();
@@ -57,7 +55,7 @@ class PedidoController extends Controller
         $nodos = Nodo::orderBy('descripcion')->get();
         $tiposTecnologia = TipoTecnologia::orderBy('descripcion')->get();
         $estado = EstadoPedido::orderBy('descripcion')->first();
-        if (!$estado) {
+        if (! $estado) {
             $estado = EstadoPedido::create(['descripcion' => 'Pendiente']);
         }
 
@@ -107,17 +105,37 @@ class PedidoController extends Controller
     /**
      * Formulario crear pedido.
      */
-    public function create()
+    public function create(Request $request)
     {
         $planes = Plan::where('estado', 'activo')->orderBy('nombre')->get();
-        
+
         // Obtener el primer estado disponible o crear uno por defecto
         $estado = EstadoPedido::orderBy('descripcion')->first();
-        if (!$estado) {
+        if (! $estado) {
             $estado = EstadoPedido::create(['descripcion' => 'Pendiente']);
         }
-        
-        return view('pedidos.create', compact('planes', 'estado'));
+
+        $initialValues = null;
+        $clientePrefill = null;
+        if ($request->filled('cliente_id')) {
+            $clientePrefill = Cliente::find($request->integer('cliente_id'));
+        } elseif ($request->filled('cedula')) {
+            $clientePrefill = Cliente::buscarPorCedula((string) $request->input('cedula'));
+        }
+        $clienteFijo = false;
+        $cancelUrl = route('pedidos.index');
+        if ($clientePrefill) {
+            $clienteFijo = $request->filled('cliente_id');
+            $initialValues = array_merge($clientePrefill->payloadParaPedido(), [
+                'ubicacion' => $clientePrefill->direccion,
+                'maps_gps' => $clientePrefill->url_ubicacion,
+            ]);
+            if ($clienteFijo) {
+                $cancelUrl = route('clientes.detalle', $clientePrefill);
+            }
+        }
+
+        return view('pedidos.create', compact('planes', 'estado', 'initialValues', 'clienteFijo', 'cancelUrl'));
     }
 
     /**
@@ -185,20 +203,13 @@ class PedidoController extends Controller
             'cedula' => ['required', 'string'],
         ]);
 
-        $cliente = Cliente::where('cedula', $request->cedula)->first();
+        $cliente = Cliente::buscarPorCedula($request->cedula);
 
-        if (!$cliente) {
+        if (! $cliente) {
             return response()->json(['error' => 'Cliente no encontrado'], 404);
         }
 
-        return response()->json([
-            'cliente_id' => $cliente->cliente_id,
-            'cedula' => $cliente->cedula,
-            'nombre' => $cliente->nombre,
-            'apellido' => $cliente->apellido,
-            'telefono' => $cliente->telefono,
-            'email' => $cliente->email,
-        ]);
+        return response()->json($cliente->payloadParaPedido());
     }
 
     /**
@@ -213,7 +224,7 @@ class PedidoController extends Controller
         try {
             $cedula = CedulaPadron::buscarPorCedula($request->cedula);
 
-            if (!$cedula) {
+            if (! $cedula) {
                 return response()->json([
                     'encontrado' => false,
                     'mensaje' => 'No se encontró en el padrón',
@@ -234,7 +245,7 @@ class PedidoController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'encontrado' => false,
-                'error' => 'Error al consultar el padrón: ' . $e->getMessage(),
+                'error' => 'Error al consultar el padrón: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -249,6 +260,8 @@ class PedidoController extends Controller
             'nombre' => ['required', 'string', 'max:100'],
             'apellido' => ['nullable', 'string', 'max:100'],
             'telefono' => ['nullable', 'string', 'max:20'],
+            'cliente_id' => ['nullable', 'integer', 'exists:clientes,cliente_id'],
+            'cliente_fijo' => ['sometimes', 'boolean'],
             'estado_id' => ['nullable', 'integer', 'exists:estados_pedidos,estado_id'],
             'fecha_pedido' => ['required', 'date'],
             'ubicacion' => ['nullable', 'string'],
@@ -265,10 +278,15 @@ class PedidoController extends Controller
             return back()->withInput()->withErrors(['maps_gps' => 'Debe indicar al menos la ubicación o el enlace de Google Maps.']);
         }
 
+        $clienteFijo = $request->boolean('cliente_fijo');
+        $cliente = null;
+        if (! empty($validated['cliente_id'])) {
+            $cliente = Cliente::query()->find((int) $validated['cliente_id']);
+        }
+
         $telefonoNorm = TelefonoParaguayHelper::normalize($validated['telefono'] ?? null);
         if ($telefonoNorm !== null && $telefonoNorm !== '') {
-            $clienteMismaCedula = Cliente::where('cedula', $validated['cedula'])->first();
-            $excluirClienteId = $clienteMismaCedula?->cliente_id;
+            $excluirClienteId = $cliente?->cliente_id ?? Cliente::buscarPorCedula($validated['cedula'])?->cliente_id;
             if (TelefonoParaguayHelper::telefonoUsadoPorOtroClienteConPedido($telefonoNorm, $excluirClienteId)) {
                 throw ValidationException::withMessages([
                     'telefono' => 'Este número de teléfono ya está registrado en otro pedido (cliente distinto).',
@@ -276,24 +294,26 @@ class PedidoController extends Controller
             }
         }
 
-        // Buscar o crear cliente
-        $cliente = Cliente::where('cedula', $validated['cedula'])->first();
-        
-        if (!$cliente) {
-            $cliente = Cliente::create([
-                'cedula' => $validated['cedula'],
-                'nombre' => $validated['nombre'],
-                'apellido' => $validated['apellido'] ?? null,
-                'telefono' => $validated['telefono'] ?? null,
-                'estado' => 'solo_pedido', // No se muestra en la lista de clientes (solo en pedidos)
-            ]);
+        if ($cliente) {
+            $updates = [];
+            if (! $cliente->tieneServiciosVigentes()) {
+                if (! empty($validated['nombre'])) {
+                    $updates['nombre'] = $validated['nombre'];
+                }
+                if (! empty($validated['apellido'])) {
+                    $updates['apellido'] = $validated['apellido'];
+                }
+                if (! empty($validated['telefono'])) {
+                    $updates['telefono'] = $validated['telefono'];
+                }
+            } elseif (empty($cliente->telefono) && ! empty($validated['telefono'])) {
+                $updates['telefono'] = $validated['telefono'];
+            }
+            if ($updates !== []) {
+                $cliente->update($updates);
+            }
         } else {
-            // Actualizar datos del cliente si existen
-            $cliente->update([
-                'nombre' => $validated['nombre'],
-                'apellido' => $validated['apellido'] ?? $cliente->apellido,
-                'telefono' => $validated['telefono'] ?? $cliente->telefono,
-            ]);
+            $cliente = Cliente::resolverParaPedido($validated);
         }
 
         // Extraer lat/lon de la URL de Maps si no vienen en el request
@@ -304,7 +324,7 @@ class PedidoController extends Controller
             $lat = $lat ?? $extracted['lat'];
             $lon = $lon ?? $extracted['lon'];
         }
-        
+
         // Crear pedido (ubicación se rellena desde maps_gps si no se envía ubicacion)
         $ubicacion = $validated['ubicacion'] ?? $validated['maps_gps'] ?? '';
         $pedido = Pedido::create([
@@ -322,7 +342,7 @@ class PedidoController extends Controller
 
         // Usar el primer estado de estados_pedidos para estado_pedido_detalles
         $primerEstado = EstadoPedido::orderBy('estado_id')->first();
-        if (!$primerEstado) {
+        if (! $primerEstado) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -342,16 +362,23 @@ class PedidoController extends Controller
             'estado' => 'P', // Pendiente
         ]);
 
+        $mensaje = $cliente->tieneServiciosVigentes()
+            ? 'Pedido de instalación creado para este cliente. Al instalar se agregará un servicio adicional.'
+            : 'Pedido creado correctamente.';
+        $redirect = $clienteFijo
+            ? route('clientes.detalle', ['cliente' => $cliente->cliente_id, 'tab' => 'servicio'])
+            : route('pedidos.index');
+
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Pedido creado correctamente.',
+                'message' => $mensaje,
                 'pedido_id' => $pedido->pedido_id,
-                'redirect' => route('pedidos.index'),
+                'redirect' => $redirect,
             ]);
         }
 
-        return redirect()->route('pedidos.index')->with('success', 'Pedido creado correctamente.');
+        return redirect()->to($redirect)->with('success', $mensaje);
     }
 
     /**
@@ -363,6 +390,7 @@ class PedidoController extends Controller
         $clientes = Cliente::whereIn('estado', ['activo', 'solo_pedido'])->orderBy('nombre')->get();
         $estados = EstadoPedido::orderBy('descripcion')->get();
         $estadoActual = $pedido->estadoActual();
+
         return view('pedidos.edit', compact('pedido', 'clientes', 'estados', 'estadoActual'));
     }
 
@@ -501,7 +529,7 @@ class PedidoController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Estado agregado correctamente.',
-                'redirect' => route('pedidos.index')
+                'redirect' => route('pedidos.index'),
             ]);
         }
 
@@ -543,6 +571,7 @@ class PedidoController extends Controller
                     'message' => 'Este estado ya está aprobado y no se puede modificar.',
                 ], 400);
             }
+
             return redirect()->route('pedidos.index')->with('error', 'Este estado ya está aprobado y no se puede modificar.');
         }
 
@@ -601,7 +630,7 @@ class PedidoController extends Controller
 
         // Si no se enviaron nodo_id, tecnologia_id o plan_id, copiar solo de detalles del mismo pedido_id
         $pedidoId = (int) $pedido->pedido_id;
-        if (!isset($updateData['nodo_id'])) {
+        if (! isset($updateData['nodo_id'])) {
             $ultimoConNodo = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
                 ->where('estado_id', '!=', $validated['estado_id'])
                 ->whereNotNull('nodo_id')
@@ -612,7 +641,7 @@ class PedidoController extends Controller
                 $updateData['nodo_id'] = $ultimoConNodo->nodo_id;
             }
         }
-        if (!isset($updateData['tecnologia_id'])) {
+        if (! isset($updateData['tecnologia_id'])) {
             $ultimoConTecnologia = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
                 ->where('estado_id', '!=', $validated['estado_id'])
                 ->whereNotNull('tecnologia_id')
@@ -623,7 +652,7 @@ class PedidoController extends Controller
                 $updateData['tecnologia_id'] = $ultimoConTecnologia->tecnologia_id;
             }
         }
-        if (!isset($updateData['plan_id'])) {
+        if (! isset($updateData['plan_id'])) {
             $ultimoConPlan = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
                 ->where('estado_id', '!=', $validated['estado_id'])
                 ->whereNotNull('plan_id')
@@ -650,7 +679,7 @@ class PedidoController extends Controller
             ->update($updateData);
 
         // Si se guardó plan_id (acción seleccionar_plan), actualizar prioridad_instalacion del pedido con la prioridad del plan
-        if (!empty($updateData['plan_id'])) {
+        if (! empty($updateData['plan_id'])) {
             $plan = Plan::find($updateData['plan_id']);
             if ($plan !== null && $plan->prioridad !== null) {
                 $pedido->update(['prioridad_instalacion' => (int) $plan->prioridad]);
@@ -665,7 +694,7 @@ class PedidoController extends Controller
             $yaExiste = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
                 ->where('estado_id', $siguienteEstado->estado_id)
                 ->exists();
-            if (!$yaExiste) {
+            if (! $yaExiste) {
                 EstadoPedidoDetalle::create([
                     'pedido_id' => $pedidoId,
                     'estado_id' => $siguienteEstado->estado_id,
@@ -680,7 +709,7 @@ class PedidoController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Estado aprobado correctamente.',
-                'redirect' => route('pedidos.index')
+                'redirect' => route('pedidos.index'),
             ]);
         }
 
@@ -701,13 +730,14 @@ class PedidoController extends Controller
             ->where('estado_id', $validated['estado_id'])
             ->firstOrFail();
 
-        if (!in_array($detalle->estado, ['A', 'D'], true)) {
+        if (! in_array($detalle->estado, ['A', 'D'], true)) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Solo se pueden reabrir estados aprobados o descartados.',
                 ], 400);
             }
+
             return redirect()->route('pedidos.index')->with('error', 'Solo se pueden reabrir estados aprobados o descartados.');
         }
 
@@ -813,6 +843,7 @@ class PedidoController extends Controller
                     'message' => 'No se puede descartar un estado que ya está aprobado.',
                 ], 400);
             }
+
             return redirect()->route('pedidos.index')->with('error', 'No se puede descartar un estado que ya está aprobado.');
         }
 
@@ -830,11 +861,39 @@ class PedidoController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Estado descartado correctamente.',
-                'redirect' => route('pedidos.index')
+                'redirect' => route('pedidos.index'),
             ]);
         }
 
         return redirect()->route('pedidos.index')->with('success', 'Estado descartado correctamente.');
+    }
+
+    /**
+     * Si el pedido quedó en un cliente solo_pedido duplicado, pasa la instalación al cliente que ya tiene servicio.
+     */
+    private function clienteDestinoInstalacion(Pedido $pedido): ?Cliente
+    {
+        $cliente = $pedido->cliente;
+        if (! $cliente) {
+            return null;
+        }
+
+        if ($cliente->tieneServiciosVigentes()) {
+            return $cliente;
+        }
+
+        $existente = Cliente::buscarPorCedula($cliente->cedula);
+        if (! $existente || (int) $existente->cliente_id === (int) $cliente->cliente_id) {
+            return $cliente;
+        }
+        if (! $existente->tieneServiciosVigentes()) {
+            return $cliente;
+        }
+
+        $pedido->update(['cliente_id' => $existente->cliente_id]);
+        $pedido->setRelation('cliente', $existente);
+
+        return $existente;
     }
 
     /**
@@ -846,7 +905,7 @@ class PedidoController extends Controller
     {
         $wantsJson = $request->wantsJson() || $request->ajax();
 
-        $pedido->load(['cliente', 'plan', 'estadoPedidoDetalles']);
+        $pedido->load(['cliente.servicios', 'plan', 'estadoPedidoDetalles']);
 
         // Verificar que el estado 3 esté aprobado
         $detalleEstado3 = EstadoPedidoDetalle::where('pedido_id', $pedido->pedido_id)
@@ -854,7 +913,7 @@ class PedidoController extends Controller
             ->where('estado', 'A')
             ->first();
 
-        if (!$detalleEstado3) {
+        if (! $detalleEstado3) {
             $msg = 'El pedido debe tener el estado 3 aprobado para crear usuario PPPoE.';
             if ($wantsJson) {
                 return response()->json(['message' => $msg], 422);
@@ -864,8 +923,8 @@ class PedidoController extends Controller
                 ->with('error', $msg);
         }
 
-        $cliente = $pedido->cliente;
-        if (!$cliente) {
+        $cliente = $this->clienteDestinoInstalacion($pedido);
+        if (! $cliente) {
             $msg = 'El pedido no tiene cliente asociado.';
             if ($wantsJson) {
                 return response()->json(['message' => $msg], 422);
@@ -874,7 +933,9 @@ class PedidoController extends Controller
             return redirect()->route('pedidos.index')->with('error', $msg);
         }
 
-        // 1. Pasar cliente a activo y actualizar dirección si viene del pedido
+        $esServicioAdicional = $cliente->tieneServiciosVigentes();
+
+        // 1. Pasar cliente a activo y actualizar dirección solo si está vacía
         $clienteData = ['estado' => 'activo'];
         if ($pedido->ubicacion && empty($cliente->direccion)) {
             $clienteData['direccion'] = $pedido->ubicacion;
@@ -891,7 +952,6 @@ class PedidoController extends Controller
                 ->first();
             $nodoId = $ultimoConNodo?->nodo_id;
         }
-        
 
         if ($nodoId === null) {
             $msg = 'No hay nodo asociado al pedido. Aprobá un estado con nodo seleccionado.';
@@ -941,7 +1001,7 @@ class PedidoController extends Controller
 
         // 4. Plan del pedido (del último detalle con plan_id o pedido.plan_id)
         $planId = $detalleEstado3->plan_id ?? $pedido->plan_id;
-        if (!$planId) {
+        if (! $planId) {
             $msg = 'No hay plan asociado al pedido.';
             if ($wantsJson) {
                 return response()->json(['message' => $msg], 422);
@@ -953,19 +1013,17 @@ class PedidoController extends Controller
 
         // 5. Crear servicio con datos del pedido (servicio_id es auto-increment)
         $clienteId = (int) $cliente->cliente_id;
-
-        // Usuario PPPoE: nombre y apellido separados por _ en mayúscula (ñ → n para login ASCII).
-        $nombre = str_replace(['ñ', 'Ñ'], 'n', trim($cliente->nombre ?? ''));
-        $apellido = str_replace(['ñ', 'Ñ'], 'n', trim($cliente->apellido ?? ''));
-        $partes = array_filter([$nombre, $apellido]);
-        $usuarioPppoe = str_replace(' ', '_', Str::upper(Str::ascii(implode('_', $partes))));
-        $usuarioPppoe = preg_replace('/[^A-Z0-9._-]/', '', $usuarioPppoe);
-        if (strlen($usuarioPppoe) < 2) {
-            $usuarioPppoe = 'CLIENTE' . $clienteId;
+        $aliasAdicional = $esServicioAdicional
+            ? (trim((string) ($pedido->descripcion ?? '')) ?: null)
+            : null;
+        if ($aliasAdicional !== null && mb_strlen($aliasAdicional) > 80) {
+            $aliasAdicional = null;
         }
 
-        // Contraseña PPPoE: aleatoria alfanumérica, 8 caracteres (máx 20 en BD)
-        $passwordPppoe = Str::random(8);
+        $usuarioPppoe = Servicio::usuarioPppoeDesdeClienteYAlias($cliente, $aliasAdicional, null, $clienteId);
+        $passwordPppoe = Servicio::generarPasswordPppoe(
+            Servicio::where('cliente_id', $clienteId)->pluck('password_pppoe')->all()
+        );
 
         // Opcional: asignar primera IP disponible del pool (excluir .255),
         // validando además que no esté en uso por otro servicio.
@@ -986,6 +1044,7 @@ class PedidoController extends Controller
             'pool_id' => $pool->pool_id,
             'plan_id' => $planId,
             'pedido_id' => $pedido->pedido_id,
+            'alias' => $aliasAdicional,
             'ip' => $ipAsignada?->ip,
             'usuario_pppoe' => $usuarioPppoe,
             'password_pppoe' => $passwordPppoe,
@@ -1018,7 +1077,7 @@ class PedidoController extends Controller
 
             return redirect()->route('pedidos.index')->with('error', $e->getMessage());
         }
-        
+
         if (! $servicioCreado) {
             $msg = 'No se pudo crear el servicio PPPoE.';
             if ($wantsJson) {
@@ -1031,11 +1090,13 @@ class PedidoController extends Controller
         $servicioCreado->load(['pool.router', 'plan.perfilPppoe', 'cliente']);
         $syncResult = $mikrotik->syncPppoeServicio($servicioCreado);
 
-        $mensaje = 'Usuario PPPoE creado.';
+        $mensaje = $esServicioAdicional
+            ? 'Servicio adicional creado en el mismo cliente. Usuario PPPoE listo.'
+            : 'Usuario PPPoE creado.';
         if ($syncResult['success']) {
             $mensaje .= ' Sincronizado con MikroTik.';
         } else {
-            $mensaje .= ' Sincronización con MikroTik falló: ' . ($syncResult['error'] ?? 'error desconocido') . '. Podés sincronizar manualmente desde el servicio.';
+            $mensaje .= ' Sincronización con MikroTik falló: '.($syncResult['error'] ?? 'error desconocido').'. Podés sincronizar manualmente desde el servicio.';
             MikrotikOperacionPendiente::registrarSiFallo(
                 MikrotikOperacionPendiente::TIPO_SYNC_PPPOE_SERVICIO,
                 ['servicio_id' => $servicioCreado->servicio_id],
@@ -1044,15 +1105,19 @@ class PedidoController extends Controller
             );
         }
 
+        $redirectUrl = $esServicioAdicional
+            ? route('clientes.detalle', ['cliente' => $clienteId, 'tab' => 'servicio'])
+            : route('servicios.edit', $servicioCreado->servicio_id);
+
         if ($wantsJson) {
             return response()->json([
                 'message' => $mensaje,
-                'redirect' => route('servicios.edit', $servicioCreado->servicio_id),
+                'redirect' => $redirectUrl,
                 'sync_ok' => (bool) $syncResult['success'],
             ]);
         }
 
-        return redirect()->route('servicios.edit', $servicioCreado->servicio_id)
+        return redirect()->to($redirectUrl)
             ->with($syncResult['success'] ? 'success' : 'error', $mensaje);
     }
 
@@ -1062,7 +1127,7 @@ class PedidoController extends Controller
      */
     public function finalizar(Pedido $pedido, FacturacionService $facturacionService)
     {
-        $pedido->load('estadoPedidoDetalles.estadoPedido');
+        $pedido->load('estadoPedidoDetalles.estadoPedido', 'cliente');
 
         if ($pedido->estado_instalado) {
             return response()->json([
@@ -1074,6 +1139,7 @@ class PedidoController extends Controller
         $detallesByEstado = $pedido->estadoPedidoDetalles->keyBy('estado_id');
         $todosAprobados = $primerosEstados->every(function ($estadoId) use ($detallesByEstado) {
             $det = $detallesByEstado->get($estadoId);
+
             return $det && $det->estado === 'A';
         });
 
@@ -1091,29 +1157,52 @@ class PedidoController extends Controller
 
         $facturaInternaId = null;
         $servicioIdsPedido = Servicio::where('pedido_id', $pedido->pedido_id)->pluck('servicio_id')->all();
-        $omitirFacturaPorCalendario = Carbon::now()->day < 7
+        $inicioMes = Carbon::now()->startOfMonth();
+        $finMes = Carbon::now()->endOfMonth();
+        $omitirFacturaPorCalendario = ! FacturacionService::puedeEmitirFacturaPorInstalacion()
             && $pedido->cliente_id
             && $servicioIdsPedido !== [];
+        $omitirFacturaPorAcuerdo = false;
 
         try {
-            DB::transaction(function () use ($pedido, $facturacionService, &$facturaInternaId, $servicioIdsPedido) {
+            DB::transaction(function () use ($pedido, $facturacionService, &$facturaInternaId, &$omitirFacturaPorAcuerdo, $servicioIdsPedido, $inicioMes, $finMes) {
                 $pedido->update(['estado_instalado' => true]);
                 Servicio::where('pedido_id', $pedido->pedido_id)->update([
                     'estado' => 'A',
                 ]);
                 if ($pedido->cliente_id && ! empty(trim((string) $pedido->maps_gps))) {
-                    $pedido->cliente->update(['url_ubicacion' => trim($pedido->maps_gps)]);
+                    $yaTeniaUbicacion = filled(trim((string) ($pedido->cliente?->url_ubicacion ?? '')));
+                    $yaTeniaOtrosServicios = Servicio::where('cliente_id', $pedido->cliente_id)
+                        ->where(function ($q) use ($pedido) {
+                            $q->whereNull('pedido_id')->orWhere('pedido_id', '!=', $pedido->pedido_id);
+                        })
+                        ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+                        ->exists();
+                    if (! $yaTeniaOtrosServicios || ! $yaTeniaUbicacion) {
+                        $pedido->cliente->update(['url_ubicacion' => trim($pedido->maps_gps)]);
+                    }
                 }
 
                 // Política de facturación: no generar factura interna al finalizar pedido entre el día 1 y 6;
-                // solo desde el día 7 hasta fin de mes.
-                $puedeFacturarPedidoInstalado = Carbon::now()->day >= 7;
+                // solo desde el día 7 hasta fin de mes. Si hay acuerdo vigente, se omite la factura sin abortar.
+                $puedeFacturarPedidoInstalado = FacturacionService::puedeEmitirFacturaPorInstalacion();
 
                 if ($pedido->cliente_id && $servicioIdsPedido !== [] && $puedeFacturarPedidoInstalado) {
+                    $idsFacturables = Servicio::whereIn('servicio_id', $servicioIdsPedido)
+                        ->get()
+                        ->reject(fn (Servicio $s) => $s->acuerdoAplicaEnPeriodo($inicioMes, $finMes))
+                        ->pluck('servicio_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->all();
+                    if ($idsFacturables === []) {
+                        $omitirFacturaPorAcuerdo = true;
+
+                        return;
+                    }
                     $resultado = $facturacionService->generarFacturaInternaDesdeServicios(
-                        $servicioIdsPedido,
-                        Carbon::now()->startOfMonth(),
-                        Carbon::now()->endOfMonth(),
+                        $idsFacturables,
+                        $inicioMes,
+                        $finMes,
                         Auth::id(),
                         sprintf('Pedido #%s — factura prorrateada por instalación.', $pedido->pedido_id)
                     );
@@ -1129,6 +1218,8 @@ class PedidoController extends Controller
         $msgFactura = '';
         if ($facturaInternaId) {
             $msgFactura = ' Se generó la factura interna prorrateada del mes.';
+        } elseif ($omitirFacturaPorAcuerdo) {
+            $msgFactura = ' No se generó factura interna: el servicio tiene acuerdo de no facturación en este período.';
         } elseif ($omitirFacturaPorCalendario) {
             $msgFactura = ' No se generó factura interna: solo se emite desde el día 7 hasta fin de mes.';
         }

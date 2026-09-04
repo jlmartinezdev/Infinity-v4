@@ -69,30 +69,37 @@ class VsolTelnetSession
         $this->pace();
         $this->writeLine($username);
 
-        $this->waitFor(['Password:', 'password:'], 20);
+        $this->waitFor(['Password:', 'password:'], 20, onlyNew: true);
         $this->pace();
         $this->writeLine($password);
 
-        $this->waitFor(['>', '#', 'Password:'], 25);
+        // Solo mirar datos NUEVOS: el buffer ya contiene "Password:" del prompt anterior.
+        $afterPassword = $this->waitFor(
+            ['>', '#', 'Password:', 'password:', 'Username:', 'username:', 'Login:', 'login:'],
+            25,
+            onlyNew: true
+        );
 
-        $tail = substr($this->buffer, -200);
-        if (stripos($tail, 'Password:') !== false && stripos($tail, '>') === false) {
-            throw new RuntimeException('Credenciales Telnet incorrectas.');
+        if ($this->pareceLoginFallido($afterPassword)) {
+            throw new RuntimeException(
+                'El OLT no completó el login Telnet (el prompt no coincidió o el equipo rechazó el acceso).'
+                .$this->sufijoRespuesta($afterPassword)
+            );
         }
 
         $this->pace();
         $this->writeLine('enable');
-        $this->waitFor(['Password:', '#', '>'], 15);
+        $enableOut = $this->waitFor(['Password:', '#', '>'], 15, onlyNew: true);
 
-        if (stripos(substr($this->buffer, -120), 'Password:') !== false) {
+        if ($this->pidePasswordEnable($enableOut)) {
             $this->pace();
             $this->writeLine($enablePassword ?: $password);
-            $this->waitFor(['#', '>'], 15);
+            $this->waitFor(['#', '>'], 15, onlyNew: true);
         }
 
         $this->pace();
         $this->writeLine('configure terminal');
-        $this->waitFor(['(config', '#'], 15);
+        $this->waitFor(['(config', '#', '>'], 15, onlyNew: true);
 
         // Desactivar pager si el firmware lo soporta (evita --More-- y cortes).
         try {
@@ -196,22 +203,28 @@ class VsolTelnetSession
     /**
      * @param  array<int, string>  $needles
      */
-    private function waitFor(array $needles, int $timeoutSeconds): void
+    private function waitFor(array $needles, int $timeoutSeconds, bool $onlyNew = false): string
     {
+        $from = $onlyNew ? strlen($this->buffer) : 0;
         $deadline = microtime(true) + $timeoutSeconds;
         while (microtime(true) < $deadline) {
             $this->read(1);
             if (! is_resource($this->stream)) {
                 $this->failBrokenConnection('sesión');
             }
+            $haystack = $from > 0 ? substr($this->buffer, $from) : $this->buffer;
             foreach ($needles as $needle) {
-                if (stripos($this->buffer, $needle) !== false) {
-                    return;
+                if (stripos($haystack, $needle) !== false) {
+                    return $haystack;
                 }
             }
         }
 
-        throw new RuntimeException('Tiempo de espera agotado esperando respuesta del OLT.');
+        $visto = $from > 0 ? substr($this->buffer, $from) : substr($this->buffer, -400);
+        throw new RuntimeException(
+            'Tiempo de espera agotado esperando respuesta del OLT.'
+            .$this->sufijoRespuesta($visto)
+        );
     }
 
     private function readUntilPrompt(int $timeoutSeconds): string
@@ -227,6 +240,7 @@ class VsolTelnetSession
                 if (! is_resource($this->stream) || (($emptyReads > 3) && ! $this->isConnected())) {
                     $this->failBrokenConnection('lectura');
                 }
+
                 continue;
             }
             $emptyReads = 0;
@@ -236,6 +250,7 @@ class VsolTelnetSession
                 $output = preg_replace('/--\s*more\s*--/i', '', $output) ?? $output;
                 usleep(30000);
                 $this->writeRaw(' ');
+
                 continue;
             }
 
@@ -282,6 +297,7 @@ class VsolTelnetSession
             $byte = ord($data[$i]);
             if ($byte !== self::IAC) {
                 $out .= $data[$i];
+
                 continue;
             }
 
@@ -292,6 +308,7 @@ class VsolTelnetSession
             $cmd = ord($data[++$i]);
             if ($cmd === self::IAC) {
                 $out .= chr(self::IAC);
+
                 continue;
             }
 
@@ -306,6 +323,7 @@ class VsolTelnetSession
                 } elseif ($cmd === self::WILL) {
                     $replies .= chr(self::IAC).chr(self::DONT).chr($opt);
                 }
+
                 continue;
             }
 
@@ -327,6 +345,68 @@ class VsolTelnetSession
         }
 
         return $out;
+    }
+
+    private function pareceLoginFallido(string $reply): bool
+    {
+        if ($this->hayPromptShell($reply)) {
+            return false;
+        }
+
+        $lower = strtolower($reply);
+        foreach ([
+            'login incorrect',
+            'login failed',
+            'authentication failed',
+            'access denied',
+            'invalid password',
+            'invalid username',
+            'auth fail',
+            'username:',
+            'login:',
+        ] as $marker) {
+            if (str_contains($lower, $marker)) {
+                return true;
+            }
+        }
+
+        return stripos($reply, 'Password:') !== false;
+    }
+
+    private function pidePasswordEnable(string $reply): bool
+    {
+        return stripos($reply, 'Password:') !== false && ! $this->hayPromptShell($reply);
+    }
+
+    private function hayPromptShell(string $text): bool
+    {
+        return (bool) preg_match('/[^\r\n]*[>#]\s*$/m', $text);
+    }
+
+    private function sufijoRespuesta(string $text): string
+    {
+        $snippet = $this->limpiarSnippet($text);
+        if ($snippet === '') {
+            return '';
+        }
+
+        return "\n\nRespuesta del equipo:\n".$snippet;
+    }
+
+    private function limpiarSnippet(string $text, int $max = 800): string
+    {
+        $text = preg_replace('/\x1b\[[0-9;?]*[ -\/]*[@-~]/', '', $text) ?? $text;
+        $text = preg_replace('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', '', $text) ?? $text;
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+
+        if (mb_strlen($text) > $max) {
+            $text = mb_substr($text, -$max);
+        }
+
+        return $text;
     }
 
     private function failBrokenConnection(string $fase): never

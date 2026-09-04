@@ -87,6 +87,7 @@ class ListaClienteServicioViewData
                 'cliente' => $s->cliente ? ['cliente_id' => $s->cliente->cliente_id, 'nombre' => $s->cliente->nombre, 'apellido' => $s->cliente->apellido, 'cedula' => $s->cliente->cedula, 'url_ubicacion' => trim((string) ($s->cliente->url_ubicacion ?? ''))] : null,
                 'plan' => $s->plan ? ['plan_id' => (int) $s->plan->plan_id, 'nombre' => $s->plan->nombre] : null,
                 'plan_id' => $s->plan_id ? (int) $s->plan_id : null,
+                'alias' => $s->aliasNormalizado(),
                 'pool' => $s->pool ? [
                     'router' => $s->pool->router ? [
                         'nombre' => $s->pool->router->nombre,

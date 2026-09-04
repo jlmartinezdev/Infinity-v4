@@ -300,6 +300,22 @@ class PendientesWhatsAppService
         };
     }
 
+    public static function etiquetaAvisoExcel(?WhatsappMensaje $m): string
+    {
+        if (! $m) {
+            return 'No enviado';
+        }
+
+        return match ($m->estado) {
+            WhatsappMensaje::ESTADO_LEIDO => 'Leído',
+            WhatsappMensaje::ESTADO_ENTREGADO => 'Entregado',
+            WhatsappMensaje::ESTADO_ENVIADO => 'Enviado',
+            WhatsappMensaje::ESTADO_PENDIENTE => 'Pendiente',
+            WhatsappMensaje::ESTADO_FALLIDO => 'Fallido',
+            default => 'No enviado',
+        };
+    }
+
     private static function tituloFallo(string $ambito, ?WhatsappMensaje $m): string
     {
         $base = 'WhatsApp fallido ('.$ambito.')';

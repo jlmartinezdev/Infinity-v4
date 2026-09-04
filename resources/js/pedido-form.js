@@ -18,6 +18,8 @@ if (el) {
     cancelUrl: cfg.cancelUrl || '',
     csrfToken: cfg.csrfToken || '',
     modalMode: cfg.modalMode === true,
+    initialValues: cfg.initialValues || null,
+    clienteFijo: cfg.clienteFijo === true,
   });
   app.mount(el);
 }

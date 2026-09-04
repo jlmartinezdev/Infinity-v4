@@ -86,6 +86,8 @@ html.dark .wa-app {
 .wa-app .wa-day { background: var(--wa-day); color: var(--wa-muted); }
 .wa-app .wa-me-avatar { background: var(--wa-me); color: var(--wa-me-fg); }
 .wa-app .wa-icon-btn { color: var(--wa-muted); }
+.wa-app .wa-msg-del { opacity: 0.4; }
+.wa-app .wa-bubble:hover .wa-msg-del { opacity: 1; }
 .wa-app .wa-input { background: var(--wa-input-alt); color: var(--wa-text); }
 .wa-app .wa-input::placeholder { color: var(--wa-muted); }
 .wa-app .wa-composer .wa-input { background: var(--wa-input); }

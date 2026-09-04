@@ -16,6 +16,7 @@
         'mapPuntosUrl' => route('factura-internas.pendientes.mapa-puntos'),
         'googleMapsApiKey' => (string) config('services.google.maps_key', ''),
         'exportExcelUrl' => route('factura-internas.pendientes.exportar-excel'),
+        'exportExcelVencidosUrl' => route('factura-internas.pendientes.exportar-excel-vencidos'),
         'pfKeys' => $pfKeys,
         'urls' => [
             'promesasIndex' => route('promesas-pago.index'),

@@ -18,7 +18,7 @@ final class CobrosMesVentana
      * Ciclo que cierra en el mes $mesReferencia (debe ser primer día del mes M).
      * Facturas: created_at en el mes natural anterior a M.
      * Cobros: fecha_pago desde el día 20 del mes anterior a M hasta el fin de M.
-     * Atribución: si pago y factura son ambos posteriores al día 20 de M, no suma en M (va al mes siguiente).
+     * Atribución: si el pago y la factura son del día 20 de M o después, no suma en M (va al mes siguiente).
      *
      * @return array{desdeVentana: Carbon, hastaVentana: Carbon, facturaDesde: Carbon, facturaHasta: Carbon}
      */
@@ -70,7 +70,7 @@ final class CobrosMesVentana
 
     /**
      * Indica si un cobro cuenta en el total del mes M.
-     * Excluye cuando fecha_pago y created_at de la factura son ambos posteriores al día 20 de M.
+     * Excluye cuando fecha_pago y created_at de la factura son ambos el día 20 de M o después.
      */
     public static function cobroCuentaEnMesReferencia(Carbon $fechaPago, ?Carbon $facturaCreatedAt, Carbon $mesReferencia): bool
     {
@@ -81,8 +81,8 @@ final class CobrosMesVentana
         $diaCorte = self::diaCorteMesReferencia($mesReferencia);
 
         return ! (
-            $fechaPago->copy()->startOfDay()->gt($diaCorte)
-            && $facturaCreatedAt->copy()->startOfDay()->gt($diaCorte)
+            $fechaPago->copy()->startOfDay()->gte($diaCorte)
+            && $facturaCreatedAt->copy()->startOfDay()->gte($diaCorte)
         );
     }
 
@@ -100,7 +100,7 @@ final class CobrosMesVentana
     }
 
     /**
-     * Excluye cobros con pago y factura posteriores al día 20 del mes de referencia.
+     * Excluye cobros con pago y factura del día 20 del mes de referencia o después.
      *
      * @param  Builder<Cobro>|QueryBuilder  $query
      */
@@ -117,7 +117,7 @@ final class CobrosMesVentana
                         ->whereColumn('cfi_sin_f.cobro_id', "{$table}.id");
                 })->whereNull("{$table}.factura_interna_id");
             })->orWhereRaw(
-                "NOT (DATE({$table}.fecha_pago) > ? AND DATE({$sqlFactura}) > ?)",
+                "NOT (DATE({$table}.fecha_pago) >= ? AND DATE({$sqlFactura}) >= ?)",
                 [$diaCorte, $diaCorte]
             );
         });
@@ -233,10 +233,8 @@ final class CobrosMesVentana
         $mesReferencia = $fechaPago->copy()->startOfMonth()->startOfDay();
         $diaCorte = self::diaCorteMesReferencia($mesReferencia);
 
-        if (
-            $fechaPago->copy()->startOfDay()->gt($diaCorte)
-            && $facturaCreatedAt->copy()->startOfDay()->gt($diaCorte)
-        ) {
+        // Factura emitida el día 20 o después pertenece al ciclo del mes siguiente (no al mes actual).
+        if ($facturaCreatedAt->copy()->startOfDay()->gte($diaCorte)) {
             $mesReferencia = $mesReferencia->copy()->addMonthNoOverflow()->startOfMonth();
         }
 
@@ -459,20 +457,16 @@ final class CobrosMesVentana
     }
 
     /**
-     * Facturas del ciclo: mes M-1 completo + anticipadas de M (desde el día 20).
+     * Facturas del ciclo: solo el mes natural anterior a M.
+     * Las emitidas el día 20 o después de M van al ciclo de M+1, no se duplican en M.
      *
      * @param  \Illuminate\Database\Query\Builder  $query
      */
     public static function aplicarFiltroFacturasCicloMesReferencia($query, Carbon $mesReferencia, string $table = 'factura_internas'): void
     {
         $rangos = self::rangosParaMesReferencia($mesReferencia);
-        $diaCorte = self::diaCorteMesReferencia($mesReferencia);
-        $finMesM = $mesReferencia->copy()->endOfMonth()->endOfDay();
 
-        $query->where(function ($q) use ($rangos, $diaCorte, $finMesM, $table) {
-            $q->whereBetween("{$table}.created_at", [$rangos['facturaDesde'], $rangos['facturaHasta']])
-                ->orWhereBetween("{$table}.created_at", [$diaCorte, $finMesM]);
-        });
+        $query->whereBetween("{$table}.created_at", [$rangos['facturaDesde'], $rangos['facturaHasta']]);
     }
 
     public static function calcularTotalFacturadoMesReferencia(Carbon $mesReferencia): float
@@ -538,15 +532,10 @@ final class CobrosMesVentana
     public static function mesesReferenciaAfectadosPorFactura(Carbon $fechaFactura): array
     {
         $f = $fechaFactura->copy()->startOfDay();
-        $meses = [
+
+        return [
             $f->copy()->addMonthNoOverflow()->startOfMonth()->toDateString(),
         ];
-
-        if ($f->gte(self::diaCorteMesReferencia($f->copy()->startOfMonth()))) {
-            $meses[] = $f->copy()->startOfMonth()->toDateString();
-        }
-
-        return array_values(array_unique($meses));
     }
 
     /** SQL (MySQL) para el monto del cobro registrado como saldo a favor. */

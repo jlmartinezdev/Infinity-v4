@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\PortalV1Controller;
 use App\Http\Controllers\Api\V1\ReporteController;
 use App\Http\Controllers\Api\V1\ServicioController;
 use App\Http\Controllers\Api\V1\SolicitudAccesoController;
+use App\Http\Controllers\Api\V1\StaffAppController;
 use App\Http\Controllers\Api\V1\StaffAvisoEnCaminoController;
 use App\Http\Controllers\Api\V1\StaffConfigController;
 use App\Http\Controllers\Api\V1\StaffPedidoInstalacionController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Api\V1\StaffVisitaController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\TpagoWebhookController;
+use App\Http\Controllers\Api\V1\WhatsAppAgentController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -48,6 +50,10 @@ Route::prefix('v1')->group(function () {
 
     // Confirmación de pagos TPago / Bancard (URL a configurar en el portal TPago)
     Route::post('/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
+
+    // Play Integrity — nonce de un solo uso (sin Bearer)
+    Route::get('/staff/integrity/nonce', [StaffAppController::class, 'integrityNonce']);
+    Route::get('/portal/v1/integrity/nonce', [StaffAppController::class, 'integrityNonce']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -105,6 +111,10 @@ Route::prefix('v1')->group(function () {
                     ->middleware('permiso:portal.cuenta.ver');
                 Route::get('/cpe/dhcp-clients', [PortalV1Controller::class, 'cpeDhcpClients'])
                     ->middleware('permiso:portal.cuenta.ver');
+                Route::get('/cpe/wifi', [PortalV1Controller::class, 'cpeWifi'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::post('/cpe/wifi', [PortalV1Controller::class, 'cpeWifiCambiar'])
+                    ->middleware('permiso:portal.cuenta.ver');
             });
         });
 
@@ -129,8 +139,9 @@ Route::prefix('v1')->group(function () {
 
             Route::post('/staff/save-push-token', [AuthController::class, 'savePushToken']);
 
-            Route::get('/staff/auditoria', [SolicitudAccesoController::class, 'auditoria'])
-                ->middleware('admin');
+            // Staff 1.5 — Activos paginados + Panel counts
+            Route::get('/staff/auditoria', [StaffAppController::class, 'auditoria']);
+            Route::get('/staff/dashboard', [StaffAppController::class, 'dashboard']);
 
             // Flota GPS + visitas (app ISP Staff)
             Route::post('/staff/ubicacion', [StaffUbicacionController::class, 'store']);
@@ -148,6 +159,9 @@ Route::prefix('v1')->group(function () {
                 ->whereNumber('id')
                 ->middleware('permiso:tickets.crear');
             Route::patch('/staff/visitas/{id}', [StaffVisitaController::class, 'actualizar'])
+                ->whereNumber('id')
+                ->middleware('permiso:tickets.crear');
+            Route::post('/staff/visitas/{id}/evidencia', [StaffAppController::class, 'evidenciaVisita'])
                 ->whereNumber('id')
                 ->middleware('permiso:tickets.crear');
 
@@ -187,12 +201,17 @@ Route::prefix('v1')->group(function () {
             Route::post('/staff/pedidos-instalacion/{id}/finalizar', [StaffPedidoInstalacionController::class, 'finalizar'])
                 ->whereNumber('id')
                 ->middleware('permiso:pedidos.finalizar');
+            Route::post('/staff/pedidos-instalacion/{id}/evidencia', [StaffAppController::class, 'evidenciaPedido'])
+                ->whereNumber('id')
+                ->middleware('permiso:pedidos.editar');
             Route::post('/staff/pedidos-instalacion/{id}/pppoe/generar', [StaffPedidoInstalacionController::class, 'generarPppoe'])
                 ->whereNumber('id')
                 ->middleware('permiso:pedidos.editar');
 
             Route::get('/clientes/por-telefono', [ClienteController::class, 'porTelefono'])
                 ->middleware('permiso:clientes.ver,pagos-pendientes.ver,cobros.ver,factura-interna.ver');
+            Route::get('/whatsapp/hilo', [WhatsAppAgentController::class, 'hilo'])
+                ->middleware('permiso:clientes.ver,pagos-pendientes.ver,cobros.ver,factura-interna.ver,whatsapp.ver');
 
             Route::middleware('permiso:clientes.ver')->group(function () {
                 Route::get('/clientes/buscar', [ClienteController::class, 'buscar']);

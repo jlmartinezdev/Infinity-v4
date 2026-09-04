@@ -27359,6 +27359,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
       type: String,
       default: ''
     },
+    urlTickets: {
+      type: String,
+      default: ''
+    },
     pollSegundos: {
       type: Number,
       default: 15
@@ -27382,20 +27386,24 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var tecnicos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
     var clientes = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
     var pedidos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
+    var tickets = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
     var capaTecnicos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(true);
     var capaClientes = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var capaPedidos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var capaTickets = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var satelite = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var map = null;
     var googleRef = null;
     var markersTecnicos = new Map();
     var markersClientes = [];
     var markersPedidos = [];
+    var markersTickets = [];
     var infoWindow = null;
     var pollTimer = null;
     var fittedOnce = false;
     var clientesCargados = false;
     var pedidosCargados = false;
+    var ticketsCargados = false;
     function isOnline(item) {
       if (!(item !== null && item !== void 0 && item.updated_at)) return false;
       var t = Date.parse(item.updated_at);
@@ -27464,8 +27472,18 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return "<div style=\"min-width:180px;font:13px/1.4 system-ui,sans-serif;color:#111827;background:#fff\">" + "<div style=\"font-weight:700;margin-bottom:4px;color:#111827\">".concat(escapeHtml(item.nombre || 'Técnico'), "</div>") + "<div style=\"color:#374151\">Estado: <strong style=\"color:".concat(online ? '#16a34a' : '#4b5563', "\">").concat(online ? 'Online' : 'Offline', "</strong></div>") + "<div style=\"color:#374151\">\xDAltima act.: ".concat(escapeHtml(formatUpdated(item.updated_at)), "</div>") + "<div style=\"color:#374151\">Visita: ".concat(escapeHtml(String(visita)), "</div>") + "<div style=\"margin-top:6px\"><a href=\"".concat(mapsUrl, "\" target=\"_blank\" rel=\"noopener\" style=\"color:#2563eb;font-weight:600;text-decoration:underline\">Abrir en Maps</a></div></div>");
     }
     function popupPunto(item, tipo) {
+      var extra = [];
+      if (item.asunto) {
+        extra.push("<div style=\"color:#374151\">Asunto: ".concat(escapeHtml(item.asunto), "</div>"));
+      }
+      if (item.estado) {
+        extra.push("<div style=\"color:#374151\">Estado: ".concat(escapeHtml(item.estado), "</div>"));
+      }
+      if (tipo === 'ticket') {
+        extra.push(item.asignado ? "<div style=\"color:#374151\">T\xE9cnico: ".concat(escapeHtml(item.asignado), "</div>") : "<div style=\"color:#6b7280\">Sin t\xE9cnico asignado</div>");
+      }
       var link = item.url ? "<div style=\"margin-top:6px\"><a href=\"".concat(escapeHtml(item.url), "\" target=\"_blank\" rel=\"noopener\" style=\"color:#2563eb;font-weight:600;text-decoration:underline\">Ver ").concat(tipo, "</a></div>") : '';
-      return "<div style=\"min-width:160px;font:13px/1.4 system-ui,sans-serif;color:#111827;background:#fff\">" + "<div style=\"font-weight:700;color:#111827\">".concat(escapeHtml(item.nombre || tipo), "</div>") + (item.direccion ? "<div style=\"color:#374151\">".concat(escapeHtml(item.direccion), "</div>") : '') + link + '</div>';
+      return "<div style=\"min-width:160px;font:13px/1.4 system-ui,sans-serif;color:#111827;background:#fff\">" + "<div style=\"font-weight:700;color:#111827\">".concat(escapeHtml(item.nombre || tipo), "</div>") + extra.join('') + (item.direccion ? "<div style=\"color:#374151\">".concat(escapeHtml(item.direccion), "</div>") : '') + link + '</div>';
     }
     function applyMapType() {
       if (!map) return;
@@ -27545,6 +27563,30 @@ var OFFLINE_MS = 5 * 60 * 1000;
           });
         });
         markersPedidos.push(marker);
+      });
+    }
+    function syncTicketsMarkers() {
+      clearMarkers(markersTickets);
+      if (!capaTickets.value || !map || !googleRef) return;
+      tickets.value.forEach(function (item) {
+        var marker = new googleRef.maps.Marker({
+          map: map,
+          position: {
+            lat: Number(item.lat),
+            lng: Number(item.lng)
+          },
+          title: item.nombre,
+          icon: pinIcon(googleRef, '#0284c7', '#'),
+          zIndex: 25
+        });
+        marker.addListener('click', function () {
+          infoWindow.setContent(popupPunto(item, 'ticket'));
+          infoWindow.open({
+            map: map,
+            anchor: marker
+          });
+        });
+        markersTickets.push(marker);
       });
     }
     function upsertTecnicos(items) {
@@ -27630,13 +27672,13 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _fetchJson.apply(this, arguments);
     }
     function _fetchJson() {
-      _fetchJson = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(url) {
-        var res, contentType, data, _t4, _t5;
-        return _regenerator().w(function (_context4) {
-          while (1) switch (_context4.p = _context4.n) {
+      _fetchJson = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(url) {
+        var res, contentType, data, _t5, _t6;
+        return _regenerator().w(function (_context5) {
+          while (1) switch (_context5.p = _context5.n) {
             case 0:
-              _context4.p = 0;
-              _context4.n = 1;
+              _context5.p = 0;
+              _context5.n = 1;
               return fetch(url, {
                 headers: {
                   Accept: 'application/json',
@@ -27645,52 +27687,52 @@ var OFFLINE_MS = 5 * 60 * 1000;
                 credentials: 'same-origin'
               });
             case 1:
-              res = _context4.v;
-              _context4.n = 3;
+              res = _context5.v;
+              _context5.n = 3;
               break;
             case 2:
-              _context4.p = 2;
-              _t4 = _context4.v;
+              _context5.p = 2;
+              _t5 = _context5.v;
               throw new Error('Sin conexión al servidor. Revisá la red e intentá de nuevo.');
             case 3:
               contentType = res.headers.get('content-type') || '';
               if (!contentType.includes('application/json')) {
-                _context4.n = 5;
+                _context5.n = 5;
                 break;
               }
-              _context4.n = 4;
+              _context5.n = 4;
               return res.json().catch(function () {
                 return {};
               });
             case 4:
-              _t5 = _context4.v;
-              _context4.n = 6;
+              _t6 = _context5.v;
+              _context5.n = 6;
               break;
             case 5:
-              _t5 = {};
+              _t6 = {};
             case 6:
-              data = _t5;
+              data = _t6;
               if (!(res.status === 401 || res.status === 419)) {
-                _context4.n = 7;
+                _context5.n = 7;
                 break;
               }
               throw new Error('Sesión expirada. Recargá la página e iniciá sesión de nuevo.');
             case 7:
               if (!(res.status === 403)) {
-                _context4.n = 8;
+                _context5.n = 8;
                 break;
               }
               throw new Error(data.message || 'No tenés permiso para ver estos datos del mapa.');
             case 8:
               if (!(!res.ok || data.success === false)) {
-                _context4.n = 9;
+                _context5.n = 9;
                 break;
               }
               throw new Error(data.message || "No se pudieron cargar los datos del mapa (HTTP ".concat(res.status, ")."));
             case 9:
-              return _context4.a(2, Array.isArray(data.data) ? data.data : []);
+              return _context5.a(2, Array.isArray(data.data) ? data.data : []);
           }
-        }, _callee4, null, [[0, 2]]);
+        }, _callee5, null, [[0, 2]]);
       }));
       return _fetchJson.apply(this, arguments);
     }
@@ -27698,39 +27740,39 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _fetchUbicaciones.apply(this, arguments);
     }
     function _fetchUbicaciones() {
-      _fetchUbicaciones = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-        var yaHayDatos, list, _t6;
-        return _regenerator().w(function (_context5) {
-          while (1) switch (_context5.p = _context5.n) {
+      _fetchUbicaciones = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+        var yaHayDatos, list, _t7;
+        return _regenerator().w(function (_context6) {
+          while (1) switch (_context6.p = _context6.n) {
             case 0:
               yaHayDatos = tecnicos.value.length > 0;
-              _context5.p = 1;
-              _context5.n = 2;
+              _context6.p = 1;
+              _context6.n = 2;
               return fetchJson(props.urlUbicaciones);
             case 2:
-              list = _context5.v;
+              list = _context6.v;
               tecnicos.value = list;
               upsertTecnicos(list);
               error.value = '';
-              _context5.n = 4;
+              _context6.n = 4;
               break;
             case 3:
-              _context5.p = 3;
-              _t6 = _context5.v;
+              _context6.p = 3;
+              _t7 = _context6.v;
               // Si el mapa ya tiene pines, un fallo de refresco no debe tapar la vista.
               if (yaHayDatos) {
-                console.warn('[mapa-tecnicos] refresco falló:', _t6.message);
+                console.warn('[mapa-tecnicos] refresco falló:', _t7.message);
               } else {
-                error.value = _t6.message || 'Error al cargar flota.';
+                error.value = _t7.message || 'Error al cargar flota.';
               }
             case 4:
-              _context5.p = 4;
+              _context6.p = 4;
               loading.value = false;
-              return _context5.f(4);
+              return _context6.f(4);
             case 5:
-              return _context5.a(2);
+              return _context6.a(2);
           }
-        }, _callee5, null, [[1, 3, 4, 5]]);
+        }, _callee6, null, [[1, 3, 4, 5]]);
       }));
       return _fetchUbicaciones.apply(this, arguments);
     }
@@ -27738,26 +27780,26 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _ensureClientes.apply(this, arguments);
     }
     function _ensureClientes() {
-      _ensureClientes = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-        return _regenerator().w(function (_context6) {
-          while (1) switch (_context6.n) {
+      _ensureClientes = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+        return _regenerator().w(function (_context7) {
+          while (1) switch (_context7.n) {
             case 0:
               if (!(clientesCargados || !props.urlClientes)) {
-                _context6.n = 1;
+                _context7.n = 1;
                 break;
               }
-              return _context6.a(2);
+              return _context7.a(2);
             case 1:
-              _context6.n = 2;
+              _context7.n = 2;
               return fetchJson(props.urlClientes);
             case 2:
-              clientes.value = _context6.v;
+              clientes.value = _context7.v;
               clientesCargados = true;
               syncClientesMarkers();
             case 3:
-              return _context6.a(2);
+              return _context7.a(2);
           }
-        }, _callee6);
+        }, _callee7);
       }));
       return _ensureClientes.apply(this, arguments);
     }
@@ -27765,28 +27807,55 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _ensurePedidos.apply(this, arguments);
     }
     function _ensurePedidos() {
-      _ensurePedidos = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-        return _regenerator().w(function (_context7) {
-          while (1) switch (_context7.n) {
+      _ensurePedidos = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+        return _regenerator().w(function (_context8) {
+          while (1) switch (_context8.n) {
             case 0:
               if (!(pedidosCargados || !props.urlPedidos)) {
-                _context7.n = 1;
+                _context8.n = 1;
                 break;
               }
-              return _context7.a(2);
+              return _context8.a(2);
             case 1:
-              _context7.n = 2;
+              _context8.n = 2;
               return fetchJson(props.urlPedidos);
             case 2:
-              pedidos.value = _context7.v;
+              pedidos.value = _context8.v;
               pedidosCargados = true;
               syncPedidosMarkers();
             case 3:
-              return _context7.a(2);
+              return _context8.a(2);
           }
-        }, _callee7);
+        }, _callee8);
       }));
       return _ensurePedidos.apply(this, arguments);
+    }
+    function ensureTickets() {
+      return _ensureTickets.apply(this, arguments);
+    }
+    function _ensureTickets() {
+      _ensureTickets = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+        return _regenerator().w(function (_context9) {
+          while (1) switch (_context9.n) {
+            case 0:
+              if (!(ticketsCargados || !props.urlTickets)) {
+                _context9.n = 1;
+                break;
+              }
+              return _context9.a(2);
+            case 1:
+              _context9.n = 2;
+              return fetchJson(props.urlTickets);
+            case 2:
+              tickets.value = _context9.v;
+              ticketsCargados = true;
+              syncTicketsMarkers();
+            case 3:
+              return _context9.a(2);
+          }
+        }, _callee9);
+      }));
+      return _ensureTickets.apply(this, arguments);
     }
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaTecnicos, syncTecnicosVisibility);
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaClientes, /*#__PURE__*/function () {
@@ -27855,23 +27924,56 @@ var OFFLINE_MS = 5 * 60 * 1000;
         return _ref3.apply(this, arguments);
       };
     }());
-    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-      var ms, _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaTickets, /*#__PURE__*/function () {
+      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(on) {
+        var _t3;
+        return _regenerator().w(function (_context3) {
+          while (1) switch (_context3.p = _context3.n) {
+            case 0:
+              if (!on) {
+                _context3.n = 4;
+                break;
+              }
+              _context3.p = 1;
+              _context3.n = 2;
+              return ensureTickets();
+            case 2:
+              _context3.n = 4;
+              break;
+            case 3:
+              _context3.p = 3;
+              _t3 = _context3.v;
+              error.value = _t3.message || 'No se pudieron cargar tickets.';
+              capaTickets.value = false;
+              return _context3.a(2);
+            case 4:
+              syncTicketsMarkers();
+            case 5:
+              return _context3.a(2);
+          }
+        }, _callee3, null, [[1, 3]]);
+      }));
+      return function (_x4) {
+        return _ref4.apply(this, arguments);
+      };
+    }());
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      var ms, _t4;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             if (props.apiKey) {
-              _context3.n = 1;
+              _context4.n = 1;
               break;
             }
             loading.value = false;
-            return _context3.a(2);
+            return _context4.a(2);
           case 1:
-            _context3.p = 1;
-            _context3.n = 2;
+            _context4.p = 1;
+            _context4.n = 2;
             return loadGoogleMaps(props.apiKey);
           case 2:
-            googleRef = _context3.v;
+            googleRef = _context4.v;
             map = new googleRef.maps.Map(mapContainer.value, {
               center: {
                 lat: props.centerLat,
@@ -27884,22 +27986,22 @@ var OFFLINE_MS = 5 * 60 * 1000;
             });
             infoWindow = new googleRef.maps.InfoWindow();
             applyMapType();
-            _context3.n = 3;
+            _context4.n = 3;
             return fetchUbicaciones();
           case 3:
             ms = Math.max(5, Number(props.pollSegundos) || 15) * 1000;
             pollTimer = setInterval(fetchUbicaciones, ms);
-            _context3.n = 5;
+            _context4.n = 5;
             break;
           case 4:
-            _context3.p = 4;
-            _t3 = _context3.v;
-            error.value = _t3.message || 'Error inicializando mapa.';
+            _context4.p = 4;
+            _t4 = _context4.v;
+            error.value = _t4.message || 'Error inicializando mapa.';
             loading.value = false;
           case 5:
-            return _context3.a(2);
+            return _context4.a(2);
         }
-      }, _callee3, null, [[1, 4]]);
+      }, _callee4, null, [[1, 4]]);
     })));
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.onBeforeUnmount)(function () {
       if (pollTimer) clearInterval(pollTimer);
@@ -27918,6 +28020,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
       markersTecnicos.clear();
       clearMarkers(markersClientes);
       clearMarkers(markersPedidos);
+      clearMarkers(markersTickets);
     });
     var __returned__ = {
       props: props,
@@ -27927,9 +28030,11 @@ var OFFLINE_MS = 5 * 60 * 1000;
       tecnicos: tecnicos,
       clientes: clientes,
       pedidos: pedidos,
+      tickets: tickets,
       capaTecnicos: capaTecnicos,
       capaClientes: capaClientes,
       capaPedidos: capaPedidos,
+      capaTickets: capaTickets,
       satelite: satelite,
       get map() {
         return map;
@@ -27961,6 +28066,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
       set markersPedidos(v) {
         markersPedidos = v;
       },
+      get markersTickets() {
+        return markersTickets;
+      },
+      set markersTickets(v) {
+        markersTickets = v;
+      },
       get infoWindow() {
         return infoWindow;
       },
@@ -27991,6 +28102,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
       set pedidosCargados(v) {
         pedidosCargados = v;
       },
+      get ticketsCargados() {
+        return ticketsCargados;
+      },
+      set ticketsCargados(v) {
+        ticketsCargados = v;
+      },
       OFFLINE_MS: OFFLINE_MS,
       isOnline: isOnline,
       markerColor: markerColor,
@@ -28006,11 +28123,13 @@ var OFFLINE_MS = 5 * 60 * 1000;
       syncTecnicosVisibility: syncTecnicosVisibility,
       syncClientesMarkers: syncClientesMarkers,
       syncPedidosMarkers: syncPedidosMarkers,
+      syncTicketsMarkers: syncTicketsMarkers,
       upsertTecnicos: upsertTecnicos,
       fetchJson: fetchJson,
       fetchUbicaciones: fetchUbicaciones,
       ensureClientes: ensureClientes,
       ensurePedidos: ensurePedidos,
+      ensureTickets: ensureTickets,
       onBeforeUnmount: vue__WEBPACK_IMPORTED_MODULE_0__.onBeforeUnmount,
       onMounted: vue__WEBPACK_IMPORTED_MODULE_0__.onMounted,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
@@ -28068,17 +28187,20 @@ var _hoisted_7 = {
   class: "inline-flex items-center gap-1.5 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer"
 };
 var _hoisted_8 = {
-  class: "flex flex-wrap gap-2 pointer-events-auto"
+  class: "inline-flex items-center gap-1.5 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer"
 };
 var _hoisted_9 = {
+  class: "flex flex-wrap gap-2 pointer-events-auto"
+};
+var _hoisted_10 = {
   key: 0,
   class: "absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 rounded-lg z-20"
 };
-var _hoisted_10 = {
+var _hoisted_11 = {
   key: 1,
   class: "absolute bottom-3 left-3 right-3 z-20 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-200"
 };
-var _hoisted_11 = {
+var _hoisted_12 = {
   key: 2,
   class: "absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg z-20 p-4"
 };
@@ -28089,7 +28211,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTecnicos]]), _cache[3] || (_cache[3] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTecnicos]]), _cache[4] || (_cache[4] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-green-600"
   }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Técnicos (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tecnicos.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
@@ -28097,7 +28219,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaClientes]]), _cache[4] || (_cache[4] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaClientes]]), _cache[5] || (_cache[5] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-violet-600"
   }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Clientes (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.clientes.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_7, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[2] || (_cache[2] = function ($event) {
@@ -28105,15 +28227,23 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaPedidos]]), _cache[5] || (_cache[5] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaPedidos]]), _cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-amber-500"
-  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Pedidos (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pedidos.length) + ") ", 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_8, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Pedidos (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pedidos.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_8, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    "onUpdate:modelValue": _cache[3] || (_cache[3] = function ($event) {
+      return $setup.capaTickets = $event;
+    }),
+    type: "checkbox",
+    class: "rounded border-gray-300"
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTickets]]), _cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "w-2.5 h-2.5 rounded-full bg-sky-600"
+  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Tickets (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tickets.length) + ") ", 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200",
     onClick: $setup.toggleSatelite
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, _toConsumableArray(_cache[6] || (_cache[6] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_10, _toConsumableArray(_cache[8] || (_cache[8] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-gray-700 dark:text-gray-300 text-sm"
-  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, _toConsumableArray(_cache[7] || (_cache[7] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_12, _toConsumableArray(_cache[9] || (_cache[9] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-amber-800 dark:text-amber-200 text-center text-sm"
   }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
 }
@@ -29154,6 +29284,7 @@ if (el) {
     urlUbicaciones: cfg.urlUbicaciones || '',
     urlClientes: cfg.urlClientes || '',
     urlPedidos: cfg.urlPedidos || '',
+    urlTickets: cfg.urlTickets || '',
     pollSegundos: Number(cfg.pollSegundos) || 15,
     centerLat: Number(cfg.centerLat) || -25.2867,
     centerLng: Number(cfg.centerLng) || -57.647

@@ -39,6 +39,8 @@ class AuthController extends ApiController
             'platform' => ['nullable', 'string', 'max:40'],
             'cliente_id' => ['nullable', 'integer', 'min:1'],
             'usuario_id' => ['nullable', 'integer', 'min:1'],
+            'integrity_token' => ['nullable', 'string', 'max:20000'],
+            'integrity_nonce' => ['nullable', 'string', 'max:128'],
         ]);
 
         if (empty($validated['push_token']) && ! empty($validated['token'])) {
@@ -51,6 +53,18 @@ class AuthController extends ApiController
         $tipo = $validated['tipo'] ?? null;
         if ($tipo === null) {
             $tipo = str_contains($validated['usuario'], '@') ? 'staff' : 'cliente';
+        }
+
+        // Play Integrity (staff + clientes): log-only mientras INTEGRITY_ENFORCE=false
+        $integrityError = app(\App\Services\Staff\PlayIntegrityService::class)->verificarLogin(
+            $tipo === 'cliente' ? 'cliente' : 'staff',
+            $validated['device_name'] ?? null,
+            $validated['integrity_token'] ?? null,
+            $validated['integrity_nonce'] ?? null,
+            $request->ip(),
+        );
+        if ($integrityError !== null) {
+            return $this->fail($integrityError, 401);
         }
 
         $user = $tipo === 'cliente'
@@ -104,8 +118,20 @@ class AuthController extends ApiController
 
     public function me(Request $request)
     {
+        $user = $request->user();
+        if ($user && $user->esClientePortal() && $user->cliente_id) {
+            try {
+                app(\App\Services\Portal\DispositivoHeartbeatService::class)->tocarLastSeen(
+                    (int) $user->cliente_id,
+                    $request->header('X-Device-Name')
+                );
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
+
         return $this->ok([
-            'user' => $this->userPayload($request->user()),
+            'user' => $this->userPayload($user),
         ]);
     }
 

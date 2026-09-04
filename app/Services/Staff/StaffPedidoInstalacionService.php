@@ -9,6 +9,7 @@ use App\Models\Servicio;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class StaffPedidoInstalacionService
 {
@@ -194,6 +195,7 @@ class StaffPedidoInstalacionService
             'ventana_horaria' => null,
             'lat' => $coords['lat'],
             'lng' => $coords['lng'],
+            'lon' => $coords['lng'],
             'asignado_a' => $asignadoId,
             'asignado_nombre' => $asignadoNombre,
             'pppoe_usuario' => $pppoeVisible ? ($servicio->usuario_pppoe ?? null) : null,
@@ -439,6 +441,70 @@ class StaffPedidoInstalacionService
                 'puede_reabrir' => $puedeEditar && in_array($codigo, ['A', 'D'], true),
             ];
         })->all();
+    }
+
+    /**
+     * GPS del pedido (fuente A: pedidos.lat / lon / maps_gps).
+     *
+     * Acepta lat + lng|lon|longitud, o maps_gps parseable. Ignora `ubicacion` (barrio).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{lat: float, lon: float, maps_gps: string}|null  null si el body no trae GPS
+     *
+     * @throws ValidationException
+     */
+    public function resolverGpsBody(array $input): ?array
+    {
+        $latRaw = $input['lat'] ?? null;
+        $lonRaw = $input['lng'] ?? $input['lon'] ?? $input['longitud'] ?? null;
+        $mapsGps = isset($input['maps_gps']) ? trim((string) $input['maps_gps']) : '';
+
+        $hasLat = $latRaw !== null && $latRaw !== '';
+        $hasLon = $lonRaw !== null && $lonRaw !== '';
+        $hasMaps = $mapsGps !== '';
+
+        if (! $hasLat && ! $hasLon && ! $hasMaps) {
+            return null;
+        }
+
+        $lat = ($hasLat && is_numeric($latRaw)) ? (float) $latRaw : null;
+        $lon = ($hasLon && is_numeric($lonRaw)) ? (float) $lonRaw : null;
+
+        if (($lat === null || $lon === null) && $hasMaps) {
+            $extracted = MapsUrlHelper::extractLatLonFromMapsUrl($mapsGps, false);
+            $lat = $lat ?? $extracted['lat'];
+            $lon = $lon ?? $extracted['lon'];
+        }
+
+        if ($lat === null || $lon === null) {
+            throw ValidationException::withMessages([
+                'lat' => ['Indicá coordenadas GPS válidas (lat y lng/lon, o maps_gps).'],
+            ]);
+        }
+
+        if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+            throw ValidationException::withMessages([
+                'lat' => ['Coordenadas GPS fuera de rango WGS84.'],
+            ]);
+        }
+
+        return [
+            'lat' => $lat,
+            'lon' => $lon,
+            'maps_gps' => $hasMaps ? $mapsGps : ($lat.', '.$lon),
+        ];
+    }
+
+    /**
+     * Persiste el pin en el pedido. No toca ubicacion/direccion ni el cliente.
+     *
+     * @param  array{lat: float, lon: float, maps_gps: string}  $gps
+     */
+    public function aplicarGps(Pedido $pedido, array $gps): void
+    {
+        $pedido->lat = $gps['lat'];
+        $pedido->lon = $gps['lon'];
+        $pedido->maps_gps = $gps['maps_gps'];
     }
 
     /**

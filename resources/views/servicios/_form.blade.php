@@ -133,6 +133,17 @@
             </div>
         </div>
 
+        <div>
+            <label for="alias" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alias</label>
+            <input type="text" name="alias" id="alias" value="{{ old('alias', $servicio?->alias) }}" maxlength="80"
+                placeholder="Ej. Casa, Local, 2do piso"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Para identificar este servicio cuando hay más de uno en la misma casa.</p>
+            @error('alias')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="pool_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pool de IP *</label>
@@ -201,9 +212,24 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="usuario_pppoe" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Usuario PPPoE</label>
-                <input type="text" name="usuario_pppoe" id="usuario_pppoe" value="{{ old('usuario_pppoe', $servicio?->usuario_pppoe) }}"
+                <input type="text" name="usuario_pppoe" id="usuario_pppoe"
+                    value="{{ old('usuario_pppoe', $servicio?->usuario_pppoe ?? $pppoeSugeridoUsuario ?? '') }}"
                     class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
-                    maxlength="100" placeholder="usuario@proveedor">
+                    maxlength="100" placeholder="usuario@proveedor"
+                    autocomplete="off"
+                    data-pppoe-base="{{ $pppoeBaseCliente ?? '' }}"
+                    data-pppoe-ocupados='@json($pppoeOcupados ?? [])'>
+                @if(!isset($servicio) && ($esServicioAdicional ?? false) && ($pppoeExistentes ?? collect())->isNotEmpty())
+                    <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                        Ya tiene
+                        {{ $pppoeExistentes->map(function ($s) {
+                            $u = $s->usuario_pppoe;
+                            $a = $s->aliasNormalizado();
+                            return $a ? $u.' ('.$a.')' : $u;
+                        })->implode(', ') }}.
+                        Este servicio debe usar un usuario distinto.
+                    </p>
+                @endif
                 @error('usuario_pppoe')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror
@@ -211,9 +237,14 @@
 
             <div>
                 <label for="password_pppoe" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña PPPoE</label>
-                <input type="text" name="password_pppoe" id="password_pppoe" value="{{ old('password_pppoe', $servicio?->password_pppoe) }}"
+                <input type="text" name="password_pppoe" id="password_pppoe"
+                    value="{{ old('password_pppoe', $servicio?->password_pppoe ?? $pppoeSugeridoPassword ?? '') }}"
                     class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
-                    maxlength="20" placeholder="Contraseña del usuario PPPoE">
+                    maxlength="20" placeholder="Contraseña del usuario PPPoE"
+                    autocomplete="off">
+                @if(!isset($servicio) && ($esServicioAdicional ?? false))
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Contraseña nueva, distinta a la del otro servicio. Podés cambiarla.</p>
+                @endif
                 @error('password_pppoe')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror
@@ -579,6 +610,54 @@ window.__SERVICIO_FORM_IPS_CONFIG__ = { ipsDisponiblesUrl: "{{ route('servicios.
     techSel.addEventListener('change', function () { aplicar(true); });
     marcarTarjetaTech(techSel.value);
     aplicar(false);
+
+    var aliasInput = document.getElementById('alias');
+    var userInput = document.getElementById('usuario_pppoe');
+    var esNuevo = @json(! isset($servicio));
+    var esAdicional = @json((bool) ($esServicioAdicional ?? false));
+    if (esNuevo && esAdicional && aliasInput && userInput) {
+        var pppoeBase = String(userInput.getAttribute('data-pppoe-base') || '');
+        var ocupados = [];
+        try { ocupados = JSON.parse(userInput.getAttribute('data-pppoe-ocupados') || '[]') || []; } catch (e) { ocupados = []; }
+        var tomados = {};
+        ocupados.forEach(function (u) { if (u) tomados[String(u)] = true; });
+        function normPppoe(t) {
+            t = String(t || '').replace(/[ñÑ]/g, 'n').toUpperCase();
+            t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return t.replace(/\s+/g, '_').replace(/[^A-Z0-9._-]/g, '');
+        }
+        function siguienteLibre(base) {
+            base = normPppoe(base);
+            if (base.length < 2) base = 'CLIENTE';
+            var usuario = base;
+            var n = 1;
+            while (tomados[usuario]) {
+                n++;
+                usuario = base + '_' + n;
+            }
+            return usuario;
+        }
+        function sugerirDesdeAlias() {
+            var alias = normPppoe(aliasInput.value);
+            var base = pppoeBase || 'CLIENTE';
+            if (alias && base !== alias && !base.endsWith('_' + alias)) {
+                base = base + '_' + alias;
+            }
+            return siguienteLibre(base);
+        }
+        var lastAuto = userInput.value;
+        aliasInput.addEventListener('input', function () {
+            if (userInput.dataset.pppoeManual === '1') return;
+            var next = sugerirDesdeAlias();
+            userInput.value = next;
+            lastAuto = next;
+        });
+        userInput.addEventListener('input', function () {
+            if (userInput.value !== lastAuto) {
+                userInput.dataset.pppoeManual = '1';
+            }
+        });
+    }
 })();
 </script>
 @push('scripts')

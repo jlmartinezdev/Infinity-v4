@@ -134,6 +134,7 @@ class ClienteController extends ApiController
             'estado_label' => Servicio::estadosDisponibles()[$s->estado] ?? $s->estado,
             'ip' => $s->ip,
             'usuario_pppoe' => $s->usuario_pppoe,
+            'alias' => $s->aliasNormalizado(),
             'fecha_instalacion' => optional($s->fecha_instalacion)?->toDateString(),
             'saldo_a_favor' => (float) ($s->saldo_a_favor ?? 0),
             'plan' => $s->plan ? [

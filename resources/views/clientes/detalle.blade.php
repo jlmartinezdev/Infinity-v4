@@ -45,6 +45,18 @@
         $cdTab = 'cliente';
     }
     $facturaAccion = $facturasPendientes->sortBy(fn ($f) => [$f->fecha_emision?->timestamp ?? 0, $f->id])->first();
+    $calificacionPagoEstrellas = match ($cliente->calificacion_pago) {
+        \App\Models\Cliente::CALIFICACION_MALO => 1,
+        \App\Models\Cliente::CALIFICACION_BUENO => 2,
+        \App\Models\Cliente::CALIFICACION_EXCELENTE => 3,
+        default => 0,
+    };
+    $calificacionPagoStarClass = match ($cliente->calificacion_pago) {
+        \App\Models\Cliente::CALIFICACION_MALO => 'text-red-500 dark:text-red-400',
+        \App\Models\Cliente::CALIFICACION_BUENO => 'text-blue-500 dark:text-blue-400',
+        \App\Models\Cliente::CALIFICACION_EXCELENTE => 'text-amber-400 dark:text-amber-300',
+        default => 'text-gray-500 dark:text-gray-400',
+    };
 @endphp
 
 <div class="cliente-detalle-page cliente-detalle-container pb-8">
@@ -106,7 +118,7 @@
                             @foreach($cliente->servicios as $sSaldo)
                                 <div>
                                     <label for="saldo_servicio_{{ $sSaldo->servicio_id }}" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                        Servicio #{{ $sSaldo->servicio_id }} — {{ $sSaldo->plan?->nombre ?? 'Sin plan' }}
+                                        Servicio #{{ $sSaldo->servicio_id }} — {{ $sSaldo->etiqueta() }}
                                     </label>
                                     <input type="number" name="saldos[{{ $sSaldo->servicio_id }}]" id="saldo_servicio_{{ $sSaldo->servicio_id }}"
                                         value="{{ old('saldos.'.$sSaldo->servicio_id, (float) ($sSaldo->saldo_a_favor ?? 0)) }}"
@@ -199,7 +211,7 @@
                             <a href="{{ route('clientes.edit', $cliente) }}" class="cd-header-btn cd-header-btn--primary">Editar</a>
                         @endif
                         @if($u?->tienePermiso('pedidos.crear') || $u?->tienePermiso('clientes-pedidos.crear'))
-                            <a href="{{ route('pedidos.create') }}" class="cd-header-btn">Nuevo pedido</a>
+                            <a href="{{ route('pedidos.create', ['cliente_id' => $cliente->cliente_id]) }}" class="cd-header-btn" title="Crear pedido de instalación para este cliente">Nuevo pedido</a>
                         @endif
                         @if($u?->tienePermiso('clientes.eliminar'))
                             <form action="{{ route('clientes.destroy', $cliente) }}" method="POST" class="js-swal-confirm" data-swal-title="¿Eliminar este cliente?" data-swal-text="Esta acción no se puede deshacer." data-swal-confirm="Sí, eliminar" data-swal-icon="warning" data-swal-color="#dc2626">
@@ -218,13 +230,16 @@
                         </div>
                         <div>
                             <dt class="cd-label">Teléfono</dt>
-                            <dd class="mt-0.5 flex items-center gap-2 cd-value">
-                                {{ $cliente->telefono ?: '—' }}
-                                @if($tieneWhatsapp && $cliente->telefono)
-                                    <span class="text-emerald-600 dark:text-emerald-400" title="WhatsApp vinculado">
-                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12c0 1.931.494 3.82 1.435 5.488L2 22l4.675-1.423A9.956 9.956 0 0012 22c5.514 0 10-4.486 10-10S17.514 2 12 2z"/></svg>
+                            <dd class="mt-0.5 flex items-center gap-1.5 cd-value">
+                                @if($cliente->telefono)
+                                    <span class="shrink-0 text-emerald-500 dark:text-emerald-400" title="{{ $tieneWhatsapp ? 'WhatsApp vinculado' : 'WhatsApp' }}">
+                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                                            <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.75.75 0 0 0 .917.917l4.458-1.495A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.584-.832-6.314-2.222l-.447-.372-2.627.882.882-2.627-.372-.447A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                                        </svg>
                                     </span>
                                 @endif
+                                {{ $cliente->telefono ?: '—' }}
                             </dd>
                         </div>
                         <div>
@@ -258,7 +273,22 @@
                         @endif
                         <div>
                             <dt class="cd-label">Calificación de pago</dt>
-                            <dd class="mt-0.5 cd-value">{{ $cliente->calificacion_pago_label ?? '—' }}</dd>
+                            <dd class="mt-0.5 cd-value">
+                                @if($calificacionPagoEstrellas > 0)
+                                    <span class="inline-flex items-center gap-1.5 {{ $calificacionPagoStarClass }}">
+                                        <span class="inline-flex items-center gap-0.5" aria-hidden="true">
+                                            @for($i = 1; $i <= 3; $i++)
+                                                <svg class="h-4 w-4 {{ $i <= $calificacionPagoEstrellas ? '' : 'opacity-30' }}" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                                </svg>
+                                            @endfor
+                                        </span>
+                                        <span>{{ $cliente->calificacion_pago_label }}</span>
+                                    </span>
+                                @else
+                                    —
+                                @endif
+                            </dd>
                         </div>
                     </dl>
                 </div>
@@ -352,6 +382,7 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
+                                    <th>Alias</th>
                                     <th>Plan</th>
                                     <th>Instalación</th>
                                     <th>Router / IP</th>
@@ -369,18 +400,20 @@
                                             'S' => 'cd-status--suspendido',
                                             'C' => 'cd-status--cortado',
                                             'X' => 'cd-status--cancelado',
+                                            'P' => 'cd-status--pendiente',
                                             default => '',
                                         };
                                     @endphp
-                                    <tr>
+                                    <tr @if($cliente->servicios->count() > 1) data-cd-servicio-row="{{ $s->servicio_id }}" class="{{ $loop->first ? 'is-selected' : '' }}" @endif>
                                         <td>{{ $s->servicio_id }}</td>
+                                        <td>{{ $s->aliasNormalizado() ?? '—' }}</td>
                                         <td>{{ $s->plan?->nombre ?? '—' }}</td>
                                         <td class="cd-muted">{{ $s->fecha_instalacion?->format('d/m/Y') ?? '—' }}</td>
                                         <td>
                                             <span class="block text-sm">{{ $routerNombre }}</span>
                                             <span class="font-mono text-xs">
                                                 @if($s->ip && $u?->tienePermiso('servicios.ver'))
-                                                    <a href="{{ route('servicios.herramientas-red', $s) }}" class="cd-link">{{ $s->ip }}</a>
+                                                    <a href="http://{{ $s->ip }}" target="_blank" rel="noopener noreferrer" class="cd-link" title="Abrir web UI del CPE {{ $s->ip }}">{{ $s->ip }}</a>
                                                 @else
                                                     <span class="cd-muted">{{ $s->ip ?? '—' }}</span>
                                                 @endif
@@ -427,15 +460,19 @@
                 <div class="cd-panel__head">
                     <div>
                         <h2>Acciones del servicio</h2>
-                        <p class="cd-panel__sub">Editar, facturar, PPPoE, baja y migración</p>
+                        @if($cliente->servicios->count() > 1)
+                            <p class="cd-panel__sub">Elegí el servicio en la tabla o en la lista; los botones se aplican a ese.</p>
+                        @else
+                            <p class="cd-panel__sub">Editar, facturar, PPPoE, baja y migración</p>
+                        @endif
                     </div>
                     @if($cliente->servicios->count() > 1)
                         <select id="cd-servicio-acciones-select" class="cd-select" aria-label="Servicio para acciones">
                             @foreach($cliente->servicios as $s)
                                 <option value="{{ $s->servicio_id }}">
                                     #{{ $s->servicio_id }}
+                                    · {{ $s->etiqueta() }}
                                     @if($s->ip) · {{ $s->ip }} @endif
-                                    @if($s->usuario_pppoe) · {{ $s->usuario_pppoe }} @endif
                                 </option>
                             @endforeach
                         </select>
@@ -447,8 +484,38 @@
                             $puedeMigrar = $puedeEditarServicio && $s->pool?->router?->nodo;
                             $puedeSync = $puedeEditarServicio && $s->usuario_pppoe && $s->pool?->router;
                             $noCancelado = $s->estado !== 'X';
+                            $puedeFinalizarInstalacion = $puedeEditarServicio
+                                && $puedeFacturaServicio
+                                && $noCancelado
+                                && $s->esCandidatoFinalizarInstalacion()
+                                && empty(($serviciosFacturadosMes ?? [])[$s->servicio_id]);
+                            $acuerdoSinFactura = $s->acuerdoAplicaEnPeriodo(now()->startOfMonth(), now()->endOfMonth());
+                            if ($acuerdoSinFactura) {
+                                $textoFinalizarInstalacion = 'El servicio pasará a activo. No se genera factura porque tiene acuerdo de no facturación en este período.';
+                                $subFinalizarInstalacion = 'Activar sin facturar (acuerdo)';
+                            } elseif (\App\Services\FacturacionService::puedeEmitirFacturaPorInstalacion()) {
+                                $textoFinalizarInstalacion = 'El servicio pasará a activo y se generará la factura interna prorrateada del mes (igual que al finalizar un pedido).';
+                                $subFinalizarInstalacion = 'Activar y facturar prorrateo';
+                            } else {
+                                $textoFinalizarInstalacion = 'El servicio pasará a activo. No se emite factura entre el día 1 y 6; volvé a finalizar desde el día 7 para generar la factura prorrateada.';
+                                $subFinalizarInstalacion = 'Activar (factura desde el día 7)';
+                            }
                         @endphp
                         <div class="cd-action-grid" data-cd-servicio-acciones="{{ $s->servicio_id }}" @if($idx !== 0) hidden @endif>
+                            @if($puedeFinalizarInstalacion)
+                                <form action="{{ route('servicios.finalizar-instalacion', $s) }}" method="POST" class="js-swal-confirm" data-swal-title="¿Finalizar instalación?" data-swal-text="{{ $textoFinalizarInstalacion }}" data-swal-confirm="Sí, finalizar" data-swal-icon="success" data-swal-color="#16a34a">
+                                    @csrf
+                                    <button type="submit" class="cd-action cd-action--ok">
+                                        <span class="cd-action__icon cd-action__icon--green">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                                        </span>
+                                        <span>
+                                            <span class="cd-action__title">Finalizar instalación</span>
+                                            <span class="cd-action__sub">{{ $subFinalizarInstalacion }}</span>
+                                        </span>
+                                    </button>
+                                </form>
+                            @endif
                             @if($puedeEditarServicio)
                                 <a href="{{ route('servicios.edit', $s) }}" class="cd-action">
                                     <span class="cd-action__icon cd-action__icon--violet">
@@ -532,6 +599,24 @@
                                         </span>
                                     </button>
                                 </form>
+                            @endif
+                            @if($puedeEditarServicio && $noCancelado)
+                                @php
+                                    $subTec = match (true) {
+                                        \App\Support\HerramientasRedPayload::esAntena($s) => 'Antena → Fibra',
+                                        \App\Support\HerramientasRedPayload::esFibra($s) => 'Fibra → Antena',
+                                        default => 'Plan equivalente por precio',
+                                    };
+                                @endphp
+                                <a href="{{ route('servicios.cambiar-tecnologia', $s) }}" class="cd-action">
+                                    <span class="cd-action__icon cd-action__icon--emerald">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+                                    </span>
+                                    <span>
+                                        <span class="cd-action__title">Cambiar tecnología</span>
+                                        <span class="cd-action__sub">{{ $subTec }}</span>
+                                    </span>
+                                </a>
                             @endif
                             @if($puedeMigrar)
                                 <a href="{{ route('servicios.migrar', $s) }}" class="cd-action">
@@ -796,6 +881,7 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
+                                    <th>Alias</th>
                                     <th>Plan</th>
                                     <th>Velocidad</th>
                                     <th>Estado</th>
@@ -805,6 +891,7 @@
                                 @foreach($cliente->servicios as $s)
                                     <tr>
                                         <td>{{ $s->servicio_id }}</td>
+                                        <td>{{ $s->aliasNormalizado() ?? '—' }}</td>
                                         <td>{{ $s->plan?->nombre ?? '—' }}</td>
                                         <td class="cd-muted">{{ $s->plan?->velocidad ?: '—' }}</td>
                                         <td>{{ $estadosServicio[$s->estado] ?? $s->estado }}</td>
@@ -936,14 +1023,32 @@
 (function() {
     var sel = document.getElementById('cd-servicio-acciones-select');
     var grids = document.querySelectorAll('[data-cd-servicio-acciones]');
+    var rows = document.querySelectorAll('[data-cd-servicio-row]');
+
     function showServicio(id) {
+        if (!id) return;
         grids.forEach(function(grid) {
             grid.hidden = String(grid.getAttribute('data-cd-servicio-acciones')) !== String(id);
         });
+        rows.forEach(function(row) {
+            row.classList.toggle('is-selected', String(row.getAttribute('data-cd-servicio-row')) === String(id));
+        });
+        if (sel && String(sel.value) !== String(id)) {
+            sel.value = String(id);
+        }
     }
+
     if (sel) {
         sel.addEventListener('change', function() { showServicio(sel.value); });
+        showServicio(sel.value);
     }
+
+    rows.forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('a, button, input, form, label')) return;
+            showServicio(row.getAttribute('data-cd-servicio-row'));
+        });
+    });
 
     var modal = document.getElementById('cd-pppoe-modal');
     if (!modal) return;

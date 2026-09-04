@@ -82,7 +82,12 @@
                     Guardar hora
                 </button>
             </form>
-            @if($driveReady)
+            @php
+                $driveTokenExpired = ($driveTokenStatus ?? '') === 'expired'
+                    || session('drive_token_expired');
+            @endphp
+
+            @if($driveFolderId)
                 <p class="text-sm text-gray-700 dark:text-gray-300">
                     Carpeta:
                     <a href="https://drive.google.com/drive/folders/{{ $driveFolderId }}" target="_blank" rel="noopener"
@@ -90,6 +95,25 @@
                         Infinity Backups
                     </a>
                 </p>
+            @endif
+
+            @if($driveCanAuth && $driveTokenExpired)
+                <div class="text-sm rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 px-3 py-3 space-y-3">
+                    <p>El token de Google Drive expiró o fue revocado. Solicitá acceso de nuevo para poder subir backups.</p>
+                    <form action="{{ route('configuracion.backup.drive.auth') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
+                            Solicitar acceso
+                        </button>
+                    </form>
+                    <p class="text-xs text-amber-700 dark:text-amber-300">
+                        Se usa la misma URI que el comando artisan
+                        (<code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">http://127.0.0.1:8765/</code>)
+                        para evitar el error <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">redirect_uri_mismatch</code>.
+                    </p>
+                </div>
+            @elseif($driveReady)
                 @if($supported)
                     <form action="{{ route('configuracion.backup.drive') }}" method="POST">
                         @csrf
@@ -102,9 +126,21 @@
             @else
                 <p class="text-sm text-amber-700 dark:text-amber-300">
                     Drive no está listo. Configurá <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">BACKUP_DRIVE_ENABLED</code>,
-                    credenciales OAuth y <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GOOGLE_DRIVE_FOLDER_ID</code> en <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">.env</code>,
-                    luego ejecutá <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">php artisan backup:drive-auth</code>.
+                    credenciales OAuth y <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">GOOGLE_DRIVE_FOLDER_ID</code> en <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">.env</code>.
                 </p>
+                @if($driveCanAuth)
+                    <form action="{{ route('configuracion.backup.drive.auth') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
+                            Solicitar acceso
+                        </button>
+                    </form>
+                @else
+                    <p class="text-sm text-amber-700 dark:text-amber-300">
+                        Después ejecutá <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">php artisan backup:drive-auth</code>.
+                    </p>
+                @endif
             @endif
         </div>
     </div>

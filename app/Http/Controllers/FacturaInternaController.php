@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Helpers\MapsUrlHelper;
 use App\Helpers\TelefonoParaguayHelper;
 use App\Models\AjustesGenerales;
-use App\Models\Cobro;
 use App\Models\Cliente;
+use App\Models\Cobro;
 use App\Models\FacturaDetalle;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
@@ -27,7 +27,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FacturaInternaController extends Controller
 {
@@ -194,7 +193,7 @@ class FacturaInternaController extends Controller
         $hoy = now()->toDateString();
         $statsBase = DB::query()
             ->fromSub(clone $inner, 'fi_stats')
-            ->selectRaw("
+            ->selectRaw('
                 COUNT(*) as cantidad_facturas,
                 COUNT(DISTINCT fi_stats.cliente_id) as cantidad_clientes,
                 COALESCE(SUM(fi_stats.total), 0) as monto_total,
@@ -215,7 +214,7 @@ class FacturaInternaController extends Controller
                 COUNT(CASE
                     WHEN fi_stats.fecha_vencimiento IS NULL OR fi_stats.fecha_vencimiento >= ?
                     THEN 1 END) as facturas_vigentes
-            ", [$hoy, $hoy, $hoy, $hoy, $hoy])
+            ', [$hoy, $hoy, $hoy, $hoy, $hoy])
             ->first();
 
         $this->aplicarFiltroDeuda($request, $inner);
@@ -633,6 +632,7 @@ class FacturaInternaController extends Controller
                     'omitido' => true,
                     'message' => 'Cliente no encontrado.',
                 ];
+
                 continue;
             }
 
@@ -645,6 +645,7 @@ class FacturaInternaController extends Controller
                     'omitido' => true,
                     'message' => 'Sin teléfono registrado.',
                 ];
+
                 continue;
             }
 
@@ -670,6 +671,7 @@ class FacturaInternaController extends Controller
                         'omitido' => true,
                         'message' => 'Sin factura pendiente para avisar.',
                     ];
+
                     continue;
                 }
                 $result = $notifier->facturaGenerada($factura, forzar: true);
@@ -790,21 +792,31 @@ class FacturaInternaController extends Controller
     }
 
     /**
-     * Exportar pendientes de pago a Excel (CSV UTF-8 con separador ;), mismo criterio y filtro de búsqueda que el listado.
+     * Exportar pendientes de pago a Excel. Mismos filtros que el listado, ordenado por nombre.
      *
-     * Columnas: nombre cliente, monto deuda, dirección, celular, fecha instalación (servicios del cliente).
+     * Columnas: nombre, deuda, vencimiento, WhatsApp aviso, dirección, celular, fecha instalación.
      */
     public function exportarPendientesExcel(Request $request): Response
     {
         $query = $this->facturasPendientesQuery($request);
-        $this->applyFacturasPendientesOrden($request, $query);
+        $query->leftJoin('clientes as exp_cli', 'exp_cli.cliente_id', '=', 'factura_internas.cliente_id')
+            ->select('factura_internas.*')
+            ->orderByRaw("TRIM(CONCAT(COALESCE(exp_cli.nombre,''), ' ', COALESCE(exp_cli.apellido,''))) asc")
+            ->orderByRaw('factura_internas.fecha_vencimiento IS NULL ASC')
+            ->orderBy('factura_internas.fecha_vencimiento')
+            ->orderBy('factura_internas.id');
+
         $facturas = $query->with(['cliente.servicios'])->get();
+        $facturaIds = $facturas->pluck('id')->map(fn ($id) => (int) $id)->all();
+        [$avisos] = app(PendientesWhatsAppService::class)->ultimosPorPagina($facturaIds, []);
 
         $baseFilename = 'pagos-pendientes-'.now()->format('Y-m-d-His');
 
         $headers = [
             'Nombre cliente',
             'Monto deuda',
+            'Fecha vencimiento',
+            'WhatsApp aviso',
             'Dirección',
             'Celular',
             'Fecha instalación',
@@ -812,15 +824,101 @@ class FacturaInternaController extends Controller
         $rows = [];
         foreach ($facturas as $f) {
             $c = $f->cliente;
+            $aviso = $avisos->get((int) $f->id);
             $rows[] = [
                 $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '',
                 number_format((float) $f->saldo_pendiente, 0, ',', '.').' '.($f->moneda ?? ''),
+                $f->fecha_vencimiento?->format('d/m/Y') ?? '',
+                PendientesWhatsAppService::etiquetaAvisoExcel($aviso),
                 $c?->direccion ?? '',
                 $c?->telefono ?? '',
                 $this->fechaInstalacionMasAntigua($c) ?? '',
             ];
         }
 
+        return $this->descargarExcelPendientes($headers, $rows, $baseFilename);
+    }
+
+    /**
+     * Excel de deuda vencida: una fila por cliente (suma de facturas vencidas).
+     */
+    public function exportarPendientesExcelAgrupadoVencidas(Request $request): Response
+    {
+        $request->merge(['deuda' => 'vencida']);
+
+        $facturas = $this->facturasPendientesQuery($request)
+            ->leftJoin('clientes as exp_cli', 'exp_cli.cliente_id', '=', 'factura_internas.cliente_id')
+            ->select('factura_internas.*')
+            ->orderByRaw("TRIM(CONCAT(COALESCE(exp_cli.nombre,''), ' ', COALESCE(exp_cli.apellido,''))) asc")
+            ->orderByRaw('factura_internas.fecha_vencimiento IS NULL ASC')
+            ->orderBy('factura_internas.fecha_vencimiento')
+            ->orderBy('factura_internas.id')
+            ->with(['cliente.servicios'])
+            ->get();
+
+        $facturaIds = $facturas->pluck('id')->map(fn ($id) => (int) $id)->all();
+        [$avisos] = app(PendientesWhatsAppService::class)->ultimosPorPagina($facturaIds, []);
+
+        $headers = [
+            'Nombre cliente',
+            'Monto deuda',
+            'Fecha vencimiento',
+            'WhatsApp aviso',
+            'Cant. facturas',
+            'Dirección',
+            'Celular',
+            'Fecha instalación',
+        ];
+        $rows = [];
+
+        foreach ($facturas->groupBy('cliente_id') as $grupo) {
+            $primero = $grupo->first();
+            $c = $primero?->cliente;
+            $aviso = null;
+            foreach ($grupo as $f) {
+                $m = $avisos->get((int) $f->id);
+                if ($m && ($aviso === null || (int) $m->id > (int) $aviso->id)) {
+                    $aviso = $m;
+                }
+            }
+
+            $fechas = $grupo
+                ->pluck('fecha_vencimiento')
+                ->filter()
+                ->sortBy(fn ($d) => $d?->timestamp ?? 0)
+                ->values();
+            $fechaVen = $fechas->first()?->format('d/m/Y') ?? '';
+            $fechaVenMax = $fechas->last()?->format('d/m/Y') ?? '';
+            if ($fechaVen !== '' && $fechaVenMax !== '' && $fechaVenMax !== $fechaVen) {
+                $fechaVen .= ' – '.$fechaVenMax;
+            }
+
+            $moneda = (string) ($primero->moneda ?? '');
+            $saldo = (float) $grupo->sum(fn (FacturaInterna $f) => (float) $f->saldo_pendiente);
+
+            $rows[] = [
+                $c ? trim(($c->nombre ?? '').' '.($c->apellido ?? '')) : '',
+                number_format($saldo, 0, ',', '.').($moneda !== '' ? ' '.$moneda : ''),
+                $fechaVen,
+                PendientesWhatsAppService::etiquetaAvisoExcel($aviso),
+                (string) $grupo->count(),
+                $c?->direccion ?? '',
+                $c?->telefono ?? '',
+                $this->fechaInstalacionMasAntigua($c) ?? '',
+            ];
+        }
+
+        $rows = collect($rows)->sortBy(fn ($row) => mb_strtolower((string) ($row[0] ?? '')), SORT_NATURAL)->values()->all();
+
+        return $this->descargarExcelPendientes(
+            $headers,
+            $rows,
+            'pagos-pendientes-vencidos-cliente-'.now()->format('Y-m-d-His')
+        );
+    }
+
+    private function descargarExcelPendientes(array $headers, array $rows, string $baseFilename): Response
+    {
         if (class_exists(\ZipArchive::class)) {
             $tmpPath = $this->crearXlsxSimple($headers, $rows);
 
@@ -831,7 +929,6 @@ class FacturaInternaController extends Controller
             )->deleteFileAfterSend(true);
         }
 
-        // Fallback para servidores sin extension zip: Excel abre este .xls sin problemas.
         return response()->streamDownload(function () use ($headers, $rows) {
             echo '<html><head><meta charset="UTF-8"></head><body><table border="1">';
             echo '<tr>';
@@ -1561,7 +1658,7 @@ class FacturaInternaController extends Controller
                 $cantidad = (float) $item['cantidad'];
                 $precioUnitario = (float) $item['precio_unitario'];
                 $impuesto = ! empty($item['impuesto_id']) ? Impuesto::find($item['impuesto_id']) : null;
-                $calc = FacturaDetalle::calcularDesdePrecio($cantidad, $precioUnitario, $impuesto);
+                $calc = FacturaDetalle::calcularLinea($cantidad, $precioUnitario, $impuesto);
 
                 $datosDetalle = [
                     'descripcion' => $item['descripcion'],

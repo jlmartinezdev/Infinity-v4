@@ -8,8 +8,9 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Alertas WhatsApp — caída de AP wireless</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                El cron hace ping cada 60 s. Si un AP no responde varias veces seguidas, se avisa por WhatsApp.
-                Un solo aviso por caída; al volver el ping se puede alertar de nuevo.
+                El cron hace ping cada 60 s. Si un AP no responde varias veces seguidas, se avisa por WhatsApp
+                <strong>una sola vez</strong> por corte. No vuelve a avisar mientras siga caído (aunque el ping
+                parpadee). Solo después de recuperarse de verdad (2 pings OK seguidos) puede alertar otra caída.
             </p>
         </div>
         <a href="{{ route('sistema.aps-wireless.index') }}"

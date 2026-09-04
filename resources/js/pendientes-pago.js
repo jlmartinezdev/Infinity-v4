@@ -11,6 +11,7 @@ if (el) {
     mapPuntosUrl: cfg.mapPuntosUrl || '',
     googleMapsApiKey: cfg.googleMapsApiKey || '',
     exportExcelUrl: cfg.exportExcelUrl || '',
+    exportExcelVencidosUrl: cfg.exportExcelVencidosUrl || '',
     pfKeys: cfg.pfKeys || [],
     urls: cfg.urls || {},
     templates: cfg.templates || {},

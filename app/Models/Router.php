@@ -40,6 +40,7 @@ class Router extends Model
         'estado',
         'ping_latencia_ms',
         'ping_at',
+        'ping_caido_desde',
         'ping_fallos_seguidos',
         'ping_alerta_enviada',
     ];
@@ -55,6 +56,7 @@ class Router extends Model
             'api_port' => 'integer',
             'ping_latencia_ms' => 'integer',
             'ping_at' => 'datetime',
+            'ping_caido_desde' => 'datetime',
             'ping_fallos_seguidos' => 'integer',
             'ping_alerta_enviada' => 'boolean',
         ];

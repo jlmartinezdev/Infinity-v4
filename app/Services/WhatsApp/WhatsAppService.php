@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Cliente Meta WhatsApp Cloud API (salida + utilidades de entrada).
@@ -87,6 +88,10 @@ class WhatsAppService
         $telefono = $this->normalizePhone($to);
         if (! $telefono) {
             return $this->mensajeFallidoLocal('text', $to, $body, null, null, 'Teléfono inválido', $meta);
+        }
+
+        if (WhatsAppAgentService::esTelefonoTest($telefono)) {
+            return $this->mensajeFallidoLocal('text', $telefono, $body, null, null, 'Número de prueba n8n: no se envía a WhatsApp', $meta);
         }
 
         $mensaje = $this->crearSalida([
@@ -1081,6 +1086,57 @@ class WhatsAppService
     }
 
     /**
+     * Borra un mensaje de Infinity (DB + archivo local). No llama a Meta.
+     */
+    public function borrarMensajeLocal(WhatsappMensaje $mensaje): void
+    {
+        $this->borrarArchivosMediaLocal($mensaje);
+        $mensaje->delete();
+    }
+
+    /**
+     * Borra el hilo completo de Infinity. No llama a Meta.
+     *
+     * @return int cantidad de mensajes eliminados
+     */
+    public function borrarChatLocal(?string $telefono): int
+    {
+        $tel = $this->normalizePhone($telefono)
+            ?? (preg_replace('/\D+/', '', (string) $telefono) ?: '');
+        if ($tel === '') {
+            return 0;
+        }
+
+        $mensajes = WhatsappMensaje::query()->where('telefono', $tel)->get();
+        foreach ($mensajes as $mensaje) {
+            $this->borrarArchivosMediaLocal($mensaje);
+        }
+        $borrados = WhatsappMensaje::query()->where('telefono', $tel)->delete();
+        WhatsappContacto::query()->where('telefono', $tel)->delete();
+
+        return (int) $borrados;
+    }
+
+    private function borrarArchivosMediaLocal(WhatsappMensaje $mensaje): void
+    {
+        $dir = 'whatsapp-media/'.$mensaje->id;
+        try {
+            if (Storage::disk('local')->exists($dir)) {
+                Storage::disk('local')->deleteDirectory($dir);
+            }
+            $path = data_get($mensaje->payload, '_local.path');
+            if (is_string($path) && $path !== '' && Storage::disk('local')->exists($path)) {
+                Storage::disk('local')->delete($path);
+            }
+        } catch (\Throwable $e) {
+            Log::notice('[WhatsApp] No se pudo borrar media local', [
+                'mensaje_id' => $mensaje->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * @return array{binario: string, mime: string, size: int}|null
      */
     public function descargarMediaBinario(string $mediaId): ?array
@@ -1376,8 +1432,9 @@ class WhatsAppService
     }
 
     /**
-     * Upsert del nombre de perfil WhatsApp por teléfono.
-     * No modifica clientes.nombre (dato ISP / documento).
+     * Actualiza el contacto WA por teléfono.
+     * No copia el nombre de perfil de WhatsApp: los clientes no ponen su nombre real.
+     * Si hay cliente de Infinity, usa ese nombre.
      */
     public function sincronizarContacto(string $telefono, ?string $nombre, ?int $clienteId = null): void
     {
@@ -1393,10 +1450,6 @@ class WhatsAppService
         ];
         $cliente = null;
 
-        if ($nombre !== null && $nombre !== '') {
-            $attrs['nombre'] = mb_substr($nombre, 0, 200);
-        }
-
         if ($clienteId) {
             $attrs['cliente_id'] = $clienteId;
         } elseif (! $existing?->cliente_id) {
@@ -1409,8 +1462,8 @@ class WhatsAppService
             $clienteId = $clienteId ?: $existing?->cliente_id;
         }
 
-        // Si Meta no mandó profile.name, usar nombre del cliente ISP como provisional.
-        if (($nombre === null || $nombre === '') && ! ($existing?->nombre) && $clienteId) {
+        // Nombre visible = cliente de Infinity. No usar el perfil de WhatsApp.
+        if ($clienteId) {
             $cliente = $cliente ?: Cliente::query()->find($clienteId);
             $nombreIsp = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
             if ($nombreIsp !== '') {
