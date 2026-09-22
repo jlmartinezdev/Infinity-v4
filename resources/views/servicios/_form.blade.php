@@ -207,6 +207,33 @@
             @error('ip')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
             @enderror
+            @php
+                $ipv6Checked = old('ipv6_configurado', $servicio?->ipv6_configurado ?? false);
+            @endphp
+            <label class="mt-3 inline-flex items-center gap-2 cursor-pointer">
+                <input type="hidden" name="ipv6_configurado" value="0">
+                <input type="checkbox" name="ipv6_configurado" id="ipv6_configurado" value="1"
+                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                    {{ filter_var($ipv6Checked, FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
+                <span class="text-sm text-gray-800 dark:text-gray-200 font-medium">IPv6 configurado</span>
+            </label>
+            @error('ipv6_configurado')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+            @php
+                $puntoHotspotChecked = old('punto_hotspot', $servicio?->punto_hotspot ?? false);
+            @endphp
+            <label class="mt-3 flex items-center gap-2 cursor-pointer">
+                <input type="hidden" name="punto_hotspot" value="0">
+                <input type="checkbox" name="punto_hotspot" id="punto_hotspot" value="1"
+                    class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                    {{ filter_var($puntoHotspotChecked, FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
+                <span class="text-sm text-gray-800 dark:text-gray-200 font-medium">Punto hotspot (esta ONU emite)</span>
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se muestra en el mapa de puntos hotspot.</p>
+            @error('punto_hotspot')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -287,7 +314,7 @@
                         <option value="{{ $key }}" {{ $cpeAcceso === $key ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">SSH = Huawei / antena Ubnt. ACS = Iuron, TP-Link, etc.</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Huawei ONU usa SSH (comandos en el equipo, sin TR-069). ACS = Iuron, TP-Link, etc.</p>
                 @error('cpe_acceso')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror
@@ -585,6 +612,26 @@ window.__SERVICIO_FORM_IPS_CONFIG__ = { ipsDisponiblesUrl: "{{ route('servicios.
     hookOtro('cpe_onu', 'cpe_onu_otro');
     hookOtro('cpe_router', 'cpe_router_otro');
     hookOtro('cpe_antena', 'cpe_antena_otro');
+
+    function textoOnuEsHuawei() {
+        var onu = document.getElementById('cpe_onu');
+        if (!onu) return false;
+        var val = String(onu.value || '').toLowerCase();
+        var opt = onu.options[onu.selectedIndex];
+        var txt = opt ? String(opt.text || '').toLowerCase() : '';
+        var otro = document.getElementById('cpe_onu_otro');
+        var otroTxt = otro ? String(otro.value || '').toLowerCase() : '';
+        return val.indexOf('huawei') !== -1 || txt.indexOf('huawei') !== -1 || otroTxt.indexOf('huawei') !== -1;
+    }
+    function sincronizarAccesoHuawei() {
+        var acceso = document.getElementById('cpe_acceso');
+        if (acceso && textoOnuEsHuawei()) acceso.value = 'ssh';
+    }
+    var onuSel = document.getElementById('cpe_onu');
+    var onuOtro = document.getElementById('cpe_onu_otro');
+    if (onuSel) onuSel.addEventListener('change', sincronizarAccesoHuawei);
+    if (onuOtro) onuOtro.addEventListener('input', sincronizarAccesoHuawei);
+    sincronizarAccesoHuawei();
 
     var selCls = ['ring-2', 'ring-purple-500', 'border-purple-500'];
     var idleBorder = ['border-gray-200', 'dark:border-gray-600'];

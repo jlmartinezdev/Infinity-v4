@@ -489,6 +489,23 @@
         display: flex;
         margin: 0;
     }
+    .cliente-detalle-page .cd-action--check {
+        cursor: pointer;
+    }
+    .cliente-detalle-page .cd-action--check .cd-action__title {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
+    .cliente-detalle-page .cd-action--check input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+        margin: 0;
+        border-radius: 0.25rem;
+        border: 1px solid #c4b5fd;
+        accent-color: #7c3aed;
+        flex-shrink: 0;
+    }
     .cliente-detalle-page .cd-action-grid > form .cd-action,
     .cliente-detalle-page button.cd-action {
         width: 100%;

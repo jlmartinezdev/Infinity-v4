@@ -1,5 +1,8 @@
 <template>
-  <div class="wa-app overflow-hidden rounded-xl border shadow-xl">
+  <div
+    class="wa-app overflow-hidden"
+    :class="pantallaCompleta ? 'flex h-full flex-col rounded-none border-0 shadow-none' : 'rounded-xl border shadow-xl'"
+  >
     <div
       v-if="toast"
       class="wa-toast border-b px-4 py-2 text-sm"
@@ -9,7 +12,10 @@
       <button type="button" class="ml-2 text-xs underline opacity-70" @click="toast = null">cerrar</button>
     </div>
 
-    <div class="flex min-h-[72vh] flex-col md:h-[min(82vh,900px)] md:flex-row">
+    <div
+      class="flex min-h-0 flex-col md:flex-row"
+      :class="pantallaCompleta ? 'min-h-0 flex-1' : 'min-h-[72vh] md:h-[min(82vh,900px)]'"
+    >
       <!-- Lista -->
       <aside
         class="wa-sidebar flex min-h-0 w-full flex-col md:w-[380px] md:shrink-0 md:border-r"
@@ -25,6 +31,20 @@
             <p class="wa-title truncate text-sm font-medium">Chats</p>
             <p class="wa-muted truncate text-[11px]">WhatsApp Business</p>
           </div>
+          <button
+            type="button"
+            class="wa-icon-btn rounded-lg p-1.5"
+            :title="tituloPantallaCompleta"
+            :aria-pressed="pantallaCompleta ? 'true' : 'false'"
+            @click="togglePantallaCompleta"
+          >
+            <svg v-if="!pantallaCompleta" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4h4M4 4l5 5M20 8V4h-4M20 4l-5 5M4 16v4h4M4 20l5-5M20 16v4h-4M20 20l-5-5" />
+            </svg>
+            <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v4H5M9 8L4 3M15 4v4h4M15 8l5-5M9 20v-4H5M9 16l-5 5M15 20v-4h4M15 16l5 5" />
+            </svg>
+          </button>
         </div>
 
         <div class="wa-sidebar-body px-3 py-2">
@@ -239,6 +259,20 @@
                 :href="plantillaUrl(telActivo)"
                 class="wa-accent rounded-lg px-2.5 py-1.5 text-xs font-medium hover:opacity-80"
               >Plantilla</a>
+              <button
+                type="button"
+                class="wa-icon-btn rounded-lg p-1.5"
+                :title="tituloPantallaCompleta"
+                :aria-pressed="pantallaCompleta ? 'true' : 'false'"
+                @click="togglePantallaCompleta"
+              >
+                <svg v-if="!pantallaCompleta" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4h4M4 4l5 5M20 8V4h-4M20 4l-5 5M4 16v4h4M4 20l5-5M20 16v4h-4M20 20l-5-5" />
+                </svg>
+                <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v4H5M9 8L4 3M15 4v4h4M15 8l5-5M9 20v-4H5M9 16l-5 5M15 20v-4h4M15 16l5 5" />
+                </svg>
+              </button>
               <button
                 v-if="puedeEditar"
                 type="button"
@@ -1141,9 +1175,12 @@ export default {
       },
       _onPedidoCreated: null,
       _onClosePedidoModal: null,
+      pantallaCompleta: false,
     };
   },
   mounted() {
+    this.pantallaCompleta = this.leerPantallaCompleta();
+    this.aplicarPantallaCompleta(false);
     if (this.flash?.success) this.showToast(this.flash.success, true);
     if (this.flash?.error) this.showToast(this.flash.error, false);
     if (!this.urls?.conversaciones || !this.urls?.hilo) {
@@ -1169,6 +1206,7 @@ export default {
       if (this.modalImagen) this.cerrarModalImagen();
       else if (this.modalContacto) this.cerrarModalContacto();
       else if (this.modalMapa) this.cerrarModalMapa();
+      else if (this.pantallaCompleta) this.togglePantallaCompleta();
     };
     window.addEventListener('keydown', this._onKeydown);
   },
@@ -1183,8 +1221,14 @@ export default {
     if (this._onPedidoCreated) window.removeEventListener('pedido-created', this._onPedidoCreated);
     if (this._onClosePedidoModal) window.removeEventListener('close-pedido-modal', this._onClosePedidoModal);
     if (this._onKeydown) window.removeEventListener('keydown', this._onKeydown);
+    this.quitarPantallaCompletaDom();
   },
   computed: {
+    tituloPantallaCompleta() {
+      return this.pantallaCompleta
+        ? 'Salir de pantalla completa (Esc)'
+        : 'Pantalla completa (ocultar menús)';
+    },
     puedeGuardarContacto() {
       const nombre = (this.contactoForm.nombre || '').trim();
       return !!(nombre || this.contactoForm.cliente_id || this.contactoForm.quitar_cliente);
@@ -1197,6 +1241,29 @@ export default {
     },
   },
   methods: {
+    leerPantallaCompleta() {
+      try {
+        return localStorage.getItem('infinity_whatsapp_fullscreen') === '1';
+      } catch (_) {
+        return false;
+      }
+    },
+    aplicarPantallaCompleta(persistir = true) {
+      document.documentElement.classList.toggle('wa-fullscreen', this.pantallaCompleta);
+      document.body.classList.toggle('wa-fullscreen', this.pantallaCompleta);
+      if (!persistir) return;
+      try {
+        localStorage.setItem('infinity_whatsapp_fullscreen', this.pantallaCompleta ? '1' : '0');
+      } catch (_) {}
+    },
+    quitarPantallaCompletaDom() {
+      document.documentElement.classList.remove('wa-fullscreen');
+      document.body.classList.remove('wa-fullscreen');
+    },
+    togglePantallaCompleta() {
+      this.pantallaCompleta = !this.pantallaCompleta;
+      this.aplicarPantallaCompleta(true);
+    },
     showToast(text, ok = true) {
       this.toast = { text, ok };
       setTimeout(() => {

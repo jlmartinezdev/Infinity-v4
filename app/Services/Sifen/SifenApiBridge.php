@@ -363,6 +363,51 @@ class SifenApiBridge
         return $this->construirReceptorCorreoPayload($factura) !== null;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function cancelarDocumento(Factura $factura, string $motivo): array
+    {
+        $documentoId = (int) ($factura->sifen_api_documento_id ?: $this->resolverDocumentoRemoto($factura));
+        $respuesta = $this->client->cancelarDocumento($documentoId, $motivo);
+        $data = $this->normalizarRespuestaDocumento($respuesta);
+
+        $this->marcarAnulada($factura, [
+            'via' => 'sifen-api',
+            'motivo' => $motivo,
+            'codigo' => $data['sifen']['codigo'] ?? ($respuesta['codigo'] ?? null),
+            'mensaje' => $data['sifen']['mensaje'] ?? ($respuesta['message'] ?? null),
+        ]);
+
+        return [
+            'factura' => $factura->fresh(['cliente', 'detalles.impuesto']),
+            'via' => 'sifen-api',
+            'sifen' => is_array($data['sifen'] ?? null) ? $data['sifen'] : $data,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $evento
+     */
+    public function marcarAnulada(Factura $factura, array $evento = []): void
+    {
+        $datos = $factura->datos_complementarios ?? [];
+        $datos['cancelacion'] = array_filter([
+            'motivo' => $evento['motivo'] ?? null,
+            'via' => $evento['via'] ?? null,
+            'codigo' => $evento['codigo'] ?? null,
+            'mensaje' => $evento['mensaje'] ?? null,
+            'enviado_at' => now()->toIso8601String(),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $factura->update([
+            'estado' => 'anulada',
+            'set_estado_envio' => 'cancelado',
+            'datos_complementarios' => $datos,
+            'set_xml_respuesta' => $evento['raw'] ?? $factura->set_xml_respuesta,
+        ]);
+    }
+
     private function resolverDocumentoRemoto(Factura $factura): int
     {
         if ($factura->sifen_api_documento_id) {

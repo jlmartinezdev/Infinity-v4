@@ -71,7 +71,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="dia_corte" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Día de corte automático</label>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Día del mes en que se ejecuta el corte por falta de pago.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Día del mes en que se ejecuta el corte por falta de pago. Si cae domingo, se pasa al lunes siguiente.</p>
                         <select name="dia_corte" id="dia_corte"
                                 class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 dark:text-gray-100">
                             @for($d = 1; $d <= 31; $d++)
@@ -85,7 +85,7 @@
                         <label for="hora_corte_automatico" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Hora de corte automático</label>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Hora del día en que se ejecuta el corte.</p>
                         <input type="time" name="hora_corte_automatico" id="hora_corte_automatico"
-                               value="{{ old('hora_corte_automatico', $params['hora_corte_automatico'] ?? '00:01') }}"
+                               value="{{ old('hora_corte_automatico', $params['hora_corte_automatico'] ?? '09:00') }}"
                                class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 dark:text-gray-100">
                     </div>
                 </div>

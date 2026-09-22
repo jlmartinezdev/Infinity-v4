@@ -73,7 +73,15 @@
                                 <td class="px-3 py-2 text-gray-900 dark:text-gray-100">{{ $s->servicio_id }}</td>
                                 <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ $s->aliasNormalizado() ?? '—' }}</td>
                                 <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ $s->plan?->nombre ?? '—' }}</td>
-                                <td class="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-400">{{ $s->ip ?? '—' }}</td>
+                                <td class="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-400">
+                                    {{ $s->ip ?? '—' }}
+                                    @if($s->ipv6_configurado)
+                                        <span class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400" title="IPv6 configurado">IPv6</span>
+                                    @endif
+                                    @if($s->punto_hotspot)
+                                        <span class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400" title="Punto hotspot">HS</span>
+                                    @endif
+                                </td>
                                 <td class="px-3 py-2">{{ $estadosServicio[$s->estado] ?? $s->estado }}</td>
                                 <td class="px-3 py-2 text-right whitespace-nowrap">
                                     @if($u?->tienePermiso('servicios.crear') || $u?->tienePermiso('servicios.editar'))

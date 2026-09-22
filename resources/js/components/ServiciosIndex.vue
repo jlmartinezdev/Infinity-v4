@@ -334,11 +334,19 @@
                   <div class="min-w-0">
                     <a v-if="s.ip" :href="'http://' + s.ip" target="_blank" class="block">
                       <span class="text-gray-600 dark:text-gray-300 font-medium">{{ s.pool?.router?.nombre ?? '—' }}</span><br>
-                      <span class="text-gray-600 dark:text-gray-400 text-xs">{{ s.ip ?? '—' }}</span>
+                      <span class="text-gray-600 dark:text-gray-400 text-xs">
+                        {{ s.ip ?? '—' }}
+                        <span v-if="s.ipv6_configurado" class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400" title="IPv6 configurado">IPv6</span>
+                        <span v-if="s.punto_hotspot" class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400" title="Punto hotspot">HS</span>
+                      </span>
                     </a>
                     <template v-else>
                       <span class="text-gray-600 dark:text-gray-300 font-medium">{{ s.pool?.router?.nombre ?? '—' }}</span><br>
-                      <span class="text-gray-600 dark:text-gray-400 text-xs">—</span>
+                      <span class="text-gray-600 dark:text-gray-400 text-xs">
+                        —
+                        <span v-if="s.ipv6_configurado" class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400" title="IPv6 configurado">IPv6</span>
+                        <span v-if="s.punto_hotspot" class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400" title="Punto hotspot">HS</span>
+                      </span>
                     </template>
                   </div>
                 </div>

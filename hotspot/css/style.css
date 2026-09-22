@@ -1,0 +1,48 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #4667A0, #0097BD);
+    color: white;
+    text-align: center;
+    padding: 2rem;
+}
+form {
+    background-color: rgba(0,0,0,0.4);
+    padding: 2rem;
+    border-radius: 10px;
+    display: inline-block;
+}
+input[type="text"],
+input[type="password"],
+input[type="submit"] {
+    display: block;
+    margin: 1rem auto;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 5px;
+    width: 80%;
+}
+input[type="submit"] {
+    background-color: #0097BD;
+    color: white;
+    cursor: pointer;
+}
+.logo {
+    max-width: 200px;
+    margin-bottom: 1rem;
+}
+.whatsapp-button {
+    margin-top: 1rem;
+    display: inline-block;
+    background: #25D366;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: bold;
+}
+.legal {
+    font-size: 0.8rem;
+    margin-top: 2rem;
+    color: #ddd;
+}

@@ -46,6 +46,8 @@ class ServicioController extends ApiController
             'estado' => $servicio->estado,
             'estado_label' => Servicio::estadosDisponibles()[$servicio->estado] ?? $servicio->estado,
             'ip' => $servicio->ip,
+            'ipv6_configurado' => (bool) ($servicio->ipv6_configurado ?? false),
+            'punto_hotspot' => (bool) ($servicio->punto_hotspot ?? false),
             'usuario_pppoe' => $servicio->usuario_pppoe,
             'mac_address' => $servicio->mac_address,
             'pppoe_status' => $servicio->pppoe_status,

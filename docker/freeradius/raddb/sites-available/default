@@ -1,0 +1,70 @@
+# AAA hotspot: PAP/CHAP/MS-CHAP contra SQL (radcheck/radreply).
+server default {
+	listen {
+		type = auth
+		ipaddr = *
+		port = 0
+		limit {
+			max_connections = 32
+			lifetime = 0
+			idle_timeout = 30
+		}
+	}
+
+	listen {
+		type = acct
+		ipaddr = *
+		port = 0
+		limit {
+			max_connections = 32
+			lifetime = 0
+			idle_timeout = 30
+		}
+	}
+
+	authorize {
+		filter_username
+		preprocess
+		chap
+		mschap
+		suffix
+		-sql
+		cuota_hotspot
+		expiration
+		logintime
+		pap
+	}
+
+	authenticate {
+		Auth-Type PAP {
+			pap
+		}
+		Auth-Type CHAP {
+			chap
+		}
+		Auth-Type MS-CHAP {
+			mschap
+		}
+	}
+
+	preacct {
+		preprocess
+		acct_unique
+		suffix
+	}
+
+	accounting {
+		-sql
+	}
+
+	session {
+		sql
+	}
+
+	post-auth {
+		-sql
+		Post-Auth-Type REJECT {
+			-sql
+		}
+	}
+}

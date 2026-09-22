@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Compra;
 use App\Models\CompraDetalle;
+use App\Models\CotizacionDolar;
 use App\Models\Proveedor;
 use App\Models\Producto;
 use App\Services\InventarioService;
@@ -53,9 +54,12 @@ class CompraController extends Controller
             'codigo' => $p->codigo,
             'nombre' => $p->nombre,
             'precio_compra' => (float) $p->precio_compra,
+            'moneda' => $p->moneda ?: 'PYG',
         ])->values();
 
-        return view('compras.create', compact('proveedores', 'productos', 'productosJs'));
+        $tipoCambioActual = CotizacionDolar::valorActualInput();
+
+        return view('compras.create', compact('proveedores', 'productos', 'productosJs', 'tipoCambioActual'));
     }
 
     /**
@@ -67,6 +71,7 @@ class CompraController extends Controller
             'proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
             'fecha' => ['required', 'date'],
             'numero_factura' => ['nullable', 'string', 'max:100'],
+            'tipo_cambio' => CotizacionDolar::reglasTipoCambio(),
             'descuento' => ['nullable', 'numeric', 'min:0'],
             'impuesto' => ['nullable', 'numeric', 'min:0'],
             'notas' => ['nullable', 'string'],
@@ -93,6 +98,7 @@ class CompraController extends Controller
                 'proveedor_id' => $validated['proveedor_id'],
                 'fecha' => $validated['fecha'],
                 'numero_factura' => $validated['numero_factura'] ?? null,
+                'tipo_cambio' => $validated['tipo_cambio'],
                 'subtotal' => $subtotal,
                 'descuento' => $descuento,
                 'impuesto' => $impuesto,
@@ -142,9 +148,12 @@ class CompraController extends Controller
             'codigo' => $p->codigo,
             'nombre' => $p->nombre,
             'precio_compra' => (float) $p->precio_compra,
+            'moneda' => $p->moneda ?: 'PYG',
         ])->values();
 
-        return view('compras.edit', compact('compra', 'proveedores', 'productos', 'productosJs'));
+        $tipoCambioActual = CotizacionDolar::valorActualInput();
+
+        return view('compras.edit', compact('compra', 'proveedores', 'productos', 'productosJs', 'tipoCambioActual'));
     }
 
     /**
@@ -156,6 +165,7 @@ class CompraController extends Controller
             'proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
             'fecha' => ['required', 'date'],
             'numero_factura' => ['nullable', 'string', 'max:100'],
+            'tipo_cambio' => CotizacionDolar::reglasTipoCambio(),
             'descuento' => ['nullable', 'numeric', 'min:0'],
             'impuesto' => ['nullable', 'numeric', 'min:0'],
             'notas' => ['nullable', 'string'],
@@ -189,6 +199,7 @@ class CompraController extends Controller
                 'proveedor_id' => $validated['proveedor_id'],
                 'fecha' => $validated['fecha'],
                 'numero_factura' => $validated['numero_factura'] ?? null,
+                'tipo_cambio' => $validated['tipo_cambio'],
                 'subtotal' => $subtotal,
                 'descuento' => $descuento,
                 'impuesto' => $impuesto,

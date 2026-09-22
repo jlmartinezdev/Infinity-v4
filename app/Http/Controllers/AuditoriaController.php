@@ -14,7 +14,7 @@ class AuditoriaController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = Auditoria::query()->with('usuario')->orderByDesc('created_at');
+        $query = Auditoria::query()->deStaff()->with('usuario')->orderByDesc('created_at');
 
         if ($request->filled('tabla')) {
             $query->where('tabla', $request->tabla);
@@ -34,8 +34,8 @@ class AuditoriaController extends Controller
 
         $auditorias = $query->paginate(25)->withQueryString();
 
-        $tablas = Auditoria::query()->select('tabla')->distinct()->orderBy('tabla')->pluck('tabla', 'tabla');
-        $usuarios = User::query()->select('usuario_id', 'name')->orderBy('name')->get()->pluck('name', 'usuario_id');
+        $tablas = Auditoria::query()->deStaff()->select('tabla')->distinct()->orderBy('tabla')->pluck('tabla', 'tabla');
+        $usuarios = User::query()->staff()->select('usuario_id', 'name')->orderBy('name')->get()->pluck('name', 'usuario_id');
 
         return view('sistema.auditoria.index', [
             'auditorias' => $auditorias,

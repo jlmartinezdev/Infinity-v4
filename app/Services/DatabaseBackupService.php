@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\BackupScheduleConfig;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -51,23 +52,48 @@ class DatabaseBackupService
     /**
      * Genera el nombre sugerido para el archivo de backup.
      */
-    public function suggestedFilename(): string
+    public function suggestedFilename(string $tipo = BackupScheduleConfig::TIPO_COMPLETO): string
     {
+        $tipo = BackupScheduleConfig::normalizarTipo($tipo);
         $slug = Str::slug(config('app.name', 'backup'));
         $ts = now()->format('Y-m-d_His');
         $driver = $this->connectionInfo()['driver'];
         $ext = in_array($driver, ['mysql', 'mariadb'], true) ? 'sql' : 'sqlite';
 
-        return "{$slug}-{$ts}.{$ext}";
+        return "{$slug}-{$tipo}-{$ts}.{$ext}";
+    }
+
+    /**
+     * Tablas que el backup esencial no incluye (estructura ni datos).
+     *
+     * @return list<string>
+     */
+    public function tablasEsencialOmitir(): array
+    {
+        $tablas = config('backup.esencial_omitir', []);
+        if (! is_array($tablas)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($tablas as $tabla) {
+            $nombre = strtolower(trim((string) $tabla));
+            if ($nombre !== '' && preg_match('/^[a-z0-9_]+$/', $nombre)) {
+                $out[] = $nombre;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**
      * Contenido SQL (MySQL/MariaDB) o ruta al archivo SQLite para descarga binaria.
      *
-     * @return array{type: 'sql'|'file', content?: string, path?: string}
+     * @return array{type: 'sql'|'file', content?: string, path?: string, delete_after?: bool}
      */
-    public function prepareBackup(): array
+    public function prepareBackup(string $tipo = BackupScheduleConfig::TIPO_COMPLETO): array
     {
+        $tipo = BackupScheduleConfig::normalizarTipo($tipo);
         $name = config('database.default');
         $config = config("database.connections.{$name}");
         $driver = $config['driver'] ?? '';
@@ -75,7 +101,7 @@ class DatabaseBackupService
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
             return [
                 'type' => 'sql',
-                'content' => $this->dumpMysql($config),
+                'content' => $this->dumpMysql($config, $tipo),
             ];
         }
 
@@ -83,6 +109,16 @@ class DatabaseBackupService
             $path = $this->resolveSqlitePath((string) ($config['database'] ?? ''));
             if ($path === '' || ! File::isFile($path)) {
                 throw new \RuntimeException('No se encontró el archivo de base de datos SQLite.');
+            }
+
+            if ($tipo === BackupScheduleConfig::TIPO_ESENCIAL) {
+                $copia = $this->sqliteEsencialTemporal($path);
+
+                return [
+                    'type' => 'file',
+                    'path' => $copia,
+                    'delete_after' => true,
+                ];
             }
 
             return [
@@ -99,19 +135,20 @@ class DatabaseBackupService
      *
      * @return array{path: string, filename: string, delete_after: bool}
      */
-    public function crearArchivoTemporal(): array
+    public function crearArchivoTemporal(string $tipo = BackupScheduleConfig::TIPO_COMPLETO): array
     {
+        $tipo = BackupScheduleConfig::normalizarTipo($tipo);
         $dir = storage_path('app/backups');
         File::ensureDirectoryExists($dir);
 
-        $filename = $this->suggestedFilename();
+        $filename = $this->suggestedFilename($tipo);
         $name = config('database.default');
         $config = config("database.connections.{$name}");
         $driver = $config['driver'] ?? '';
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
             $path = $dir.DIRECTORY_SEPARATOR.$filename;
-            $this->dumpMysqlToFile($config, $path);
+            $this->dumpMysqlToFile($config, $path, $tipo);
 
             return [
                 'path' => $path,
@@ -120,7 +157,7 @@ class DatabaseBackupService
             ];
         }
 
-        $prepared = $this->prepareBackup();
+        $prepared = $this->prepareBackup($tipo);
 
         if ($prepared['type'] === 'sql') {
             $path = $dir.DIRECTORY_SEPARATOR.$filename;
@@ -138,6 +175,9 @@ class DatabaseBackupService
         if (! File::copy($source, $path)) {
             throw new \RuntimeException('No se pudo copiar el archivo SQLite para backup.');
         }
+        if (! empty($prepared['delete_after']) && File::isFile($source) && realpath($source) !== realpath($path)) {
+            File::delete($source);
+        }
 
         return [
             'path' => $path,
@@ -149,13 +189,13 @@ class DatabaseBackupService
     /**
      * @return array{filename: string, drive_id: string, webViewLink: ?string, pruned: int}
      */
-    public function subirADrive(): array
+    public function subirADrive(string $tipo = BackupScheduleConfig::TIPO_COMPLETO): array
     {
         if (! $this->driveUploader->isConfigured()) {
             throw new \RuntimeException('Google Drive no está configurado (enabled, refresh token, folder id).');
         }
 
-        $temp = $this->crearArchivoTemporal();
+        $temp = $this->crearArchivoTemporal($tipo);
 
         try {
             $mime = str_ends_with(strtolower($temp['filename']), '.sql')
@@ -212,14 +252,15 @@ class DatabaseBackupService
 
     /**
      * @param  array<string, mixed>  $config
+     * @return list<string>
      */
-    private function dumpMysql(array $config): string
+    public function mysqlDumpCommand(array $config, string $tipo = BackupScheduleConfig::TIPO_COMPLETO, ?string $resultFile = null): array
     {
+        $tipo = BackupScheduleConfig::normalizarTipo($tipo);
         $binary = $this->resolveMysqldumpBinary();
-
         $host = $config['host'] ?? '127.0.0.1';
         $port = (string) ($config['port'] ?? '3306');
-        $database = $config['database'] ?? '';
+        $database = (string) ($config['database'] ?? '');
         $username = $config['username'] ?? 'root';
         $password = (string) ($config['password'] ?? '');
 
@@ -234,13 +275,31 @@ class DatabaseBackupService
             '--default-character-set=utf8mb4',
         ];
 
+        if ($resultFile !== null && $resultFile !== '') {
+            $command[] = '--result-file='.$resultFile;
+        }
+
         if ($password !== '') {
             $command[] = '--password='.$password;
         }
 
+        if ($tipo === BackupScheduleConfig::TIPO_ESENCIAL) {
+            foreach ($this->tablasEsencialOmitir() as $tabla) {
+                $command[] = '--ignore-table='.$database.'.'.$tabla;
+            }
+        }
+
         $command[] = $database;
 
-        $process = new Process($command);
+        return $command;
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function dumpMysql(array $config, string $tipo = BackupScheduleConfig::TIPO_COMPLETO): string
+    {
+        $process = new Process($this->mysqlDumpCommand($config, $tipo));
         $process->setTimeout(3600);
         $process->run();
 
@@ -257,7 +316,7 @@ class DatabaseBackupService
      *
      * @param  array<string, mixed>  $config
      */
-    public function dumpMysqlToFile(array $config, string $path): void
+    public function dumpMysqlToFile(array $config, string $path, string $tipo = BackupScheduleConfig::TIPO_COMPLETO): void
     {
         $binary = $this->resolveMysqldumpBinary();
         if ($binary === 'mysqldump' || ! File::isFile($binary)) {
@@ -266,33 +325,15 @@ class DatabaseBackupService
             );
         }
 
-        $host = $config['host'] ?? '127.0.0.1';
-        $port = (string) ($config['port'] ?? '3306');
-        $database = $config['database'] ?? '';
-        $username = $config['username'] ?? 'root';
-        $password = (string) ($config['password'] ?? '');
+        $tipo = BackupScheduleConfig::normalizarTipo($tipo);
+        Log::info('[backup] mysqldump', [
+            'binary' => $binary,
+            'database' => $config['database'] ?? '',
+            'path' => $path,
+            'tipo' => $tipo,
+        ]);
 
-        Log::info('[backup] mysqldump', ['binary' => $binary, 'database' => $database, 'path' => $path]);
-
-        $command = [
-            $binary,
-            '--user='.$username,
-            '--host='.$host,
-            '--port='.$port,
-            '--single-transaction',
-            '--routines',
-            '--no-tablespaces',
-            '--default-character-set=utf8mb4',
-            '--result-file='.$path,
-        ];
-
-        if ($password !== '') {
-            $command[] = '--password='.$password;
-        }
-
-        $command[] = $database;
-
-        $process = new Process($command);
+        $process = new Process($this->mysqlDumpCommand($config, $tipo, $path));
         $process->setTimeout(3600);
         $process->run();
 
@@ -300,6 +341,28 @@ class DatabaseBackupService
             $msg = trim($process->getErrorOutput() ?: $process->getOutput() ?: $process->getExitCodeText());
             throw new \RuntimeException('mysqldump falló: '.($msg !== '' ? $msg : 'código '.$process->getExitCode()));
         }
+    }
+
+    private function sqliteEsencialTemporal(string $origen): string
+    {
+        $dir = storage_path('app/backups');
+        File::ensureDirectoryExists($dir);
+        $destino = $dir.DIRECTORY_SEPARATOR.'esencial-'.uniqid('', true).'.sqlite';
+        if (! File::copy($origen, $destino)) {
+            throw new \RuntimeException('No se pudo copiar SQLite para backup esencial.');
+        }
+
+        $pdo = new \PDO('sqlite:'.$destino);
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        foreach ($this->tablasEsencialOmitir() as $tabla) {
+            $existe = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name=".$pdo->quote($tabla))->fetchColumn();
+            if ($existe) {
+                $pdo->exec('DELETE FROM "'.$tabla.'"');
+            }
+        }
+        $pdo->exec('VACUUM');
+
+        return $destino;
     }
 
     private function resolveSqlitePath(string $path): string

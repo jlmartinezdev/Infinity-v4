@@ -16,6 +16,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Backup esencial
+    |--------------------------------------------------------------------------
+    |
+    | Copia operativa (clientes, servicios, cobros, etc.) sin tablas de ruido:
+    | notificaciones, auditoría, eventos de red y mensajes de WhatsApp.
+    |
+    */
+    'esencial_omitir' => [
+        'notifications',
+        'push_avisos',
+        'auditoria',
+        'servicio_conexion_eventos',
+        'monitoreo_ping_servicios',
+        'whatsapp_mensajes',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Google Drive (backup remoto)
     |--------------------------------------------------------------------------
     */

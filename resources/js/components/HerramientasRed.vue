@@ -403,23 +403,230 @@
         </section>
       </div>
 
-      <section v-if="cpeSsh && esFibra" class="noc-card mt-4">
+      <section v-if="huaweiOnu" class="noc-card noc-card--float mt-4">
+        <div class="noc-card-head">
+          <span class="noc-icon noc-icon--blue">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
+          </span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="noc-card-title">ONU Huawei</h2>
+              <span v-if="servicio.ipv6_configurado" class="noc-live-badge">IPv6</span>
+            </div>
+            <p class="noc-card-sub">IPv6 por web (DHCPv6-PD) · SSH/Telnet/web · sin TR-069</p>
+          </div>
+        </div>
+        <div class="noc-card-body space-y-4">
+          <div class="space-y-2">
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              SSH, Telnet o web en la ONU
+              <span v-if="servicio.ip" class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.ip }}</span>
+              <span v-else class="text-amber-600 dark:text-amber-400">· el servicio no tiene IP</span>
+              <template v-if="servicio.equipo_resumen"> · {{ servicio.equipo_resumen }}</template>
+            </p>
+            <div v-if="huaweiOptica" class="grid grid-cols-3 gap-3">
+              <div v-if="huaweiOptica.rx_power_dbm != null">
+                <p class="noc-metric-label">RX Power</p>
+                <p :class="Number(huaweiOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber'">
+                  {{ huaweiOptica.rx_power_dbm }} <span class="text-sm font-normal">dBm</span>
+                </p>
+              </div>
+              <div v-if="huaweiOptica.tx_power_dbm != null">
+                <p class="noc-metric-label">TX Power</p>
+                <p class="noc-metric noc-metric--blue">{{ huaweiOptica.tx_power_dbm }} <span class="text-sm font-normal">dBm</span></p>
+              </div>
+              <div v-if="huaweiOptica.temperatura_c != null">
+                <p class="noc-metric-label">Temp</p>
+                <p class="noc-metric">{{ huaweiOptica.temperatura_c }} <span class="text-sm font-normal">°C</span></p>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="!canHuawei || huaweiBusy"
+                @click="onHuaweiIpv6"
+              >{{ loading.huaweiIpv6 ? 'Configurando IPv6…' : 'Configurar IPv6' }}</button>
+              <button
+                type="button"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="!canHuawei || huaweiBusy"
+                @click="onHuaweiConectados"
+              >{{ loading.huaweiConectados ? 'Listando…' : 'Listar conectados' }}</button>
+              <button
+                type="button"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="!canHuawei || huaweiBusy"
+                @click="onHuaweiOptica"
+              >{{ loading.huaweiOptica ? 'Leyendo óptica…' : 'Señal óptica' }}</button>
+              <button
+                type="button"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="!canHuawei || huaweiBusy"
+                @click="onHuaweiReboot"
+              >{{ loading.huaweiReboot ? 'Reiniciando…' : 'Reiniciar ONU' }}</button>
+              <div ref="huaweiWifiPanel" class="relative ml-auto flex items-center gap-2">
+                <span
+                  class="inline-flex items-center gap-1.5 min-w-0 text-sm text-gray-800 dark:text-gray-100"
+                  :title="huaweiSsidsActuales.length ? huaweiSsidsActuales.join(' · ') : ''"
+                >
+                  <svg class="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                  </svg>
+                  <span class="truncate font-medium">{{ huaweiSsidVista }}</span>
+                </span>
+                <button
+                  type="button"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="!canHuawei || (huaweiBusy && !huaweiWifiOpen)"
+                  :aria-expanded="huaweiWifiOpen"
+                  aria-controls="huawei-wifi-float"
+                  @click="toggleHuaweiWifi"
+                >{{ huaweiWifiOpen ? 'Cerrar' : 'Editar SSID' }}</button>
+                <form
+                  v-show="huaweiWifiOpen"
+                  id="huawei-wifi-float"
+                  class="absolute right-0 top-full mt-2 z-30 w-[20rem] rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-3"
+                  @submit.prevent="onHuaweiWifi"
+                >
+                  <div>
+                    <label for="huawei-ssid" class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">SSID</label>
+                    <input
+                      id="huawei-ssid"
+                      v-model="huaweiSsid"
+                      type="text"
+                      maxlength="32"
+                      autocomplete="off"
+                      :placeholder="loading.huaweiSsid ? 'Leyendo…' : 'SSID'"
+                      :disabled="loading.huaweiSsid"
+                      class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm disabled:opacity-60"
+                      required
+                    >
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <label for="huawei-pass" class="text-xs font-medium text-gray-600 dark:text-gray-300">Nueva clave</label>
+                      <span class="text-xs tabular-nums" :class="huaweiPassword.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'">{{ huaweiPassword.length }}/63</span>
+                    </div>
+                    <div class="relative">
+                      <input
+                        id="huawei-pass"
+                        v-model="huaweiPassword"
+                        :type="huaweiPassVisible ? 'text' : 'password'"
+                        autocomplete="new-password"
+                        minlength="8"
+                        maxlength="63"
+                        class="w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                        required
+                      >
+                      <button
+                        type="button"
+                        class="absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
+                        :aria-label="huaweiPassVisible ? 'Ocultar clave' : 'Mostrar clave'"
+                        :aria-pressed="huaweiPassVisible"
+                        @click="huaweiPassVisible = !huaweiPassVisible"
+                      >
+                        <svg v-if="!huaweiPassVisible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <label for="huawei-pass2" class="text-xs font-medium text-gray-600 dark:text-gray-300">Repetir clave</label>
+                      <span class="text-xs tabular-nums" :class="huaweiPassword2.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'">{{ huaweiPassword2.length }}/63</span>
+                    </div>
+                    <div class="relative">
+                      <input
+                        id="huawei-pass2"
+                        v-model="huaweiPassword2"
+                        :type="huaweiPass2Visible ? 'text' : 'password'"
+                        autocomplete="new-password"
+                        minlength="8"
+                        maxlength="63"
+                        class="w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                        required
+                      >
+                      <button
+                        type="button"
+                        class="absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
+                        :aria-label="huaweiPass2Visible ? 'Ocultar clave' : 'Mostrar clave'"
+                        :aria-pressed="huaweiPass2Visible"
+                        @click="huaweiPass2Visible = !huaweiPass2Visible"
+                      >
+                        <svg v-if="!huaweiPass2Visible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <p v-if="huaweiWifiFormError" class="text-xs text-red-600 dark:text-red-400">{{ huaweiWifiFormError }}</p>
+                  <div class="flex gap-2">
+                    <button
+                      type="submit"
+                      class="noc-btn-ghost inline-flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium"
+                      :disabled="!canHuawei || huaweiBusy"
+                    >
+                      {{ loading.huaweiWifi ? 'Aplicando…' : 'Aplicar WiFi' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          <p v-if="huaweiSsidError" class="text-xs text-red-600 dark:text-red-400">
+            {{ huaweiSsidError }}
+            <button type="button" class="underline underline-offset-2 ml-1" @click="cargarHuaweiSsid">Reintentar</button>
+          </p>
+          <div v-if="outHuawei" class="text-sm" v-html="outHuawei"></div>
+          <div v-if="huaweiDispositivos.length" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              <thead class="bg-gray-50 dark:bg-gray-900/40">
+                <tr>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Host</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">IP</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">MAC</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">SSID</th>
+                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Tiempo</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr v-for="(dev, idx) in huaweiDispositivos" :key="'hw-dev-' + idx" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                  <td class="px-2 py-2 text-gray-900 dark:text-gray-100 break-all">{{ dev.host || '—' }}</td>
+                  <td class="px-2 py-2 font-mono text-gray-900 dark:text-gray-100">{{ dev.ip || '—' }}</td>
+                  <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ dev.mac }}</td>
+                  <td class="px-2 py-2 text-gray-700 dark:text-gray-300">{{ dev.ssid || '—' }}</td>
+                  <td class="px-2 py-2 text-xs text-gray-500 whitespace-nowrap" :title="dev.tiempo ? dev.tiempo + ' s' : ''">{{ formatAsociadoTiempo(dev.tiempo) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section v-else-if="cpeSsh && esFibra" class="noc-card mt-4">
         <div class="noc-card-head">
           <span class="noc-icon noc-icon--blue">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
           </span>
           <div class="flex-1 min-w-0">
             <h2 class="noc-card-title">CPE por SSH</h2>
-            <p class="noc-card-sub">Huawei / ONU con acceso SSH</p>
+            <p class="noc-card-sub">ONU con acceso SSH (no Huawei)</p>
           </div>
         </div>
         <div class="noc-card-body space-y-2">
           <p class="text-sm text-gray-700 dark:text-gray-300">
             Este servicio está marcado para comandos por <strong>SSH</strong>, no por ACS.
             <template v-if="servicio.equipo_resumen"> {{ servicio.equipo_resumen }}.</template>
-          </p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">
-            La OLT y la antena Ubnt siguen en las tarjetas de arriba. Los comandos SSH al Huawei (WiFi, reboot del ONU) se agregan sobre este perfil.
           </p>
         </div>
       </section>
@@ -663,7 +870,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
 const props = defineProps({
   compact: { type: Boolean, default: false },
@@ -689,6 +896,19 @@ const tr069Hosts = ref([]);
 const tr069PassTarget = ref('wifi-all');
 const tr069Password = ref('');
 const tr069Password2 = ref('');
+const outHuawei = ref('');
+const huaweiSsid = ref('');
+const huaweiPassword = ref('');
+const huaweiPassword2 = ref('');
+const huaweiSsidsActuales = ref([]);
+const huaweiSsidError = ref('');
+const huaweiWifiOpen = ref(false);
+const huaweiWifiFormError = ref('');
+const huaweiWifiPanel = ref(null);
+const huaweiPassVisible = ref(false);
+const huaweiPass2Visible = ref(false);
+const huaweiDispositivos = ref([]);
+const huaweiOptica = ref(null);
 const loading = reactive({
   ping: false,
   mac: false,
@@ -702,7 +922,14 @@ const loading = reactive({
   tr069Refresh: false,
   tr069Reboot: false,
   tr069Password: false,
+  huaweiIpv6: false,
+  huaweiConectados: false,
+  huaweiWifi: false,
+  huaweiSsid: false,
+  huaweiOptica: false,
+  huaweiReboot: false,
 });
+let huaweiSsidReq = 0;
 
 let mikrotikCache = null;
 let ignoreNextServicioWatch = false;
@@ -720,6 +947,20 @@ const esFibra = computed(() => !!payload.value?.es_fibra);
 const esAntena = computed(() => !!payload.value?.es_antena);
 const tr069Enabled = computed(() => !!payload.value?.tr069_enabled);
 const cpeSsh = computed(() => !!payload.value?.cpe_ssh);
+const huaweiOnu = computed(() => !!payload.value?.huawei_onu);
+const canHuawei = computed(() => huaweiOnu.value && !!servicio.value.ip);
+const huaweiBusy = computed(() =>
+  loading.huaweiIpv6
+  || loading.huaweiConectados
+  || loading.huaweiWifi
+  || loading.huaweiSsid
+  || loading.huaweiOptica
+  || loading.huaweiReboot
+);
+const huaweiSsidVista = computed(() => {
+  if (loading.huaweiSsid && !huaweiSsid.value) return 'Leyendo…';
+  return huaweiSsid.value || '—';
+});
 const toolsCols = computed(() => {
   let n = 2;
   if (esFibra.value || esAntena.value) n += 1;
@@ -763,6 +1004,23 @@ function formatPct(n) {
   return Number(n ?? 0).toFixed(1).replace('.', ',');
 }
 
+function formatAsociadoTiempo(raw) {
+  const n = parseInt(String(raw ?? ''), 10);
+  if (!Number.isFinite(n) || n < 0) {
+    return 'desconectado';
+  }
+  const horas = Math.floor(n / 3600);
+  const minutos = Math.floor((n % 3600) / 60);
+  const segundos = n % 60;
+  if (horas > 0) {
+    return minutos > 0 ? `${horas} h ${minutos} min` : `${horas} h`;
+  }
+  if (minutos > 0) {
+    return segundos > 0 ? `${minutos} min ${segundos} s` : `${minutos} min`;
+  }
+  return `${segundos} s`;
+}
+
 function timelineSegClass(estado) {
   if (estado === 'up') return 'pppoe-timeline-seg--up';
   if (estado === 'down') return 'pppoe-timeline-seg--down';
@@ -789,6 +1047,18 @@ function clearResults() {
   tr069PassTarget.value = 'wifi-all';
   tr069Password.value = '';
   tr069Password2.value = '';
+  outHuawei.value = '';
+  huaweiSsid.value = '';
+  huaweiPassword.value = '';
+  huaweiPassword2.value = '';
+  huaweiSsidsActuales.value = [];
+  huaweiSsidError.value = '';
+  huaweiWifiOpen.value = false;
+  huaweiWifiFormError.value = '';
+  huaweiPassVisible.value = false;
+  huaweiPass2Visible.value = false;
+  huaweiDispositivos.value = [];
+  huaweiOptica.value = null;
   mikrotikCache = null;
 }
 
@@ -1278,6 +1548,193 @@ function onTr069Password() {
   });
 }
 
+function huaweiMsgHtml(d, ok) {
+  var cls = ok ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+  var extra = '';
+  if (d.via) extra += ' · vía ' + escapeHtml(d.via);
+  if (d.wan) extra += ' · WAN ' + escapeHtml(d.wan);
+  if (Array.isArray(d.ssids) && d.ssids.length) extra += ' · ' + escapeHtml(d.ssids.join(' · '));
+  return '<p class="' + cls + ' text-sm">' + escapeHtml(d.message || (ok ? 'Listo.' : 'Error')) +
+    (extra ? '<span class="block text-xs text-gray-400 mt-1">' + extra + '</span>' : '') +
+    '</p>';
+}
+
+function onHuaweiIpv6() {
+  var url = payload.value?.urls?.huawei_ipv6;
+  if (!url) return;
+  loading.huaweiIpv6 = true;
+  outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Habilitando IPv6 con DHCPv6-PD…</p>';
+  postJson(url).then(function (res) {
+    var d = res.data || {};
+    var ok = res.ok && d.success !== false;
+    outHuawei.value = huaweiMsgHtml(d, ok);
+    if (ok && d.ipv6 && payload.value?.servicio) {
+      payload.value.servicio.ipv6_configurado = true;
+    }
+  }).catch(function () {
+    outHuawei.value = errHtml('No se pudo conectar a la ONU Huawei.');
+  }).finally(function () {
+    loading.huaweiIpv6 = false;
+  });
+}
+
+function onHuaweiConectados() {
+  var url = payload.value?.urls?.huawei_conectados;
+  if (!url) return;
+  loading.huaweiConectados = true;
+  huaweiDispositivos.value = [];
+  outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Cruzando WiFi y DHCP en la ONU…</p>';
+  postJson(url).then(function (res) {
+    var d = res.data || {};
+    var ok = res.ok && d.success !== false;
+    outHuawei.value = huaweiMsgHtml(d, ok) + antenaRawHtml(d, 'Salida WiFi + DHCP');
+    if (ok) {
+      huaweiDispositivos.value = Array.isArray(d.dispositivos) ? d.dispositivos : [];
+    }
+  }).catch(function () {
+    outHuawei.value = errHtml('No se pudo listar los conectados.');
+  }).finally(function () {
+    loading.huaweiConectados = false;
+  });
+}
+
+function aplicarSsidLeido(d, overwrite) {
+  var list = Array.isArray(d.ssids) ? d.ssids.map(function (s) { return String(s || '').trim(); }).filter(Boolean) : [];
+  if (list.length) huaweiSsidsActuales.value = list;
+  var ssid = String(d.ssid || '').trim();
+  if (ssid && (overwrite || !huaweiSsid.value)) {
+    huaweiSsid.value = ssid;
+  }
+  huaweiSsidError.value = '';
+}
+
+function onHuaweiOptica() {
+  var url = payload.value?.urls?.huawei_optica;
+  if (!url) return;
+  loading.huaweiOptica = true;
+  outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Leyendo display optic en la ONU…</p>';
+  postJson(url).then(function (res) {
+    var d = res.data || {};
+    var ok = res.ok && d.success !== false;
+    outHuawei.value = huaweiMsgHtml(d, ok);
+    if (ok) {
+      huaweiOptica.value = {
+        rx_power_dbm: d.rx_power_dbm ?? null,
+        tx_power_dbm: d.tx_power_dbm ?? null,
+        temperatura_c: d.temperatura_c ?? null,
+      };
+    }
+  }).catch(function () {
+    outHuawei.value = errHtml('No se pudo leer la óptica de la ONU.');
+  }).finally(function () {
+    loading.huaweiOptica = false;
+  });
+}
+
+function onHuaweiReboot() {
+  var url = payload.value?.urls?.huawei_reboot;
+  if (!url) return;
+  if (!confirm('¿Reiniciar la ONU? El equipo se desconecta unos minutos. No es reset de fábrica.')) return;
+  loading.huaweiReboot = true;
+  outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Enviando reboot a la ONU…</p>';
+  postJson(url).then(function (res) {
+    var d = res.data || {};
+    var ok = res.ok && d.success !== false;
+    outHuawei.value = huaweiMsgHtml(d, ok);
+  }).catch(function () {
+    outHuawei.value = errHtml('No se pudo reiniciar la ONU.');
+  }).finally(function () {
+    loading.huaweiReboot = false;
+  });
+}
+
+function cargarHuaweiSsid() {
+  var url = payload.value?.urls?.huawei_ssid;
+  if (!url || !canHuawei.value) return;
+  if (loading.huaweiConectados || loading.huaweiIpv6 || loading.huaweiWifi || loading.huaweiOptica || loading.huaweiReboot) return;
+  var req = ++huaweiSsidReq;
+  loading.huaweiSsid = true;
+  huaweiSsidError.value = '';
+  postJson(url).then(function (res) {
+    if (req !== huaweiSsidReq) return;
+    var d = res.data || {};
+    var ok = res.ok && d.success !== false;
+    if (ok) {
+      aplicarSsidLeido(d, false);
+      return;
+    }
+    huaweiSsidError.value = d.message || 'No se pudo leer el SSID.';
+  }).catch(function () {
+    if (req !== huaweiSsidReq) return;
+    huaweiSsidError.value = 'No se pudo leer el SSID.';
+  }).finally(function () {
+    if (req === huaweiSsidReq) loading.huaweiSsid = false;
+  });
+}
+
+function toggleHuaweiWifi() {
+  huaweiWifiOpen.value = !huaweiWifiOpen.value;
+  huaweiWifiFormError.value = '';
+}
+
+function cerrarHuaweiWifi() {
+  huaweiWifiOpen.value = false;
+  huaweiWifiFormError.value = '';
+  huaweiPassVisible.value = false;
+  huaweiPass2Visible.value = false;
+}
+
+function onHuaweiWifiDocClick(e) {
+  if (!huaweiWifiOpen.value) return;
+  var el = huaweiWifiPanel.value;
+  if (el && !el.contains(e.target)) cerrarHuaweiWifi();
+}
+
+function onHuaweiWifiDocKey(e) {
+  if (e.key === 'Escape') cerrarHuaweiWifi();
+}
+
+function onHuaweiWifi() {
+  var url = payload.value?.urls?.huawei_wifi;
+  if (!url) return;
+  var ssid = (huaweiSsid.value || '').trim();
+  var pass = huaweiPassword.value || '';
+  var pass2 = huaweiPassword2.value || '';
+  if (pass !== pass2) {
+    huaweiWifiFormError.value = 'Las claves no coinciden.';
+    return;
+  }
+  if (ssid.length < 1 || ssid.length > 32) {
+    huaweiWifiFormError.value = 'El SSID debe tener entre 1 y 32 caracteres.';
+    return;
+  }
+  if (pass.length < 8 || pass.length > 63) {
+    huaweiWifiFormError.value = 'La clave WiFi debe tener entre 8 y 63 caracteres.';
+    return;
+  }
+  huaweiWifiFormError.value = '';
+  loading.huaweiWifi = true;
+  outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Aplicando SSID y clave en la ONU…</p>';
+  postJson(url, { ssid: ssid, password: pass }).then(function (res) {
+    var d = res.data || {};
+    var ok = res.ok && d.success !== false;
+    outHuawei.value = huaweiMsgHtml(d, ok);
+    if (ok) {
+      aplicarSsidLeido(d, true);
+      huaweiPassword.value = '';
+      huaweiPassword2.value = '';
+      cerrarHuaweiWifi();
+    } else {
+      huaweiWifiFormError.value = d.message || 'No se pudo cambiar SSID y contraseña.';
+    }
+  }).catch(function () {
+    huaweiWifiFormError.value = 'No se pudo cambiar SSID y contraseña.';
+    outHuawei.value = errHtml('No se pudo cambiar SSID y contraseña.');
+  }).finally(function () {
+    loading.huaweiWifi = false;
+  });
+}
+
 function onOlt() {
   var oltUrl = payload.value?.urls?.olt;
   if (!oltUrl) return;
@@ -1352,6 +1809,14 @@ watch(selectedServicioId, (id, prev) => {
 });
 
 watch(
+  () => (canHuawei.value ? Number(servicio.value.servicio_id) : 0),
+  (id) => {
+    if (id) cargarHuaweiSsid();
+  },
+  { immediate: true }
+);
+
+watch(
   () => props.initialPayload,
   (val) => {
     if (!val) return;
@@ -1365,6 +1830,8 @@ watch(
 );
 
 onMounted(() => {
+  document.addEventListener('mousedown', onHuaweiWifiDocClick);
+  document.addEventListener('keydown', onHuaweiWifiDocKey);
   if (payload.value) return;
   const item = servicioItemById(selectedServicioId.value) || props.servicios[0];
   if (!item) return;
@@ -1373,5 +1840,10 @@ onMounted(() => {
   } else {
     selectedServicioId.value = item.servicio_id;
   }
+});
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onHuaweiWifiDocClick);
+  document.removeEventListener('keydown', onHuaweiWifiDocKey);
 });
 </script>

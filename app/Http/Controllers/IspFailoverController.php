@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Router;
 use App\Models\User;
+use App\Services\Cloudflare\CloudflareDnsService;
+use App\Services\Monitoreo\DedicadoSalidaService;
 use App\Services\Monitoreo\IspFailoverService;
+use App\Support\Nat11SalidaConfig;
 use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use App\Support\IspFailoverConfig;
 use Illuminate\Http\JsonResponse;
@@ -16,15 +19,18 @@ use Throwable;
 
 class IspFailoverController extends Controller
 {
-    public function index(): View
+    public function index(DedicadoSalidaService $dedicadoSalida, CloudflareDnsService $cloudflareDns): View
     {
         $config = IspFailoverConfig::get();
         $estado = IspFailoverConfig::estado();
+        $dedicado = $dedicadoSalida->snapshot(Nat11SalidaConfig::DEDICADO);
+        $server = $dedicadoSalida->snapshot(Nat11SalidaConfig::SERVER);
+        $cloudflare = $cloudflareDns->snapshot();
         $routers = Router::query()->orderBy('nombre')->get(['router_id', 'nombre', 'ip', 'webhook_token']);
         $staff = User::staff()->activos()->orderBy('name')->get(['usuario_id', 'name', 'telefono']);
         $script = $this->scriptNetwatch($config, $routers->firstWhere('router_id', $config['router_id']));
 
-        return view('sistema.isp-failover.index', compact('config', 'estado', 'routers', 'staff', 'script'));
+        return view('sistema.isp-failover.index', compact('config', 'estado', 'dedicado', 'server', 'cloudflare', 'routers', 'staff', 'script'));
     }
 
     public function update(Request $request): RedirectResponse
@@ -119,6 +125,39 @@ class IspFailoverController extends Controller
     public function restaurarPrimario(Request $request, IspFailoverService $failover): RedirectResponse
     {
         $r = $failover->restaurarPrimario();
+
+        return redirect()
+            ->route('sistema.isp-failover.index')
+            ->with(($r['ok'] ?? false) ? 'success' : 'error', $r['message']);
+    }
+
+    public function dedicado(Request $request, DedicadoSalidaService $dedicadoSalida): RedirectResponse
+    {
+        $validated = $request->validate([
+            'destino' => ['nullable', Rule::in(Nat11SalidaConfig::destinos())],
+            'modo' => ['required', Rule::in([Nat11SalidaConfig::MODO_TIGO, Nat11SalidaConfig::MODO_UFINET])],
+        ]);
+
+        $r = $dedicadoSalida->aplicar(
+            $validated['modo'],
+            $validated['destino'] ?? Nat11SalidaConfig::DEDICADO
+        );
+
+        return redirect()
+            ->route('sistema.isp-failover.index')
+            ->with(($r['ok'] ?? false) ? 'success' : 'error', $r['message']);
+    }
+
+    public function cloudflare(Request $request, CloudflareDnsService $cloudflareDns): RedirectResponse
+    {
+        $validated = $request->validate([
+            'modo' => ['required', Rule::in([Nat11SalidaConfig::MODO_TIGO, Nat11SalidaConfig::MODO_UFINET])],
+        ]);
+
+        $ip = $validated['modo'] === Nat11SalidaConfig::MODO_UFINET
+            ? $cloudflareDns->originUfinet()
+            : $cloudflareDns->originTigo();
+        $r = $cloudflareDns->apuntar($ip);
 
         return redirect()
             ->route('sistema.isp-failover.index')

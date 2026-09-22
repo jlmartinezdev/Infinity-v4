@@ -385,6 +385,7 @@ Comandos programables vía cron o tareas periódicas del panel:
 | `TvAvisarVencimientosCommand` | Avisos vencimiento TV |
 | `PortalAvisarAccesoAprobadoCommand` | Notificación acceso app aprobado |
 | `ImportarWispHubClientesCommand` | Importación WispHub |
+| `hotspot:portal-mikrotik MK-N2-BORDE` *(alias `hotspot-portal-mikrotik`)* | Carga el portal cautivo de `hotspot/` al MikroTik de borde |
 | Varios `Auditar*` | Auditorías de cobros, facturas, saldos |
 
 ---
@@ -404,6 +405,7 @@ Comandos programables vía cron o tareas periódicas del panel:
 | Archivo | Contenido |
 |---------|-----------|
 | `config/menu.php` | Definición del menú lateral |
+| `routes/console.php` | Lista de comandos Artisan (aliases del sistema) |
 | `routes/web.php` | Rutas web del panel |
 | `routes/api.php` | API móvil v1 |
 | `app/Support/MenuUsuario.php` | Filtrado de menú por permisos |

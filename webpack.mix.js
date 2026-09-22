@@ -50,6 +50,7 @@ mix.js('resources/js/cobros-servicios.js', 'public/js').vue();
 mix.js('resources/js/facturas-internas-index.js', 'public/js').vue();
 mix.js('resources/js/notas-credito-index.js', 'public/js').vue();
 mix.js('resources/js/compras-create.js', 'public/js').vue();
+mix.js('resources/js/pedido-productos.js', 'public/js').vue();
 mix.js('resources/js/pendientes-pago.js', 'public/js').vue();
 mix.js('resources/js/nodo-migrar-pppoe.js', 'public/js').vue();
 mix.js('resources/js/red-monitoreo.js', 'public/js').vue();

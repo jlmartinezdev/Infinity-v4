@@ -48,8 +48,8 @@
         </script>
         <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 print:hidden transition-colors">
             <div class="px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center">
+                <div id="header-bar" class="relative flex justify-between items-center h-16 gap-2 sm:gap-4">
+                    <div class="flex items-center shrink-0">
                         @auth
                         <button
                             type="button"
@@ -64,7 +64,33 @@
                         @endauth
                         <a href="{{ auth()->user()?->tienePermiso('dashboard.ver') ? url('/') : route('inicio') }}" class="ml-2 lg:ml-0 text-xl font-bold text-gray-900 dark:text-gray-100">Infinity ISP</a>
                     </div>
-                    <div class="flex items-center gap-2 sm:gap-4">
+                    @auth
+                        @if(auth()->user()->esStaff() && auth()->user()->tienePermiso('clientes.ver') && ! request()->routeIs('hotspot.index'))
+                            @include('partials.header-buscar-cliente')
+                        @endif
+                    @endauth
+                    <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+                        <style>
+                            @media (max-width: 639px) {
+                                #notifications-wrapper { display: none !important; }
+                                .header-logout-btn {
+                                    padding: 0.5rem;
+                                    background: transparent;
+                                    color: inherit;
+                                }
+                                .header-logout-btn:hover {
+                                    background: rgb(243 244 246);
+                                    color: rgb(55 65 81);
+                                }
+                                html.dark .header-logout-btn:hover {
+                                    background: rgb(31 41 55);
+                                    color: rgb(229 231 235);
+                                }
+                            }
+                            @media (min-width: 640px) {
+                                .header-logout-icon { display: none !important; }
+                            }
+                        </style>
                         @include('partials.theme-toggle')
                         @auth
                             @if(auth()->user()->esAdministrador())
@@ -73,8 +99,13 @@
                             <span class="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{{ auth()->user()->name }}</span>
                             <form action="{{ url('/api/logout') }}" method="POST" class="inline">
                                 @csrf
-                                <button type="submit" class="bg-gray-900 dark:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors">
-                                    Cerrar sesión
+                                <button type="submit"
+                                        class="header-logout-btn inline-flex items-center justify-center bg-gray-900 dark:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors"
+                                        title="Cerrar sesión" aria-label="Cerrar sesión">
+                                    <svg class="header-logout-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                                    </svg>
+                                    <span class="hidden sm:inline">Cerrar sesión</span>
                                 </button>
                             </form>
                         @endauth
@@ -85,17 +116,17 @@
 
         <main class="flex-1 min-w-0 overflow-x-hidden py-8 px-4 sm:px-6 lg:px-8 print:py-0 print:px-0">
             @if (session('success'))
-                <div class="mb-6 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-green-800 dark:text-green-200 print:hidden break-words text-sm">
+                <div data-app-flash role="status" class="mb-6 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-green-800 dark:text-green-200 print:hidden break-words text-sm">
                     {{ session('success') }}
                 </div>
             @endif
             @if (session('error'))
-                <div class="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden break-words text-sm whitespace-pre-wrap">
+                <div data-app-flash class="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-red-800 dark:text-red-200 print:hidden break-words text-sm whitespace-pre-wrap">
                     {{ session('error') }}
                 </div>
             @endif
             @if (session('warning'))
-                <div class="mb-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-amber-900 dark:text-amber-200 print:hidden break-words text-sm">
+                <div data-app-flash class="mb-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-amber-900 dark:text-amber-200 print:hidden break-words text-sm">
                     {{ session('warning') }}
                 </div>
             @endif
@@ -105,6 +136,21 @@
 
     <script src="{{ asset(mix('js/theme.js')) }}"></script>
     <script src="{{ asset(mix('js/app.js')) }}" defer></script>
+    @auth
+    <script>
+        (function () {
+            var url = @json(route('sesion.ping', [], false));
+            function ping() {
+                fetch(url, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                }).catch(function () {});
+            }
+            setInterval(ping, 8 * 60 * 1000);
+        })();
+    </script>
+    @endauth
     <script>
         (function() {
             var SCROLL_KEY = 'infinity_scroll';

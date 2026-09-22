@@ -6,10 +6,16 @@
 <div class="max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Productos</h1>
-        <a href="{{ route('productos.create') }}"
-            class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-            Nuevo producto
-        </a>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('productos.pedido') }}"
+                class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-lg font-medium border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                Armar pedido
+            </a>
+            <a href="{{ route('productos.create') }}"
+                class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                Nuevo producto
+            </a>
+        </div>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -42,6 +48,14 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="sm:w-48">
+                    <select name="proveedor_id" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        <option value="">Todos los proveedores</option>
+                        @foreach($proveedores as $prov)
+                            <option value="{{ $prov->id }}" {{ request('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="sm:w-40">
                     <select name="estado" class="w-full py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         <option value="todos" {{ request('estado') === 'todos' || !request('estado') ? 'selected' : '' }}>Todos</option>
@@ -67,6 +81,7 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Código</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoría</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Proveedor</th>
                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stock actual</th>
                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stock mín.</th>
                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P. compra</th>
@@ -78,13 +93,25 @@
                     @forelse ($productos as $producto)
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 {{ $producto->stockBajo() ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $producto->id }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ $producto->nombre ?? '—' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                <div class="flex items-center gap-3">
+                                    @if($producto->imagenUrl())
+                                        <img src="{{ $producto->imagenUrl() }}" alt="" class="h-10 w-10 shrink-0 rounded-lg object-cover border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
+                                    @else
+                                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-400" aria-hidden="true">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><circle cx="12" cy="13" r="3"/></svg>
+                                        </span>
+                                    @endif
+                                    <span class="font-medium">{{ $producto->nombre ?? '—' }}</span>
+                                </div>
+                            </td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $producto->codigo ?? '—' }}</td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $producto->categoria?->nombre ?? '—' }}</td>
-                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ number_format($producto->stock_actual ?? 0, 2, ',', '.') }}</td>
-                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ number_format($producto->stock_minimo ?? 0, 2, ',', '.') }}</td>
-                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ number_format($producto->precio_compra ?? 0, 2, ',', '.') }}</td>
-                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ number_format($producto->precio_venta ?? 0, 2, ',', '.') }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $producto->proveedor?->nombre ?? '—' }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ \App\Models\Producto::formatoNumero($producto->stock_actual) }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ \App\Models\Producto::formatoNumero($producto->stock_minimo) }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ \App\Models\Producto::formatoPrecio($producto->precio_compra, $producto->moneda) }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">{{ \App\Models\Producto::formatoPrecio($producto->precio_venta, $producto->moneda) }}</td>
                             <td class="px-4 py-3 text-right text-sm">
                                 <a href="{{ route('productos.edit', $producto) }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium mr-4">Editar</a>
                                 <form action="{{ route('productos.destroy', $producto) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este producto?');">
@@ -96,7 +123,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay productos. <a href="{{ route('productos.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay productos. <a href="{{ route('productos.create') }}" class="text-purple-600 dark:text-purple-400 hover:underline">Crear uno</a>.</td>
                         </tr>
                     @endforelse
                 </tbody>

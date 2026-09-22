@@ -75,7 +75,7 @@ class FacturacionParametro extends Model
 
     public static function horaCorteAutomatico(): string
     {
-        return (string) static::obtener('hora_corte_automatico', '00:01');
+        return (string) static::obtener('hora_corte_automatico', '09:00');
     }
 
     public static function diaFechaCobro(): int
@@ -107,5 +107,39 @@ class FacturacionParametro extends Model
     public static function diaCorte(): int
     {
         return (int) static::obtener('dia_corte', 6);
+    }
+
+    /**
+     * Fecha efectiva de corte para el mes de $mes.
+     * Si el día configurado cae domingo, se pasa al lunes siguiente (puede ser el 1 del mes siguiente).
+     */
+    public static function fechaCorteEfectivaParaMes(\Carbon\CarbonInterface $mes, ?int $diaCorte = null): \Carbon\Carbon
+    {
+        $dia = max(1, min(31, $diaCorte ?? self::diaCorte()));
+        $inicio = \Carbon\Carbon::instance($mes)->copy()->startOfMonth();
+        $dia = min($dia, $inicio->daysInMonth);
+        $fecha = $inicio->copy()->day($dia)->startOfDay();
+
+        if ($fecha->isSunday()) {
+            $fecha->addDay();
+        }
+
+        return $fecha;
+    }
+
+    /**
+     * True si $referencia (o hoy) es el día de corte efectivo, incluyendo el lunes
+     * cuando el día configurado del mes anterior cayó domingo y se diferió.
+     */
+    public static function esDiaCorteEfectivo(?\Carbon\CarbonInterface $referencia = null, ?int $diaCorte = null): bool
+    {
+        $ref = \Carbon\Carbon::instance($referencia ?? now())->startOfDay();
+        $dia = $diaCorte ?? self::diaCorte();
+
+        if ($ref->isSameDay(self::fechaCorteEfectivaParaMes($ref, $dia))) {
+            return true;
+        }
+
+        return $ref->isSameDay(self::fechaCorteEfectivaParaMes($ref->copy()->subMonthNoOverflow(), $dia));
     }
 }

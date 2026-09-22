@@ -65,6 +65,8 @@
                     </div>
                 </div>
 
+                @include('inventario._tipo-cambio', ['valor' => $tipoCambioActual ?? ''])
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="descuento" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento</label>

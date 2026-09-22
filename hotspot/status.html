@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WiFi Zone Interplus - Estado de Conexión</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta http-equiv="pragma" content="no-cache">
+    <meta http-equiv="expires" content="-1">
+    <!-- Cambio: refresh cada 60 segundos (1 minuto) para dar más tiempo de visualización -->
+    <meta http-equiv="refresh" content="60; url=$(link-status)">
+    <style>
+        :root {
+            --color-1: #4667A0;
+            --color-2: #0097BD;
+            --color-accent: var(--color-2);
+            --color-success: #4CAF50;
+            --color-warning: #ff9800;
+            --color-danger: #f44336;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--color-1), var(--color-2));
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 12px;
+        }
+
+        .container {
+            background: transparent;
+            backdrop-filter: none;
+            border-radius: 0;
+            padding: 20px 16px;
+            box-shadow: none;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            width: 180px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            color: #fff;
+            text-shadow: 0 3px 12px rgba(0,0,0,0.18);
+        }
+
+        .subtitle {
+            font-size: 0.9em;
+            opacity: 0.85;
+            margin-bottom: 20px;
+        }
+
+        /* Alerta de trial */
+        .trial-alert {
+            background: rgba(255, 152, 0, 0.25);
+            border: 2px solid var(--color-warning);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .trial-alert.danger {
+            background: rgba(244, 67, 54, 0.25);
+            border-color: var(--color-danger);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .trial-alert h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1em;
+        }
+
+        .trial-timer {
+            font-size: 2em;
+            font-weight: bold;
+            font-family: monospace;
+            margin: 8px 0;
+        }
+
+        /* Barra de progreso */
+        .progress-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            height: 24px;
+            margin: 16px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-success), var(--color-accent));
+            border-radius: 10px;
+            transition: width 0.5s ease, background 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .progress-bar.warning {
+            background: linear-gradient(90deg, var(--color-warning), #ffb74d);
+        }
+
+        .progress-bar.danger {
+            background: linear-gradient(90deg, var(--color-danger), #ff6b6b);
+        }
+
+        .status-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .status-row:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            opacity: 0.8;
+            font-size: 0.9em;
+            text-align: left;
+        }
+
+        .status-value {
+            font-weight: bold;
+            font-size: 1em;
+            text-align: right;
+        }
+
+        .connected {
+            color: var(--color-success);
+        }
+
+        .warning {
+            color: var(--color-warning);
+        }
+
+        .danger {
+            color: var(--color-danger);
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 48px;
+            padding: 12px 16px;
+            background: var(--color-accent);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: bold;
+            margin: 0;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        .btn:hover {
+            background: var(--color-1);
+        }
+
+        .trial-contact-btn:hover {
+            background: rgba(56, 142, 60, 1) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .btn-logout {
+            background: #dc3545;
+        }
+
+        .btn-logout:hover {
+            background: #c82333;
+        }
+
+        .btn-nav {
+            background: transparent;
+            border: 2px solid rgba(255,255,255,0.45);
+        }
+
+        .auto-refresh {
+            margin-top: 20px;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 400px) {
+            .container {
+                padding: 20px 16px;
+            }
+            
+            .logo {
+                width: 150px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            .status-row {
+                flex-direction: row;
+                text-align: inherit;
+                margin: 12px 0;
+            }
+            
+            .status-label {
+                margin-bottom: 4px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    $(if logged-in)
+    <div class="container">
+        <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
+        
+        <h1>Estado de la conexión</h1>
+        <div class="subtitle">Wi-Fi Zone Interplus</div>
+        
+        <!-- Alerta para usuarios Trial -->
+        <div id="trial-alert" style="display: none;">
+            <h3>⏱️ Acceso Gratuito Activo</h3>
+            <div class="trial-timer" id="trial-timer">--:--</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="trial-progress" style="width: 0%">
+                    <span id="trial-percent">0%</span>
+                </div>
+            </div>
+            <small id="trial-message">Tiempo restante de tu prueba gratuita</small>
+        </div>
+        
+        <!-- Información de conexión -->
+        <div class="status-info">
+            $(if username)
+            <div class="status-row">
+                <span class="status-label">Usuario</span>
+                <span class="status-value">$(username)</span>
+            </div>
+            $(endif)
+            
+            <div class="status-row">
+                <span class="status-label">Estado</span>
+                <span class="status-value connected">Conectado</span>
+            </div>
+            
+            <div class="status-row">
+                <span class="status-label">Tiempo en línea</span>
+                <span class="status-value" id="uptime-display">$(uptime)</span>
+            </div>
+            
+            $(if session-time-left)
+            <div class="status-row">
+                <span class="status-label">Tiempo restante</span>
+                <span class="status-value" id="time-left-display">$(session-time-left)</span>
+            </div>
+            $(endif)
+            
+            <div class="status-row">
+                <span class="status-label">Descarga</span>
+                <span class="status-value" id="download-display">$(bytes-in-nice)</span>
+            </div>
+            
+            <div class="status-row">
+                <span class="status-label">Subida</span>
+                <span class="status-value" id="upload-display">$(bytes-out-nice)</span>
+            </div>
+            
+            <div class="status-row">
+                <span class="status-label">Datos usados</span>
+                <span class="status-value" id="total-display">--</span>
+            </div>
+            $(if remain-bytes-total)
+            <div class="status-row">
+                <span class="status-label">Datos restantes</span>
+                <span class="status-value">$(remain-bytes-total)</span>
+            </div>
+            $(endif)
+        </div>
+        
+        <div class="actions">
+            <a href="$(link-logout)" class="btn btn-logout" onclick="return confirm('¿Cerrar la sesión de Wi-Fi Zone?');">Cerrar sesión</a>
+            <a href="$(link-status)" class="btn">Actualizar</a>
+            <a href="$(link-orig)" class="btn btn-nav">Seguir navegando</a>
+        </div>
+        
+        <div class="auto-refresh">
+            Actualización automática en <strong id="countdown">60</strong>s
+        </div>
+        
+        <div class="footer">
+            En el navegador: <b>wifi.interplus</b><br>
+            © 2025 Interplus – WiFi Zone
+        </div>
+    </div>
+    $(else)
+    <meta http-equiv="refresh" content="0;url=$(link-login)">
+    <div class="container">
+        <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
+        <h1>Entrá a Wi-Fi Zone</h1>
+        <p class="subtitle">Todavía no hay una sesión activa. Usá tu documento y PIN.</p>
+        <div class="actions">
+            <a href="$(link-login)" class="btn">Ir al login</a>
+        </div>
+    </div>
+    $(endif)
+
+    $(if logged-in)
+    <script>
+        // ========================================
+        // CONFIGURACIÓN
+        // ========================================
+        const TRIAL_LIMIT_SECONDS = 30 * 60; // 30 minutos
+        const REFRESH_INTERVAL = 60; // 60 segundos
+        
+        // ========================================
+        // VARIABLES MIKROTIK
+        // ========================================
+        const username = '$(username)';
+        const uptimeStr = '$(uptime)';
+        const sessionTimeLeft = '$(session-time-left)';
+        const bytesIn = '$(bytes-in)';
+        const bytesOut = '$(bytes-out)';
+        
+        // ========================================
+        // DETECCIÓN DE USUARIO TRIAL
+        // ========================================
+        function isTrial() {
+            return username.startsWith('T-') || username.startsWith('trial-');
+        }
+        
+        function parseUptime(uptimeStr) {
+            // Convierte formato MikroTik (ej: "15m23s" o "1h2m30s") a segundos
+            let seconds = 0;
+            const hours = uptimeStr.match(/(\d+)h/);
+            const minutes = uptimeStr.match(/(\d+)m/);
+            const secs = uptimeStr.match(/(\d+)s/);
+            
+            if (hours) seconds += parseInt(hours[1]) * 3600;
+            if (minutes) seconds += parseInt(minutes[1]) * 60;
+            if (secs) seconds += parseInt(secs[1]);
+            
+            return seconds;
+        }
+        
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            
+            if (h > 0) return `${h}h ${m}m ${s}s`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+            if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
+            if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return bytes + ' B';
+        }
+        
+        // ========================================
+        // UI - TRIAL
+        // ========================================
+        function setupTrialDisplay() {
+            if (!isTrial()) return;
+            
+            const uptimeSeconds = parseUptime(uptimeStr);
+            const remainingSeconds = Math.max(0, TRIAL_LIMIT_SECONDS - uptimeSeconds);
+            const progress = Math.min(100, (uptimeSeconds / TRIAL_LIMIT_SECONDS) * 100);
+            
+            // Mostrar alerta
+            const alertDiv = document.getElementById('trial-alert');
+            alertDiv.style.display = 'block';
+            
+            // Aplicar estilo según el tiempo restante
+            if (remainingSeconds === 0) {
+                alertDiv.classList.add('trial-alert', 'danger');
+            } else if (remainingSeconds < 300) { // Menos de 5 minutos
+                alertDiv.classList.add('trial-alert', 'danger');
+            } else if (remainingSeconds < 600) { // Menos de 10 minutos
+                alertDiv.classList.add('trial-alert', 'warning');
+            } else {
+                alertDiv.classList.add('trial-alert');
+            }
+            
+            // Actualizar timer
+            document.getElementById('trial-timer').textContent = formatTime(remainingSeconds);
+            
+            // Actualizar barra de progreso
+            const progressBar = document.getElementById('trial-progress');
+            const progressPercent = document.getElementById('trial-percent');
+            
+            progressBar.style.width = progress + '%';
+            progressPercent.textContent = Math.round(progress) + '%';
+            
+            // Aplicar color según progreso
+            if (progress >= 90) {
+                progressBar.classList.add('danger');
+            } else if (progress >= 70) {
+                progressBar.classList.add('warning');
+            }
+            
+            // Mensaje personalizado optimizado
+            const messageDiv = document.getElementById('trial-message');
+            if (remainingSeconds === 0) {
+                // Tiempo agotado - mostrar mensaje destacado con acción
+                messageDiv.innerHTML = '⏰ <strong style="font-size: 1.1em;">Tu tiempo ha finalizado</strong><br>' +
+                    '<span style="font-size: 0.95em;">Contratá un plan para seguir navegando</span><br>' +
+                    '<a href="tel:+595971714322" class="trial-contact-btn" style="display: inline-block; margin-top: 8px; padding: 8px 16px; background: rgba(76, 175, 80, 0.9); color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">📞 0971 714-322</a>';
+                
+                // Opcional: Forzar desconexión después de un tiempo
+                setTimeout(() => {
+                    if (confirm('Tu tiempo de prueba ha finalizado. ¿Deseas cerrar sesión?')) {
+                        window.location.href = '$(link-logout)';
+                    }
+                }, 5000); // 5 segundos después de ver que llegó a 0
+                
+            } else if (remainingSeconds < 60) {
+                messageDiv.innerHTML = '⚠️ <strong style="color: #ff5722;">¡Último minuto!</strong><br>' +
+                    '<a href="tel:+595971714322" style="color: white; text-decoration: underline; font-weight: bold;">Llamá ahora: 0971 714-322</a>';
+            } else if (remainingSeconds < 300) {
+                messageDiv.innerHTML = '⚠️ <strong>Menos de 5 minutos restantes</strong><br>' +
+                    '<a href="tel:+595971714322" style="color: white; text-decoration: underline;">Contratar plan: 0971 714-322</a>';
+            } else if (remainingSeconds < 600) {
+                messageDiv.innerHTML = '📊 Menos de 10 minutos de navegación<br>' +
+                    '<small style="opacity: 0.9;">Aprovechá para conocer nuestros planes</small>';
+            } else {
+                messageDiv.innerHTML = '🎉 <strong>Navegación gratuita activa</strong><br>' +
+                    '<small style="opacity: 0.9;">Tiempo restante de tu prueba</small>';
+            }
+        }
+        
+        // ========================================
+        // UI - ESTADÍSTICAS GENERALES
+        // ========================================
+        function updateStats() {
+            // Calcular total transferido
+            const totalBytes = parseInt(bytesIn || 0) + parseInt(bytesOut || 0);
+            const totalDisplay = document.getElementById('total-display');
+            if (totalDisplay) {
+                totalDisplay.textContent = formatBytes(totalBytes);
+            }
+            
+            // Actualizar display de tiempo si existe
+            const uptimeDisplay = document.getElementById('uptime-display');
+            if (uptimeDisplay && uptimeStr) {
+                uptimeDisplay.textContent = uptimeStr;
+            }
+
+            const timeLeftDisplay = document.getElementById('time-left-display');
+            if (timeLeftDisplay && sessionTimeLeft && parseUptime(sessionTimeLeft) < 600) {
+                timeLeftDisplay.classList.add('warning');
+            }
+        }
+        
+        // ========================================
+        // CONTADOR AUTO-REFRESH
+        // ========================================
+        let segundos = REFRESH_INTERVAL;
+        const countdownElement = document.getElementById('countdown');
+        
+        function actualizarContador() {
+            segundos--;
+            if (segundos > 0) {
+                countdownElement.textContent = segundos;
+            } else {
+                countdownElement.textContent = '0';
+            }
+        }
+        
+        // ========================================
+        // INICIALIZACIÓN
+        // ========================================
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('Usuario:', username);
+            console.log('Es trial:', isTrial());
+            console.log('Uptime:', uptimeStr);
+            
+            // Configurar display de trial si aplica
+            if (isTrial()) {
+                setupTrialDisplay();
+            }
+            
+            // Actualizar estadísticas
+            updateStats();
+            
+            // Iniciar contador
+            setInterval(actualizarContador, 1000);
+        });
+    </script>
+    $(endif)
+</body>
+</html>

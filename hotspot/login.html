@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>WiFi Zone Interplus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --color-1: #4667A0;
+      --color-2: #0097BD;
+      --color-accent: var(--color-2);
+      --color-success: #4CAF50;
+      --color-danger: #f44336;
+      --color-warning: #ff9800;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, var(--color-1), var(--color-2));
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .container {
+      background: transparent;
+      backdrop-filter: none;
+      border-radius: 0;
+      padding: 20px 16px;
+      box-shadow: none;
+      width: 100%;
+      max-width: 420px;
+      margin-top: 8px;
+      animation: slideIn 0.5s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo {
+      width: 200px;
+      max-width: 90%;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+    }
+
+    h1 {
+      font-size: 1.8em;
+      margin-bottom: 12px;
+      color: #fff;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.18);
+    }
+
+    .subtitle {
+      font-size: 0.95em;
+      margin-bottom: 24px;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    /* Alertas */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 0.9em;
+      display: none;
+      animation: fadeIn 0.3s ease;
+      text-align: left;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .alert-error {
+      background: rgba(244, 67, 54, 0.9);
+      border: 2px solid #c62828;
+      color: white;
+    }
+
+    .alert-warning {
+      background: rgba(255, 152, 0, 0.9);
+      border: 2px solid #f57c00;
+      color: white;
+    }
+
+    .alert-info {
+      background: rgba(33, 150, 243, 0.9);
+      border: 2px solid #1976d2;
+      color: white;
+    }
+
+    .alert i {
+      margin-right: 8px;
+    }
+
+    /* Bloqueo */
+    .blocked-container {
+      display: none;
+      background: rgba(244, 67, 54, 0.15);
+      border: 2px solid var(--color-danger);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .blocked-container.active {
+      display: block;
+    }
+
+    .blocked-container.trial-limit {
+      background: rgba(255, 152, 0, 0.15);
+      border-color: var(--color-warning);
+    }
+
+    .blocked-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .blocked-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .blocked-subtitle {
+      font-size: 0.95em;
+      margin-bottom: 16px;
+      opacity: 0.9;
+    }
+
+    .countdown {
+      font-size: 2em;
+      font-weight: bold;
+      color: var(--color-danger);
+      margin: 12px 0;
+      font-family: monospace;
+    }
+
+    .countdown.trial {
+      color: var(--color-warning);
+    }
+
+    .time-info {
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+      padding: 12px;
+      margin: 16px 0;
+      font-size: 0.9em;
+    }
+
+    .time-info strong {
+      color: var(--color-success);
+      font-size: 1.1em;
+    }
+
+    /* Formulario */
+    label {
+      display: block;
+      text-align: left;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 0.9em;
+      color: rgba(255,255,255,0.95);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 12px;
+      font-size: 1em;
+      background: rgba(255,255,255,0.95);
+      color: #333;
+      transition: all 0.3s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(0, 151, 189, 0.2);
+      background: white;
+    }
+
+    input::placeholder {
+      color: #999;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: var(--color-accent);
+      color: #fff;
+      font-size: 1.1em;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transition: all 0.3s;
+      margin-top: 8px;
+    }
+
+    button[type="submit"]:hover:not(:disabled) {
+      background: var(--color-1);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+      transform: translateY(-2px);
+    }
+
+    button[type="submit"]:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Trial */
+    .trial-btn {
+      display: block;
+      width: 75%;
+      padding: 12px;
+      margin: 16px auto;
+      border: none;
+      border-radius: 10px;
+      background: var(--color-success);
+      color: #fff;
+      font-size: 0.95em;
+      font-weight: bold;
+      text-decoration: none;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.13);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .trial-btn:hover {
+      background: #388e3c;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+      transform: translateY(-2px);
+    }
+
+    /* Info Box - Cliente */
+    .promo-box {
+      background-color: rgba(0, 0, 0, 0.22);
+      border-radius: 14px;
+      padding: 18px;
+      margin-top: 28px;
+      font-size: 0.95em;
+      text-align: center;
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    }
+
+    .promo-title {
+      font-weight: bold;
+      margin-bottom: 16px;
+      text-align: center;
+      color: var(--color-1);
+      font-size: 1.2em;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.13);
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .client-info {
+      padding: 12px;
+      text-align: center;
+    }
+
+    .client-info p {
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+
+    .help-box {
+      margin: 12px 0;
+      font-size: 0.9em;
+      line-height: 1.4;
+    }
+
+    .whatsapp-contact {
+      margin-top: 12px;
+      justify-content: center;
+    }
+
+    .whatsapp-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .whatsapp-icon {
+      width: 24px;
+      height: 24px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      font-size: 0.8em;
+      color: rgba(255,255,255,0.7);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Intentos restantes */
+    .attempts-warning {
+      background: rgba(255, 152, 0, 0.2);
+      border: 2px solid var(--color-warning);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 0.9em;
+      display: none;
+    }
+
+    .attempts-warning.active {
+      display: block;
+    }
+
+    .already-box {
+      background: rgba(0, 0, 0, 0.22);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .already-box p {
+      margin: 0 0 14px;
+      line-height: 1.45;
+    }
+    .already-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .already-actions a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: bold;
+      color: #fff;
+    }
+    .already-status {
+      background: var(--color-success);
+    }
+    .already-logout {
+      background: #dc3545;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      body {
+        padding: 16px 12px 24px;
+      }
+      .container {
+        padding: 20px 16px;
+        margin-top: 4px;
+      }
+      .logo {
+        width: 180px;
+        margin-top: -6px;
+        margin-bottom: 8px;
+      }
+      h1 {
+        font-size: 1.5em;
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        font-size: 0.9em;
+        margin-bottom: 16px;
+      }
+      input {
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+      button[type="submit"] {
+        padding: 14px;
+        font-size: 1.05em;
+      }
+      .alert,
+      .attempts-warning,
+      .blocked-container {
+        font-size: 0.85em;
+      }
+    }
+
+    @media (max-width: 480px) and (max-aspect-ratio: 9/16) {
+      .container {
+        padding-top: 16px;
+      }
+      .logo {
+        width: 170px;
+        margin-top: -8px;
+      }
+      .subtitle {
+        margin-bottom: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
+
+    <h1>¡Bienvenido a Wi-Fi Zone!</h1>
+    <div class="subtitle">Clientes Interplus con acceso gratis.</div>
+
+    $(if logged-in)
+    <div class="already-box">
+      <p>Si ya navegás, podés ver el estado o cerrar sesión. Si no hay internet, volvé a entrar con tu documento y PIN.</p>
+      <div class="already-actions">
+        <a class="already-status" href="$(link-status)">Ver estado</a>
+        <a class="already-logout" href="$(link-logout)">Cerrar sesión y volver a entrar</a>
+      </div>
+    </div>
+    $(endif)
+
+    <!-- Alerta de bloqueo -->
+    <div id="blocked-container" class="blocked-container">
+      <div class="blocked-icon" id="blocked-icon">!</div>
+      <div class="blocked-title" id="blocked-title">Acceso Bloqueado Temporalmente</div>
+      <p id="blocked-description">Demasiados intentos fallidos</p>
+      <div class="countdown" id="countdown">--:--</div>
+      <div id="time-info-container"></div>
+      <small id="blocked-help">Espera el tiempo indicado o contacta con soporte</small>
+    </div>
+
+    <!-- Alertas -->
+    <div id="alert-container"></div>
+
+    <!-- Advertencia de intentos -->
+    <div id="attempts-warning" class="attempts-warning">
+      Te quedan <strong id="attempts-count">5</strong> intentos antes del bloqueo
+    </div>
+
+    <!-- Formulario oculto para CHAP -->
+    $(if chap-id)
+    <form name="sendin" action="$(link-login-only)" method="post" style="display:none">
+      <input type="hidden" name="username" />
+      <input type="hidden" name="password" />
+      <input type="hidden" name="dst" value="$(link-status)" />
+      <input type="hidden" name="popup" value="false" />
+    </form>
+    $(endif)
+
+    <!-- Formulario visible -->
+    <form name="login" id="login-form" action="$(link-login-only)" method="post" 
+          $(if chap-id) onsubmit="return handleLogin(event)" $(endif)>
+      <input type="hidden" name="dst" value="$(link-status)" />
+      <input type="hidden" name="popup" value="false" />
+      
+            <input type="text" 
+              name="username" 
+              id="username" 
+              aria-label="Documento de Identidad"
+              placeholder="CI o RUC (ej. 1234567-2)"
+              required 
+              autocomplete="username"
+              inputmode="text"
+              enterkeyhint="next"
+              oninput="sanitizeIdInput(this)"
+              pattern="[0-9]+(-[0-9]+)?"
+              title="Documento. El 2.º y 3.er usuario van con guion, por ejemplo 1234567-2">
+      
+      <input type="password" 
+             name="password" 
+             id="password" 
+              aria-label="PIN"
+             placeholder="PIN de 4 dígitos"
+             required 
+             inputmode="numeric"
+             maxlength="6"
+             pattern="[0-9]{4,6}"
+             autocomplete="current-password">
+      
+      <button type="submit" id="btn-login">
+        Conectar
+      </button>
+    </form>
+
+    <a href="trial_ads.html" class="trial-btn">
+      Acceso Gratuito (30 min)
+    </a>
+
+    <div class="promo-box">
+      <div class="promo-title">
+        ¿Ya sos cliente de Interplus?
+      </div>
+      <div class="client-info">
+        <p style="margin: 12px 0;">
+          <b>¡Accedé a WiFi gratuito en nuestras zonas!</b>
+        </p>
+        <p style="margin: 8px 0; font-size: 0.9em;">
+          Ingresá con tu <b>documento</b> (CI/RUC) como usuario<br>
+          y tu <b>PIN de 4 dígitos</b>. El 2.º y 3.er acceso van<br>
+          con guion, por ejemplo <b>1234567-2</b>.
+        </p>
+        <div class="help-box">
+          <b>¿No recordás tus datos?</b><br>
+          Contactanos y te ayudamos:
+        </div>
+        <a href="tel:+595971714322" class="whatsapp-item whatsapp-contact" style="text-decoration: none; color: white; background: #25D366; padding: 12px 20px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; font-weight: bold;">
+          0971 714-322
+        </a>
+      </div>
+    </div>
+
+    <div class="footer">
+      En el navegador: <b>wifi.interplus</b><br>
+      © 2025 Interplus – Todos los derechos reservados.
+    </div>
+  </div>
+
+  <!-- MD5 para CHAP -->
+  <script src="md5.js"></script>
+
+  <script>
+    // ========================================
+    // CONFIGURACIÓN
+    // ========================================
+    const MAX_INTENTOS = 5;
+    const TIEMPO_BLOQUEO_MS = 30 * 60 * 1000; // 30 minutos
+    const STORAGE_KEY = 'hotspot_intentos';
+    const TRIAL_STORAGE_KEY = 'hotspot_trial_limit';
+    const TRIAL_RESET_HOURS = 72; // 3 días = 72 horas
+    const RATE_LIMIT_KEY = 'hotspot_rate_limit';
+    const RATE_LIMIT_WINDOW_MS = 2 * 60 * 1000; // 2 minutos
+    const RATE_LIMIT_MAX = 5;
+
+    // ========================================
+    // CONTROL DE INTENTOS
+    // ========================================
+    function getIntentosData() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      if (!data) {
+        return { intentos: 0, bloqueado_hasta: null, ultimo_usuario: null };
+      }
+      return JSON.parse(data);
+    }
+
+    function saveIntentosData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function incrementarIntentos(usuario) {
+      const data = getIntentosData();
+      data.intentos = (data.ultimo_usuario === usuario) ? data.intentos + 1 : 1;
+      data.ultimo_usuario = usuario;
+
+      if (data.intentos >= MAX_INTENTOS) {
+        data.bloqueado_hasta = Date.now() + TIEMPO_BLOQUEO_MS;
+      }
+
+      saveIntentosData(data);
+      return data;
+    }
+
+    function resetearIntentos() {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function estaBloqueado() {
+      const data = getIntentosData();
+      if (!data.bloqueado_hasta) return false;
+      
+      if (Date.now() < data.bloqueado_hasta) {
+        return true;
+      } else {
+        resetearIntentos();
+        return false;
+      }
+    }
+
+    function getTiempoRestante() {
+      const data = getIntentosData();
+      if (!data.bloqueado_hasta) return 0;
+      return Math.max(0, Math.floor((data.bloqueado_hasta - Date.now()) / 1000));
+    }
+
+    // ========================================
+    // RATE LIMIT LOCAL (ANTI SPAM EN FRONTEND)
+    // ========================================
+    function getRateLimitData() {
+      const data = localStorage.getItem(RATE_LIMIT_KEY);
+      if (!data) return { timestamps: [] };
+      try {
+        const parsed = JSON.parse(data);
+        return parsed && Array.isArray(parsed.timestamps) ? parsed : { timestamps: [] };
+      } catch (e) {
+        return { timestamps: [] };
+      }
+    }
+
+    function saveRateLimitData(data) {
+      localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(data));
+    }
+
+    function pruneRateLimit(data) {
+      const now = Date.now();
+      data.timestamps = data.timestamps.filter(ts => now - ts < RATE_LIMIT_WINDOW_MS);
+      return data;
+    }
+
+    function getRateLimitStatus() {
+      const data = pruneRateLimit(getRateLimitData());
+      const now = Date.now();
+      if (data.timestamps.length >= RATE_LIMIT_MAX) {
+        const oldest = data.timestamps[0];
+        const retryMs = Math.max(0, RATE_LIMIT_WINDOW_MS - (now - oldest));
+        saveRateLimitData(data);
+        return { blocked: true, retryMs };
+      }
+      saveRateLimitData(data);
+      return { blocked: false, retryMs: 0 };
+    }
+
+    function registerRateLimitAttempt() {
+      const data = pruneRateLimit(getRateLimitData());
+      data.timestamps.push(Date.now());
+      saveRateLimitData(data);
+    }
+
+    // ========================================
+    // CONTROL DE LÍMITE TRIAL
+    // ========================================
+    function getTrialLimitData() {
+      const data = localStorage.getItem(TRIAL_STORAGE_KEY);
+      if (!data) return null;
+      return JSON.parse(data);
+    }
+
+    // NO usar localStorage ni APIs externas
+    // El router MikroTik controla el trial directamente
+    function saveTrialLimit(macAddress) {
+      // Registrar en localStorage solo para historial local (no para control)
+      const data = {
+        mac: macAddress,
+        limite_alcanzado: Date.now(),
+        intento_bloqueado: true
+      };
+      localStorage.setItem(TRIAL_STORAGE_KEY, JSON.stringify(data));
+      return data;
+    }
+
+    function getTiempoRestanteTrial() {
+      // Sin servidor externo, no podemos calcular tiempo real
+      // El router MikroTik es quien controla cuándo puede reconectar
+      return 0; // No mostrar countdown
+    }
+
+    function puedeUsarTrial() {
+      const data = getTrialLimitData();
+      if (!data) return true;
+      return Date.now() >= data.puede_reconectar;
+    }
+
+    function extraerMAC(errorMsg) {
+      // Extraer MAC del mensaje: "user T-BE:22:C1:B5:77:53 has reached uptime limit"
+      const match = errorMsg.match(/T-([0-9A-F:]+)/i);
+      return match ? match[1] : null;
+    }
+
+    // ========================================
+    // UI - ALERTAS
+    // ========================================
+    function mostrarAlerta(mensaje, tipo = 'error') {
+      const container = document.getElementById('alert-container');
+      const iconos = {
+        error: 'X',
+        warning: '!',
+        info: 'i'
+      };
+
+      container.innerHTML = `
+        <div class="alert alert-${tipo}" style="display: block;">
+          ${iconos[tipo]} ${mensaje}
+        </div>
+      `;
+
+      setTimeout(() => {
+        const alert = container.querySelector('.alert');
+        if (alert) alert.style.display = 'none';
+      }, 8000);
+    }
+
+    function mostrarAdvertenciaIntentos() {
+      const data = getIntentosData();
+      const restantes = MAX_INTENTOS - data.intentos;
+      
+      if (restantes <= 3 && restantes > 0) {
+        const warning = document.getElementById('attempts-warning');
+        document.getElementById('attempts-count').textContent = restantes;
+        warning.classList.add('active');
+      }
+    }
+
+    function ocultarAdvertenciaIntentos() {
+      document.getElementById('attempts-warning').classList.remove('active');
+    }
+
+    // ========================================
+    // UI - BLOQUEO
+    // ========================================
+    // Variables globales para countdown con datos reales
+    let trialTimeRemaining = null;
+    let trialReconnectTimestamp = null;
+
+    function mostrarBloqueo(tipo = 'intentos', segundosReales = null, timestampReconectar = null) {
+      const container = document.getElementById('blocked-container');
+      const icon = document.getElementById('blocked-icon');
+      const title = document.getElementById('blocked-title');
+      const desc = document.getElementById('blocked-description');
+      const countdown = document.getElementById('countdown');
+      const help = document.getElementById('blocked-help');
+      const timeInfo = document.getElementById('time-info-container');
+
+      container.classList.add('active');
+      document.getElementById('login-form').style.display = 'none';
+
+      if (tipo === 'trial-simple') {
+        // Bloqueo por límite trial - SIN countdown (router controla)
+        container.classList.add('trial-limit');
+        icon.textContent = 'T';
+        title.textContent = 'Tiempo de Prueba Agotado';
+        desc.innerHTML = '<strong style="font-size: 1.3em;">Has usado tus 30 minutos de prueba gratis</strong><br>' +
+          '<span style="font-size: 1.1em;">Intenta conectarte nuevamente más tarde</span>';
+        
+        // Ocultar countdown
+        countdown.style.display = 'none';
+        timeInfo.style.display = 'none';
+        
+        help.innerHTML = `
+          <div style="background: rgba(0,0,0,0.25); border-radius: 12px; padding: 20px; margin: 20px 0; line-height: 1.6;">
+            <div style="margin-bottom: 20px; font-size: 1.1em;">
+              <strong style="font-size: 1.2em;">Llevá esta experiencia a tu hogar</strong>
+            </div>
+            <div style="font-size: 1.05em; margin-bottom: 20px; opacity: 0.95;">
+              Disfrutá de internet de alta velocidad sin límites.<br>
+              Conectá todos tus dispositivos sin interrupciones.
+            </div>
+            <div style="margin: 20px 0; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3);">
+              <strong style="font-size: 1.15em; display: block; margin-bottom: 8px;">Planes desde Gs. 100.000/mes</strong>
+              <span style="font-size: 1em; opacity: 0.9;">Internet fibra óptica para tu casa o negocio</span>
+            </div>
+            
+          </div>
+        `;
+
+      } else if (tipo === 'trial') {
+        // Bloqueo por límite trial - CON countdown (si hay datos del router)
+        container.classList.add('trial-limit');
+        icon.textContent = 'T';
+        title.textContent = 'Tiempo de Prueba Agotado';
+        desc.innerHTML = '<strong style="font-size: 1.3em;">Has usado tus 30 minutos gratis</strong><br>' +
+          '<span style="font-size: 1.1em;">Podrás reconectarte cuando expire el tiempo</span>';
+        countdown.classList.add('trial');
+
+        // Si se proporcionan datos reales, usarlos
+        if (segundosReales !== null && timestampReconectar !== null) {
+          trialTimeRemaining = segundosReales;
+          trialReconnectTimestamp = timestampReconectar;
+          console.log('Usando datos reales del router - Segundos restantes:', segundosReales);
+        } else {
+          // Fallback a localStorage
+          trialTimeRemaining = null;
+          trialReconnectTimestamp = null;
+          console.log('Usando datos de localStorage (fallback)');
+        }
+
+        help.innerHTML = `
+          <div style="background: rgba(0,0,0,0.25); border-radius: 12px; padding: 20px; margin: 20px 0; line-height: 1.6;">
+            <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.3);">
+              <strong style="font-size: 1.1em;">Tiempo restante para reconectar</strong>
+            </div>
+            <div style="margin: 20px 0; font-size: 1.1em;">
+              <strong style="font-size: 1.2em;">Llevá esta experiencia a tu hogar</strong>
+            </div>
+            <div style="font-size: 1.05em; margin-bottom: 20px; opacity: 0.95;">
+              Internet de alta velocidad sin límites para toda tu familia.
+            </div>
+            <div style="margin: 20px 0; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3);">
+              <strong style="font-size: 1.15em; display: block; margin-bottom: 8px;">Planes desde Gs. 100.000/mes</strong>
+              <span style="font-size: 1em; opacity: 0.9;">Internet fibra óptica sin interrupciones</span>
+            </div>
+            <a href="tel:+595971714322" 
+               style="display: inline-block; margin: 16px 0; padding: 16px 32px; 
+                      background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(56, 142, 60, 0.95)); 
+                      color: white; text-decoration: none; 
+                      border-radius: 10px; font-weight: bold; font-size: 1.15em;
+                      box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+              Contactanos: 0971 714-322
+            </a>
+          </div>
+        `;
+
+        const interval = setInterval(() => {
+          const segundos = getTiempoRestanteTrial();
+          if (segundos <= 0) {
+            clearInterval(interval);
+            localStorage.removeItem(TRIAL_STORAGE_KEY);
+            // Mostrar mensaje de reconexión disponible
+            setTimeout(() => {
+              if (confirm('Ya podés volver a usar el acceso de prueba.\n\n¿Querés recargar la página?')) {
+                location.reload();
+              }
+            }, 1000);
+          }
+          actualizarContadorTrial();
+        }, 1000);
+        actualizarContadorTrial();
+
+      } else {
+        // Bloqueo por intentos fallidos
+        icon.textContent = 'X';
+        title.textContent = 'Acceso Bloqueado Temporalmente';
+        desc.textContent = 'Demasiados intentos fallidos';
+        help.textContent = 'Espera el tiempo indicado o contacta con soporte';
+
+        const interval = setInterval(() => {
+          if (!estaBloqueado()) {
+            clearInterval(interval);
+            location.reload();
+          }
+          actualizarContador();
+        }, 1000);
+        actualizarContador();
+      }
+    }
+
+    function actualizarContador() {
+      const segundos = getTiempoRestante();
+      const minutos = Math.floor(segundos / 60);
+      const segs = segundos % 60;
+      document.getElementById('countdown').textContent = 
+        `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
+    }
+
+    function actualizarContadorTrial() {
+      const segundos = getTiempoRestanteTrial();
+      const horas = Math.floor(segundos / 3600);
+      const minutos = Math.floor((segundos % 3600) / 60);
+      const segs = segundos % 60;
+
+      // Mostrar formato según el tiempo restante
+      let display = '';
+      if (horas > 0) {
+        display = `${horas}h ${minutos}m`;
+      } else if (minutos > 0) {
+        display = `${minutos}m ${segs}s`;
+      } else {
+        display = `${segs}s`;
+      }
+
+      document.getElementById('countdown').textContent = display;
+
+      // Mostrar información adicional
+      const timeInfoContainer = document.getElementById('time-info-container');
+      if (horas > 24) {
+        const dias = Math.floor(horas / 24);
+        const horasRestantes = horas % 24;
+        timeInfoContainer.innerHTML = `
+          <div class="time-info">
+            Podrás volver a usar el acceso gratuito en:<br>
+            <strong>${dias} día${dias > 1 ? 's' : ''} y ${horasRestantes} hora${horasRestantes !== 1 ? 's' : ''}</strong>
+          </div>
+        `;
+      } else if (horas > 0) {
+        timeInfoContainer.innerHTML = `
+          <div class="time-info">
+            Podrás reconectarte en: <strong>${horas}h ${minutos}m</strong>
+          </div>
+        `;
+      }
+    }
+
+    // ========================================
+    // LOGIN CON CHAP
+    // ========================================
+    function handleLogin(event) {
+      event.preventDefault();
+
+      const usuario = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      const rateStatus = getRateLimitStatus();
+      if (rateStatus.blocked) {
+        const seconds = Math.ceil(rateStatus.retryMs / 1000);
+        mostrarAlerta(`Demasiados intentos en poco tiempo. Espera ${seconds}s y vuelve a intentar.`, 'warning');
+        return false;
+      }
+      registerRateLimitAttempt();
+
+      // Verificar si está bloqueado
+      if (estaBloqueado()) {
+        mostrarAlerta('Acceso bloqueado temporalmente. Espera a que expire el tiempo.', 'error');
+        mostrarBloqueo();
+        return false;
+      }
+
+      // Validar campos
+      if (!usuario || !password) {
+        mostrarAlerta('Por favor completa todos los campos', 'warning');
+        return false;
+      }
+
+      // Validar formato documento (2.º y 3.er usuario: cedula-2 / cedula-3)
+      if (!/^[0-9]+(-[0-9]+)?$/.test(usuario)) {
+        mostrarAlerta('Usá tu documento. El 2.º y 3.er usuario van con guion, por ejemplo 1234567-2.', 'warning');
+        return false;
+      }
+
+      // Deshabilitar botón
+      const btnLogin = document.getElementById('btn-login');
+      btnLogin.disabled = true;
+      btnLogin.innerHTML = '<span class="spinner"></span> Conectando...';
+
+      // Preparar formulario CHAP
+      $(if chap-id)
+      document.sendin.username.value = usuario;
+      document.sendin.password.value = hexMD5('$(chap-id)' + password + '$(chap-challenge)');
+      
+      // Enviar formulario
+      setTimeout(() => {
+        document.sendin.submit();
+      }, 500);
+      $(endif)
+
+      // El resultado lo manejará MikroTik
+      // Si falla, se recarga a login con $(if error)
+      return false;
+    }
+
+    function sanitizeIdInput(inputEl) {
+      if (!inputEl) return;
+      const raw = inputEl.value || '';
+      const cleaned = raw.replace(/[^0-9-]/g, '');
+      const dashIndex = cleaned.indexOf('-');
+
+      if (dashIndex === -1) {
+        inputEl.value = cleaned;
+        return;
+      }
+
+      const left = cleaned.slice(0, dashIndex).replace(/-/g, '');
+      const right = cleaned.slice(dashIndex + 1).replace(/-/g, '');
+
+      if (!left && right) {
+        inputEl.value = right;
+        return;
+      }
+
+      inputEl.value = right ? `${left}-${right}` : `${left}-`;
+    }
+
+    // ========================================
+    // DETECCIÓN DE ERROR
+    // ========================================
+    $(if error)
+    window.addEventListener('DOMContentLoaded', async function() {
+      const usuario = document.getElementById('username').value;
+      const errorMsg = '$(error)';
+      
+      console.log('Error de MikroTik:', errorMsg);
+      
+      // CASO 1: Usuario Trial alcanzó límite de tiempo
+      if (errorMsg.includes('reached uptime limit') || errorMsg.includes('uptime limit')) {
+        const mac = extraerMAC(errorMsg);
+        if (mac) {
+          saveTrialLimit(mac); // Solo registrar localmente
+        }
+        // Redirigir a página dedicada de trial expirado
+        resetearIntentos();
+        window.location.href = 'trial_expired.html';
+        return;
+      }
+      
+      // CASO 2: Usuario o contraseña incorrectos
+      if (errorMsg.includes('invalid username or password')) {
+        const data = incrementarIntentos(usuario);
+        
+        if (data.intentos >= MAX_INTENTOS) {
+          mostrarBloqueo('intentos');
+        } else {
+          mostrarAlerta(
+            `<strong>Usuario o contraseña incorrectos</strong><br>
+            <small>Intentos restantes: ${MAX_INTENTOS - data.intentos}</small>`,
+            'error'
+          );
+          mostrarAdvertenciaIntentos();
+        }
+        return;
+      }
+      
+      // CASO 3: Usuario suspendido/deshabilitado
+      if (errorMsg.includes('user is disabled') || errorMsg.includes('disabled')) {
+        mostrarAlerta(
+          `<strong>Usuario suspendido</strong><br>
+          Tu cuenta ha sido deshabilitada por falta de pago.<br>
+          <small>Contacta con administración: 0971 714-322</small>`,
+          'error'
+        );
+        resetearIntentos(); // No cuenta como intento fallido
+        return;
+      }
+      
+      // CASO 4: Ya está conectado
+      if (errorMsg.includes('already logged in')) {
+        mostrarAlerta(
+          `<strong>Sesión activa detectada</strong><br>
+          Ya tienes una sesión abierta en otro dispositivo.<br>
+          <small>Cierra la sesión anterior o espera unos minutos.</small>`,
+          'warning'
+        );
+        return;
+      }
+      
+      // CASO 5: Límite de bytes alcanzado (usuarios normales)
+      if (errorMsg.includes('byte limit') || errorMsg.includes('quota exceeded')) {
+        mostrarAlerta(
+          `<strong>Límite de datos alcanzado</strong><br>
+          Has consumido todo tu plan mensual.<br>
+          <small>Contáctanos para renovar: 0971 714-322</small>`,
+          'warning'
+        );
+        return;
+      }
+      
+      // CASO 6: Otros errores
+      mostrarAlerta(`Error: ${errorMsg}`, 'error');
+    });
+    $(endif)
+
+    // ========================================
+    // INICIALIZACIÓN
+    // ========================================
+    window.addEventListener('DOMContentLoaded', function() {
+      const usernameInput = document.getElementById('username');
+      if (!usernameInput) {
+        return;
+      }
+
+      usernameInput.addEventListener('input', function() {
+        sanitizeIdInput(usernameInput);
+      });
+
+      // Verificar bloqueo al cargar
+      if (estaBloqueado()) {
+        mostrarBloqueo();
+        return;
+      }
+
+      // Mostrar advertencia si hay intentos previos
+      const data = getIntentosData();
+      if (data.intentos > 0 && data.intentos < MAX_INTENTOS) {
+        mostrarAdvertenciaIntentos();
+      }
+
+      usernameInput.addEventListener('input', function() {
+        const intentos = getIntentosData();
+        if (intentos.ultimo_usuario && intentos.ultimo_usuario !== this.value.trim()) {
+          ocultarAdvertenciaIntentos();
+        }
+      });
+
+      usernameInput.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key.length !== 1) return;
+        if (!/[0-9-]/.test(e.key)) {
+          e.preventDefault();
+        }
+      });
+
+    });
+  </script>
+</body>
+</html>

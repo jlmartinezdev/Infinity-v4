@@ -27339,6 +27339,7 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 
+var AUTH_RELOAD_KEY = 'cobros-servicios-auth-reload';
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   __name: 'CobrosServiciosList',
   props: {
@@ -27481,68 +27482,167 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       buscar.value = '';
       (_searchInputRef$value = searchInputRef.value) === null || _searchInputRef$value === void 0 || _searchInputRef$value.blur();
     }
-    function cargarDatos() {
-      return _cargarDatos.apply(this, arguments);
+    function sleep(ms) {
+      return new Promise(function (resolve) {
+        return setTimeout(resolve, ms);
+      });
     }
-    function _cargarDatos() {
-      _cargarDatos = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-        var res, data, _t;
+    function esErrorSesion(res, data) {
+      if (res.status === 401 || res.status === 419) {
+        return true;
+      }
+      var msg = String((data === null || data === void 0 ? void 0 : data.message) || '').toLowerCase();
+      return msg.includes('unauthenticated') || msg.includes('no autenticado') || msg.includes('csrf');
+    }
+    function fetchDatos() {
+      return _fetchDatos.apply(this, arguments);
+    }
+    function _fetchDatos() {
+      _fetchDatos = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+        var res, data;
         return _regenerator().w(function (_context) {
-          while (1) switch (_context.p = _context.n) {
+          while (1) switch (_context.n) {
             case 0:
-              if (props.urlDatos) {
-                _context.n = 1;
-                break;
-              }
-              cargando.value = false;
-              errorCarga.value = 'No se configuró la consulta de cuentas.';
-              return _context.a(2);
-            case 1:
-              cargando.value = true;
-              errorCarga.value = '';
-              _context.p = 2;
-              _context.n = 3;
+              _context.n = 1;
               return fetch(props.urlDatos, {
                 headers: {
                   Accept: 'application/json',
                   'X-Requested-With': 'XMLHttpRequest'
                 },
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                cache: 'no-store'
               });
-            case 3:
+            case 1:
               res = _context.v;
-              _context.n = 4;
+              _context.n = 2;
               return res.json().catch(function () {
                 return {};
               });
-            case 4:
+            case 2:
               data = _context.v;
-              if (!(!res.ok || data.success === false)) {
-                _context.n = 5;
+              return _context.a(2, {
+                res: res,
+                data: data
+              });
+          }
+        }, _callee);
+      }));
+      return _fetchDatos.apply(this, arguments);
+    }
+    function recargarPorSesion() {
+      try {
+        if (!sessionStorage.getItem(AUTH_RELOAD_KEY)) {
+          sessionStorage.setItem(AUTH_RELOAD_KEY, '1');
+          errorCarga.value = 'La sesión se desconectó. Recargando…';
+          window.location.reload();
+          return true;
+        }
+        sessionStorage.removeItem(AUTH_RELOAD_KEY);
+      } catch (_) {
+        window.location.reload();
+        return true;
+      }
+      return false;
+    }
+    function cargarDatos() {
+      return _cargarDatos.apply(this, arguments);
+    }
+    function _cargarDatos() {
+      _cargarDatos = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+        var intento, _yield$fetchDatos, res, data, _t;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.p = _context2.n) {
+            case 0:
+              if (props.urlDatos) {
+                _context2.n = 1;
                 break;
               }
-              throw new Error(data.message || 'No se pudieron cargar las cuentas pendientes.');
+              cargando.value = false;
+              errorCarga.value = 'No se configuró la consulta de cuentas.';
+              return _context2.a(2);
+            case 1:
+              cargando.value = true;
+              errorCarga.value = '';
+              _context2.p = 2;
+              intento = 0;
+            case 3:
+              if (!(intento < 2)) {
+                _context2.n = 15;
+                break;
+              }
+              _context2.p = 4;
+              _context2.n = 5;
+              return fetchDatos();
             case 5:
-              servicios.value = Array.isArray(data.servicios) ? data.servicios : [];
-              _context.n = 7;
-              break;
+              _yield$fetchDatos = _context2.v;
+              res = _yield$fetchDatos.res;
+              data = _yield$fetchDatos.data;
+              if (!esErrorSesion(res, data)) {
+                _context2.n = 9;
+                break;
+              }
+              if (!(intento === 0)) {
+                _context2.n = 7;
+                break;
+              }
+              _context2.n = 6;
+              return sleep(400);
             case 6:
-              _context.p = 6;
-              _t = _context.v;
+              return _context2.a(3, 14);
+            case 7:
+              if (!recargarPorSesion()) {
+                _context2.n = 8;
+                break;
+              }
+              return _context2.a(2);
+            case 8:
+              errorCarga.value = 'Tu sesión venció. Recargá la página o volvé a iniciar sesión.';
+              servicios.value = [];
+              return _context2.a(2);
+            case 9:
+              if (!(!res.ok || data.success === false)) {
+                _context2.n = 10;
+                break;
+              }
+              throw new Error(data.message && !esErrorSesion(res, data) ? data.message : 'No se pudieron cargar las cuentas pendientes.');
+            case 10:
+              try {
+                sessionStorage.removeItem(AUTH_RELOAD_KEY);
+              } catch (_) {}
+              servicios.value = Array.isArray(data.servicios) ? data.servicios : [];
+              return _context2.a(2);
+            case 11:
+              _context2.p = 11;
+              _t = _context2.v;
+              if (!(intento === 0)) {
+                _context2.n = 13;
+                break;
+              }
+              _context2.n = 12;
+              return sleep(400);
+            case 12:
+              return _context2.a(3, 14);
+            case 13:
               errorCarga.value = (_t === null || _t === void 0 ? void 0 : _t.message) || 'No se pudieron cargar las cuentas pendientes. Reintentá.';
               servicios.value = [];
-            case 7:
-              _context.p = 7;
+            case 14:
+              intento++;
+              _context2.n = 3;
+              break;
+            case 15:
+              _context2.p = 15;
               cargando.value = false;
-              return _context.f(7);
-            case 8:
-              return _context.a(2);
+              return _context2.f(15);
+            case 16:
+              return _context2.a(2);
           }
-        }, _callee, null, [[2, 6, 7, 8]]);
+        }, _callee2, null, [[4, 11], [2,, 15, 16]]);
       }));
       return _cargarDatos.apply(this, arguments);
     }
-    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(cargarDatos);
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(function () {
+      cargarDatos();
+    });
     var __returned__ = {
       props: props,
       buscar: buscar,
@@ -27560,6 +27660,11 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       urlEditServicio: urlEditServicio,
       urlCrearCobro: urlCrearCobro,
       onEscape: onEscape,
+      AUTH_RELOAD_KEY: AUTH_RELOAD_KEY,
+      sleep: sleep,
+      esErrorSesion: esErrorSesion,
+      fetchDatos: fetchDatos,
+      recargarPorSesion: recargarPorSesion,
       cargarDatos: cargarDatos,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
       computed: vue__WEBPACK_IMPORTED_MODULE_0__.computed,
@@ -27747,7 +27852,11 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "text-sm"
   }, "Consultando cuentas pendientes…", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs mt-1"
-  }, "Ya podés escribir; los resultados aparecen al terminar la consulta", -1 /* CACHED */)])))) : $setup.errorCarga ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCarga), 1 /* TEXT */)])) : $setup.clientesFiltrados.length === 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_12, "No hay resultados para \"" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscar.trim()) + "\"", 1 /* TEXT */), _cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Ya podés escribir; los resultados aparecen al terminar la consulta", -1 /* CACHED */)])))) : $setup.errorCarga ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorCarga), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "mt-3 inline-flex items-center px-3 py-1.5 text-sm rounded-lg bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-900/60",
+    onClick: $setup.cargarDatos
+  }, " Reintentar ")])) : $setup.clientesFiltrados.length === 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_12, "No hay resultados para \"" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.buscar.trim()) + "\"", 1 /* TEXT */), _cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs mt-1"
   }, "Prueba con otro término", -1 /* CACHED */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 3

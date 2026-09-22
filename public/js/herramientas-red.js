@@ -27367,6 +27367,19 @@ __webpack_require__.r(__webpack_exports__);
     var tr069PassTarget = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('wifi-all');
     var tr069Password = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var tr069Password2 = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var outHuawei = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var huaweiSsid = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var huaweiPassword = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var huaweiPassword2 = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var huaweiSsidsActuales = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
+    var huaweiSsidError = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var huaweiWifiOpen = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var huaweiWifiFormError = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var huaweiWifiPanel = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
+    var huaweiPassVisible = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var huaweiPass2Visible = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var huaweiDispositivos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
+    var huaweiOptica = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loading = (0,vue__WEBPACK_IMPORTED_MODULE_0__.reactive)({
       ping: false,
       mac: false,
@@ -27379,8 +27392,15 @@ __webpack_require__.r(__webpack_exports__);
       tr069Hosts: false,
       tr069Refresh: false,
       tr069Reboot: false,
-      tr069Password: false
+      tr069Password: false,
+      huaweiIpv6: false,
+      huaweiConectados: false,
+      huaweiWifi: false,
+      huaweiSsid: false,
+      huaweiOptica: false,
+      huaweiReboot: false
     });
+    var huaweiSsidReq = 0;
     var mikrotikCache = null;
     var ignoreNextServicioWatch = false;
     var servicio = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
@@ -27434,6 +27454,20 @@ __webpack_require__.r(__webpack_exports__);
       var _payload$value10;
       return !!((_payload$value10 = payload.value) !== null && _payload$value10 !== void 0 && _payload$value10.cpe_ssh);
     });
+    var huaweiOnu = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      var _payload$value11;
+      return !!((_payload$value11 = payload.value) !== null && _payload$value11 !== void 0 && _payload$value11.huawei_onu);
+    });
+    var canHuawei = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      return huaweiOnu.value && !!servicio.value.ip;
+    });
+    var huaweiBusy = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      return loading.huaweiIpv6 || loading.huaweiConectados || loading.huaweiWifi || loading.huaweiSsid || loading.huaweiOptica || loading.huaweiReboot;
+    });
+    var huaweiSsidVista = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      if (loading.huaweiSsid && !huaweiSsid.value) return 'Leyendo…';
+      return huaweiSsid.value || '—';
+    });
     var toolsCols = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
       var n = 2;
       if (esFibra.value || esAntena.value) n += 1;
@@ -27445,8 +27479,8 @@ __webpack_require__.r(__webpack_exports__);
       return Array.isArray(tr069Hosts.value) && tr069Hosts.value.length > 0;
     });
     var eventos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
-      var _payload$value11;
-      var all = ((_payload$value11 = payload.value) === null || _payload$value11 === void 0 ? void 0 : _payload$value11.eventos) || [];
+      var _payload$value12;
+      var all = ((_payload$value12 = payload.value) === null || _payload$value12 === void 0 ? void 0 : _payload$value12.eventos) || [];
       if (esFibra.value) {
         return all.filter(function (e) {
           return e.tipo !== 'senal_antena';
@@ -27482,14 +27516,30 @@ __webpack_require__.r(__webpack_exports__);
     function formatPct(n) {
       return Number(n !== null && n !== void 0 ? n : 0).toFixed(1).replace('.', ',');
     }
+    function formatAsociadoTiempo(raw) {
+      var n = parseInt(String(raw !== null && raw !== void 0 ? raw : ''), 10);
+      if (!Number.isFinite(n) || n < 0) {
+        return 'desconectado';
+      }
+      var horas = Math.floor(n / 3600);
+      var minutos = Math.floor(n % 3600 / 60);
+      var segundos = n % 60;
+      if (horas > 0) {
+        return minutos > 0 ? "".concat(horas, " h ").concat(minutos, " min") : "".concat(horas, " h");
+      }
+      if (minutos > 0) {
+        return segundos > 0 ? "".concat(minutos, " min ").concat(segundos, " s") : "".concat(minutos, " min");
+      }
+      return "".concat(segundos, " s");
+    }
     function timelineSegClass(estado) {
       if (estado === 'up') return 'pppoe-timeline-seg--up';
       if (estado === 'down') return 'pppoe-timeline-seg--down';
       return 'pppoe-timeline-seg--unknown';
     }
     function csrfToken() {
-      var _payload$value12, _document$querySelect;
-      return ((_payload$value12 = payload.value) === null || _payload$value12 === void 0 ? void 0 : _payload$value12.csrf) || ((_document$querySelect = document.querySelector('meta[name="csrf-token"]')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.getAttribute('content')) || '';
+      var _payload$value13, _document$querySelect;
+      return ((_payload$value13 = payload.value) === null || _payload$value13 === void 0 ? void 0 : _payload$value13.csrf) || ((_document$querySelect = document.querySelector('meta[name="csrf-token"]')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.getAttribute('content')) || '';
     }
     function clearResults() {
       outPing.value = '';
@@ -27505,6 +27555,18 @@ __webpack_require__.r(__webpack_exports__);
       tr069PassTarget.value = 'wifi-all';
       tr069Password.value = '';
       tr069Password2.value = '';
+      outHuawei.value = '';
+      huaweiSsid.value = '';
+      huaweiPassword.value = '';
+      huaweiPassword2.value = '';
+      huaweiSsidsActuales.value = [];
+      huaweiSsidError.value = '';
+      huaweiWifiOpen.value = false;
+      huaweiWifiFormError.value = '';
+      huaweiPassVisible.value = false;
+      huaweiPass2Visible.value = false;
+      huaweiDispositivos.value = [];
+      huaweiOptica.value = null;
       mikrotikCache = null;
     }
     function servicioItemById(id) {
@@ -27763,8 +27825,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onAntena() {
-      var _payload$value13;
-      var antenaUrl = (_payload$value13 = payload.value) === null || _payload$value13 === void 0 || (_payload$value13 = _payload$value13.urls) === null || _payload$value13 === void 0 ? void 0 : _payload$value13.antena;
+      var _payload$value14;
+      var antenaUrl = (_payload$value14 = payload.value) === null || _payload$value14 === void 0 || (_payload$value14 = _payload$value14.urls) === null || _payload$value14 === void 0 ? void 0 : _payload$value14.antena;
       if (!antenaUrl) return;
       loading.antena = true;
       outAntena.value = '<p class="text-gray-500 dark:text-gray-400">Conectando por SSH y ejecutando wstalist…</p>';
@@ -27783,8 +27845,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onAntenaDhcp() {
-      var _payload$value14;
-      var antenaDhcpUrl = (_payload$value14 = payload.value) === null || _payload$value14 === void 0 || (_payload$value14 = _payload$value14.urls) === null || _payload$value14 === void 0 ? void 0 : _payload$value14.antena_dhcp;
+      var _payload$value15;
+      var antenaDhcpUrl = (_payload$value15 = payload.value) === null || _payload$value15 === void 0 || (_payload$value15 = _payload$value15.urls) === null || _payload$value15 === void 0 ? void 0 : _payload$value15.antena_dhcp;
       if (!antenaDhcpUrl) return;
       loading.antenaDhcp = true;
       outAntenaDhcp.value = '<p class="text-gray-500 dark:text-gray-400">Conectando por SSH y leyendo dhcpd.leases…</p>';
@@ -27803,8 +27865,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onTr069Resumen() {
-      var _payload$value15;
-      var url = (_payload$value15 = payload.value) === null || _payload$value15 === void 0 || (_payload$value15 = _payload$value15.urls) === null || _payload$value15 === void 0 ? void 0 : _payload$value15.tr069;
+      var _payload$value16;
+      var url = (_payload$value16 = payload.value) === null || _payload$value16 === void 0 || (_payload$value16 = _payload$value16.urls) === null || _payload$value16 === void 0 ? void 0 : _payload$value16.tr069;
       if (!url) return;
       loading.tr069 = true;
       outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Consultando GenieACS…</p>';
@@ -27824,8 +27886,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onTr069Hosts() {
-      var _payload$value16;
-      var url = (_payload$value16 = payload.value) === null || _payload$value16 === void 0 || (_payload$value16 = _payload$value16.urls) === null || _payload$value16 === void 0 ? void 0 : _payload$value16.tr069_hosts;
+      var _payload$value17;
+      var url = (_payload$value17 = payload.value) === null || _payload$value17 === void 0 || (_payload$value17 = _payload$value17.urls) === null || _payload$value17 === void 0 ? void 0 : _payload$value17.tr069_hosts;
       if (!url) return;
       loading.tr069Hosts = true;
       outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Leyendo hosts LAN del CPE…</p>';
@@ -27845,8 +27907,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onTr069Refresh() {
-      var _payload$value17;
-      var url = (_payload$value17 = payload.value) === null || _payload$value17 === void 0 || (_payload$value17 = _payload$value17.urls) === null || _payload$value17 === void 0 ? void 0 : _payload$value17.tr069_refresh;
+      var _payload$value18;
+      var url = (_payload$value18 = payload.value) === null || _payload$value18 === void 0 || (_payload$value18 = _payload$value18.urls) === null || _payload$value18 === void 0 ? void 0 : _payload$value18.tr069_refresh;
       if (!url) return;
       loading.tr069Refresh = true;
       outTr069.value = '<p class="text-gray-500 dark:text-gray-400">Encolando refresh en el ACS…</p>';
@@ -27864,8 +27926,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onTr069Reboot() {
-      var _payload$value18;
-      var url = (_payload$value18 = payload.value) === null || _payload$value18 === void 0 || (_payload$value18 = _payload$value18.urls) === null || _payload$value18 === void 0 ? void 0 : _payload$value18.tr069_reboot;
+      var _payload$value19;
+      var url = (_payload$value19 = payload.value) === null || _payload$value19 === void 0 || (_payload$value19 = _payload$value19.urls) === null || _payload$value19 === void 0 ? void 0 : _payload$value19.tr069_reboot;
       if (!url) return;
       if (!confirm('¿Reiniciar el CPE por TR-069? El equipo se desconecta unos minutos.')) return;
       loading.tr069Reboot = true;
@@ -27884,8 +27946,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onTr069Password() {
-      var _payload$value19;
-      var url = (_payload$value19 = payload.value) === null || _payload$value19 === void 0 || (_payload$value19 = _payload$value19.urls) === null || _payload$value19 === void 0 ? void 0 : _payload$value19.tr069_password;
+      var _payload$value20;
+      var url = (_payload$value20 = payload.value) === null || _payload$value20 === void 0 || (_payload$value20 = _payload$value20.urls) === null || _payload$value20 === void 0 ? void 0 : _payload$value20.tr069_password;
       if (!url) return;
       var pass = tr069Password.value || '';
       var pass2 = tr069Password2.value || '';
@@ -27925,9 +27987,195 @@ __webpack_require__.r(__webpack_exports__);
         loading.tr069Password = false;
       });
     }
+    function huaweiMsgHtml(d, ok) {
+      var cls = ok ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+      var extra = '';
+      if (d.via) extra += ' · vía ' + escapeHtml(d.via);
+      if (d.wan) extra += ' · WAN ' + escapeHtml(d.wan);
+      if (Array.isArray(d.ssids) && d.ssids.length) extra += ' · ' + escapeHtml(d.ssids.join(' · '));
+      return '<p class="' + cls + ' text-sm">' + escapeHtml(d.message || (ok ? 'Listo.' : 'Error')) + (extra ? '<span class="block text-xs text-gray-400 mt-1">' + extra + '</span>' : '') + '</p>';
+    }
+    function onHuaweiIpv6() {
+      var _payload$value21;
+      var url = (_payload$value21 = payload.value) === null || _payload$value21 === void 0 || (_payload$value21 = _payload$value21.urls) === null || _payload$value21 === void 0 ? void 0 : _payload$value21.huawei_ipv6;
+      if (!url) return;
+      loading.huaweiIpv6 = true;
+      outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Habilitando IPv6 con DHCPv6-PD…</p>';
+      postJson(url).then(function (res) {
+        var _payload$value22;
+        var d = res.data || {};
+        var ok = res.ok && d.success !== false;
+        outHuawei.value = huaweiMsgHtml(d, ok);
+        if (ok && d.ipv6 && (_payload$value22 = payload.value) !== null && _payload$value22 !== void 0 && _payload$value22.servicio) {
+          payload.value.servicio.ipv6_configurado = true;
+        }
+      }).catch(function () {
+        outHuawei.value = errHtml('No se pudo conectar a la ONU Huawei.');
+      }).finally(function () {
+        loading.huaweiIpv6 = false;
+      });
+    }
+    function onHuaweiConectados() {
+      var _payload$value23;
+      var url = (_payload$value23 = payload.value) === null || _payload$value23 === void 0 || (_payload$value23 = _payload$value23.urls) === null || _payload$value23 === void 0 ? void 0 : _payload$value23.huawei_conectados;
+      if (!url) return;
+      loading.huaweiConectados = true;
+      huaweiDispositivos.value = [];
+      outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Cruzando WiFi y DHCP en la ONU…</p>';
+      postJson(url).then(function (res) {
+        var d = res.data || {};
+        var ok = res.ok && d.success !== false;
+        outHuawei.value = huaweiMsgHtml(d, ok) + antenaRawHtml(d, 'Salida WiFi + DHCP');
+        if (ok) {
+          huaweiDispositivos.value = Array.isArray(d.dispositivos) ? d.dispositivos : [];
+        }
+      }).catch(function () {
+        outHuawei.value = errHtml('No se pudo listar los conectados.');
+      }).finally(function () {
+        loading.huaweiConectados = false;
+      });
+    }
+    function aplicarSsidLeido(d, overwrite) {
+      var list = Array.isArray(d.ssids) ? d.ssids.map(function (s) {
+        return String(s || '').trim();
+      }).filter(Boolean) : [];
+      if (list.length) huaweiSsidsActuales.value = list;
+      var ssid = String(d.ssid || '').trim();
+      if (ssid && (overwrite || !huaweiSsid.value)) {
+        huaweiSsid.value = ssid;
+      }
+      huaweiSsidError.value = '';
+    }
+    function onHuaweiOptica() {
+      var _payload$value24;
+      var url = (_payload$value24 = payload.value) === null || _payload$value24 === void 0 || (_payload$value24 = _payload$value24.urls) === null || _payload$value24 === void 0 ? void 0 : _payload$value24.huawei_optica;
+      if (!url) return;
+      loading.huaweiOptica = true;
+      outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Leyendo display optic en la ONU…</p>';
+      postJson(url).then(function (res) {
+        var d = res.data || {};
+        var ok = res.ok && d.success !== false;
+        outHuawei.value = huaweiMsgHtml(d, ok);
+        if (ok) {
+          var _d$rx_power_dbm, _d$tx_power_dbm, _d$temperatura_c;
+          huaweiOptica.value = {
+            rx_power_dbm: (_d$rx_power_dbm = d.rx_power_dbm) !== null && _d$rx_power_dbm !== void 0 ? _d$rx_power_dbm : null,
+            tx_power_dbm: (_d$tx_power_dbm = d.tx_power_dbm) !== null && _d$tx_power_dbm !== void 0 ? _d$tx_power_dbm : null,
+            temperatura_c: (_d$temperatura_c = d.temperatura_c) !== null && _d$temperatura_c !== void 0 ? _d$temperatura_c : null
+          };
+        }
+      }).catch(function () {
+        outHuawei.value = errHtml('No se pudo leer la óptica de la ONU.');
+      }).finally(function () {
+        loading.huaweiOptica = false;
+      });
+    }
+    function onHuaweiReboot() {
+      var _payload$value25;
+      var url = (_payload$value25 = payload.value) === null || _payload$value25 === void 0 || (_payload$value25 = _payload$value25.urls) === null || _payload$value25 === void 0 ? void 0 : _payload$value25.huawei_reboot;
+      if (!url) return;
+      if (!confirm('¿Reiniciar la ONU? El equipo se desconecta unos minutos. No es reset de fábrica.')) return;
+      loading.huaweiReboot = true;
+      outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Enviando reboot a la ONU…</p>';
+      postJson(url).then(function (res) {
+        var d = res.data || {};
+        var ok = res.ok && d.success !== false;
+        outHuawei.value = huaweiMsgHtml(d, ok);
+      }).catch(function () {
+        outHuawei.value = errHtml('No se pudo reiniciar la ONU.');
+      }).finally(function () {
+        loading.huaweiReboot = false;
+      });
+    }
+    function cargarHuaweiSsid() {
+      var _payload$value26;
+      var url = (_payload$value26 = payload.value) === null || _payload$value26 === void 0 || (_payload$value26 = _payload$value26.urls) === null || _payload$value26 === void 0 ? void 0 : _payload$value26.huawei_ssid;
+      if (!url || !canHuawei.value) return;
+      if (loading.huaweiConectados || loading.huaweiIpv6 || loading.huaweiWifi || loading.huaweiOptica || loading.huaweiReboot) return;
+      var req = ++huaweiSsidReq;
+      loading.huaweiSsid = true;
+      huaweiSsidError.value = '';
+      postJson(url).then(function (res) {
+        if (req !== huaweiSsidReq) return;
+        var d = res.data || {};
+        var ok = res.ok && d.success !== false;
+        if (ok) {
+          aplicarSsidLeido(d, false);
+          return;
+        }
+        huaweiSsidError.value = d.message || 'No se pudo leer el SSID.';
+      }).catch(function () {
+        if (req !== huaweiSsidReq) return;
+        huaweiSsidError.value = 'No se pudo leer el SSID.';
+      }).finally(function () {
+        if (req === huaweiSsidReq) loading.huaweiSsid = false;
+      });
+    }
+    function toggleHuaweiWifi() {
+      huaweiWifiOpen.value = !huaweiWifiOpen.value;
+      huaweiWifiFormError.value = '';
+    }
+    function cerrarHuaweiWifi() {
+      huaweiWifiOpen.value = false;
+      huaweiWifiFormError.value = '';
+      huaweiPassVisible.value = false;
+      huaweiPass2Visible.value = false;
+    }
+    function onHuaweiWifiDocClick(e) {
+      if (!huaweiWifiOpen.value) return;
+      var el = huaweiWifiPanel.value;
+      if (el && !el.contains(e.target)) cerrarHuaweiWifi();
+    }
+    function onHuaweiWifiDocKey(e) {
+      if (e.key === 'Escape') cerrarHuaweiWifi();
+    }
+    function onHuaweiWifi() {
+      var _payload$value27;
+      var url = (_payload$value27 = payload.value) === null || _payload$value27 === void 0 || (_payload$value27 = _payload$value27.urls) === null || _payload$value27 === void 0 ? void 0 : _payload$value27.huawei_wifi;
+      if (!url) return;
+      var ssid = (huaweiSsid.value || '').trim();
+      var pass = huaweiPassword.value || '';
+      var pass2 = huaweiPassword2.value || '';
+      if (pass !== pass2) {
+        huaweiWifiFormError.value = 'Las claves no coinciden.';
+        return;
+      }
+      if (ssid.length < 1 || ssid.length > 32) {
+        huaweiWifiFormError.value = 'El SSID debe tener entre 1 y 32 caracteres.';
+        return;
+      }
+      if (pass.length < 8 || pass.length > 63) {
+        huaweiWifiFormError.value = 'La clave WiFi debe tener entre 8 y 63 caracteres.';
+        return;
+      }
+      huaweiWifiFormError.value = '';
+      loading.huaweiWifi = true;
+      outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Aplicando SSID y clave en la ONU…</p>';
+      postJson(url, {
+        ssid: ssid,
+        password: pass
+      }).then(function (res) {
+        var d = res.data || {};
+        var ok = res.ok && d.success !== false;
+        outHuawei.value = huaweiMsgHtml(d, ok);
+        if (ok) {
+          aplicarSsidLeido(d, true);
+          huaweiPassword.value = '';
+          huaweiPassword2.value = '';
+          cerrarHuaweiWifi();
+        } else {
+          huaweiWifiFormError.value = d.message || 'No se pudo cambiar SSID y contraseña.';
+        }
+      }).catch(function () {
+        huaweiWifiFormError.value = 'No se pudo cambiar SSID y contraseña.';
+        outHuawei.value = errHtml('No se pudo cambiar SSID y contraseña.');
+      }).finally(function () {
+        loading.huaweiWifi = false;
+      });
+    }
     function onOlt() {
-      var _payload$value20;
-      var oltUrl = (_payload$value20 = payload.value) === null || _payload$value20 === void 0 || (_payload$value20 = _payload$value20.urls) === null || _payload$value20 === void 0 ? void 0 : _payload$value20.olt;
+      var _payload$value28;
+      var oltUrl = (_payload$value28 = payload.value) === null || _payload$value28 === void 0 || (_payload$value28 = _payload$value28.urls) === null || _payload$value28 === void 0 ? void 0 : _payload$value28.olt;
       if (!oltUrl) return;
       loading.olt = true;
       outOlt.value = '<p class="text-gray-500 dark:text-gray-400">Consultando MikroTik + OLT (puede tardar)…</p>';
@@ -27946,8 +28194,8 @@ __webpack_require__.r(__webpack_exports__);
       });
     }
     function onOltDesc() {
-      var _payload$value21;
-      var oltDescUrl = (_payload$value21 = payload.value) === null || _payload$value21 === void 0 || (_payload$value21 = _payload$value21.urls) === null || _payload$value21 === void 0 ? void 0 : _payload$value21.olt_desc;
+      var _payload$value29;
+      var oltDescUrl = (_payload$value29 = payload.value) === null || _payload$value29 === void 0 || (_payload$value29 = _payload$value29.urls) === null || _payload$value29 === void 0 ? void 0 : _payload$value29.olt_desc;
       if (!oltDescUrl) return;
       var label = servicio.value.desc_onu || 'usuario PPPoE';
       if (!confirm('¿Escribir en la OLT la descripción de la ONU como «' + label + '»?')) return;
@@ -27977,6 +28225,13 @@ __webpack_require__.r(__webpack_exports__);
       if (item) fetchDatos(item);
     });
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(function () {
+      return canHuawei.value ? Number(servicio.value.servicio_id) : 0;
+    }, function (id) {
+      if (id) cargarHuaweiSsid();
+    }, {
+      immediate: true
+    });
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(function () {
       return props.initialPayload;
     }, function (val) {
       var _val$servicio;
@@ -27989,6 +28244,8 @@ __webpack_require__.r(__webpack_exports__);
       }
     });
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(function () {
+      document.addEventListener('mousedown', onHuaweiWifiDocClick);
+      document.addEventListener('keydown', onHuaweiWifiDocKey);
       if (payload.value) return;
       var item = servicioItemById(selectedServicioId.value) || props.servicios[0];
       if (!item) return;
@@ -27997,6 +28254,10 @@ __webpack_require__.r(__webpack_exports__);
       } else {
         selectedServicioId.value = item.servicio_id;
       }
+    });
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onUnmounted)(function () {
+      document.removeEventListener('mousedown', onHuaweiWifiDocClick);
+      document.removeEventListener('keydown', onHuaweiWifiDocKey);
     });
     var __returned__ = {
       props: props,
@@ -28016,7 +28277,26 @@ __webpack_require__.r(__webpack_exports__);
       tr069PassTarget: tr069PassTarget,
       tr069Password: tr069Password,
       tr069Password2: tr069Password2,
+      outHuawei: outHuawei,
+      huaweiSsid: huaweiSsid,
+      huaweiPassword: huaweiPassword,
+      huaweiPassword2: huaweiPassword2,
+      huaweiSsidsActuales: huaweiSsidsActuales,
+      huaweiSsidError: huaweiSsidError,
+      huaweiWifiOpen: huaweiWifiOpen,
+      huaweiWifiFormError: huaweiWifiFormError,
+      huaweiWifiPanel: huaweiWifiPanel,
+      huaweiPassVisible: huaweiPassVisible,
+      huaweiPass2Visible: huaweiPass2Visible,
+      huaweiDispositivos: huaweiDispositivos,
+      huaweiOptica: huaweiOptica,
       loading: loading,
+      get huaweiSsidReq() {
+        return huaweiSsidReq;
+      },
+      set huaweiSsidReq(v) {
+        huaweiSsidReq = v;
+      },
       get mikrotikCache() {
         return mikrotikCache;
       },
@@ -28042,6 +28322,10 @@ __webpack_require__.r(__webpack_exports__);
       esAntena: esAntena,
       tr069Enabled: tr069Enabled,
       cpeSsh: cpeSsh,
+      huaweiOnu: huaweiOnu,
+      canHuawei: canHuawei,
+      huaweiBusy: huaweiBusy,
+      huaweiSsidVista: huaweiSsidVista,
       toolsCols: toolsCols,
       tr069TieneDetalle: tr069TieneDetalle,
       eventos: eventos,
@@ -28049,6 +28333,7 @@ __webpack_require__.r(__webpack_exports__);
       tr069WifiEnabled: tr069WifiEnabled,
       barPct: barPct,
       formatPct: formatPct,
+      formatAsociadoTiempo: formatAsociadoTiempo,
       timelineSegClass: timelineSegClass,
       csrfToken: csrfToken,
       clearResults: clearResults,
@@ -28076,10 +28361,23 @@ __webpack_require__.r(__webpack_exports__);
       onTr069Refresh: onTr069Refresh,
       onTr069Reboot: onTr069Reboot,
       onTr069Password: onTr069Password,
+      huaweiMsgHtml: huaweiMsgHtml,
+      onHuaweiIpv6: onHuaweiIpv6,
+      onHuaweiConectados: onHuaweiConectados,
+      aplicarSsidLeido: aplicarSsidLeido,
+      onHuaweiOptica: onHuaweiOptica,
+      onHuaweiReboot: onHuaweiReboot,
+      cargarHuaweiSsid: cargarHuaweiSsid,
+      toggleHuaweiWifi: toggleHuaweiWifi,
+      cerrarHuaweiWifi: cerrarHuaweiWifi,
+      onHuaweiWifiDocClick: onHuaweiWifiDocClick,
+      onHuaweiWifiDocKey: onHuaweiWifiDocKey,
+      onHuaweiWifi: onHuaweiWifi,
       onOlt: onOlt,
       onOltDesc: onOltDesc,
       computed: vue__WEBPACK_IMPORTED_MODULE_0__.computed,
       onMounted: vue__WEBPACK_IMPORTED_MODULE_0__.onMounted,
+      onUnmounted: vue__WEBPACK_IMPORTED_MODULE_0__.onUnmounted,
       reactive: vue__WEBPACK_IMPORTED_MODULE_0__.reactive,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
       watch: vue__WEBPACK_IMPORTED_MODULE_0__.watch
@@ -28569,198 +28867,352 @@ var _hoisted_124 = {
 var _hoisted_125 = ["innerHTML"];
 var _hoisted_126 = {
   key: 0,
-  class: "noc-card mt-4"
+  class: "noc-card noc-card--float mt-4"
 };
 var _hoisted_127 = {
-  class: "noc-card-body space-y-2"
+  class: "noc-card-head"
 };
 var _hoisted_128 = {
-  class: "text-sm text-gray-700 dark:text-gray-300"
+  class: "flex-1 min-w-0"
 };
 var _hoisted_129 = {
-  key: 1,
-  class: "noc-card mt-4"
+  class: "flex items-center gap-2"
 };
 var _hoisted_130 = {
-  class: "noc-card-body space-y-3"
+  key: 0,
+  class: "noc-live-badge"
 };
 var _hoisted_131 = {
-  key: 0,
-  class: "text-sm text-amber-700 dark:text-amber-300"
+  class: "noc-card-body space-y-4"
 };
 var _hoisted_132 = {
-  class: "grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"
+  class: "space-y-2"
 };
 var _hoisted_133 = {
-  class: "font-medium text-gray-900 dark:text-gray-100"
+  class: "text-xs text-gray-500 dark:text-gray-400"
 };
 var _hoisted_134 = {
   key: 0,
-  class: "text-xs text-gray-500 dark:text-gray-400"
+  class: "font-mono text-gray-800 dark:text-gray-200"
 };
 var _hoisted_135 = {
-  class: "font-mono text-xs text-gray-800 dark:text-gray-200"
+  key: 1,
+  class: "text-amber-600 dark:text-amber-400"
 };
 var _hoisted_136 = {
-  class: "font-mono text-gray-900 dark:text-gray-100"
+  key: 0,
+  class: "grid grid-cols-3 gap-3"
 };
 var _hoisted_137 = {
+  key: 0
+};
+var _hoisted_138 = {
+  key: 1
+};
+var _hoisted_139 = {
+  class: "noc-metric noc-metric--blue"
+};
+var _hoisted_140 = {
+  key: 2
+};
+var _hoisted_141 = {
+  class: "noc-metric"
+};
+var _hoisted_142 = {
+  class: "flex flex-wrap items-center gap-2"
+};
+var _hoisted_143 = ["disabled"];
+var _hoisted_144 = ["disabled"];
+var _hoisted_145 = ["disabled"];
+var _hoisted_146 = ["disabled"];
+var _hoisted_147 = {
+  ref: "huaweiWifiPanel",
+  class: "relative ml-auto flex items-center gap-2"
+};
+var _hoisted_148 = ["title"];
+var _hoisted_149 = {
+  class: "truncate font-medium"
+};
+var _hoisted_150 = ["disabled", "aria-expanded"];
+var _hoisted_151 = ["placeholder", "disabled"];
+var _hoisted_152 = {
+  class: "flex items-center justify-between gap-2 mb-1"
+};
+var _hoisted_153 = {
+  class: "relative"
+};
+var _hoisted_154 = ["type"];
+var _hoisted_155 = ["aria-label", "aria-pressed"];
+var _hoisted_156 = {
+  key: 0,
+  class: "h-4 w-4",
+  fill: "none",
+  stroke: "currentColor",
+  viewBox: "0 0 24 24",
+  "aria-hidden": "true"
+};
+var _hoisted_157 = {
+  key: 1,
+  class: "h-4 w-4",
+  fill: "none",
+  stroke: "currentColor",
+  viewBox: "0 0 24 24",
+  "aria-hidden": "true"
+};
+var _hoisted_158 = {
+  class: "flex items-center justify-between gap-2 mb-1"
+};
+var _hoisted_159 = {
+  class: "relative"
+};
+var _hoisted_160 = ["type"];
+var _hoisted_161 = ["aria-label", "aria-pressed"];
+var _hoisted_162 = {
+  key: 0,
+  class: "h-4 w-4",
+  fill: "none",
+  stroke: "currentColor",
+  viewBox: "0 0 24 24",
+  "aria-hidden": "true"
+};
+var _hoisted_163 = {
+  key: 1,
+  class: "h-4 w-4",
+  fill: "none",
+  stroke: "currentColor",
+  viewBox: "0 0 24 24",
+  "aria-hidden": "true"
+};
+var _hoisted_164 = {
+  key: 0,
+  class: "text-xs text-red-600 dark:text-red-400"
+};
+var _hoisted_165 = {
+  class: "flex gap-2"
+};
+var _hoisted_166 = ["disabled"];
+var _hoisted_167 = {
+  key: 0,
+  class: "text-xs text-red-600 dark:text-red-400"
+};
+var _hoisted_168 = ["innerHTML"];
+var _hoisted_169 = {
+  key: 2,
+  class: "overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600"
+};
+var _hoisted_170 = {
+  class: "min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm"
+};
+var _hoisted_171 = {
+  class: "divide-y divide-gray-200 dark:divide-gray-700"
+};
+var _hoisted_172 = {
+  class: "px-2 py-2 text-gray-900 dark:text-gray-100 break-all"
+};
+var _hoisted_173 = {
+  class: "px-2 py-2 font-mono text-gray-900 dark:text-gray-100"
+};
+var _hoisted_174 = {
+  class: "px-2 py-2 font-mono text-gray-700 dark:text-gray-300"
+};
+var _hoisted_175 = {
+  class: "px-2 py-2 text-gray-700 dark:text-gray-300"
+};
+var _hoisted_176 = ["title"];
+var _hoisted_177 = {
+  key: 1,
+  class: "noc-card mt-4"
+};
+var _hoisted_178 = {
+  class: "noc-card-body space-y-2"
+};
+var _hoisted_179 = {
+  class: "text-sm text-gray-700 dark:text-gray-300"
+};
+var _hoisted_180 = {
+  key: 2,
+  class: "noc-card mt-4"
+};
+var _hoisted_181 = {
+  class: "noc-card-body space-y-3"
+};
+var _hoisted_182 = {
+  key: 0,
+  class: "text-sm text-amber-700 dark:text-amber-300"
+};
+var _hoisted_183 = {
+  class: "grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"
+};
+var _hoisted_184 = {
+  class: "font-medium text-gray-900 dark:text-gray-100"
+};
+var _hoisted_185 = {
+  key: 0,
+  class: "text-xs text-gray-500 dark:text-gray-400"
+};
+var _hoisted_186 = {
+  class: "font-mono text-xs text-gray-800 dark:text-gray-200"
+};
+var _hoisted_187 = {
+  class: "font-mono text-gray-900 dark:text-gray-100"
+};
+var _hoisted_188 = {
   key: 0,
   class: "font-mono text-xs text-gray-500 dark:text-gray-400"
 };
-var _hoisted_138 = {
+var _hoisted_189 = {
   class: "font-mono text-gray-900 dark:text-gray-100"
 };
-var _hoisted_139 = {
+var _hoisted_190 = {
   class: "col-span-1 md:col-span-3"
 };
-var _hoisted_140 = {
+var _hoisted_191 = {
   class: "text-gray-900 dark:text-gray-100"
 };
-var _hoisted_141 = {
+var _hoisted_192 = {
   class: "col-span-2"
 };
-var _hoisted_142 = {
+var _hoisted_193 = {
   class: "text-xs text-gray-500 dark:text-gray-400"
 };
-var _hoisted_143 = {
+var _hoisted_194 = {
   key: 1,
   class: "overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600"
 };
-var _hoisted_144 = {
+var _hoisted_195 = {
   class: "min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm"
 };
-var _hoisted_145 = {
+var _hoisted_196 = {
   class: "divide-y divide-gray-200 dark:divide-gray-700"
 };
-var _hoisted_146 = {
+var _hoisted_197 = {
   class: "px-2 py-2 font-mono text-gray-900 dark:text-gray-100"
 };
-var _hoisted_147 = {
+var _hoisted_198 = {
   class: "px-2 py-2 font-mono text-gray-700 dark:text-gray-300"
 };
-var _hoisted_148 = {
+var _hoisted_199 = {
   class: "px-2 py-2 text-gray-700 dark:text-gray-300"
 };
-var _hoisted_149 = {
+var _hoisted_200 = {
   class: "px-2 py-2 font-mono text-gray-700 dark:text-gray-300"
 };
-var _hoisted_150 = {
+var _hoisted_201 = {
   class: "px-2 py-2 text-gray-500 dark:text-gray-400"
 };
-var _hoisted_151 = {
+var _hoisted_202 = {
   class: "grid grid-cols-1 sm:grid-cols-2 gap-2"
 };
-var _hoisted_152 = ["value"];
-var _hoisted_153 = {
+var _hoisted_203 = ["value"];
+var _hoisted_204 = {
   key: 0,
   value: "admin"
 };
-var _hoisted_154 = ["minlength", "maxlength"];
-var _hoisted_155 = {
+var _hoisted_205 = ["minlength", "maxlength"];
+var _hoisted_206 = {
   class: "flex flex-wrap items-center gap-2"
 };
-var _hoisted_156 = ["disabled"];
-var _hoisted_157 = {
+var _hoisted_207 = ["disabled"];
+var _hoisted_208 = {
   class: "noc-card mt-6"
 };
-var _hoisted_158 = {
+var _hoisted_209 = {
   class: "noc-card-head border-b border-gray-200 dark:border-gray-700 px-4 py-3"
 };
-var _hoisted_159 = {
+var _hoisted_210 = {
   class: "noc-card-sub"
 };
-var _hoisted_160 = {
+var _hoisted_211 = {
   class: "border-b border-gray-200 px-4 py-4 dark:border-gray-700"
 };
-var _hoisted_161 = {
+var _hoisted_212 = {
   class: "mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
 };
-var _hoisted_162 = {
+var _hoisted_213 = {
   key: 0,
   class: "mt-0.5 text-[11px] text-gray-500 dark:text-gray-400"
 };
-var _hoisted_163 = {
+var _hoisted_214 = {
   key: 0,
   class: "font-medium text-sky-500 dark:text-sky-400"
 };
-var _hoisted_164 = {
+var _hoisted_215 = {
   key: 1,
   class: "font-medium text-amber-500 dark:text-amber-400"
 };
-var _hoisted_165 = {
+var _hoisted_216 = {
   key: 2,
   class: "font-medium text-gray-500 dark:text-gray-400"
 };
-var _hoisted_166 = {
+var _hoisted_217 = {
   key: 0,
   class: "flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400"
 };
-var _hoisted_167 = {
+var _hoisted_218 = {
   class: "inline-flex items-center gap-1.5"
 };
-var _hoisted_168 = {
+var _hoisted_219 = {
   class: "inline-flex items-center gap-1.5"
 };
-var _hoisted_169 = {
+var _hoisted_220 = {
   class: "inline-flex items-center gap-1.5"
 };
-var _hoisted_170 = {
+var _hoisted_221 = {
   class: "pppoe-timeline-track"
 };
-var _hoisted_171 = ["title"];
-var _hoisted_172 = {
+var _hoisted_222 = ["title"];
+var _hoisted_223 = {
   key: 0,
   class: "relative mt-1.5 h-3"
 };
-var _hoisted_173 = {
+var _hoisted_224 = {
   class: "overflow-x-auto"
 };
-var _hoisted_174 = {
+var _hoisted_225 = {
   class: "min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm"
 };
-var _hoisted_175 = {
+var _hoisted_226 = {
   class: "divide-y divide-gray-200 dark:divide-gray-700"
 };
-var _hoisted_176 = {
+var _hoisted_227 = {
   class: "whitespace-nowrap px-3 py-2 text-gray-700 dark:text-gray-200"
 };
-var _hoisted_177 = {
+var _hoisted_228 = {
   class: "px-3 py-2 font-medium text-gray-900 dark:text-gray-100"
 };
-var _hoisted_178 = {
+var _hoisted_229 = {
   class: "px-3 py-2 text-gray-700 dark:text-gray-300"
 };
-var _hoisted_179 = {
+var _hoisted_230 = {
   class: "px-3 py-2 text-xs text-gray-500"
 };
-var _hoisted_180 = {
+var _hoisted_231 = {
   key: 0
 };
-var _hoisted_181 = {
-  key: 2,
+var _hoisted_232 = {
+  key: 3,
   class: "mt-4 text-xs text-gray-400 dark:text-gray-500"
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   var _$setup$payload$urls, _$setup$tr069Resumen, _$setup$timeline;
   return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)($props.compact ? '' : 'max-w-7xl mx-auto')
-  }, [!$props.compact && $setup.payload ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [!$props.compact && $setup.payload ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400"
   }, "Centro de operaciones · NOC", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
     href: (_$setup$payload$urls = $setup.payload.urls) === null || _$setup$payload$urls === void 0 ? void 0 : _$setup$payload$urls.servicios_index,
     class: "mt-1 inline-block text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
-  }, "← Volver a servicios", 8 /* PROPS */, _hoisted_2), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", {
+  }, "← Volver a servicios", 8 /* PROPS */, _hoisted_2), _cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", {
     class: "mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100"
   }, "Herramientas de red", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_3, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.cliente_nombre || 'Servicio #' + $setup.servicio.servicio_id) + " ", 1 /* TEXT */), $setup.servicio.ip ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [_cache[4] || (_cache[4] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · IP ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_4, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.ip), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.servicio.usuario_pppoe ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · IP ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_4, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.ip), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.servicio.usuario_pppoe ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [_cache[5] || (_cache[5] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · PPPoE ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.usuario_pppoe), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Router: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.router_nombre || 'sin pool/router') + " ", 1 /* TEXT */), $setup.servicio.nodo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · PPPoE ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_5, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.usuario_pppoe), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Router: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.router_nombre || 'sin pool/router') + " ", 1 /* TEXT */), $setup.servicio.nodo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · Nodo " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.nodo), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.servicio.tecnologia_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.tecnologia_label), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.servicio.equipo_resumen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_7, [_cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Equipo en casa: ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_8, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.equipo_resumen), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [$setup.servicio.cliente_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.tecnologia_label), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.servicio.equipo_resumen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_7, [_cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Equipo en casa: ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_8, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.equipo_resumen), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [$setup.servicio.cliente_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
     key: 0,
     href: $setup.servicio.cliente_url,
     class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
@@ -28768,7 +29220,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     key: 1,
     href: $setup.servicio.edit_url,
     class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-  }, " Editar servicio ", 8 /* PROPS */, _hoisted_11)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.servicios.length > 1 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_12, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, " Editar servicio ", 8 /* PROPS */, _hoisted_11)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.servicios.length > 1 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_12, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "noc-servicio-select",
     class: "block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1"
   }, "Servicio", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
@@ -28788,16 +29240,16 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["noc-tools-grid", {
       'is-4': $setup.toolsCols >= 4
     }])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ping "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_16, [_cache[17] || (_cache[17] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--blue\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M13 10V3L4 14h7v7l9-11h-7z\"></path></svg></span><div><h2 class=\"noc-card-title\">Ping CPE</h2><p class=\"noc-card-sub\">ICMP desde el servidor</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_17, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_18, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_19, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.ip || 'Sin IP asignada'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Ping "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_16, [_cache[22] || (_cache[22] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--blue\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M13 10V3L4 14h7v7l9-11h-7z\"></path></svg></span><div><h2 class=\"noc-card-title\">Ping CPE</h2><p class=\"noc-card-sub\">ICMP desde el servidor</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_17, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_18, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_19, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.ip || 'Sin IP asignada'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "noc-btn-icon noc-btn-icon--primary",
     title: "Ejecutar ping",
     "aria-label": "Ejecutar ping",
     disabled: !$setup.canPing || $setup.loading.ping,
     onClick: $setup.onPing
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_21, _toConsumableArray(_cache[10] || (_cache[10] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_21, _toConsumableArray(_cache[15] || (_cache[15] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M8 5.14v13.72a1 1 0 0 0 1.5.866l11.196-6.86a1 1 0 0 0 0-1.732L9.5 4.274A1 1 0 0 0 8 5.14z"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.ping]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_22, _toConsumableArray(_cache[11] || (_cache[11] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.ping]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_22, _toConsumableArray(_cache[16] || (_cache[16] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -28811,19 +29263,19 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.loading.ping]])], 8 /* PROPS */, _hoisted_20)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "text-sm",
     innerHTML: $setup.outPing
-  }, null, 8 /* PROPS */, _hoisted_23), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outPing]]), $setup.pingStats ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_24, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_25, [$setup.pingStats.alive ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_26, "Responde")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_27, "Sin respuesta"))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_28, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.calidad), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_29, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, null, 8 /* PROPS */, _hoisted_23), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outPing]]), $setup.pingStats ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_24, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_25, [$setup.pingStats.alive ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_26, "Responde")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_27, "Sin respuesta"))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_28, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.calidad), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_29, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[17] || (_cache[17] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "Paquetes", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_30, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.received) + " de " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.sent), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Paquetes", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_30, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.received) + " de " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.sent), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[18] || (_cache[18] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
   }, "Pérdida", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["text-sm font-semibold", $setup.pingStats.loss_pct > 0 ? 'noc-metric--warn' : 'text-gray-900 dark:text-gray-100'])
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.loss_pct) + "%", 3 /* TEXT, CLASS */)]), $setup.pingStats.avg_ms != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_31, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.loss_pct) + "%", 3 /* TEXT, CLASS */)]), $setup.pingStats.avg_ms != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_31, [_cache[19] || (_cache[19] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "Promedio", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_32, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.avg_ms) + " ms", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.pingStats.min_ms != null || $setup.pingStats.max_ms != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_33, [_cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Promedio", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_32, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.avg_ms) + " ms", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.pingStats.min_ms != null || $setup.pingStats.max_ms != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_33, [_cache[20] || (_cache[20] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "Mín / Máx", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_34, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.min_ms != null ? $setup.pingStats.min_ms : '—') + " / " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.max_ms != null ? $setup.pingStats.max_ms : '—') + " ms ", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.pingStats.output ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("details", _hoisted_35, [_cache[16] || (_cache[16] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("summary", {
+  }, "Mín / Máx", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_34, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.min_ms != null ? $setup.pingStats.min_ms : '—') + " / " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.max_ms != null ? $setup.pingStats.max_ms : '—') + " ms ", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.pingStats.output ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("details", _hoisted_35, [_cache[21] || (_cache[21] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("summary", {
     class: "cursor-pointer select-none"
-  }, "Ver detalle técnico", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("pre", _hoisted_36, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.output), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" MAC "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_37, [_cache[23] || (_cache[23] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--indigo\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\"></path></svg></span><div><h2 class=\"noc-card-title\">MAC Address</h2><p class=\"noc-card-sub\">Consulta MikroTik</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_38, [_cache[22] || (_cache[22] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Ver detalle técnico", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("pre", _hoisted_36, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pingStats.output), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" MAC "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_37, [_cache[28] || (_cache[28] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--indigo\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\"></path></svg></span><div><h2 class=\"noc-card-title\">MAC Address</h2><p class=\"noc-card-sub\">Consulta MikroTik</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_38, [_cache[27] || (_cache[27] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs text-gray-500 dark:text-gray-400"
   }, "PPP activo · ARP · DHCP lease", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_39, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
@@ -28832,11 +29284,11 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Consultar MAC",
     disabled: !$setup.canMac || $setup.loading.mac,
     onClick: $setup.onMac
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_41, _toConsumableArray(_cache[18] || (_cache[18] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_41, _toConsumableArray(_cache[23] || (_cache[23] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 12a9 9 0 1 1-2.64-6.36"
   }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 3v6h-6"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.mac]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_42, _toConsumableArray(_cache[19] || (_cache[19] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.mac]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_42, _toConsumableArray(_cache[24] || (_cache[24] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -28854,9 +29306,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Ver tráfico de sesión",
     disabled: !$setup.canMac || $setup.loading.trafico,
     onClick: $setup.onTrafico
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_44, _toConsumableArray(_cache[20] || (_cache[20] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_44, _toConsumableArray(_cache[25] || (_cache[25] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.trafico]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_45, _toConsumableArray(_cache[21] || (_cache[21] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.trafico]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_45, _toConsumableArray(_cache[26] || (_cache[26] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -28873,7 +29325,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, null, 8 /* PROPS */, _hoisted_46), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outMac]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "text-sm",
     innerHTML: $setup.outTrafico
-  }, null, 8 /* PROPS */, _hoisted_47), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outTrafico]])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" ONU Signal (solo GPON / fibra) "), $setup.esFibra ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_48, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_49, [_cache[26] || (_cache[26] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 8 /* PROPS */, _hoisted_47), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outTrafico]])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" ONU Signal (solo GPON / fibra) "), $setup.esFibra ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_48, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_49, [_cache[31] || (_cache[31] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "noc-icon noc-icon--amber"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-4 w-4",
@@ -28885,34 +29337,34 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_50, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_51, [_cache[24] || (_cache[24] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_50, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_51, [_cache[29] || (_cache[29] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     class: "noc-card-title"
-  }, "ONU Signal", -1 /* CACHED */)), $setup.ultimaOptica ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_52, "REGISTRO")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[25] || (_cache[25] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "ONU Signal", -1 /* CACHED */)), $setup.ultimaOptica ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_52, "REGISTRO")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[30] || (_cache[30] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-card-sub"
   }, "Señal óptica OLT", -1 /* CACHED */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_53, [$setup.ultimaOptica ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_54, [$setup.ultimaOptica.tx_power_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_55, [_cache[28] || (_cache[28] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_54, [$setup.ultimaOptica.tx_power_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_55, [_cache[33] || (_cache[33] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "TX Power", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_56, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.tx_power_dbm) + " ", 1 /* TEXT */), _cache[27] || (_cache[27] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, "TX Power", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_56, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.tx_power_dbm) + " ", 1 /* TEXT */), _cache[32] || (_cache[32] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "text-sm font-normal"
-  }, "dBm", -1 /* CACHED */))])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaOptica.rx_power_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_57, [_cache[30] || (_cache[30] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "dBm", -1 /* CACHED */))])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaOptica.rx_power_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_57, [_cache[35] || (_cache[35] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
   }, "RX Power", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(Number($setup.ultimaOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber')
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.rx_power_dbm) + " ", 1 /* TEXT */), _cache[29] || (_cache[29] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.rx_power_dbm) + " ", 1 /* TEXT */), _cache[34] || (_cache[34] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "text-sm font-normal"
-  }, "dBm", -1 /* CACHED */))], 2 /* CLASS */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_58, [$setup.ultimaOptica.pon_port != null && $setup.ultimaOptica.onu_index != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_59, [_cache[31] || (_cache[31] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" PON ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_60, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.pon_port) + ":" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.onu_index), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaOptica.onu_estado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_61, [_cache[32] || (_cache[32] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Estado ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_62, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.onu_estado), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_63, "Última lectura · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.ocurrio_at), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_64, "Sin registro de señal óptica. Consultá la ONU para guardar RX/TX.")), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_65, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "dBm", -1 /* CACHED */))], 2 /* CLASS */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_58, [$setup.ultimaOptica.pon_port != null && $setup.ultimaOptica.onu_index != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_59, [_cache[36] || (_cache[36] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" PON ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_60, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.pon_port) + ":" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.onu_index), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaOptica.onu_estado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_61, [_cache[37] || (_cache[37] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Estado ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_62, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.onu_estado), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_63, "Última lectura · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaOptica.ocurrio_at), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_64, "Sin registro de señal óptica. Consultá la ONU para guardar RX/TX.")), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_65, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "noc-btn-icon noc-btn-icon--primary",
     title: "Consultar señal ONU",
     "aria-label": "Consultar señal ONU",
     disabled: !$setup.canOlt || $setup.loading.olt,
     onClick: $setup.onOlt
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_67, _toConsumableArray(_cache[33] || (_cache[33] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_67, _toConsumableArray(_cache[38] || (_cache[38] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 12a9 9 0 1 1-2.64-6.36"
   }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 3v6h-6"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.olt]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_68, _toConsumableArray(_cache[34] || (_cache[34] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.olt]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_68, _toConsumableArray(_cache[39] || (_cache[39] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -28930,9 +29382,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Aplicar descripción ONU",
     disabled: !$setup.canOltDesc || $setup.loading.oltDesc,
     onClick: $setup.onOltDesc
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_70, _toConsumableArray(_cache[35] || (_cache[35] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_70, _toConsumableArray(_cache[40] || (_cache[40] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.oltDesc]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_71, _toConsumableArray(_cache[36] || (_cache[36] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.oltDesc]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_71, _toConsumableArray(_cache[41] || (_cache[41] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -28946,7 +29398,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.loading.oltDesc]])], 8 /* PROPS */, _hoisted_69)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "text-sm",
     innerHTML: $setup.outOlt
-  }, null, 8 /* PROPS */, _hoisted_72), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outOlt]])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" CPE / Antena (solo wireless) "), $setup.esAntena ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_73, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_74, [_cache[39] || (_cache[39] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 8 /* PROPS */, _hoisted_72), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outOlt]])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" CPE / Antena (solo wireless) "), $setup.esAntena ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_73, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_74, [_cache[44] || (_cache[44] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "noc-icon noc-icon--sky"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-4 w-4",
@@ -28958,27 +29410,27 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
-  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_75, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_76, [_cache[37] || (_cache[37] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_75, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_76, [_cache[42] || (_cache[42] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     class: "noc-card-title"
-  }, "CPE / Antena", -1 /* CACHED */)), $setup.ultimaAntena ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_77, "REGISTRO")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[38] || (_cache[38] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "CPE / Antena", -1 /* CACHED */)), $setup.ultimaAntena ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_77, "REGISTRO")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[43] || (_cache[43] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-card-sub"
   }, "Wireless Ubiquiti", -1 /* CACHED */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_78, [$setup.ultimaAntena ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [$setup.ultimaAntena.antena_signal_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_79, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_80, [_cache[40] || (_cache[40] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, [$setup.ultimaAntena.antena_signal_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_79, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_80, [_cache[45] || (_cache[45] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "noc-metric-label mb-0"
   }, "Signal Strength", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_81, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.antena_signal_dbm) + " dBm", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_82, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "noc-bar-fill noc-bar-fill--signal",
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       width: $setup.barPct($setup.ultimaAntena.antena_signal_dbm) + '%'
     })
-  }, null, 4 /* STYLE */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaAntena.noise_floor_dbm ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_83, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_84, [_cache[41] || (_cache[41] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 4 /* STYLE */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaAntena.noise_floor_dbm ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_83, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_84, [_cache[46] || (_cache[46] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "noc-metric-label mb-0"
   }, "Noise Floor", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_85, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.noise_floor_dbm) + " dBm", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_86, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "noc-bar-fill noc-bar-fill--noise",
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       width: $setup.barPct($setup.ultimaAntena.noise_floor_dbm) + '%'
     })
-  }, null, 4 /* STYLE */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_87, [$setup.ultimaAntena.antena_snr_db != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_88, [_cache[42] || (_cache[42] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" SNR ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("strong", _hoisted_89, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.antena_snr_db) + " dB", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaAntena.ccq ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_90, [_cache[43] || (_cache[43] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" CCQ ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("strong", _hoisted_91, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.ccq) + "%", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_92, "Última lectura · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.ocurrio_at), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_93, _toConsumableArray(_cache[44] || (_cache[44] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Sin registro de señal antena. Consultá vía SSH ", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 4 /* STYLE */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_87, [$setup.ultimaAntena.antena_snr_db != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_88, [_cache[47] || (_cache[47] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" SNR ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("strong", _hoisted_89, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.antena_snr_db) + " dB", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.ultimaAntena.ccq ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_90, [_cache[48] || (_cache[48] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" CCQ ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("strong", _hoisted_91, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.ccq) + "%", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_92, "Última lectura · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.ultimaAntena.ocurrio_at), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_93, _toConsumableArray(_cache[49] || (_cache[49] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Sin registro de señal antena. Consultá vía SSH ", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "font-mono"
   }, "wstalist", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(". ", -1 /* CACHED */)])))), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_94, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
@@ -28987,11 +29439,11 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Consultar señal antena",
     disabled: !$setup.canAntena || $setup.loading.antena,
     onClick: $setup.onAntena
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_96, _toConsumableArray(_cache[45] || (_cache[45] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_96, _toConsumableArray(_cache[50] || (_cache[50] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 12a9 9 0 1 1-2.64-6.36"
   }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 3v6h-6"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.antena]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_97, _toConsumableArray(_cache[46] || (_cache[46] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.antena]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_97, _toConsumableArray(_cache[51] || (_cache[51] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29009,9 +29461,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Consultar DHCP leases",
     disabled: !$setup.canAntena || $setup.loading.antenaDhcp,
     onClick: $setup.onAntenaDhcp
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_99, _toConsumableArray(_cache[47] || (_cache[47] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_99, _toConsumableArray(_cache[52] || (_cache[52] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.antenaDhcp]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_100, _toConsumableArray(_cache[48] || (_cache[48] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.antenaDhcp]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_100, _toConsumableArray(_cache[53] || (_cache[53] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29028,7 +29480,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, null, 8 /* PROPS */, _hoisted_101), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outAntena]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "text-sm",
     innerHTML: $setup.outAntenaDhcp
-  }, null, 8 /* PROPS */, _hoisted_102), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outAntenaDhcp]])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Enabled ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_103, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_104, [_cache[51] || (_cache[51] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 8 /* PROPS */, _hoisted_102), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.outAntenaDhcp]])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Enabled ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_103, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_104, [_cache[56] || (_cache[56] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "noc-icon noc-icon--violet"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-4 w-4",
@@ -29040,24 +29492,24 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_105, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_106, [_cache[49] || (_cache[49] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_105, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_106, [_cache[54] || (_cache[54] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     class: "noc-card-title"
-  }, "TR-069", -1 /* CACHED */)), (_$setup$tr069Resumen = $setup.tr069Resumen) !== null && _$setup$tr069Resumen !== void 0 && _$setup$tr069Resumen.online ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_107, "INFORM")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[50] || (_cache[50] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "TR-069", -1 /* CACHED */)), (_$setup$tr069Resumen = $setup.tr069Resumen) !== null && _$setup$tr069Resumen !== void 0 && _$setup$tr069Resumen.online ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_107, "INFORM")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[55] || (_cache[55] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-card-sub"
-  }, "GenieACS · clave y reboot por ACS", -1 /* CACHED */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_108, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_109, [_cache[53] || (_cache[53] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Serial ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_110, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.tr069_serial || '—'), 1 /* TEXT */), $setup.servicio.mac_address ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, "GenieACS · clave y reboot por ACS", -1 /* CACHED */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_108, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_109, [_cache[58] || (_cache[58] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Serial ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_110, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.tr069_serial || '—'), 1 /* TEXT */), $setup.servicio.mac_address ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [_cache[52] || (_cache[52] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · MAC ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_111, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.mac_address), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_112, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, [_cache[57] || (_cache[57] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · MAC ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_111, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.mac_address), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_112, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "noc-btn-icon noc-btn-icon--primary",
     title: "Consultar CPE en el ACS",
     "aria-label": "Consultar CPE en el ACS",
     disabled: $setup.loading.tr069,
     onClick: $setup.onTr069Resumen
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_114, _toConsumableArray(_cache[54] || (_cache[54] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_114, _toConsumableArray(_cache[59] || (_cache[59] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 12a9 9 0 1 1-2.64-6.36"
   }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M21 3v6h-6"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_115, _toConsumableArray(_cache[55] || (_cache[55] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_115, _toConsumableArray(_cache[60] || (_cache[60] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29075,9 +29527,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Hosts LAN",
     disabled: $setup.loading.tr069Hosts,
     onClick: $setup.onTr069Hosts
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_117, _toConsumableArray(_cache[56] || (_cache[56] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_117, _toConsumableArray(_cache[61] || (_cache[61] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069Hosts]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_118, _toConsumableArray(_cache[57] || (_cache[57] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069Hosts]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_118, _toConsumableArray(_cache[62] || (_cache[62] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29095,9 +29547,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Refresh parámetros",
     disabled: $setup.loading.tr069Refresh,
     onClick: $setup.onTr069Refresh
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_120, _toConsumableArray(_cache[58] || (_cache[58] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_120, _toConsumableArray(_cache[63] || (_cache[63] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069Refresh]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_121, _toConsumableArray(_cache[59] || (_cache[59] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069Refresh]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_121, _toConsumableArray(_cache[64] || (_cache[64] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29115,9 +29567,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "aria-label": "Reiniciar CPE",
     disabled: $setup.loading.tr069Reboot,
     onClick: $setup.onTr069Reboot
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_123, _toConsumableArray(_cache[60] || (_cache[60] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_123, _toConsumableArray(_cache[65] || (_cache[65] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M5.636 5.636a9 9 0 1012.728 0M12 3v9"
-  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069Reboot]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_124, _toConsumableArray(_cache[61] || (_cache[61] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])), 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, !$setup.loading.tr069Reboot]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_124, _toConsumableArray(_cache[66] || (_cache[66] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29132,29 +29584,229 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     key: 0,
     class: "text-sm",
     innerHTML: $setup.outTr069
-  }, null, 8 /* PROPS */, _hoisted_125)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), $setup.cpeSsh && $setup.esFibra ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_126, [_cache[66] || (_cache[66] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--blue\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z\"></path></svg></span><div class=\"flex-1 min-w-0\"><h2 class=\"noc-card-title\">CPE por SSH</h2><p class=\"noc-card-sub\">Huawei / ONU con acceso SSH</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_127, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_128, [_cache[62] || (_cache[62] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Este servicio está marcado para comandos por ", -1 /* CACHED */)), _cache[63] || (_cache[63] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("strong", null, "SSH", -1 /* CACHED */)), _cache[64] || (_cache[64] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(", no por ACS. ", -1 /* CACHED */)), $setup.servicio.equipo_resumen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, null, 8 /* PROPS */, _hoisted_125)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 2 /* CLASS */), $setup.huaweiOnu ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_126, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_127, [_cache[69] || (_cache[69] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "noc-icon noc-icon--blue"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "h-4 w-4",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"
+  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_128, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_129, [_cache[67] || (_cache[67] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+    class: "noc-card-title"
+  }, "ONU Huawei", -1 /* CACHED */)), $setup.servicio.ipv6_configurado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_130, "IPv6")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[68] || (_cache[68] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "noc-card-sub"
+  }, "IPv6 por web (DHCPv6-PD) · SSH/Telnet/web · sin TR-069", -1 /* CACHED */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_131, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_132, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_133, [_cache[70] || (_cache[70] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" SSH, Telnet o web en la ONU ", -1 /* CACHED */)), $setup.servicio.ip ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_134, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.ip), 1 /* TEXT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_135, "· el servicio no tiene IP")), $setup.servicio.equipo_resumen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    key: 2
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.equipo_resumen), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.huaweiOptica ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_136, [$setup.huaweiOptica.rx_power_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_137, [_cache[72] || (_cache[72] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "noc-metric-label"
+  }, "RX Power", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(Number($setup.huaweiOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber')
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiOptica.rx_power_dbm) + " ", 1 /* TEXT */), _cache[71] || (_cache[71] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "text-sm font-normal"
+  }, "dBm", -1 /* CACHED */))], 2 /* CLASS */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.huaweiOptica.tx_power_dbm != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_138, [_cache[74] || (_cache[74] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "noc-metric-label"
+  }, "TX Power", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_139, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiOptica.tx_power_dbm) + " ", 1 /* TEXT */), _cache[73] || (_cache[73] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "text-sm font-normal"
+  }, "dBm", -1 /* CACHED */))])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.huaweiOptica.temperatura_c != null ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_140, [_cache[76] || (_cache[76] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "noc-metric-label"
+  }, "Temp", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_141, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiOptica.temperatura_c) + " ", 1 /* TEXT */), _cache[75] || (_cache[75] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "text-sm font-normal"
+  }, "°C", -1 /* CACHED */))])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_142, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium",
+    disabled: !$setup.canHuawei || $setup.huaweiBusy,
+    onClick: $setup.onHuaweiIpv6
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.huaweiIpv6 ? 'Configurando IPv6…' : 'Configurar IPv6'), 9 /* TEXT, PROPS */, _hoisted_143), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium",
+    disabled: !$setup.canHuawei || $setup.huaweiBusy,
+    onClick: $setup.onHuaweiConectados
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.huaweiConectados ? 'Listando…' : 'Listar conectados'), 9 /* TEXT, PROPS */, _hoisted_144), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium",
+    disabled: !$setup.canHuawei || $setup.huaweiBusy,
+    onClick: $setup.onHuaweiOptica
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.huaweiOptica ? 'Leyendo óptica…' : 'Señal óptica'), 9 /* TEXT, PROPS */, _hoisted_145), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium",
+    disabled: !$setup.canHuawei || $setup.huaweiBusy,
+    onClick: $setup.onHuaweiReboot
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.huaweiReboot ? 'Reiniciando…' : 'Reiniciar ONU'), 9 /* TEXT, PROPS */, _hoisted_146), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_147, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "inline-flex items-center gap-1.5 min-w-0 text-sm text-gray-800 dark:text-gray-100",
+    title: $setup.huaweiSsidsActuales.length ? $setup.huaweiSsidsActuales.join(' · ') : ''
+  }, [_cache[77] || (_cache[77] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    "aria-hidden": "true"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+  })], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_149, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiSsidVista), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_148), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium",
+    disabled: !$setup.canHuawei || $setup.huaweiBusy && !$setup.huaweiWifiOpen,
+    "aria-expanded": $setup.huaweiWifiOpen,
+    "aria-controls": "huawei-wifi-float",
+    onClick: $setup.toggleHuaweiWifi
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiWifiOpen ? 'Cerrar' : 'Editar SSID'), 9 /* TEXT, PROPS */, _hoisted_150), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
+    id: "huawei-wifi-float",
+    class: "absolute right-0 top-full mt-2 z-30 w-[20rem] rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-3",
+    onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.onHuaweiWifi, ["prevent"])
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[78] || (_cache[78] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    for: "huawei-ssid",
+    class: "block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1"
+  }, "SSID", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    id: "huawei-ssid",
+    "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
+      return $setup.huaweiSsid = $event;
+    }),
+    type: "text",
+    maxlength: "32",
+    autocomplete: "off",
+    placeholder: $setup.loading.huaweiSsid ? 'Leyendo…' : 'SSID',
+    disabled: $setup.loading.huaweiSsid,
+    class: "w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm disabled:opacity-60",
+    required: ""
+  }, null, 8 /* PROPS */, _hoisted_151), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.huaweiSsid]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_152, [_cache[79] || (_cache[79] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    for: "huawei-pass",
+    class: "text-xs font-medium text-gray-600 dark:text-gray-300"
+  }, "Nueva clave", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["text-xs tabular-nums", $setup.huaweiPassword.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'])
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiPassword.length) + "/63", 3 /* TEXT, CLASS */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_153, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    id: "huawei-pass",
+    "onUpdate:modelValue": _cache[2] || (_cache[2] = function ($event) {
+      return $setup.huaweiPassword = $event;
+    }),
+    type: $setup.huaweiPassVisible ? 'text' : 'password',
+    autocomplete: "new-password",
+    minlength: "8",
+    maxlength: "63",
+    class: "w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono",
+    required: ""
+  }, null, 8 /* PROPS */, _hoisted_154), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelDynamic, $setup.huaweiPassword]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100",
+    "aria-label": $setup.huaweiPassVisible ? 'Ocultar clave' : 'Mostrar clave',
+    "aria-pressed": $setup.huaweiPassVisible,
+    onClick: _cache[3] || (_cache[3] = function ($event) {
+      return $setup.huaweiPassVisible = !$setup.huaweiPassVisible;
+    })
+  }, [!$setup.huaweiPassVisible ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_156, _toConsumableArray(_cache[80] || (_cache[80] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+  }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_157, _toConsumableArray(_cache[81] || (_cache[81] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+  }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_155)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_158, [_cache[82] || (_cache[82] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    for: "huawei-pass2",
+    class: "text-xs font-medium text-gray-600 dark:text-gray-300"
+  }, "Repetir clave", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["text-xs tabular-nums", $setup.huaweiPassword2.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'])
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiPassword2.length) + "/63", 3 /* TEXT, CLASS */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_159, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    id: "huawei-pass2",
+    "onUpdate:modelValue": _cache[4] || (_cache[4] = function ($event) {
+      return $setup.huaweiPassword2 = $event;
+    }),
+    type: $setup.huaweiPass2Visible ? 'text' : 'password',
+    autocomplete: "new-password",
+    minlength: "8",
+    maxlength: "63",
+    class: "w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono",
+    required: ""
+  }, null, 8 /* PROPS */, _hoisted_160), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelDynamic, $setup.huaweiPassword2]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100",
+    "aria-label": $setup.huaweiPass2Visible ? 'Ocultar clave' : 'Mostrar clave',
+    "aria-pressed": $setup.huaweiPass2Visible,
+    onClick: _cache[5] || (_cache[5] = function ($event) {
+      return $setup.huaweiPass2Visible = !$setup.huaweiPass2Visible;
+    })
+  }, [!$setup.huaweiPass2Visible ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_162, _toConsumableArray(_cache[83] || (_cache[83] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+  }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_163, _toConsumableArray(_cache[84] || (_cache[84] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+  }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_161)])]), $setup.huaweiWifiFormError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_164, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiWifiFormError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_165, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "submit",
+    class: "noc-btn-ghost inline-flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium",
+    disabled: !$setup.canHuawei || $setup.huaweiBusy
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.huaweiWifi ? 'Aplicando…' : 'Aplicar WiFi'), 9 /* TEXT, PROPS */, _hoisted_166)])], 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.huaweiWifiOpen]])], 512 /* NEED_PATCH */)])]), $setup.huaweiSsidError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_167, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.huaweiSsidError) + " ", 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "underline underline-offset-2 ml-1",
+    onClick: $setup.cargarHuaweiSsid
+  }, "Reintentar")])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.outHuawei ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+    key: 1,
+    class: "text-sm",
+    innerHTML: $setup.outHuawei
+  }, null, 8 /* PROPS */, _hoisted_168)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.huaweiDispositivos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_169, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("table", _hoisted_170, [_cache[85] || (_cache[85] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", {
+    class: "bg-gray-50 dark:bg-gray-900/40"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tr", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
+  }, "Host"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
+  }, "IP"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
+  }, "MAC"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
+  }, "SSID"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
+    class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
+  }, "Tiempo")])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", _hoisted_171, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.huaweiDispositivos, function (dev, idx) {
+    return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", {
+      key: 'hw-dev-' + idx,
+      class: "hover:bg-gray-50 dark:hover:bg-gray-700/40"
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_172, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(dev.host || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_173, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(dev.ip || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_174, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(dev.mac), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_175, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(dev.ssid || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", {
+      class: "px-2 py-2 text-xs text-gray-500 whitespace-nowrap",
+      title: dev.tiempo ? dev.tiempo + ' s' : ''
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatAsociadoTiempo(dev.tiempo)), 9 /* TEXT, PROPS */, _hoisted_176)]);
+  }), 128 /* KEYED_FRAGMENT */))])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : $setup.cpeSsh && $setup.esFibra ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_177, [_cache[89] || (_cache[89] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--blue\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z\"></path></svg></span><div class=\"flex-1 min-w-0\"><h2 class=\"noc-card-title\">CPE por SSH</h2><p class=\"noc-card-sub\">ONU con acceso SSH (no Huawei)</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_178, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_179, [_cache[86] || (_cache[86] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Este servicio está marcado para comandos por ", -1 /* CACHED */)), _cache[87] || (_cache[87] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("strong", null, "SSH", -1 /* CACHED */)), _cache[88] || (_cache[88] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(", no por ACS. ", -1 /* CACHED */)), $setup.servicio.equipo_resumen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.equipo_resumen) + ".", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), _cache[65] || (_cache[65] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
-    class: "text-xs text-gray-500 dark:text-gray-400"
-  }, " La OLT y la antena Ubnt siguen en las tarjetas de arriba. Los comandos SSH al Huawei (WiFi, reboot del ONU) se agregan sobre este perfil. ", -1 /* CACHED */))])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Enabled && $setup.tr069TieneDetalle ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_129, [_cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--violet\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z\"></path></svg></span><div class=\"flex-1 min-w-0\"><h2 class=\"noc-card-title\">Detalle TR-069</h2><p class=\"noc-card-sub\">Estado ACS, hosts LAN y cambio de clave</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_130, [$setup.tr069Resumen && $setup.tr069Resumen.success ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.servicio.equipo_resumen) + ".", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Enabled && $setup.tr069TieneDetalle ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("section", _hoisted_180, [_cache[103] || (_cache[103] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"noc-card-head\"><span class=\"noc-icon noc-icon--violet\"><svg class=\"h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z\"></path></svg></span><div class=\"flex-1 min-w-0\"><h2 class=\"noc-card-title\">Detalle TR-069</h2><p class=\"noc-card-sub\">Estado ACS, hosts LAN y cambio de clave</p></div></div>", 1)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_181, [$setup.tr069Resumen && $setup.tr069Resumen.success ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [$setup.tr069Resumen.aviso ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_131, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.aviso), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_132, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[67] || (_cache[67] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [$setup.tr069Resumen.aviso ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_182, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.aviso), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_183, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[90] || (_cache[90] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
   }, "Estado", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["font-semibold", $setup.tr069Resumen.online ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'])
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.online ? 'Online' : 'Sin Inform reciente'), 3 /* TEXT, CLASS */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[68] || (_cache[68] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.online ? 'Online' : 'Sin Inform reciente'), 3 /* TEXT, CLASS */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[91] || (_cache[91] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "Modelo", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_133, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.model || $setup.tr069Resumen.product_class || '—'), 1 /* TEXT */), $setup.tr069Resumen.manufacturer ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_134, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.manufacturer), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[69] || (_cache[69] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Modelo", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_184, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.model || $setup.tr069Resumen.product_class || '—'), 1 /* TEXT */), $setup.tr069Resumen.manufacturer ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_185, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.manufacturer), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[92] || (_cache[92] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "Firmware", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_135, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.software_version || '—'), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[70] || (_cache[70] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Firmware", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_186, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.software_version || '—'), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[93] || (_cache[93] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "WAN IP", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_136, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.wan_ip || '—'), 1 /* TEXT */), $setup.tr069Resumen.wan_mac ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_137, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.wan_mac), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[71] || (_cache[71] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "WAN IP", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_187, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.wan_ip || '—'), 1 /* TEXT */), $setup.tr069Resumen.wan_mac ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_188, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.wan_mac), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[94] || (_cache[94] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "LAN CPE", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_138, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.lan_ip || '—'), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_139, [_cache[72] || (_cache[72] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "LAN CPE", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_189, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.lan_ip || '—'), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_190, [_cache[95] || (_cache[95] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "SSID", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_140, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.ssids && $setup.tr069Resumen.ssids.length ? $setup.tr069Resumen.ssids.join(' · ') : $setup.tr069Resumen.ssid || '—'), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_141, [_cache[73] || (_cache[73] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "SSID", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_191, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.ssids && $setup.tr069Resumen.ssids.length ? $setup.tr069Resumen.ssids.join(' · ') : $setup.tr069Resumen.ssid || '—'), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_192, [_cache[96] || (_cache[96] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "noc-metric-label"
-  }, "Último Inform", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_142, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.last_inform || '—'), 1 /* TEXT */)])])], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Hosts && $setup.tr069Hosts.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_143, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("table", _hoisted_144, [_cache[74] || (_cache[74] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", {
+  }, "Último Inform", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_193, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tr069Resumen.last_inform || '—'), 1 /* TEXT */)])])], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Hosts && $setup.tr069Hosts.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_194, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("table", _hoisted_195, [_cache[97] || (_cache[97] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", {
     class: "bg-gray-50 dark:bg-gray-900/40"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tr", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
     class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
@@ -29166,41 +29818,41 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
   }, "RSSI"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
     class: "px-2 py-2 text-left text-xs font-medium uppercase text-gray-500"
-  }, "Origen")])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", _hoisted_145, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.tr069Hosts, function (h, idx) {
+  }, "Origen")])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", _hoisted_196, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.tr069Hosts, function (h, idx) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", {
       key: 'h-' + idx,
       class: "hover:bg-gray-50 dark:hover:bg-gray-700/40"
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_146, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.ip || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_147, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.mac || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_148, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.hostname || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_149, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.rssi != null && h.rssi !== '' ? h.rssi + ' dBm' : '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_150, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.source === 'wifi' ? 'WiFi' : h.source === 'lan' ? 'LAN' : '—'), 1 /* TEXT */)]);
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_197, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.ip || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_198, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.mac || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_199, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.hostname || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_200, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.rssi != null && h.rssi !== '' ? h.rssi + ' dBm' : '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_201, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(h.source === 'wifi' ? 'WiFi' : h.source === 'lan' ? 'LAN' : '—'), 1 /* TEXT */)]);
   }), 128 /* KEYED_FRAGMENT */))])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.tr069Resumen && $setup.tr069Resumen.success ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("form", {
     key: 2,
     class: "rounded-lg border border-gray-200 dark:border-gray-600 p-3 space-y-2",
     onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.onTr069Password, ["prevent"])
-  }, [_cache[78] || (_cache[78] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [_cache[101] || (_cache[101] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
-  }, "Cambiar clave por ACS", -1 /* CACHED */)), _cache[79] || (_cache[79] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Cambiar clave por ACS", -1 /* CACHED */)), _cache[102] || (_cache[102] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs text-gray-500 dark:text-gray-400"
-  }, "El CPE no informa la clave actual. Se escribe por TR-069 (WPA2, 8–63 caracteres).", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_151, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[76] || (_cache[76] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "El CPE no informa la clave actual. Se escribe por TR-069 (WPA2, 8–63 caracteres).", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_202, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[99] || (_cache[99] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "tr069-pass-tipo",
     class: "block text-xs text-gray-500 dark:text-gray-400 mb-1"
   }, "Destino", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
     id: "tr069-pass-tipo",
-    "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
+    "onUpdate:modelValue": _cache[6] || (_cache[6] = function ($event) {
       return $setup.tr069PassTarget = $event;
     }),
     class: "w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-  }, [_cache[75] || (_cache[75] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+  }, [_cache[98] || (_cache[98] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: "wifi-all"
   }, "WiFi · todos los SSID activos", -1 /* CACHED */)), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.tr069WifiEnabled, function (w) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
       key: w.id,
       value: 'wifi:' + w.id
-    }, "WiFi · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(w.ssid) + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(w.band ? ' (' + w.band + ')' : ''), 9 /* TEXT, PROPS */, _hoisted_152);
-  }), 128 /* KEYED_FRAGMENT */)), $setup.tr069Resumen.puede_admin_password ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", _hoisted_153, "Clave del router (panel)")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.tr069PassTarget]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[77] || (_cache[77] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    }, "WiFi · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(w.ssid) + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(w.band ? ' (' + w.band + ')' : ''), 9 /* TEXT, PROPS */, _hoisted_203);
+  }), 128 /* KEYED_FRAGMENT */)), $setup.tr069Resumen.puede_admin_password ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", _hoisted_204, "Clave del router (panel)")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.tr069PassTarget]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[100] || (_cache[100] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "tr069-pass",
     class: "block text-xs text-gray-500 dark:text-gray-400 mb-1"
   }, "Nueva clave", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     id: "tr069-pass",
-    "onUpdate:modelValue": _cache[2] || (_cache[2] = function ($event) {
+    "onUpdate:modelValue": _cache[7] || (_cache[7] = function ($event) {
       return $setup.tr069Password = $event;
     }),
     type: "password",
@@ -29209,8 +29861,8 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     minlength: $setup.tr069PassTarget === 'admin' ? 4 : 8,
     maxlength: $setup.tr069PassTarget === 'admin' ? 64 : 63,
     required: ""
-  }, null, 8 /* PROPS */, _hoisted_154), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.tr069Password]])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_155, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    "onUpdate:modelValue": _cache[3] || (_cache[3] = function ($event) {
+  }, null, 8 /* PROPS */, _hoisted_205), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.tr069Password]])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_206, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+    "onUpdate:modelValue": _cache[8] || (_cache[8] = function ($event) {
       return $setup.tr069Password2 = $event;
     }),
     type: "password",
@@ -29222,17 +29874,17 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "submit",
     class: "noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium",
     disabled: $setup.loading.tr069Password
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.tr069Password ? 'Encolando…' : 'Aplicar'), 9 /* TEXT, PROPS */, _hoisted_156)])], 32 /* NEED_HYDRATION */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_157, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_158, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[81] || (_cache[81] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loading.tr069Password ? 'Encolando…' : 'Aplicar'), 9 /* TEXT, PROPS */, _hoisted_207)])], 32 /* NEED_HYDRATION */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_208, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_209, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[104] || (_cache[104] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     class: "noc-card-title text-base"
-  }, "Registro de actividad reciente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_159, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.registroSubtitulo) + " · últimos 30", 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_160, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_161, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[82] || (_cache[82] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Registro de actividad reciente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_210, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.registroSubtitulo) + " · últimos 30", 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_211, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_212, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[105] || (_cache[105] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
-  }, "Últimas 12 horas · PPPoE", -1 /* CACHED */)), $setup.timeline ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_162, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.inicio) + " → " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.fin) + " · Estado actual: ", 1 /* TEXT */), $setup.timeline.estado_actual === 'up' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_163, "conectado")) : $setup.timeline.estado_actual === 'down' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_164, "desconectado")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_165, "sin datos"))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.timeline ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_166, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_167, [_cache[83] || (_cache[83] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, "Últimas 12 horas · PPPoE", -1 /* CACHED */)), $setup.timeline ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_213, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.inicio) + " → " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.fin) + " · Estado actual: ", 1 /* TEXT */), $setup.timeline.estado_actual === 'up' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_214, "conectado")) : $setup.timeline.estado_actual === 'down' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_215, "desconectado")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_216, "sin datos"))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $setup.timeline ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_217, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_218, [_cache[106] || (_cache[106] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "pppoe-timeline-legend pppoe-timeline-legend--up"
-  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Conectado " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.conectado_humano) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatPct($setup.timeline.conectado_pct)) + "%) ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_168, [_cache[84] || (_cache[84] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Conectado " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.conectado_humano) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatPct($setup.timeline.conectado_pct)) + "%) ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_219, [_cache[107] || (_cache[107] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "pppoe-timeline-legend pppoe-timeline-legend--down"
-  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Desconectado " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.desconectado_humano) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatPct($setup.timeline.desconectado_pct)) + "%) ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_169, [_cache[85] || (_cache[85] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Desconectado " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.desconectado_humano) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatPct($setup.timeline.desconectado_pct)) + "%) ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_220, [_cache[108] || (_cache[108] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "pppoe-timeline-legend pppoe-timeline-legend--unknown"
-  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Sin datos " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.sin_datos_humano) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatPct($setup.timeline.sin_datos_pct)) + "%) ", 1 /* TEXT */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_170, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)(((_$setup$timeline = $setup.timeline) === null || _$setup$timeline === void 0 ? void 0 : _$setup$timeline.segmentos) || [], function (seg, idx) {
+  }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Sin datos " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.timeline.sin_datos_humano) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatPct($setup.timeline.sin_datos_pct)) + "%) ", 1 /* TEXT */)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_221, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)(((_$setup$timeline = $setup.timeline) === null || _$setup$timeline === void 0 ? void 0 : _$setup$timeline.segmentos) || [], function (seg, idx) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
       key: 'seg-' + idx,
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["pppoe-timeline-seg", $setup.timelineSegClass(seg.estado)]),
@@ -29241,8 +29893,8 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         width: seg.width_pct + '%'
       }),
       title: seg.title
-    }, null, 14 /* CLASS, STYLE, PROPS */, _hoisted_171);
-  }), 128 /* KEYED_FRAGMENT */))]), $setup.timeline && $setup.timeline.marcas && $setup.timeline.marcas.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_172, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.timeline.marcas, function (marca, idx) {
+    }, null, 14 /* CLASS, STYLE, PROPS */, _hoisted_222);
+  }), 128 /* KEYED_FRAGMENT */))]), $setup.timeline && $setup.timeline.marcas && $setup.timeline.marcas.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_223, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.timeline.marcas, function (marca, idx) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", {
       key: 'marca-' + idx,
       class: "absolute text-[9px] text-gray-400/80 dark:text-gray-500",
@@ -29251,7 +29903,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         transform: 'translateX(-50%)'
       })
     }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(marca.label), 5 /* TEXT, STYLE */);
-  }), 128 /* KEYED_FRAGMENT */))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_173, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("table", _hoisted_174, [_cache[87] || (_cache[87] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", {
+  }), 128 /* KEYED_FRAGMENT */))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_224, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("table", _hoisted_225, [_cache[110] || (_cache[110] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", {
     class: "bg-gray-50 dark:bg-gray-900/40"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tr", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
     class: "px-3 py-2 text-left text-xs font-medium uppercase text-gray-500"
@@ -29261,20 +29913,20 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "px-3 py-2 text-left text-xs font-medium uppercase text-gray-500"
   }, "Detalle"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", {
     class: "px-3 py-2 text-left text-xs font-medium uppercase text-gray-500"
-  }, "Fuente")])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", _hoisted_175, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.eventos, function (ev, idx) {
+  }, "Fuente")])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", _hoisted_226, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.eventos, function (ev, idx) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", {
       key: 'ev-' + idx,
       class: "hover:bg-gray-50 dark:hover:bg-gray-700/40"
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_176, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.ocurrio_at), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_177, [ev.badge ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_227, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.ocurrio_at), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_228, [ev.badge ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", {
       key: 0,
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["noc-log-badge", 'noc-log-badge--' + ev.badge])
     }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.badge_label), 3 /* TEXT, CLASS */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 1
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.badge_label), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_178, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.detalle), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_179, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.fuente || '—'), 1 /* TEXT */)]);
-  }), 128 /* KEYED_FRAGMENT */)), !$setup.eventos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", _hoisted_180, _toConsumableArray(_cache[86] || (_cache[86] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.badge_label), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_229, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.detalle), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_230, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(ev.fuente || '—'), 1 /* TEXT */)]);
+  }), 128 /* KEYED_FRAGMENT */)), !$setup.eventos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", _hoisted_231, _toConsumableArray(_cache[109] || (_cache[109] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", {
     colspan: "4",
     class: "px-3 py-6 text-center text-gray-500 dark:text-gray-400"
-  }, " Todavía no hay eventos. Se registran al consultar MAC/tráfico o ONU en OLT. ", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])])]), !$props.compact ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_181, _toConsumableArray(_cache[88] || (_cache[88] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Antena Ubiquiti: SSH a la IP del servicio con ", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, " Todavía no hay eventos. Se registran al consultar MAC/tráfico o ONU en OLT. ", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])])]), !$props.compact ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_232, _toConsumableArray(_cache[111] || (_cache[111] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Antena Ubiquiti: SSH a la IP del servicio con ", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "font-mono"
   }, "wstalist", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" (RSSI, noise, CCQ, TX/RX, distancia, MAC remota) o ", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "font-mono"
@@ -29304,7 +29956,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_laravel_mix_node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, ".noc-card {\n    overflow: hidden;\n    border-radius: 0.75rem;\n    border: 1px solid #e2e8f0;\n    background: #ffffff;\n    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);\n}\n.dark .noc-card {\n    border-color: #334155;\n    background: #1e293b;\n    box-shadow: none;\n}\n.noc-card-head {\n    display: flex;\n    align-items: flex-start;\n    gap: 0.75rem;\n    padding: 1rem 1rem 0;\n}\n.noc-card-body {\n    padding: 1rem;\n}\n.noc-card-title {\n    font-size: 0.875rem;\n    font-weight: 700;\n    color: #0f172a;\n    line-height: 1.2;\n}\n.dark .noc-card-title { color: #f1f5f9; }\n.noc-card-sub {\n    margin-top: 0.125rem;\n    font-size: 0.6875rem;\n    color: #64748b;\n}\n.dark .noc-card-sub { color: #94a3b8; }\n\n.noc-tools-grid {\n    display: grid;\n    gap: 1rem;\n    grid-template-columns: minmax(0, 1fr);\n}\n@media (min-width: 768px) {\n    .noc-tools-grid {\n        grid-template-columns: repeat(2, minmax(0, 1fr));\n    }\n}\n@media (min-width: 1024px) {\n    .noc-tools-grid {\n        grid-template-columns: repeat(3, minmax(0, 1fr));\n    }\n}\n@media (min-width: 1280px) {\n    .noc-tools-grid.is-4 {\n        grid-template-columns: repeat(4, minmax(0, 1fr));\n    }\n}\n.dark .noc-card-sub { color: #94a3b8; }\n.noc-icon {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    width: 2rem;\n    height: 2rem;\n    border-radius: 0.5rem;\n    flex-shrink: 0;\n}\n.noc-icon--blue { background: #dbeafe; color: #2563eb; }\n.noc-icon--indigo { background: #e0e7ff; color: #4f46e5; }\n.noc-icon--amber { background: #ffedd5; color: #ea580c; }\n.noc-icon--sky { background: #e0f2fe; color: #0284c7; }\n.noc-icon--teal { background: #ccfbf1; color: #0d9488; }\n.noc-icon--violet { background: #ede9fe; color: #7c3aed; }\n.dark .noc-icon--blue { background: rgb(30 58 138 / 0.45); color: #93c5fd; }\n.dark .noc-icon--indigo { background: rgb(49 46 129 / 0.45); color: #a5b4fc; }\n.dark .noc-icon--amber { background: rgb(124 45 18 / 0.45); color: #fdba74; }\n.dark .noc-icon--sky { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }\n.dark .noc-icon--teal { background: rgb(19 78 74 / 0.45); color: #5eead4; }\n.dark .noc-icon--violet { background: rgb(76 29 149 / 0.45); color: #c4b5fd; }\n.noc-input-display {\n    padding: 0.625rem 0.75rem;\n    border-radius: 0.5rem;\n    border: 1px solid #e2e8f0;\n    background: #f8fafc;\n    color: #334155;\n}\n.dark .noc-input-display {\n    border-color: #475569;\n    background: #0f172a;\n    color: #e2e8f0;\n}\n.noc-btn-primary {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    gap: 0.5rem;\n    border-radius: 0.5rem;\n    padding: 0.5rem 0.875rem;\n    font-size: 0.8125rem;\n    font-weight: 600;\n    color: #fff;\n    background: #2563eb;\n    border: 1px solid #1d4ed8;\n    transition: background 0.15s;\n}\n.noc-btn-primary:hover:not(:disabled) { background: #1d4ed8; }\n.noc-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }\n.noc-btn-ghost {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    gap: 0.5rem;\n    border-radius: 0.5rem;\n    padding: 0.45rem 0.75rem;\n    font-size: 0.8125rem;\n    font-weight: 500;\n    color: #475569;\n    border: 1px solid #cbd5e1;\n    background: transparent;\n}\n.dark .noc-btn-ghost {\n    color: #cbd5e1;\n    border-color: #475569;\n}\n.noc-btn-ghost:hover:not(:disabled) { background: rgb(148 163 184 / 0.12); }\n.noc-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }\n.noc-btn-icon {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    width: 2.25rem;\n    height: 2.25rem;\n    border-radius: 0.625rem;\n    flex-shrink: 0;\n    transition: background 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.1s;\n}\n.noc-btn-icon--primary {\n    color: #fff;\n    background: #3b82f6;\n    border: none;\n    box-shadow: 0 1px 2px rgb(59 130 246 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.12);\n}\n.noc-btn-icon--primary:hover:not(:disabled) {\n    background: #2563eb;\n    box-shadow: 0 2px 6px rgb(37 99 235 / 0.4);\n}\n.noc-btn-icon--primary:active:not(:disabled) { transform: scale(0.96); }\n.noc-btn-icon--ghost {\n    color: #64748b;\n    border: none;\n    background: rgb(148 163 184 / 0.14);\n}\n.dark .noc-btn-icon--ghost {\n    color: #cbd5e1;\n    background: rgb(51 65 85 / 0.55);\n}\n.noc-btn-icon--ghost:hover:not(:disabled) {\n    color: #334155;\n    background: rgb(148 163 184 / 0.22);\n}\n.dark .noc-btn-icon--ghost:hover:not(:disabled) {\n    color: #f1f5f9;\n    background: rgb(71 85 105 / 0.75);\n}\n.noc-btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }\n.noc-btn-action-icon {\n    width: 1.125rem;\n    height: 1.125rem;\n    flex-shrink: 0;\n}\n.noc-btn-spinner {\n    width: 1.125rem;\n    height: 1.125rem;\n    flex-shrink: 0;\n}\n.noc-btn-icon .noc-btn-action-icon.hidden,\n.noc-btn-icon .noc-btn-spinner.hidden { display: none; }\n.noc-metric-label {\n    font-size: 0.625rem;\n    font-weight: 700;\n    letter-spacing: 0.06em;\n    text-transform: uppercase;\n    color: #64748b;\n    margin-bottom: 0.125rem;\n}\n.dark .noc-metric-label { color: #94a3b8; }\n.noc-metric {\n    font-size: 1.375rem;\n    font-weight: 700;\n    line-height: 1.1;\n}\n.noc-metric--blue { color: #2563eb; }\n.noc-metric--amber { color: #ea580c; }\n.noc-metric--warn { color: #dc2626; }\n.dark .noc-metric--blue { color: #60a5fa; }\n.dark .noc-metric--amber { color: #fb923c; }\n.dark .noc-metric--warn { color: #f87171; }\n.noc-live-badge {\n    display: inline-flex;\n    align-items: center;\n    gap: 0.25rem;\n    border-radius: 9999px;\n    padding: 0.125rem 0.5rem;\n    font-size: 0.5625rem;\n    font-weight: 700;\n    letter-spacing: 0.05em;\n    color: #15803d;\n    background: #dcfce7;\n    border: 1px solid #86efac;\n}\n.dark .noc-live-badge {\n    color: #86efac;\n    background: rgb(20 83 45 / 0.35);\n    border-color: #166534;\n}\n.noc-bar-track {\n    height: 0.375rem;\n    border-radius: 9999px;\n    background: #334155;\n    overflow: hidden;\n}\n.noc-bar-fill {\n    height: 100%;\n    border-radius: 9999px;\n    transition: width 0.35s ease;\n}\n.noc-bar-fill--signal { background: linear-gradient(90deg, #2563eb, #38bdf8); }\n.noc-bar-fill--noise { background: linear-gradient(90deg, #ea580c, #fb923c); }\n.noc-log-badge {\n    display: inline-flex;\n    border-radius: 0.25rem;\n    padding: 0.125rem 0.375rem;\n    font-size: 0.625rem;\n    font-weight: 700;\n    letter-spacing: 0.04em;\n}\n.noc-log-badge--olt { background: #ffedd5; color: #9a3412; }\n.noc-log-badge--wifi { background: #e0f2fe; color: #075985; }\n.noc-log-badge--up { background: #dcfce7; color: #166534; }\n.noc-log-badge--down { background: #fee2e2; color: #991b1b; }\n.dark .noc-log-badge--olt { background: rgb(124 45 18 / 0.45); color: #fdba74; }\n.dark .noc-log-badge--wifi { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }\n.dark .noc-log-badge--up { background: rgb(20 83 45 / 0.45); color: #86efac; }\n.dark .noc-log-badge--down { background: rgb(127 29 29 / 0.45); color: #fca5a5; }\n.pppoe-timeline-track {\n    position: relative;\n    height: 0.625rem;\n    width: 100%;\n    overflow: hidden;\n    border-radius: 9999px;\n    background: rgb(226 232 240 / 0.65);\n}\n.dark .pppoe-timeline-track {\n    background: rgb(51 65 85 / 0.55);\n}\n.pppoe-timeline-seg {\n    position: absolute;\n    top: 0;\n    height: 100%;\n    min-width: 1px;\n}\n.pppoe-timeline-seg--up {\n    background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);\n}\n.pppoe-timeline-seg--down {\n    background: linear-gradient(180deg, #fdba74 0%, #f97316 100%);\n}\n.pppoe-timeline-seg--unknown {\n    background: rgb(148 163 184 / 0.55);\n}\n.dark .pppoe-timeline-seg--unknown {\n    background: rgb(100 116 139 / 0.65);\n}\n.pppoe-timeline-legend {\n    display: inline-block;\n    height: 0.5rem;\n    width: 0.5rem;\n    border-radius: 9999px;\n    flex-shrink: 0;\n}\n.pppoe-timeline-legend--up {\n    background: #0ea5e9;\n}\n.pppoe-timeline-legend--down {\n    background: #f97316;\n}\n.pppoe-timeline-legend--unknown {\n    background: #94a3b8;\n}\n.ubnt-signal-panel {\n    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);\n}\n.dark .ubnt-signal-panel {\n    background: linear-gradient(180deg, rgb(31 41 55) 0%, rgb(17 24 39) 100%);\n}\n.ubnt-chain-bar {\n    height: 10px;\n    border-radius: 9999px;\n    background: #eef2f7;\n    overflow: hidden;\n}\n.dark .ubnt-chain-bar {\n    background: #374151;\n}\n.ubnt-chain-fill {\n    height: 100%;\n    border-radius: 9999px;\n    background: linear-gradient(90deg, #0ea5e9 0%, #22d3ee 55%, #67e8f9 100%);\n    transition: width 0.35s ease;\n}\n.ubnt-chain-badge {\n    width: 1.25rem;\n    height: 1.25rem;\n    border-radius: 0.25rem;\n    background: #111827;\n    color: #fff;\n    font-size: 0.65rem;\n    font-weight: 700;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    flex-shrink: 0;\n}\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, ".noc-card {\n    overflow: hidden;\n    border-radius: 0.75rem;\n    border: 1px solid #e2e8f0;\n    background: #ffffff;\n    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);\n}\n.noc-card.noc-card--float {\n    overflow: visible;\n}\n.dark .noc-card {\n    border-color: #334155;\n    background: #1e293b;\n    box-shadow: none;\n}\n.noc-card-head {\n    display: flex;\n    align-items: flex-start;\n    gap: 0.75rem;\n    padding: 1rem 1rem 0;\n}\n.noc-card-body {\n    padding: 1rem;\n}\n.noc-card-title {\n    font-size: 0.875rem;\n    font-weight: 700;\n    color: #0f172a;\n    line-height: 1.2;\n}\n.dark .noc-card-title { color: #f1f5f9; }\n.noc-card-sub {\n    margin-top: 0.125rem;\n    font-size: 0.6875rem;\n    color: #64748b;\n}\n.dark .noc-card-sub { color: #94a3b8; }\n\n.noc-tools-grid {\n    display: grid;\n    gap: 1rem;\n    grid-template-columns: minmax(0, 1fr);\n}\n@media (min-width: 768px) {\n    .noc-tools-grid {\n        grid-template-columns: repeat(2, minmax(0, 1fr));\n    }\n}\n@media (min-width: 1024px) {\n    .noc-tools-grid {\n        grid-template-columns: repeat(3, minmax(0, 1fr));\n    }\n}\n@media (min-width: 1280px) {\n    .noc-tools-grid.is-4 {\n        grid-template-columns: repeat(4, minmax(0, 1fr));\n    }\n}\n.dark .noc-card-sub { color: #94a3b8; }\n.noc-icon {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    width: 2rem;\n    height: 2rem;\n    border-radius: 0.5rem;\n    flex-shrink: 0;\n}\n.noc-icon--blue { background: #dbeafe; color: #2563eb; }\n.noc-icon--indigo { background: #e0e7ff; color: #4f46e5; }\n.noc-icon--amber { background: #ffedd5; color: #ea580c; }\n.noc-icon--sky { background: #e0f2fe; color: #0284c7; }\n.noc-icon--teal { background: #ccfbf1; color: #0d9488; }\n.noc-icon--violet { background: #ede9fe; color: #7c3aed; }\n.dark .noc-icon--blue { background: rgb(30 58 138 / 0.45); color: #93c5fd; }\n.dark .noc-icon--indigo { background: rgb(49 46 129 / 0.45); color: #a5b4fc; }\n.dark .noc-icon--amber { background: rgb(124 45 18 / 0.45); color: #fdba74; }\n.dark .noc-icon--sky { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }\n.dark .noc-icon--teal { background: rgb(19 78 74 / 0.45); color: #5eead4; }\n.dark .noc-icon--violet { background: rgb(76 29 149 / 0.45); color: #c4b5fd; }\n.noc-input-display {\n    padding: 0.625rem 0.75rem;\n    border-radius: 0.5rem;\n    border: 1px solid #e2e8f0;\n    background: #f8fafc;\n    color: #334155;\n}\n.dark .noc-input-display {\n    border-color: #475569;\n    background: #0f172a;\n    color: #e2e8f0;\n}\n.noc-btn-primary {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    gap: 0.5rem;\n    border-radius: 0.5rem;\n    padding: 0.5rem 0.875rem;\n    font-size: 0.8125rem;\n    font-weight: 600;\n    color: #fff;\n    background: #2563eb;\n    border: 1px solid #1d4ed8;\n    transition: background 0.15s;\n}\n.noc-btn-primary:hover:not(:disabled) { background: #1d4ed8; }\n.noc-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }\n.noc-btn-ghost {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    gap: 0.5rem;\n    border-radius: 0.5rem;\n    padding: 0.45rem 0.75rem;\n    font-size: 0.8125rem;\n    font-weight: 500;\n    color: #475569;\n    border: 1px solid #cbd5e1;\n    background: transparent;\n}\n.dark .noc-btn-ghost {\n    color: #cbd5e1;\n    border-color: #475569;\n}\n.noc-btn-ghost:hover:not(:disabled) { background: rgb(148 163 184 / 0.12); }\n.noc-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }\n.noc-btn-icon {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    width: 2.25rem;\n    height: 2.25rem;\n    border-radius: 0.625rem;\n    flex-shrink: 0;\n    transition: background 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.1s;\n}\n.noc-btn-icon--primary {\n    color: #fff;\n    background: #3b82f6;\n    border: none;\n    box-shadow: 0 1px 2px rgb(59 130 246 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.12);\n}\n.noc-btn-icon--primary:hover:not(:disabled) {\n    background: #2563eb;\n    box-shadow: 0 2px 6px rgb(37 99 235 / 0.4);\n}\n.noc-btn-icon--primary:active:not(:disabled) { transform: scale(0.96); }\n.noc-btn-icon--ghost {\n    color: #64748b;\n    border: none;\n    background: rgb(148 163 184 / 0.14);\n}\n.dark .noc-btn-icon--ghost {\n    color: #cbd5e1;\n    background: rgb(51 65 85 / 0.55);\n}\n.noc-btn-icon--ghost:hover:not(:disabled) {\n    color: #334155;\n    background: rgb(148 163 184 / 0.22);\n}\n.dark .noc-btn-icon--ghost:hover:not(:disabled) {\n    color: #f1f5f9;\n    background: rgb(71 85 105 / 0.75);\n}\n.noc-btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }\n.noc-btn-action-icon {\n    width: 1.125rem;\n    height: 1.125rem;\n    flex-shrink: 0;\n}\n.noc-btn-spinner {\n    width: 1.125rem;\n    height: 1.125rem;\n    flex-shrink: 0;\n}\n.noc-btn-icon .noc-btn-action-icon.hidden,\n.noc-btn-icon .noc-btn-spinner.hidden { display: none; }\n.noc-metric-label {\n    font-size: 0.625rem;\n    font-weight: 700;\n    letter-spacing: 0.06em;\n    text-transform: uppercase;\n    color: #64748b;\n    margin-bottom: 0.125rem;\n}\n.dark .noc-metric-label { color: #94a3b8; }\n.noc-metric {\n    font-size: 1.375rem;\n    font-weight: 700;\n    line-height: 1.1;\n}\n.noc-metric--blue { color: #2563eb; }\n.noc-metric--amber { color: #ea580c; }\n.noc-metric--warn { color: #dc2626; }\n.dark .noc-metric--blue { color: #60a5fa; }\n.dark .noc-metric--amber { color: #fb923c; }\n.dark .noc-metric--warn { color: #f87171; }\n.noc-live-badge {\n    display: inline-flex;\n    align-items: center;\n    gap: 0.25rem;\n    border-radius: 9999px;\n    padding: 0.125rem 0.5rem;\n    font-size: 0.5625rem;\n    font-weight: 700;\n    letter-spacing: 0.05em;\n    color: #15803d;\n    background: #dcfce7;\n    border: 1px solid #86efac;\n}\n.dark .noc-live-badge {\n    color: #86efac;\n    background: rgb(20 83 45 / 0.35);\n    border-color: #166534;\n}\n.noc-bar-track {\n    height: 0.375rem;\n    border-radius: 9999px;\n    background: #334155;\n    overflow: hidden;\n}\n.noc-bar-fill {\n    height: 100%;\n    border-radius: 9999px;\n    transition: width 0.35s ease;\n}\n.noc-bar-fill--signal { background: linear-gradient(90deg, #2563eb, #38bdf8); }\n.noc-bar-fill--noise { background: linear-gradient(90deg, #ea580c, #fb923c); }\n.noc-log-badge {\n    display: inline-flex;\n    border-radius: 0.25rem;\n    padding: 0.125rem 0.375rem;\n    font-size: 0.625rem;\n    font-weight: 700;\n    letter-spacing: 0.04em;\n}\n.noc-log-badge--olt { background: #ffedd5; color: #9a3412; }\n.noc-log-badge--wifi { background: #e0f2fe; color: #075985; }\n.noc-log-badge--up { background: #dcfce7; color: #166534; }\n.noc-log-badge--down { background: #fee2e2; color: #991b1b; }\n.dark .noc-log-badge--olt { background: rgb(124 45 18 / 0.45); color: #fdba74; }\n.dark .noc-log-badge--wifi { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }\n.dark .noc-log-badge--up { background: rgb(20 83 45 / 0.45); color: #86efac; }\n.dark .noc-log-badge--down { background: rgb(127 29 29 / 0.45); color: #fca5a5; }\n.pppoe-timeline-track {\n    position: relative;\n    height: 0.625rem;\n    width: 100%;\n    overflow: hidden;\n    border-radius: 9999px;\n    background: rgb(226 232 240 / 0.65);\n}\n.dark .pppoe-timeline-track {\n    background: rgb(51 65 85 / 0.55);\n}\n.pppoe-timeline-seg {\n    position: absolute;\n    top: 0;\n    height: 100%;\n    min-width: 1px;\n}\n.pppoe-timeline-seg--up {\n    background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);\n}\n.pppoe-timeline-seg--down {\n    background: linear-gradient(180deg, #fdba74 0%, #f97316 100%);\n}\n.pppoe-timeline-seg--unknown {\n    background: rgb(148 163 184 / 0.55);\n}\n.dark .pppoe-timeline-seg--unknown {\n    background: rgb(100 116 139 / 0.65);\n}\n.pppoe-timeline-legend {\n    display: inline-block;\n    height: 0.5rem;\n    width: 0.5rem;\n    border-radius: 9999px;\n    flex-shrink: 0;\n}\n.pppoe-timeline-legend--up {\n    background: #0ea5e9;\n}\n.pppoe-timeline-legend--down {\n    background: #f97316;\n}\n.pppoe-timeline-legend--unknown {\n    background: #94a3b8;\n}\n.ubnt-signal-panel {\n    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);\n}\n.dark .ubnt-signal-panel {\n    background: linear-gradient(180deg, rgb(31 41 55) 0%, rgb(17 24 39) 100%);\n}\n.ubnt-chain-bar {\n    height: 10px;\n    border-radius: 9999px;\n    background: #eef2f7;\n    overflow: hidden;\n}\n.dark .ubnt-chain-bar {\n    background: #374151;\n}\n.ubnt-chain-fill {\n    height: 100%;\n    border-radius: 9999px;\n    background: linear-gradient(90deg, #0ea5e9 0%, #22d3ee 55%, #67e8f9 100%);\n    transition: width 0.35s ease;\n}\n.ubnt-chain-badge {\n    width: 1.25rem;\n    height: 1.25rem;\n    border-radius: 0.25rem;\n    background: #111827;\n    color: #fff;\n    font-size: 0.65rem;\n    font-weight: 700;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    flex-shrink: 0;\n}\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 

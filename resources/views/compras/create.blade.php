@@ -65,6 +65,12 @@
                                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
                         </div>
+                        <div class="md:col-span-2">
+                            @include('inventario._tipo-cambio', [
+                                'valor' => $tipoCambioActual ?? '',
+                                'inputClass' => 'w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors',
+                            ])
+                        </div>
                         <div>
                             <label for="descuento" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento</label>
                             <input type="number" name="descuento" id="descuento" value="{{ old('descuento', 0) }}" step="0.01" min="0"

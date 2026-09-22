@@ -15,6 +15,7 @@ use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\NetworkPingService;
+use App\Services\Huawei\HuaweiOnuService;
 use App\Services\PedidoNodoOpcionesService;
 use App\Support\CpeInventario;
 use App\Support\HerramientasRedPayload;
@@ -146,6 +147,8 @@ class ServicioController extends Controller
                     $fail('La IP no puede terminar en .255 (reservada para broadcast).');
                 }
             }],
+            'ipv6_configurado' => ['nullable', 'boolean'],
+            'punto_hotspot' => ['nullable', 'boolean'],
             'usuario_pppoe' => ['nullable', 'string', 'max:100', Rule::unique('servicios', 'usuario_pppoe')],
             'password_pppoe' => ['nullable', 'string', 'max:20'],
             'fecha_instalacion' => ['nullable', 'date'],
@@ -170,6 +173,8 @@ class ServicioController extends Controller
         $validated = $this->normalizarCpeInventario($validated);
         $validated = $this->validarPlanDeTecnologia($validated);
         $validated['alias'] = trim((string) ($validated['alias'] ?? '')) ?: null;
+        $validated['ipv6_configurado'] = $request->boolean('ipv6_configurado');
+        $validated['punto_hotspot'] = $request->boolean('punto_hotspot');
 
         $validated['estado'] = $validated['estado'] ?? 'P';
         $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
@@ -217,7 +222,7 @@ class ServicioController extends Controller
 
     public function edit($servicio_id)
     {
-        $servicio = Servicio::with(['cliente', 'plan', 'pool', 'servicioHotspot.router'])
+        $servicio = Servicio::with(['cliente', 'plan', 'pool', 'servicioHotspots.router'])
             ->findOrFail($servicio_id);
 
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])->orderBy('nombre')->get();
@@ -245,6 +250,8 @@ class ServicioController extends Controller
                     $fail('La IP no puede terminar en .255 (reservada para broadcast).');
                 }
             }],
+            'ipv6_configurado' => ['nullable', 'boolean'],
+            'punto_hotspot' => ['nullable', 'boolean'],
             'usuario_pppoe' => ['nullable', 'string', 'max:100'],
             'password_pppoe' => ['nullable', 'string', 'max:20'],
             'fecha_instalacion' => ['nullable', 'date'],
@@ -268,6 +275,8 @@ class ServicioController extends Controller
         $validated = $this->normalizarCpeInventario($validated);
         $validated = $this->validarPlanDeTecnologia($validated);
         $validated['alias'] = trim((string) ($validated['alias'] ?? '')) ?: null;
+        $validated['ipv6_configurado'] = $request->boolean('ipv6_configurado');
+        $validated['punto_hotspot'] = $request->boolean('punto_hotspot');
         $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
         if ($validated['acuerdo_tipo'] !== 'meses') {
             $validated['acuerdo_meses'] = null;
@@ -380,6 +389,30 @@ class ServicioController extends Controller
         }
 
         return redirect()->route('servicios.index')->with('success', $mensaje);
+    }
+
+    public function actualizarIpv6(Request $request, $servicio_id)
+    {
+        $servicio = Servicio::findOrFail($servicio_id);
+        $activo = $request->boolean('ipv6_configurado');
+        $servicio->update(['ipv6_configurado' => $activo]);
+
+        return redirect()->back()->with(
+            'success',
+            $activo ? 'IPv6 marcado como configurado.' : 'IPv6 marcado como no configurado.'
+        );
+    }
+
+    public function actualizarPuntoHotspot(Request $request, $servicio_id)
+    {
+        $servicio = Servicio::findOrFail($servicio_id);
+        $activo = $request->boolean('punto_hotspot');
+        $servicio->update(['punto_hotspot' => $activo]);
+
+        return redirect()->back()->with(
+            'success',
+            $activo ? 'Servicio marcado como punto hotspot.' : 'Servicio ya no es punto hotspot.'
+        );
     }
 
     /**
@@ -947,6 +980,73 @@ class ServicioController extends Controller
             ...$result,
             'servicio_id' => $servicio->servicio_id,
             'ip' => $ip,
+        ], ($result['success'] ?? false) ? 200 : 422);
+    }
+
+    public function herramientasRedHuaweiIpv6($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->configurarIpv6($s));
+    }
+
+    public function herramientasRedHuaweiConectados($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->listarConectados($s));
+    }
+
+    public function herramientasRedHuaweiDhcp($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->listarDhcpLeases($s));
+    }
+
+    public function herramientasRedHuaweiWifi(Request $request, $servicio_id, HuaweiOnuService $huawei)
+    {
+        $validated = $request->validate([
+            'ssid' => ['required', 'string', 'min:1', 'max:32'],
+            'password' => ['required', 'string', 'min:8', 'max:63'],
+        ]);
+
+        return $this->respuestaHuaweiOnu(
+            $servicio_id,
+            $huawei,
+            fn (Servicio $s) => $huawei->cambiarWifi($s, $validated['ssid'], $validated['password'])
+        );
+    }
+
+    public function herramientasRedHuaweiSsid($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->leerWifi($s));
+    }
+
+    public function herramientasRedHuaweiOptica($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->leerOptica($s));
+    }
+
+    public function herramientasRedHuaweiReboot($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->reiniciar($s));
+    }
+
+    /**
+     * @param  callable(Servicio): array<string, mixed>  $accion
+     */
+    protected function respuestaHuaweiOnu($servicio_id, HuaweiOnuService $huawei, callable $accion)
+    {
+        @set_time_limit(60);
+        $servicio = Servicio::query()->findOrFail($servicio_id);
+        if (! $huawei->puedeOperar($servicio)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esta acción es solo para ONU Huawei (SSH, Telnet o web, sin TR-069).',
+            ], 422);
+        }
+
+        $result = $accion($servicio);
+
+        return response()->json([
+            ...$result,
+            'servicio_id' => $servicio->servicio_id,
+            'ip' => $servicio->ip,
         ], ($result['success'] ?? false) ? 200 : 422);
     }
 
@@ -1930,6 +2030,10 @@ class ServicioController extends Controller
             $validated['cpe_antena'] = null;
         } elseif ($kind === 'wireless') {
             $validated['cpe_onu'] = null;
+        }
+
+        if (CpeInventario::claveEsHuawei($validated['cpe_onu'] ?? null)) {
+            $validated['cpe_acceso'] = 'ssh';
         }
 
         unset($validated['cpe_onu_otro'], $validated['cpe_router_otro'], $validated['cpe_antena_otro']);

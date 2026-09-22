@@ -56,3 +56,9 @@ Artisan::command('auditar-monto-pagado-facturas', function () {
 Artisan::command('corregir-saldo-favor-facturas', function () {
     return $this->call('facturas:corregir-saldo-favor-aplicado', ['--fix' => true]);
 })->purpose('Alias: corrige facturas con saldo a favor mal aplicado (sin IVA).');
+
+Artisan::command('hotspot-portal-mikrotik', function () {
+    return $this->call('hotspot:portal-mikrotik', [
+        'nombres' => ['MK-N2-BORDE'],
+    ]);
+})->purpose('Carga el portal cautivo de hotspot/ al MikroTik de borde (MK-N2-BORDE).');

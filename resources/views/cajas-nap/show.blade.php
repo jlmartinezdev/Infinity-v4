@@ -211,8 +211,8 @@
                         —
                     @endif
                 </dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">Splitter 1º nivel</dt><dd>{{ $cajaNap->splitter_primer_nivel ?? '—' }}</dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">Splitter FTTH (2º)</dt><dd>{{ $cajaNap->splitter_segundo_nivel ? '1×'.$cajaNap->splitter_segundo_nivel : '—' }}</dd></div>
+                <div><dt class="text-gray-500 dark:text-gray-400">Splitter 1º nivel</dt><dd>{{ $cajaNap->etiquetaSplitterPrimerNivel() }}</dd></div>
+                <div><dt class="text-gray-500 dark:text-gray-400">Splitter secundario</dt><dd>{{ $cajaNap->splitter_segundo_nivel ? '1×'.$cajaNap->splitter_segundo_nivel : '—' }}</dd></div>
                 <div><dt class="text-gray-500 dark:text-gray-400">Potencia salida</dt><dd>{{ $cajaNap->potencia_salida !== null ? number_format((float) $cajaNap->potencia_salida, 2).' dBm' : '—' }}</dd></div>
                 <div><dt class="text-gray-500 dark:text-gray-400">Descripción</dt><dd>{{ $cajaNap->descripcion ?? '—' }}</dd></div>
                 <div><dt class="text-gray-500 dark:text-gray-400">Nota</dt><dd>{{ $cajaNap->nota ?? '—' }}</dd></div>

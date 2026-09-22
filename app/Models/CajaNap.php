@@ -14,6 +14,17 @@ class CajaNap extends Model
 {
     use Auditable;
 
+    /** Splitter desbalanceado de primer nivel (tap/through). */
+    public const SPLITTERS_PRIMER_NIVEL = [
+        '5-95',
+        '10-90',
+        '15-85',
+        '20-80',
+        '30-70',
+        '40-60',
+        '50-50',
+    ];
+
     protected $table = 'caja_naps';
 
     protected $primaryKey = 'caja_nap_id';
@@ -50,6 +61,40 @@ class CajaNap extends Model
         $v = $this->splitter_segundo_nivel;
 
         return in_array((int) $v, [8, 16], true) ? (int) $v : null;
+    }
+
+    public function etiquetaSplitterPrimerNivel(): string
+    {
+        $v = trim((string) ($this->splitter_primer_nivel ?? ''));
+
+        return $v === '' ? 'Sin splitter' : $v;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function splittersPrimerNivelPermitidos(?string $actual = null): array
+    {
+        $opciones = self::SPLITTERS_PRIMER_NIVEL;
+        $actual = trim((string) $actual);
+        if ($actual !== '' && ! in_array($actual, $opciones, true)) {
+            $opciones[] = $actual;
+        }
+
+        return $opciones;
+    }
+
+    /** Siguiente código libre con formato NAP-001, NAP-002, … */
+    public static function siguienteCodigo(): string
+    {
+        $max = 0;
+        foreach (static::query()->pluck('codigo') as $codigo) {
+            if (preg_match('/^NAP-(\d+)$/i', trim((string) $codigo), $m)) {
+                $max = max($max, (int) $m[1]);
+            }
+        }
+
+        return sprintf('NAP-%03d', $max + 1);
     }
 
     /**

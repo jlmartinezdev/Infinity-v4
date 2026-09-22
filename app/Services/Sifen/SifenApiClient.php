@@ -245,6 +245,45 @@ class SifenApiClient
      *
      * @return array<string, mixed>
      */
+    /**
+     * @return array<string, mixed>
+     */
+    public function cancelarDocumento(int $documentoId, string $motivo): array
+    {
+        if (! $this->isConfigured()) {
+            throw new RuntimeException('API SIFEN no configurada (SIFEN_API_ENABLED, URL y TOKEN).');
+        }
+
+        $payload = [
+            'motivo' => $motivo,
+            'confirmar_produccion' => true,
+        ];
+
+        try {
+            $response = Http::withToken($this->token)
+                ->timeout($this->timeout)
+                ->acceptJson()
+                ->post($this->baseUrl.'/documentos/'.$documentoId.'/cancelar', $payload);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException('No se pudo conectar con sifen-api: '.$e->getMessage(), 0, $e);
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            throw new RuntimeException('Respuesta inválida de sifen-api (HTTP '.$response->status().').');
+        }
+
+        if ($response->status() === 404) {
+            throw new RuntimeException('sifen-api no expone cancelación de documentos.');
+        }
+
+        if ($response->failed() && ! isset($json['data'])) {
+            throw new RuntimeException($json['message'] ?? 'Error en sifen-api (HTTP '.$response->status().').');
+        }
+
+        return $json;
+    }
+
     public function consultarLote(int $documentoId, ?bool $enviarCorreo = null): array
     {
         if (! $this->isConfigured()) {

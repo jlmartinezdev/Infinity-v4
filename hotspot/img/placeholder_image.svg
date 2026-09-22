@@ -1,0 +1,7 @@
+<!-- Placeholder para imagen de fibra óptica -->
+<!-- En producción, aquí iría la imagen real -->
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="300" fill="#4667A0"/>
+  <text x="200" y="150" text-anchor="middle" fill="white" font-size="24">Fibra Óptica 500MB</text>
+  <text x="200" y="180" text-anchor="middle" fill="white" font-size="16">Gs. 200.000</text>
+</svg>

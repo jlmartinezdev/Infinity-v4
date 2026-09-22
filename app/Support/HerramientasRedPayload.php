@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
+use App\Services\Huawei\HuaweiOnuWeb;
 use App\Services\PedidoNodoOpcionesService;
 
 class HerramientasRedPayload
@@ -67,6 +68,8 @@ class HerramientasRedPayload
                 'tr069_product_class' => $servicio->tr069_product_class,
                 'mac_address' => $servicio->mac_address,
                 'cpe_acceso' => $servicio->cpe_acceso,
+                'cpe_onu' => $servicio->cpe_onu,
+                'ipv6_configurado' => (bool) $servicio->ipv6_configurado,
                 'equipo_resumen' => CpeInventario::resumen($servicio),
                 'tecnologia' => $esFibra ? 'gpon' : ($esAntena ? 'wireless' : null),
                 'tecnologia_label' => $servicio->plan?->tipoTecnologia?->descripcion,
@@ -83,6 +86,13 @@ class HerramientasRedPayload
                 'tr069_reboot' => route('servicios.herramientas-red.tr069-reboot', $servicio->servicio_id),
                 'tr069_refresh' => route('servicios.herramientas-red.tr069-refresh', $servicio->servicio_id),
                 'tr069_password' => route('servicios.herramientas-red.tr069-password', $servicio->servicio_id),
+                'huawei_ipv6' => route('servicios.herramientas-red.huawei-ipv6', $servicio->servicio_id),
+                'huawei_conectados' => route('servicios.herramientas-red.huawei-conectados', $servicio->servicio_id),
+                'huawei_dhcp' => route('servicios.herramientas-red.huawei-dhcp', $servicio->servicio_id),
+                'huawei_wifi' => route('servicios.herramientas-red.huawei-wifi', $servicio->servicio_id),
+                'huawei_ssid' => route('servicios.herramientas-red.huawei-ssid', $servicio->servicio_id),
+                'huawei_optica' => route('servicios.herramientas-red.huawei-optica', $servicio->servicio_id),
+                'huawei_reboot' => route('servicios.herramientas-red.huawei-reboot', $servicio->servicio_id),
                 'servicios_index' => route('servicios.index'),
             ],
             'csrf' => csrf_token(),
@@ -93,6 +103,12 @@ class HerramientasRedPayload
                 && filled(config('genieacs.nbi_url'))
                 && CpeInventario::usaAcs($servicio),
             'cpe_ssh' => CpeInventario::usaSshCpe($servicio),
+            'huawei_onu' => CpeInventario::esHuaweiOnu($servicio)
+                || ($esFibra && filled($servicio->ip) && HuaweiOnuWeb::detectarCacheado(
+                    (string) $servicio->ip,
+                    (int) config('huawei.web_port', 80),
+                    (int) config('huawei.web_detect_timeout', 3)
+                )),
             'ultima_optica' => self::serializarOptica($ultimaOptica),
             'ultima_antena' => self::serializarAntena($ultimaAntena),
             'timeline' => self::serializarTimeline($timeline),

@@ -44,6 +44,76 @@ class SifenXmlSigner
     }
 
     /**
+     * Firma el nodo rEve de un evento SIFEN (Id del evento, no el CDC).
+     *
+     * @return array{xml: string, digest_value: string}
+     */
+    public function firmarEvento(string $xml, string $eventoId = '1'): array
+    {
+        $material = $this->certificadoService->cargarDesdeP12();
+
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = false;
+
+        if (! $dom->loadXML($xml)) {
+            throw new RuntimeException('XML de evento inválido para firmar.');
+        }
+
+        $raiz = $dom->documentElement;
+        if (! $raiz instanceof DOMElement) {
+            throw new RuntimeException('No se encontró el elemento rGesEve en el XML.');
+        }
+
+        $eveNode = $dom->getElementsByTagNameNS(self::NS_SIFEN, 'rEve')->item(0)
+            ?? $dom->getElementsByTagName('rEve')->item(0);
+        if (! $eveNode instanceof DOMElement) {
+            throw new RuntimeException('No se encontró el nodo rEve en el XML.');
+        }
+
+        $eveNode->setAttribute('Id', $eventoId);
+        $eveNode->setIdAttribute('Id', true);
+
+        $dsig = new XMLSecurityDSig('');
+        $dsig->sigNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', self::NS_DSIG);
+        $dsig->setCanonicalMethod(self::CANON_SIGNED_INFO);
+        $dsig->addReference(
+            $eveNode,
+            XMLSecurityDSig::SHA256,
+            [
+                'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+                'http://www.w3.org/2001/10/xml-exc-c14n#',
+            ],
+            ['overwrite' => false]
+        );
+
+        $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
+        $objKey->loadKey($material['pkey'], false, false);
+
+        $dsig->appendSignature($raiz);
+        $sigNode = $raiz->lastChild;
+        if (! $sigNode instanceof DOMElement) {
+            throw new RuntimeException('No se pudo insertar el bloque Signature en el evento.');
+        }
+
+        $sigNode = SifenXmlManipulator::reescribirFirmaSinPrefijoEnDom($sigNode);
+        $dsig->sigNode = $sigNode;
+
+        $dsig->sign($objKey);
+        $dsig->add509Cert($material['cert'], true);
+
+        $xmlFirmado = SifenXmlManipulator::compactar($dom->saveXML() ?: '');
+        $xmlFirmado = preg_replace('/ xmlns:default="[^"]*"/', '', $xmlFirmado) ?? $xmlFirmado;
+
+        self::verificarFirmaEstatica($xmlFirmado, $material['cert']);
+
+        return [
+            'xml' => $xmlFirmado,
+            'digest_value' => $this->extraerDigestValue($xmlFirmado),
+        ];
+    }
+
+    /**
      * @return array{xml: string, digest_value: string}
      */
     private function firmarConPhp(string $xml, string $cdc): array

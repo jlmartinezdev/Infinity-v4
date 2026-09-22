@@ -18,6 +18,7 @@ class Venta extends Model
         'servicio_id',
         'fecha',
         'numero_factura',
+        'tipo_cambio',
         'subtotal',
         'descuento',
         'impuesto',
@@ -31,6 +32,7 @@ class Venta extends Model
     {
         return [
             'fecha' => 'date',
+            'tipo_cambio' => 'decimal:2',
             'subtotal' => 'decimal:2',
             'descuento' => 'decimal:2',
             'impuesto' => 'decimal:2',
@@ -62,5 +64,10 @@ class Venta extends Model
     public function estaCobrado(): bool
     {
         return $this->cobrado >= $this->total;
+    }
+
+    public function etiquetaTipoCambio(): string
+    {
+        return CotizacionDolar::etiquetaDe($this->tipo_cambio);
     }
 }

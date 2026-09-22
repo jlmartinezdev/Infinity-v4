@@ -35,10 +35,11 @@
             </dl>
 
             @if($supported)
-                <form action="{{ route('configuracion.backup.download') }}" method="POST" class="pt-2">
+                <form action="{{ route('configuracion.backup.download') }}" method="POST" class="pt-2 space-y-4">
                     @csrf
+                    @include('configuracion._backup-tipo', ['name' => 'tipo', 'value' => old('tipo', 'esencial')])
                     <button type="submit"
-                            class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
+                            class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
                         Descargar backup
                     </button>
                 </form>
@@ -68,9 +69,10 @@
                     · último {{ $latido->timezone(config('app.timezone'))->format('d/m/Y H:i:s') }}
                 @endif
                 · hoy: {{ !empty($schedule['backup_ok_hoy']) ? 'backup OK' : 'aún no hay backup OK' }}
+                · automático: {{ ($tipoSchedule ?? 'esencial') === 'completo' ? 'completo' : 'esencial' }}
             </div>
 
-            <form action="{{ route('configuracion.backup.hora') }}" method="POST" class="flex flex-wrap items-end gap-3">
+            <form action="{{ route('configuracion.backup.hora') }}" method="POST" class="space-y-4">
                 @csrf
                 @method('PUT')
                 <div>
@@ -78,8 +80,9 @@
                     <input type="time" name="hora" required value="{{ old('hora', $hora ?? '02:30') }}"
                         class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                 </div>
+                @include('configuracion._backup-tipo', ['name' => 'tipo', 'value' => old('tipo', $tipoSchedule ?? 'esencial')])
                 <button type="submit" class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    Guardar hora
+                    Guardar horario
                 </button>
             </form>
             @php
@@ -115,10 +118,11 @@
                 </div>
             @elseif($driveReady)
                 @if($supported)
-                    <form action="{{ route('configuracion.backup.drive') }}" method="POST">
+                    <form action="{{ route('configuracion.backup.drive') }}" method="POST" class="space-y-4">
                         @csrf
+                        @include('configuracion._backup-tipo', ['name' => 'tipo', 'value' => old('tipo', $tipoSchedule ?? 'esencial')])
                         <button type="submit"
-                                class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
+                                class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-medium bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors">
                             Subir a Google Drive
                         </button>
                     </form>

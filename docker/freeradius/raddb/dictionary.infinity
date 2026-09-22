@@ -1,0 +1,2 @@
+# Atributo de control (radcheck) con la cuota total en bytes.
+ATTRIBUTE	Max-Data	3000	string

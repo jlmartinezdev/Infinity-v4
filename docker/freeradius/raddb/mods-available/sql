@@ -1,0 +1,39 @@
+sql {
+	dialect = "mysql"
+	driver = "rlm_sql_${dialect}"
+	server = "__RADIUS_DB_HOST__"
+	port = __RADIUS_DB_PORT__
+	login = "__RADIUS_DB_USER__"
+	password = "__RADIUS_DB_PASSWORD__"
+	radius_db = "__RADIUS_DB_NAME__"
+
+	mysql {
+		tls {
+			required = no
+		}
+	}
+
+	acct_table1 = "radacct"
+	acct_table2 = "radacct"
+	postauth_table = "radpostauth"
+	authcheck_table = "radcheck"
+	groupcheck_table = "radgroupcheck"
+	authreply_table = "radreply"
+	groupreply_table = "radgroupreply"
+	usergroup_table = "radusergroup"
+	delete_stale_sessions = yes
+	pool {
+		start = 2
+		min = 1
+		max = 16
+		spare = 1
+		idle_timeout = 60
+	}
+
+	read_groups = yes
+	read_clients = yes
+	client_table = "nas"
+	group_attribute = "SQL-Group"
+
+	$INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
+}

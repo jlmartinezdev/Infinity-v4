@@ -248,6 +248,46 @@ class SifenRespuestaParser
         return $base;
     }
 
+    /**
+     * @return array{
+     *   codigo: ?string,
+     *   mensaje: ?string,
+     *   estado: ?string,
+     *   aprobado: bool,
+     *   ya_cancelado: bool,
+     *   raw: string,
+     * }
+     */
+    public function parsearEvento(string $xmlRespuesta): array
+    {
+        $base = $this->parsear($xmlRespuesta);
+        $mensaje = mb_strtolower((string) ($base['mensaje'] ?? ''));
+        $codigos = array_filter(array_column($base['detalles'], 'codigo'));
+        if ($base['codigo']) {
+            $codigos[] = $base['codigo'];
+        }
+
+        $yaCancelado = str_contains($mensaje, 'ya se encuentra cancelad')
+            || str_contains($mensaje, 'ya cancelad')
+            || in_array('0611', $codigos, true);
+
+        $aprobado = $yaCancelado
+            || $base['aprobado']
+            || in_array('0600', $codigos, true)
+            || in_array('0640', $codigos, true)
+            || in_array('0641', $codigos, true)
+            || in_array('0620', $codigos, true);
+
+        return [
+            'codigo' => $base['codigo'],
+            'mensaje' => $base['mensaje'],
+            'estado' => $base['estado'],
+            'aprobado' => $aprobado,
+            'ya_cancelado' => $yaCancelado,
+            'raw' => $xmlRespuesta,
+        ];
+    }
+
     private function xpathTexto(\DOMXPath $xpath, string $query): ?string
     {
         $nodes = $xpath->query($query);

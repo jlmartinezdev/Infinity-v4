@@ -6,10 +6,18 @@
     $inputClass = 'w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500';
     $mapLat = is_numeric(old('lat')) ? (float) old('lat') : (is_numeric($cajaNap->lat) ? (float) $cajaNap->lat : null);
     $mapLon = is_numeric(old('lon')) ? (float) old('lon') : (is_numeric($cajaNap->lon) ? (float) $cajaNap->lon : null);
+    $nodosCoords = [];
+    foreach ($nodos ?? [] as $nodoMapa) {
+        $coordsNodo = $nodoMapa->getCoordenadasParaMapa();
+        if ($coordsNodo) {
+            $nodosCoords[(string) $nodoMapa->nodo_id] = $coordsNodo;
+        }
+    }
     $cajaNapFormMapaConfig = [
         'apiKey' => $apiKey ?? '',
         'initialLat' => $mapLat,
         'initialLon' => $mapLon,
+        'nodosCoords' => $nodosCoords,
     ];
 @endphp
 
@@ -52,7 +60,17 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label for="splitter_primer_nivel" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Splitter primer nivel</label>
-                    <input type="text" name="splitter_primer_nivel" id="splitter_primer_nivel" value="{{ old('splitter_primer_nivel', $cajaNap->splitter_primer_nivel) }}" maxlength="10" class="mt-1 {{ $inputClass }}" placeholder="ej: 1x4">
+                    @php
+                        $splitterActual = old('splitter_primer_nivel', $cajaNap->splitter_primer_nivel);
+                        $splitterOpciones = \App\Models\CajaNap::splittersPrimerNivelPermitidos($cajaNap->splitter_primer_nivel);
+                    @endphp
+                    <select name="splitter_primer_nivel" id="splitter_primer_nivel" class="mt-1 {{ $inputClass }}">
+                        <option value="" {{ $splitterActual === null || $splitterActual === '' ? 'selected' : '' }}>Sin splitter</option>
+                        @foreach($splitterOpciones as $ratio)
+                            <option value="{{ $ratio }}" @selected((string) $splitterActual === (string) $ratio)>{{ $ratio }}</option>
+                        @endforeach
+                    </select>
+                    @error('splitter_primer_nivel')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label for="potencia_salida" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Potencia salida (dBm)</label>
@@ -67,7 +85,7 @@
                 @error('nota')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label for="codigo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Código *</label>
                     <input type="text" name="codigo" id="codigo" value="{{ old('codigo', $cajaNap->codigo) }}" required maxlength="50"
@@ -75,14 +93,7 @@
                     @error('codigo')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label for="tipo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo *</label>
-                    <select name="tipo" id="tipo" required class="mt-1 {{ $inputClass }}">
-                        <option value="primaria" {{ old('tipo', $cajaNap->tipo) === 'primaria' ? 'selected' : '' }}>Primaria</option>
-                        <option value="secundaria" {{ old('tipo', $cajaNap->tipo) === 'secundaria' ? 'selected' : '' }}>Secundaria</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="splitter_segundo_nivel" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Splitter cliente (FTTH)</label>
+                    <label for="splitter_segundo_nivel" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Splitter secundario</label>
                     <select name="splitter_segundo_nivel" id="splitter_segundo_nivel" class="mt-1 {{ $inputClass }}">
                         <option value="">Sin definir</option>
                         <option value="8" {{ (string) old('splitter_segundo_nivel', $cajaNap->splitter_segundo_nivel) === '8' ? 'selected' : '' }}>1×8 (8 puertos)</option>
@@ -122,7 +133,7 @@
 
             <div class="pt-1">
                 <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación en mapa</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Hacé clic en el mapa para colocar el punto o arrastrá el marcador para afinar. Las coordenadas se actualizan arriba.</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">El mapa se abre en el nodo elegido. Hacé clic para colocar el punto o arrastrá el marcador para afinar. Las coordenadas se actualizan arriba.</p>
                 <div id="caja-nap-form-mapa-app"></div>
                 @if(!$apiKey)
                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">Sin clave de Google Maps podés cargar latitud y longitud manualmente.</p>

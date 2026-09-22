@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Factura;
 use App\Services\Sifen\SifenService;
+use App\Support\FacturaLimiteMes;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -45,6 +46,21 @@ class EmitirFacturaSifenJob implements ShouldBeUnique, ShouldQueue
 
         // Ya enviada a lote o autorizada: no reemitir.
         if ($factura->lotePendienteSifen() || $factura->set_estado_envio === 'autorizado') {
+            return;
+        }
+
+        $ym = $factura->fecha_emision?->format('Y-m') ?? now()->format('Y-m');
+        $tope = FacturaLimiteMes::evaluar($ym, (float) $factura->total);
+        if (! $tope['ok']) {
+            $factura->update([
+                'set_estado_envio' => 'rechazado',
+                'set_xml_respuesta' => $tope['message'],
+            ]);
+            Log::warning('[SIFEN job] Emisión bloqueada por tope mensual', [
+                'factura_id' => $this->facturaId,
+                'mes' => $ym,
+            ]);
+
             return;
         }
 

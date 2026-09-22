@@ -51,11 +51,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 Log::info('Tarea iniciado: facturas:crear-internas-automaticas');
             });
 
-        // Corte automático por falta de pago (día y hora configurables en Configuración > Facturación)
-        $hora = \App\Models\FacturacionParametro::obtener('hora_corte_automatico', '00:01');
-        $diaCorte = (int) \App\Models\FacturacionParametro::obtener('dia_corte', 6);
+        // Corte automático por falta de pago (día y hora configurables; si cae domingo se ejecuta el lunes)
+        $hora = \App\Models\FacturacionParametro::obtener('hora_corte_automatico', '09:00');
         $schedule->command('servicios:corte-automatico')
-            ->monthlyOn($diaCorte, (string) $hora)
+            ->dailyAt((string) $hora)
+            ->when(fn () => \App\Models\FacturacionParametro::esDiaCorteEfectivo())
             ->before(function () {
                 Log::info('Tarea iniciado: servicios:corte-automatico');
             });

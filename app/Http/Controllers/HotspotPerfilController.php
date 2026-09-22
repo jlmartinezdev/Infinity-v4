@@ -35,13 +35,7 @@ class HotspotPerfilController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'nombre' => ['required', 'string', 'max:150'],
-            'rate_limit' => ['nullable', 'string', 'max:50'],
-            'shared_users' => ['nullable', 'string', 'max:20'],
-            'idle_timeout' => ['nullable', 'string', 'max:20'],
-            'session_timeout' => ['nullable', 'string', 'max:20'],
-        ]);
+        $validated = $request->validate($this->reglas());
 
         HotspotPerfil::create($validated);
 
@@ -55,13 +49,7 @@ class HotspotPerfilController extends Controller
 
     public function update(Request $request, HotspotPerfil $perfil)
     {
-        $validated = $request->validate([
-            'nombre' => ['required', 'string', 'max:150'],
-            'rate_limit' => ['nullable', 'string', 'max:50'],
-            'shared_users' => ['nullable', 'string', 'max:20'],
-            'idle_timeout' => ['nullable', 'string', 'max:20'],
-            'session_timeout' => ['nullable', 'string', 'max:20'],
-        ]);
+        $validated = $request->validate($this->reglas());
 
         $perfil->update($validated);
 
@@ -124,5 +112,20 @@ class HotspotPerfilController extends Controller
         }
 
         return redirect()->route('hotspot.perfiles.index')->with('error', 'Errores: ' . implode('; ', $errors));
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    protected function reglas(): array
+    {
+        return [
+            'nombre' => ['required', 'string', 'max:150'],
+            'rate_limit' => ['nullable', 'string', 'max:50'],
+            'cuota_gb' => ['nullable', 'integer', 'min:1', 'max:10240'],
+            'shared_users' => ['nullable', 'string', 'max:20'],
+            'idle_timeout' => ['nullable', 'string', 'max:20'],
+            'session_timeout' => ['nullable', 'string', 'max:20'],
+        ];
     }
 }

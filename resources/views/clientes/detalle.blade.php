@@ -417,6 +417,15 @@
                                                 @else
                                                     <span class="cd-muted">{{ $s->ip ?? '—' }}</span>
                                                 @endif
+                                                @if($s->ipv6_configurado)
+                                                    <span class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400" title="IPv6 configurado">IPv6</span>
+                                                @endif
+                                                @if($s->punto_hotspot)
+                                                    <span class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400" title="Punto hotspot">HS</span>
+                                                @endif
+                                                @if($s->tvCuentaAsignaciones->isNotEmpty() || $s->app_tv)
+                                                    <span class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-600 dark:text-fuchsia-400" title="Tiene cuenta TV">TV</span>
+                                                @endif
                                             </span>
                                         </td>
                                         <td class="font-mono text-xs cd-muted">{{ $s->usuario_pppoe ?? '—' }}</td>
@@ -517,6 +526,42 @@
                                 </form>
                             @endif
                             @if($puedeEditarServicio)
+                                <form action="{{ route('servicios.ipv6', $s) }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="ipv6_configurado" value="0">
+                                    <label class="cd-action cd-action--check">
+                                        <span class="cd-action__icon cd-action__icon--violet" aria-hidden="true">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 0 1 7.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/></svg>
+                                        </span>
+                                        <span>
+                                            <span class="cd-action__title">
+                                                <input type="checkbox" name="ipv6_configurado" value="1"
+                                                    {{ $s->ipv6_configurado ? 'checked' : '' }}
+                                                    onchange="this.form.submit()">
+                                                IPv6 configurado
+                                            </span>
+                                            <span class="cd-action__sub">{{ $s->ipv6_configurado ? 'Este servicio tiene IPv6' : 'Marcá si ya tiene IPv6' }}</span>
+                                        </span>
+                                    </label>
+                                </form>
+                                <form action="{{ route('servicios.punto-hotspot', $s) }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="punto_hotspot" value="0">
+                                    <label class="cd-action cd-action--check">
+                                        <span class="cd-action__icon cd-action__icon--violet" aria-hidden="true">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 0 1 7.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/></svg>
+                                        </span>
+                                        <span>
+                                            <span class="cd-action__title">
+                                                <input type="checkbox" name="punto_hotspot" value="1"
+                                                    {{ $s->punto_hotspot ? 'checked' : '' }}
+                                                    onchange="this.form.submit()">
+                                                Punto hotspot
+                                            </span>
+                                            <span class="cd-action__sub">{{ $s->punto_hotspot ? 'Esta ONU emite hotspot' : 'Marcá si esta ONU emite hotspot' }}</span>
+                                        </span>
+                                    </label>
+                                </form>
                                 <a href="{{ route('servicios.edit', $s) }}" class="cd-action">
                                     <span class="cd-action__icon cd-action__icon--violet">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -631,6 +676,148 @@
                             @endif
                         </div>
                     @endforeach
+                </div>
+            </div>
+            @endif
+
+            @if($u?->tienePermiso('tv.ver'))
+            @php
+                $tvAsignacionesCliente = $cliente->servicios
+                    ->flatMap(fn ($s) => $s->tvCuentaAsignaciones ?? collect())
+                    ->filter(fn ($a) => $a->tvCuenta);
+                $tvCuentasAgrupadas = $tvAsignacionesCliente->groupBy('tv_cuenta_id');
+                $tvApps = \App\Models\TvCuenta::aplicaciones();
+            @endphp
+            <div class="cd-card">
+                <div class="cd-panel__head">
+                    <div>
+                        <h2>Cuenta TV</h2>
+                        <p class="cd-panel__sub">{{ $tvCuentasAgrupadas->isEmpty() ? 'Este cliente no tiene cuenta TV asignada' : ($tvCuentasAgrupadas->count().' cuenta'.($tvCuentasAgrupadas->count() === 1 ? '' : 's').' asignada'.($tvCuentasAgrupadas->count() === 1 ? '' : 's')) }}</p>
+                    </div>
+                    <div class="cd-panel__actions">
+                        @if($u?->tienePermiso('tv.editar') && $cliente->servicios->isNotEmpty())
+                            <a href="{{ route('tv-cuentas.create', ['cliente_id' => $cliente->cliente_id]) }}" class="cd-header-btn">Nueva cuenta</a>
+                        @endif
+                        <a href="{{ route('tv-cuentas.index', ['q' => trim($cliente->nombre.' '.$cliente->apellido)]) }}" class="cd-header-btn">Ver en TV streaming</a>
+                    </div>
+                </div>
+                @if($tvCuentasAgrupadas->isEmpty())
+                    <div class="cd-empty"><p>No tiene cuenta de TV.</p></div>
+                @else
+                    <div class="grid grid-cols-1 {{ $tvCuentasAgrupadas->count() > 1 ? 'lg:grid-cols-2' : '' }} gap-2 p-2 sm:p-3">
+                        @foreach($tvCuentasAgrupadas as $tvGrupo)
+                            @php
+                                $tvCuenta = $tvGrupo->first()->tvCuenta;
+                                $tvSlots = $tvGrupo->map(function ($a) {
+                                    $nombreSlot = $a->tvCuenta?->nombreSlot((int) $a->perfil_numero) ?: ('Perfil '.$a->perfil_numero);
+                                    return $nombreSlot.' · servicio #'.$a->servicio_id;
+                                })->unique()->values();
+                            @endphp
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 p-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold {{ $tvCuenta->esLumix() ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200' }}">
+                                        {{ $tvApps[$tvCuenta->aplicacion] ?? $tvCuenta->aplicacion }}
+                                    </span>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $tvCuenta->etiquetaEstadoVencimiento() }}</span>
+                                    @if($u?->tienePermiso('tv.editar'))
+                                        <a href="{{ route('tv-cuentas.edit', $tvCuenta) }}" class="ml-auto text-xs font-medium text-purple-600 dark:text-purple-300 hover:underline">Editar</a>
+                                    @endif
+                                </div>
+                                @if($tvCuenta->nombre)
+                                    <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $tvCuenta->nombre }}</p>
+                                @endif
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $tvSlots->implode(' · ') }}</p>
+                                <div class="mt-3 space-y-2">
+                                    <div>
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Correo / usuario</p>
+                                        <div class="mt-0.5 flex items-center gap-2 min-w-0">
+                                            <p class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all min-w-0">{{ $tvCuenta->usuario_app ?: '—' }}</p>
+                                            @if(filled($tvCuenta->usuario_app))
+                                                <button type="button"
+                                                    class="shrink-0 p-1 rounded-md text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                    data-tv-copiar="{{ $tvCuenta->usuario_app }}"
+                                                    title="Copiar correo"
+                                                    aria-label="Copiar correo">
+                                                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                    </svg>
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Contraseña</p>
+                                        <div class="mt-0.5 flex items-center gap-2 min-w-0">
+                                            <p class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all min-w-0" data-tv-pass-mask>{{ filled($tvCuenta->password) ? '••••••••' : '—' }}</p>
+                                            @if(filled($tvCuenta->password))
+                                                <button type="button"
+                                                    class="shrink-0 p-1 rounded-md text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                    data-tv-pass-toggle
+                                                    data-tv-pass="{{ $tvCuenta->password }}"
+                                                    aria-pressed="false"
+                                                    title="Mostrar contraseña"
+                                                    aria-label="Mostrar contraseña">
+                                                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                    </svg>
+                                                </button>
+                                                <button type="button"
+                                                    class="shrink-0 p-1 rounded-md text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                    data-tv-copiar="{{ $tvCuenta->password }}"
+                                                    title="Copiar contraseña"
+                                                    aria-label="Copiar contraseña">
+                                                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                    </svg>
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+            @endif
+
+            @if($u?->tienePermiso('servicios.ver'))
+            @php
+                $hsMax = \App\Models\ServicioHotspot::MAX_POR_CLIENTE;
+                $hsPorSlot = ($cliente->servicioHotspots ?? collect())->keyBy(fn ($h) => (int) $h->slot_numero);
+                $hsEstados = \App\Models\Servicio::estadosDisponibles();
+            @endphp
+            <div class="cd-card">
+                <div class="cd-panel__head">
+                    <h2>Usuarios Hotspot</h2>
+                    <div class="cd-panel__actions">
+                        <a href="{{ route('hotspot.clientes.edit', $cliente) }}" class="cd-header-btn">Gestionar ({{ $hsPorSlot->count() }} / {{ $hsMax }})</a>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    @for($hsSlot = 1; $hsSlot <= $hsMax; $hsSlot++)
+                        @php $hs = $hsPorSlot->get($hsSlot); @endphp
+                        @if($hs)
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 p-3">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Slot {{ $hsSlot }}</p>
+                                <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 font-mono break-all">{{ $hs->username }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">PIN {{ $hs->password }} · {{ $hsEstados[$hs->servicio?->estado] ?? ($hs->servicio?->estado ?: '—') }}</p>
+                            </div>
+                        @else
+                            <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-3 min-h-[6.5rem] flex flex-col">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Slot {{ $hsSlot }}</p>
+                                <div class="flex-1 flex items-center justify-center">
+                                    <a href="{{ route('hotspot.clientes.edit', ['cliente' => $cliente, 'slot' => $hsSlot]) }}#form-hotspot"
+                                        class="inline-flex items-center justify-center w-10 h-10 rounded-full border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30"
+                                        title="Crear usuario en el slot {{ $hsSlot }}"
+                                        aria-label="Crear usuario en el slot {{ $hsSlot }}">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14"/></svg>
+                                    </a>
+                                </div>
+                            </div>
+                        @endif
+                    @endfor
                 </div>
             </div>
             @endif
@@ -1120,6 +1307,58 @@
         btn.addEventListener('click', function() {
             var campo = btn.getAttribute('data-cd-pppoe-copy');
             copiar(campo === 'password' ? inputPass.value : inputUser.value, btn);
+        });
+    });
+})();
+</script>
+<script>
+(function() {
+    var iconOk = '<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+    var iconEye = '<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
+    var iconEyeOff = '<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>';
+    function fallbackCopy(texto) {
+        var ta = document.createElement('textarea');
+        ta.value = texto || '';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+    }
+    function copiar(texto, btn) {
+        var done = function() {
+            var prev = btn.innerHTML;
+            btn.innerHTML = iconOk;
+            btn.classList.add('text-emerald-500');
+            setTimeout(function() {
+                btn.innerHTML = prev;
+                btn.classList.remove('text-emerald-500');
+            }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto || '').then(done).catch(function() {
+                fallbackCopy(texto); done();
+            });
+            return;
+        }
+        fallbackCopy(texto);
+        done();
+    }
+    document.querySelectorAll('[data-tv-copiar]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            copiar(btn.getAttribute('data-tv-copiar') || '', btn);
+        });
+    });
+    document.querySelectorAll('[data-tv-pass-toggle]').forEach(function (toggle) {
+        toggle.addEventListener('click', function () {
+            var wrap = toggle.parentElement;
+            var mask = wrap ? wrap.querySelector('[data-tv-pass-mask]') : null;
+            var pass = toggle.getAttribute('data-tv-pass') || '';
+            var showing = toggle.getAttribute('aria-pressed') === 'true';
+            if (mask) mask.textContent = showing ? '••••••••' : pass;
+            toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+            toggle.setAttribute('title', showing ? 'Mostrar contraseña' : 'Ocultar contraseña');
+            toggle.setAttribute('aria-label', showing ? 'Mostrar contraseña' : 'Ocultar contraseña');
+            toggle.innerHTML = showing ? iconEye : iconEyeOff;
         });
     });
 })();

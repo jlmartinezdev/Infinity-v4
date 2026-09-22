@@ -99,6 +99,8 @@ class ListaClienteServicioViewData
                     ] : null,
                 ] : null,
                 'ip' => $s->ip,
+                'ipv6_configurado' => (bool) ($s->ipv6_configurado ?? false),
+                'punto_hotspot' => (bool) ($s->punto_hotspot ?? false),
                 'usuario_pppoe' => $s->usuario_pppoe,
                 'password_pppoe' => $s->password_pppoe,
                 'fecha_instalacion' => $s->fecha_instalacion?->format('Y-m-d'),

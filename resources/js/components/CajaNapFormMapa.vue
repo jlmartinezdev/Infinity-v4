@@ -20,6 +20,7 @@ const props = defineProps({
   apiKey: { type: String, default: '' },
   initialLat: { type: Number, default: null },
   initialLon: { type: Number, default: null },
+  nodosCoords: { type: Object, default: () => ({}) },
 });
 
 const mapContainer = ref(null);
@@ -27,9 +28,12 @@ const loading = ref(true);
 const error = ref('');
 
 const DEFAULT_CENTER = { lat: -25.2637, lng: -57.5759 };
+const NODO_ZOOM = 16;
+const PIN_ZOOM = 17;
 
 let map = null;
 let marker = null;
+let nodoSelectEl = null;
 
 function latLonInputs() {
   return {
@@ -53,6 +57,62 @@ function setInputsFromLatLng(lat, lng) {
     lonEl.value = lonStr;
     lonEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
+}
+
+function hasPinCoords() {
+  const hasInitial =
+    props.initialLat != null &&
+    props.initialLon != null &&
+    !Number.isNaN(props.initialLat) &&
+    !Number.isNaN(props.initialLon);
+  if (hasInitial) return true;
+  const { lat: latEl, lon: lonEl } = latLonInputs();
+  const latN = Number(latEl?.value);
+  const lonN = Number(lonEl?.value);
+  return Number.isFinite(latN) && Number.isFinite(lonN) && latEl?.value !== '' && lonEl?.value !== '';
+}
+
+function coordsForNodo(nodoId) {
+  if (nodoId == null || nodoId === '') return null;
+  const raw = props.nodosCoords?.[String(nodoId)] ?? props.nodosCoords?.[nodoId];
+  if (!raw) return null;
+  const lat = Number(raw.lat);
+  const lon = Number(raw.lon ?? raw.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lng: lon };
+}
+
+function selectedNodoId() {
+  return document.getElementById('nodo_id')?.value || '';
+}
+
+function centerForNodoOrDefault() {
+  return coordsForNodo(selectedNodoId()) || DEFAULT_CENTER;
+}
+
+function attachMarker(google, position) {
+  if (marker) {
+    marker.setPosition(position);
+    return;
+  }
+  marker = new google.maps.Marker({
+    position,
+    map,
+    draggable: true,
+    title: 'Ubicación de la caja NAP',
+  });
+  marker.addListener('dragend', () => {
+    const p = marker.getPosition();
+    if (p) setInputsFromLatLng(p.lat(), p.lng());
+  });
+}
+
+function panToSelectedNodo() {
+  if (!map || hasPinCoords() || marker) return;
+  const centro = coordsForNodo(selectedNodoId());
+  if (!centro) return;
+  map.setCenter(centro);
+  map.setZoom(NODO_ZOOM);
 }
 
 function loadGoogleMaps() {
@@ -93,11 +153,12 @@ function initMap(google) {
 
   const center = hasInitial
     ? { lat: props.initialLat, lng: props.initialLon }
-    : DEFAULT_CENTER;
+    : centerForNodoOrDefault();
+  const zoom = hasInitial ? PIN_ZOOM : (coordsForNodo(selectedNodoId()) ? NODO_ZOOM : 6);
 
   map = new google.maps.Map(mapContainer.value, {
     center,
-    zoom: hasInitial ? 17 : 6,
+    zoom,
     mapTypeControl: true,
     streetViewControl: false,
     fullscreenControl: true,
@@ -105,37 +166,20 @@ function initMap(google) {
   });
 
   if (hasInitial) {
-    marker = new google.maps.Marker({
-      position: center,
-      map,
-      draggable: true,
-      title: 'Ubicación de la caja NAP',
-    });
-    marker.addListener('dragend', () => {
-      const p = marker.getPosition();
-      if (p) setInputsFromLatLng(p.lat(), p.lng());
-    });
+    attachMarker(google, center);
   }
 
   map.addListener('click', (e) => {
     const latLng = e.latLng;
     if (!latLng) return;
-    if (!marker) {
-      marker = new google.maps.Marker({
-        position: latLng,
-        map,
-        draggable: true,
-        title: 'Ubicación de la caja NAP',
-      });
-      marker.addListener('dragend', () => {
-        const p = marker.getPosition();
-        if (p) setInputsFromLatLng(p.lat(), p.lng());
-      });
-    } else {
-      marker.setPosition(latLng);
-    }
+    attachMarker(google, latLng);
     setInputsFromLatLng(latLng.lat(), latLng.lng());
   });
+
+  nodoSelectEl = document.getElementById('nodo_id');
+  if (nodoSelectEl) {
+    nodoSelectEl.addEventListener('change', panToSelectedNodo);
+  }
 }
 
 onMounted(async () => {
@@ -154,6 +198,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (nodoSelectEl) {
+    nodoSelectEl.removeEventListener('change', panToSelectedNodo);
+    nodoSelectEl = null;
+  }
   if (marker) {
     marker.setMap(null);
     marker = null;
@@ -161,3 +209,4 @@ onBeforeUnmount(() => {
   map = null;
 });
 </script>
+

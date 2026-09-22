@@ -9,6 +9,7 @@ if (el) {
     apiKey: cfg.apiKey || '',
     initialLat: cfg.initialLat != null ? Number(cfg.initialLat) : null,
     initialLon: cfg.initialLon != null ? Number(cfg.initialLon) : null,
+    nodosCoords: cfg.nodosCoords || {},
   });
   app.mount(el);
 }

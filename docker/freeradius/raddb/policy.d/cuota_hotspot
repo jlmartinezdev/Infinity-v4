@@ -1,0 +1,22 @@
+# Resta el tráfico ya contabilizado (radacct) a Max-Data y envía el
+# restante al MikroTik. Si se acabó la cuota, rechaza el login.
+cuota_hotspot {
+	if (&control:Max-Data && (&control:Max-Data != "")) {
+		update control {
+			&Tmp-String-0 := "%{sql:SELECT CAST(IFNULL(SUM(CAST(acctinputoctets AS UNSIGNED) + CAST(acctoutputoctets AS UNSIGNED) + IFNULL(acctinputgigawords,0)*4294967296 + IFNULL(acctoutputgigawords,0)*4294967296),0) AS CHAR) FROM radacct WHERE username = '%{User-Name}'}"
+		}
+
+		update control {
+			&Tmp-String-1 := "%{expr: %{control:Max-Data} - %{control:Tmp-String-0}}"
+		}
+
+		if ("%{expr: %{control:Tmp-String-1} > 0}" == "0") {
+			reject
+		}
+
+		update reply {
+			&Mikrotik-Total-Limit := "%{expr: %{control:Tmp-String-1} %% 4294967296}"
+			&Mikrotik-Total-Limit-Gigawords := "%{expr: %{control:Tmp-String-1} / 4294967296}"
+		}
+	}
+}

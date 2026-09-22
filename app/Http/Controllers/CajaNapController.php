@@ -6,6 +6,7 @@ use App\Models\CajaNap;
 use App\Models\CajaNapPuertoActivo;
 use App\Models\LineaCable;
 use App\Models\Nodo;
+use App\Models\Olt;
 use App\Models\SalidaPon;
 use App\Models\Servicio;
 use App\Models\SplitterPrimario;
@@ -50,8 +51,9 @@ class CajaNapController extends Controller
         $nodos = Nodo::orderBy('descripcion')->get();
         $salidas = SalidaPon::with(['olt', 'nodo', 'oltPuerto'])->orderBy('codigo')->get();
         $apiKey = config('services.google.maps_key', '');
+        $codigoSugerido = CajaNap::siguienteCodigo();
 
-        return view('cajas-nap.create', compact('nodos', 'salidas', 'apiKey'));
+        return view('cajas-nap.create', compact('nodos', 'salidas', 'apiKey', 'codigoSugerido'));
     }
 
     public function store(Request $request)
@@ -59,13 +61,11 @@ class CajaNapController extends Controller
         $validated = $request->validate([
             'nodo_id' => ['required', 'exists:nodos,nodo_id'],
             'salida_pon_id' => ['nullable', 'exists:salida_pons,salida_pon_id'],
-            'codigo' => ['required', 'string', 'max:50', 'unique:caja_naps,codigo'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lon' => ['nullable', 'numeric', 'between:-180,180'],
             'direccion' => ['nullable', 'string', 'max:255'],
-            'tipo' => ['required', 'in:primaria,secundaria'],
-            'splitter_primer_nivel' => ['nullable', 'string', 'max:10'],
+            'splitter_primer_nivel' => ['nullable', 'string', 'max:10', Rule::in(CajaNap::SPLITTERS_PRIMER_NIVEL)],
             'splitter_segundo_nivel' => ['nullable', 'string', 'in:8,16'],
             'potencia_salida' => ['nullable', 'numeric'],
             'nota' => ['nullable', 'string', 'max:2000'],
@@ -74,6 +74,10 @@ class CajaNapController extends Controller
 
         $validated['splitter_segundo_nivel'] = isset($validated['splitter_segundo_nivel']) && $validated['splitter_segundo_nivel'] !== ''
             ? (int) $validated['splitter_segundo_nivel']
+            : null;
+
+        $validated['splitter_primer_nivel'] = ($validated['splitter_primer_nivel'] ?? '') !== ''
+            ? $validated['splitter_primer_nivel']
             : null;
 
         $validated['salida_pon_id'] = ! empty($validated['salida_pon_id']) ? (int) $validated['salida_pon_id'] : null;
@@ -90,9 +94,18 @@ class CajaNapController extends Controller
         }
 
         $validated['estado'] = $validated['estado'] ?? 'activo';
+        $validated['tipo'] = 'secundaria';
+        $validated['codigo'] = CajaNap::siguienteCodigo();
         $cajaNap = CajaNap::create($validated);
         $cajaNap->refresh();
         $cajaNap->sincronizarPuertosActivos();
+
+        $returnOltId = (int) $request->input('return_olt');
+        if ($returnOltId > 0 && Olt::query()->where('olt_id', $returnOltId)->exists()) {
+            return redirect()
+                ->route('sistema.olts.show', $returnOltId)
+                ->with('success', 'Caja NAP creada correctamente.');
+        }
 
         return redirect()->route('sistema.cajas-nap.index')->with('success', 'Caja NAP creada correctamente.');
     }
@@ -166,8 +179,7 @@ class CajaNapController extends Controller
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lon' => ['nullable', 'numeric', 'between:-180,180'],
             'direccion' => ['nullable', 'string', 'max:255'],
-            'tipo' => ['required', 'in:primaria,secundaria'],
-            'splitter_primer_nivel' => ['nullable', 'string', 'max:10'],
+            'splitter_primer_nivel' => ['nullable', 'string', 'max:10', Rule::in(CajaNap::splittersPrimerNivelPermitidos($cajaNap->splitter_primer_nivel))],
             'splitter_segundo_nivel' => ['nullable', 'string', 'in:8,16'],
             'potencia_salida' => ['nullable', 'numeric'],
             'nota' => ['nullable', 'string', 'max:2000'],
@@ -176,6 +188,10 @@ class CajaNapController extends Controller
 
         $validated['splitter_segundo_nivel'] = isset($validated['splitter_segundo_nivel']) && $validated['splitter_segundo_nivel'] !== ''
             ? (int) $validated['splitter_segundo_nivel']
+            : null;
+
+        $validated['splitter_primer_nivel'] = ($validated['splitter_primer_nivel'] ?? '') !== ''
+            ? $validated['splitter_primer_nivel']
             : null;
 
         $validated['salida_pon_id'] = ! empty($validated['salida_pon_id']) ? (int) $validated['salida_pon_id'] : null;

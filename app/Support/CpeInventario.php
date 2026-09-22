@@ -177,7 +177,7 @@ final class CpeInventario
         if ($router) {
             $partes[] = $router;
         }
-        $acceso = self::etiquetaAcceso($servicio->cpe_acceso ?? null);
+        $acceso = self::etiquetaAcceso(self::esHuaweiOnu($servicio) ? 'ssh' : ($servicio->cpe_acceso ?? null));
         if ($partes === [] && ! $acceso) {
             return null;
         }
@@ -189,8 +189,32 @@ final class CpeInventario
         return $txt;
     }
 
+    public static function esHuaweiOnu(Servicio $servicio): bool
+    {
+        return self::claveEsHuawei($servicio->cpe_onu ?? null);
+    }
+
+    public static function claveEsHuawei(?string $clave): bool
+    {
+        $clave = strtolower(trim((string) $clave));
+        if ($clave === '') {
+            return false;
+        }
+        if ($clave === 'huawei' || str_contains($clave, 'huawei')) {
+            return true;
+        }
+
+        $nombre = strtolower((string) (self::etiquetaOnu($clave) ?? ''));
+
+        return str_contains($nombre, 'huawei');
+    }
+
     public static function usaAcs(Servicio $servicio): bool
     {
+        if (self::esHuaweiOnu($servicio)) {
+            return false;
+        }
+
         $acceso = (string) ($servicio->cpe_acceso ?? '');
         if ($acceso === 'acs') {
             return true;
@@ -204,6 +228,10 @@ final class CpeInventario
 
     public static function usaSshCpe(Servicio $servicio): bool
     {
+        if (self::esHuaweiOnu($servicio)) {
+            return true;
+        }
+
         return (string) ($servicio->cpe_acceso ?? '') === 'ssh';
     }
 

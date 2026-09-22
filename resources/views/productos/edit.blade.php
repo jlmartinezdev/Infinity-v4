@@ -7,7 +7,7 @@
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Editar producto</h1>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
-        <form action="{{ route('productos.update', $producto) }}" method="POST">
+        <form action="{{ route('productos.update', $producto) }}" method="POST" enctype="multipart/form-data">
             @include('productos._form', ['producto' => $producto])
         </form>
     </div>

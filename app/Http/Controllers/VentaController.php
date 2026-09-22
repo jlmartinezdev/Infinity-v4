@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Venta;
 use App\Models\VentaDetalle;
+use App\Models\CotizacionDolar;
 use App\Models\Producto;
 use App\Models\Cliente;
 use App\Models\Servicio;
@@ -50,7 +51,9 @@ class VentaController extends Controller
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])->orderBy('nombre')->get();
         $productos = Producto::with('categoria')->where('estado', 'activo')->orderBy('nombre')->get();
         $servicios = Servicio::with('cliente')->whereIn('estado', ['activo', 'inactivo'])->orderBy('servicio_id')->get();
-        return view('ventas.create', compact('clientes', 'productos', 'servicios'));
+        $tipoCambioActual = CotizacionDolar::valorActualInput();
+
+        return view('ventas.create', compact('clientes', 'productos', 'servicios', 'tipoCambioActual'));
     }
 
     /**
@@ -63,6 +66,7 @@ class VentaController extends Controller
             'servicio_id' => ['nullable', 'integer', 'exists:servicios,servicio_id'],
             'fecha' => ['required', 'date'],
             'numero_factura' => ['nullable', 'string', 'max:100'],
+            'tipo_cambio' => CotizacionDolar::reglasTipoCambio(),
             'descuento' => ['nullable', 'numeric', 'min:0'],
             'impuesto' => ['nullable', 'numeric', 'min:0'],
             'notas' => ['nullable', 'string'],
@@ -97,6 +101,7 @@ class VentaController extends Controller
                 'servicio_id' => $validated['servicio_id'] ?? null,
                 'fecha' => $validated['fecha'],
                 'numero_factura' => $validated['numero_factura'] ?? null,
+                'tipo_cambio' => $validated['tipo_cambio'],
                 'subtotal' => $subtotal,
                 'descuento' => $descuento,
                 'impuesto' => $impuesto,
@@ -142,7 +147,9 @@ class VentaController extends Controller
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])->orderBy('nombre')->get();
         $productos = Producto::with('categoria')->where('estado', 'activo')->orderBy('nombre')->get();
         $servicios = Servicio::with('cliente')->whereIn('estado', ['activo', 'inactivo'])->orderBy('servicio_id')->get();
-        return view('ventas.edit', compact('venta', 'clientes', 'productos', 'servicios'));
+        $tipoCambioActual = CotizacionDolar::valorActualInput();
+
+        return view('ventas.edit', compact('venta', 'clientes', 'productos', 'servicios', 'tipoCambioActual'));
     }
 
     /**
@@ -155,6 +162,7 @@ class VentaController extends Controller
             'servicio_id' => ['nullable', 'integer', 'exists:servicios,servicio_id'],
             'fecha' => ['required', 'date'],
             'numero_factura' => ['nullable', 'string', 'max:100'],
+            'tipo_cambio' => CotizacionDolar::reglasTipoCambio(),
             'descuento' => ['nullable', 'numeric', 'min:0'],
             'impuesto' => ['nullable', 'numeric', 'min:0'],
             'notas' => ['nullable', 'string'],
@@ -202,6 +210,7 @@ class VentaController extends Controller
                 'servicio_id' => $validated['servicio_id'] ?? null,
                 'fecha' => $validated['fecha'],
                 'numero_factura' => $validated['numero_factura'] ?? null,
+                'tipo_cambio' => $validated['tipo_cambio'],
                 'subtotal' => $subtotal,
                 'descuento' => $descuento,
                 'impuesto' => $impuesto,

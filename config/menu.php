@@ -116,8 +116,10 @@ return [
             'submenu' => [
                 ['name' => 'lista-servicios', 'label' => 'Lista servicios', 'path' => '/servicios', 'permiso' => 'servicios-lista.ver'],
                 ['name' => 'pppoe-eventos', 'label' => 'Eventos PPPoE MikroTik', 'path' => '/servicios/pppoe-eventos', 'permiso' => 'servicios-lista.ver'],
-                ['name' => 'hotspot-dashboard', 'label' => 'Hotspot - Clientes activos', 'path' => '/hotspot/dashboard', 'permiso' => 'servicios-hotspot.ver'],
+                ['name' => 'hotspot-dashboard', 'label' => 'Sesiones hotspot', 'path' => '/hotspot/dashboard', 'permiso' => 'servicios-hotspot.ver'],
                 ['name' => 'hotspot-usuarios', 'label' => 'Usuarios Hotspot', 'path' => '/hotspot', 'permiso' => 'servicios-hotspot-usuarios.ver'],
+                ['name' => 'hotspot-mapa', 'label' => 'Mapa puntos Hotspot', 'path' => '/hotspot/mapa', 'permiso' => 'servicios-hotspot-usuarios.ver'],
+                ['name' => 'hotspot-radius', 'label' => 'Usuarios RADIUS', 'path' => '/hotspot/radius', 'permiso' => 'servicios-hotspot-usuarios.ver'],
                 ['name' => 'hotspot-perfiles', 'label' => 'Perfiles Hotspot', 'path' => '/hotspot/perfiles', 'permiso' => 'servicios-hotspot-perfiles.ver'],
             ],
         ],
@@ -134,6 +136,8 @@ return [
             'icon' => 'cube',
             'submenu' => [
                 ['name' => 'productos', 'label' => 'Productos / Equipos', 'path' => '/productos', 'permiso' => 'inventario-productos.ver'],
+                ['name' => 'productos-pedido', 'label' => 'Armar pedido', 'path' => '/productos/pedido', 'permiso' => 'inventario-productos.ver'],
+                ['name' => 'cotizacion-dolar', 'label' => 'Cotización dólar', 'path' => '/cotizacion-dolar', 'permiso' => 'inventario.ver'],
                 ['name' => 'compras', 'label' => 'Compras', 'path' => '/compras', 'permiso' => 'inventario-compras.ver'],
                 ['name' => 'ventas', 'label' => 'Ventas', 'path' => '/ventas', 'permiso' => 'inventario-ventas.ver'],
                 ['name' => 'gastos', 'label' => 'Gastos', 'path' => '/gastos', 'permiso' => 'inventario-gastos.ver'],

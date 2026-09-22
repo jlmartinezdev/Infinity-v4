@@ -14,6 +14,7 @@ use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
 use App\Http\Controllers\CobroRendicionController;
 use App\Http\Controllers\CompraController;
+use App\Http\Controllers\CotizacionDolarController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
@@ -132,6 +133,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
 // Panel secundario (solo enlaces, sin datos): cualquier usuario autenticado
 Route::get('/inicio', [HomeController::class, 'inicio'])->middleware('auth')->name('inicio');
+
+Route::get('/sesion/ping', function () {
+    return response()->json(['ok' => true])
+        ->header('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+})->middleware('auth')->name('sesion.ping');
 
 // Acceso rápido personalizable (menú lateral) — por usuario staff
 Route::middleware('auth')->group(function () {
@@ -518,6 +524,8 @@ Route::delete('/agenda/{agenda}', [AgendaController::class, 'destroy'])->name('a
 // Facturación (Paraguay, preparado para factura electrónica)
 Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
     Route::get('/facturas', [FacturaController::class, 'index'])->name('facturas.index');
+    Route::get('/facturas/pdf-resumen', [FacturaController::class, 'pdfResumen'])->name('facturas.pdf-resumen');
+    Route::post('/facturas/limite-mes', [FacturaController::class, 'guardarLimiteMes'])->name('facturas.limite-mes');
     Route::get('/facturas/generar-interna', [FacturaController::class, 'generarInterna'])->name('facturas.generar-interna');
     Route::get('/facturas/create', [FacturaController::class, 'create'])->name('facturas.create')->middleware('permiso:facturas.crear');
     Route::get('/facturas/create/manual', [FacturaController::class, 'createManual'])->name('facturas.create-manual')->middleware('permiso:facturas.crear');
@@ -534,6 +542,9 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas/verificar-receptor-documento', [FacturaController::class, 'verificarReceptorDocumento'])->name('facturas.verificar-receptor-documento');
     Route::post('/facturas', [FacturaController::class, 'store'])->name('facturas.store');
     Route::post('/facturas/masivo', [FacturaController::class, 'storeMasivo'])->name('facturas.store-masivo');
+    Route::post('/facturas/listas', [FacturaController::class, 'storeLista'])->name('facturas.listas.store');
+    Route::post('/facturas/listas/{lista}/facturar', [FacturaController::class, 'facturarLista'])->name('facturas.listas.facturar');
+    Route::delete('/facturas/listas/{lista}', [FacturaController::class, 'destroyLista'])->name('facturas.listas.destroy');
     Route::post('/facturas/generar-interna', [FacturaController::class, 'storeGenerarInterna'])->name('facturas.store-generar-interna');
     Route::post('/facturas/preparar-interna-desde-servicios', [FacturaController::class, 'prepararInternaDesdeServicios'])->name('facturas.preparar-interna-desde-servicios');
     Route::get('/facturas/generar-interna-desde-servicios', [FacturaController::class, 'generarInternaDesdeServicios'])->name('facturas.generar-interna-desde-servicios');
@@ -546,6 +557,8 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'storeInternaFraccionDeudaServicio'])->name('facturas.store-interna-servicio-fraccion-deuda');
     Route::post('/facturas/suspender-falta-pago', [FacturaController::class, 'suspenderFaltaPago'])->name('facturas.suspender-falta-pago');
     Route::post('/facturas/{factura}/emitir', [FacturaController::class, 'emitir'])->name('facturas.emitir');
+    Route::post('/facturas/{factura}/cancelar', [FacturaController::class, 'cancelar'])->name('facturas.cancelar');
+    Route::post('/facturas/{factura}/nota-credito', [FacturaController::class, 'prepararNotaCredito'])->name('facturas.nota-credito');
     Route::post('/facturas/{factura}/consultar-lote', [FacturaController::class, 'consultarLote'])->name('facturas.consultar-lote');
     Route::post('/facturas/consultar-lotes', [FacturaController::class, 'consultarLotesPendientes'])->name('facturas.consultar-lotes');
 });
@@ -553,6 +566,7 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::get('/facturas/{factura}/kude', [FacturaController::class, 'descargarKude'])->name('facturas.kude');
     Route::get('/facturas/{factura}/kude-pos', [FacturaController::class, 'verKudePos'])->name('facturas.kude-pos');
     Route::get('/facturas/{factura}/xml', [FacturaController::class, 'descargarXml'])->name('facturas.xml');
+    Route::post('/facturas/{factura}/whatsapp', [FacturaController::class, 'enviarWhatsApp'])->name('facturas.enviar-whatsapp');
     Route::get('/facturas/{factura}', [FacturaController::class, 'show'])->name('facturas.show');
     Route::get('/facturas/{factura}/edit', [FacturaController::class, 'edit'])->name('facturas.edit');
     Route::put('/facturas/{factura}', [FacturaController::class, 'update'])->name('facturas.update');
@@ -670,6 +684,13 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::post('/servicios/{servicio_id}/herramientas-red/tr069-reboot', [ServicioController::class, 'herramientasRedTr069Reboot'])->name('servicios.herramientas-red.tr069-reboot');
     Route::post('/servicios/{servicio_id}/herramientas-red/tr069-refresh', [ServicioController::class, 'herramientasRedTr069Refresh'])->name('servicios.herramientas-red.tr069-refresh');
     Route::post('/servicios/{servicio_id}/herramientas-red/tr069-password', [ServicioController::class, 'herramientasRedTr069Password'])->name('servicios.herramientas-red.tr069-password');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-ipv6', [ServicioController::class, 'herramientasRedHuaweiIpv6'])->name('servicios.herramientas-red.huawei-ipv6');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-conectados', [ServicioController::class, 'herramientasRedHuaweiConectados'])->name('servicios.herramientas-red.huawei-conectados');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-dhcp', [ServicioController::class, 'herramientasRedHuaweiDhcp'])->name('servicios.herramientas-red.huawei-dhcp');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-wifi', [ServicioController::class, 'herramientasRedHuaweiWifi'])->name('servicios.herramientas-red.huawei-wifi');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-ssid', [ServicioController::class, 'herramientasRedHuaweiSsid'])->name('servicios.herramientas-red.huawei-ssid');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-optica', [ServicioController::class, 'herramientasRedHuaweiOptica'])->name('servicios.herramientas-red.huawei-optica');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-reboot', [ServicioController::class, 'herramientasRedHuaweiReboot'])->name('servicios.herramientas-red.huawei-reboot');
 });
 Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::post('/servicios', [ServicioController::class, 'store'])->name('servicios.store');
@@ -679,6 +700,8 @@ Route::middleware(['auth', 'permiso:servicios.crear,servicios.editar'])->group(f
     Route::get('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarForm'])->name('servicios.migrar');
     Route::get('/servicios/{servicio_id}/cambiar-tecnologia', [ServicioController::class, 'cambiarTecnologiaForm'])->name('servicios.cambiar-tecnologia');
     Route::put('/servicios/{servicio_id}', [ServicioController::class, 'update'])->name('servicios.update');
+    Route::post('/servicios/{servicio_id}/ipv6', [ServicioController::class, 'actualizarIpv6'])->name('servicios.ipv6');
+    Route::post('/servicios/{servicio_id}/punto-hotspot', [ServicioController::class, 'actualizarPuntoHotspot'])->name('servicios.punto-hotspot');
     Route::post('/servicios/{servicio_id}/activar', [ServicioController::class, 'activar'])->name('servicios.activar');
     Route::post('/servicios/{servicio_id}/finalizar-instalacion', [ServicioController::class, 'finalizarInstalacion'])->name('servicios.finalizar-instalacion');
     Route::post('/servicios/{servicio_id}/suspender', [ServicioController::class, 'suspender'])->name('servicios.suspender');
@@ -712,12 +735,22 @@ Route::middleware(['auth', 'permiso:tv.editar'])->group(function () {
     Route::delete('/tv-cuentas/{tv_cuenta}/asignaciones/{asignacion}', [TvCuentaController::class, 'destroyAsignacion'])->name('tv-cuentas.asignaciones.destroy');
 });
 
-// Hotspot MikroTik (asociado a servicio_id)
+// Hotspot MikroTik (hasta 3 usuarios por cliente)
 Route::middleware(['auth', 'permiso:servicios.ver'])->prefix('hotspot')->name('hotspot.')->group(function () {
     Route::get('/dashboard', [HotspotController::class, 'dashboard'])->name('dashboard');
+    Route::get('/mapa', [HotspotController::class, 'mapa'])->name('mapa');
+    Route::get('/radius', [HotspotController::class, 'radius'])->name('radius');
     Route::get('/', [HotspotController::class, 'index'])->name('index');
+    Route::get('/buscar', [HotspotController::class, 'buscar'])->name('buscar');
+    Route::post('/tocar', [HotspotController::class, 'tocar'])->name('tocar');
     Route::get('/create', [HotspotController::class, 'create'])->name('create');
-    Route::post('/', [HotspotController::class, 'store'])->name('store');
+    Route::get('/clientes/{cliente}', [HotspotController::class, 'editCliente'])->name('clientes.edit');
+    Route::middleware('permiso:servicios.editar')->group(function () {
+        Route::post('/', [HotspotController::class, 'store'])->name('store');
+        Route::post('/clientes/{cliente}', [HotspotController::class, 'storeCliente'])->name('clientes.store');
+        Route::put('/clientes/{cliente}/usuarios/{servicioHotspot}', [HotspotController::class, 'updateCliente'])->name('clientes.update');
+        Route::delete('/clientes/{cliente}/usuarios/{servicioHotspot}', [HotspotController::class, 'destroy'])->name('clientes.destroy');
+    });
     Route::post('/perfiles/sync-mikrotik', [HotspotPerfilController::class, 'syncMikrotik'])->name('perfiles.sync-mikrotik');
     Route::get('/perfiles', [HotspotPerfilController::class, 'index'])->name('perfiles.index');
     Route::get('/perfiles/create', [HotspotPerfilController::class, 'create'])->name('perfiles.create');
@@ -754,8 +787,13 @@ Route::middleware(['auth', 'permiso:inventario.ver'])->group(function () {
     Route::put('/categorias-gasto/{categoriaGasto}', [CategoriaGastoController::class, 'update'])->name('categorias-gasto.update');
     Route::delete('/categorias-gasto/{categoriaGasto}', [CategoriaGastoController::class, 'destroy'])->name('categorias-gasto.destroy');
 
+    // Cotización dólar (referencia USD → Gs)
+    Route::get('/cotizacion-dolar', [CotizacionDolarController::class, 'index'])->name('cotizacion-dolar.index');
+    Route::post('/cotizacion-dolar', [CotizacionDolarController::class, 'store'])->name('cotizacion-dolar.store');
+
     // Productos
     Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+    Route::get('/productos/pedido', [ProductoController::class, 'pedido'])->name('productos.pedido');
     Route::get('/productos/create', [ProductoController::class, 'create'])->name('productos.create');
     Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
     Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])->name('productos.edit');
@@ -858,6 +896,10 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::post('isp-failover/restaurar', [IspFailoverController::class, 'restaurarPrimario'])->name('isp-failover.restaurar')
         ->middleware('permiso:sistema-isp-failover.editar');
     Route::post('isp-failover/probar', [IspFailoverController::class, 'probar'])->name('isp-failover.probar')
+        ->middleware('permiso:sistema-isp-failover.editar');
+    Route::post('isp-failover/dedicado', [IspFailoverController::class, 'dedicado'])->name('isp-failover.dedicado')
+        ->middleware('permiso:sistema-isp-failover.editar');
+    Route::post('isp-failover/cloudflare', [IspFailoverController::class, 'cloudflare'])->name('isp-failover.cloudflare')
         ->middleware('permiso:sistema-isp-failover.editar');
     Route::get('isp-failover/rutas', [IspFailoverController::class, 'rutas'])->name('isp-failover.rutas')
         ->middleware('permiso:sistema-isp-failover.ver');

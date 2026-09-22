@@ -106,6 +106,11 @@ class Cliente extends Model
         return $this->hasMany(Servicio::class, 'cliente_id', 'cliente_id');
     }
 
+    public function servicioHotspots(): HasMany
+    {
+        return $this->hasMany(ServicioHotspot::class, 'cliente_id', 'cliente_id')->orderBy('slot_numero');
+    }
+
     public static function cedulaSinSeparadores(?string $cedula): string
     {
         return str_replace(['.', '-', ' ', '/'], '', trim((string) $cedula));

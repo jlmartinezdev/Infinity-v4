@@ -451,7 +451,9 @@ class HomeController extends Controller
      */
     private function obtenerActividadReciente(): array
     {
-        $auditorias = Auditoria::with('usuario')
+        $auditorias = Auditoria::query()
+            ->deStaff()
+            ->with('usuario')
             ->orderBy('created_at', 'desc')
             ->limit(8)
             ->get();

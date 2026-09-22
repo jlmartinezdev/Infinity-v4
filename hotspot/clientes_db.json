@@ -1,0 +1,96 @@
+{
+  "clientes": {
+    "4567890": {
+      "nombre": "Juan Carlos Pérez",
+      "documento": "4567890",
+      "clave": "JCP2024",
+      "plan": "basico",
+      "activo": true,
+      "fecha_alta": "2024-01-15",
+      "accesos_diarios": 3,
+      "telefono": "0971-123-456"
+    },
+    "1234567": {
+      "nombre": "María Fernanda López",
+      "documento": "1234567", 
+      "clave": "MFL2024",
+      "plan": "premium",
+      "activo": true,
+      "fecha_alta": "2024-02-20",
+      "accesos_diarios": -1,
+      "telefono": "0981-234-567"
+    },
+    "9876543": {
+      "nombre": "Carlos Alberto Rodríguez",
+      "documento": "9876543",
+      "clave": "CAR2024",
+      "plan": "estandar", 
+      "activo": false,
+      "fecha_alta": "2024-03-10",
+      "accesos_diarios": 5,
+      "telefono": "0985-345-678",
+      "motivo_suspension": "Falta de pago"
+    }
+  },
+  "configuracion": {
+    "accesos_trial_diarios": 3,
+    "duracion_trial_minutos": 30,
+    "anuncios_requeridos_trial": 2,
+    "max_dispositivos_por_cliente": 3
+  },
+  "publicidad": {
+    "anuncios": [
+      {
+        "id": "pub001",
+        "titulo": "¡Nuevo Plan Fibra Óptica!",
+        "contenido": "Velocidades de hasta 500 Mb por solo Gs. 200.000. ¡Instalación gratuita!",
+        "url": "https://wa.me/595971714322?text=Quiero%20info%20sobre%20Fibra%20Óptica",
+        "duracion_segundos": 15,
+        "activo": true,
+        "tipo": "promocional",
+        "media": {
+          "type": "image/jpeg",
+          "url": "media/anuncios/fibra_optica.jpg",
+          "filename": "fibra_optica.jpg"
+        }
+      },
+      {
+        "id": "pub002", 
+        "titulo": "Descarga nuestra App",
+        "contenido": "Gestiona tu cuenta, consulta tu consumo y paga desde tu celular",
+        "url": "https://play.google.com/store/apps/interplus",
+        "duracion_segundos": 12,
+        "activo": true,
+        "tipo": "app",
+        "media": {
+          "type": "video/mp4",
+          "url": "media/anuncios/app_demo.mp4",
+          "filename": "app_demo.mp4"
+        }
+      },
+      {
+        "id": "pub003",
+        "titulo": "Soporte Técnico 24/7",
+        "contenido": "Contactanos por WhatsApp para soporte inmediato. Estamos aquí para ayudarte.",
+        "url": "https://wa.me/595971714322?text=Necesito%20soporte%20técnico",
+        "duracion_segundos": 10,
+        "activo": true,
+        "tipo": "soporte"
+      },
+      {
+        "id": "pub004",
+        "titulo": "Promoción Black Friday",
+        "contenido": "50% de descuento en todos los planes. ¡Oferta limitada!",
+        "url": "https://wa.me/595971714322?text=Quiero%20la%20promo%20Black%20Friday",
+        "duracion_segundos": 18,
+        "activo": true,
+        "tipo": "promocional",
+        "media": {
+          "type": "image/png",
+          "url": "media/anuncios/black_friday.png",
+          "filename": "black_friday.png"
+        }
+      }
+    ]
+  }
+}

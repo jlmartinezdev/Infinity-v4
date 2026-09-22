@@ -8,7 +8,7 @@
         <div>
             <a href="{{ route('facturas.index') }}" class="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium">&larr; Volver a facturas</a>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Nueva factura electrónica</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Seleccione uno o varios clientes. Período a facturar: <strong class="capitalize">{{ $mesLabel }}</strong>.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Seleccione uno o varios clientes. Período a facturar: <strong class="capitalize">{{ $mesLabel }}</strong>. La fecha de emisión del DE se elige abajo.</p>
         </div>
         <a href="{{ route('facturas.create-manual') }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 text-sm shrink-0">
             Datos manuales
@@ -70,12 +70,78 @@
             </div>
         </form>
 
-        <form method="POST" action="{{ route('facturas.store-masivo') }}" id="form-masivo"
-              onsubmit="return confirmarMasivo(event);">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Listas de clientes</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Marque clientes, guarde con un nombre y facture esa lista en lotes de hasta {{ \App\Support\FacturaElectronicaListaLote::MAX }}.
+                        Puede ir sumando de a 50 (páginas) a la misma lista.
+                    </p>
+                </div>
+            </div>
+            @if(($listasFe ?? []) === [])
+                <p class="text-sm text-gray-500 dark:text-gray-400">Todavía no hay listas. Seleccione clientes y pulse «Guardar lista».</p>
+            @else
+                <ul class="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    @foreach($listasFe as $lista)
+                        <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2.5 bg-gray-50/80 dark:bg-gray-900/30">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $lista['nombre'] }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ $lista['total'] }} cliente(s)
+                                    · {{ $lista['pendientes'] }} pendiente(s) en {{ $mesLabel }}
+                                </p>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 shrink-0">
+                                <button type="button"
+                                        class="btn-cargar-lista px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        data-ids="{{ implode(',', $lista['cliente_ids']) }}">
+                                    Cargar
+                                </button>
+                                <button type="button"
+                                        class="btn-facturar-lista px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        data-url="{{ route('facturas.listas.facturar', $lista['id']) }}"
+                                        data-nombre="{{ $lista['nombre'] }}"
+                                        data-pendientes="{{ $lista['pendientes'] }}"
+                                        @if($lista['pendientes'] < 1) disabled @endif>
+                                    Facturar lote
+                                </button>
+                                <form method="POST" action="{{ route('facturas.listas.destroy', $lista['id']) }}" class="inline"
+                                      onsubmit="return confirm('¿Eliminar la lista «{{ $lista['nombre'] }}»?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
+
+        <form method="POST" action="{{ route('facturas.store-masivo') }}" id="form-masivo">
             @csrf
             <input type="hidden" name="emitir" id="input-emitir" value="0">
             <input type="hidden" name="periodo" id="input-periodo" value="{{ $periodoYm }}">
             <div id="cliente-ids-persistidos"></div>
+
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 flex flex-col sm:flex-row sm:items-end gap-3">
+                <div class="sm:w-56">
+                    <label for="fecha_emision" class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Fecha de emisión del DE</label>
+                    <input type="date" name="fecha_emision" id="fecha_emision"
+                           value="{{ old('fecha_emision', $fechaEmision) }}"
+                           max="{{ now()->toDateString() }}"
+                           required
+                           class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('fecha_emision')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 pb-2 sm:max-w-xl">
+                    Sale en el XML de SIFEN. El período de arriba es el mes facturado (líneas); esta fecha es la del documento.
+                </p>
+            </div>
 
             <div id="barra-masivo" class="hidden sticky top-0 z-10 px-4 py-3 border-b border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30 flex flex-col gap-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -84,6 +150,10 @@
                         <span class="text-xs text-purple-700 dark:text-purple-300"> · período <span class="capitalize">{{ $mesLabel }}</span> · se mantiene al cambiar de página · máx. 50</span>
                     </p>
                     <div class="flex flex-wrap gap-2">
+                        <button type="button" id="btn-guardar-lista"
+                                class="px-3 py-2 text-sm font-medium rounded-lg border border-purple-300 dark:border-purple-600 text-purple-800 dark:text-purple-100 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/50">
+                            Guardar lista
+                        </button>
                         <button type="button" id="btn-limpiar-seleccion"
                                 class="px-3 py-2 text-sm font-medium rounded-lg text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/50">
                             Limpiar
@@ -218,16 +288,21 @@
     </div>
 
     <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-        El <strong>período a facturar</strong> define las fechas de las líneas (plan + prorrateo). La fecha de emisión del DE será la del día en que se emite.
+        El <strong>período a facturar</strong> define las fechas de las líneas (plan + prorrateo).
+        La <strong>fecha de emisión</strong> es la del documento electrónico (SIFEN) y no puede ser posterior a hoy.
         Se considera <strong>emitido</strong> cuando el cliente ya tiene una factura electrónica emitida para ese período.
-        Máximo 50 clientes por tanda.
+        Máximo 50 clientes por tanda inmediata. Las listas guardadas se facturan de a {{ \App\Support\FacturaElectronicaListaLote::MAX }}.
     </p>
 </div>
+@endsection
 
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
 <script>
 (function () {
     const STORAGE_KEY = 'facturas_masivo_cliente_ids';
     const STORAGE_PERIODO_KEY = 'facturas_masivo_periodo';
+    const STORAGE_FECHA_KEY = 'facturas_masivo_fecha_emision';
     const MAX = 50;
     const periodoActual = @json($periodoYm);
     const periodoLabel = @json($mesLabel);
@@ -240,6 +315,36 @@
     const montoModo = document.getElementById('monto_modo');
     const wrapMontoOtro = document.getElementById('wrap-monto-otro');
     const montoFijoInput = document.getElementById('monto_fijo');
+    const fechaEmisionInput = document.getElementById('fecha_emision');
+    const formMasivo = document.getElementById('form-masivo');
+    const csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    const urlStoreLista = @json(route('facturas.listas.store'));
+    const listasFe = @json($listasFe ?? []);
+    const loteMax = @json(\App\Support\FacturaElectronicaListaLote::MAX);
+
+    function swalTheme() {
+        if (!document.documentElement.classList.contains('dark')) {
+            return {};
+        }
+        return {
+            background: '#1f2937',
+            color: '#f3f4f6',
+            customClass: { popup: 'border border-gray-700' },
+        };
+    }
+
+    function avisar(msg, icon) {
+        if (typeof Swal === 'undefined') {
+            window.alert(msg);
+            return;
+        }
+        Swal.fire(Object.assign({
+            icon: icon || 'warning',
+            title: msg,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#7c3aed',
+        }, swalTheme()));
+    }
 
     function etiquetaMonto() {
         if (!montoModo) return 'precio del plan';
@@ -262,6 +367,57 @@
     if (montoModo) {
         montoModo.addEventListener('change', toggleMontoOtro);
         toggleMontoOtro();
+    }
+
+    function fechaEmisionValida() {
+        if (!fechaEmisionInput || !fechaEmisionInput.value) {
+            return false;
+        }
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const partes = fechaEmisionInput.value.split('-');
+        if (partes.length !== 3) {
+            return false;
+        }
+        const elegida = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+        return elegida.getTime() <= hoy.getTime();
+    }
+
+    function etiquetaFechaEmision() {
+        if (!fechaEmisionInput || !fechaEmisionInput.value) {
+            return '';
+        }
+        const partes = fechaEmisionInput.value.split('-');
+        if (partes.length !== 3) {
+            return fechaEmisionInput.value;
+        }
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+
+    function restaurarFechaEmision() {
+        if (!fechaEmisionInput) {
+            return;
+        }
+        try {
+            const guardada = sessionStorage.getItem(STORAGE_FECHA_KEY);
+            if (guardada && /^\d{4}-\d{2}-\d{2}$/.test(guardada)) {
+                fechaEmisionInput.value = guardada;
+            }
+        } catch (e) {}
+    }
+
+    function guardarFechaEmision() {
+        if (!fechaEmisionInput) {
+            return;
+        }
+        try {
+            sessionStorage.setItem(STORAGE_FECHA_KEY, fechaEmisionInput.value || '');
+        } catch (e) {}
+    }
+
+    if (fechaEmisionInput) {
+        restaurarFechaEmision();
+        fechaEmisionInput.addEventListener('change', guardarFechaEmision);
     }
 
     // Si cambió el período, limpiar selección previa de otro mes.
@@ -360,7 +516,7 @@
                     }
                 });
                 if (marcar && ids.length > MAX) {
-                    alert('Máximo ' + MAX + ' clientes por tanda.');
+                    avisar('Máximo ' + MAX + ' clientes por tanda.');
                     ids = ids.slice(0, MAX);
                     const permitidos = new Set(ids);
                     checks().forEach(function (c) {
@@ -375,7 +531,7 @@
                 if (ids.length > MAX) {
                     e.target.checked = false;
                     sincronizarPaginaHaciaStorage();
-                    alert('Máximo ' + MAX + ' clientes por tanda.');
+                    avisar('Máximo ' + MAX + ' clientes por tanda.');
                 }
             }
             actualizarBarra();
@@ -396,38 +552,289 @@
         const ids = leerSeleccion();
         const n = ids.length;
         if (n === 0) {
-            alert('Seleccione al menos un cliente.');
+            avisar('Seleccione al menos un cliente.');
             return false;
         }
         if (n > MAX) {
-            alert('Máximo ' + MAX + ' clientes por tanda.');
+            avisar('Máximo ' + MAX + ' clientes por tanda.');
             return false;
         }
         if (montoModo && montoModo.value === 'otro') {
             const v = Number(montoFijoInput && montoFijoInput.value ? montoFijoInput.value : 0);
             if (!v || v < 1) {
-                alert('Ingrese el monto fijo en guaraníes.');
+                avisar('Ingrese el monto fijo en guaraníes.');
                 return false;
             }
         }
+        if (!fechaEmisionValida()) {
+            avisar('Elija una fecha de emisión válida (hoy o anterior).');
+            if (fechaEmisionInput) {
+                fechaEmisionInput.focus();
+            }
+            return false;
+        }
+        guardarFechaEmision();
         const submitter = event.submitter;
         const emitir = submitter && submitter.value === 'emitir';
         inputEmitir.value = emitir ? '1' : '0';
         const montoTxt = etiquetaMonto();
-        const msg = emitir
-            ? '¿Crear y enviar a SIFEN ' + n + ' factura(s) del período ' + periodoLabel + ' con monto ' + montoTxt + '?'
-            : '¿Crear ' + n + ' borrador(es) del período ' + periodoLabel + ' con monto ' + montoTxt + '?';
-        if (!confirm(msg)) {
+        const fechaTxt = etiquetaFechaEmision();
+        const form = event.target;
+        const title = emitir ? '¿Crear y enviar a SIFEN?' : '¿Crear borradores?';
+        const text = emitir
+            ? n + ' factura(s) del período ' + periodoLabel + ', emisión ' + fechaTxt + ', monto ' + montoTxt + '.'
+            : n + ' borrador(es) del período ' + periodoLabel + ', emisión ' + fechaTxt + ', monto ' + montoTxt + '.';
+        const confirmText = emitir ? 'Sí, enviar a SIFEN' : 'Sí, crear borradores';
+
+        const enviar = function () {
+            inyectarHiddenParaSubmit();
+            sessionStorage.removeItem(STORAGE_KEY);
+            form.dataset.swalOk = '1';
+            HTMLFormElement.prototype.submit.call(form);
+        };
+
+        if (typeof Swal === 'undefined') {
+            if (!window.confirm((emitir ? '¿Crear y enviar a SIFEN ' : '¿Crear ') + text)) {
+                return false;
+            }
+            enviar();
             return false;
         }
-        inyectarHiddenParaSubmit();
-        sessionStorage.removeItem(STORAGE_KEY);
-        return true;
+
+        Swal.fire(Object.assign({
+            icon: 'question',
+            title: title,
+            text: text,
+            showCancelButton: true,
+            confirmButtonColor: '#7c3aed',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: confirmText,
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            focusCancel: true,
+        }, swalTheme())).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            enviar();
+        });
+        return false;
     };
+
+    if (formMasivo) {
+        formMasivo.addEventListener('submit', function (e) {
+            if (formMasivo.dataset.swalOk === '1') {
+                return;
+            }
+            e.preventDefault();
+            confirmarMasivo(e);
+        });
+    }
+
+    function tokenCsrf() {
+        return csrf;
+    }
+
+    const btnGuardarLista = document.getElementById('btn-guardar-lista');
+    if (btnGuardarLista) {
+        btnGuardarLista.addEventListener('click', function () {
+            sincronizarPaginaHaciaStorage();
+            const ids = leerSeleccion();
+            if (ids.length === 0) {
+                avisar('Seleccione al menos un cliente para guardar la lista.');
+                return;
+            }
+            if (typeof Swal === 'undefined') {
+                const nombre = window.prompt('Nombre de la lista');
+                if (!nombre) return;
+                enviarGuardarLista(ids, nombre, '');
+                return;
+            }
+            let opciones = '<option value="">Nueva lista</option>';
+            listasFe.forEach(function (l) {
+                opciones += '<option value="' + String(l.id) + '">' + String(l.nombre) + ' (' + String(l.total) + ')</option>';
+            });
+            Swal.fire(Object.assign({
+                title: 'Guardar lista',
+                html: '<p class="text-sm mb-2">Se guardarán ' + ids.length + ' cliente(s) de la selección.</p>'
+                    + '<input id="swal-lista-nombre" class="swal2-input" placeholder="Nombre (ej. Nodo 4)">'
+                    + '<select id="swal-lista-id" class="swal2-select">' + opciones + '</select>'
+                    + '<p class="text-xs text-left mt-1">Si elige una lista existente, se agregan los marcados (sin borrar los que ya tenía).</p>',
+                showCancelButton: true,
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#7c3aed',
+                reverseButtons: true,
+                focusCancel: true,
+                preConfirm: function () {
+                    const nombre = (document.getElementById('swal-lista-nombre') || {}).value || '';
+                    const listaId = (document.getElementById('swal-lista-id') || {}).value || '';
+                    if (!String(nombre).trim() && !listaId) {
+                        Swal.showValidationMessage('Escriba un nombre o elija una lista existente.');
+                        return false;
+                    }
+                    return { nombre: String(nombre).trim(), lista_id: listaId };
+                },
+            }, swalTheme())).then(function (result) {
+                if (!result.isConfirmed || !result.value) {
+                    return;
+                }
+                enviarGuardarLista(ids, result.value.nombre, result.value.lista_id);
+            });
+        });
+    }
+
+    function enviarGuardarLista(ids, nombre, listaId) {
+        const body = {
+            nombre: nombre || '',
+            cliente_ids: ids.map(function (id) { return Number(id); }),
+        };
+        if (listaId) {
+            body.lista_id = Number(listaId);
+        }
+        fetch(urlStoreLista, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': tokenCsrf(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(body),
+        }).then(function (res) {
+            return res.json().then(function (data) {
+                return { okHttp: res.ok, data: data };
+            });
+        }).then(function (pack) {
+            const msg = (pack.data && (pack.data.mensaje || (pack.data.errors && Object.values(pack.data.errors)[0]))) || 'No se pudo guardar la lista.';
+            const texto = Array.isArray(msg) ? msg[0] : String(msg);
+            if (!pack.okHttp || (pack.data && pack.data.ok === false)) {
+                avisar(texto, 'error');
+                return;
+            }
+            if (typeof Swal === 'undefined') {
+                window.alert(texto);
+                window.location.reload();
+                return;
+            }
+            Swal.fire(Object.assign({
+                icon: 'success',
+                title: texto,
+                confirmButtonText: 'Listo',
+                confirmButtonColor: '#7c3aed',
+            }, swalTheme())).then(function () {
+                window.location.reload();
+            });
+        }).catch(function () {
+            avisar('No se pudo guardar la lista.', 'error');
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        const cargar = e.target.closest('.btn-cargar-lista');
+        if (cargar) {
+            const raw = cargar.getAttribute('data-ids') || '';
+            const ids = raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            if (ids.length === 0) {
+                avisar('La lista no tiene clientes.');
+                return;
+            }
+            guardarSeleccion(ids);
+            restaurarChecksDesdeStorage();
+            actualizarBarra();
+            if (ids.length > MAX) {
+                avisar('Lista con ' + ids.length + ' clientes. La tanda inmediata admite ' + MAX + '; use «Facturar lote» (máx. ' + loteMax + ' por vez).');
+            }
+            return;
+        }
+        const facturar = e.target.closest('.btn-facturar-lista');
+        if (!facturar || facturar.disabled) {
+            return;
+        }
+        const url = facturar.getAttribute('data-url');
+        const nombre = facturar.getAttribute('data-nombre') || 'lista';
+        const pendientes = Number(facturar.getAttribute('data-pendientes') || 0);
+        if (!url) {
+            return;
+        }
+        if (montoModo && montoModo.value === 'otro') {
+            const v = Number(montoFijoInput && montoFijoInput.value ? montoFijoInput.value : 0);
+            if (!v || v < 1) {
+                avisar('Ingrese el monto fijo en guaraníes.');
+                return;
+            }
+        }
+        if (!fechaEmisionValida()) {
+            avisar('Elija una fecha de emisión válida (hoy o anterior).');
+            if (fechaEmisionInput) fechaEmisionInput.focus();
+            return;
+        }
+        guardarFechaEmision();
+        const nLote = Math.min(pendientes, loteMax);
+        const resto = Math.max(0, pendientes - nLote);
+        const montoTxt = etiquetaMonto();
+        const fechaTxt = etiquetaFechaEmision();
+        const text = 'Lista «' + nombre + '»: ' + nLote + ' de ' + pendientes + ' pendiente(s) en ' + periodoLabel
+            + ', emisión ' + fechaTxt + ', monto ' + montoTxt + '.'
+            + (resto > 0 ? ' Quedarán ' + resto + ' para otro lote.' : '');
+
+        const disparar = function (emitir) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            function hidden(name, value) {
+                const i = document.createElement('input');
+                i.type = 'hidden';
+                i.name = name;
+                i.value = value == null ? '' : String(value);
+                form.appendChild(i);
+            }
+            hidden('_token', tokenCsrf());
+            hidden('periodo', periodoActual);
+            hidden('fecha_emision', fechaEmisionInput ? fechaEmisionInput.value : '');
+            hidden('emitir', emitir ? '1' : '0');
+            hidden('monto_modo', montoModo ? montoModo.value : 'plan');
+            if (montoModo && montoModo.value === 'otro' && montoFijoInput) {
+                hidden('monto_fijo', montoFijoInput.value);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        };
+
+        if (typeof Swal === 'undefined') {
+            if (!window.confirm(text + ' ¿Enviar a SIFEN?')) {
+                return;
+            }
+            disparar(true);
+            return;
+        }
+
+        Swal.fire(Object.assign({
+            icon: 'question',
+            title: '¿Facturar lote de la lista?',
+            text: text,
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonColor: '#7c3aed',
+            denyButtonColor: '#6d28d9',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Crear y enviar a SIFEN',
+            denyButtonText: 'Solo borradores',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            focusCancel: true,
+        }, swalTheme())).then(function (result) {
+            if (result.isConfirmed) {
+                disparar(true);
+            } else if (result.isDenied) {
+                disparar(false);
+            }
+        });
+    });
 
     restaurarChecksDesdeStorage();
     actualizarBarra();
 })();
 </script>
-@endsection
+@endpush
 

@@ -52,6 +52,24 @@ class SifenSoapClient
         return $this->enviarEnvelopeAlEndpoint($endpoint, $envelope);
     }
 
+    public function enviarEvento(string $xmlEventoFirmado, ?int $dId = null): string
+    {
+        if (! $this->certificadoService->disponible()) {
+            throw new RuntimeException('Certificado SIFEN no configurado para envío de eventos.');
+        }
+
+        $xmlEventoFirmado = $this->limpiarXmlEntrada($xmlEventoFirmado);
+        $xmlEventoFirmado = preg_replace('/^<\?xml[^>]+\?>/', '', $xmlEventoFirmado) ?? $xmlEventoFirmado;
+        $xmlEventoFirmado = trim($xmlEventoFirmado);
+
+        $dId = $dId ?? (int) now()->format('YmdHis');
+        $envelope = $this->construirEnvelopeEvento($dId, $xmlEventoFirmado);
+        $this->guardarSoapDepuracion($envelope);
+        $endpoint = $this->endpointEventos();
+
+        return $this->enviarEnvelopeAlEndpoint($endpoint, $envelope);
+    }
+
     public function consultarLote(string $protocoloLote, ?int $dId = null): string
     {
         if (! $this->certificadoService->disponible()) {
@@ -447,6 +465,8 @@ class SifenSoapClient
             || str_contains($response, 'rProtDe')
             || str_contains($response, 'rResEnviLoteDe')
             || str_contains($response, 'rResEnviConsLoteDe')
+            || str_contains($response, 'rRetEnviEventoDe')
+            || str_contains($response, 'gResProcEVe')
             || str_contains($response, 'dProtConsLote')
             || str_contains($response, 'dCodResLot')
             || str_contains($response, 'dCodRes');
@@ -468,12 +488,36 @@ class SifenSoapClient
             ?: config("sifen.ws.{$ambiente}.recepcion_lote_endpoint");
     }
 
+    private function construirEnvelopeEvento(int $dId, string $xmlEvento): string
+    {
+        $envelope = '<?xml version="1.0" encoding="UTF-8"?>'
+            .'<env:Envelope xmlns:env="'.self::NS_SOAP.'">'
+            .'<env:Header/>'
+            .'<env:Body>'
+            .'<rEnviEventoDe xmlns="'.self::NS_SIFEN.'">'
+            .'<dId>'.$dId.'</dId>'
+            .'<dEvReg>'.$xmlEvento.'</dEvReg>'
+            .'</rEnviEventoDe>'
+            .'</env:Body>'
+            .'</env:Envelope>';
+
+        return SifenXmlManipulator::compactar($envelope);
+    }
+
     private function endpointConsultaLote(): string
     {
         $ambiente = config('sifen.ambiente', 'test');
 
         return config("sifen.ws.{$ambiente}.consulta_lote")
             ?: config("sifen.ws.{$ambiente}.consulta_lote_endpoint");
+    }
+
+    private function endpointEventos(): string
+    {
+        $ambiente = config('sifen.ambiente', 'test');
+
+        return config("sifen.ws.{$ambiente}.eventos_endpoint")
+            ?: config("sifen.ws.{$ambiente}.eventos");
     }
 
     private function limpiarXmlEntrada(string $xml): string

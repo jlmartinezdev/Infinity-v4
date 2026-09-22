@@ -59,6 +59,13 @@
             class="px-4 py-12 text-center text-red-600 dark:text-red-400"
           >
             <p class="text-sm">{{ errorCarga }}</p>
+            <button
+              type="button"
+              class="mt-3 inline-flex items-center px-3 py-1.5 text-sm rounded-lg bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-900/60"
+              @click="cargarDatos"
+            >
+              Reintentar
+            </button>
           </div>
           <div
             v-else-if="clientesFiltrados.length === 0"
@@ -289,6 +296,49 @@ function onEscape() {
   searchInputRef.value?.blur();
 }
 
+const AUTH_RELOAD_KEY = 'cobros-servicios-auth-reload';
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function esErrorSesion(res, data) {
+  if (res.status === 401 || res.status === 419) {
+    return true;
+  }
+  const msg = String(data?.message || '').toLowerCase();
+  return msg.includes('unauthenticated') || msg.includes('no autenticado') || msg.includes('csrf');
+}
+
+async function fetchDatos() {
+  const res = await fetch(props.urlDatos, {
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
+
+function recargarPorSesion() {
+  try {
+    if (!sessionStorage.getItem(AUTH_RELOAD_KEY)) {
+      sessionStorage.setItem(AUTH_RELOAD_KEY, '1');
+      errorCarga.value = 'La sesión se desconectó. Recargando…';
+      window.location.reload();
+      return true;
+    }
+    sessionStorage.removeItem(AUTH_RELOAD_KEY);
+  } catch (_) {
+    window.location.reload();
+    return true;
+  }
+  return false;
+}
+
 async function cargarDatos() {
   if (!props.urlDatos) {
     cargando.value = false;
@@ -298,25 +348,46 @@ async function cargarDatos() {
   cargando.value = true;
   errorCarga.value = '';
   try {
-    const res = await fetch(props.urlDatos, {
-      headers: {
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      credentials: 'same-origin',
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === false) {
-      throw new Error(data.message || 'No se pudieron cargar las cuentas pendientes.');
+    for (let intento = 0; intento < 2; intento++) {
+      try {
+        const { res, data } = await fetchDatos();
+        if (esErrorSesion(res, data)) {
+          if (intento === 0) {
+            await sleep(400);
+            continue;
+          }
+          if (recargarPorSesion()) {
+            return;
+          }
+          errorCarga.value = 'Tu sesión venció. Recargá la página o volvé a iniciar sesión.';
+          servicios.value = [];
+          return;
+        }
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message && !esErrorSesion(res, data)
+            ? data.message
+            : 'No se pudieron cargar las cuentas pendientes.');
+        }
+        try {
+          sessionStorage.removeItem(AUTH_RELOAD_KEY);
+        } catch (_) {}
+        servicios.value = Array.isArray(data.servicios) ? data.servicios : [];
+        return;
+      } catch (e) {
+        if (intento === 0) {
+          await sleep(400);
+          continue;
+        }
+        errorCarga.value = e?.message || 'No se pudieron cargar las cuentas pendientes. Reintentá.';
+        servicios.value = [];
+      }
     }
-    servicios.value = Array.isArray(data.servicios) ? data.servicios : [];
-  } catch (e) {
-    errorCarga.value = e?.message || 'No se pudieron cargar las cuentas pendientes. Reintentá.';
-    servicios.value = [];
   } finally {
     cargando.value = false;
   }
 }
 
-onMounted(cargarDatos);
+onMounted(() => {
+  cargarDatos();
+});
 </script>

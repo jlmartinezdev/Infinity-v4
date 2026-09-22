@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>WiFi Zone Interplus - Sesión cerrada</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="expires" content="-1">
+  <style>
+    :root {
+      --color-1: #4667A0;
+      --color-2: #0097BD;
+      --color-accent: var(--color-2);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--color-1), var(--color-2));
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      min-height: 100svh;
+      padding: 12px;
+      text-align: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px 16px;
+    }
+    .logo {
+      width: 180px;
+      max-width: 90%;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+    }
+    h1 {
+      font-size: 1.6em;
+      margin: 0 0 8px;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.18);
+    }
+    .subtitle {
+      margin: 0 0 20px;
+      opacity: 0.9;
+    }
+    .status-info {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-label { opacity: 0.85; }
+    .status-value { font-weight: bold; text-align: right; }
+    a, button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      background: var(--color-accent);
+      color: #fff;
+      font-size: 1.05em;
+      font-weight: bold;
+      text-decoration: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
+    <h1>Sesión cerrada</h1>
+    <p class="subtitle">Ya no estás conectado a Wi-Fi Zone.</p>
+    <div class="status-info">
+      $(if username)
+      <div class="status-row">
+        <span class="status-label">Usuario</span>
+        <span class="status-value">$(username)</span>
+      </div>
+      $(endif)
+      <div class="status-row">
+        <span class="status-label">Tiempo en línea</span>
+        <span class="status-value">$(uptime)</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Datos usados</span>
+        <span class="status-value">$(bytes-in-nice) / $(bytes-out-nice)</span>
+      </div>
+    </div>
+    <form action="$(link-login)" method="get">
+      <button type="submit">Volver a entrar</button>
+    </form>
+  </div>
+</body>
+</html>

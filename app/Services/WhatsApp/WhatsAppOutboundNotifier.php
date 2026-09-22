@@ -4,7 +4,10 @@ namespace App\Services\WhatsApp;
 
 use App\Models\Cliente;
 use App\Models\Cobro;
+use App\Models\Factura;
 use App\Models\FacturaInterna;
+use App\Models\SifenConfiguracion;
+use App\Services\Sifen\SifenKudeService;
 use App\Models\NodoApWireless;
 use App\Models\Router;
 use App\Models\Servicio;
@@ -774,6 +777,77 @@ class WhatsAppOutboundNotifier
         }
 
         return $enviados > 0;
+    }
+
+    /**
+     * Envía el KuDE PDF de una factura electrónica al WhatsApp del receptor.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function kudeElectronica(Factura $factura, ?string $telefonoOverride = null): array
+    {
+        if (! $this->whatsapp->isConfigured()) {
+            return ['ok' => false, 'message' => 'WhatsApp no está configurado.'];
+        }
+
+        if (! $factura->puedeImprimirKude()) {
+            return ['ok' => false, 'message' => 'Aún no hay KuDE para enviar.'];
+        }
+
+        $factura->loadMissing('cliente');
+        $telefono = filled($telefonoOverride)
+            ? trim((string) $telefonoOverride)
+            : (string) ($factura->receptorTelefonoEfectivo() ?? '');
+
+        if ($telefono === '') {
+            return ['ok' => false, 'message' => 'Indicá un teléfono o cargá el del cliente.'];
+        }
+
+        $config = SifenConfiguracion::activa();
+        if (! $config) {
+            return ['ok' => false, 'message' => 'No hay configuración SIFEN activa.'];
+        }
+
+        try {
+            $pdfRelativo = app(SifenKudeService::class)->generar($factura, $config, $factura->set_qr_url);
+            $factura->update(['pdf_path' => $pdfRelativo]);
+        } catch (\Throwable $e) {
+            Log::warning('[WhatsApp outbound] No se pudo generar KuDE', [
+                'factura_id' => $factura->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['ok' => false, 'message' => 'No se pudo generar el KuDE PDF: '.$e->getMessage()];
+        }
+
+        $abs = storage_path($pdfRelativo);
+        if (! is_file($abs)) {
+            return ['ok' => false, 'message' => 'El KuDE PDF no quedó en el servidor.'];
+        }
+
+        $numero = (string) ($factura->numero_completo ?? '#'.$factura->id);
+        $nombreArchivo = 'KuDE-'.preg_replace('/[^\w.\-]+/', '-', $numero).'.pdf';
+        $saludo = trim($factura->receptorNombreCompleto());
+        $caption = sprintf(
+            'Hola %s, te enviamos la factura electrónica %s. Total: Gs. %s.',
+            $saludo !== '' ? mb_strtoupper($saludo, 'UTF-8') : 'cliente',
+            $numero,
+            number_format((float) $factura->total, 0, ',', '.')
+        );
+
+        $file = new \Illuminate\Http\UploadedFile($abs, $nombreArchivo, 'application/pdf', null, true);
+        $mensaje = $this->whatsapp->sendUploadedMedia($telefono, $file, $caption, [
+            'cliente_id' => $factura->cliente_id,
+            'contexto_tipo' => 'kude',
+            'contexto_id' => $factura->id,
+        ]);
+
+        $telNorm = $this->whatsapp->normalizePhone($telefono) ?? $telefono;
+        $ok = $mensaje->estado !== WhatsappMensaje::ESTADO_FALLIDO;
+
+        return $ok
+            ? ['ok' => true, 'message' => 'KuDE enviado por WhatsApp a '.$telNorm.'.']
+            : ['ok' => false, 'message' => ($mensaje->error_message ?: 'No se pudo enviar el KuDE por WhatsApp a '.$telNorm.'.')];
     }
 
     /**

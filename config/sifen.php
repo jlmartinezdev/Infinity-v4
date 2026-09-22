@@ -193,4 +193,7 @@ return [
     // En modo API: solicitar a sifen-api el envío de XML + KuDE al email del cliente.
     'enviar_correo_emision' => filter_var(env('SIFEN_ENVIAR_CORREO', true), FILTER_VALIDATE_BOOL),
 
+    // Ventana SET para evento de cancelación (horas desde la autorización).
+    'cancelacion_horas' => max(1, (int) env('SIFEN_CANCELACION_HORAS', 48)),
+
 ];

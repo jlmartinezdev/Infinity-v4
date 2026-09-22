@@ -307,6 +307,58 @@ class Factura extends Model
         return in_array($this->tipo_documento, ['factura_contado', 'factura_credito'], true);
     }
 
+    public function tieneCdcAutorizado(): bool
+    {
+        $cdc = preg_replace('/\s+/', '', (string) $this->set_cdc) ?? '';
+
+        return $this->estado === 'emitida'
+            && $this->set_estado_envio === 'autorizado'
+            && strlen($cdc) === 44;
+    }
+
+    public function fechaLimiteCancelacionEvento(): ?Carbon
+    {
+        $base = $this->set_fecha_autorizacion ?? $this->set_fecha_emision_de;
+        if (! $base) {
+            return null;
+        }
+
+        $horas = (int) config('sifen.cancelacion_horas', 48);
+
+        return $base->copy()->addHours($horas);
+    }
+
+    public function puedeCancelarPorEvento(): bool
+    {
+        if (! $this->tieneCdcAutorizado() || ! $this->esFacturaComercial()) {
+            return false;
+        }
+
+        $limite = $this->fechaLimiteCancelacionEvento();
+
+        return $limite !== null && $limite->isFuture();
+    }
+
+    public function puedePrepararNotaCredito(): bool
+    {
+        return $this->tieneCdcAutorizado() && $this->esFacturaComercial();
+    }
+
+    public function notaCreditoRelacionada(): ?self
+    {
+        $cdc = preg_replace('/\s+/', '', (string) $this->set_cdc) ?? '';
+        if (strlen($cdc) !== 44) {
+            return null;
+        }
+
+        return static::query()
+            ->where('tipo_documento', 'nota_credito')
+            ->where('id', '!=', $this->id)
+            ->where('datos_complementarios->documento_asociado->cdc', $cdc)
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function tipoTransaccionKude(): string
     {
         return match ($this->tipo_documento) {

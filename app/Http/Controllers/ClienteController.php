@@ -321,7 +321,15 @@ class ClienteController extends Controller
      */
     public function detalle(Cliente $cliente)
     {
-        $cliente->load(['servicios.plan', 'servicios.pool.olt', 'servicios.pool.router.nodo', 'servicios.cajaNapPuertoActivo.cajaNap.salidaPon.olt']);
+        $cliente->load([
+            'servicios.plan',
+            'servicios.pool.olt',
+            'servicios.pool.router.nodo',
+            'servicios.cajaNapPuertoActivo.cajaNap.salidaPon.olt',
+            'servicios.tvCuentaAsignaciones.tvCuenta',
+            'servicioHotspots.router',
+            'servicioHotspots.servicio',
+        ]);
 
         $saldoPendienteExpr = FacturaInterna::sqlSaldoPendienteExpr();
 
@@ -993,9 +1001,18 @@ class ClienteController extends Controller
             })
             ->orderBy('nombre')
             ->limit(15)
-            ->get(['cliente_id', 'nombre', 'apellido', 'cedula']);
+            ->get(['cliente_id', 'nombre', 'apellido', 'cedula', 'estado']);
 
-        return response()->json($clientes);
+        return response()->json($clientes->map(static function (Cliente $c) {
+            return [
+                'cliente_id' => $c->cliente_id,
+                'nombre' => $c->nombre,
+                'apellido' => $c->apellido,
+                'cedula' => $c->cedula,
+                'estado' => $c->estado,
+                'detalle_url' => route('clientes.detalle', $c),
+            ];
+        })->values());
     }
 
     /**

@@ -121,6 +121,12 @@ class CobroController extends Controller
      */
     public function serviciosDatos()
     {
+        // La consulta es pesada: persistir last_activity ya y no dejar la sesión
+        // abierta durante todo el armado del listado (otras pestañas / notificaciones).
+        if (session()->isStarted()) {
+            session()->save();
+        }
+
         $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
         $pendientesPorCliente = DB::query()
             ->fromSub(function ($q) use ($saldoExpr) {
@@ -173,7 +179,7 @@ class CobroController extends Controller
         return response()->json([
             'success' => true,
             'servicios' => $servicios,
-        ]);
+        ])->header('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     }
 
     public function create(Request $request)
@@ -192,22 +198,38 @@ class CobroController extends Controller
         }
         $idsPreseleccionados = array_values(array_filter(array_map('intval', $idsPreseleccionados)));
 
+        $facturasPendientes = $cliente
+            ? $this->facturasPendientesDeCliente($cliente)
+            : collect();
+
         return view('cobros.create', [
             'cliente' => $cliente,
             'facturaInternaId' => $facturaInternaId,
             'facturaInternaIdsPreseleccionados' => $idsPreseleccionados,
+            'facturasPendientes' => $facturasPendientes,
             'formasPago' => Cobro::formasPago(),
-            'urlPendientes' => $cliente ? route('cobros.facturas-pendientes', $cliente) : null,
+        ]);
+    }
+
+    public function facturasPendientes(Cliente $cliente)
+    {
+        $facturas = $this->facturasPendientesDeCliente($cliente);
+
+        return response()->json([
+            'success' => true,
+            'facturas' => $facturas,
+            'monto_sugerido' => round((float) $facturas->sum('saldo_pendiente'), 2),
         ]);
     }
 
     /**
-     * Facturas internas con saldo para el formulario de cobro (carga asíncrona).
+     * @return \Illuminate\Support\Collection<int, array{id: int, periodo_desde: ?string, periodo_hasta: ?string, saldo_pendiente: float, alias: string, concepto: string}>
      */
-    public function facturasPendientes(Cliente $cliente)
+    private function facturasPendientesDeCliente(Cliente $cliente)
     {
         $saldoExpr = FacturaInterna::sqlSaldoPendienteExpr();
-        $facturas = FacturaInterna::query()
+
+        return FacturaInterna::query()
             ->where('cliente_id', $cliente->cliente_id)
             ->where('estado', '!=', 'anulada')
             ->whereRaw($saldoExpr.' > 0')
@@ -228,12 +250,6 @@ class CobroController extends Controller
                 ];
             })
             ->values();
-
-        return response()->json([
-            'success' => true,
-            'facturas' => $facturas,
-            'monto_sugerido' => round((float) $facturas->sum('saldo_pendiente'), 2),
-        ]);
     }
 
     public function store(Request $request)

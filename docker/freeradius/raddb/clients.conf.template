@@ -1,0 +1,7 @@
+# NAS de la LAN. Los routers de Infinity también se cargan desde la tabla nas (read_clients = yes).
+client lan {
+	ipaddr = __RADIUS_CLIENT_NETWORK__
+	secret = __RADIUS_SECRET__
+	shortname = lan
+	nas_type = other
+}

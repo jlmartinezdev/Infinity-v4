@@ -1,0 +1,64 @@
+# FreeRADIUS 3 para hotspot MikroTik. No forma parte del stack HTTP de Infinity:
+# Infinity escribe las tablas rad* (radcheck/radreply/nas). El MikroTik pregunta a 1812/udp.
+#
+# Uso:
+#   docker compose -f docker-compose.freeradius.yml up -d
+#   php artisan migrate
+#   php artisan radius:sync-hotspot
+#
+# En .env (Laravel en el host):
+#   RADIUS_ENABLED=true
+#   RADIUS_SECRET=el-mismo-secreto-que-abajo
+#   RADIUS_DB_HOST=127.0.0.1
+#   RADIUS_DB_PORT=3312
+#   RADIUS_DB_DATABASE=radius
+#   RADIUS_DB_USERNAME=radius
+#   RADIUS_DB_PASSWORD=radius
+#
+# En cada MikroTik (Winbox / terminal):
+#   /radius add address=IP-DEL-SERVIDOR secret=EL_SECRETO service=hotspot
+#   /ip hotspot profile set [find] use-radius=yes
+#
+# 1812/1813 no deben quedar abiertos a Internet. Filtrá por IP de los routers.
+
+services:
+  radius-db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: radius
+      MYSQL_USER: radius
+      MYSQL_PASSWORD: ${RADIUS_DB_PASSWORD:-radius}
+      MYSQL_ROOT_PASSWORD: ${RADIUS_DB_ROOT_PASSWORD:-radiusroot}
+    ports:
+      - "3312:3306"
+    volumes:
+      - freeradius-mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  freeradius:
+    build:
+      context: ./docker/freeradius
+    restart: unless-stopped
+    depends_on:
+      radius-db:
+        condition: service_healthy
+    environment:
+      RADIUS_DB_HOST: radius-db
+      RADIUS_DB_PORT: 3306
+      RADIUS_DB_NAME: radius
+      RADIUS_DB_USER: radius
+      RADIUS_DB_PASSWORD: ${RADIUS_DB_PASSWORD:-radius}
+      RADIUS_SECRET: ${RADIUS_SECRET:-cambiar-este-secreto-radius}
+      RADIUS_CLIENT_NETWORK: ${RADIUS_CLIENT_NETWORK:-0.0.0.0/0}
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+
+volumes:
+  freeradius-mariadb:

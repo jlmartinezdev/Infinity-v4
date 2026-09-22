@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Tiempo de Prueba Agotado - WiFi Zone Interplus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --color-1: #4667A0;
+      --color-2: #0097BD;
+      --color-accent: var(--color-2);
+      --color-success: #4CAF50;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--color-1), var(--color-2));
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .container {
+      background: transparent;
+      width: 100%;
+      max-width: 420px;
+      margin-top: 8px;
+      animation: slideIn 0.5s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo {
+      width: 200px;
+      max-width: 90%;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+    }
+
+    .expired-box {
+      background: rgba(255, 152, 0, 0.15);
+      border: 2px solid #ff9800;
+      border-radius: 16px;
+      padding: 24px 20px;
+      margin-bottom: 24px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .expired-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .expired-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .expired-subtitle {
+      font-size: 1.15em;
+      margin-bottom: 8px;
+      opacity: 0.95;
+    }
+
+    .expired-info {
+      font-size: 1em;
+      opacity: 0.9;
+      margin-top: 8px;
+    }
+
+    .sales-box {
+      background: rgba(0,0,0,0.25);
+      border-radius: 12px;
+      padding: 24px 20px;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .sales-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+
+    .sales-description {
+      font-size: 1.1em;
+      margin-bottom: 20px;
+      opacity: 0.95;
+      line-height: 1.5;
+    }
+
+    .pricing-box {
+      margin: 24px 0;
+      padding: 20px 0;
+      border-top: 1px solid rgba(255,255,255,0.3);
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .pricing-title {
+      font-size: 1.2em;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .pricing-subtitle {
+      font-size: 1.05em;
+      opacity: 0.9;
+    }
+
+    .contact-btn {
+      display: inline-block;
+      margin: 20px 0 16px 0;
+      padding: 18px 36px;
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(56, 142, 60, 0.95));
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 1.2em;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      transition: all 0.3s;
+    }
+
+    .contact-btn:hover {
+      background: linear-gradient(135deg, rgba(56, 142, 60, 1), rgba(46, 125, 50, 1));
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 12px 24px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 1em;
+      transition: all 0.3s;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .back-link:hover {
+      background: rgba(255,255,255,0.25);
+      border-color: rgba(255,255,255,0.5);
+    }
+
+    .footer {
+      margin-top: 32px;
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.7);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .expired-title {
+        font-size: 1.3em;
+      }
+      
+      .sales-title {
+        font-size: 1.2em;
+      }
+
+      .contact-btn {
+        padding: 16px 32px;
+        font-size: 1.1em;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .container {
+        max-width: 480px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
+
+    <div class="expired-box">
+      <div class="expired-icon">⏱️</div>
+      <div class="expired-title">Tiempo de Prueba Agotado</div>
+      <div class="expired-subtitle">Has usado tus 30 minutos de prueba gratis</div>
+      <div class="expired-info">Intenta conectarte nuevamente más tarde</div>
+    </div>
+
+    <div class="sales-box">
+      <div class="sales-title">
+        🚀 ¡Llevá esta experiencia a tu hogar!
+      </div>
+      
+      <div class="sales-description">
+        Disfrutá de internet de alta velocidad sin límites.<br>
+        Conectá todos tus dispositivos sin interrupciones.
+      </div>
+
+      <div class="pricing-box">
+        <span class="pricing-title">Planes totalmente ilimitados</span>
+        <div class="pricing-subtitle">Internet con tecnología fibra óptica y Wireless para tu casa o negocio</div>
+      </div>
+
+      <a href="tel:+595971714322" class="contact-btn">
+        📞 Contáctanos: 0971 714-322
+      </a>
+    </div>
+
+    <a href="login.html" class="back-link">
+      ← Volver al inicio
+    </a>
+
+    <div class="footer">
+      © 2025 Interplus – Todos los derechos reservados.
+    </div>
+  </div>
+</body>
+</html>

@@ -164,7 +164,13 @@ class OltController extends Controller
 
     public function show(Olt $olt)
     {
-        $olt->load(['nodo', 'oltPuertos', 'salidaPons.oltPuerto', 'pools.router']);
+        $olt->load([
+            'nodo',
+            'oltPuertos.salidaPon.cajaNaps',
+            'salidaPons.oltPuerto',
+            'salidaPons.cajaNaps',
+            'pools.router',
+        ]);
         $onus = $olt->onus()
             ->orderBy('pon_key')
             ->orderBy('onu_index')
@@ -176,6 +182,37 @@ class OltController extends Controller
         $onuSyncNotice = null;
         $autoConsultar = $olt->tieneCredencialesGestion() && ! request()->boolean('sin_sync');
 
+        $filasPon = [];
+        $salidasUsadas = [];
+        foreach ($olt->oltPuertos->sortBy('numero') as $puerto) {
+            $salida = $puerto->salidaPon;
+            if (! $salida) {
+                $salida = $olt->salidaPons->first(function ($s) use ($puerto) {
+                    if ((int) $s->olt_puerto_id === (int) $puerto->olt_puerto_id) {
+                        return true;
+                    }
+
+                    return empty($s->olt_puerto_id) && (int) $s->puerto_olt === (int) $puerto->numero;
+                });
+            }
+            if ($salida) {
+                $salidasUsadas[$salida->salida_pon_id] = true;
+            }
+            $filasPon[] = [
+                'puerto' => $puerto,
+                'salida' => $salida,
+            ];
+        }
+        foreach ($olt->salidaPons as $salida) {
+            if (isset($salidasUsadas[$salida->salida_pon_id])) {
+                continue;
+            }
+            $filasPon[] = [
+                'puerto' => $salida->oltPuerto,
+                'salida' => $salida,
+            ];
+        }
+
         return view('olts.show', compact(
             'olt',
             'onus',
@@ -184,7 +221,8 @@ class OltController extends Controller
             'onusDesconocido',
             'onuSyncNotice',
             'onuCountPorPuerto',
-            'autoConsultar'
+            'autoConsultar',
+            'filasPon'
         ));
     }
 

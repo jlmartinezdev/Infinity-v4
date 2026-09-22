@@ -1,0 +1,68 @@
+$(if http-status == 302)Hotspot redirect$(endif)
+$(if http-header == "Location")$(link-redirect)$(endif)
+<html lang="es">
+<head>
+<title>WiFi Zone Interplus - Conectado</title>
+<meta http-equiv="refresh" content="0;url=$(link-status)">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="-1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root {
+  --color-1: #4667A0;
+  --color-2: #0097BD;
+  --color-success: #4CAF50;
+  --color-danger: #dc3545;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, var(--color-1), var(--color-2));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 12px;
+}
+.container {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px 16px;
+}
+h1 { font-size: 1.6em; margin: 0 0 12px; }
+p { margin: 0 0 20px; }
+.actions { display: flex; flex-direction: column; gap: 10px; }
+a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: bold;
+  color: #fff;
+}
+.btn-status { background: var(--color-success); }
+.btn-logout { background: var(--color-danger); }
+.btn-nav { background: transparent; border: 2px solid rgba(255,255,255,0.45); }
+</style>
+<script>
+  window.location.replace('$(link-status)');
+</script>
+</head>
+<body>
+<div class="container">
+  <h1>Conectado</h1>
+  <p>Podés ver el estado de tu conexión o cerrar la sesión.</p>
+  <div class="actions">
+    <a class="btn-status" href="$(link-status)">Ver estado de la conexión</a>
+    <a class="btn-logout" href="$(link-logout)" onclick="return confirm('¿Cerrar la sesión de Wi-Fi Zone?');">Cerrar sesión</a>
+    <a class="btn-nav" href="$(link-redirect)">Seguir navegando</a>
+  </div>
+</div>
+</body>
+</html>

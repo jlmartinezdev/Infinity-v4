@@ -50,6 +50,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ID</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rate Limit</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cuota</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Shared Users</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                     </tr>
@@ -60,6 +61,7 @@
                         <td class="px-4 py-3 text-sm">{{ $perfil->hotspot_perfil_id }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $perfil->nombre }}</td>
                         <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $perfil->rate_limit ?? '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $perfil->cuota_gb ? $perfil->cuota_gb.' GB' : 'Ilimitado' }}</td>
                         <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $perfil->shared_users ?? '—' }}</td>
                         <td class="px-4 py-3 text-right">
                             <a href="{{ route('hotspot.perfiles.edit', $perfil) }}" class="text-purple-600 dark:text-purple-400 hover:underline mr-3">Editar</a>
@@ -72,7 +74,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay perfiles. <a href="{{ route('hotspot.perfiles.create') }}" class="text-purple-600 hover:underline">Crear uno</a>.</td>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay perfiles. <a href="{{ route('hotspot.perfiles.create') }}" class="text-purple-600 hover:underline">Crear uno</a>.</td>
                     </tr>
                     @endforelse
                 </tbody>

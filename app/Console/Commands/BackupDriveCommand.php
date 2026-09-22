@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class BackupDriveCommand extends Command
 {
-    protected $signature = 'backup:drive';
+    protected $signature = 'backup:drive {--tipo= : esencial o completo}';
 
     protected $description = 'Genera un backup de la BD y lo sube a Google Drive';
 
@@ -29,8 +29,13 @@ class BackupDriveCommand extends Command
 
         $this->info('Generando backup y subiendo a Drive…');
 
+        $tipo = \App\Support\BackupScheduleConfig::normalizarTipo(
+            (string) ($this->option('tipo') ?: \App\Support\BackupScheduleConfig::tipo())
+        );
+        $this->comment("Tipo: {$tipo}");
+
         try {
-            $result = $backupService->subirADrive();
+            $result = $backupService->subirADrive($tipo);
             $this->info("OK: {$result['filename']} (id {$result['drive_id']})");
             Log::info('[backup:drive] OK', [
                 'filename' => $result['filename'],

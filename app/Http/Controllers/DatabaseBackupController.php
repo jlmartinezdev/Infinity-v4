@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\DatabaseBackupService;
 use App\Services\GoogleDriveAuthService;
 use App\Services\GoogleDriveUploader;
+use App\Support\BackupScheduleConfig;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -29,6 +30,7 @@ class DatabaseBackupController extends Controller
         $driveRedirectUri = $driveCanAuth ? $this->driveAuth->redirectUri() : '';
         $driveUsesLoopback = $driveCanAuth && $this->driveAuth->isLoopbackRedirect();
         $hora = \App\Support\BackupScheduleConfig::hora();
+        $tipoSchedule = \App\Support\BackupScheduleConfig::tipo();
         $schedule = [
             'worker' => \App\Support\ScheduleOnceAfter::workerActivo(),
             'latido' => \App\Support\ScheduleOnceAfter::ultimoLatido(),
@@ -46,7 +48,8 @@ class DatabaseBackupController extends Controller
             'driveRedirectUri',
             'driveUsesLoopback',
             'schedule',
-            'hora'
+            'hora',
+            'tipoSchedule'
         ));
     }
 
@@ -54,15 +57,17 @@ class DatabaseBackupController extends Controller
     {
         $validated = $request->validate([
             'hora' => ['required', 'date_format:H:i'],
+            'tipo' => ['required', 'in:esencial,completo'],
         ]);
-        \App\Support\BackupScheduleConfig::guardarHora($validated['hora']);
+        BackupScheduleConfig::guardarHora($validated['hora']);
+        BackupScheduleConfig::guardarTipo($validated['tipo']);
 
         return redirect()
             ->route('configuracion.backup')
-            ->with('success', 'Hora de backup automático guardada ('.$validated['hora'].').');
+            ->with('success', 'Horario de backup automático guardado ('.$validated['hora'].', '.$validated['tipo'].').');
     }
 
-    public function download(): StreamedResponse|BinaryFileResponse|RedirectResponse
+    public function download(Request $request): StreamedResponse|BinaryFileResponse|RedirectResponse
     {
         if (! $this->backupService->isSupported()) {
             return redirect()
@@ -70,11 +75,13 @@ class DatabaseBackupController extends Controller
                 ->with('error', 'El tipo de base de datos actual no admite backup desde esta pantalla.');
         }
 
+        $tipo = BackupScheduleConfig::normalizarTipo((string) $request->input('tipo', BackupScheduleConfig::TIPO_ESENCIAL));
+
         set_time_limit(3600);
 
         try {
-            $prepared = $this->backupService->prepareBackup();
-            $filename = $this->backupService->suggestedFilename();
+            $prepared = $this->backupService->prepareBackup($tipo);
+            $filename = $this->backupService->suggestedFilename($tipo);
 
             if ($prepared['type'] === 'sql') {
                 $content = $prepared['content'] ?? '';
@@ -87,10 +94,14 @@ class DatabaseBackupController extends Controller
             }
 
             $path = $prepared['path'] ?? '';
-
-            return response()->download($path, $filename, [
+            $response = response()->download($path, $filename, [
                 'Content-Type' => 'application/octet-stream',
             ]);
+            if (! empty($prepared['delete_after'])) {
+                $response->deleteFileAfterSend(true);
+            }
+
+            return $response;
         } catch (\Throwable $e) {
             return redirect()
                 ->route('configuracion.backup')
@@ -98,7 +109,7 @@ class DatabaseBackupController extends Controller
         }
     }
 
-    public function uploadDrive(): RedirectResponse
+    public function uploadDrive(Request $request): RedirectResponse
     {
         if (! $this->backupService->isSupported()) {
             return redirect()
@@ -114,9 +125,11 @@ class DatabaseBackupController extends Controller
 
         set_time_limit(3600);
 
+        $tipo = BackupScheduleConfig::normalizarTipo((string) $request->input('tipo', BackupScheduleConfig::tipo()));
+
         try {
-            $result = $this->backupService->subirADrive();
-            $msg = "Backup «{$result['filename']}» subido a Google Drive.";
+            $result = $this->backupService->subirADrive($tipo);
+            $msg = "Backup {$tipo} «{$result['filename']}» subido a Google Drive.";
             if ($result['pruned'] > 0) {
                 $msg .= " Se eliminaron {$result['pruned']} copia(s) antigua(s).";
             }

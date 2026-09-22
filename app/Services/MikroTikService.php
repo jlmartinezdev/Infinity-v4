@@ -979,6 +979,62 @@ class MikroTikService
     }
 
     /**
+     * Bytes de la sesión viva en /ip/hotspot/active, agrupados por usuario.
+     *
+     * @param  list<string>  $usernames
+     * @return array<string, int>
+     */
+    public function bytesHotspotActivosPorUsuarios(array $usernames): array
+    {
+        $wanted = [];
+        foreach ($usernames as $username) {
+            $user = trim((string) $username);
+            if ($user !== '') {
+                $wanted[$user] = true;
+            }
+        }
+        if ($wanted === []) {
+            return [];
+        }
+
+        $routers = Router::query()
+            ->whereNotNull('hotspot_servidor')
+            ->where('hotspot_servidor', '!=', '')
+            ->get();
+        if ($routers->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($routers as $router) {
+            try {
+                $activos = $this->getHotspotActiveHosts($router, $router->hotspot_servidor);
+            } catch (Throwable $e) {
+                Log::warning('[MikroTik] no se pudo leer hosts hotspot activos', [
+                    'router' => $router->router_id,
+                    'error' => $e->getMessage(),
+                ]);
+                continue;
+            }
+
+            foreach ($activos as $activo) {
+                if (! is_array($activo)) {
+                    continue;
+                }
+                $user = trim((string) ($activo['user'] ?? $activo['name'] ?? ''));
+                if ($user === '' || ! isset($wanted[$user])) {
+                    continue;
+                }
+                $bytesIn = $this->parseBytes($activo['bytes-in'] ?? $activo['bytes_in'] ?? null) ?? 0;
+                $bytesOut = $this->parseBytes($activo['bytes-out'] ?? $activo['bytes_out'] ?? null) ?? 0;
+                $out[$user] = ($out[$user] ?? 0) + max(0, $bytesIn) + max(0, $bytesOut);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Añade un usuario hotspot.
      */
     public function addHotspotUser(Router $router, string $name, string $password, ?string $profile = null, ?string $comment = null, ?string $server = null): array
@@ -1117,6 +1173,247 @@ class MikroTikService
             Log::error('[MikroTik] syncHotspotServicio error', ['servicio' => $sh->servicio_id, 'error' => $e->getMessage()]);
 
             return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Apunta el hotspot del router a FreeRADIUS (/radius + use-radius en perfiles).
+     *
+     * @return array{success: bool, actualizado?: bool, perfiles?: int, error?: string}
+     */
+    public function configurarRadiusHotspot(Router $router, string $address, string $secret, int $authPort = 1812, int $acctPort = 1813): array
+    {
+        try {
+            $client = $this->connect($router);
+            $existentes = $client->query(new Query('/radius/print'))->read();
+            $existentes = is_array($existentes) ? $existentes : [];
+            $id = null;
+            foreach ($existentes as $fila) {
+                if (($fila['address'] ?? '') === $address) {
+                    $id = $fila['.id'] ?? null;
+                    break;
+                }
+            }
+
+            if ($id) {
+                $query = (new Query('/radius/set'))
+                    ->equal('.id', (string) $id)
+                    ->equal('secret', $secret)
+                    ->equal('service', 'hotspot')
+                    ->equal('authentication-port', (string) $authPort)
+                    ->equal('accounting-port', (string) $acctPort);
+            } else {
+                $query = (new Query('/radius/add'))
+                    ->equal('address', $address)
+                    ->equal('secret', $secret)
+                    ->equal('service', 'hotspot')
+                    ->equal('authentication-port', (string) $authPort)
+                    ->equal('accounting-port', (string) $acctPort)
+                    ->equal('comment', 'Infinity FreeRADIUS');
+            }
+            $client->query($query)->read();
+
+            try {
+                $client->query((new Query('/radius/incoming/set'))->equal('accept', 'yes'))->read();
+            } catch (Throwable $e) {
+                Log::warning('[MikroTik] radius incoming no se pudo activar', [
+                    'router' => $router->router_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            $perfiles = $client->query(new Query('/ip/hotspot/profile/print'))->read();
+            $perfiles = is_array($perfiles) ? $perfiles : [];
+            $aplicados = 0;
+            foreach ($perfiles as $perfil) {
+                $perfilId = $perfil['.id'] ?? null;
+                if (! $perfilId) {
+                    continue;
+                }
+                $set = (new Query('/ip/hotspot/profile/set'))
+                    ->equal('.id', (string) $perfilId)
+                    ->equal('use-radius', 'yes')
+                    ->equal('radius-accounting', 'yes')
+                    ->equal('radius-interim-update', '00:01:00');
+                $client->query($set)->read();
+                $aplicados++;
+            }
+
+            $this->disconnect();
+
+            return [
+                'success' => true,
+                'actualizado' => $id !== null,
+                'perfiles' => $aplicados,
+            ];
+        } catch (Throwable $e) {
+            Log::error('[MikroTik] configurarRadiusHotspot', [
+                'router' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->disconnect();
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Publica un nombre DNS local (wifi.interplus) hacia la IP del hotspot
+     * para abrir login/estado desde el navegador del celular.
+     *
+     * @return array{success: bool, dns_name?: string, address?: string, url?: string, error?: string}
+     */
+    public function configurarDnsPortalHotspot(Router $router, ?string $dnsName = null): array
+    {
+        $dnsName = strtolower(trim((string) ($dnsName ?: config('hotspot.dns_name', 'wifi.interplus'))));
+        if ($dnsName === '' || ! str_contains($dnsName, '.')) {
+            return ['success' => false, 'error' => 'HOTSPOT_DNS_NAME tiene que ser un nombre con punto, por ejemplo wifi.interplus.'];
+        }
+
+        try {
+            $client = $this->connect($router);
+            $servidorNombre = trim((string) ($router->hotspot_servidor ?? ''));
+            $servers = $client->query(new Query('/ip/hotspot/print'))->read();
+            $servers = is_array($servers) ? $servers : [];
+            $server = null;
+            foreach ($servers as $fila) {
+                if (! is_array($fila)) {
+                    continue;
+                }
+                if ($servidorNombre !== '' && strcasecmp((string) ($fila['name'] ?? ''), $servidorNombre) === 0) {
+                    $server = $fila;
+                    break;
+                }
+            }
+            if (! $server) {
+                foreach ($servers as $fila) {
+                    if (is_array($fila) && ($fila['disabled'] ?? 'false') !== 'true') {
+                        $server = $fila;
+                        break;
+                    }
+                }
+            }
+            if (! $server) {
+                $this->disconnect();
+
+                return ['success' => false, 'error' => 'El router no tiene un servidor hotspot activo.'];
+            }
+
+            $perfilNombre = trim((string) ($server['profile'] ?? ''));
+            $perfiles = $client->query(new Query('/ip/hotspot/profile/print'))->read();
+            $perfiles = is_array($perfiles) ? $perfiles : [];
+            $perfil = null;
+            foreach ($perfiles as $fila) {
+                if (is_array($fila) && strcasecmp((string) ($fila['name'] ?? ''), $perfilNombre) === 0) {
+                    $perfil = $fila;
+                    break;
+                }
+            }
+            if (! $perfil || empty($perfil['.id'])) {
+                $this->disconnect();
+
+                return ['success' => false, 'error' => 'No está el perfil hotspot '.$perfilNombre.'.'];
+            }
+
+            $address = trim((string) ($perfil['hotspot-address'] ?? ''));
+            if ($address === '' || $address === '0.0.0.0') {
+                $this->disconnect();
+
+                return ['success' => false, 'error' => 'El perfil hotspot no tiene IP (hotspot-address).'];
+            }
+
+            $setPerfil = (new Query('/ip/hotspot/profile/set'))
+                ->equal('.id', (string) $perfil['.id'])
+                ->equal('dns-name', $dnsName);
+            $this->assertRouterosOk($client->query($setPerfil)->read(), 'dns-name');
+
+            $loginBy = array_values(array_unique(array_filter(array_map(
+                'trim',
+                explode(',', (string) ($perfil['login-by'] ?? 'http-chap'))
+            ), fn (string $m) => $m !== '' && strcasecmp($m, 'cookie') !== 0)));
+            if (! in_array('http-chap', $loginBy, true)) {
+                $loginBy[] = 'http-chap';
+            }
+            if (! in_array('http-pap', $loginBy, true)) {
+                $loginBy[] = 'http-pap';
+            }
+            $this->assertRouterosOk($client->query((new Query('/ip/hotspot/profile/set'))
+                ->equal('.id', (string) $perfil['.id'])
+                ->equal('login-by', implode(',', $loginBy)))->read(), 'login-by');
+
+            $estaticos = $client->query(new Query('/ip/dns/static/print'))->read();
+            $estaticos = is_array($estaticos) ? $estaticos : [];
+            $dnsId = null;
+            $dnsDinamico = false;
+            foreach ($estaticos as $fila) {
+                if (! is_array($fila)) {
+                    continue;
+                }
+                if (strcasecmp((string) ($fila['name'] ?? ''), $dnsName) !== 0) {
+                    continue;
+                }
+                $dnsId = $fila['.id'] ?? null;
+                $dnsDinamico = ($fila['dynamic'] ?? 'false') === 'true';
+                break;
+            }
+            if ($dnsId && ! $dnsDinamico) {
+                $setDns = (new Query('/ip/dns/static/set'))
+                    ->equal('.id', (string) $dnsId)
+                    ->equal('address', $address)
+                    ->equal('type', 'A');
+                $this->assertRouterosOk($client->query($setDns)->read(), 'dns static');
+            } elseif (! $dnsId) {
+                $addDns = (new Query('/ip/dns/static/add'))
+                    ->equal('name', $dnsName)
+                    ->equal('address', $address)
+                    ->equal('type', 'A')
+                    ->equal('comment', 'Infinity portal hotspot');
+                $this->assertRouterosOk($client->query($addDns)->read(), 'dns static');
+            }
+
+            $jardines = $client->query(new Query('/ip/hotspot/walled-garden/print'))->read();
+            $jardines = is_array($jardines) ? $jardines : [];
+            foreach ($jardines as $fila) {
+                if (! is_array($fila) || empty($fila['.id'])) {
+                    continue;
+                }
+                if (strcasecmp((string) ($fila['dst-host'] ?? ''), $dnsName) !== 0) {
+                    continue;
+                }
+                $this->assertRouterosOk(
+                    $client->query((new Query('/ip/hotspot/walled-garden/remove'))->equal('.id', (string) $fila['.id']))->read(),
+                    'walled-garden'
+                );
+            }
+
+            $this->disconnect();
+
+            return [
+                'success' => true,
+                'dns_name' => $dnsName,
+                'address' => $address,
+                'url' => 'http://'.$dnsName,
+            ];
+        } catch (Throwable $e) {
+            Log::error('[MikroTik] configurarDnsPortalHotspot', [
+                'router' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->disconnect();
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @param  mixed  $res
+     */
+    protected function assertRouterosOk($res, string $contexto): void
+    {
+        foreach (is_array($res) ? $res : [] as $fila) {
+            if (is_array($fila) && isset($fila['message'])) {
+                throw new \RuntimeException($contexto.': '.$fila['message']);
+            }
         }
     }
 
@@ -2323,6 +2620,106 @@ class MikroTikService
                 'id' => $rosId,
                 'error' => $e->getMessage(),
             ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $equals
+     * @return array{success: bool, id?: string, error?: string}
+     */
+    public function apiAdd(Router $router, string $path, array $equals): array
+    {
+        try {
+            $client = $this->connect($router);
+            $q = new Query($path);
+            foreach ($equals as $k => $v) {
+                $q->equal($k, (string) $v);
+            }
+            $raw = $client->query($q)->read(false);
+            $this->disconnect();
+
+            if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                return ['success' => false, 'error' => $trap];
+            }
+
+            $id = '';
+            foreach (is_array($raw) ? $raw : [] as $row) {
+                if (is_array($row) && isset($row['after']['ret'])) {
+                    $id = (string) $row['after']['ret'];
+                    break;
+                }
+                if (is_array($row) && isset($row['ret'])) {
+                    $id = (string) $row['ret'];
+                    break;
+                }
+            }
+
+            return ['success' => true, 'id' => $id];
+        } catch (Throwable $e) {
+            $this->disconnect();
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{success: bool, error?: string}
+     */
+    public function apiSetDisabled(Router $router, string $path, string $rosId, bool $disabled): array
+    {
+        $rosId = trim($rosId);
+        if ($rosId === '') {
+            return ['success' => false, 'error' => 'Falta .id'];
+        }
+
+        try {
+            $client = $this->connect($router);
+            $q = (new Query($path))
+                ->equal('.id', $rosId)
+                ->equal('disabled', $disabled ? 'yes' : 'no');
+            $raw = $client->query($q)->read(false);
+            $this->disconnect();
+
+            if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                return ['success' => false, 'error' => $trap];
+            }
+
+            return ['success' => true];
+        } catch (Throwable $e) {
+            $this->disconnect();
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{success: bool, error?: string}
+     */
+    public function apiMove(Router $router, string $path, string $rosId, string $destinationId): array
+    {
+        $rosId = trim($rosId);
+        $destinationId = trim($destinationId);
+        if ($rosId === '' || $destinationId === '') {
+            return ['success' => false, 'error' => 'Falta .id o destino'];
+        }
+
+        try {
+            $client = $this->connect($router);
+            $q = (new Query($path))
+                ->equal('.id', $rosId)
+                ->equal('destination', $destinationId);
+            $raw = $client->query($q)->read(false);
+            $this->disconnect();
+
+            if ($trap = $this->apiTrapMessage(is_array($raw) ? $raw : [])) {
+                return ['success' => false, 'error' => $trap];
+            }
+
+            return ['success' => true];
+        } catch (Throwable $e) {
+            $this->disconnect();
 
             return ['success' => false, 'error' => $e->getMessage()];
         }

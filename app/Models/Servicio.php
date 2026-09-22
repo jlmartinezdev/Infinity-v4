@@ -30,6 +30,8 @@ class Servicio extends Model
         'alias',
         'pedido_id',
         'ip',
+        'ipv6_configurado',
+        'punto_hotspot',
         'usuario_pppoe',
         'password_pppoe',
         'fecha_instalacion',
@@ -86,6 +88,8 @@ class Servicio extends Model
             'fecha_suspension' => 'date',
             'pppoe_synced' => 'datetime',
             'saldo_a_favor' => 'decimal:2',
+            'ipv6_configurado' => 'boolean',
+            'punto_hotspot' => 'boolean',
             'app_tv' => 'boolean',
             'cantidad_perfil_app' => 'integer',
             'precio_app' => 'decimal:2',
@@ -286,6 +290,11 @@ class Servicio extends Model
     public function servicioHotspot(): HasOne
     {
         return $this->hasOne(ServicioHotspot::class, 'servicio_id', 'servicio_id');
+    }
+
+    public function servicioHotspots(): HasMany
+    {
+        return $this->hasMany(ServicioHotspot::class, 'servicio_id', 'servicio_id')->orderBy('slot_numero');
     }
 
     /** Puerto FTTH en caja NAP (si el servicio está empalado en fibra). */

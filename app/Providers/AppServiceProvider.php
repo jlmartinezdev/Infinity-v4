@@ -3,8 +3,14 @@
 namespace App\Providers;
 
 use App\Models\Cliente;
+use App\Models\HotspotPerfil;
+use App\Models\Servicio;
+use App\Models\ServicioHotspot;
 use App\Models\Ticket;
 use App\Observers\ClienteObserver;
+use App\Observers\HotspotPerfilObserver;
+use App\Observers\ServicioHotspotObserver;
+use App\Observers\ServicioRadiusObserver;
 use App\Observers\TicketObserver;
 use App\Services\MikroTikService;
 use App\Session\CustomDatabaseSessionHandler;
@@ -36,6 +42,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Ticket::observe(TicketObserver::class);
         Cliente::observe(ClienteObserver::class);
+        ServicioHotspot::observe(ServicioHotspotObserver::class);
+        Servicio::observe(ServicioRadiusObserver::class);
+        HotspotPerfil::observe(HotspotPerfilObserver::class);
 
         $appUrl = (string) config('app.url', '');
         // En vhost local (infinity.local por HTTP) no forzar HTTPS: rompe CSS/JS y cookies Secure.

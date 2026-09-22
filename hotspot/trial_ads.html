@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WiFi Zone Interplus - Acceso Gratuito</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        :root {
+            --color-1: #4667A0;
+            --color-2: #0097BD;
+            --color-accent: var(--color-2);
+            --color-success: #4CAF50;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--color-1), var(--color-2));
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 12px 8px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .container {
+            background: transparent;
+            border-radius: 0;
+            padding: 20px 16px;
+            box-shadow: none;
+            width: 100%;
+            max-width: 98vw;
+            margin-top: 8px;
+        }
+
+        .logo {
+            width: 240px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 12px;
+            color: #fff;
+            text-shadow: 0 3px 12px rgba(0,0,0,0.18);
+        }
+
+        .trial-info {
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin: 8px 0;
+            border: 2px solid var(--color-success);
+        }
+
+        .trial-info h3 {
+            margin: 0 0 4px 0;
+            font-size: 1em;
+        }
+
+        .trial-info p {
+            margin: 0;
+            font-size: 0.9em;
+        }
+
+        .ad-container {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            border-radius: 14px;
+            padding: 16px 12px;
+            margin: 12px 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        #actionBtnContainer {
+            margin-top: 16px;
+            min-height: 0;
+        }
+
+        .action-btn {
+            display: block;
+            width: 100%;
+        }
+
+        .skip-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(56, 142, 60, 0.95));
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            font-weight: 700;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            z-index: 10;
+            line-height: 1;
+            text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .skip-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, rgba(0, 151, 189, 0.95), rgba(0, 121, 151, 0.95));
+            transform: scale(1.1);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+
+        .skip-btn:disabled {
+            background: linear-gradient(135deg, rgba(70, 103, 160, 0.5), rgba(50, 73, 120, 0.5));
+            cursor: not-allowed;
+            opacity: 0.6;
+            animation: none;
+        }
+
+        .skip-countdown {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            color: #fff;
+            font-weight: 700;
+            pointer-events: none;
+            z-index: 11;
+            text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(56, 142, 60, 0.95));
+            border-radius: 50%;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .ad-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--color-1);
+            margin-bottom: 8px;
+        }
+
+        .ad-content {
+            font-size: 1em;
+            margin-bottom: 12px;
+            line-height: 1.3;
+        }
+
+        .ad-timer {
+            font-size: 1em;
+            font-weight: 500;
+            color: #555;
+            margin: 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .ad-timer .time-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: var(--color-success);
+        }
+
+        .ad-timer .progress-bar {
+            margin-top: 12px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--color-accent);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.18);
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            background: var(--color-1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: var(--color-success);
+        }
+
+        .btn-success:hover {
+            background: #388e3c;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 10px;
+            margin: 16px 0;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-success), #66bb6a);
+            transition: width 1s ease;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
+        }
+
+        .ads-completed {
+            display: none;
+        }
+
+        /* Contenedor y medios de publicidad responsivos */
+        .ad-media {
+            display: none;
+            margin: 12px -12px;
+            text-align: center;
+            width: calc(100% + 24px);
+        }
+
+        .ad-media .media-el {
+            width: 100%;
+            height: auto;
+            max-height: 70vh;
+            border-radius: 0;
+            box-shadow: none;
+            object-fit: cover;
+            background: #000;
+        }
+
+        /* Tablets y pantallas medianas */
+        @media (min-width: 768px) {
+            .ad-media {
+                margin: 12px 0;
+                width: 100%;
+            }
+            
+            .ad-media .media-el {
+                border-radius: 10px;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+                object-fit: contain;
+                max-height: 60vh;
+            }
+        }
+
+        /* PC - Contenedor amplio para mostrar imagen completa */
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 850px;
+            }
+
+            .ad-media {
+                margin: 12px 0;
+                width: 100%;
+                background: transparent;
+            }
+
+            .ad-media .media-el {
+                max-height: 550px;
+                width: 100%;
+                height: auto;
+                object-fit: contain;
+                border-radius: 10px;
+                background: transparent;
+            }
+        }
+
+        /* Full HD 1080p - Ajuste para pantallas grandes */
+        @media (min-width: 1920px) {
+            .container {
+                max-width: 1000px;
+            }
+
+            .ad-media .media-el {
+                max-height: 650px;
+                object-fit: contain;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px 16px;
+                margin-top: 20px;
+            }
+            .logo {
+                width: 150px;
+            }
+            h1 {
+                font-size: 1.6em;
+            }
+        }
+
+        /* Pequeña nota inferior */
+        .subnote {
+            display: block;
+            margin-top: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
+        
+        <div class="trial-info">
+            <h3>Navega 30 minutos GRATIS</h3>
+            <p>Aprovechá a ver <strong id="adsRemaining">2</strong> información sobre los servicios</p>
+        </div>
+
+        <div id="adContainer" class="ad-container">
+            <button class="skip-btn" id="skipBtn" onclick="skipToNext()" disabled title="Siguiente anuncio">
+                &#10132;
+            </button>
+            <div class="skip-countdown" id="skipCountdown">15</div>
+            
+            <div class="ad-title" id="adTitle">Cargando anuncio...</div>
+            <div class="ad-content" id="adContent">Por favor espera...</div>
+            
+            <!-- Contenedor para multimedia -->
+            <div id="adMedia" class="ad-media">
+                <!-- Aquí se cargará la imagen o video -->
+            </div>
+            
+            <div id="actionBtnContainer"></div>
+        </div>
+
+        <div id="adsCompleted" class="ads-completed">
+            <h2>🎉 ¡Listo!</h2>
+            <p>Has completado todos los anuncios</p>
+            <button class="btn btn-success" onclick="activateTrial()">
+                🚀 Conectar Ahora (30 min gratis)
+            </button>
+            <small class="subnote">
+                Serás conectado automáticamente
+            </small>
+        </div>
+    </div>
+
+    <script>
+        let currentAdIndex = 0;
+        let timeLeft = 0;
+        let timer = null;
+    let adsData = [];
+    let adsRequired = 2; // cantidad de anuncios requeridos antes de habilitar el acceso
+        
+        // Datos de ejemplo (en producción vendrían del servidor)
+        const sampleAds = [
+            {
+                titulo: "¡Nuevo Plan Fibra Óptica!",
+                contenido: "Velocidades de hasta 300 Mb por solo Gs. 175.000. ¡Instalación gratuita!",
+                url: "tel:+595971714322",
+                duracion_segundos: 15
+            },
+            {
+                titulo: "¡Acceso Gratuito Listo!",
+                contenido: "Has visto nuestro anuncio. Ahora puedes acceder a 30 minutos de navegación gratuita.",
+                url: "#access",
+                duracion_segundos: 8
+            }
+        ];
+        
+        async function initializeAds() {
+            // Intentar cargar anuncios desde archivo JSON (estático en el router)
+            try {
+                const res = await fetch('media/anuncios/ads.json', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        adsData = data;
+                    } else if (data && Array.isArray(data.items)) {
+                        adsData = data.items;
+                        if (data.required && Number.isInteger(data.required)) {
+                            adsRequired = data.required;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignorar y usar fallback
+                console.log('No se pudo cargar ads.json, usando anuncios de muestra');
+            }
+            
+            // Fallback si no hay datos válidos
+            if (!adsData || adsData.length === 0) {
+                adsData = sampleAds;
+            }
+            
+            // FILTRAR SOLO ANUNCIOS ACTIVOS
+            adsData = adsData.filter(ad => ad.activo !== false);
+            console.log('Anuncios activos:', adsData.length);
+            
+            // Limitar adsRequired a la cantidad disponible
+            adsRequired = Math.min(adsRequired, adsData.length);
+            const remaining = Math.max(0, adsRequired - currentAdIndex);
+            document.getElementById('adsRemaining').textContent = remaining;
+            
+            // Ocultar el mensaje si no quedan anuncios
+            const trialInfo = document.querySelector('.trial-info p');
+            if (remaining <= 0 && trialInfo) {
+                trialInfo.style.display = 'none';
+            }
+            
+            showCurrentAd();
+        }
+        
+        function showCurrentAd() {
+            if (currentAdIndex >= adsData.length) {
+                showCompletionScreen();
+                return;
+            }
+            
+            const ad = adsData[currentAdIndex];
+            document.getElementById('adTitle').textContent = ad.titulo;
+            document.getElementById('adContent').textContent = ad.contenido;
+            
+            // Deshabilitar botón de saltar al inicio
+            const skipBtn = document.getElementById('skipBtn');
+            const skipCountdown = document.getElementById('skipCountdown');
+            
+            if (skipBtn) {
+                skipBtn.disabled = true;
+            }
+            
+            // Renderizar botón de acción si corresponde
+            const actionBtnContainer = document.getElementById('actionBtnContainer');
+            if (actionBtnContainer) {
+                if (ad.mostrarAccion === true && ad.url && ad.url !== '#access') {
+                    const textoBtn = (ad.textoAccion && typeof ad.textoAccion === 'string') ? ad.textoAccion : 'Más Información';
+                    actionBtnContainer.innerHTML = `<button class="btn action-btn" onclick="handleActionClick()">${textoBtn}</button>`;
+                } else {
+                    actionBtnContainer.innerHTML = '';
+                }
+            }
+            
+            // Inicializar contador en el botón
+            timeLeft = ad.duracion_segundos;
+            if (skipCountdown) {
+                skipCountdown.innerHTML = `<div>${timeLeft}</div>`;
+                skipCountdown.style.display = 'flex';
+                skipCountdown.style.animation = 'pulse 2s ease-in-out infinite';
+            }
+            
+            // Mostrar multimedia si existe
+            const mediaContainer = document.getElementById('adMedia');
+            if (ad.media && ad.media.url) {
+                const isImage = ad.media.type && ad.media.type.startsWith('image/');
+                const isVideo = ad.media.type && ad.media.type.startsWith('video/');
+                
+                if (isImage) {
+                    mediaContainer.innerHTML = `<img src="${ad.media.url}" alt="${ad.titulo}" class="media-el">`;
+                    mediaContainer.style.display = 'block';
+                } else if (isVideo) {
+                    mediaContainer.innerHTML = `<video class="media-el" controls autoplay muted playsinline>
+                        <source src="${ad.media.url}" type="${ad.media.type}">
+                        Tu navegador no soporta el elemento video.
+                    </video>`;
+                    mediaContainer.style.display = 'block';
+                } else {
+                    mediaContainer.style.display = 'none';
+                }
+            } else {
+                mediaContainer.style.display = 'none';
+            }
+            
+            startTimer();
+        }
+        
+        function startTimer() {
+            timer = setInterval(() => {
+                timeLeft--;
+                const skipCountdown = document.getElementById('skipCountdown');
+                
+                if (skipCountdown) {
+                    skipCountdown.innerHTML = `<div>${timeLeft}</div>`;
+                    
+                    // Cambiar color cuando quedan pocos segundos
+                    if (timeLeft <= 3) {
+                        skipCountdown.style.background = 'linear-gradient(135deg, rgba(255, 152, 0, 0.85), rgba(245, 124, 0, 0.85))';
+                    }
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    // enableAdButton();
+                    skipToNext();
+                }
+            }, 1000);
+        }
+        
+        function enableAdButton() {
+            const skipBtn = document.getElementById('skipBtn');
+            const skipCountdown = document.getElementById('skipCountdown');
+            
+            // Habilitar botón de saltar y ocultar countdown
+            if (skipBtn) {
+                skipBtn.disabled = false;
+            }
+            if (skipCountdown) {
+                skipCountdown.style.display = 'none';
+            }
+        }
+        
+        function handleActionClick() {
+            const ad = adsData[currentAdIndex];
+            if (ad && ad.url && ad.url !== '#access') {
+                // Intentar abrir en nueva pestaña; si el navegador bloquea, navegar en la misma
+                const win = window.open(ad.url, '_blank');
+                if (!win || win.closed || typeof win.closed === 'undefined') {
+                    window.location.href = ad.url;
+                }
+            }
+        }
+        
+        function skipToNext() {
+            // Solo pasar al siguiente anuncio, sin abrir enlaces
+            currentAdIndex++;
+            const remaining = adsRequired - currentAdIndex;
+            
+            // Actualizar o ocultar el mensaje según los anuncios restantes
+            const trialInfo = document.querySelector('.trial-info p');
+            if (remaining <= 0) {
+                if (trialInfo) trialInfo.style.display = 'none';
+            } else {
+                document.getElementById('adsRemaining').textContent = remaining;
+                if (trialInfo) trialInfo.style.display = 'block';
+            }
+            
+            if (timer) {
+                clearInterval(timer);
+            }
+            
+            if (currentAdIndex >= adsRequired) {
+                // showCompletionScreen();
+                activateTrial();
+            } else {
+                setTimeout(() => {
+                    showCurrentAd();
+                }, 300);
+            }
+        }
+        
+        function showCompletionScreen() {
+            document.getElementById('adContainer').style.display = 'none';
+            document.getElementById('adsCompleted').style.display = 'block';
+        }
+        
+        function activateTrial() {
+            // Activar Trial usando el patrón oficial de MikroTik
+            // Construye usuario trial como T-<MAC> y redirige a link-login-only
+            // dst mantiene la URL original de destino
+            var trialUrl = '$(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)';
+
+            // Debug opcional: si el router no sustituyó variables, mostrar alerta
+            if (trialUrl.indexOf('$(link-login-only)') !== -1 || trialUrl.indexOf('$(mac-esc)') !== -1) {
+                console.warn('Variables MikroTik no sustituidas. Verifique que este archivo se sirva desde el Hotspot.');
+            }
+            window.location.href = trialUrl;
+        }
+        
+        // Inicializar cuando carga la página
+        window.onload = function() {
+            initializeAds();
+        }
+    </script>
+</body>
+</html>

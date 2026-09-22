@@ -3,7 +3,9 @@
 namespace App\Traits;
 
 use App\Models\Auditoria;
+use App\Models\User;
 use App\Services\NotificacionAccionService;
+use App\Support\AuditoriaStaff;
 use Illuminate\Support\Facades\Request;
 
 trait Auditable
@@ -43,6 +45,12 @@ trait Auditable
      */
     protected static function registrarAuditoria(self $model, string $accion, ?array $oldValues, ?array $newValues): void
     {
+        $actor = static::actorStaffActual();
+        $campos = $accion === 'updated' ? array_keys($model->getChanges()) : [];
+        if (! AuditoriaStaff::debeRegistrar($actor, $accion, $campos)) {
+            return;
+        }
+
         $tabla = $model->getTable();
         $keyName = $model->getKeyName();
         if (is_array($keyName)) {
@@ -66,10 +74,7 @@ trait Auditable
             $detalles['new'] = static::ocultarSensibles($newValues);
         }
 
-        $usuarioId = null;
-        if (function_exists('auth') && auth()->check()) {
-            $usuarioId = auth()->id();
-        }
+        $usuarioId = $actor?->getKey();
 
         $request = Request::instance();
         $ipAddress = $request ? $request->ip() : null;
@@ -114,5 +119,29 @@ trait Auditable
             }
         }
         return $attributes;
+    }
+
+    protected static function actorStaffActual(): ?User
+    {
+        $candidatos = [];
+        if (function_exists('auth')) {
+            $candidatos[] = auth()->user();
+            foreach (['web', 'sanctum'] as $guard) {
+                try {
+                    $candidatos[] = auth()->guard($guard)->user();
+                } catch (\Throwable) {
+                }
+            }
+        }
+        $request = function_exists('request') ? request() : null;
+        if ($request) {
+            $candidatos[] = $request->user();
+            try {
+                $candidatos[] = $request->user('sanctum');
+            } catch (\Throwable) {
+            }
+        }
+
+        return AuditoriaStaff::actorStaff(...$candidatos);
     }
 }

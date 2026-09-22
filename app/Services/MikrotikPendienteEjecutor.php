@@ -12,7 +12,8 @@ use Throwable;
 class MikrotikPendienteEjecutor
 {
     public function __construct(
-        protected MikroTikService $mikrotik
+        protected MikroTikService $mikrotik,
+        protected RadiusHotspotSyncService $radius
     ) {
     }
 
@@ -124,6 +125,16 @@ class MikrotikPendienteEjecutor
         $sh = ServicioHotspot::with(['router', 'hotspotPerfil'])->find($id);
         if (! $sh) {
             return ['success' => false, 'error' => 'Servicio hotspot no encontrado'];
+        }
+
+        if ($this->radius->enabled()) {
+            $radiusResult = $this->radius->sync($sh);
+            if (! $radiusResult['success']) {
+                return $radiusResult;
+            }
+            if (! config('radius.also_sync_mikrotik')) {
+                return $radiusResult;
+            }
         }
 
         return $this->mikrotik->syncHotspotServicio($sh);

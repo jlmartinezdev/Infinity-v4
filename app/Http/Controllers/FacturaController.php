@@ -7,15 +7,25 @@ use App\Jobs\EmitirFacturaSifenJob;
 use App\Models\CedulaPadron;
 use App\Models\Cliente;
 use App\Models\Factura;
+use App\Models\FacturaElectronicaLista;
 use App\Models\FacturacionParametro;
 use App\Models\FacturaDetalle;
 use App\Models\Impuesto;
 use App\Models\Servicio;
 use App\Models\SifenConfiguracion;
+use App\Models\AjustesGenerales;
+use App\Helpers\TelefonoParaguayHelper;
 use App\Services\FacturacionService;
 use App\Services\Sifen\SifenBackground;
 use App\Services\Sifen\SifenKudeService;
+use App\Services\WhatsApp\WhatsAppOutboundNotifier;
+use App\Support\FacturaElectronicaListaLote;
+use App\Support\FacturaLimiteMes;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class FacturaController extends Controller
@@ -26,24 +36,12 @@ class FacturaController extends Controller
             ->orderBy('fecha_emision', 'desc')
             ->orderBy('id', 'desc');
 
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->estado);
-        }
-        if ($request->boolean('lote_pendiente')) {
-            $query->lotePendienteSifen();
-        }
-        if ($request->filled('cliente_id')) {
-            $query->where('cliente_id', $request->cliente_id);
-        }
-        if ($request->filled('desde')) {
-            $query->whereDate('fecha_emision', '>=', $request->desde);
-        }
-        if ($request->filled('hasta')) {
-            $query->whereDate('fecha_emision', '<=', $request->hasta);
-        }
+        $this->aplicarFiltrosListado($request, $query);
 
         $facturas = $query->paginate(15)->withQueryString();
-        $clientes = Cliente::orderBy('nombre')->get();
+        $clienteFiltro = $request->filled('cliente_id')
+            ? Cliente::query()->find($request->cliente_id)
+            : null;
 
         $mesDashboard = now()->startOfMonth();
         if ($request->filled('mes')) {
@@ -74,45 +72,102 @@ class FacturaController extends Controller
             ->sum('total');
 
         $lotesPendientesCount = Factura::query()->lotePendienteSifen()->count();
+        $limiteMes = FacturaLimiteMes::resumen($mesDashboard->format('Y-m'));
 
         return view('facturas.index', [
             'facturas' => $facturas,
-            'clientes' => $clientes,
+            'clienteFiltro' => $clienteFiltro,
             'mesDashboard' => $mesDashboard,
             'mesDashboardLabel' => $mesDashboard->locale('es')->isoFormat('MMMM YYYY'),
             'statsEmitidasMes' => $statsEmitidasMes,
             'borradoresMes' => $borradoresMes,
             'montoBorradoresMes' => $montoBorradoresMes,
             'lotesPendientesCount' => $lotesPendientesCount,
+            'limiteMes' => $limiteMes,
+            'limitesMesMapa' => FacturaLimiteMes::mapa(),
         ]);
+    }
+
+    public function guardarLimiteMes(Request $request)
+    {
+        abort_unless($request->user()?->esAdministrador(), 403, 'Solo administradores pueden cambiar el tope mensual.');
+
+        $validated = $request->validate([
+            'mes' => ['required', 'string', 'regex:/^\d{4}-\d{2}$/'],
+            'monto_limite' => ['nullable', 'numeric', 'min:1', 'max:999999999999'],
+        ]);
+
+        $monto = filled($validated['monto_limite'] ?? null)
+            ? (float) $validated['monto_limite']
+            : null;
+
+        FacturaLimiteMes::establecer($validated['mes'], $monto);
+
+        $label = Carbon::createFromFormat('Y-m', $validated['mes'])->locale('es')->isoFormat('MMMM YYYY');
+        $mensaje = $monto === null
+            ? 'Se quitó el tope de facturación de '.$label.'.'
+            : 'Tope de '.$label.': '.FacturaLimiteMes::formato($monto).' PYG.';
+
+        return redirect()
+            ->route('facturas.index', ['mes' => $validated['mes']])
+            ->with('success', $mensaje);
+    }
+
+    /**
+     * PDF del listado de facturas electrónicas con los mismos filtros de la grilla.
+     */
+    public function pdfResumen(Request $request)
+    {
+        $query = Factura::with(['cliente', 'usuario'])
+            ->orderBy('fecha_emision', 'desc')
+            ->orderBy('id', 'desc');
+        $this->aplicarFiltrosListado($request, $query);
+
+        $total = (float) (clone $query)->sum('total');
+        $totalRegistrosFiltrados = (clone $query)->count();
+        $facturas = $query->limit(1000)->get();
+        $ajustes = AjustesGenerales::obtener();
+
+        $filtros = [];
+        if ($request->filled('estado')) {
+            $filtros[] = 'Estado: '.(Factura::estados()[$request->estado] ?? $request->estado);
+        }
+        if ($request->filled('cliente_id')) {
+            $cliente = Cliente::query()->find($request->cliente_id);
+            $nombreCliente = trim(($cliente?->nombre ?? '').' '.($cliente?->apellido ?? ''));
+            $filtros[] = 'Cliente: '.($nombreCliente !== '' ? $nombreCliente : '#'.$request->cliente_id);
+        }
+        if ($request->filled('desde') || $request->filled('hasta')) {
+            $desde = $request->filled('desde') ? Carbon::parse($request->desde)->format('d/m/Y') : '—';
+            $hasta = $request->filled('hasta') ? Carbon::parse($request->hasta)->format('d/m/Y') : '—';
+            $filtros[] = 'Emisión: '.$desde.' al '.$hasta;
+        }
+        if ($request->filled('aprobacion_desde') || $request->filled('aprobacion_hasta')) {
+            [$desdeAprob, $hastaAprob] = $this->rangoFechasAprobacion($request);
+            $filtros[] = 'Aprobación: '.$desdeAprob->format('d/m/Y').' al '.$hastaAprob->format('d/m/Y');
+        }
+        if ($request->boolean('lote_pendiente')) {
+            $filtros[] = 'Solo lotes pendientes';
+        }
+
+        $pdf = Pdf::loadView('facturas.pdf-resumen', [
+            'facturas' => $facturas,
+            'total' => $total,
+            'totalRegistrosFiltrados' => $totalRegistrosFiltrados,
+            'ajustes' => $ajustes,
+            'filtros' => $filtros,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('facturas-electronicas-'.now()->format('Y-m-d-His').'.pdf');
     }
 
     public function create(Request $request)
     {
         $periodo = $this->resolverPeriodoFacturacion($request->input('periodo'));
-        $mes = $periodo['desde'];
         $mesLabel = $periodo['label'];
         $periodoYm = $periodo['ym'];
-        $marcadorPeriodo = $periodo['marcador'];
 
-        $emisionesMes = Factura::query()
-            ->where('estado', 'emitida')
-            ->where(function ($q) use ($mes, $marcadorPeriodo) {
-                $q->where(function ($q2) use ($marcadorPeriodo) {
-                    $q2->whereNotNull('observaciones')
-                        ->where('observaciones', 'like', '%'.$marcadorPeriodo.'%');
-                })->orWhere(function ($q2) use ($mes) {
-                    $q2->where(function ($q3) {
-                        $q3->whereNull('observaciones')->orWhere('observaciones', 'not like', '%Período facturación:%');
-                    })
-                        ->whereYear('fecha_emision', $mes->year)
-                        ->whereMonth('fecha_emision', $mes->month);
-                });
-            })
-            ->selectRaw('cliente_id, COUNT(*) as cantidad, MAX(id) as ultima_factura_id, MAX(fecha_emision) as ultima_fecha')
-            ->groupBy('cliente_id')
-            ->get()
-            ->keyBy('cliente_id');
+        $emisionesMes = $this->emisionesPorClientePeriodo($periodo);
 
         $query = Cliente::query()
             ->whereIn('estado', ['activo', 'inactivo'])
@@ -139,6 +194,8 @@ class FacturaController extends Controller
         $pendientesMes = max(0, $totalActivos - $emitidosMes);
 
         $periodosOpciones = $this->opcionesPeriodoFacturacion();
+        $fechaEmision = old('fecha_emision', now()->toDateString());
+        $listasFe = $this->listasFeParaVista($emisionesMes);
 
         return view('facturas.seleccionar-cliente', compact(
             'clientes',
@@ -146,9 +203,11 @@ class FacturaController extends Controller
             'mesLabel',
             'periodoYm',
             'periodosOpciones',
+            'fechaEmision',
             'totalActivos',
             'emitidosMes',
             'pendientesMes',
+            'listasFe',
         ));
     }
 
@@ -484,40 +543,161 @@ class FacturaController extends Controller
      */
     public function storeMasivo(Request $request)
     {
+        $validated = $request->validate($this->reglasMasivo(50));
+
+        return $this->procesarClientesMasivo(
+            $request,
+            array_map('intval', $validated['cliente_ids']),
+            $validated,
+        );
+    }
+
+    public function storeLista(Request $request): JsonResponse
+    {
         $validated = $request->validate([
+            'nombre' => ['nullable', 'string', 'max:80'],
+            'lista_id' => ['nullable', 'integer', 'exists:factura_electronica_listas,id'],
             'cliente_ids' => ['required', 'array', 'min:1', 'max:50'],
             'cliente_ids.*' => ['integer', 'exists:clientes,cliente_id'],
-            'emitir' => ['nullable', 'boolean'],
-            'periodo' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],
-            'monto_modo' => ['nullable', 'string', 'in:plan,500000,1000000,otro'],
-            'monto_fijo' => [
-                'nullable',
-                'numeric',
-                'min:1',
-                'max:999999999',
-                'required_if:monto_modo,otro',
-            ],
         ]);
 
+        $ids = array_values(array_unique(array_map('intval', $validated['cliente_ids'])));
+        $lista = null;
+
+        if (! empty($validated['lista_id'])) {
+            $lista = FacturaElectronicaLista::query()->find($validated['lista_id']);
+        }
+
+        $nombre = trim((string) ($validated['nombre'] ?? ''));
+        if (! $lista && $nombre !== '') {
+            $lista = FacturaElectronicaLista::query()
+                ->whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])
+                ->first();
+        }
+
+        if (! $lista) {
+            if ($nombre === '') {
+                return response()->json([
+                    'ok' => false,
+                    'mensaje' => 'Indique un nombre para la lista o elija una existente.',
+                ], 422);
+            }
+
+            $lista = FacturaElectronicaLista::query()->create([
+                'nombre' => $nombre,
+                'usuario_id' => $request->user()?->usuario_id,
+            ]);
+            $lista->clientes()->sync($ids);
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Lista «'.$lista->nombre.'» creada · '.$lista->clientes()->count().' cliente(s).',
+                'lista_id' => $lista->id,
+                'total' => $lista->clientes()->count(),
+            ]);
+        }
+
+        $actuales = $lista->clientes()->pluck('clientes.cliente_id')->map(fn ($id) => (int) $id)->all();
+        $unidos = array_values(array_unique(array_merge($actuales, $ids)));
+        if (count($unidos) > FacturaElectronicaLista::MAX_CLIENTES) {
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'La lista no puede superar '.FacturaElectronicaLista::MAX_CLIENTES.' clientes.',
+            ], 422);
+        }
+        $nuevos = array_values(array_diff($ids, $actuales));
+        if ($nuevos !== []) {
+            $lista->clientes()->attach($nuevos);
+        }
+        $accion = $nuevos === [] ? 'sin cambios (ya estaban)' : 'actualizada';
+        $total = $lista->clientes()->count();
+
+        return response()->json([
+            'ok' => true,
+            'mensaje' => 'Lista «'.$lista->nombre.'» '.$accion.' · '.$total.' cliente(s).',
+            'lista_id' => $lista->id,
+            'total' => $total,
+        ]);
+    }
+
+    public function destroyLista(FacturaElectronicaLista $lista): RedirectResponse
+    {
+        $nombre = $lista->nombre;
+        $lista->delete();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Se eliminó la lista «'.$nombre.'».');
+    }
+
+    public function facturarLista(Request $request, FacturaElectronicaLista $lista): RedirectResponse
+    {
+        $validated = $request->validate($this->reglasMasivoCampos());
+        $periodo = $this->resolverPeriodoFacturacion($validated['periodo'] ?? null);
+        $emisiones = $this->emisionesPorClientePeriodo($periodo);
+        $preparado = FacturaElectronicaListaLote::preparar(
+            $lista->clienteIdsOrdenados(),
+            $emisiones->keys()->all(),
+            FacturaElectronicaListaLote::MAX,
+        );
+
+        if ($preparado['lote'] === []) {
+            return redirect()
+                ->route('facturas.create', ['periodo' => $periodo['ym']])
+                ->with('warning', 'La lista «'.$lista->nombre.'» no tiene clientes pendientes de emitir en '.$periodo['label'].'.');
+        }
+
+        $notaLote = 'Lista «'.$lista->nombre.'»: lote de '.count($preparado['lote'])
+            .' (máx. '.FacturaElectronicaListaLote::MAX.')';
+        if ($preparado['restantes'] > 0) {
+            $notaLote .= ' · quedan '.$preparado['restantes'].' para otro lote';
+        }
+
+        return $this->procesarClientesMasivo(
+            $request,
+            $preparado['lote'],
+            $validated,
+            [
+                'volver_crear' => true,
+                'nota' => $notaLote,
+            ],
+        );
+    }
+
+    /**
+     * @param  list<int>  $clienteIds
+     * @param  array<string, mixed>  $validated
+     * @param  array{volver_crear?: bool, nota?: string}  $opciones
+     */
+    private function procesarClientesMasivo(
+        Request $request,
+        array $clienteIds,
+        array $validated,
+        array $opciones = [],
+    ): RedirectResponse {
         $periodo = $this->resolverPeriodoFacturacion($validated['periodo'] ?? null);
         $montoFijo = $this->resolverMontoFijoMasivo(
             $validated['monto_modo'] ?? 'plan',
             $validated['monto_fijo'] ?? null,
         );
+        $fechaEmision = Carbon::parse($validated['fecha_emision'])->toDateString();
         $emitir = $request->boolean('emitir');
         $sifenConfig = SifenConfiguracion::activa();
         $prefill = $this->construirPrefillSifen($sifenConfig);
 
         $clientes = Cliente::query()
-            ->whereIn('cliente_id', $validated['cliente_ids'])
+            ->whereIn('cliente_id', $clienteIds)
             ->get()
             ->keyBy('cliente_id');
 
         $creadas = [];
         $enviadas = [];
         $errores = [];
+        $ymEmision = Carbon::parse($fechaEmision)->format('Y-m');
+        $usadoTope = $emitir ? FacturaLimiteMes::montoEmitido($ymEmision) : 0.0;
+        $reservadoTope = 0.0;
 
-        foreach ($validated['cliente_ids'] as $clienteId) {
+        foreach ($clienteIds as $clienteId) {
             $cliente = $clientes->get($clienteId);
             $etiqueta = $cliente
                 ? trim($cliente->nombre.' '.$cliente->apellido)
@@ -559,14 +739,26 @@ class FacturaController extends Controller
                     $prefill,
                     $request->user()?->usuario_id,
                     $obs,
+                    $fechaEmision,
                 );
 
                 $creadas[] = $factura->id;
 
                 if ($emitir) {
-                    $factura->update(['set_estado_envio' => 'en_cola']);
-                    SifenBackground::dispatch(new EmitirFacturaSifenJob($factura->id));
-                    $enviadas[] = $factura->id;
+                    $tope = FacturaLimiteMes::evaluar(
+                        $ymEmision,
+                        (float) $factura->total,
+                        $usadoTope + $reservadoTope
+                    );
+                    if (! $tope['ok']) {
+                        $errores[] = $etiqueta.': tope mensual, se dejó en borrador (quedan '
+                            .FacturaLimiteMes::formato((float) ($tope['restante'] ?? 0)).' PYG).';
+                    } else {
+                        $factura->update(['set_estado_envio' => 'en_cola']);
+                        SifenBackground::dispatch(new EmitirFacturaSifenJob($factura->id));
+                        $enviadas[] = $factura->id;
+                        $reservadoTope += (float) $factura->total;
+                    }
                 }
             } catch (\Throwable $e) {
                 $errores[] = $etiqueta.': '.$e->getMessage();
@@ -574,8 +766,12 @@ class FacturaController extends Controller
         }
 
         $partes = [];
+        if (! empty($opciones['nota'])) {
+            $partes[] = (string) $opciones['nota'];
+        }
         if ($creadas !== []) {
             $partes[] = count($creadas).' borrador(es) creado(s) · período '.$periodo['label'];
+            $partes[] = 'emisión '.Carbon::parse($fechaEmision)->format('d/m/Y');
             if ($montoFijo !== null) {
                 $partes[] = 'monto '.number_format($montoFijo, 0, ',', '.').' Gs.';
             }
@@ -599,14 +795,23 @@ class FacturaController extends Controller
         }
 
         $tipo = $errores !== [] && $creadas === [] ? 'error' : ($errores !== [] ? 'warning' : 'success');
+        $volverCrear = ! empty($opciones['volver_crear']);
+        $queryCrear = ['periodo' => $periodo['ym']];
 
         if ($emitir && $enviadas !== []) {
+            $mensaje .= ' La emisión corre en segundo plano; luego use «Consultar lotes» cuando figuren pendientes.';
+
+            if ($volverCrear) {
+                return redirect()->route('facturas.create', $queryCrear)->with($tipo, $mensaje);
+            }
+
             return redirect()
                 ->route('facturas.index', ['estado' => 'borrador'])
-                ->with(
-                    $tipo,
-                    $mensaje.' La emisión corre en segundo plano; luego use «Consultar lotes» cuando figuren pendientes.'
-                );
+                ->with($tipo, $mensaje);
+        }
+
+        if ($volverCrear) {
+            return redirect()->route('facturas.create', $queryCrear)->with($tipo, $mensaje);
         }
 
         if ($creadas !== [] && count($creadas) === 1 && ! $emitir) {
@@ -619,6 +824,95 @@ class FacturaController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function reglasMasivoCampos(): array
+    {
+        return [
+            'emitir' => ['nullable', 'boolean'],
+            'periodo' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],
+            'monto_modo' => ['nullable', 'string', 'in:plan,500000,1000000,otro'],
+            'monto_fijo' => [
+                'nullable',
+                'numeric',
+                'min:1',
+                'max:999999999',
+                'required_if:monto_modo,otro',
+            ],
+            'fecha_emision' => ['required', 'date', 'before_or_equal:today'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reglasMasivo(int $maxClientes): array
+    {
+        return array_merge($this->reglasMasivoCampos(), [
+            'cliente_ids' => ['required', 'array', 'min:1', 'max:'.$maxClientes],
+            'cliente_ids.*' => ['integer', 'exists:clientes,cliente_id'],
+        ]);
+    }
+
+    /**
+     * @param  array{desde: Carbon, marcador: string}  $periodo
+     * @return \Illuminate\Support\Collection<int|string, object>
+     */
+    private function emisionesPorClientePeriodo(array $periodo)
+    {
+        $mes = $periodo['desde'];
+        $marcadorPeriodo = $periodo['marcador'];
+
+        return Factura::query()
+            ->where('estado', 'emitida')
+            ->where(function ($q) use ($mes, $marcadorPeriodo) {
+                $q->where(function ($q2) use ($marcadorPeriodo) {
+                    $q2->whereNotNull('observaciones')
+                        ->where('observaciones', 'like', '%'.$marcadorPeriodo.'%');
+                })->orWhere(function ($q2) use ($mes) {
+                    $q2->where(function ($q3) {
+                        $q3->whereNull('observaciones')->orWhere('observaciones', 'not like', '%Período facturación:%');
+                    })
+                        ->whereYear('fecha_emision', $mes->year)
+                        ->whereMonth('fecha_emision', $mes->month);
+                });
+            })
+            ->selectRaw('cliente_id, COUNT(*) as cantidad, MAX(id) as ultima_factura_id, MAX(fecha_emision) as ultima_fecha')
+            ->groupBy('cliente_id')
+            ->get()
+            ->keyBy('cliente_id');
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int|string, object>  $emisionesMes
+     * @return list<array{id: int, nombre: string, total: int, pendientes: int, cliente_ids: list<int>}>
+     */
+    private function listasFeParaVista($emisionesMes): array
+    {
+        return FacturaElectronicaLista::query()
+            ->orderBy('nombre')
+            ->get()
+            ->map(function (FacturaElectronicaLista $lista) use ($emisionesMes) {
+                $ids = $lista->clienteIdsOrdenados();
+                $pendientes = 0;
+                foreach ($ids as $id) {
+                    if (! $emisionesMes->has($id)) {
+                        $pendientes++;
+                    }
+                }
+
+                return [
+                    'id' => $lista->id,
+                    'nombre' => $lista->nombre,
+                    'total' => count($ids),
+                    'pendientes' => $pendientes,
+                    'cliente_ids' => $ids,
+                ];
+            })
+            ->all();
+    }
+
+    /**
      * @param  list<array{descripcion: string, cantidad: float, precio_unitario: float, impuesto_id: int|null, servicio_id: int}>  $detalles
      * @param  array<string, mixed>  $prefill
      */
@@ -628,14 +922,19 @@ class FacturaController extends Controller
         array $prefill,
         ?int $usuarioId,
         ?string $observaciones = null,
+        ?string $fechaEmision = null,
     ): Factura {
-        return \DB::transaction(function () use ($cliente, $detalles, $prefill, $usuarioId, $observaciones) {
+        $fechaEmisionFinal = $fechaEmision
+            ? Carbon::parse($fechaEmision)->toDateString()
+            : now()->toDateString();
+
+        return \DB::transaction(function () use ($cliente, $detalles, $prefill, $usuarioId, $observaciones, $fechaEmisionFinal) {
             $factura = Factura::create([
                 'cliente_id' => $cliente->cliente_id,
                 'es_ocasional' => false,
                 'tipo_documento' => 'factura_contado',
                 'estado' => 'borrador',
-                'fecha_emision' => now()->toDateString(),
+                'fecha_emision' => $fechaEmisionFinal,
                 'fecha_vencimiento' => null,
                 'moneda' => 'PYG',
                 'numero_timbrado' => $prefill['numero_timbrado'] ?? null,
@@ -733,6 +1032,52 @@ class FacturaController extends Controller
         $factura->load(['cliente', 'detalles.impuesto', 'usuario']);
 
         return view('facturas.show', compact('factura'));
+    }
+
+    public function enviarWhatsApp(Request $request, Factura $factura, WhatsAppOutboundNotifier $notifier)
+    {
+        $factura->loadMissing('cliente');
+
+        $validated = $request->validate([
+            'destino' => ['required', 'in:registrado,otro'],
+            'telefono' => ['nullable', 'string', 'max:40'],
+            'guardar_telefono' => ['nullable', 'in:0,1'],
+        ]);
+
+        $override = null;
+        if ($validated['destino'] === 'otro') {
+            $override = trim((string) ($validated['telefono'] ?? ''));
+            if ($override === '') {
+                return redirect()
+                    ->route('facturas.show', $factura)
+                    ->with('error', 'Ingresá el número de WhatsApp de destino.');
+            }
+        } elseif (! filled($factura->receptorTelefonoEfectivo())) {
+            return redirect()
+                ->route('facturas.show', $factura)
+                ->with('error', 'El receptor no tiene teléfono. Elegí «Otro número».');
+        }
+
+        $guardadoMsg = null;
+        if ($validated['destino'] === 'otro'
+            && ($validated['guardar_telefono'] ?? '0') === '1'
+        ) {
+            $telefonoGuardar = TelefonoParaguayHelper::normalize($override) ?? $override;
+            if ($factura->esOcasional()) {
+                $factura->forceFill(['receptor_telefono' => $telefonoGuardar])->save();
+                $guardadoMsg = ' Teléfono del receptor actualizado.';
+            } elseif ($factura->cliente) {
+                $factura->cliente->forceFill(['telefono' => $telefonoGuardar])->save();
+                $guardadoMsg = ' Teléfono del cliente actualizado.';
+            }
+        }
+
+        $result = $notifier->kudeElectronica($factura, $override);
+        $message = $result['message'].($result['ok'] && $guardadoMsg ? $guardadoMsg : '');
+
+        return redirect()
+            ->route('facturas.show', $factura)
+            ->with($result['ok'] ? 'success' : 'error', $message);
     }
 
     public function edit(Factura $factura)
@@ -864,6 +1209,126 @@ class FacturaController extends Controller
     }
 
     /**
+     * Evento SIFEN de cancelación (ventana de 48 h).
+     */
+    public function cancelar(Request $request, Factura $factura, \App\Services\Sifen\SifenEventoCancelacion $cancelacion)
+    {
+        if (! $request->user()?->esAdministrador()) {
+            abort(403, 'Solo administradores pueden cancelar facturas electrónicas.');
+        }
+
+        $validated = $request->validate([
+            'motivo' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        try {
+            $cancelacion->cancelar($factura, $validated['motivo']);
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'No se pudo cancelar la factura: '.$e->getMessage());
+        }
+
+        return redirect()->route('facturas.show', $factura->fresh())
+            ->with('success', 'Factura cancelada en SIFEN.');
+    }
+
+    /**
+     * Prepara un borrador de nota de crédito electrónica asociada a la factura.
+     */
+    public function prepararNotaCredito(Request $request, Factura $factura)
+    {
+        if (! $request->user()?->esAdministrador()) {
+            abort(403, 'Solo administradores pueden preparar notas de crédito electrónicas.');
+        }
+
+        $validated = $request->validate([
+            'motivo_emision' => ['required', 'integer', 'between:1,8'],
+        ]);
+
+        if (! $factura->puedePrepararNotaCredito()) {
+            return redirect()->back()->with('error', 'Esta factura no admite nota de crédito electrónica.');
+        }
+
+        $existente = $factura->notaCreditoRelacionada();
+        if ($existente) {
+            return redirect()->route('facturas.show', $existente)
+                ->with('warning', 'Ya hay una nota de crédito asociada ('.$existente->numero_completo.' / #'.$existente->id.').');
+        }
+
+        $nota = $this->crearBorradorNotaCredito($factura, (int) $validated['motivo_emision'], $request->user()?->usuario_id);
+
+        return redirect()->route('facturas.show', $nota)
+            ->with('success', 'Nota de crédito preparada. Revisá el borrador y emitila a SIFEN.');
+    }
+
+    private function crearBorradorNotaCredito(Factura $origen, int $motivoEmision, ?int $usuarioId): Factura
+    {
+        $origen->loadMissing(['detalles', 'cliente']);
+        $prefill = $this->construirPrefillSifen(SifenConfiguracion::activa());
+        $cdc = preg_replace('/\s+/', '', (string) $origen->set_cdc);
+
+        return \DB::transaction(function () use ($origen, $motivoEmision, $usuarioId, $prefill, $cdc) {
+            $nota = Factura::create([
+                'cliente_id' => $origen->cliente_id,
+                'es_ocasional' => $origen->es_ocasional,
+                'receptor_documento' => $origen->receptor_documento,
+                'receptor_nombre' => $origen->receptor_nombre,
+                'receptor_apellido' => $origen->receptor_apellido,
+                'receptor_direccion' => $origen->receptor_direccion,
+                'receptor_email' => $origen->receptor_email,
+                'receptor_telefono' => $origen->receptor_telefono,
+                'tipo_documento' => 'nota_credito',
+                'estado' => 'borrador',
+                'fecha_emision' => now()->toDateString(),
+                'moneda' => $origen->moneda ?: 'PYG',
+                'tipo_cambio' => $origen->tipo_cambio,
+                'numero_timbrado' => $prefill['numero_timbrado'] ?? $origen->numero_timbrado,
+                'timbrado_vigencia_desde' => $prefill['timbrado_vigencia_desde'] ?? $origen->timbrado_vigencia_desde,
+                'timbrado_vigencia_hasta' => $prefill['timbrado_vigencia_hasta'] ?? $origen->timbrado_vigencia_hasta,
+                'establecimiento' => $prefill['establecimiento'] ?? $origen->establecimiento ?? 1,
+                'punto_emision' => $prefill['punto_emision'] ?? $origen->punto_emision ?? 1,
+                'observaciones' => trim(
+                    'Nota de crédito de '.$origen->numero_completo
+                    .($origen->observaciones ? ' — '.$origen->observaciones : '')
+                ),
+                'datos_complementarios' => [
+                    'motivo_emision' => $motivoEmision,
+                    'documento_asociado' => [
+                        'tipo' => 1,
+                        'cdc' => $cdc,
+                        'factura_id' => $origen->id,
+                    ],
+                ],
+                'usuario_id' => $usuarioId,
+                'subtotal' => 0,
+                'total_impuestos' => 0,
+                'total' => 0,
+            ]);
+
+            foreach ($origen->detalles as $detalle) {
+                FacturaDetalle::create([
+                    'factura_electronica_id' => $nota->id,
+                    'impuesto_id' => $detalle->impuesto_id,
+                    'servicio_id' => $detalle->servicio_id,
+                    'descripcion' => $detalle->descripcion,
+                    'cantidad' => $detalle->cantidad,
+                    'precio_unitario' => $detalle->precio_unitario,
+                    'subtotal' => $detalle->subtotal,
+                    'porcentaje_impuesto' => $detalle->porcentaje_impuesto,
+                    'monto_impuesto' => $detalle->monto_impuesto,
+                    'total' => $detalle->total,
+                ]);
+            }
+
+            $nota->load('detalles');
+            $nota->recalcularTotales();
+
+            return $nota;
+        });
+    }
+
+    /**
      * Emite la factura electrónica en segundo plano (cola).
      */
     public function emitir(Factura $factura)
@@ -881,6 +1346,13 @@ class FacturaController extends Controller
         if ($factura->lotePendienteSifen()) {
             return redirect()->route('facturas.show', $factura)
                 ->with('warning', 'Ya tiene un lote pendiente. Use «Consultar lote SIFEN».');
+        }
+
+        $ym = $factura->fecha_emision?->format('Y-m') ?? now()->format('Y-m');
+        $tope = FacturaLimiteMes::evaluar($ym, (float) $factura->total);
+        if (! $tope['ok']) {
+            return redirect()->route('facturas.show', $factura)
+                ->with('error', $tope['message']);
         }
 
         $factura->update(['set_estado_envio' => 'en_cola']);
@@ -1507,5 +1979,65 @@ class FacturaController extends Controller
         }
 
         return redirect()->route('facturas.index')->with('success', $msg);
+    }
+
+    private function aplicarFiltrosListado(Request $request, Builder $query): void
+    {
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+        if ($request->boolean('lote_pendiente')) {
+            $query->lotePendienteSifen();
+        }
+        if ($request->filled('cliente_id')) {
+            $query->where('cliente_id', $request->cliente_id);
+        }
+        if ($request->filled('desde')) {
+            $query->whereDate('fecha_emision', '>=', $request->desde);
+        }
+        if ($request->filled('hasta')) {
+            $query->whereDate('fecha_emision', '<=', $request->hasta);
+        }
+        if ($request->filled('aprobacion_desde') || $request->filled('aprobacion_hasta')) {
+            [$desdeAprob, $hastaAprob] = $this->rangoFechasAprobacion($request);
+            $query->whereNotNull('set_fecha_autorizacion')
+                ->whereBetween('set_fecha_autorizacion', [
+                    $desdeAprob->format('Y-m-d H:i:s'),
+                    $hastaAprob->format('Y-m-d H:i:s'),
+                ]);
+        }
+    }
+
+    /**
+     * Si solo se carga una fecha de aprobación, se filtra ese día.
+     * Si vienen las dos, el rango es inclusivo (inicio del desde → fin del hasta).
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function rangoFechasAprobacion(Request $request): array
+    {
+        $tz = (string) config('app.timezone');
+        $desdeRaw = $request->input('aprobacion_desde');
+        $hastaRaw = $request->input('aprobacion_hasta');
+
+        if (filled($desdeRaw) && blank($hastaRaw)) {
+            $dia = Carbon::parse($desdeRaw, $tz);
+
+            return [$dia->copy()->startOfDay(), $dia->copy()->endOfDay()];
+        }
+
+        if (blank($desdeRaw) && filled($hastaRaw)) {
+            $dia = Carbon::parse($hastaRaw, $tz);
+
+            return [$dia->copy()->startOfDay(), $dia->copy()->endOfDay()];
+        }
+
+        $desde = Carbon::parse($desdeRaw, $tz)->startOfDay();
+        $hasta = Carbon::parse($hastaRaw, $tz)->endOfDay();
+        if ($hasta->lt($desde)) {
+            [$desde, $hasta] = [$hasta->copy()->startOfDay(), $desde->copy()->endOfDay()];
+        }
+
+        return [$desde, $hasta];
     }
 }

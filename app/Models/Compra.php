@@ -17,6 +17,7 @@ class Compra extends Model
         'proveedor_id',
         'fecha',
         'numero_factura',
+        'tipo_cambio',
         'subtotal',
         'descuento',
         'impuesto',
@@ -30,6 +31,7 @@ class Compra extends Model
     {
         return [
             'fecha' => 'date',
+            'tipo_cambio' => 'decimal:2',
             'subtotal' => 'decimal:2',
             'descuento' => 'decimal:2',
             'impuesto' => 'decimal:2',
@@ -61,5 +63,10 @@ class Compra extends Model
     public function estaPagado(): bool
     {
         return $this->pagado >= $this->total;
+    }
+
+    public function etiquetaTipoCambio(): string
+    {
+        return CotizacionDolar::etiquetaDe($this->tipo_cambio);
     }
 }

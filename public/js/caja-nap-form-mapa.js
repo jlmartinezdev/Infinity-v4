@@ -27332,6 +27332,8 @@ function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { 
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 
+var NODO_ZOOM = 16;
+var PIN_ZOOM = 17;
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   __name: 'CajaNapFormMapa',
   props: {
@@ -27346,6 +27348,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     initialLon: {
       type: Number,
       default: null
+    },
+    nodosCoords: {
+      type: Object,
+      default: function _default() {
+        return {};
+      }
     }
   },
   setup: function setup(__props, _ref) {
@@ -27361,6 +27369,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     };
     var map = null;
     var marker = null;
+    var nodoSelectEl = null;
     function latLonInputs() {
       return {
         lat: document.getElementById('lat'),
@@ -27388,6 +27397,59 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           bubbles: true
         }));
       }
+    }
+    function hasPinCoords() {
+      var hasInitial = props.initialLat != null && props.initialLon != null && !Number.isNaN(props.initialLat) && !Number.isNaN(props.initialLon);
+      if (hasInitial) return true;
+      var _latLonInputs2 = latLonInputs(),
+        latEl = _latLonInputs2.lat,
+        lonEl = _latLonInputs2.lon;
+      var latN = Number(latEl === null || latEl === void 0 ? void 0 : latEl.value);
+      var lonN = Number(lonEl === null || lonEl === void 0 ? void 0 : lonEl.value);
+      return Number.isFinite(latN) && Number.isFinite(lonN) && (latEl === null || latEl === void 0 ? void 0 : latEl.value) !== '' && (lonEl === null || lonEl === void 0 ? void 0 : lonEl.value) !== '';
+    }
+    function coordsForNodo(nodoId) {
+      var _props$nodosCoords$St, _props$nodosCoords, _props$nodosCoords2, _raw$lon;
+      if (nodoId == null || nodoId === '') return null;
+      var raw = (_props$nodosCoords$St = (_props$nodosCoords = props.nodosCoords) === null || _props$nodosCoords === void 0 ? void 0 : _props$nodosCoords[String(nodoId)]) !== null && _props$nodosCoords$St !== void 0 ? _props$nodosCoords$St : (_props$nodosCoords2 = props.nodosCoords) === null || _props$nodosCoords2 === void 0 ? void 0 : _props$nodosCoords2[nodoId];
+      if (!raw) return null;
+      var lat = Number(raw.lat);
+      var lon = Number((_raw$lon = raw.lon) !== null && _raw$lon !== void 0 ? _raw$lon : raw.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return {
+        lat: lat,
+        lng: lon
+      };
+    }
+    function selectedNodoId() {
+      var _document$getElementB;
+      return ((_document$getElementB = document.getElementById('nodo_id')) === null || _document$getElementB === void 0 ? void 0 : _document$getElementB.value) || '';
+    }
+    function centerForNodoOrDefault() {
+      return coordsForNodo(selectedNodoId()) || DEFAULT_CENTER;
+    }
+    function attachMarker(google, position) {
+      if (marker) {
+        marker.setPosition(position);
+        return;
+      }
+      marker = new google.maps.Marker({
+        position: position,
+        map: map,
+        draggable: true,
+        title: 'Ubicación de la caja NAP'
+      });
+      marker.addListener('dragend', function () {
+        var p = marker.getPosition();
+        if (p) setInputsFromLatLng(p.lat(), p.lng());
+      });
+    }
+    function panToSelectedNodo() {
+      if (!map || hasPinCoords() || marker) return;
+      var centro = coordsForNodo(selectedNodoId());
+      if (!centro) return;
+      map.setCenter(centro);
+      map.setZoom(NODO_ZOOM);
     }
     function loadGoogleMaps() {
       return new Promise(function (resolve, reject) {
@@ -27426,46 +27488,29 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       var center = hasInitial ? {
         lat: props.initialLat,
         lng: props.initialLon
-      } : DEFAULT_CENTER;
+      } : centerForNodoOrDefault();
+      var zoom = hasInitial ? PIN_ZOOM : coordsForNodo(selectedNodoId()) ? NODO_ZOOM : 6;
       map = new google.maps.Map(mapContainer.value, {
         center: center,
-        zoom: hasInitial ? 17 : 6,
+        zoom: zoom,
         mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true,
         zoomControl: true
       });
       if (hasInitial) {
-        marker = new google.maps.Marker({
-          position: center,
-          map: map,
-          draggable: true,
-          title: 'Ubicación de la caja NAP'
-        });
-        marker.addListener('dragend', function () {
-          var p = marker.getPosition();
-          if (p) setInputsFromLatLng(p.lat(), p.lng());
-        });
+        attachMarker(google, center);
       }
       map.addListener('click', function (e) {
         var latLng = e.latLng;
         if (!latLng) return;
-        if (!marker) {
-          marker = new google.maps.Marker({
-            position: latLng,
-            map: map,
-            draggable: true,
-            title: 'Ubicación de la caja NAP'
-          });
-          marker.addListener('dragend', function () {
-            var p = marker.getPosition();
-            if (p) setInputsFromLatLng(p.lat(), p.lng());
-          });
-        } else {
-          marker.setPosition(latLng);
-        }
+        attachMarker(google, latLng);
         setInputsFromLatLng(latLng.lat(), latLng.lng());
       });
+      nodoSelectEl = document.getElementById('nodo_id');
+      if (nodoSelectEl) {
+        nodoSelectEl.addEventListener('change', panToSelectedNodo);
+      }
     }
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
       var google, _t;
@@ -27501,6 +27546,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }, _callee, null, [[1, 3, 4, 5]]);
     })));
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.onBeforeUnmount)(function () {
+      if (nodoSelectEl) {
+        nodoSelectEl.removeEventListener('change', panToSelectedNodo);
+        nodoSelectEl = null;
+      }
       if (marker) {
         marker.setMap(null);
         marker = null;
@@ -27513,6 +27562,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       loading: loading,
       error: error,
       DEFAULT_CENTER: DEFAULT_CENTER,
+      NODO_ZOOM: NODO_ZOOM,
+      PIN_ZOOM: PIN_ZOOM,
       get map() {
         return map;
       },
@@ -27525,8 +27576,20 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       set marker(v) {
         marker = v;
       },
+      get nodoSelectEl() {
+        return nodoSelectEl;
+      },
+      set nodoSelectEl(v) {
+        nodoSelectEl = v;
+      },
       latLonInputs: latLonInputs,
       setInputsFromLatLng: setInputsFromLatLng,
+      hasPinCoords: hasPinCoords,
+      coordsForNodo: coordsForNodo,
+      selectedNodoId: selectedNodoId,
+      centerForNodoOrDefault: centerForNodoOrDefault,
+      attachMarker: attachMarker,
+      panToSelectedNodo: panToSelectedNodo,
       loadGoogleMaps: loadGoogleMaps,
       initMap: initMap,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
@@ -28260,7 +28323,8 @@ if (el) {
   var app = (0,vue__WEBPACK_IMPORTED_MODULE_1__.createApp)(_components_CajaNapFormMapa_vue__WEBPACK_IMPORTED_MODULE_2__["default"], {
     apiKey: cfg.apiKey || '',
     initialLat: cfg.initialLat != null ? Number(cfg.initialLat) : null,
-    initialLon: cfg.initialLon != null ? Number(cfg.initialLon) : null
+    initialLon: cfg.initialLon != null ? Number(cfg.initialLon) : null,
+    nodosCoords: cfg.nodosCoords || {}
   });
   app.mount(el);
 }

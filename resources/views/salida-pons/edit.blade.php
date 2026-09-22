@@ -15,7 +15,7 @@
 @section('content')
 <div class="max-w-2xl mx-auto">
     <div class="mb-6">
-        <a href="{{ route('sistema.salida-pons.index') }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; Volver al listado</a>
+        <a href="{{ request('return_olt') ? route('sistema.olts.show', request('return_olt')) : route('sistema.salida-pons.index') }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline dark:text-purple-400 dark:hover:text-purple-300">&larr; {{ request('return_olt') ? 'Volver al OLT' : 'Volver al listado' }}</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">Editar salida PON</h1>
         <p class="mt-1 font-mono text-sm text-gray-500 dark:text-gray-400">{{ $salidaPon->codigo }}</p>
     </div>
@@ -23,6 +23,9 @@
     <form action="{{ route('sistema.salida-pons.update', $salidaPon) }}" method="POST" class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         @csrf
         @method('PUT')
+        @if(request('return_olt') || old('return_olt'))
+            <input type="hidden" name="return_olt" value="{{ old('return_olt', request('return_olt')) }}">
+        @endif
         <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Datos generales</h2>
         </div>
@@ -153,7 +156,7 @@
             <button type="submit" class="inline-flex items-center rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
                 Guardar cambios
             </button>
-            <a href="{{ route('sistema.salida-pons.index') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+            <a href="{{ request('return_olt') ? route('sistema.olts.show', request('return_olt')) : route('sistema.salida-pons.index') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                 Cancelar
             </a>
         </div>

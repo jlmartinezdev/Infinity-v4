@@ -127,6 +127,25 @@ return [
             'strict' => false,
         ],
 
+        'radius' => [
+            'driver' => env('RADIUS_DB_DRIVER', 'mysql'),
+            'host' => env('RADIUS_DB_HOST', '127.0.0.1'),
+            'port' => env('RADIUS_DB_PORT', '3312'),
+            'database' => env('RADIUS_DB_DATABASE', 'radius'),
+            'username' => env('RADIUS_DB_USERNAME', 'radius'),
+            'password' => env('RADIUS_DB_PASSWORD', 'radius'),
+            'unix_socket' => env('RADIUS_DB_SOCKET', ''),
+            'charset' => env('RADIUS_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('RADIUS_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => 'InnoDB',
+            'options' => extension_loaded('pdo_mysql') ? [
+                \PDO::ATTR_TIMEOUT => 2,
+            ] : [],
+        ],
+
     ],
 
     /*

@@ -56,6 +56,13 @@ class SalidaPonController extends Controller
 
         SalidaPon::create($normalized);
 
+        $returnOltId = (int) $request->input('return_olt');
+        if ($returnOltId > 0 && Olt::query()->where('olt_id', $returnOltId)->exists()) {
+            return redirect()
+                ->route('sistema.olts.show', $returnOltId)
+                ->with('success', 'Salida PON creada correctamente.');
+        }
+
         return redirect()->route('sistema.salida-pons.index')->with('success', 'Salida PON creada correctamente.');
     }
 
@@ -89,6 +96,13 @@ class SalidaPonController extends Controller
         );
 
         $salidaPon->update($normalized);
+
+        $returnOltId = (int) $request->input('return_olt');
+        if ($returnOltId > 0 && Olt::query()->where('olt_id', $returnOltId)->exists()) {
+            return redirect()
+                ->route('sistema.olts.show', $returnOltId)
+                ->with('success', 'Salida PON actualizada correctamente.');
+        }
 
         return redirect()->route('sistema.salida-pons.index')->with('success', 'Salida PON actualizada correctamente.');
     }

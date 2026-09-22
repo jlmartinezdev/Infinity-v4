@@ -97,6 +97,136 @@
         </div>
     </div>
 
+    @php
+        $dedicadoTigo = ($dedicado['modo'] ?? 'tigo') === 'tigo';
+    @endphp
+    <div class="rounded-xl border p-4 {{ $dedicadoTigo ? 'border-sky-300 bg-sky-50 dark:bg-sky-900/20 dark:border-sky-800' : 'border-violet-300 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800' }}">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+                <p class="text-xs uppercase tracking-wide font-medium {{ $dedicadoTigo ? 'text-sky-700 dark:text-sky-300' : 'text-violet-700 dark:text-violet-300' }}">
+                    Dedicado N1 150 Mbps
+                </p>
+                <p class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {{ $dedicadoTigo ? 'Tigo · NAT 1:1' : 'Ufinet · sin IP pública' }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    {{ $dedicado['mensaje'] ?? '' }}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 font-mono">
+                    {{ $dedicado['privada'] ?? '10.200.3.4' }}
+                    ↔
+                    {{ $dedicado['publica'] ?? '200.26.179.93' }}
+                    · regla to_tigo {{ !empty($dedicado['regla']) ? 'ON' : 'OFF' }}
+                    · NAT salida {{ !empty($dedicado['nat_salida']) ? 'ON' : 'OFF' }}
+                    · NAT entrada {{ !empty($dedicado['nat_entrada']) ? 'ON' : 'OFF' }}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">
+                    El NAT 1:1 solo cambia la IP (privada ↔ pública).  En Ufinet apagamos la 1:1: el cliente sale por el pool Ufinet y pierde la IP pública.
+                </p>
+            </div>
+            @if($puedeEditar)
+            <div class="flex flex-wrap gap-2">
+                <form method="POST" action="{{ route('sistema.isp-failover.dedicado') }}"
+                    onsubmit="return confirm('¿Poner el dedicado por Tigo con NAT 1:1 ({{ $dedicado['privada'] ?? '' }} ↔ {{ $dedicado['publica'] ?? '' }})?');">
+                    @csrf
+                    <input type="hidden" name="destino" value="dedicado">
+                    <input type="hidden" name="modo" value="tigo">
+                    <button type="submit" @disabled($dedicadoTigo)
+                        class="px-3 py-2 text-sm rounded-lg border border-sky-400 text-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Dedicado por Tigo (1:1)
+                    </button>
+                </form>
+                <form method="POST" action="{{ route('sistema.isp-failover.dedicado') }}"
+                    onsubmit="return confirm('¿Cambiar el dedicado a Ufinet? Queda sin IP pública: no entra nada a {{ $dedicado['publica'] ?? '' }}.');">
+                    @csrf
+                    <input type="hidden" name="destino" value="dedicado">
+                    <input type="hidden" name="modo" value="ufinet">
+                    <button type="submit" @disabled(! $dedicadoTigo)
+                        class="px-3 py-2 text-sm rounded-lg border border-violet-400 text-violet-800 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Cambiar a Ufinet
+                    </button>
+                </form>
+            </div>
+            @endif
+        </div>
+    </div>
+
+    @php
+        $serverTigo = ($server['modo'] ?? 'tigo') === 'tigo';
+    @endphp
+    <div class="rounded-xl border p-4 {{ $serverTigo ? 'border-teal-300 bg-teal-50 dark:bg-gray-800 dark:border-teal-500' : 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-800/60' }}">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+                <p class="text-xs uppercase tracking-wide font-medium {{ $serverTigo ? 'text-teal-700 dark:text-teal-300' : 'text-orange-400 dark:text-orange-300' }}">
+                    PC Server
+                </p>
+                <p class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {{ $serverTigo ? 'Tigo · NAT 1:1' : 'Ufinet · NAT 1:1' }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    {{ $server['mensaje'] ?? '' }}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 font-mono">
+                    Tigo {{ $server['privada'] ?? '10.200.1.2' }} ↔ {{ $server['publica'] ?? '200.26.179.94' }}
+                    · Ufinet ↔ {{ $server['publica_ufinet'] ?? ($cloudflare['origin_ufinet'] ?? '186.33.34.14') }}
+                    · NAT Tigo {{ !empty($server['nat_salida']) && !empty($server['nat_entrada']) ? 'ON' : 'OFF' }}
+                    · NAT Ufinet {{ !empty($server['nat_salida_ufinet']) && !empty($server['nat_entrada_ufinet']) ? 'ON' : 'OFF' }}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">
+                    Cloudflare ({{ $cloudflare['zone'] ?? 'infinityispro.net' }})
+                    @if(!empty($cloudflare['configured']))
+                        · token OK
+                    @else
+                        · falta <code>CLOUDFLARE_API_TOKEN</code> en .env
+                    @endif
+                    @if(!empty($cloudflare['last_ip']))
+                        · último origen {{ $cloudflare['last_ip'] }}
+                    @endif
+                    @if(!empty($cloudflare['last_error']))
+                        · {{ $cloudflare['last_error'] }}
+                    @endif
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">
+                    Al cambiar de ISP se mueve el NAT 1:1 y el registro A de Cloudflare (naranja o gris).
+                    LAN (10.x, 172.x, 192.168.x) sigue por main.
+                </p>
+            </div>
+            @if($puedeEditar)
+            <div class="flex flex-wrap gap-2">
+                <form method="POST" action="{{ route('sistema.isp-failover.dedicado') }}"
+                    onsubmit="return confirm('¿Poner el PC Server por Tigo con NAT 1:1 ({{ $server['privada'] ?? '' }} ↔ {{ $server['publica'] ?? '' }})?');">
+                    @csrf
+                    <input type="hidden" name="destino" value="server">
+                    <input type="hidden" name="modo" value="tigo">
+                    <button type="submit" @disabled($serverTigo && !empty($server['regla']) && !empty($server['nat_salida']))
+                        class="px-3 py-2 text-sm rounded-lg border border-teal-400 text-teal-800 dark:border-teal-500 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Server por Tigo (1:1)
+                    </button>
+                </form>
+                <form method="POST" action="{{ route('sistema.isp-failover.dedicado') }}"
+                    onsubmit="return confirm('¿Cambiar el PC Server a Ufinet ({{ $server['publica_ufinet'] ?? '186.33.34.14' }}) y apuntar Cloudflare a esa IP?');">
+                    @csrf
+                    <input type="hidden" name="destino" value="server">
+                    <input type="hidden" name="modo" value="ufinet">
+                    <button type="submit" @disabled(! $serverTigo)
+                        class="px-3 py-2 text-sm rounded-lg border border-orange-400 text-orange-800 dark:border-orange-800/60 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Cambiar a Ufinet
+                    </button>
+                </form>
+                <form method="POST" action="{{ route('sistema.isp-failover.cloudflare') }}"
+                    onsubmit="return confirm('¿Solo actualizar Cloudflare al origen {{ $serverTigo ? ($server['publica'] ?? '200.26.179.94') : ($server['publica_ufinet'] ?? '186.33.34.14') }}?');">
+                    @csrf
+                    <input type="hidden" name="modo" value="{{ $serverTigo ? 'tigo' : 'ufinet' }}">
+                    <button type="submit"
+                        class="px-3 py-2 text-sm rounded-lg border border-gray-400 text-gray-700 dark:border-gray-500 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
+                        Sincronizar DNS
+                    </button>
+                </form>
+            </div>
+            @endif
+        </div>
+    </div>
+
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 space-y-5">
         <form method="POST" action="{{ route('sistema.isp-failover.update') }}" class="space-y-5">
             @csrf

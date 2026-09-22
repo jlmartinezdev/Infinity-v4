@@ -47,6 +47,16 @@ return [
      * Documentación: https://wisphub.net/api-docs/#tag/Clientes
      * Obtener Api-Key en: Lista de Personal en WispHub
      */
+    'cloudflare' => [
+        'token' => env('CLOUDFLARE_API_TOKEN'),
+        'account_id' => env('CLOUDFLARE_ACCOUNT_ID'),
+        'zone' => env('CLOUDFLARE_ZONE', 'infinityispro.net'),
+        /** Vacío = todos los A que hoy apuntan a la IP Tigo o Ufinet del server. */
+        'record_names' => env('CLOUDFLARE_RECORD_NAMES', ''),
+        'origin_tigo' => env('CLOUDFLARE_ORIGIN_TIGO', '200.26.179.94'),
+        'origin_ufinet' => env('CLOUDFLARE_ORIGIN_UFINET', '186.33.34.14'),
+    ],
+
     'wisphub' => [
         'api_key' => env('WISPHUB_API_KEY'),
         'base_url' => env('WISPHUB_BASE_URL', 'https://api.wisphub.net'),

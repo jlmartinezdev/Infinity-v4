@@ -49,6 +49,12 @@
                         @enderror
                     </div>
 
+                    @include('inventario._tipo-cambio', [
+                        'valor' => $compra->tipo_cambio !== null
+                            ? \App\Models\Producto::valorInput($compra->tipo_cambio)
+                            : ($tipoCambioActual ?? ''),
+                    ])
+
                     <div>
                         <label for="estado" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado *</label>
                         <select name="estado" id="estado" required

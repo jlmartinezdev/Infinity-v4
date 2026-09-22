@@ -107,7 +107,7 @@ class SifenXmlBuilder
         $gDatGralOpe = $this->appendGroup($dom, $de, 'gDatGralOpe');
         $this->appendText($dom, $gDatGralOpe, 'dFeEmiDE', $fechaEmisionDe->format('Y-m-d\TH:i:s'));
 
-        if (in_array($tipoDe, [1, 4], true)) {
+        if (in_array($tipoDe, [1, 4, 5, 6], true)) {
             $gOpeCom = $this->appendGroup($dom, $gDatGralOpe, 'gOpeCom');
             $tipoTra = (string) config('sifen.defaults.tipo_transaccion', 2);
             $this->appendText($dom, $gOpeCom, 'iTipTra', $tipoTra);
@@ -132,6 +132,10 @@ class SifenXmlBuilder
             $indPres = (string) config('sifen.defaults.indicador_presencia', 2);
             $this->appendText($dom, $gCamFE, 'iIndPres', $indPres);
             $this->appendText($dom, $gCamFE, 'dDesIndPres', 'Operación electrónica');
+        }
+
+        if (in_array($tipoDe, [5, 6], true)) {
+            $this->appendCamposNota($dom, $gDtipDE, $factura);
         }
 
         $gCamCond = $this->appendGroup($dom, $gDtipDE, 'gCamCond');
@@ -159,6 +163,7 @@ class SifenXmlBuilder
         }
 
         $this->appendTotales($dom, $de, $totales);
+        $this->appendDocumentoAsociado($dom, $de, $factura);
 
         return [
             'xml' => $dom->saveXML(),
@@ -167,6 +172,38 @@ class SifenXmlBuilder
             'items_calculados' => $itemsCalculados,
             'totales' => $totales,
         ];
+    }
+
+    private function appendCamposNota(DOMDocument $dom, DOMElement $gDtipDE, Factura $factura): void
+    {
+        $datos = $factura->datos_complementarios ?? [];
+        $motivo = (int) ($datos['motivo_emision'] ?? 2);
+        if ($motivo < 1 || $motivo > 8) {
+            $motivo = 2;
+        }
+
+        $grupo = $this->appendGroup($dom, $gDtipDE, $factura->tipo_documento === 'nota_debito' ? 'gCamNDE' : 'gCamNCDE');
+        $this->appendText($dom, $grupo, 'iMotEmi', (string) $motivo);
+        $this->appendText(
+            $dom,
+            $grupo,
+            'dDesMotEmi',
+            (string) config('sifen.motivos_emision_nc_nd.'.$motivo, 'Devolución')
+        );
+    }
+
+    private function appendDocumentoAsociado(DOMDocument $dom, DOMElement $de, Factura $factura): void
+    {
+        $asoc = $factura->datos_complementarios['documento_asociado'] ?? null;
+        $cdc = is_array($asoc) ? preg_replace('/\s+/', '', (string) ($asoc['cdc'] ?? '')) : '';
+        if ($cdc === '') {
+            return;
+        }
+
+        $gCamDEAsoc = $this->appendGroup($dom, $de, 'gCamDEAsoc');
+        $this->appendText($dom, $gCamDEAsoc, 'iTipDocAso', (string) ($asoc['tipo'] ?? 1));
+        $this->appendText($dom, $gCamDEAsoc, 'dDesTipDocAso', 'Electrónico');
+        $this->appendText($dom, $gCamDEAsoc, 'dCdCDERef', $cdc);
     }
 
     private function appendEmisor(DOMDocument $dom, DOMElement $parent, SifenConfiguracion $config): void

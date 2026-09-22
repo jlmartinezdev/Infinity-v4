@@ -25,6 +25,8 @@
                     <p class="font-medium text-gray-900 dark:text-gray-100">{{ $venta->fecha?->format('d/m/Y') ?? '—' }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Nº Factura</p>
                     <p class="text-gray-900 dark:text-gray-100">{{ $venta->numero_factura ?? '—' }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Cambio USD → Gs</p>
+                    <p class="text-gray-900 dark:text-gray-100">{{ $venta->etiquetaTipoCambio() }}</p>
                     @if($venta->servicio)
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Servicio</p>
                         <p class="text-gray-900 dark:text-gray-100">#{{ $venta->servicio->servicio_id }}</p>

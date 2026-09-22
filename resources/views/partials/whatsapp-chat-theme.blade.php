@@ -126,4 +126,5 @@ html.dark .wa-app .wa-bubble-fail { background: rgba(136, 19, 55, 0.85) !importa
   content: ''; position: absolute; top: 0; left: -8px; width: 8px; height: 13px;
   background: inherit; clip-path: polygon(0 0, 100% 0, 100% 100%);
 }
+
 </style>

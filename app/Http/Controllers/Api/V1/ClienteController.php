@@ -133,6 +133,8 @@ class ClienteController extends ApiController
             'estado' => $s->estado,
             'estado_label' => Servicio::estadosDisponibles()[$s->estado] ?? $s->estado,
             'ip' => $s->ip,
+            'ipv6_configurado' => (bool) ($s->ipv6_configurado ?? false),
+            'punto_hotspot' => (bool) ($s->punto_hotspot ?? false),
             'usuario_pppoe' => $s->usuario_pppoe,
             'alias' => $s->aliasNormalizado(),
             'fecha_instalacion' => optional($s->fecha_instalacion)?->toDateString(),

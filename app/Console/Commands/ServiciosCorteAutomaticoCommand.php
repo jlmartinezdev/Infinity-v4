@@ -17,7 +17,7 @@ class ServiciosCorteAutomaticoCommand extends Command
                             {--force : Ejecutar aunque no sea el día de corte configurado}
                             {--nodo= : Solo servicios cuyo router pertenece a este nodo (nodo_id)}';
 
-    protected $description = 'Suspende servicios por falta de pago (facturas vencidas). Se ejecuta el día y hora configurados. También deshabilita PPPoE en routers MikroTik.';
+    protected $description = 'Suspende servicios por falta de pago (facturas vencidas). Se ejecuta el día y hora configurados (si cae domingo, el lunes siguiente). También deshabilita PPPoE en routers MikroTik.';
 
     public function handle(
         FacturacionService $facturacionService,
@@ -29,10 +29,16 @@ class ServiciosCorteAutomaticoCommand extends Command
         $force = $this->option('force');
 
         $diaCorte = FacturacionParametro::diaCorte();
-        $hoy = (int) now()->format('d');
+        $hoy = now()->startOfDay();
 
-        if (! $force && $hoy !== $diaCorte) {
-            $this->info("Hoy es día {$hoy}, no es el día de corte configurado ({$diaCorte}). Ejecutar con --force para forzar.");
+        if (! $force && ! FacturacionParametro::esDiaCorteEfectivo($hoy, $diaCorte)) {
+            $efectivo = FacturacionParametro::fechaCorteEfectivaParaMes($hoy, $diaCorte);
+            $this->info(sprintf(
+                'Hoy es %s, no es el día de corte efectivo (configurado: día %d; este mes: %s). Ejecutar con --force para forzar.',
+                $hoy->toDateString(),
+                $diaCorte,
+                $efectivo->toDateString()
+            ));
 
             return self::SUCCESS;
         }
