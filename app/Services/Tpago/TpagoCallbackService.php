@@ -2,9 +2,11 @@
 
 namespace App\Services\Tpago;
 
+use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\TpagoPaymentLink;
 use App\Services\FacturacionService;
+use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -24,37 +26,13 @@ class TpagoCallbackService
      */
     public function handle(array $payload): array
     {
-        $alias = (string) (
-            $payload['link_alias']
-            ?? data_get($payload, 'payment.link_alias')
-            ?? data_get($payload, 'payment_link.link_alias')
-            ?? ''
-        );
-        $responseCode = (string) (
-            $payload['response_code']
-            ?? data_get($payload, 'payment.response_code')
-            ?? ''
-        );
-        $amount = (int) (
-            $payload['amount']
-            ?? data_get($payload, 'payment.amount')
-            ?? 0
-        );
-        $ticket = (string) (
-            $payload['ticket_number']
-            ?? data_get($payload, 'payment.ticket_number')
-            ?? ''
-        );
-        $authCode = (string) (
-            $payload['authorization_code']
-            ?? data_get($payload, 'payment.authorization_code')
-            ?? ''
-        );
-        $status = strtolower((string) (
-            $payload['status']
-            ?? data_get($payload, 'payment.status')
-            ?? ''
-        ));
+        $campos = self::camposDesdePayload($payload);
+        $alias = $campos['alias'];
+        $responseCode = $campos['response_code'];
+        $amount = $campos['amount'];
+        $ticket = $campos['ticket_number'];
+        $authCode = $campos['authorization_code'];
+        $status = $campos['status'];
 
         Log::info('[TPago callback] recibido', [
             'link_alias' => $alias,
@@ -86,10 +64,7 @@ class TpagoCallbackService
             ];
         }
 
-        $link->callback_payload = $payload;
-        $link->response_code = $responseCode !== '' ? $responseCode : $link->response_code;
-        $link->ticket_number = $ticket !== '' ? $ticket : $link->ticket_number;
-        $link->authorization_code = $authCode !== '' ? $authCode : $link->authorization_code;
+        $this->aplicarCallback($link, $payload, $campos);
 
         $approved = $responseCode === '00'
             || in_array($status, ['confirmed', 'approved', 'success', 'paid'], true);
@@ -119,18 +94,26 @@ class TpagoCallbackService
             ];
         }
 
+        $creado = false;
+
         try {
-            $cobroId = DB::transaction(function () use ($link, $amount, $ticket, $authCode) {
-                $link = TpagoPaymentLink::query()->lockForUpdate()->findOrFail($link->id);
-                if ($link->cobro_id) {
-                    return $link->cobro_id;
+            $cobroId = DB::transaction(function () use ($link, $payload, $campos, $amount, $ticket, $authCode, &$creado) {
+                $locked = TpagoPaymentLink::query()->lockForUpdate()->findOrFail($link->id);
+                $this->aplicarCallback($locked, $payload, $campos);
+
+                if ($locked->cobro_id) {
+                    $locked->status = 'confirmed';
+                    $locked->paid_at = $locked->paid_at ?? now();
+                    $locked->save();
+
+                    return $locked->cobro_id;
                 }
 
-                $factura = $link->factura_interna_id
-                    ? FacturaInterna::query()->find($link->factura_interna_id)
+                $factura = $locked->factura_interna_id
+                    ? FacturaInterna::query()->find($locked->factura_interna_id)
                     : null;
 
-                $monto = $amount > 0 ? $amount : (int) $link->amount;
+                $monto = $amount > 0 ? $amount : (int) $locked->amount;
                 if ($factura) {
                     $saldo = (int) round((float) $factura->saldo_pendiente);
                     if ($saldo > 0) {
@@ -139,41 +122,42 @@ class TpagoCallbackService
                 }
 
                 if ($monto <= 0) {
-                    $link->status = 'confirmed';
-                    $link->paid_at = now();
-                    $link->save();
+                    $locked->status = 'confirmed';
+                    $locked->paid_at = now();
+                    $locked->save();
 
                     return null;
                 }
 
                 $cobro = $this->facturacion->registrarCobro([
-                    'cliente_id' => $link->cliente_id,
-                    'factura_interna_id' => $link->factura_interna_id,
+                    'cliente_id' => $locked->cliente_id,
+                    'factura_interna_id' => $locked->factura_interna_id,
                     'monto' => $monto,
                     'fecha_pago' => now()->toDateString(),
                     'forma_pago' => 'tarjeta',
-                    'referencia' => $ticket !== '' ? 'TPAGO-'.$ticket : 'TPAGO-'.$link->link_alias,
-                    'concepto' => $link->factura_interna_id
+                    'referencia' => $ticket !== '' ? 'TPAGO-'.$ticket : 'TPAGO-'.$locked->link_alias,
+                    'concepto' => $locked->factura_interna_id
                         ? null
                         : 'Saldo a favor (TPago)',
                     'observaciones' => 'Pago TPago'
-                        .($link->factura_interna_id ? '' : ' saldo a favor')
+                        .($locked->factura_interna_id ? '' : ' saldo a favor')
                         .($authCode !== '' ? ' auth '.$authCode : '')
-                        .($link->link_alias ? ' alias '.$link->link_alias : ''),
+                        .($locked->link_alias ? ' alias '.$locked->link_alias : ''),
                 ], null);
 
-                if (! $link->factura_interna_id && $monto > 0) {
+                if (! $locked->factura_interna_id && $monto > 0) {
                     $this->facturacion->sumarSaldoAFavorCliente(
-                        (int) $link->cliente_id,
+                        (int) $locked->cliente_id,
                         (float) $monto
                     );
                 }
 
-                $link->cobro_id = $cobro->id;
-                $link->status = 'confirmed';
-                $link->paid_at = now();
-                $link->amount = $monto;
-                $link->save();
+                $locked->cobro_id = $cobro->id;
+                $locked->status = 'confirmed';
+                $locked->paid_at = now();
+                $locked->amount = $monto;
+                $locked->save();
+                $creado = true;
 
                 return $cobro->id;
             });
@@ -185,11 +169,119 @@ class TpagoCallbackService
             throw $e;
         }
 
+        if ($creado && $cobroId) {
+            $this->enviarReciboWhatsApp((int) $cobroId);
+        }
+
         return [
             'handled' => true,
             'link_id' => $link->id,
             'cobro_id' => $cobroId,
             'message' => 'Pago confirmado y cobro registrado.',
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{alias: string, response_code: string, amount: int, ticket_number: string, authorization_code: string, status: string}
+     */
+    public static function camposDesdePayload(array $payload): array
+    {
+        return [
+            'alias' => (string) (
+                $payload['link_alias']
+                ?? $payload['hook_alias']
+                ?? data_get($payload, 'payment.link_alias')
+                ?? data_get($payload, 'payment.hook_alias')
+                ?? data_get($payload, 'payment_link.link_alias')
+                ?? ''
+            ),
+            'response_code' => (string) (
+                $payload['response_code']
+                ?? data_get($payload, 'payment.response_code')
+                ?? ''
+            ),
+            'amount' => (int) (
+                $payload['amount']
+                ?? data_get($payload, 'payment.amount')
+                ?? 0
+            ),
+            'ticket_number' => (string) (
+                $payload['ticket_number']
+                ?? data_get($payload, 'payment.ticket_number')
+                ?? ''
+            ),
+            'authorization_code' => (string) (
+                $payload['authorization_code']
+                ?? data_get($payload, 'payment.authorization_code')
+                ?? ''
+            ),
+            'status' => strtolower((string) (
+                $payload['status']
+                ?? data_get($payload, 'payment.status')
+                ?? ''
+            )),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array{alias: string, response_code: string, amount: int, ticket_number: string, authorization_code: string, status: string}  $campos
+     */
+    private function aplicarCallback(TpagoPaymentLink $link, array $payload, array $campos): void
+    {
+        $link->callback_payload = $payload;
+        if ($campos['response_code'] !== '') {
+            $link->response_code = $campos['response_code'];
+        }
+        if ($campos['ticket_number'] !== '') {
+            $link->ticket_number = $campos['ticket_number'];
+        }
+        if ($campos['authorization_code'] !== '') {
+            $link->authorization_code = $campos['authorization_code'];
+        }
+    }
+
+    private function enviarReciboWhatsApp(int $cobroId): void
+    {
+        $enviar = function () use ($cobroId): void {
+            try {
+                $cobro = Cobro::query()->with('cliente')->find($cobroId);
+                if (! $cobro) {
+                    return;
+                }
+
+                $telefono = trim((string) ($cobro->cliente?->telefono ?? ''));
+                if ($telefono === '') {
+                    Log::info('[TPago] Recibo WhatsApp omitido: cliente sin teléfono', [
+                        'cobro_id' => $cobroId,
+                        'cliente_id' => $cobro->cliente_id,
+                    ]);
+                    Log::channel('tpago')->info('Recibo WhatsApp omitido: sin teléfono', [
+                        'cobro_id' => $cobroId,
+                    ]);
+
+                    return;
+                }
+
+                $result = app(WhatsAppOutboundNotifier::class)->reciboPago($cobro, forzar: true);
+                Log::info('[TPago] Recibo WhatsApp', [
+                    'cobro_id' => $cobroId,
+                    'ok' => $result['ok'],
+                    'message' => $result['message'],
+                ]);
+                Log::channel('tpago')->info('Recibo WhatsApp', [
+                    'cobro_id' => $cobroId,
+                    'ok' => $result['ok'],
+                    'message' => $result['message'],
+                ]);
+            } catch (Throwable $e) {
+                Log::warning('[TPago] Recibo WhatsApp falló: '.$e->getMessage(), [
+                    'cobro_id' => $cobroId,
+                ]);
+            }
+        };
+
+        defer($enviar);
     }
 }

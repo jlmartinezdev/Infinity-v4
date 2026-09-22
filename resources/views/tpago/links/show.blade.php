@@ -120,7 +120,7 @@
         </div>
         <div class="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-4">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Callback TPago</h2>
-            <pre class="text-xs overflow-x-auto whitespace-pre-wrap text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">{{ json_encode($link->callback_payload, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) ?: 'Sin callback aún' }}</pre>
+            <pre class="text-xs overflow-x-auto whitespace-pre-wrap text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">{{ $link->callback_payload ? json_encode($link->callback_payload, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) : 'Sin callback aún' }}</pre>
         </div>
     </div>
 </div>

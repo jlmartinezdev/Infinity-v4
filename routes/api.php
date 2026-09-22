@@ -49,7 +49,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
 
     // Confirmación de pagos TPago / Bancard (URL a configurar en el portal TPago)
-    Route::post('/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
+    Route::match(['get', 'post', 'head'], '/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
 
     // Play Integrity — nonce de un solo uso (sin Bearer)
     Route::get('/staff/integrity/nonce', [StaffAppController::class, 'integrityNonce']);

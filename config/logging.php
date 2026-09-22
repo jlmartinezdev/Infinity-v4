@@ -65,6 +65,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'tpago' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/tpago.log'),
+            'level' => 'debug',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
