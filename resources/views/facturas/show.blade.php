@@ -11,6 +11,7 @@
             $iconoAccion = 'w-4 h-4 shrink-0';
             $kudePendiente = $factura->puedeImprimirKude() && $factura->estado !== 'emitida';
             $telWhatsapp = trim((string) ($factura->receptorTelefonoEfectivo() ?? ''));
+            $docSifenShow = \App\Support\DocumentoParaguaySifen::evaluarFactura($factura);
         @endphp
         <div class="flex gap-2 flex-wrap">
             @if($factura->estado === 'borrador')
@@ -35,9 +36,9 @@
                         <svg class="{{ $iconoAccion }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Editar
                     </a>
-                    <form action="{{ route('facturas.emitir', $factura) }}" method="POST" class="inline" onsubmit="return confirm('¿Emitir factura electrónica y enviar a SIFEN en segundo plano?');">
+                    <form action="{{ route('facturas.emitir', $factura) }}" method="POST" class="inline" @if($docSifenShow['ok']) onsubmit="return confirm('¿Emitir factura electrónica y enviar a SIFEN en segundo plano?');" @endif>
                         @csrf
-                        <button type="submit" class="{{ $btnAccion }} bg-green-600 text-white hover:bg-green-700" title="Emitir e-Kuatia">
+                        <button type="submit" class="{{ $btnAccion }} bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed" title="{{ $docSifenShow['ok'] ? 'Emitir e-Kuatia' : $docSifenShow['message'] }}" @if(! $docSifenShow['ok']) disabled @endif>
                             <svg class="{{ $iconoAccion }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                             Emitir
                         </button>
@@ -86,6 +87,21 @@
     @endif
     @if(session('error'))
         <div class="mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 text-sm">{{ session('error') }}</div>
+    @endif
+    @if($factura->estado === 'borrador')
+        @php
+            $topeFechaShow = \App\Support\FacturaFechaTopeEmision::evaluar($factura->fecha_emision);
+        @endphp
+        @if(! $topeFechaShow['ok'])
+            <div class="mb-4 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 text-sm">
+                {{ $topeFechaShow['message'] }} Editá la fecha del borrador para poder enviarla.
+            </div>
+        @endif
+        @if(! $docSifenShow['ok'])
+            <div class="mb-4 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 text-sm">
+                {{ $docSifenShow['message'] }} Corregí la cédula/RUC del receptor (sin puntos) para poder enviarla.
+            </div>
+        @endif
     @endif
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">

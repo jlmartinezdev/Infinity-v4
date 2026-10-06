@@ -445,20 +445,25 @@ class TvCuentaController extends Controller
             'asignaciones.servicio.plan',
         ]);
 
-        $clientes = Cliente::orderBy('nombre')->get(['cliente_id', 'nombre', 'apellido', 'cedula']);
         $servicios = Servicio::query()
-            ->with('cliente:cliente_id,nombre,apellido,cedula')
+            ->with(['plan:plan_id,nombre'])
             ->whereIn('estado', [Servicio::ESTADO_ACTIVO, Servicio::ESTADO_SUSPENDIDO])
             ->orderBy('cliente_id')
             ->orderBy('servicio_id')
             ->get(['servicio_id', 'cliente_id', 'plan_id', 'estado', 'app_tv']);
 
+        $clientePrefillId = (int) old('cliente_id', request('cliente_id'));
+        $clientePrefill = $clientePrefillId > 0
+            ? Cliente::query()->find($clientePrefillId, ['cliente_id', 'nombre', 'apellido', 'cedula'])
+            : null;
+
         return view('tv-cuentas.edit', [
             'tv_cuenta' => $tv_cuenta,
-            'clientes' => $clientes,
+            'clientePrefill' => $clientePrefill,
             'servicios' => $servicios,
             'asignacionPerfilesV2' => $asignacionPerfilesV2,
             'aplicaciones' => TvCuenta::aplicaciones(),
+            'estadosServicio' => Servicio::estadosDisponibles(),
         ]);
     }
 

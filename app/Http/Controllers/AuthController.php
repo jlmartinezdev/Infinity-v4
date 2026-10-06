@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Auth\WebLoginDispositivoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +19,15 @@ class AuthController extends Controller
      */
     public function showLoginForm()
     {
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user instanceof User && $user->tienePermiso('dashboard.ver')) {
+                return redirect()->route('home');
+            }
+
+            return redirect()->route('inicio');
+        }
+
         return view('login');
     }
 
@@ -104,6 +114,11 @@ class AuthController extends Controller
         Auth::login($user, $remember);
         $user->registrarAcceso($request->ip());
 
+        $dispositivo = null;
+        if ($remember) {
+            $dispositivo = app(WebLoginDispositivoService::class)->emitir($user);
+        }
+
         // Si es una petición AJAX o espera JSON, devolver JSON
         if ($request->expectsJson() || $request->ajax()) {
             $redirectAfter = $user->tienePermiso('dashboard.ver')
@@ -115,6 +130,8 @@ class AuthController extends Controller
                 'message' => 'Inicio de sesión exitoso',
                 'user' => Auth::user(),
                 'redirect' => $redirectAfter,
+                'remember' => $remember,
+                'dispositivo' => $dispositivo,
             ]);
         }
 
@@ -127,6 +144,57 @@ class AuthController extends Controller
     }
 
     /**
+     * Reingreso con token de dispositivo (localStorage). No usa la contraseña.
+     */
+    public function loginDispositivo(Request $request, WebLoginDispositivoService $dispositivos)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string|min:32|max:128',
+        ]);
+
+        $user = $dispositivos->autenticar($validated['email'], $validated['token']);
+        if (! $user) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sesión guardada vencida. Iniciá sesión de nuevo.',
+                ], 401);
+            }
+
+            return back()->withErrors([
+                'email' => 'Sesión guardada vencida. Iniciá sesión de nuevo.',
+            ]);
+        }
+
+        Auth::login($user, true);
+        $user->registrarAcceso($request->ip());
+
+        $redirectAfter = $user->tienePermiso('dashboard.ver')
+            ? url('/')
+            : route('inicio');
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Sesión restaurada',
+                'redirect' => $redirectAfter,
+                'remember' => true,
+                'dispositivo' => [
+                    'token' => $validated['token'],
+                    'expira_en' => WebLoginDispositivoService::DIAS * 86400,
+                ],
+            ]);
+        }
+
+        return redirect()->intended(
+            $user->tienePermiso('dashboard.ver')
+                ? route('home', [], false)
+                : route('inicio', [], false)
+        );
+    }
+
+    /**
      * Log the user out of the application.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -134,6 +202,11 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        $user = Auth::user();
+        if ($user instanceof User) {
+            app(WebLoginDispositivoService::class)->revocarTodos($user);
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();

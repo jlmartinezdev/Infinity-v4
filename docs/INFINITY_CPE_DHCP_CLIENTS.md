@@ -52,14 +52,14 @@ JSON **igual** en wireless y FTTH. Solo cambia `source`.
 
 | Campo | Notas |
 |-------|--------|
-| `source` | `tr069_acs` (GenieACS hosts, misma tabla del panel) · `ubnt_dhcpd_leases` (SSH antena) · `null` en soft-fail |
+| `source` | `tr069_acs` (GenieACS hosts) · `huawei_onu` (SSH/web ONU Huawei, misma fuente que “Listar conectados”) · `ubnt_dhcpd_leases` (SSH antena) · `null` en soft-fail |
 | `collected_at` | ISO8601 UTC; `null` si no hubo lectura |
 | `gateway_ip` | IP del servicio (CPE) |
 | `servicio_id` | Servicio elegido (también en soft-fail si se resolvió) |
 | `clients[].ip` | Obligatorio (hosts ACS sin IP se omiten) |
 | `clients[].mac` | Obligatorio, minúsculas `aa:bb:…` |
 | `clients[].hostname` | Prioridad para UI; puede ser `null` |
-| `clients[].online` | Ubnt: lease vigente. TR-069: `null` (no hay expiry) |
+| `clients[].online` | Ubnt: lease vigente. Huawei: `true` si está en la lista. TR-069: `null` |
 | `clients[].lease_expires_at` | Ubnt ISO8601 UTC; TR-069 `null` |
 
 Orden: primero con hostname, luego online, luego IP.
@@ -81,22 +81,26 @@ Casos (siempre **200** + `clients: []`, `source`/`collected_at` `null`):
 - ACS sin Inform / sin hosts parseables (FTTH)
 - SSH a la antena falla o timeout
 - Leases vacíos / no parseables
-- Fibra **sin** ACS (ONU bridge, V-SOL solo OLT)
+- Fibra **sin** ACS ni Huawei alcanzable
 
 Si se resolvió el servicio: viene `servicio_id` (y `gateway_ip` si hay IP). Ejemplo: `?servicio_id=110` no debe devolver `servicio_id: null`.
+
+QA Huawei (p. ej. Angelina Cantero Aca, servicio 1020): `source: huawei_onu` y mismos dispositivos que “Listar conectados”.
 
 ---
 
 ## Origen de datos (Infinity)
 
-1. Resuelve servicio (ACS preferido, luego wireless con IP, no cancelado).
-2. **Si el servicio usa ACS (TR-069)** → `GenieAcsService::hosts()` (misma fuente que Herramientas de red → Hosts LAN). `source: tr069_acs`.
-3. **Si no es fibra** → SSH Ubiquiti `cat /tmp/dhcpd.leases`. `source: ubnt_dhcpd_leases`.
-4. Fibra sin ACS → vacío.
+1. Resuelve servicio (ACS preferido, luego Huawei detectado, luego wireless con IP, no cancelado).
+2. **Si el servicio usa ACS (TR-069)** → `GenieAcsService::hosts()`. `source: tr069_acs`.
+3. **Si es ONU Huawei** (inventario o detección web como el panel) → `HuaweiOnuService::listarConectados()`. `source: huawei_onu`.
+4. **Si no es fibra** → SSH Ubiquiti `cat /tmp/dhcpd.leases`. `source: ubnt_dhcpd_leases`.
+5. Fibra sin ACS ni Huawei → vacío.
 
 Misma fuente que el panel:
 
 - FTTH Huawei / Iuron / TP-Link ACS → **TR-069 hosts**
+- ONU Huawei sin TR-069 (SSH/web) → **Listar conectados**
 - LiteBeam / antena Ubnt → **DHCP antena**
 
 ---

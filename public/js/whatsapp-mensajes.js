@@ -27946,6 +27946,26 @@ function buildAvatarDataUri(seed, label) {
 function inicialesFrom(nombre, telefono) {
   return safeInitials(nombre, telefono);
 }
+
+/** Móvil PY como 595 9XX XXXXXX (ej. 595 984 995239). */
+function formatoTelefonoPy(raw) {
+  var original = String(raw || '').trim();
+  if (!original) return '';
+  var digits = original.replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  var national = '';
+  if (digits.startsWith('595') && digits.length >= 12) {
+    national = digits.slice(3, 12);
+  } else if (digits.length === 10 && digits.startsWith('09')) {
+    national = digits.slice(1);
+  } else if (digits.length === 9 && digits.startsWith('9')) {
+    national = digits;
+  }
+  if (national.length === 9 && national.startsWith('9')) {
+    return "595 ".concat(national.slice(0, 3), " ").concat(national.slice(3));
+  }
+  return original;
+}
 var WaAvatar = {
   name: 'WaAvatar',
   props: {
@@ -28204,6 +28224,9 @@ var WaAvatar = {
     }
   },
   methods: {
+    formatoTelefono: function formatoTelefono(raw) {
+      return formatoTelefonoPy(raw);
+    },
     leerPantallaCompleta: function leerPantallaCompleta() {
       try {
         return localStorage.getItem('infinity_whatsapp_fullscreen') === '1';
@@ -30460,9 +30483,7 @@ var _hoisted_28 = {
 var _hoisted_29 = {
   class: "wa-muted truncate text-[12px]"
 };
-var _hoisted_30 = {
-  class: "font-mono"
-};
+var _hoisted_30 = ["title"];
 var _hoisted_31 = {
   class: "text-[#ea0038]"
 };
@@ -30739,7 +30760,7 @@ var _hoisted_126 = {
   class: "wa-header flex items-center justify-between border-b px-4 py-3"
 };
 var _hoisted_127 = {
-  class: "wa-muted font-mono text-xs"
+  class: "wa-muted font-mono text-xs tabular-nums"
 };
 var _hoisted_128 = {
   class: "wa-sidebar-body min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
@@ -31010,7 +31031,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       title: conv.clasificacion_label || conv.nombre || conv.telefono
     }, null, 8 /* PROPS */, ["nombre", "telefono", "ring", "title"]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["wa-title truncate text-[15px]", (conv.sin_leer || 0) > 0 ? 'font-semibold' : 'font-normal'])
-    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(conv.nombre || conv.telefono), 3 /* TEXT, CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(conv.nombre || $options.formatoTelefono(conv.telefono)), 3 /* TEXT, CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["shrink-0 text-[11px]", (conv.sin_leer || 0) > 0 ? 'wa-accent' : 'wa-muted'])
     }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(conv.ultimo_at_label || ''), 3 /* TEXT, CLASS */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_15, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_16, [conv.ultimo_direccion !== 'entrada' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_17, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(conv.ultimo_estado === 'leido' ? 'wa-ticks-read' : '')
@@ -31059,13 +31080,16 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     ring: $data.hiloMeta.clasificacion_color,
     title: $data.hiloMeta.clasificacion_label || $data.hiloMeta.nombre || $data.telActivo,
     size: "md"
-  }, null, 8 /* PROPS */, ["nombre", "telefono", "ring", "title"]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_27, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_28, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.nombre || $data.telActivo) + " ", 1 /* TEXT */), $data.hiloMeta.clasificacion_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", {
+  }, null, 8 /* PROPS */, ["nombre", "telefono", "ring", "title"]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_27, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_28, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.nombre || $options.formatoTelefono($data.telActivo)) + " ", 1 /* TEXT */), $data.hiloMeta.clasificacion_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", {
     key: 0,
     class: "ml-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide",
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       color: $data.hiloMeta.clasificacion_color || undefined
     })
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.clasificacion_label), 5 /* TEXT, STYLE */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_29, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_30, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.telActivo), 1 /* TEXT */), $data.hiloMeta.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.clasificacion_label), 5 /* TEXT, STYLE */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_29, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+    class: "font-mono tabular-nums",
+    title: $data.telActivo
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)), 9 /* TEXT, PROPS */, _hoisted_30), $data.hiloMeta.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.cliente_id) + " ", 1 /* TEXT */), $data.hiloMeta.cliente_nombre ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
@@ -31448,7 +31472,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }, ["self"]))
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_125, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_126, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[88] || (_cache[88] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-title text-sm font-semibold"
-  }, "Guardar contacto", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_127, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.telActivo), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Guardar contacto", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_127, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
     onClick: _cache[31] || (_cache[31] = function () {
@@ -31518,7 +31542,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }, ["self"]))
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_142, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_143, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[92] || (_cache[92] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-title text-sm font-semibold"
-  }, "Ticket rápido", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_144, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.telActivo) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Ticket rápido", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_144, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
     onClick: _cache[39] || (_cache[39] = function () {
@@ -31604,7 +31628,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }, ["self"]))
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_155, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_156, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[101] || (_cache[101] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-title text-sm font-semibold"
-  }, "Registrar pago", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_157, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.telActivo) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Registrar pago", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_157, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
     onClick: _cache[47] || (_cache[47] = function () {

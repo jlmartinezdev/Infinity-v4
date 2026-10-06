@@ -40,6 +40,7 @@
                 'urlActualizarDesdeTempBase' => url('clientes') . '/__id__/actualizar-desde-temp',
                 'urlDetalleClienteBase' => url('clientes') . '/__id__/detalle',
                 'urlAccionesClienteBase' => url('clientes') . '/__id__/detalle',
+                'urlContratoClienteBase' => url('clientes') . '/__id__/contrato',
                 'puedeEditar' => auth()->user()?->tienePermiso('clientes.editar') ?? false,
                 'initialBuscar' => request('buscar', ''),
                 'initialEstado' => request('estado', 'todos'),

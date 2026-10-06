@@ -19,6 +19,7 @@ return [
         'MK-N1-R1' => ['x' => 400, 'y' => 450, 'rol' => 'acceso'],
         'MK-N3-R1' => ['x' => 760, 'y' => 450, 'rol' => 'acceso'],
         'MK-N7-01' => ['x' => 1020, 'y' => 450, 'rol' => 'acceso'],
+        'MK-N7-02' => ['x' => 1020, 'y' => 620, 'rol' => 'acceso'],
         'MK-N4-01' => ['x' => 400, 'y' => 620, 'rol' => 'acceso'],
         'Mk-N4-02' => ['x' => 650, 'y' => 620, 'rol' => 'acceso'],
     ],
@@ -34,5 +35,6 @@ return [
         ['from' => 'MK-N1-R1', 'to' => 'MK-N4-01'],
         ['from' => 'MK-N3-FTTH', 'to' => 'MK-N3-R1'],
         ['from' => 'MK-N3-FTTH', 'to' => 'MK-N7-01'],
+        ['from' => 'MK-N7-01', 'to' => 'MK-N7-02'],
     ],
 ];

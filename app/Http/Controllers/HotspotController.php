@@ -529,13 +529,12 @@ class HotspotController extends Controller
             ->whereHas('servicioHotspots')
             ->withCount('servicioHotspots')
             ->where(function ($query) use ($q) {
-                $query->where('nombre', 'like', "%{$q}%")
-                    ->orWhere('apellido', 'like', "%{$q}%")
-                    ->orWhere('cedula', 'like', "%{$q}%")
-                    ->orWhereHas('servicioHotspots', function ($h) use ($q) {
-                        $h->where('username', 'like', "%{$q}%")
-                            ->orWhere('comment', 'like', "%{$q}%");
-                    });
+                $query->where(function ($inner) use ($q) {
+                    $inner->buscarTexto($q);
+                })->orWhereHas('servicioHotspots', function ($h) use ($q) {
+                    $h->where('username', 'like', "%{$q}%")
+                        ->orWhere('comment', 'like', "%{$q}%");
+                });
             })
             ->orderBy('nombre')
             ->orderBy('apellido')

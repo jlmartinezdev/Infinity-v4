@@ -113,6 +113,40 @@ class ClientePushNotifier
     }
 
     /**
+     * Push tras cambio de clave de ingreso a la app (si el cliente lo tiene tildado).
+     *
+     * @return bool true si se intentó/envió vía FCM
+     */
+    public function cambioClaveApp(\App\Models\Cliente $cliente, ?Ticket $ticket = null): bool
+    {
+        $clienteId = (int) $cliente->cliente_id;
+        if ($clienteId <= 0) {
+            return false;
+        }
+
+        $title = 'Clave actualizada';
+        $body = 'Tu contraseña de ingreso a la app se cambió correctamente.';
+        $data = [
+            'tipo' => 'seguridad',
+            'accion' => 'cambio_clave_app',
+        ];
+        if ($ticket) {
+            $data['ticket_id'] = (string) $ticket->id;
+            $data['estado'] = (string) $ticket->estado;
+        }
+
+        try {
+            return (bool) $this->fcm->notifyCliente($clienteId, $title, $body, $data);
+        } catch (\Throwable $e) {
+            Log::warning('FCM cambio clave app: '.$e->getMessage(), [
+                'cliente_id' => $clienteId,
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * @param  array<string, string>  $data
      */
     private function enviar(int $clienteId, string $title, string $body, array $data): void

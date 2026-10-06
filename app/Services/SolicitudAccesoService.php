@@ -143,10 +143,56 @@ class SolicitudAccesoService
     }
 
     /**
+     * Corrige datos de una solicitud pendiente (web/app) antes de aprobar.
+     *
+     * @param  array{
+     *   nombre?: string|null,
+     *   cedula?: string|null,
+     *   documento?: string|null,
+     *   whatsapp?: string|null,
+     *   telefono?: string|null,
+     *   direccion?: string|null
+     * }  $datos
+     */
+    public function actualizarDatosPendiente(SolicitudAcceso $solicitud, array $datos): SolicitudAcceso
+    {
+        if (! in_array($solicitud->estado, [
+            SolicitudAcceso::ESTADO_PENDIENTE,
+            SolicitudAcceso::ESTADO_PENDIENTE_VERIFICACION,
+        ], true)) {
+            throw new \RuntimeException('Solo se pueden corregir solicitudes pendientes.');
+        }
+
+        if (array_key_exists('nombre', $datos) && filled($datos['nombre'])) {
+            $solicitud->nombre = trim((string) $datos['nombre']);
+        }
+
+        $cedula = $datos['cedula'] ?? $datos['documento'] ?? null;
+        if (filled($cedula)) {
+            $solicitud->cedula = trim((string) $cedula);
+        }
+
+        $whatsapp = $datos['whatsapp'] ?? $datos['telefono'] ?? null;
+        if (array_key_exists('whatsapp', $datos) || array_key_exists('telefono', $datos)) {
+            $solicitud->whatsapp = filled($whatsapp) ? trim((string) $whatsapp) : null;
+        }
+
+        if (array_key_exists('direccion', $datos)) {
+            $solicitud->direccion = filled($datos['direccion']) ? trim((string) $datos['direccion']) : null;
+        }
+
+        $solicitud->save();
+
+        return $solicitud->fresh();
+    }
+
+    /**
      * @param  array{
      *   cliente_id_vinculacion?: int|null,
      *   documento_corregido?: string|null,
      *   nombre_corregido?: string|null,
+     *   whatsapp_corregido?: string|null,
+     *   direccion_corregida?: string|null,
      *   actualizar_telefono?: bool,
      *   actualizar_ubicacion?: bool
      * }  $opciones
@@ -168,7 +214,15 @@ class SolicitudAccesoService
             if (! empty($opciones['nombre_corregido'])) {
                 $solicitud->nombre = trim((string) $opciones['nombre_corregido']);
             }
-            if ($solicitud->isDirty(['cedula', 'nombre'])) {
+            if (array_key_exists('whatsapp_corregido', $opciones) && $opciones['whatsapp_corregido'] !== null) {
+                $wa = trim((string) $opciones['whatsapp_corregido']);
+                $solicitud->whatsapp = $wa !== '' ? $wa : null;
+            }
+            if (array_key_exists('direccion_corregida', $opciones) && $opciones['direccion_corregida'] !== null) {
+                $dir = trim((string) $opciones['direccion_corregida']);
+                $solicitud->direccion = $dir !== '' ? $dir : null;
+            }
+            if ($solicitud->isDirty(['cedula', 'nombre', 'whatsapp', 'direccion'])) {
                 $solicitud->save();
             }
 

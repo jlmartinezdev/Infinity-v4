@@ -5,6 +5,8 @@ namespace App\Services\Portal;
 use App\Models\Cliente;
 use App\Models\Servicio;
 use App\Services\GenieAcs\GenieAcsService;
+use App\Services\Huawei\HuaweiOnuService;
+use App\Services\Huawei\HuaweiOnuWeb;
 use App\Services\Ubnt\UbntAntenaService;
 use App\Support\CpeInventario;
 use Carbon\Carbon;
@@ -13,8 +15,8 @@ use Throwable;
 
 /**
  * Dispositivos LAN del CPE del cliente portal.
- * FTTH/ACS → GenieACS hosts (misma fuente que el panel). Wireless → SSH Ubiquiti.
- * Soft-fail: lista vacía si no aplica / ACS sin Inform / SSH falla.
+ * FTTH/ACS → GenieACS hosts · Huawei ONU (SSH/web) · Wireless → SSH Ubiquiti.
+ * Soft-fail: lista vacía si no aplica / falla.
  */
 class PortalCpeDhcpService
 {
@@ -22,9 +24,12 @@ class PortalCpeDhcpService
 
     public const SOURCE_TR069 = 'tr069_acs';
 
+    public const SOURCE_HUAWEI = 'huawei_onu';
+
     public function __construct(
         private readonly UbntAntenaService $ubnt,
         private readonly GenieAcsService $acs,
+        private readonly HuaweiOnuService $huawei,
     ) {}
 
     /**
@@ -59,8 +64,12 @@ class PortalCpeDhcpService
                 if ($tr069 !== null) {
                     return $tr069;
                 }
-                if ($this->servicioEsFibra($servicio)) {
-                    return $emptyConServicio;
+            }
+
+            if ($this->puedeHuawei($servicio)) {
+                $huawei = $this->desdeHuawei($servicio, $gatewayIp);
+                if ($huawei !== null) {
+                    return $huawei;
                 }
             }
 
@@ -104,7 +113,7 @@ class PortalCpeDhcpService
     }
 
     /**
-     * @param  list<array<string, mixed>>  $rows  leases Ubnt o hosts TR-069 (ip, mac, hostname, expires_at?)
+     * @param  list<array<string, mixed>>  $rows  leases Ubnt, hosts TR-069 o dispositivos Huawei
      * @return list<array{ip: string, mac: string, hostname: string|null, online: bool|null, lease_expires_at: string|null}>
      */
     public static function mapToClients(array $rows): array
@@ -120,19 +129,23 @@ class PortalCpeDhcpService
             }
 
             $expiresAt = isset($row['expires_at']) ? (int) $row['expires_at'] : 0;
-            $hostname = filled($row['hostname'] ?? null) ? (string) $row['hostname'] : null;
+            $hostname = filled($row['hostname'] ?? null)
+                ? (string) $row['hostname']
+                : (filled($row['host'] ?? null) ? (string) $row['host'] : null);
 
             $online = null;
             $leaseExpiresIso = null;
             if ($expiresAt > 0) {
                 $online = $expiresAt > $now;
                 $leaseExpiresIso = Carbon::createFromTimestamp($expiresAt)->utc()->toIso8601String();
+            } elseif (array_key_exists('online', $row)) {
+                $online = $row['online'] === null ? null : (bool) $row['online'];
             }
 
             $out[] = [
                 'ip' => $ip,
                 'mac' => $mac,
-                'hostname' => $hostname,
+                'hostname' => $hostname !== '' ? $hostname : null,
                 'online' => $online,
                 'lease_expires_at' => $leaseExpiresIso,
             ];
@@ -176,6 +189,46 @@ class PortalCpeDhcpService
      *   clients: list<array{ip: string, mac: string, hostname: string|null, online: bool|null, lease_expires_at: string|null}>
      * }|null
      */
+    private function desdeHuawei(Servicio $servicio, ?string $gatewayIp): ?array
+    {
+        $result = $this->huawei->listarConectados($servicio);
+        if (! ($result['success'] ?? false)) {
+            Log::info('[Portal CPE DHCP] soft-fail huawei', [
+                'servicio_id' => $servicio->servicio_id,
+                'message' => $result['message'] ?? null,
+            ]);
+
+            return null;
+        }
+
+        $rows = [];
+        foreach ($result['dispositivos'] ?? [] as $dev) {
+            $rows[] = [
+                'ip' => $dev['ip'] ?? '',
+                'mac' => $dev['mac'] ?? '',
+                'hostname' => $dev['host'] ?? null,
+                'online' => true,
+            ];
+        }
+
+        return [
+            'source' => self::SOURCE_HUAWEI,
+            'collected_at' => now()->utc()->toIso8601String(),
+            'gateway_ip' => $gatewayIp,
+            'servicio_id' => (int) $servicio->servicio_id,
+            'clients' => self::mapToClients($rows),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   source: string,
+     *   collected_at: string,
+     *   gateway_ip: string|null,
+     *   servicio_id: int,
+     *   clients: list<array{ip: string, mac: string, hostname: string|null, online: bool|null, lease_expires_at: string|null}>
+     * }|null
+     */
     private function desdeTr069(Servicio $servicio, ?string $gatewayIp): ?array
     {
         $result = $this->acs->hosts($servicio);
@@ -200,6 +253,28 @@ class PortalCpeDhcpService
             'servicio_id' => (int) $servicio->servicio_id,
             'clients' => $clients,
         ];
+    }
+
+    private function puedeHuawei(Servicio $servicio): bool
+    {
+        $ip = $this->gatewayIp($servicio);
+        if ($ip === null) {
+            return false;
+        }
+
+        if (CpeInventario::esHuaweiOnu($servicio) || CpeInventario::usaSshCpe($servicio)) {
+            return true;
+        }
+
+        if (! $this->servicioEsFibra($servicio)) {
+            return false;
+        }
+
+        return HuaweiOnuWeb::detectarCacheado(
+            $ip,
+            (int) config('huawei.web_port', 80),
+            (int) config('huawei.web_detect_timeout', 3)
+        );
     }
 
     /**
@@ -241,6 +316,11 @@ class PortalCpeDhcpService
         $acs = $servicios->first(fn (Servicio $s) => CpeInventario::usaAcs($s));
         if ($acs) {
             return $acs;
+        }
+
+        $huawei = $servicios->first(fn (Servicio $s) => $this->puedeHuawei($s));
+        if ($huawei) {
+            return $huawei;
         }
 
         $antena = $servicios->first(function (Servicio $s) {

@@ -29,6 +29,10 @@ return [
         'firma_digital' => env('PORTAL_FLAG_FIRMA', 'hidden'),
         'router_realtime_monitoring' => env('PORTAL_FLAG_ROUTER_RT', 'hidden'),
         'coverage_map' => env('PORTAL_FLAG_COVERAGE', 'hidden'),
+        // Cambio de clave de ingreso a la app (PLUS**** → propia) + ticket historial + push
+        'cambio_clave_app' => env('PORTAL_FLAG_CAMBIO_CLAVE_APP', 'coming_soon'),
+        // Gestión de hasta 3 slots hotspot desde la app
+        'hotspot_slots' => env('PORTAL_FLAG_HOTSPOT_SLOTS', 'coming_soon'),
     ],
 
     /** Keys canónicas de métodos de pago (metadata en feature-flags). */

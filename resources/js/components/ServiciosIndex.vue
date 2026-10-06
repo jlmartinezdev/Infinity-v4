@@ -950,6 +950,7 @@ function coincideBusquedaServicio(servicio, termino) {
   if (tokens.length === 0) return true;
 
   const textoServicio = normalizarTexto([
+    servicio.cliente?.cliente_id,
     servicio.cliente?.nombre,
     servicio.cliente?.apellido,
     servicio.cliente?.cedula,

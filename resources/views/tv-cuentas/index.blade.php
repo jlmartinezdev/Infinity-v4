@@ -485,9 +485,21 @@
                                     </p>
                                     <p class="mt-2 text-sm text-gray-400 dark:text-gray-500">Libre</p>
                                 </div>
-                                @if($precio !== null)
-                                    <p class="text-[11px] text-gray-400">Gs. {{ number_format((float) $precio, 0, ',', '.') }}</p>
-                                @endif
+                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                    @if($precio !== null)
+                                        <p class="text-[11px] text-gray-400">Gs. {{ number_format((float) $precio, 0, ',', '.') }}</p>
+                                    @endif
+                                    @if(auth()->user()?->tienePermiso('tv.editar'))
+                                        <a href="{{ route('tv-cuentas.edit', ['tv_cuenta' => $c, 'perfil' => $i]) }}#asignar"
+                                            class="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+                                            title="Asignar cliente"
+                                            aria-label="Asignar cliente a {{ $slotLabel }}">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M12 5v14M5 12h14"/>
+                                            </svg>
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         @endif
                     @endfor

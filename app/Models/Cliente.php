@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -60,6 +61,8 @@ class Cliente extends Model
         'app_activa',
         'fecha_activacion_app',
         'fecha_otorgamiento',
+        'debe_cambiar_clave_app',
+        'push_cambio_clave',
         'aprobado_por',
         'referido_codigo',
         'referido_por_cliente_id',
@@ -98,12 +101,19 @@ class Cliente extends Model
             'app_activa' => 'boolean',
             'fecha_activacion_app' => 'datetime',
             'fecha_otorgamiento' => 'datetime',
+            'debe_cambiar_clave_app' => 'boolean',
+            'push_cambio_clave' => 'boolean',
         ];
     }
 
     public function servicios(): HasMany
     {
         return $this->hasMany(Servicio::class, 'cliente_id', 'cliente_id');
+    }
+
+    public function portalAcciones(): HasMany
+    {
+        return $this->hasMany(PortalClienteAccion::class, 'cliente_id', 'cliente_id')->orderByDesc('id');
     }
 
     public function servicioHotspots(): HasMany
@@ -150,6 +160,48 @@ class Cliente extends Model
             ->orderByDesc('servicios_vigentes_count')
             ->orderByRaw("CASE estado WHEN 'activo' THEN 0 WHEN 'suspendido' THEN 1 WHEN 'solo_pedido' THEN 2 ELSE 3 END")
             ->first();
+    }
+
+    /**
+     * Cada palabra debe coincidir en nombre, apellido, cédula, teléfono, ID o alias de servicio.
+     * Así "dario v" encuentra DARIO VERA, no exige la frase completa en un solo campo.
+     */
+    public function scopeBuscarTexto(Builder $query, string $q): Builder
+    {
+        $q = trim($q);
+        if ($q === '') {
+            return $query;
+        }
+
+        $tokens = preg_split('/\s+/u', $q, -1, PREG_SPLIT_NO_EMPTY);
+        if (! is_array($tokens) || $tokens === []) {
+            return $query;
+        }
+
+        $nombreCompleto = "CONCAT(COALESCE(nombre,''), ' ', COALESCE(apellido,''))";
+
+        foreach ($tokens as $token) {
+            $token = ltrim($token, '#');
+            if ($token === '') {
+                continue;
+            }
+            $like = '%'.addcslashes($token, '%_\\').'%';
+            $query->where(function (Builder $inner) use ($like, $token, $nombreCompleto) {
+                $inner->where('nombre', 'like', $like)
+                    ->orWhere('apellido', 'like', $like)
+                    ->orWhere('cedula', 'like', $like)
+                    ->orWhere('telefono', 'like', $like)
+                    ->orWhereRaw($nombreCompleto.' LIKE ?', [$like])
+                    ->orWhereHas('servicios', function (Builder $servicios) use ($like) {
+                        $servicios->where('alias', 'like', $like);
+                    });
+                if (ctype_digit($token) && strlen($token) <= 10) {
+                    $inner->orWhere('cliente_id', (int) $token);
+                }
+            });
+        }
+
+        return $query;
     }
 
     public function tieneServiciosVigentes(): bool

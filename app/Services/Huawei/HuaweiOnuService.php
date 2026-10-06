@@ -195,7 +195,14 @@ class HuaweiOnuService
     }
 
     /**
-     * @return array{success: bool, message: string, via?: string, ssid?: string, ssids?: list<string>}
+     * @return array{
+     *   success: bool,
+     *   message: string,
+     *   via?: string,
+     *   ssid?: string,
+     *   ssids?: list<string>,
+     *   radios?: list<array{index: int, id: string, ssid: string, band: string, channel: int|null, standard: string|null, enabled: bool}>
+     * }
      */
     public function leerWifi(Servicio $servicio): array
     {
@@ -211,7 +218,8 @@ class HuaweiOnuService
         try {
             $cli = $this->cli($host);
             $info = $cli->run(['display wifi information']);
-            $ssids = self::parseWifiSsids($info['outputs'][0] ?? '');
+            $radios = self::parseWifiRadios($info['outputs'][0] ?? '');
+            $ssids = array_values(array_map(static fn (array $r) => $r['ssid'], $radios));
             $ssid = self::ssidPrincipal($ssids);
             if ($ssid === '') {
                 return [
@@ -219,8 +227,11 @@ class HuaweiOnuService
                     'message' => 'No se pudo leer el SSID de la ONU.',
                     'via' => $info['via'],
                     'ssids' => $ssids,
+                    'radios' => $radios,
                 ];
             }
+
+            $this->marcarHuaweiSiFalta($servicio);
 
             return [
                 'success' => true,
@@ -228,6 +239,7 @@ class HuaweiOnuService
                 'via' => $info['via'],
                 'ssid' => $ssid,
                 'ssids' => $ssids,
+                'radios' => $radios,
             ];
         } catch (Throwable $e) {
             return $this->leerWifiWeb($servicio, $e->getMessage());
@@ -386,9 +398,89 @@ class HuaweiOnuService
      */
     public static function parseWifiSsids(string $raw): array
     {
-        preg_match_all('/^SSID\s+:\s*(.+)$/mi', $raw, $m);
+        return array_values(array_map(
+            static fn (array $r) => $r['ssid'],
+            self::parseWifiRadios($raw)
+        ));
+    }
 
-        return array_values(array_filter(array_map('trim', $m[1] ?? [])));
+    /**
+     * Radios Wi‑Fi con banda desde canal/estándar/índice Huawei (no desde el nombre SSID).
+     *
+     * @return list<array{index: int, id: string, ssid: string, band: string, channel: int|null, standard: string|null, enabled: bool}>
+     */
+    public static function parseWifiRadios(string $raw): array
+    {
+        $blocks = preg_split('/-{10,}/', $raw) ?: [];
+        $out = [];
+
+        foreach ($blocks as $block) {
+            if (! preg_match('/SSID Index\s*:\s*(\d+)/i', $block, $im)) {
+                continue;
+            }
+            if (! preg_match('/^SSID\s+:\s*(.+)$/mi', $block, $sm)) {
+                continue;
+            }
+
+            $index = (int) $im[1];
+            $ssid = trim($sm[1]);
+            if ($ssid === '') {
+                continue;
+            }
+
+            $channel = null;
+            if (preg_match('/Channel\s+:\s*(\d+)/i', $block, $cm)) {
+                $channel = (int) $cm[1];
+            }
+
+            $standard = null;
+            if (preg_match('/Standard\s+:\s*(\S+)/i', $block, $stm)) {
+                $standard = $stm[1];
+            }
+
+            $enabled = ! preg_match('/Enable\s+:\s*Disabled/i', $block);
+
+            $out[] = [
+                'index' => $index,
+                'id' => 'hw-'.$index,
+                'ssid' => $ssid,
+                'band' => self::inferBandFromRadio($index, $channel, $standard),
+                'channel' => $channel,
+                'standard' => $standard,
+                'enabled' => $enabled,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Banda real del radio Huawei.
+     * Prioridad: canal RF → estándar 802.11 → índice SSID (1–4 = 2.4, ≥5 = 5G en EG/HG).
+     */
+    public static function inferBandFromRadio(int $index, ?int $channel, ?string $standard): string
+    {
+        if ($channel !== null) {
+            if ($channel >= 1 && $channel <= 14) {
+                return '2.4GHz';
+            }
+            if ($channel >= 36) {
+                return '5GHz';
+            }
+        }
+
+        $std = strtolower(trim((string) $standard));
+        if ($std !== '') {
+            if (str_contains($std, '11ac') || str_contains($std, '11ax') || $std === '11a' || str_contains($std, '11na')) {
+                return '5GHz';
+            }
+            if (str_contains($std, '11b') || str_contains($std, '11g') || $std === '11n' || str_contains($std, '11bgn')) {
+                return '2.4GHz';
+            }
+        }
+
+        // Convención típica Huawei EG8145 / HG: índices bajos = 2.4, 5+ = 5 GHz
+        return $index >= 5 ? '5GHz' : '2.4GHz';
     }
 
     /**
@@ -600,7 +692,24 @@ class HuaweiOnuService
     protected function leerWifiWeb(Servicio $servicio, ?string $cliError = null): array
     {
         try {
-            $ssids = $this->webDe($servicio)->leerSsids();
+            $porInstancia = $this->webDe($servicio)->leerSsidsPorInstancia();
+            $radios = [];
+            foreach ($porInstancia as $index => $name) {
+                $name = trim((string) $name);
+                if ($name === '') {
+                    continue;
+                }
+                $radios[] = [
+                    'index' => (int) $index,
+                    'id' => 'hw-'.$index,
+                    'ssid' => $name,
+                    'band' => self::inferBandFromRadio((int) $index, null, null),
+                    'channel' => null,
+                    'standard' => null,
+                    'enabled' => true,
+                ];
+            }
+            $ssids = array_values(array_map(static fn (array $r) => $r['ssid'], $radios));
             $ssid = self::ssidPrincipal($ssids);
             if ($ssid === '') {
                 throw new \RuntimeException('No se pudo leer el SSID de la web.');
@@ -613,6 +722,7 @@ class HuaweiOnuService
                 'via' => 'web',
                 'ssid' => $ssid,
                 'ssids' => $ssids,
+                'radios' => $radios,
             ];
         } catch (Throwable $e) {
             return ['success' => false, 'message' => $this->mensajeMixto($cliError, $e->getMessage())];

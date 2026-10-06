@@ -113,26 +113,99 @@ class SolicitudAccesoWebController extends Controller
 
     public function aprobar(Request $request, SolicitudAcceso $solicitud)
     {
-        $request->validate([
+        $validated = $request->validate([
+            'cliente_id_vinculacion' => ['nullable', 'integer', 'exists:clientes,cliente_id'],
+            'documento_corregido' => ['nullable', 'string', 'max:20'],
+            'nombre_corregido' => ['nullable', 'string', 'max:200'],
+            'whatsapp_corregido' => ['nullable', 'string', 'max:30'],
+            'direccion_corregida' => ['nullable', 'string', 'max:500'],
             'actualizar_telefono' => ['nullable', 'boolean'],
             'actualizar_ubicacion' => ['nullable', 'boolean'],
         ]);
 
         try {
             $result = $this->service->aprobar($solicitud, $request->user(), [
+                'cliente_id_vinculacion' => $validated['cliente_id_vinculacion'] ?? null,
+                'documento_corregido' => $validated['documento_corregido'] ?? null,
+                'nombre_corregido' => $validated['nombre_corregido'] ?? null,
+                'whatsapp_corregido' => array_key_exists('whatsapp_corregido', $validated)
+                    ? $validated['whatsapp_corregido']
+                    : null,
+                'direccion_corregida' => array_key_exists('direccion_corregida', $validated)
+                    ? $validated['direccion_corregida']
+                    : null,
                 'actualizar_telefono' => $request->boolean('actualizar_telefono'),
                 'actualizar_ubicacion' => $request->boolean('actualizar_ubicacion'),
             ]);
         } catch (\RuntimeException $e) {
             return redirect()
                 ->route('solicitudes-acceso.show', $solicitud)
-                ->with('error', $e->getMessage());
+                ->with('error', $e->getMessage())
+                ->withInput();
         }
 
         return redirect()
             ->route('solicitudes-acceso.index', ['estado' => 'aprobada'])
             ->with('success', 'Solicitud aprobada y vinculada correctamente.')
             ->with('clave_portal', $result['clave']);
+    }
+
+    /**
+     * Guardar correcciones de datos (sin aprobar todavía).
+     */
+    public function actualizar(Request $request, SolicitudAcceso $solicitud)
+    {
+        $validated = $request->validate([
+            'nombre' => ['required', 'string', 'max:200'],
+            'cedula' => ['required', 'string', 'max:20'],
+            'whatsapp' => ['nullable', 'string', 'max:30'],
+            'direccion' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $this->service->actualizarDatosPendiente($solicitud, $validated);
+        } catch (\RuntimeException $e) {
+            return redirect()
+                ->route('solicitudes-acceso.show', $solicitud)
+                ->with('error', $e->getMessage())
+                ->withInput();
+        }
+
+        return redirect()
+            ->route('solicitudes-acceso.show', $solicitud)
+            ->with('success', 'Datos de la solicitud corregidos. Revisá el cruce y aprobá cuando esté listo.');
+    }
+
+    /**
+     * Autocomplete para vincular manualmente (mismo permiso que editar solicitud).
+     */
+    public function buscarClientes(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $clientes = \App\Models\Cliente::query()
+            ->whereIn('estado', ['activo', 'inactivo', 'suspendido', 'solo_pedido'])
+            ->buscarTexto($q)
+            ->orderBy('nombre')
+            ->limit(20)
+            ->get(['cliente_id', 'nombre', 'apellido', 'cedula', 'telefono', 'estado']);
+
+        return response()->json($clientes->map(static function ($c) {
+            return [
+                'cliente_id' => $c->cliente_id,
+                'nombre' => $c->nombre,
+                'apellido' => $c->apellido,
+                'cedula' => $c->cedula,
+                'telefono' => $c->telefono,
+                'estado' => $c->estado,
+                'label' => trim(($c->nombre ?? '').' '.($c->apellido ?? ''))
+                    .' · CI '.($c->cedula ?: '—')
+                    .' · #'.$c->cliente_id,
+            ];
+        })->values());
     }
 
     public function rechazar(Request $request, SolicitudAcceso $solicitud)

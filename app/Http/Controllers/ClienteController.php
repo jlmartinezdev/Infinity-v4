@@ -13,11 +13,13 @@ use App\Models\PoolIpAsignada;
 use App\Models\PuntosMovimiento;
 use App\Models\Servicio;
 use App\Models\Ticket;
+use App\Services\ClienteContratoService;
 use App\Services\ClientePortalUserService;
 use App\Services\FacturacionService;
 use App\Services\Loyalty\PuntosService;
 use App\Services\MikroTikService;
 use App\Services\Monitoreo\ServicioPingMonitoreoService;
+use App\Services\Portal\PortalClienteAccionService;
 use App\Support\HerramientasRedPayload;
 use App\Support\ListaClienteServicioViewData;
 use Illuminate\Http\Request;
@@ -36,7 +38,7 @@ class ClienteController extends Controller
     }
 
     /**
-     * Mapa de clientes con al menos un servicio activo y ubicación GPS válida.
+     * Mapa de clientes vigentes (servicio activo o suspendido) con ubicación GPS válida.
      */
     public function mapaActivos(Request $request, ServicioPingMonitoreoService $pingMonitoreo)
     {
@@ -51,9 +53,11 @@ class ClienteController extends Controller
             $pingEstadoFiltro = '';
         }
 
+        $estadosMapa = $this->estadosServicioMapaActivos();
+
         $clientesQuery = Cliente::query()
-            ->whereHas('servicios', function ($q) use ($nodoId) {
-                $q->where('estado', Servicio::ESTADO_ACTIVO);
+            ->whereHas('servicios', function ($q) use ($nodoId, $estadosMapa) {
+                $q->whereIn('estado', $estadosMapa);
                 if ($nodoId !== null) {
                     $q->enNodo($nodoId);
                 }
@@ -80,7 +84,6 @@ class ClienteController extends Controller
                     });
                 })
                     ->orderByDesc('pedido_id')
-                    ->limit(1)
                     ->select(['pedido_id', 'cliente_id', 'maps_gps', 'lat', 'lon']);
             }])
             ->select(['cliente_id', 'nombre', 'apellido', 'cedula', 'telefono', 'url_ubicacion'])
@@ -92,13 +95,13 @@ class ClienteController extends Controller
             ->leftJoin('planes as p', 'p.plan_id', '=', 's.plan_id')
             ->leftJoin('tipos_tecnologias as tt', 'tt.tecnologia_id', '=', 'p.tecnologia_id')
             ->whereIn('s.cliente_id', $clientes->pluck('cliente_id'))
-            ->where('s.estado', Servicio::ESTADO_ACTIVO)
+            ->whereIn('s.estado', $estadosMapa)
             ->whereNotNull('p.nombre');
 
         if ($nodoId !== null) {
             $servicioIdsNodo = Servicio::query()
                 ->whereIn('cliente_id', $clientes->pluck('cliente_id'))
-                ->where('estado', Servicio::ESTADO_ACTIVO)
+                ->whereIn('estado', $estadosMapa)
                 ->enNodo($nodoId)
                 ->pluck('servicio_id');
             $infoServicioQuery->whereIn('s.servicio_id', $servicioIdsNodo);
@@ -246,6 +249,14 @@ class ClienteController extends Controller
     }
 
     /**
+     * @return list<string>
+     */
+    private function estadosServicioMapaActivos(): array
+    {
+        return [Servicio::ESTADO_ACTIVO, Servicio::ESTADO_SUSPENDIDO];
+    }
+
+    /**
      * JSON con estados de ping para refrescar el mapa sin recargar la página.
      */
     public function mapaActivosPingEstados(Request $request, ServicioPingMonitoreoService $pingMonitoreo)
@@ -347,6 +358,7 @@ class ClienteController extends Controller
         $facturasInternas = FacturaInterna::query()
             ->where('cliente_id', $cliente->cliente_id)
             ->whereNotIn('estado', ['anulada', 'cancelada'])
+            ->with(['detalles.servicio', 'cobros.usuario', 'notasCredito', 'promesaPago', 'usuario'])
             ->orderByDesc('fecha_emision')
             ->orderByDesc('id')
             ->limit(60)
@@ -362,7 +374,7 @@ class ClienteController extends Controller
 
         $tickets = Ticket::query()
             ->where('cliente_id', $cliente->cliente_id)
-            ->with(['ticketAsunto', 'usuario', 'asignado'])
+            ->with(['ticketAsunto', 'usuario', 'asignado', 'facturaInterna'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit(60)
@@ -384,6 +396,9 @@ class ClienteController extends Controller
             ->orderByDesc('id')
             ->limit(15)
             ->get();
+
+        $portalAcciones = app(PortalClienteAccionService::class)->paraCliente((int) $cliente->cliente_id, 15);
+        $portalWifiBackup = $portalAcciones->first(fn ($a) => filled($a->wifi_password));
 
         $serviciosFacturadosMes = [];
         $servicioIdsCliente = $cliente->servicios->pluck('servicio_id')->map(fn ($id) => (int) $id)->all();
@@ -423,6 +438,8 @@ class ClienteController extends Controller
             'loyaltySaldo',
             'loyaltyMovimientos',
             'loyaltyCanjes',
+            'portalAcciones',
+            'portalWifiBackup',
             'herramientasRedConfig',
             'serviciosFacturadosMes',
         ));
@@ -492,6 +509,16 @@ class ClienteController extends Controller
     public function acciones(Cliente $cliente)
     {
         return redirect()->route('clientes.detalle', $cliente);
+    }
+
+    /**
+     * Modelo de contrato de internet listo para imprimir.
+     */
+    public function contrato(Request $request, Cliente $cliente, ClienteContratoService $contratos)
+    {
+        $servicioId = $request->filled('servicio_id') ? (int) $request->input('servicio_id') : null;
+
+        return view('clientes.contrato', $contratos->paraCliente($cliente, $servicioId ?: null));
     }
 
     /**
@@ -983,33 +1010,45 @@ class ClienteController extends Controller
      */
     public function buscar(Request $request)
     {
-        $q = $request->get('q', '');
-        $q = trim($q);
+        $q = ltrim(trim((string) $request->get('q', '')), '#');
         if (strlen($q) < 2) {
             return response()->json([]);
         }
-        $clientes = Cliente::query()
+        $query = Cliente::query()
             ->whereIn('estado', ['activo', 'inactivo', 'suspendido', 'solo_pedido'])
-            ->where(function ($query) use ($q) {
-                $query->where('nombre', 'like', "%{$q}%")
-                    ->orWhere('apellido', 'like', "%{$q}%")
-                    ->orWhere('cedula', 'like', "%{$q}%")
-                    ->orWhere('telefono', 'like', "%{$q}%");
-                if (ctype_digit($q) && strlen($q) <= 10) {
-                    $query->orWhere('cliente_id', (int) $q);
-                }
-            })
+            ->buscarTexto($q);
+
+        if (ctype_digit($q)) {
+            $query->orderByRaw('CASE WHEN cliente_id = ? THEN 0 ELSE 1 END', [(int) $q]);
+        }
+
+        $clientes = $query
+            ->with(['servicios' => static function ($q) {
+                $q->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+                    ->orderBy('servicio_id')
+                    ->select(['servicio_id', 'cliente_id', 'alias', 'estado']);
+            }])
             ->orderBy('nombre')
-            ->limit(15)
-            ->get(['cliente_id', 'nombre', 'apellido', 'cedula', 'estado']);
+            ->limit(25)
+            ->get(['cliente_id', 'nombre', 'apellido', 'cedula', 'telefono', 'direccion', 'estado']);
 
         return response()->json($clientes->map(static function (Cliente $c) {
+            $alias = $c->servicios
+                ->map(static fn (Servicio $s) => $s->aliasNormalizado())
+                ->filter()
+                ->unique()
+                ->values()
+                ->implode(', ');
+
             return [
                 'cliente_id' => $c->cliente_id,
                 'nombre' => $c->nombre,
                 'apellido' => $c->apellido,
                 'cedula' => $c->cedula,
+                'telefono' => $c->telefono,
+                'direccion' => $c->direccion,
                 'estado' => $c->estado,
+                'alias' => $alias !== '' ? $alias : null,
                 'detalle_url' => route('clientes.detalle', $c),
             ];
         })->values());

@@ -4,6 +4,7 @@ namespace App\Services\Sifen;
 
 use App\Models\Factura;
 use App\Models\SifenConfiguracion;
+use App\Support\DocumentoParaguaySifen;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
@@ -32,6 +33,11 @@ class SifenService
      */
     public function emitirDocumento(Factura $factura, bool $enviarSifen = true): array
     {
+        $doc = DocumentoParaguaySifen::evaluarFactura($factura);
+        if (! $doc['ok']) {
+            throw new RuntimeException((string) $doc['message']);
+        }
+
         if ($this->apiBridge->activo()) {
             return $this->apiBridge->emitirDocumento($factura, $enviarSifen);
         }

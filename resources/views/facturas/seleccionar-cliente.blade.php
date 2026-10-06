@@ -76,7 +76,7 @@
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Listas de clientes</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         Marque clientes, guarde con un nombre y facture esa lista en lotes de hasta {{ \App\Support\FacturaElectronicaListaLote::MAX }}.
-                        Puede ir sumando de a 50 (páginas) a la misma lista.
+                        Puede ir sumando de a 50 (páginas) a la misma lista. Un cliente no puede repetirse en otra lista.
                     </p>
                 </div>
             </div>
@@ -92,8 +92,21 @@
                                     {{ $lista['total'] }} cliente(s)
                                     · {{ $lista['pendientes'] }} pendiente(s) en {{ $mesLabel }}
                                 </p>
+                                @if(! empty($lista['meses_texto']))
+                                    <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                                        Facturado: <span class="font-medium">{{ $lista['meses_texto'] }}</span>
+                                    </p>
+                                @else
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Todavía no hay DE emitida de esta lista.</p>
+                                @endif
                             </div>
                             <div class="flex flex-wrap gap-1.5 shrink-0">
+                                <button type="button"
+                                        class="btn-ver-lista px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        data-url="{{ route('facturas.listas.show', ['lista' => $lista['id'], 'periodo' => $periodoYm]) }}"
+                                        data-nombre="{{ $lista['nombre'] }}">
+                                    Ver
+                                </button>
                                 <button type="button"
                                         class="btn-cargar-lista px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
                                         data-ids="{{ implode(',', $lista['cliente_ids']) }}">
@@ -133,13 +146,13 @@
                     <label for="fecha_emision" class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Fecha de emisión del DE</label>
                     <input type="date" name="fecha_emision" id="fecha_emision"
                            value="{{ old('fecha_emision', $fechaEmision) }}"
-                           max="{{ now()->toDateString() }}"
+                           max="{{ $fechaMaximaEmision ?? now()->toDateString() }}"
                            required
                            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     @error('fecha_emision')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 pb-2 sm:max-w-xl">
-                    Sale en el XML de SIFEN. El período de arriba es el mes facturado (líneas); esta fecha es la del documento.
+                    Sale en el XML de SIFEN. No puede ser posterior al tope ni a hoy. El período de arriba es el mes facturado (líneas).
                 </p>
             </div>
 
@@ -294,6 +307,44 @@
         Máximo 50 clientes por tanda inmediata. Las listas guardadas se facturan de a {{ \App\Support\FacturaElectronicaListaLote::MAX }}.
     </p>
 </div>
+
+<div id="modal-lista-fe" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="modal-lista-fe-titulo">
+    <div class="absolute inset-0 bg-black/50" data-cerrar-modal-lista></div>
+    <div class="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl">
+        <div class="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div class="min-w-0">
+                <h2 id="modal-lista-fe-titulo" class="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">Lista</h2>
+                <p id="modal-lista-fe-meta" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5"></p>
+            </div>
+            <button type="button" class="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-300" data-cerrar-modal-lista aria-label="Cerrar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2">
+            <input type="search" id="modal-lista-fe-buscar" autocomplete="off" placeholder="Filtrar por nombre, cédula o ID…"
+                   class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100">
+            <div class="flex gap-1.5">
+                <button type="button" class="modal-lista-filtro px-3 py-2 text-xs font-medium rounded-lg bg-purple-600 text-white" data-filtro="todos">Todos</button>
+                <button type="button" class="modal-lista-filtro px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200" data-filtro="pendiente">Pendientes</button>
+                <button type="button" class="modal-lista-filtro px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200" data-filtro="emitido">Emitidos</button>
+            </div>
+        </div>
+        <div class="overflow-auto min-h-0 flex-1">
+            <table class="min-w-full text-sm">
+                <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900/80 text-xs uppercase text-gray-500 dark:text-gray-400">
+                    <tr>
+                        <th class="px-4 py-2 text-left font-medium">#</th>
+                        <th class="px-4 py-2 text-left font-medium">Cliente</th>
+                        <th class="px-4 py-2 text-left font-medium">Documento</th>
+                        <th class="px-4 py-2 text-left font-medium">Estado</th>
+                        <th class="px-4 py-2 text-left font-medium">Mes facturado</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-lista-fe-body" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -373,13 +424,19 @@
         if (!fechaEmisionInput || !fechaEmisionInput.value) {
             return false;
         }
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
         const partes = fechaEmisionInput.value.split('-');
         if (partes.length !== 3) {
             return false;
         }
         const elegida = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+        const maxRaw = fechaEmisionInput.getAttribute('max') || '';
+        const maxPartes = maxRaw.split('-');
+        if (maxPartes.length === 3) {
+            const maxDate = new Date(Number(maxPartes[0]), Number(maxPartes[1]) - 1, Number(maxPartes[2]));
+            return elegida.getTime() <= maxDate.getTime();
+        }
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
         return elegida.getTime() <= hoy.getTime();
     }
 
@@ -401,7 +458,8 @@
         try {
             const guardada = sessionStorage.getItem(STORAGE_FECHA_KEY);
             if (guardada && /^\d{4}-\d{2}-\d{2}$/.test(guardada)) {
-                fechaEmisionInput.value = guardada;
+                const maxRaw = fechaEmisionInput.getAttribute('max') || '';
+                fechaEmisionInput.value = (maxRaw && guardada > maxRaw) ? maxRaw : guardada;
             }
         } catch (e) {}
     }
@@ -567,7 +625,7 @@
             }
         }
         if (!fechaEmisionValida()) {
-            avisar('Elija una fecha de emisión válida (hoy o anterior).');
+            avisar('Elija una fecha de emisión igual o anterior al tope (máximo ' + (fechaEmisionInput.getAttribute('max') || '') + ').');
             if (fechaEmisionInput) {
                 fechaEmisionInput.focus();
             }
@@ -659,7 +717,7 @@
                 html: '<p class="text-sm mb-2">Se guardarán ' + ids.length + ' cliente(s) de la selección.</p>'
                     + '<input id="swal-lista-nombre" class="swal2-input" placeholder="Nombre (ej. Nodo 4)">'
                     + '<select id="swal-lista-id" class="swal2-select">' + opciones + '</select>'
-                    + '<p class="text-xs text-left mt-1">Si elige una lista existente, se agregan los marcados (sin borrar los que ya tenía).</p>',
+                    + '<p class="text-xs text-left mt-1">Si elige una lista existente, se agregan los marcados (sin borrar los que ya tenía). Un cliente que ya está en otra lista se omite.</p>',
                 showCancelButton: true,
                 confirmButtonText: 'Guardar',
                 cancelButtonText: 'Cancelar',
@@ -730,7 +788,181 @@
         });
     }
 
+    const modalLista = document.getElementById('modal-lista-fe');
+    const modalListaTitulo = document.getElementById('modal-lista-fe-titulo');
+    const modalListaMeta = document.getElementById('modal-lista-fe-meta');
+    const modalListaBody = document.getElementById('modal-lista-fe-body');
+    const modalListaBuscar = document.getElementById('modal-lista-fe-buscar');
+    let modalListaClientes = [];
+    let modalListaFiltro = 'todos';
+
+    function pintarFiltrosLista() {
+        document.querySelectorAll('.modal-lista-filtro').forEach(function (btn) {
+            const activo = btn.getAttribute('data-filtro') === modalListaFiltro;
+            btn.classList.toggle('bg-purple-600', activo);
+            btn.classList.toggle('text-white', activo);
+            btn.classList.toggle('border', !activo);
+            btn.classList.toggle('border-gray-300', !activo);
+            btn.classList.toggle('dark:border-gray-600', !activo);
+            btn.classList.toggle('text-gray-700', !activo);
+            btn.classList.toggle('dark:text-gray-200', !activo);
+        });
+    }
+
+    function renderModalLista() {
+        if (!modalListaBody) return;
+        modalListaBody.innerHTML = '';
+        const q = (modalListaBuscar && modalListaBuscar.value ? modalListaBuscar.value : '').trim().toLowerCase();
+        const filas = modalListaClientes.filter(function (c) {
+            if (modalListaFiltro === 'pendiente' && !c.pendiente) return false;
+            if (modalListaFiltro === 'emitido' && c.pendiente) return false;
+            if (!q) return true;
+            const blob = [c.nombre, c.cedula, String(c.cliente_id)].join(' ').toLowerCase();
+            return blob.indexOf(q) !== -1;
+        });
+        if (filas.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 5;
+            td.className = 'px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400';
+            td.textContent = modalListaClientes.length ? 'Ningún cliente con ese filtro.' : 'La lista no tiene clientes.';
+            tr.appendChild(td);
+            modalListaBody.appendChild(tr);
+            return;
+        }
+        filas.forEach(function (c) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/40';
+            const tdId = document.createElement('td');
+            tdId.className = 'px-4 py-2 text-xs text-gray-500 dark:text-gray-400';
+            tdId.textContent = '#' + c.cliente_id;
+            const tdNom = document.createElement('td');
+            tdNom.className = 'px-4 py-2';
+            const a = document.createElement('a');
+            a.href = c.url || '#';
+            a.className = 'font-medium text-gray-900 dark:text-gray-100 hover:text-purple-600 dark:hover:text-purple-400';
+            a.textContent = c.nombre || ('#' + c.cliente_id);
+            tdNom.appendChild(a);
+            const tdDoc = document.createElement('td');
+            tdDoc.className = 'px-4 py-2 font-mono text-gray-700 dark:text-gray-300';
+            tdDoc.textContent = c.cedula || 'Sin documento';
+            const tdEst = document.createElement('td');
+            tdEst.className = 'px-4 py-2';
+            const badge = document.createElement('span');
+            badge.className = c.pendiente
+                ? 'inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                : 'inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+            badge.textContent = c.pendiente ? 'Pendiente' : 'Emitido';
+            tdEst.appendChild(badge);
+            const tdMes = document.createElement('td');
+            tdMes.className = 'px-4 py-2 text-xs text-gray-600 dark:text-gray-300';
+            const periodos = Array.isArray(c.periodos) ? c.periodos : [];
+            if (periodos.length === 0) {
+                tdMes.textContent = '—';
+            } else {
+                periodos.slice(0, 3).forEach(function (p, i) {
+                    if (i > 0) {
+                        tdMes.appendChild(document.createTextNode(', '));
+                    }
+                    if (p.factura_id) {
+                        const link = document.createElement('a');
+                        link.href = p.url || ('/facturas/' + p.factura_id);
+                        link.className = 'text-purple-600 dark:text-purple-400 hover:underline';
+                        link.textContent = p.label || p.ym || '';
+                        tdMes.appendChild(link);
+                    } else {
+                        tdMes.appendChild(document.createTextNode(p.label || p.ym || ''));
+                    }
+                });
+                if (periodos.length > 3) {
+                    tdMes.appendChild(document.createTextNode(' y ' + (periodos.length - 3) + ' más'));
+                }
+            }
+            tr.appendChild(tdId);
+            tr.appendChild(tdNom);
+            tr.appendChild(tdDoc);
+            tr.appendChild(tdEst);
+            tr.appendChild(tdMes);
+            modalListaBody.appendChild(tr);
+        });
+    }
+
+    function cerrarModalLista() {
+        if (!modalLista) return;
+        modalLista.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        modalListaClientes = [];
+        if (modalListaBuscar) modalListaBuscar.value = '';
+        modalListaFiltro = 'todos';
+        pintarFiltrosLista();
+    }
+
+    function abrirModalLista(url, nombre) {
+        if (!modalLista || !url) return;
+        modalLista.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        modalListaFiltro = 'todos';
+        if (modalListaBuscar) modalListaBuscar.value = '';
+        pintarFiltrosLista();
+        if (modalListaTitulo) modalListaTitulo.textContent = nombre || 'Lista';
+        if (modalListaMeta) modalListaMeta.textContent = 'Cargando…';
+        modalListaClientes = [];
+        renderModalLista();
+        fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        }).then(function (res) {
+            return res.json().then(function (data) {
+                return { ok: res.ok, data: data };
+            });
+        }).then(function (pack) {
+            if (!pack.ok || !pack.data || pack.data.ok === false) {
+                if (modalListaMeta) modalListaMeta.textContent = (pack.data && pack.data.mensaje) || 'No se pudo leer la lista.';
+                return;
+            }
+            modalListaClientes = Array.isArray(pack.data.clientes) ? pack.data.clientes : [];
+            if (modalListaTitulo) modalListaTitulo.textContent = pack.data.nombre || nombre || 'Lista';
+            if (modalListaMeta) {
+                let meta = modalListaClientes.length + ' cliente(s) · '
+                    + (pack.data.pendientes || 0) + ' pendiente(s) en ' + (pack.data.periodo || periodoLabel);
+                if (pack.data.meses_texto) {
+                    meta += ' · Facturado: ' + pack.data.meses_texto;
+                }
+                modalListaMeta.textContent = meta;
+            }
+            renderModalLista();
+        }).catch(function () {
+            if (modalListaMeta) modalListaMeta.textContent = 'No se pudo leer la lista.';
+        });
+    }
+
+    if (modalLista) {
+        modalLista.querySelectorAll('[data-cerrar-modal-lista]').forEach(function (el) {
+            el.addEventListener('click', cerrarModalLista);
+        });
+    }
+    if (modalListaBuscar) {
+        modalListaBuscar.addEventListener('input', renderModalLista);
+    }
+    document.querySelectorAll('.modal-lista-filtro').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            modalListaFiltro = btn.getAttribute('data-filtro') || 'todos';
+            pintarFiltrosLista();
+            renderModalLista();
+        });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modalLista && !modalLista.classList.contains('hidden')) {
+            cerrarModalLista();
+        }
+    });
+
     document.addEventListener('click', function (e) {
+        const ver = e.target.closest('.btn-ver-lista');
+        if (ver) {
+            abrirModalLista(ver.getAttribute('data-url') || '', ver.getAttribute('data-nombre') || 'Lista');
+            return;
+        }
         const cargar = e.target.closest('.btn-cargar-lista');
         if (cargar) {
             const raw = cargar.getAttribute('data-ids') || '';
@@ -765,7 +997,7 @@
             }
         }
         if (!fechaEmisionValida()) {
-            avisar('Elija una fecha de emisión válida (hoy o anterior).');
+            avisar('Elija una fecha de emisión igual o anterior al tope (máximo ' + (fechaEmisionInput.getAttribute('max') || '') + ').');
             if (fechaEmisionInput) fechaEmisionInput.focus();
             return;
         }

@@ -97,7 +97,7 @@
                                 @include('partials.notifications')
                             @endif
                             <span class="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{{ auth()->user()->name }}</span>
-                            <form action="{{ url('/api/logout') }}" method="POST" class="inline">
+                            <form action="{{ url('/api/logout') }}" method="POST" class="inline" onsubmit="try{localStorage.removeItem('infinity_web_sesion')}catch(e){}">
                                 @csrf
                                 <button type="submit"
                                         class="header-logout-btn inline-flex items-center justify-center bg-gray-900 dark:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors"

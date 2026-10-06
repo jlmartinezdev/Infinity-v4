@@ -119,7 +119,7 @@
                     class="wa-title truncate text-[15px]"
                     :class="(conv.sin_leer || 0) > 0 ? 'font-semibold' : 'font-normal'"
                   >
-                    {{ conv.nombre || conv.telefono }}
+                    {{ conv.nombre || formatoTelefono(conv.telefono) }}
                   </p>
                   <span
                     class="shrink-0 text-[11px]"
@@ -194,7 +194,7 @@
             />
             <div class="min-w-0 flex-1">
               <p class="wa-title truncate text-[15px] font-medium">
-                {{ hiloMeta.nombre || telActivo }}
+                {{ hiloMeta.nombre || formatoTelefono(telActivo) }}
                 <span
                   v-if="hiloMeta.clasificacion_label"
                   class="ml-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide"
@@ -202,7 +202,7 @@
                 >{{ hiloMeta.clasificacion_label }}</span>
               </p>
               <p class="wa-muted truncate text-[12px]">
-                <span class="font-mono">{{ telActivo }}</span>
+                <span class="font-mono tabular-nums" :title="telActivo">{{ formatoTelefono(telActivo) }}</span>
                 <template v-if="hiloMeta.cliente_id">
                   · #{{ hiloMeta.cliente_id }}
                   <template v-if="hiloMeta.cliente_nombre"> {{ hiloMeta.cliente_nombre }}</template>
@@ -651,7 +651,7 @@
         <div class="wa-header flex items-center justify-between border-b px-4 py-3">
           <div>
             <p class="wa-title text-sm font-semibold">Guardar contacto</p>
-            <p class="wa-muted font-mono text-xs">{{ telActivo }}</p>
+            <p class="wa-muted font-mono text-xs tabular-nums">{{ formatoTelefono(telActivo) }}</p>
           </div>
           <button type="button" class="wa-icon-btn rounded-full px-2 py-1 text-sm" @click="cerrarModalContacto">Cerrar</button>
         </div>
@@ -724,7 +724,7 @@
         <div class="wa-header flex items-center justify-between border-b px-4 py-3">
           <div>
             <p class="wa-title text-sm font-semibold">Ticket rápido</p>
-            <p class="wa-muted text-xs">{{ telActivo }} · sin salir del chat</p>
+            <p class="wa-muted text-xs">{{ formatoTelefono(telActivo) }} · sin salir del chat</p>
           </div>
           <button type="button" class="wa-icon-btn rounded-full px-2 py-1 text-sm" @click="cerrarModalTicket">Cerrar</button>
         </div>
@@ -797,7 +797,7 @@
         <div class="wa-header flex items-center justify-between border-b px-4 py-3">
           <div>
             <p class="wa-title text-sm font-semibold">Registrar pago</p>
-            <p class="wa-muted text-xs">{{ telActivo }} · sin salir del chat</p>
+            <p class="wa-muted text-xs">{{ formatoTelefono(telActivo) }} · sin salir del chat</p>
           </div>
           <button type="button" class="wa-icon-btn rounded-full px-2 py-1 text-sm" @click="cerrarModalCobro">Cerrar</button>
         </div>
@@ -1033,6 +1033,26 @@ function inicialesFrom(nombre, telefono) {
   return safeInitials(nombre, telefono);
 }
 
+/** Móvil PY como 595 9XX XXXXXX (ej. 595 984 995239). */
+function formatoTelefonoPy(raw) {
+  const original = String(raw || '').trim();
+  if (!original) return '';
+  let digits = original.replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  let national = '';
+  if (digits.startsWith('595') && digits.length >= 12) {
+    national = digits.slice(3, 12);
+  } else if (digits.length === 10 && digits.startsWith('09')) {
+    national = digits.slice(1);
+  } else if (digits.length === 9 && digits.startsWith('9')) {
+    national = digits;
+  }
+  if (national.length === 9 && national.startsWith('9')) {
+    return `595 ${national.slice(0, 3)} ${national.slice(3)}`;
+  }
+  return original;
+}
+
 const WaAvatar = {
   name: 'WaAvatar',
   props: {
@@ -1241,6 +1261,9 @@ export default {
     },
   },
   methods: {
+    formatoTelefono(raw) {
+      return formatoTelefonoPy(raw);
+    },
     leerPantallaCompleta() {
       try {
         return localStorage.getItem('infinity_whatsapp_fullscreen') === '1';

@@ -397,10 +397,17 @@ class ServicioController extends Controller
         $activo = $request->boolean('ipv6_configurado');
         $servicio->update(['ipv6_configurado' => $activo]);
 
-        return redirect()->back()->with(
-            'success',
-            $activo ? 'IPv6 marcado como configurado.' : 'IPv6 marcado como no configurado.'
-        );
+        $mensaje = $activo ? 'IPv6 marcado como configurado.' : 'IPv6 marcado como no configurado.';
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'activo' => $activo,
+                'message' => $mensaje,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $mensaje);
     }
 
     public function actualizarPuntoHotspot(Request $request, $servicio_id)
@@ -409,10 +416,17 @@ class ServicioController extends Controller
         $activo = $request->boolean('punto_hotspot');
         $servicio->update(['punto_hotspot' => $activo]);
 
-        return redirect()->back()->with(
-            'success',
-            $activo ? 'Servicio marcado como punto hotspot.' : 'Servicio ya no es punto hotspot.'
-        );
+        $mensaje = $activo ? 'Servicio marcado como punto hotspot.' : 'Servicio ya no es punto hotspot.';
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'activo' => $activo,
+                'message' => $mensaje,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $mensaje);
     }
 
     /**

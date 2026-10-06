@@ -27328,12 +27328,19 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
 /* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 
 
+var STORAGE_KEY = 'infinity_web_sesion';
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   __name: 'Login',
   emits: ['login-success'],
@@ -27345,16 +27352,76 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var form = (0,vue__WEBPACK_IMPORTED_MODULE_0__.reactive)({
       email: '',
       password: '',
-      remember: false
+      remember: true
     });
     var errors = (0,vue__WEBPACK_IMPORTED_MODULE_0__.reactive)({
       email: '',
       password: ''
     });
     var loading = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var restoring = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var error = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var success = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var showPassword = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var headersJson = {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+    var leerSesionGuardada = function leerSesionGuardada() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return null;
+        }
+        var data = JSON.parse(raw);
+        if (!(data !== null && data !== void 0 && data.email) || !(data !== null && data !== void 0 && data.token)) {
+          return null;
+        }
+        if (data.expira && Date.now() > Number(data.expira)) {
+          localStorage.removeItem(STORAGE_KEY);
+          return null;
+        }
+        return data;
+      } catch (_unused) {
+        return null;
+      }
+    };
+    var guardarSesionDispositivo = function guardarSesionDispositivo(email, dispositivo, remember) {
+      try {
+        if (!remember || !(dispositivo !== null && dispositivo !== void 0 && dispositivo.token)) {
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+        var segundos = Number(dispositivo.expira_en) || 30 * 86400;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          email: email,
+          token: dispositivo.token,
+          expira: Date.now() + segundos * 1000
+        }));
+      } catch (_unused2) {
+        // localStorage puede estar bloqueado
+      }
+    };
+    var borrarSesionGuardada = function borrarSesionGuardada() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_unused3) {
+        // ignore
+      }
+    };
+    var aplicarLoginOk = function aplicarLoginOk(data) {
+      success.value = data.message || 'Inicio de sesión exitoso';
+      if (data.remember && data.dispositivo) {
+        var _data$user;
+        guardarSesionDispositivo(form.email || ((_data$user = data.user) === null || _data$user === void 0 ? void 0 : _data$user.email), data.dispositivo, true);
+      } else {
+        borrarSesionGuardada();
+      }
+      emit('login-success');
+      var nextUrl = data.redirect || '/';
+      window.location.href = nextUrl;
+    };
     var validateForm = function validateForm() {
       errors.email = '';
       errors.password = '';
@@ -27377,7 +27444,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     };
     var handleLogin = /*#__PURE__*/function () {
       var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-        var _document$querySelect, loginData, response, nextUrl, _err$response, _err$response2, data, _t;
+        var _document$querySelect, loginData, response, _err$response, _err$response2, data, _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
             case 0:
@@ -27399,11 +27466,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               // Preparar datos para enviar
               loginData = {
                 email: form.email,
-                password: form.password
-              }; // Solo incluir remember si es true
-              if (form.remember) {
-                loginData.remember = true;
-              }
+                password: form.password,
+                remember: form.remember
+              };
               console.log('Datos a enviar:', loginData);
               console.log('Token CSRF:', (_document$querySelect = document.querySelector('meta[name="csrf-token"]')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.content);
 
@@ -27420,14 +27485,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               response = _context.v;
               console.log('Respuesta recibida:', response.data);
               if (response.data.success) {
-                success.value = 'Inicio de sesión exitoso';
-                // Emitir evento de éxito para que App.vue actualice el estado
-                emit('login-success');
-                // Redirigir según permisos (dashboard principal o panel de accesos)
-                nextUrl = response.data.redirect || '/';
-                setTimeout(function () {
-                  window.location.href = nextUrl;
-                }, 500);
+                aplicarLoginOk(response.data);
               }
               _context.n = 5;
               break;
@@ -27473,18 +27531,78 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         return _ref2.apply(this, arguments);
       };
     }();
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.onMounted)(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+      var saved, response, _t2;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.p = _context2.n) {
+          case 0:
+            saved = leerSesionGuardada();
+            if (saved !== null && saved !== void 0 && saved.email) {
+              form.email = saved.email;
+              form.remember = true;
+            }
+            if (saved !== null && saved !== void 0 && saved.token) {
+              _context2.n = 1;
+              break;
+            }
+            return _context2.a(2);
+          case 1:
+            restoring.value = true;
+            loading.value = true;
+            error.value = '';
+            _context2.p = 2;
+            _context2.n = 3;
+            return axios__WEBPACK_IMPORTED_MODULE_1__["default"].post('/login/dispositivo', {
+              email: saved.email,
+              token: saved.token
+            }, {
+              headers: headersJson
+            });
+          case 3:
+            response = _context2.v;
+            if (response.data.success) {
+              aplicarLoginOk(_objectSpread(_objectSpread({}, response.data), {}, {
+                remember: true
+              }));
+            } else {
+              borrarSesionGuardada();
+            }
+            _context2.n = 5;
+            break;
+          case 4:
+            _context2.p = 4;
+            _t2 = _context2.v;
+            borrarSesionGuardada();
+          case 5:
+            _context2.p = 5;
+            restoring.value = false;
+            loading.value = false;
+            return _context2.f(5);
+          case 6:
+            return _context2.a(2);
+        }
+      }, _callee2, null, [[2, 4, 5, 6]]);
+    })));
     var __returned__ = {
+      STORAGE_KEY: STORAGE_KEY,
       emit: emit,
       form: form,
       errors: errors,
       loading: loading,
+      restoring: restoring,
       error: error,
       success: success,
       showPassword: showPassword,
+      headersJson: headersJson,
+      leerSesionGuardada: leerSesionGuardada,
+      guardarSesionDispositivo: guardarSesionDispositivo,
+      borrarSesionGuardada: borrarSesionGuardada,
+      aplicarLoginOk: aplicarLoginOk,
       validateForm: validateForm,
       handleLogin: handleLogin,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
       reactive: vue__WEBPACK_IMPORTED_MODULE_0__.reactive,
+      onMounted: vue__WEBPACK_IMPORTED_MODULE_0__.onMounted,
       get axios() {
         return axios__WEBPACK_IMPORTED_MODULE_1__["default"];
       }
@@ -27580,18 +27698,26 @@ var _hoisted_10 = {
   key: 0,
   class: "text-sm text-red-600 dark:text-red-400"
 };
-var _hoisted_11 = ["disabled"];
-var _hoisted_12 = {
+var _hoisted_11 = {
+  key: 1,
+  class: "text-sm text-gray-500 dark:text-gray-400"
+};
+var _hoisted_12 = ["disabled"];
+var _hoisted_13 = {
   key: 0,
   class: "flex items-center justify-center"
 };
-var _hoisted_13 = {
-  key: 1
+var _hoisted_14 = {
+  key: 1,
+  class: "flex items-center justify-center"
+};
+var _hoisted_15 = {
+  key: 2
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [_cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", {
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [_cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", {
     class: "text-2xl font-bold text-gray-900 dark:text-gray-100"
-  }, "Iniciar Sesión", -1 /* CACHED */)), _cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Iniciar Sesión", -1 /* CACHED */)), _cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-sm text-gray-500 dark:text-gray-400 mt-1"
   }, "Acceda al panel Infinity ISP", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     class: "mt-6 space-y-4",
@@ -27644,11 +27770,11 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.form.remember]]), _cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "remember",
     class: "text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none"
-  }, " Mantener sesión iniciada ", -1 /* CACHED */))]), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, " Mantener sesión iniciada ", -1 /* CACHED */))]), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.restoring ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_11, "Restaurando sesión guardada…")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "submit",
-    disabled: $setup.loading,
+    disabled: $setup.loading || $setup.restoring,
     class: "w-full px-4 py-2 bg-gray-900 dark:bg-blue-600 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-  }, [$setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_12, _toConsumableArray(_cache[7] || (_cache[7] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, [$setup.restoring ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_13, _toConsumableArray(_cache[7] || (_cache[7] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "animate-spin -ml-1 mr-3 h-5 w-5 text-white",
     xmlns: "http://www.w3.org/2000/svg",
     fill: "none",
@@ -27664,7 +27790,23 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "opacity-75",
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ingresando... ", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_13, "Ingresar"))], 8 /* PROPS */, _hoisted_11), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Restaurando sesión... ", -1 /* CACHED */)])))) : $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_14, _toConsumableArray(_cache[8] || (_cache[8] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "animate-spin -ml-1 mr-3 h-5 w-5 text-white",
+    xmlns: "http://www.w3.org/2000/svg",
+    fill: "none",
+    viewBox: "0 0 24 24"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+    class: "opacity-25",
+    cx: "12",
+    cy: "12",
+    r: "10",
+    stroke: "currentColor",
+    "stroke-width": "4"
+  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    class: "opacity-75",
+    fill: "currentColor",
+    d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ingresando... ", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_15, "Ingresar"))], 8 /* PROPS */, _hoisted_12), _cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "text-xs text-gray-500 dark:text-gray-400 text-center mt-2"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" ¿No tienes acceso? "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
     href: "/register",

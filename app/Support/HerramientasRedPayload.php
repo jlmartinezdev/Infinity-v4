@@ -6,6 +6,7 @@ use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
 use App\Services\Huawei\HuaweiOnuWeb;
 use App\Services\PedidoNodoOpcionesService;
+use App\Services\Portal\PortalClienteAccionService;
 
 class HerramientasRedPayload
 {
@@ -111,6 +112,7 @@ class HerramientasRedPayload
                 )),
             'ultima_optica' => self::serializarOptica($ultimaOptica),
             'ultima_antena' => self::serializarAntena($ultimaAntena),
+            'wifi_backup' => app(PortalClienteAccionService::class)->backupWifiParaServicio((int) $servicio->servicio_id),
             'timeline' => self::serializarTimeline($timeline),
             'eventos' => $conexionEventos->map(fn (ServicioConexionEvento $ev) => self::serializarEvento($ev))->values()->all(),
         ];

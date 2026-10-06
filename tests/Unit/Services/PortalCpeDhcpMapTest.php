@@ -48,4 +48,27 @@ class PortalCpeDhcpMapTest extends TestCase
         $this->assertSame('48:57:54:43:25:1e', PortalCpeDhcpService::normalizarMac('48575443251E'));
         $this->assertSame('aa:bb:cc:dd:ee:ff', PortalCpeDhcpService::normalizarMac('AA-BB-CC-DD-EE-FF'));
     }
+
+    public function test_dispositivos_huawei_panel_al_contrato_app(): void
+    {
+        $clients = PortalCpeDhcpService::mapToClients([
+            [
+                'ip' => '192.168.100.4',
+                'mac' => '2E:05:6A:DE:05:09',
+                'hostname' => 'Galaxy-A06',
+                'online' => true,
+            ],
+            [
+                'ip' => '',
+                'mac' => 'AA:BB:CC:DD:EE:FF',
+                'hostname' => 'sin-ip',
+                'online' => true,
+            ],
+        ]);
+
+        $this->assertCount(1, $clients);
+        $this->assertSame('Galaxy-A06', $clients[0]['hostname']);
+        $this->assertSame('2e:05:6a:de:05:09', $clients[0]['mac']);
+        $this->assertTrue($clients[0]['online']);
+    }
 }

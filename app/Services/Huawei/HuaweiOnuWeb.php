@@ -113,9 +113,17 @@ class HuaweiOnuWeb
      */
     public function leerSsids(): array
     {
+        return array_values($this->leerSsidsPorInstancia());
+    }
+
+    /**
+     * @return array<int, string> índice WLANConfiguration => SSID
+     */
+    public function leerSsidsPorInstancia(): array
+    {
         $html = $this->get('/html/amp/wlanbasic/WlanBasic.asp?2G');
 
-        return self::parseSsidsHtml($html);
+        return self::parseSsidPorInstancia($html);
     }
 
     /**

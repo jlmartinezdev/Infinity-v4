@@ -59,13 +59,21 @@
         </div>
 
         <div v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</div>
+        <p v-if="restoring" class="text-sm text-gray-500 dark:text-gray-400">Restaurando sesión guardada…</p>
 
         <button 
           type="submit"
-          :disabled="loading" 
+          :disabled="loading || restoring" 
           class="w-full px-4 py-2 bg-gray-900 dark:bg-blue-600 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
         >
-          <span v-if="loading" class="flex items-center justify-center">
+          <span v-if="restoring" class="flex items-center justify-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Restaurando sesión...
+          </span>
+          <span v-else-if="loading" class="flex items-center justify-center">
             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -84,15 +92,17 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import axios from 'axios';
+
+const STORAGE_KEY = 'infinity_web_sesion';
 
 const emit = defineEmits(['login-success']);
 
 const form = reactive({
     email: '',
     password: '',
-    remember: false
+    remember: true
 });
 
 const errors = reactive({
@@ -101,9 +111,73 @@ const errors = reactive({
 });
 
 const loading = ref(false);
+const restoring = ref(false);
 const error = ref('');
 const success = ref('');
 const showPassword = ref(false);
+
+const headersJson = {
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+};
+
+const leerSesionGuardada = () => {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const data = JSON.parse(raw);
+        if (!data?.email || !data?.token) {
+            return null;
+        }
+        if (data.expira && Date.now() > Number(data.expira)) {
+            localStorage.removeItem(STORAGE_KEY);
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+};
+
+const guardarSesionDispositivo = (email, dispositivo, remember) => {
+    try {
+        if (!remember || !dispositivo?.token) {
+            localStorage.removeItem(STORAGE_KEY);
+            return;
+        }
+        const segundos = Number(dispositivo.expira_en) || 30 * 86400;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            email,
+            token: dispositivo.token,
+            expira: Date.now() + segundos * 1000
+        }));
+    } catch {
+        // localStorage puede estar bloqueado
+    }
+};
+
+const borrarSesionGuardada = () => {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch {
+        // ignore
+    }
+};
+
+const aplicarLoginOk = (data) => {
+    success.value = data.message || 'Inicio de sesión exitoso';
+    if (data.remember && data.dispositivo) {
+        guardarSesionDispositivo(form.email || data.user?.email, data.dispositivo, true);
+    } else {
+        borrarSesionGuardada();
+    }
+    emit('login-success');
+    const nextUrl = data.redirect || '/';
+    window.location.href = nextUrl;
+};
 
 const validateForm = () => {
     errors.email = '';
@@ -146,13 +220,9 @@ const handleLogin = async () => {
         // Preparar datos para enviar
         const loginData = {
             email: form.email,
-            password: form.password
+            password: form.password,
+            remember: form.remember
         };
-        
-        // Solo incluir remember si es true
-        if (form.remember) {
-            loginData.remember = true;
-        }
 
         console.log('Datos a enviar:', loginData);
         console.log('Token CSRF:', document.querySelector('meta[name="csrf-token"]')?.content);
@@ -169,14 +239,7 @@ const handleLogin = async () => {
         console.log('Respuesta recibida:', response.data);
 
         if (response.data.success) {
-            success.value = 'Inicio de sesión exitoso';
-            // Emitir evento de éxito para que App.vue actualice el estado
-            emit('login-success');
-            // Redirigir según permisos (dashboard principal o panel de accesos)
-            const nextUrl = response.data.redirect || '/';
-            setTimeout(() => {
-                window.location.href = nextUrl;
-            }, 500);
+            aplicarLoginOk(response.data);
         }
     } catch (err) {
         console.error('Error en login:', err);
@@ -212,6 +275,42 @@ const handleLogin = async () => {
         loading.value = false;
     }
 };
+
+onMounted(async () => {
+    const saved = leerSesionGuardada();
+    if (saved?.email) {
+        form.email = saved.email;
+        form.remember = true;
+    }
+    if (!saved?.token) {
+        return;
+    }
+
+    restoring.value = true;
+    loading.value = true;
+    error.value = '';
+
+    try {
+        const response = await axios.post('/login/dispositivo', {
+            email: saved.email,
+            token: saved.token
+        }, { headers: headersJson });
+
+        if (response.data.success) {
+            aplicarLoginOk({
+                ...response.data,
+                remember: true
+            });
+        } else {
+            borrarSesionGuardada();
+        }
+    } catch {
+        borrarSesionGuardada();
+    } finally {
+        restoring.value = false;
+        loading.value = false;
+    }
+});
 </script>
 
 <style scoped>

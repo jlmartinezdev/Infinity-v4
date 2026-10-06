@@ -20,6 +20,7 @@ if (el) {
     urlActualizarDesdeTempBase: cfg.urlActualizarDesdeTempBase || '',
     urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
     urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',
+    urlContratoClienteBase: cfg.urlContratoClienteBase || '',
     puedeEditar: cfg.puedeEditar ?? false,
     initialBuscar: cfg.initialBuscar || '',
     initialEstado: cfg.initialEstado || 'todos',

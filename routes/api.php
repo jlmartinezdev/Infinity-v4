@@ -115,6 +115,24 @@ Route::prefix('v1')->group(function () {
                     ->middleware('permiso:portal.cuenta.ver');
                 Route::post('/cpe/wifi', [PortalV1Controller::class, 'cpeWifiCambiar'])
                     ->middleware('permiso:portal.cuenta.ver');
+
+                // Cambio de clave app + preferencias push + slots hotspot
+                Route::get('/preferencias', [PortalV1Controller::class, 'preferencias'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::patch('/preferencias', [PortalV1Controller::class, 'preferenciasActualizar'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::post('/cambiar-clave', [PortalV1Controller::class, 'cambiarClave'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::get('/hotspot/slots', [PortalV1Controller::class, 'hotspotSlots'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::post('/hotspot/slots', [PortalV1Controller::class, 'hotspotSlotCrear'])
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::patch('/hotspot/slots/{id}', [PortalV1Controller::class, 'hotspotSlotActualizar'])
+                    ->whereNumber('id')
+                    ->middleware('permiso:portal.cuenta.ver');
+                Route::delete('/hotspot/slots/{id}', [PortalV1Controller::class, 'hotspotSlotEliminar'])
+                    ->whereNumber('id')
+                    ->middleware('permiso:portal.cuenta.ver');
             });
         });
 
@@ -131,6 +149,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('/clientes/buscar', [SolicitudAccesoController::class, 'buscarClientes']);
             });
             Route::post('/staff/solicitudes/{id}/aprobar', [SolicitudAccesoController::class, 'aprobar'])
+                ->whereNumber('id')
+                ->middleware('permiso:solicitudes-acceso.editar');
+            Route::match(['put', 'patch'], '/staff/solicitudes/{id}', [SolicitudAccesoController::class, 'update'])
                 ->whereNumber('id')
                 ->middleware('permiso:solicitudes-acceso.editar');
             Route::post('/staff/solicitudes/{id}/rechazar', [SolicitudAccesoController::class, 'rechazar'])

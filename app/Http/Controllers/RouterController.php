@@ -74,7 +74,24 @@ class RouterController extends Controller
         $modelosPorSerie = MikrotikModelosCatalogo::porSerie();
         $series = array_keys($modelosPorSerie);
 
-        return view('sistema.routers.index', compact('routers', 'nodos', 'modelosPorSerie', 'series', 'statsClientes'));
+        // Métricas globales del parque de routers para el dashboard NOC
+        $routerCounts = Router::selectRaw("
+            COUNT(*) as total,
+            SUM(CASE WHEN estado = 'conectado' THEN 1 ELSE 0 END) as online,
+            SUM(CASE WHEN estado = 'desconectado' THEN 1 ELSE 0 END) as offline
+        ")->first();
+
+        $kpis = [
+            'total_routers' => (int) ($routerCounts->total ?? 0),
+            'online_routers' => (int) ($routerCounts->online ?? 0),
+            'offline_routers' => (int) ($routerCounts->offline ?? 0),
+            'desconocido_routers' => max(0, (int) ($routerCounts->total ?? 0) - (int) ($routerCounts->online ?? 0) - (int) ($routerCounts->offline ?? 0)),
+            'total_pools' => \App\Models\RouterIpPool::count(),
+            'total_clientes_activos' => Servicio::where('estado', Servicio::ESTADO_ACTIVO)->whereNotNull('pool_id')->distinct('cliente_id')->count('cliente_id'),
+            'total_clientes_registrados' => Servicio::where('estado', '!=', Servicio::ESTADO_CANCELADO)->whereNotNull('pool_id')->distinct('cliente_id')->count('cliente_id'),
+        ];
+
+        return view('sistema.routers.index', compact('routers', 'nodos', 'modelosPorSerie', 'series', 'statsClientes', 'kpis'));
     }
 
     /**
@@ -212,17 +229,36 @@ class RouterController extends Controller
     public function testConnection($router, MikroTikService $mikrotik)
     {
         $router = Router::where('router_id', $router)->firstOrFail();
+        $startTime = microtime(true);
         $result = $mikrotik->testConnection($router);
+        $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
 
         if ($result['success']) {
-            $router->update(['estado' => Router::ESTADO_CONECTADO]);
+            $router->update([
+                'estado' => Router::ESTADO_CONECTADO,
+                'ping_latencia_ms' => $latencyMs,
+                'ping_at' => now(),
+            ]);
 
-            return response()->json(['success' => true, 'message' => 'Conexión exitosa al router.']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Conexión exitosa al router.',
+                'latency_ms' => $latencyMs,
+                'estado' => Router::ESTADO_CONECTADO,
+            ]);
         }
 
-        $router->update(['estado' => Router::ESTADO_DESCONECTADO]);
+        $router->update([
+            'estado' => Router::ESTADO_DESCONECTADO,
+            'ping_at' => now(),
+        ]);
 
-        return response()->json(['success' => false, 'message' => $result['error'] ?? 'Error al conectar.'], 422);
+        return response()->json([
+            'success' => false,
+            'message' => $result['error'] ?? 'Error al conectar.',
+            'latency_ms' => $latencyMs,
+            'estado' => Router::ESTADO_DESCONECTADO,
+        ], 422);
     }
 
     /**

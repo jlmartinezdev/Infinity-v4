@@ -27402,9 +27402,21 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     function normalizarTexto(valor) {
       return (valor || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
     }
+    var PALABRAS_BUSQUEDA_IGNORAR = new Set(['cliente', 'clientes', 'nro', 'n', 'num', 'numero', 'id']);
+    function extraerIdCliente(termino) {
+      var t = String(termino || '').trim();
+      var exacto = t.match(/^(?:cliente|id|nro|n|num|numero)?\s*#?(\d+)$/i);
+      if (exacto) return exacto[1];
+      var conHash = t.match(/#(\d+)/);
+      return conHash ? conHash[1] : null;
+    }
     function clienteCoincide(punto, termino) {
       if (!termino) return true;
-      var tokens = normalizarTexto(termino).split(' ').filter(Boolean);
+      var idBuscado = extraerIdCliente(termino);
+      if (idBuscado && String(punto.cliente_id) === idBuscado) return true;
+      var tokens = normalizarTexto(termino).split(' ').filter(function (token) {
+        return token && !PALABRAS_BUSQUEDA_IGNORAR.has(token);
+      });
       if (!tokens.length) return true;
       var haystack = normalizarTexto([punto.cliente_id, punto.nombre, punto.cedula, punto.telefono, punto.plan, punto.tecnologia].filter(Boolean).join(' '));
       return tokens.every(function (token) {
@@ -27415,9 +27427,17 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       var q = busqueda.value.trim();
       if (!q) return [];
       var fuente = Object.keys(puntosByClienteId).length ? Object.values(puntosByClienteId) : props.puntos;
+      var idBuscado = extraerIdCliente(q);
       return fuente.filter(function (p) {
         return clienteCoincide(p, q) && pasaFiltroPingEstado(p);
-      }).slice(0, 12);
+      }).sort(function (a, b) {
+        if (idBuscado) {
+          var ae = String(a.cliente_id) === idBuscado ? 0 : 1;
+          var be = String(b.cliente_id) === idBuscado ? 0 : 1;
+          if (ae !== be) return ae - be;
+        }
+        return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es');
+      }).slice(0, 20);
     });
     function onBlurBusqueda() {
       window.setTimeout(function () {
@@ -27566,9 +27586,15 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         timeStyle: 'short'
       });
     }
+    function tituloCliente(punto, fallbackId) {
+      var _punto$cliente_id;
+      var id = (_punto$cliente_id = punto === null || punto === void 0 ? void 0 : punto.cliente_id) !== null && _punto$cliente_id !== void 0 ? _punto$cliente_id : fallbackId;
+      var nombre = ((punto === null || punto === void 0 ? void 0 : punto.nombre) || '').toString().trim();
+      return "#".concat(id).concat(nombre ? ' · ' + nombre : '');
+    }
     function buildInfoWindowContent(p) {
       var _p$ping_en_linea;
-      var titulo = p.nombre || "Cliente #".concat(p.cliente_id);
+      var titulo = tituloCliente(p);
       var detalleHref = urlDetalle(p.cliente_id);
       var pingLabel = pingEstadoLabel(p.ping_estado);
       var pingColor = markerColorByPingEstado(p.ping_estado);
@@ -27661,7 +27687,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                   lat: p.lat,
                   lng: p.lon
                 };
-                var titulo = p.nombre || "Cliente #".concat(p.cliente_id);
+                var titulo = tituloCliente(p);
                 var marker = new google.maps.Marker({
                   position: position,
                   map: pasaFiltroPingEstado(p) ? map : null,
@@ -27751,7 +27777,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         punto.ping_latencia_ms = (_ping$latencia_ms = ping.latencia_ms) !== null && _ping$latencia_ms !== void 0 ? _ping$latencia_ms : null;
         punto.ping_verificado_at = (_ping$verificado_at = ping.verificado_at) !== null && _ping$verificado_at !== void 0 ? _ping$verificado_at : null;
         marker.setIcon(markerIconForPunto(googleRef, punto));
-        var titulo = punto.nombre || "Cliente #".concat(clienteId);
+        var titulo = tituloCliente(punto, clienteId);
         marker.setTitle("".concat(titulo, " \xB7 ").concat(pingEstadoLabel(punto.ping_estado)));
       });
       syncMarkerVisibility();
@@ -27960,6 +27986,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       iconCache: iconCache,
       progressPercent: progressPercent,
       normalizarTexto: normalizarTexto,
+      PALABRAS_BUSQUEDA_IGNORAR: PALABRAS_BUSQUEDA_IGNORAR,
+      extraerIdCliente: extraerIdCliente,
       clienteCoincide: clienteCoincide,
       resultadosBusqueda: resultadosBusqueda,
       onBlurBusqueda: onBlurBusqueda,
@@ -27972,6 +28000,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       loadGoogleMaps: loadGoogleMaps,
       urlDetalle: urlDetalle,
       formatVerificadoAt: formatVerificadoAt,
+      tituloCliente: tituloCliente,
       buildInfoWindowContent: buildInfoWindowContent,
       markerIconForPunto: markerIconForPunto,
       pasaFiltroPingEstado: pasaFiltroPingEstado,
@@ -28105,7 +28134,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "search",
     autocomplete: "off",
-    placeholder: "Buscar cliente por nombre, cédula, teléfono o plan…",
+    placeholder: "Buscar por nº cliente, nombre, cédula, teléfono o plan…",
     class: "w-full pl-9 pr-9 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40",
     onFocus: _cache[1] || (_cache[1] = function ($event) {
       return $setup.mostrarResultados = true;
@@ -28145,7 +28174,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
         return $setup.enfocarCliente(punto.cliente_id);
       }, ["stop", "prevent"])
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.nombre || 'Cliente #' + punto.cliente_id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_8, [punto.cedula ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_9, "CI " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), punto.telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula ? ' · ' : '') + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), punto.plan ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula || punto.telefono ? ' · ' : '') + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.plan), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 40 /* PROPS, NEED_HYDRATION */, _hoisted_6)]);
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_7, " #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cliente_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.nombre || 'Sin nombre'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_8, [punto.cedula ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_9, "CI " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), punto.telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_10, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula ? ' · ' : '') + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), punto.plan ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.cedula || punto.telefono ? ' · ' : '') + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(punto.plan), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 40 /* PROPS, NEED_HYDRATION */, _hoisted_6)]);
   }), 128 /* KEYED_FRAGMENT */))])) : $setup.mostrarResultados && $setup.busqueda.trim() && !$setup.resultadosBusqueda.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_12, " Sin coincidencias para “" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.busqueda.trim()) + "” ", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, null, 512 /* NEED_PATCH */), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_15, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_16, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.loadingMessage), 1 /* TEXT */), $setup.totalPuntos > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_18, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_19, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "h-full bg-purple-600 transition-all duration-200",
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({

@@ -138,6 +138,8 @@ class SolicitudAccesoController extends ApiController
             'cliente_id_vinculacion' => ['nullable', 'integer', 'exists:clientes,cliente_id'],
             'documento_corregido' => ['nullable', 'string', 'max:20'],
             'nombre_corregido' => ['nullable', 'string', 'max:200'],
+            'whatsapp_corregido' => ['nullable', 'string', 'max:30'],
+            'direccion_corregida' => ['nullable', 'string', 'max:500'],
             'actualizar_telefono' => ['nullable', 'boolean'],
             'actualizar_ubicacion' => ['nullable', 'boolean'],
         ]);
@@ -160,6 +162,41 @@ class SolicitudAccesoController extends ApiController
             'solicitud_id' => $result['solicitud']->id,
             'whatsapp_avisado' => filled($result['solicitud']->whatsapp),
         ], 'Solicitud aprobada y vinculada correctamente');
+    }
+
+    /**
+     * PUT/PATCH /api/v1/staff/solicitudes/{id}
+     * Corrige datos de la solicitud pendiente sin aprobar.
+     */
+    public function update(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'nombre' => ['sometimes', 'required', 'string', 'max:200'],
+            'documento' => ['sometimes', 'required', 'string', 'max:20'],
+            'cedula' => ['sometimes', 'required', 'string', 'max:20'],
+            'whatsapp' => ['nullable', 'string', 'max:30'],
+            'telefono' => ['nullable', 'string', 'max:30'],
+            'direccion' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $solicitud = SolicitudAcceso::findOrFail($id);
+
+        try {
+            $solicitud = $this->service->actualizarDatosPendiente($solicitud, $validated);
+        } catch (\RuntimeException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        $pre = $this->service->datosPreAprobacion($solicitud);
+
+        return $this->ok(array_merge([
+            'id' => $solicitud->id,
+            'nombre' => $solicitud->nombre,
+            'documento' => $solicitud->cedula,
+            'telefono' => $solicitud->whatsapp,
+            'direccion' => $solicitud->direccion,
+            'estado' => $solicitud->estado,
+        ], $pre), 'Datos de la solicitud actualizados');
     }
 
     /**
@@ -245,15 +282,7 @@ class SolicitudAccesoController extends ApiController
 
         $clientes = Cliente::query()
             ->whereIn('estado', ['activo', 'inactivo', 'suspendido', 'solo_pedido'])
-            ->where(function ($query) use ($q) {
-                $query->where('nombre', 'like', "%{$q}%")
-                    ->orWhere('apellido', 'like', "%{$q}%")
-                    ->orWhere('cedula', 'like', "%{$q}%")
-                    ->orWhere('telefono', 'like', "%{$q}%");
-                if (ctype_digit($q) && strlen($q) <= 10) {
-                    $query->orWhere('cliente_id', (int) $q);
-                }
-            })
+            ->buscarTexto($q)
             ->orderBy('nombre')
             ->limit(20)
             ->get(['cliente_id', 'nombre', 'apellido', 'cedula']);

@@ -233,10 +233,11 @@
                 btn.className = 'w-full text-left px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:bg-blue-50 dark:focus:bg-blue-900/30 focus:outline-none border-0 border-b border-gray-100 dark:border-white/5 last:border-0';
                 btn.dataset.index = String(idx);
                 btn.dataset.id = String(c.cliente_id);
+                var meta = ['#' + String(c.cliente_id)];
+                if (c.cedula) meta.push('CI ' + String(c.cedula));
+                if (c.alias) meta.push(String(c.alias));
                 btn.innerHTML = '<span class="font-medium">' + escapeHtml(((c.nombre || '') + ' ' + (c.apellido || '')).trim()) + '</span>' +
-                    (c.cedula
-                        ? '<span class="block text-xs text-gray-500 dark:text-gray-400">#' + escapeHtml(String(c.cliente_id)) + ' · CI ' + escapeHtml(String(c.cedula)) + '</span>'
-                        : '<span class="block text-xs text-gray-500 dark:text-gray-400">#' + escapeHtml(String(c.cliente_id)) + '</span>');
+                    '<span class="block text-xs text-gray-500 dark:text-gray-400">' + escapeHtml(meta.join(' · ')) + '</span>';
                 btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
                 btn.addEventListener('click', function () { irAcciones(c.cliente_id); });
                 panel.appendChild(btn);

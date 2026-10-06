@@ -57,65 +57,122 @@
         <div class="lg:col-span-2 space-y-4">
             <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Datos de la solicitud</h2>
-                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <dt class="text-gray-500 dark:text-gray-400">Nombre</dt>
-                        <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->nombre }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-gray-500 dark:text-gray-400">Documento</dt>
-                        <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->cedula }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-gray-500 dark:text-gray-400">WhatsApp</dt>
-                        <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">
-                            @if($solicitud->whatsapp)
-                                <a href="https://wa.me/595{{ ltrim(preg_replace('/\D+/', '', $solicitud->whatsapp), '0') }}"
-                                   target="_blank" rel="noopener"
-                                   class="text-blue-600 dark:text-blue-400 hover:underline">{{ $solicitud->whatsapp }}</a>
+                @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && $puedeEditar)
+                    <form action="{{ route('solicitudes-acceso.actualizar', $solicitud) }}" method="POST" class="space-y-4">
+                        @csrf
+                        @method('PUT')
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <label class="block text-gray-500 dark:text-gray-400 mb-1">Nombre</label>
+                                <input type="text" name="nombre" required maxlength="200"
+                                       value="{{ old('nombre', $solicitud->nombre) }}"
+                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
+                            </div>
+                            <div>
+                                <label class="block text-gray-500 dark:text-gray-400 mb-1">Documento</label>
+                                <input type="text" name="cedula" required maxlength="20"
+                                       value="{{ old('cedula', $solicitud->cedula) }}"
+                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
+                            </div>
+                            <div>
+                                <label class="block text-gray-500 dark:text-gray-400 mb-1">WhatsApp</label>
+                                <input type="text" name="whatsapp" maxlength="30"
+                                       value="{{ old('whatsapp', $solicitud->whatsapp) }}"
+                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
                                 @if($solicitud->telefono_verificado)
-                                    <span class="ml-2 inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">Verificado</span>
+                                    <p class="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Verificado por OTP · Meta from: {{ $solicitud->whatsapp_from ?: '—' }}</p>
                                 @elseif($solicitud->estado === 'pendiente_verificacion')
-                                    <span class="ml-2 inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">Esperando WA</span>
+                                    <p class="mt-1 text-xs text-violet-600 dark:text-violet-400">Esperando verificación WhatsApp</p>
                                 @endif
-                            @else
-                                —
+                            </div>
+                            <div>
+                                <label class="block text-gray-500 dark:text-gray-400 mb-1">Fecha</label>
+                                <p class="mt-1.5 font-medium text-gray-900 dark:text-gray-100">{{ optional($solicitud->created_at)->format('d/m/Y H:i') }}</p>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-gray-500 dark:text-gray-400 mb-1">Dirección</label>
+                                <input type="text" name="direccion" maxlength="500"
+                                       value="{{ old('direccion', $solicitud->direccion) }}"
+                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
+                            </div>
+                            @if($solicitud->latitud && $solicitud->longitud)
+                                <div class="sm:col-span-2">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Ubicación GPS:
+                                        <a href="https://www.google.com/maps?q={{ $solicitud->latitud }},{{ $solicitud->longitud }}"
+                                           target="_blank" rel="noopener"
+                                           class="text-blue-600 dark:text-blue-400 hover:underline">
+                                            {{ $solicitud->latitud }}, {{ $solicitud->longitud }}
+                                        </a>
+                                    </p>
+                                </div>
                             @endif
-                        </dd>
-                    </div>
-                    @if($solicitud->codigo_verificacion)
-                        <div>
-                            <dt class="text-gray-500 dark:text-gray-400">OTP usado</dt>
-                            <dd class="mt-0.5 font-mono font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->codigo_verificacion }}</dd>
                         </div>
-                    @endif
-                    @if($solicitud->whatsapp_from)
+                        <button type="submit"
+                                class="rounded-lg bg-slate-800 dark:bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+                            Guardar correcciones
+                        </button>
+                    </form>
+                @else
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
-                            <dt class="text-gray-500 dark:text-gray-400">WhatsApp (Meta from)</dt>
-                            <dd class="mt-0.5 font-mono text-sm text-gray-900 dark:text-gray-100">{{ $solicitud->whatsapp_from }}</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">Nombre</dt>
+                            <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->nombre }}</dd>
                         </div>
-                    @endif
-                    <div>
-                        <dt class="text-gray-500 dark:text-gray-400">Fecha</dt>
-                        <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ optional($solicitud->created_at)->format('d/m/Y H:i') }}</dd>
-                    </div>
-                    <div class="sm:col-span-2">
-                        <dt class="text-gray-500 dark:text-gray-400">Dirección</dt>
-                        <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->direccion ?: '—' }}</dd>
-                    </div>
-                    @if($solicitud->latitud && $solicitud->longitud)
-                        <div class="sm:col-span-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Ubicación</dt>
-                            <dd class="mt-0.5">
-                                <a href="https://www.google.com/maps?q={{ $solicitud->latitud }},{{ $solicitud->longitud }}"
-                                   target="_blank" rel="noopener"
-                                   class="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                                    {{ $solicitud->latitud }}, {{ $solicitud->longitud }} (abrir mapa)
-                                </a>
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Documento</dt>
+                            <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->cedula }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">WhatsApp</dt>
+                            <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">
+                                @if($solicitud->whatsapp)
+                                    <a href="https://wa.me/595{{ ltrim(preg_replace('/\D+/', '', $solicitud->whatsapp), '0') }}"
+                                       target="_blank" rel="noopener"
+                                       class="text-blue-600 dark:text-blue-400 hover:underline">{{ $solicitud->whatsapp }}</a>
+                                    @if($solicitud->telefono_verificado)
+                                        <span class="ml-2 inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">Verificado</span>
+                                    @elseif($solicitud->estado === 'pendiente_verificacion')
+                                        <span class="ml-2 inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">Esperando WA</span>
+                                    @endif
+                                @else
+                                    —
+                                @endif
                             </dd>
                         </div>
-                    @endif
-                </dl>
+                        @if($solicitud->codigo_verificacion)
+                            <div>
+                                <dt class="text-gray-500 dark:text-gray-400">OTP usado</dt>
+                                <dd class="mt-0.5 font-mono font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->codigo_verificacion }}</dd>
+                            </div>
+                        @endif
+                        @if($solicitud->whatsapp_from)
+                            <div>
+                                <dt class="text-gray-500 dark:text-gray-400">WhatsApp (Meta from)</dt>
+                                <dd class="mt-0.5 font-mono text-sm text-gray-900 dark:text-gray-100">{{ $solicitud->whatsapp_from }}</dd>
+                            </div>
+                        @endif
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Fecha</dt>
+                            <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ optional($solicitud->created_at)->format('d/m/Y H:i') }}</dd>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Dirección</dt>
+                            <dd class="mt-0.5 font-medium text-gray-900 dark:text-gray-100">{{ $solicitud->direccion ?: '—' }}</dd>
+                        </div>
+                        @if($solicitud->latitud && $solicitud->longitud)
+                            <div class="sm:col-span-2">
+                                <dt class="text-gray-500 dark:text-gray-400">Ubicación</dt>
+                                <dd class="mt-0.5">
+                                    <a href="https://www.google.com/maps?q={{ $solicitud->latitud }},{{ $solicitud->longitud }}"
+                                       target="_blank" rel="noopener"
+                                       class="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                                        {{ $solicitud->latitud }}, {{ $solicitud->longitud }} (abrir mapa)
+                                    </a>
+                                </dd>
+                            </div>
+                        @endif
+                    </dl>
+                @endif
             </div>
 
             <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -131,7 +188,30 @@
                     </p>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Teléfono/ubicación del cliente solo se actualizan si lo confirmás abajo al aprobar.</p>
                 @else
-                    <p class="text-sm text-amber-700 dark:text-amber-300">No hay cliente con este documento. Al aprobar se creará uno nuevo.</p>
+                    <p class="text-sm text-amber-700 dark:text-amber-300">No hay cliente con este documento. Al aprobar sin vínculo manual se creará uno nuevo.</p>
+                @endif
+
+                @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && $puedeEditar)
+                    <div class="mt-4 border-t border-gray-100 dark:border-gray-700 pt-4" id="vinculacion-manual">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Vincular manualmente a un cliente</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Buscá por nombre, cédula o #ID si el documento de la solicitud no coincide (OCR / typo).</p>
+                        <input type="search" id="buscar-cliente-solicitud" autocomplete="off" placeholder="Escribí al menos 2 caracteres…"
+                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
+                        <ul id="buscar-cliente-resultados" class="mt-2 hidden max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800 text-sm"></ul>
+                        <div id="cliente-vinculado-box" class="mt-3 {{ old('cliente_id_vinculacion') ? '' : 'hidden' }} rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-900/20 px-3 py-2 text-sm">
+                            <p class="font-medium text-emerald-900 dark:text-emerald-200">
+                                Cliente elegido:
+                                <span id="cliente-vinculado-label">
+                                    @if(old('cliente_id_vinculacion') && $clienteExistente && (int) old('cliente_id_vinculacion') === (int) $clienteExistente->cliente_id)
+                                        #{{ $clienteExistente->cliente_id }} — {{ $clienteExistente->nombre }} {{ $clienteExistente->apellido }}
+                                    @elseif(old('cliente_id_vinculacion'))
+                                        #{{ old('cliente_id_vinculacion') }}
+                                    @endif
+                                </span>
+                            </p>
+                            <button type="button" id="cliente-vinculado-quitar" class="mt-1 text-xs text-rose-600 dark:text-rose-300 hover:underline">Quitar vínculo manual</button>
+                        </div>
+                    </div>
                 @endif
             </div>
 
@@ -263,28 +343,44 @@
                             Solicitud legacy: el cliente aún no verificó WhatsApp. Con el flujo OTP invertido las nuevas llegan ya verificadas.
                         </p>
                     @else
-                        <p class="text-xs text-gray-500 dark:text-gray-400">También podés aprobar/rechazar desde el menú ⋮. Acá podés confirmar actualización de datos.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Corregí datos arriba si hace falta, vinculá un cliente en “Cruce”, y después aprobá.
+                        </p>
                         <form action="{{ route('solicitudes-acceso.aprobar', $solicitud) }}" method="POST"
+                              id="form-aprobar-solicitud"
                               onsubmit="return confirm('¿Aprobar y generar clave PLUS para la app?');"
                               class="space-y-3">
                             @csrf
-                            @if($coincideBd && $clienteExistente)
-                                <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20 p-3 space-y-2 text-sm">
-                                    <p class="font-medium text-amber-900 dark:text-amber-200">Pre-aprobación: actualizar datos del cliente</p>
-                                    <label class="flex items-start gap-2 text-amber-900 dark:text-amber-100">
-                                        <input type="checkbox" name="actualizar_telefono" value="1" class="mt-1 rounded border-amber-400 text-green-600 focus:ring-green-500">
-                                        <span>Actualizar teléfono<br>
-                                            <span class="text-xs opacity-80">Actual: {{ $clienteExistente->telefono ?: '—' }} → Solicitud: {{ $solicitud->whatsapp ?: '—' }}</span>
-                                        </span>
-                                    </label>
-                                    <label class="flex items-start gap-2 text-amber-900 dark:text-amber-100">
-                                        <input type="checkbox" name="actualizar_ubicacion" value="1" class="mt-1 rounded border-amber-400 text-green-600 focus:ring-green-500">
-                                        <span>Actualizar dirección / ubicación<br>
-                                            <span class="text-xs opacity-80">Solo si marcás esta casilla.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                            @endif
+                            <input type="hidden" name="cliente_id_vinculacion" id="input-cliente-vinculacion"
+                                   value="{{ old('cliente_id_vinculacion', $coincideBd && $clienteExistente ? $clienteExistente->cliente_id : '') }}">
+                            <input type="hidden" name="documento_corregido" id="input-documento-corregido" value="">
+                            <input type="hidden" name="nombre_corregido" id="input-nombre-corregido" value="">
+                            <input type="hidden" name="whatsapp_corregido" id="input-whatsapp-corregido" value="">
+                            <input type="hidden" name="direccion_corregida" id="input-direccion-corregida" value="">
+
+                            <div id="aprobar-vinculo-aviso" class="text-xs rounded-lg px-3 py-2 {{ $coincideBd ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200' }}">
+                                @if($coincideBd && $clienteExistente)
+                                    Se vinculará a #{{ $clienteExistente->cliente_id }} (match por documento). Podés cambiarlo en el buscador de la izquierda.
+                                @else
+                                    Sin vínculo manual se creará un cliente nuevo.
+                                @endif
+                            </div>
+
+                            <div id="bloque-actualizar-cliente" class="{{ $coincideBd && $clienteExistente ? '' : 'hidden' }} rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20 p-3 space-y-2 text-sm">
+                                <p class="font-medium text-amber-900 dark:text-amber-200">Pre-aprobación: actualizar datos del cliente</p>
+                                <label class="flex items-start gap-2 text-amber-900 dark:text-amber-100">
+                                    <input type="checkbox" name="actualizar_telefono" value="1" class="mt-1 rounded border-amber-400 text-green-600 focus:ring-green-500">
+                                    <span>Actualizar teléfono<br>
+                                        <span class="text-xs opacity-80">Actual: <span id="tel-cliente-actual">{{ $clienteExistente->telefono ?? '—' }}</span> → Solicitud: {{ $solicitud->whatsapp ?: '—' }}</span>
+                                    </span>
+                                </label>
+                                <label class="flex items-start gap-2 text-amber-900 dark:text-amber-100">
+                                    <input type="checkbox" name="actualizar_ubicacion" value="1" class="mt-1 rounded border-amber-400 text-green-600 focus:ring-green-500">
+                                    <span>Actualizar dirección / ubicación<br>
+                                        <span class="text-xs opacity-80">Solo si marcás esta casilla.</span>
+                                    </span>
+                                </label>
+                            </div>
                             <button type="submit"
                                     class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">
                                 Aprobar y generar clave
@@ -309,4 +405,136 @@
 </div>
 
 @include('solicitudes-acceso._menu_script')
+
+@if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && $puedeEditar)
+<script>
+(function () {
+    var urlBuscar = @json(route('solicitudes-acceso.buscar-clientes'));
+    var inputBuscar = document.getElementById('buscar-cliente-solicitud');
+    var lista = document.getElementById('buscar-cliente-resultados');
+    var inputId = document.getElementById('input-cliente-vinculacion');
+    var box = document.getElementById('cliente-vinculado-box');
+    var label = document.getElementById('cliente-vinculado-label');
+    var quitar = document.getElementById('cliente-vinculado-quitar');
+    var aviso = document.getElementById('aprobar-vinculo-aviso');
+    var bloqueAct = document.getElementById('bloque-actualizar-cliente');
+    var formAprobar = document.getElementById('form-aprobar-solicitud');
+    var timer = null;
+    var matchAutoId = @json($coincideBd && $clienteExistente ? (int) $clienteExistente->cliente_id : null);
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function setVinculo(id, texto, telefono) {
+        if (!inputId) return;
+        inputId.value = id ? String(id) : '';
+        if (box && label) {
+            if (id) {
+                label.textContent = texto || ('#' + id);
+                box.classList.remove('hidden');
+            } else {
+                label.textContent = '';
+                box.classList.add('hidden');
+            }
+        }
+        if (aviso) {
+            if (id) {
+                aviso.className = 'text-xs rounded-lg px-3 py-2 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200';
+                aviso.textContent = 'Se vinculará al cliente ' + (texto || ('#' + id)) + '.';
+            } else {
+                aviso.className = 'text-xs rounded-lg px-3 py-2 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200';
+                aviso.textContent = 'Sin vínculo manual se creará un cliente nuevo.';
+            }
+        }
+        if (bloqueAct) {
+            if (id) bloqueAct.classList.remove('hidden');
+            else bloqueAct.classList.add('hidden');
+        }
+        var telEl = document.getElementById('tel-cliente-actual');
+        if (telEl && telefono != null) telEl.textContent = telefono || '—';
+    }
+
+    if (quitar) {
+        quitar.addEventListener('click', function () {
+            setVinculo(null, '', null);
+            if (lista) { lista.innerHTML = ''; lista.classList.add('hidden'); }
+        });
+    }
+
+    if (inputBuscar && lista) {
+        inputBuscar.addEventListener('input', function () {
+            clearTimeout(timer);
+            var q = inputBuscar.value.trim();
+            if (q.length < 2) {
+                lista.innerHTML = '';
+                lista.classList.add('hidden');
+                return;
+            }
+            timer = setTimeout(function () {
+                fetch(urlBuscar + '?q=' + encodeURIComponent(q), {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(function (r) { return r.json(); }).then(function (rows) {
+                    lista.innerHTML = '';
+                    if (!Array.isArray(rows) || !rows.length) {
+                        lista.innerHTML = '<li class="px-3 py-2 text-gray-500">Sin resultados</li>';
+                        lista.classList.remove('hidden');
+                        return;
+                    }
+                    rows.forEach(function (c) {
+                        var li = document.createElement('li');
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100';
+                        btn.innerHTML = '<span class="font-medium">' + escapeHtml(c.label) + '</span>' +
+                            (c.estado ? '<span class="block text-xs text-gray-500">' + escapeHtml(c.estado) + '</span>' : '');
+                        btn.addEventListener('click', function () {
+                            var nombreCompleto = ((c.nombre || '') + ' ' + (c.apellido || '')).trim();
+                            setVinculo(c.cliente_id, '#' + c.cliente_id + ' — ' + nombreCompleto + ' (CI ' + (c.cedula || '—') + ')', c.telefono);
+                            // Sugerir documento/nombre del cliente elegido en los campos de corrección
+                            var nombreInput = document.querySelector('form[action*="solicitudes-acceso"] input[name="nombre"]');
+                            var cedulaInput = document.querySelector('form[action*="solicitudes-acceso"] input[name="cedula"]');
+                            if (cedulaInput && c.cedula) cedulaInput.value = c.cedula;
+                            if (nombreInput && nombreCompleto) nombreInput.value = nombreCompleto;
+                            lista.innerHTML = '';
+                            lista.classList.add('hidden');
+                            inputBuscar.value = '';
+                        });
+                        li.appendChild(btn);
+                        lista.appendChild(li);
+                    });
+                    lista.classList.remove('hidden');
+                }).catch(function () {
+                    lista.innerHTML = '<li class="px-3 py-2 text-rose-600">Error al buscar</li>';
+                    lista.classList.remove('hidden');
+                });
+            }, 250);
+        });
+    }
+
+    if (formAprobar) {
+        formAprobar.addEventListener('submit', function () {
+            var nombreInput = document.querySelector('input[name="nombre"]');
+            var cedulaInput = document.querySelector('input[name="cedula"]');
+            var waInput = document.querySelector('input[name="whatsapp"]');
+            var dirInput = document.querySelector('input[name="direccion"]');
+            var docHid = document.getElementById('input-documento-corregido');
+            var nomHid = document.getElementById('input-nombre-corregido');
+            var waHid = document.getElementById('input-whatsapp-corregido');
+            var dirHid = document.getElementById('input-direccion-corregida');
+            if (docHid && cedulaInput) docHid.value = cedulaInput.value.trim();
+            if (nomHid && nombreInput) nomHid.value = nombreInput.value.trim();
+            if (waHid && waInput) waHid.value = waInput.value.trim();
+            if (dirHid && dirInput) dirHid.value = dirInput.value.trim();
+            // Si quedó el match auto por documento y el usuario no eligió otro, enviar ese id
+            if (inputId && !inputId.value && matchAutoId) {
+                inputId.value = String(matchAutoId);
+            }
+        });
+    }
+})();
+</script>
+@endif
 @endsection

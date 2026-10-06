@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\FacturaInterna;
+use App\Models\ServicioHotspot;
 use App\Services\Portal\PortalAppConfigService;
+use App\Services\Portal\PortalCambioClaveService;
 use App\Services\Portal\PortalCpeDhcpService;
 use App\Services\Portal\PortalCpeWifiService;
 use App\Services\Portal\PortalFeatureFlagsService;
+use App\Services\Portal\PortalHotspotSlotsService;
 use App\Services\Portal\PortalInsightsService;
 use App\Services\Portal\PortalReferidosService;
 use App\Services\Tpago\TpagoClient;
@@ -30,6 +33,8 @@ class PortalV1Controller extends ApiController
         private readonly PortalAppConfigService $appConfig,
         private readonly PortalCpeDhcpService $cpeDhcp,
         private readonly PortalCpeWifiService $cpeWifi,
+        private readonly PortalCambioClaveService $cambioClave,
+        private readonly PortalHotspotSlotsService $hotspotSlots,
         private readonly TpagoPaymentLinkService $tpagoLinks,
         private readonly TpagoClient $tpago,
     ) {}
@@ -315,5 +320,155 @@ class PortalV1Controller extends ApiController
         }
 
         return $this->ok($result['data'], $result['message']);
+    }
+
+    /**
+     * GET preferencias de la app (push cambio clave, debe cambiar clave, etc.).
+     */
+    public function preferencias(Request $request): JsonResponse
+    {
+        $cliente = $request->user()->cliente()->firstOrFail();
+
+        return $this->ok($this->cambioClave->preferencias($cliente));
+    }
+
+    /**
+     * PATCH preferencias. Body: { "push_cambio_clave": true|false }
+     */
+    public function preferenciasActualizar(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'push_cambio_clave' => ['required', 'boolean'],
+        ]);
+
+        $cliente = $request->user()->cliente()->firstOrFail();
+        $data = $this->cambioClave->actualizarPreferencias($cliente, $validated);
+
+        return $this->ok($data, 'Preferencias actualizadas.');
+    }
+
+    /**
+     * POST cambio de clave de ingreso a la app.
+     * Body: clave_actual, clave_nueva, clave_nueva_confirmation
+     */
+    public function cambiarClave(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'clave_actual' => ['required', 'string', 'max:128'],
+            'clave_nueva' => [
+                'required',
+                'string',
+                'min:'.PortalCambioClaveService::CLAVE_MIN,
+                'max:'.PortalCambioClaveService::CLAVE_MAX,
+                'confirmed',
+            ],
+        ]);
+
+        try {
+            $data = $this->cambioClave->cambiar(
+                $request->user(),
+                (string) $validated['clave_actual'],
+                (string) $validated['clave_nueva']
+            );
+        } catch (ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? 'No se pudo cambiar la clave.';
+
+            return $this->fail((string) $msg, 422, $e->errors());
+        }
+
+        return $this->ok($data, 'Clave actualizada.');
+    }
+
+    /**
+     * GET slots hotspot del cliente (máx. 3).
+     */
+    public function hotspotSlots(Request $request): JsonResponse
+    {
+        $cliente = $request->user()->cliente()->firstOrFail();
+
+        try {
+            $data = $this->hotspotSlots->listar($cliente);
+        } catch (ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? 'Hotspot no disponible.';
+
+            return $this->fail((string) $msg, 403, $e->errors());
+        }
+
+        return $this->ok($data, 'Slots hotspot');
+    }
+
+    /**
+     * POST crear slot hotspot.
+     * Body: servicio_id?, slot_numero?, password? (PIN 4 dígitos)
+     */
+    public function hotspotSlotCrear(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'servicio_id' => ['nullable', 'integer', 'min:1'],
+            'slot_numero' => ['nullable', 'integer', 'min:1', 'max:'.ServicioHotspot::MAX_POR_CLIENTE],
+            'password' => ServicioHotspot::reglasPin(false),
+        ], [
+            'password.digits' => ServicioHotspot::mensajePin(),
+        ]);
+
+        $cliente = $request->user()->cliente()->firstOrFail();
+
+        try {
+            $data = $this->hotspotSlots->crear($cliente, $validated);
+        } catch (ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? 'No se pudo crear el slot.';
+            $status = str_contains(strtolower((string) $msg), 'no está disponible') ? 403 : 422;
+
+            return $this->fail((string) $msg, $status, $e->errors());
+        }
+
+        return $this->ok($data, 'Usuario hotspot creado.', 201);
+    }
+
+    /**
+     * PATCH PIN de un slot.
+     * Body: { "password": "1234" }
+     */
+    public function hotspotSlotActualizar(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => ServicioHotspot::reglasPin(true),
+        ], [
+            'password.digits' => ServicioHotspot::mensajePin(),
+        ]);
+
+        $cliente = $request->user()->cliente()->firstOrFail();
+        $slot = ServicioHotspot::query()->findOrFail($id);
+
+        try {
+            $data = $this->hotspotSlots->actualizarPassword($cliente, $slot, $validated);
+        } catch (ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? 'No se pudo actualizar el PIN.';
+            $status = str_contains(strtolower((string) $msg), 'no está disponible') ? 403 : 422;
+
+            return $this->fail((string) $msg, $status, $e->errors());
+        }
+
+        return $this->ok($data, 'PIN hotspot actualizado.');
+    }
+
+    /**
+     * DELETE slot hotspot.
+     */
+    public function hotspotSlotEliminar(Request $request, int $id): JsonResponse
+    {
+        $cliente = $request->user()->cliente()->firstOrFail();
+        $slot = ServicioHotspot::query()->findOrFail($id);
+
+        try {
+            $this->hotspotSlots->eliminar($cliente, $slot);
+        } catch (ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? 'No se pudo eliminar el slot.';
+            $status = str_contains(strtolower((string) $msg), 'no está disponible') ? 403 : 422;
+
+            return $this->fail((string) $msg, $status, $e->errors());
+        }
+
+        return $this->ok(null, 'Usuario hotspot eliminado.');
     }
 }

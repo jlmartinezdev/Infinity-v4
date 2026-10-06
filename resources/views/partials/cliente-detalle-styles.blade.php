@@ -228,6 +228,345 @@
         background: rgb(59 130 246 / 0.22);
         color: #93c5fd;
     }
+
+    /* Estados de Tickets */
+    .cliente-detalle-page .cd-status--ticket-pendiente {
+        background: rgb(245 158 11 / 0.14);
+        color: #b45309;
+    }
+    .cliente-detalle-page .cd-status--ticket-pendiente .cd-status__dot {
+        background: #f59e0b;
+        box-shadow: 0 0 6px 1px rgb(245 158 11 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--ticket-en_proceso,
+    .cliente-detalle-page .cd-status--ticket-en_camino {
+        background: rgb(59 130 246 / 0.14);
+        color: #1d4ed8;
+    }
+    .cliente-detalle-page .cd-status--ticket-en_proceso .cd-status__dot,
+    .cliente-detalle-page .cd-status--ticket-en_camino .cd-status__dot {
+        background: #3b82f6;
+        box-shadow: 0 0 6px 1px rgb(59 130 246 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--ticket-resuelto {
+        background: rgb(16 185 129 / 0.14);
+        color: #047857;
+    }
+    .cliente-detalle-page .cd-status--ticket-resuelto .cd-status__dot {
+        background: #10b981;
+        box-shadow: 0 0 6px 1px rgb(16 185 129 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--ticket-cerrado {
+        background: rgb(107 114 128 / 0.14);
+        color: #4b5563;
+    }
+    .cliente-detalle-page .cd-status--ticket-cerrado .cd-status__dot {
+        background: #9ca3af;
+    }
+    .cliente-detalle-page .cd-status--ticket-cancelado {
+        background: rgb(239 68 68 / 0.14);
+        color: #b91c1c;
+    }
+    .cliente-detalle-page .cd-status--ticket-cancelado .cd-status__dot {
+        background: #ef4444;
+        box-shadow: 0 0 6px 1px rgb(239 68 68 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--ticket-no_realizado {
+        background: rgb(249 115 22 / 0.14);
+        color: #c2410c;
+    }
+    .cliente-detalle-page .cd-status--ticket-no_realizado .cd-status__dot {
+        background: #f97316;
+        box-shadow: 0 0 6px 1px rgb(249 115 22 / 0.5);
+    }
+    html.dark .cliente-detalle-page .cd-status--ticket-pendiente {
+        background: rgb(245 158 11 / 0.2);
+        color: #fcd34d;
+    }
+    html.dark .cliente-detalle-page .cd-status--ticket-en_proceso,
+    html.dark .cliente-detalle-page .cd-status--ticket-en_camino {
+        background: rgb(59 130 246 / 0.2);
+        color: #93c5fd;
+    }
+    html.dark .cliente-detalle-page .cd-status--ticket-resuelto {
+        background: rgb(16 185 129 / 0.2);
+        color: #6ee7b7;
+    }
+    html.dark .cliente-detalle-page .cd-status--ticket-cerrado {
+        background: rgb(107 114 128 / 0.25);
+        color: #cbd5e1;
+    }
+    html.dark .cliente-detalle-page .cd-status--ticket-cancelado {
+        background: rgb(239 68 68 / 0.2);
+        color: #fca5a5;
+    }
+    html.dark .cliente-detalle-page .cd-status--ticket-no_realizado {
+        background: rgb(249 115 22 / 0.2);
+        color: #fdba74;
+    }
+
+    /* Estados de Factura */
+    .cliente-detalle-page .cd-status--factura-pagada {
+        background: rgb(22 163 74 / 0.12);
+        color: #15803d;
+    }
+    .cliente-detalle-page .cd-status--factura-pagada .cd-status__dot {
+        background: #16a34a;
+        box-shadow: 0 0 6px 1px rgb(22 163 74 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--factura-pendiente {
+        background: rgb(245 158 11 / 0.14);
+        color: #b45309;
+    }
+    .cliente-detalle-page .cd-status--factura-pendiente .cd-status__dot {
+        background: #f59e0b;
+        box-shadow: 0 0 6px 1px rgb(245 158 11 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--factura-vencida {
+        background: rgb(239 68 68 / 0.14);
+        color: #b91c1c;
+    }
+    .cliente-detalle-page .cd-status--factura-vencida .cd-status__dot {
+        background: #ef4444;
+        box-shadow: 0 0 6px 1px rgb(239 68 68 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--factura-parcial {
+        background: rgb(59 130 246 / 0.12);
+        color: #1d4ed8;
+    }
+    .cliente-detalle-page .cd-status--factura-parcial .cd-status__dot {
+        background: #3b82f6;
+        box-shadow: 0 0 6px 1px rgb(59 130 246 / 0.5);
+    }
+    .cliente-detalle-page .cd-status--factura-cancelada,
+    .cliente-detalle-page .cd-status--factura-anulada {
+        background: rgb(107 114 128 / 0.14);
+        color: #4b5563;
+    }
+    .cliente-detalle-page .cd-status--factura-cancelada .cd-status__dot,
+    .cliente-detalle-page .cd-status--factura-anulada .cd-status__dot {
+        background: #6b7280;
+    }
+    html.dark .cliente-detalle-page .cd-status--factura-pagada {
+        background: rgb(16 185 129 / 0.2);
+        color: #6ee7b7;
+    }
+    html.dark .cliente-detalle-page .cd-status--factura-pendiente {
+        background: rgb(245 158 11 / 0.2);
+        color: #fcd34d;
+    }
+    html.dark .cliente-detalle-page .cd-status--factura-vencida {
+        background: rgb(239 68 68 / 0.2);
+        color: #fca5a5;
+    }
+    html.dark .cliente-detalle-page .cd-status--factura-parcial {
+        background: rgb(59 130 246 / 0.2);
+        color: #93c5fd;
+    }
+    html.dark .cliente-detalle-page .cd-status--factura-cancelada,
+    html.dark .cliente-detalle-page .cd-status--factura-anulada {
+        background: rgb(107 114 128 / 0.25);
+        color: #cbd5e1;
+    }
+
+    /* Prioridades de Ticket */
+    .cliente-detalle-page .cd-priority-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.1rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    .cliente-detalle-page .cd-priority-pill--alta {
+        background: rgb(239 68 68 / 0.12);
+        color: #b91c1c;
+    }
+    html.dark .cliente-detalle-page .cd-priority-pill--alta {
+        background: rgb(239 68 68 / 0.22);
+        color: #fca5a5;
+    }
+    .cliente-detalle-page .cd-priority-pill--media {
+        background: rgb(245 158 11 / 0.14);
+        color: #b45309;
+    }
+    html.dark .cliente-detalle-page .cd-priority-pill--media {
+        background: rgb(245 158 11 / 0.22);
+        color: #fcd34d;
+    }
+    .cliente-detalle-page .cd-priority-pill--baja {
+        background: rgb(107 114 128 / 0.1);
+        color: #4b5563;
+    }
+    html.dark .cliente-detalle-page .cd-priority-pill--baja {
+        background: rgb(107 114 128 / 0.22);
+        color: #cbd5e1;
+    }
+
+    /* Fila expandible de detalle de ticket */
+    .cliente-detalle-page .cd-ticket-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+    .cliente-detalle-page .cd-ticket-row:hover {
+        background-color: var(--cd-row-hover);
+    }
+    .cliente-detalle-page .cd-ticket-row.is-open {
+        background-color: rgb(59 130 246 / 0.04);
+    }
+    html.dark .cliente-detalle-page .cd-ticket-row.is-open {
+        background-color: rgb(59 130 246 / 0.08);
+    }
+    .cliente-detalle-page .cd-ticket-row[hidden],
+    .cliente-detalle-page .cd-ticket-detail-row[hidden] {
+        display: none !important;
+    }
+    .cliente-detalle-page .cd-ticket-detail-row td {
+        padding: 0 !important;
+        border-top: none;
+    }
+    .cliente-detalle-page .cd-ticket-detail-box {
+        padding: 0.85rem 1rem;
+        background: rgb(249 250 251 / 0.75);
+        border-top: 1px dashed var(--cd-head-border);
+        border-bottom: 1px solid var(--cd-head-border);
+    }
+    html.dark .cliente-detalle-page .cd-ticket-detail-box {
+        background: rgb(17 24 39 / 0.45);
+    }
+
+    /* Factura Drawer / Filas */
+    .cliente-detalle-page .cd-factura-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+    .cliente-detalle-page .cd-factura-row:hover {
+        background-color: var(--cd-row-hover);
+    }
+    .cliente-detalle-page .cd-factura-row.is-open {
+        background-color: rgb(59 130 246 / 0.04);
+    }
+    html.dark .cliente-detalle-page .cd-factura-row.is-open {
+        background-color: rgb(59 130 246 / 0.08);
+    }
+    .cliente-detalle-page .cd-factura-row[hidden],
+    .cliente-detalle-page .cd-factura-detail-row[hidden] {
+        display: none !important;
+    }
+    .cliente-detalle-page .cd-factura-detail-row td {
+        padding: 0 !important;
+        border-top: none;
+    }
+    .cliente-detalle-page .cd-factura-detail-box {
+        padding: 0.85rem 1rem;
+        background: rgb(249 250 251 / 0.75);
+        border-top: 1px dashed var(--cd-head-border);
+        border-bottom: 1px solid var(--cd-head-border);
+    }
+    html.dark .cliente-detalle-page .cd-factura-detail-box {
+        background: rgb(17 24 39 / 0.45);
+    }
+
+    /* Badges de Formas de Pago */
+    .cliente-detalle-page .cd-pay-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    .cliente-detalle-page .cd-pay-pill--efectivo {
+        background: rgb(22 163 74 / 0.1);
+        color: #16a34a;
+    }
+    html.dark .cliente-detalle-page .cd-pay-pill--efectivo {
+        background: rgb(22 163 74 / 0.2);
+        color: #86efac;
+    }
+    .cliente-detalle-page .cd-pay-pill--transferencia {
+        background: rgb(59 130 246 / 0.1);
+        color: #2563eb;
+    }
+    html.dark .cliente-detalle-page .cd-pay-pill--transferencia {
+        background: rgb(59 130 246 / 0.2);
+        color: #93c5fd;
+    }
+    .cliente-detalle-page .cd-pay-pill--tarjeta {
+        background: rgb(147 51 234 / 0.1);
+        color: #7c3aed;
+    }
+    html.dark .cliente-detalle-page .cd-pay-pill--tarjeta {
+        background: rgb(147 51 234 / 0.2);
+        color: #c4b5fd;
+    }
+    .cliente-detalle-page .cd-pay-pill--cheque,
+    .cliente-detalle-page .cd-pay-pill--otro {
+        background: rgb(107 114 128 / 0.1);
+        color: #4b5563;
+    }
+    html.dark .cliente-detalle-page .cd-pay-pill--cheque,
+    html.dark .cliente-detalle-page .cd-pay-pill--otro {
+        background: rgb(107 114 128 / 0.2);
+        color: #9ca3af;
+    }
+
+    /* Botón de copia rápida */
+    .cliente-detalle-page .cd-copy-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 0.375rem;
+        border: none;
+        background: transparent;
+        color: var(--cd-muted);
+        cursor: pointer;
+        padding: 0;
+        transition: color 0.15s, background-color 0.15s;
+    }
+    .cliente-detalle-page .cd-copy-btn:hover {
+        color: #7c3aed;
+        background: rgba(124, 58, 237, 0.08);
+    }
+    html.dark .cliente-detalle-page .cd-copy-btn:hover {
+        color: #c4b5fd;
+        background: rgba(139, 92, 246, 0.15);
+    }
+    .cliente-detalle-page .cd-filter-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border: 1px solid var(--cd-card-border);
+        background: var(--cd-card);
+        color: var(--cd-muted);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .cliente-detalle-page .cd-filter-pill:hover {
+        background: var(--cd-row-hover);
+        color: var(--cd-text);
+    }
+    .cliente-detalle-page .cd-filter-pill.is-active {
+        border-color: #3b82f6;
+        background: rgb(59 130 246 / 0.1);
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+    html.dark .cliente-detalle-page .cd-filter-pill.is-active {
+        border-color: #60a5fa;
+        background: rgb(59 130 246 / 0.2);
+        color: #93c5fd;
+    }
     .cliente-detalle-page .cd-icon-btn {
         display: inline-flex;
         align-items: center;
@@ -514,6 +853,146 @@
         cursor: pointer;
         appearance: none;
         -webkit-appearance: none;
+    }
+
+    /* Grupos y Títulos de Secciones de Acción */
+    .cliente-detalle-page .cd-action-group {
+        margin-bottom: 1.15rem;
+    }
+    .cliente-detalle-page .cd-action-group:last-child {
+        margin-bottom: 0;
+    }
+    .cliente-detalle-page .cd-action-group__title {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--cd-muted);
+        margin-bottom: 0.55rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px dashed var(--cd-head-border);
+    }
+    .cliente-detalle-page .cd-action-group__title svg {
+        width: 0.95rem;
+        height: 0.95rem;
+        opacity: 0.85;
+    }
+    .cliente-detalle-page .cd-action-group__title--danger {
+        color: #e11d48;
+        border-bottom-color: rgba(225, 29, 72, 0.25);
+    }
+    html.dark .cliente-detalle-page .cd-action-group__title--danger {
+        color: #fda4af;
+        border-bottom-color: rgba(253, 164, 175, 0.25);
+    }
+
+    /* Cards con Switch Toggle Interactivo AJAX */
+    .cliente-detalle-page .cd-switch-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--cd-card-border);
+        border-radius: 0.75rem;
+        background: var(--cd-card);
+        min-height: 4.25rem;
+        transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .cliente-detalle-page .cd-switch-card:hover {
+        border-color: #a78bfa;
+    }
+    html.dark .cliente-detalle-page .cd-switch-card:hover {
+        border-color: #8b5cf6;
+    }
+    .cliente-detalle-page .cd-switch-card.is-active {
+        border-color: rgba(124, 58, 237, 0.35);
+        background: rgba(124, 58, 237, 0.035);
+    }
+    html.dark .cliente-detalle-page .cd-switch-card.is-active {
+        border-color: rgba(139, 92, 246, 0.4);
+        background: rgba(139, 92, 246, 0.08);
+    }
+    .cliente-detalle-page .cd-switch-card__main {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        min-width: 0;
+        flex: 1;
+    }
+    .cliente-detalle-page .cd-switch-card__texts {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .cliente-detalle-page .cd-switch-card__title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--cd-text);
+        line-height: 1.25;
+    }
+    .cliente-detalle-page .cd-switch-card__sub {
+        font-size: 0.6875rem;
+        color: var(--cd-muted);
+        margin-top: 0.15rem;
+    }
+
+    /* Switch Toggle UI */
+    .cliente-detalle-page .cd-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        user-select: none;
+    }
+    .cliente-detalle-page .cd-toggle input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+    }
+    .cliente-detalle-page .cd-toggle__track {
+        width: 2.75rem;
+        height: 1.5rem;
+        border-radius: 9999px;
+        background-color: #cbd5e1;
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+    }
+    html.dark .cliente-detalle-page .cd-toggle__track {
+        background-color: #475569;
+    }
+    .cliente-detalle-page .cd-toggle input:checked + .cd-toggle__track {
+        background-color: #7c3aed;
+    }
+    .cliente-detalle-page .cd-toggle input:focus-visible + .cd-toggle__track {
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35);
+    }
+    .cliente-detalle-page .cd-toggle__thumb {
+        position: absolute;
+        top: 0.125rem;
+        left: 0.125rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 9999px;
+        background-color: #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .cliente-detalle-page .cd-toggle input:checked + .cd-toggle__track .cd-toggle__thumb {
+        transform: translateX(1.25rem);
+    }
+    .cliente-detalle-page .cd-toggle.is-loading {
+        opacity: 0.6;
+        cursor: wait;
+    }
+    .cliente-detalle-page .cd-toggle.is-loading .cd-toggle__thumb {
+        background-color: #f3f4f6;
     }
     .cliente-detalle-page .cd-action--danger:hover {
         border-color: #e11d48;

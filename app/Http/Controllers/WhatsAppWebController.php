@@ -738,15 +738,7 @@ class WhatsAppWebController extends Controller
 
         $clientes = Cliente::query()
             ->whereIn('estado', ['activo', 'inactivo', 'suspendido', 'solo_pedido'])
-            ->where(function ($query) use ($q) {
-                $query->where('nombre', 'like', "%{$q}%")
-                    ->orWhere('apellido', 'like', "%{$q}%")
-                    ->orWhere('cedula', 'like', "%{$q}%")
-                    ->orWhere('telefono', 'like', "%{$q}%");
-                if (ctype_digit($q) && strlen($q) <= 10) {
-                    $query->orWhere('cliente_id', (int) $q);
-                }
-            })
+            ->buscarTexto($q)
             ->orderBy('nombre')
             ->limit(15)
             ->get(['cliente_id', 'nombre', 'apellido', 'cedula']);

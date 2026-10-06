@@ -5,14 +5,17 @@ namespace App\Services\Portal;
 use App\Models\Cliente;
 use App\Models\Servicio;
 use App\Services\GenieAcs\GenieAcsService;
+use App\Services\Huawei\HuaweiOnuService;
+use App\Services\Huawei\HuaweiOnuWeb;
 use App\Support\CpeInventario;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Throwable;
 
 /**
- * Clave Wi‑Fi del CPE del cliente portal — vía GenieACS (TR-069).
- * No lee la clave actual. Ubiquiti / OLT V-SOL no aplican.
+ * Wi‑Fi del CPE del cliente portal.
+ * ACS (TR-069) o Huawei ONU (SSH/web, misma fuente que el panel).
+ * La clave nunca se lee.
  */
 class PortalCpeWifiService
 {
@@ -32,15 +35,23 @@ class PortalCpeWifiService
 
     public const REASON_RATE_LIMITED = 'rate_limited';
 
+    public const REASON_HUAWEI_NEEDS_PASSWORD = 'huawei_needs_password';
+
     public const HINT_MANUAL = 'Entrá al router en 192.168.1.1 para cambiar la clave Wi‑Fi.';
+
+    public const SOURCE_TR069 = 'tr069_acs';
+
+    public const SOURCE_HUAWEI = 'huawei_onu';
 
     public function __construct(
         private readonly GenieAcsService $acs,
+        private readonly HuaweiOnuService $huawei,
     ) {}
 
     /**
      * @return array{
      *   can_change: bool,
+     *   can_rename: bool,
      *   source: string|null,
      *   servicio_id: int|null,
      *   password_readable: false,
@@ -60,40 +71,45 @@ class PortalCpeWifiService
                 return $this->noSoportado(self::REASON_NO_SERVICE, null);
             }
 
+            // Preferir ACS cuando aplica: expone OperatingFrequencyBand real.
+            if (CpeInventario::usaAcs($servicio) && $this->acs->configured()) {
+                $gate = $this->motivoNoAcs($servicio);
+                if ($gate === null) {
+                    $resumen = $this->acs->resumen($servicio);
+                    if ($resumen['success'] ?? false) {
+                        $ssids = self::mapWifiForPortal($resumen['wifi'] ?? []);
+                        $enabled = array_values(array_filter($ssids, fn (array $n) => (bool) ($n['enabled'] ?? false)));
+                        if ($enabled !== []) {
+                            $crOk = (bool) ($resumen['connection_request_ok'] ?? true);
+
+                            return [
+                                'can_change' => true,
+                                'can_rename' => true,
+                                'source' => self::SOURCE_TR069,
+                                'servicio_id' => (int) $servicio->servicio_id,
+                                'password_readable' => false,
+                                'pending_inform' => ! $crOk,
+                                'ssids' => $ssids,
+                                'reason' => null,
+                                'hint' => $crOk
+                                    ? null
+                                    : 'El cambio se aplica cuando el router se reporte al ACS (puede tardar unos minutos).',
+                            ];
+                        }
+                    }
+                }
+            }
+
+            if ($this->puedeHuawei($servicio)) {
+                return $this->estadoHuawei($servicio);
+            }
+
             $gate = $this->motivoNoAcs($servicio);
             if ($gate !== null) {
                 return $this->noSoportado($gate, (int) $servicio->servicio_id);
             }
 
-            $resumen = $this->acs->resumen($servicio);
-            if (! ($resumen['success'] ?? false)) {
-                return $this->noSoportado(
-                    $this->reasonDesdeAcs($resumen['message'] ?? ''),
-                    (int) $servicio->servicio_id
-                );
-            }
-
-            $ssids = self::mapWifiForPortal($resumen['wifi'] ?? []);
-            $enabled = array_values(array_filter($ssids, fn (array $n) => (bool) ($n['enabled'] ?? false)));
-            if ($enabled === []) {
-                return $this->noSoportado(self::REASON_NO_SSID, (int) $servicio->servicio_id);
-            }
-
-            $crOk = (bool) ($resumen['connection_request_ok'] ?? true);
-
-            return [
-                'can_change' => true,
-                'can_rename' => true,
-                'source' => 'tr069_acs',
-                'servicio_id' => (int) $servicio->servicio_id,
-                'password_readable' => false,
-                'pending_inform' => ! $crOk,
-                'ssids' => $ssids,
-                'reason' => null,
-                'hint' => $crOk
-                    ? null
-                    : 'El cambio se aplica cuando el router se reporte al ACS (puede tardar unos minutos).',
-            ];
+            return $this->noSoportado(self::REASON_CPE_NOT_FOUND, (int) $servicio->servicio_id);
         } catch (Throwable $e) {
             Log::warning('[Portal CPE WiFi] estado', [
                 'cliente_id' => $cliente->cliente_id,
@@ -183,6 +199,10 @@ class PortalCpeWifiService
             ];
         }
 
+        if (($estado['source'] ?? null) === self::SOURCE_HUAWEI) {
+            return $this->cambiarHuawei($cliente, $servicio, $estado, $password, $ssid, $rateKey);
+        }
+
         $wifiId = ($wifiId !== null && $wifiId !== '') ? $wifiId : 'all';
 
         try {
@@ -219,6 +239,8 @@ class PortalCpeWifiService
 
         RateLimiter::hit($rateKey, 3600);
 
+        $ticket = $this->registrarAccionWifi($cliente, $servicio, $password, $ssid, $wifiId, self::SOURCE_TR069, $estado);
+
         Log::info('[Portal CPE WiFi] cambio encolado', [
             'cliente_id' => $cliente->cliente_id,
             'servicio_id' => $servicio->servicio_id,
@@ -238,20 +260,25 @@ class PortalCpeWifiService
             }, $ssidsOut);
         }
 
+        $data = [
+            'queued' => true,
+            'applied_now' => ! ($estado['pending_inform'] ?? false),
+            'source' => self::SOURCE_TR069,
+            'servicio_id' => (int) $servicio->servicio_id,
+            'wifi_id' => $wifiId,
+            'ssid' => $ssid,
+            'ssids' => $ssidsOut,
+            'pending_inform' => (bool) ($estado['pending_inform'] ?? false),
+        ];
+        if ($ticket) {
+            $data['ticket'] = $ticket;
+        }
+
         return [
             'success' => true,
             'http' => 200,
             'message' => (string) ($result['message'] ?? 'Cambio de Wi‑Fi encolado.'),
-            'data' => [
-                'queued' => true,
-                'applied_now' => ! ($estado['pending_inform'] ?? false),
-                'source' => 'tr069_acs',
-                'servicio_id' => (int) $servicio->servicio_id,
-                'wifi_id' => $wifiId,
-                'ssid' => $ssid,
-                'ssids' => $ssidsOut,
-                'pending_inform' => (bool) ($estado['pending_inform'] ?? false),
-            ],
+            'data' => $data,
         ];
     }
 
@@ -269,6 +296,23 @@ class PortalCpeWifiService
     }
 
     /**
+     * Infere banda desde el nombre SSID (Huawei no manda band en display wifi).
+     * Acepta variantes: "X-5G", "X_5G", "X-5G-", "X 5GHz", "X-2.4G".
+     */
+    public static function inferBandFromSsid(string $ssid): string
+    {
+        // 5G / 5GHz en cualquier posición (evita marcar 2.4 como 5 por un dígito suelto).
+        if (preg_match('/(^|[^0-9])5\s*G(Hz)?([^a-z0-9]|$)/i', $ssid) === 1) {
+            return '5GHz';
+        }
+        if (preg_match('/2\.?\s*4/i', $ssid) === 1) {
+            return '2.4GHz';
+        }
+
+        return '2.4GHz';
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $wifi
      * @return list<array{id: string, ssid: string, enabled: bool, band: string|null}>
      */
@@ -282,11 +326,73 @@ class PortalCpeWifiService
                 continue;
             }
             $band = $net['band'] ?? null;
+            if (! is_string($band) || $band === '') {
+                $band = self::inferBandFromPortalWifiId($id) ?? self::inferBandFromSsid($ssid);
+            }
             $out[] = [
                 'id' => $id,
                 'ssid' => $ssid,
                 'enabled' => (bool) ($net['enabled'] ?? false),
                 'band' => is_string($band) && $band !== '' ? $band : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * TR-098 / Huawei bajo ACS: WLANConfiguration.1 ≈ 2.4, .5+ ≈ 5 GHz.
+     */
+    public static function inferBandFromPortalWifiId(string $id): ?string
+    {
+        if (preg_match('/(?:wlan|ap|hw)-(?:\d+-)?(\d+)$/i', $id, $m) !== 1) {
+            return null;
+        }
+        $idx = (int) $m[1];
+        if ($idx >= 5) {
+            return '5GHz';
+        }
+        if ($idx >= 1) {
+            return '2.4GHz';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string|array{ssid?: string, band?: string|null, id?: string, enabled?: bool, index?: int}>  $ssids
+     * @return list<array{id: string, ssid: string, enabled: bool, band: string|null}>
+     */
+    public static function mapHuaweiSsidsForPortal(array $ssids): array
+    {
+        $out = [];
+        foreach (array_values($ssids) as $i => $row) {
+            if (is_array($row)) {
+                $name = trim((string) ($row['ssid'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $out[] = [
+                    'id' => (string) ($row['id'] ?? ('hw-'.($row['index'] ?? $i))),
+                    'ssid' => $name,
+                    'enabled' => (bool) ($row['enabled'] ?? true),
+                    'band' => isset($row['band']) && is_string($row['band']) && $row['band'] !== ''
+                        ? $row['band']
+                        : self::inferBandFromSsid($name),
+                ];
+
+                continue;
+            }
+
+            $name = trim((string) $row);
+            if ($name === '') {
+                continue;
+            }
+            $out[] = [
+                'id' => 'hw-'.$i,
+                'ssid' => $name,
+                'enabled' => true,
+                'band' => self::inferBandFromSsid($name),
             ];
         }
 
@@ -301,13 +407,207 @@ class PortalCpeWifiService
             self::REASON_CPE_NOT_FOUND => 'El router todavía no se reportó al sistema. Probá más tarde o usá 192.168.1.1.',
             self::REASON_ACS_UNREACHABLE, self::REASON_ACS_NOT_CONFIGURED => 'No se pudo consultar el router ahora. Probá más tarde o usá 192.168.1.1.',
             self::REASON_RATE_LIMITED => 'Demasiados cambios. Esperá un rato.',
+            self::REASON_HUAWEI_NEEDS_PASSWORD => 'En esta ONU hay que enviar la nueva clave junto con el nombre Wi‑Fi.',
             default => self::HINT_MANUAL,
         };
+    }
+
+    /**
+     * @return array{
+     *   can_change: bool,
+     *   can_rename: bool,
+     *   source: string|null,
+     *   servicio_id: int|null,
+     *   password_readable: false,
+     *   pending_inform: bool,
+     *   ssids: list<array{id: string, ssid: string, enabled: bool, band: string|null}>,
+     *   reason: string|null,
+     *   hint: string|null
+     * }
+     */
+    private function estadoHuawei(Servicio $servicio): array
+    {
+        $result = $this->huawei->leerWifi($servicio);
+        if (! ($result['success'] ?? false)) {
+            Log::info('[Portal CPE WiFi] soft-fail huawei leer', [
+                'servicio_id' => $servicio->servicio_id,
+                'message' => $result['message'] ?? null,
+            ]);
+
+            return $this->noSoportado(self::REASON_NO_SSID, (int) $servicio->servicio_id);
+        }
+
+        // Preferir radios con banda detectada por canal/estándar/índice (no por nombre).
+        $ssids = self::mapHuaweiSsidsForPortal(
+            ! empty($result['radios']) ? $result['radios'] : ($result['ssids'] ?? [])
+        );
+        if ($ssids === [] && filled($result['ssid'] ?? null)) {
+            $ssids = self::mapHuaweiSsidsForPortal([(string) $result['ssid']]);
+        }
+        if ($ssids === []) {
+            return $this->noSoportado(self::REASON_NO_SSID, (int) $servicio->servicio_id);
+        }
+
+        return [
+            'can_change' => true,
+            'can_rename' => true,
+            'source' => self::SOURCE_HUAWEI,
+            'servicio_id' => (int) $servicio->servicio_id,
+            'password_readable' => false,
+            'pending_inform' => false,
+            'ssids' => $ssids,
+            'reason' => null,
+            'hint' => 'El cambio se aplica al instante en la ONU. Los celulares tendrán que reconectarse.',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $estado
+     * @return array{success: bool, http: int, message: string, data: array<string, mixed>}
+     */
+    private function cambiarHuawei(
+        Cliente $cliente,
+        Servicio $servicio,
+        array $estado,
+        ?string $password,
+        ?string $ssid,
+        string $rateKey,
+    ): array {
+        // Huawei CLI exige SSID + clave juntos.
+        if ($password === null) {
+            return [
+                'success' => false,
+                'http' => 422,
+                'message' => self::hintPara(self::REASON_HUAWEI_NEEDS_PASSWORD),
+                'data' => array_merge($estado, [
+                    'reason' => self::REASON_HUAWEI_NEEDS_PASSWORD,
+                ]),
+            ];
+        }
+
+        if ($ssid === null) {
+            $ssid = trim((string) ($estado['ssids'][0]['ssid'] ?? ''));
+            if ($ssid === '') {
+                return [
+                    'success' => false,
+                    'http' => 422,
+                    'message' => 'No hay SSID actual para aplicar la clave. Indicá también el nombre de red.',
+                    'data' => array_merge($estado, ['reason' => self::REASON_NO_SSID]),
+                ];
+            }
+        }
+
+        try {
+            @set_time_limit(60);
+            $result = $this->huawei->cambiarWifi($servicio, $ssid, $password);
+        } catch (Throwable $e) {
+            Log::warning('[Portal CPE WiFi] cambiar huawei', [
+                'cliente_id' => $cliente->cliente_id,
+                'servicio_id' => $servicio->servicio_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'http' => 502,
+                'message' => 'No se pudo contactar la ONU para cambiar el Wi‑Fi.',
+                'data' => array_merge($estado, [
+                    'can_change' => false,
+                    'reason' => self::REASON_ACS_UNREACHABLE,
+                ]),
+            ];
+        }
+
+        if (! ($result['success'] ?? false)) {
+            return [
+                'success' => false,
+                'http' => 422,
+                'message' => (string) ($result['message'] ?? 'No se pudo cambiar el Wi‑Fi en la ONU.'),
+                'data' => array_merge($estado, [
+                    'reason' => self::REASON_NO_SSID,
+                ]),
+            ];
+        }
+
+        RateLimiter::hit($rateKey, 3600);
+
+        $ticket = $this->registrarAccionWifi($cliente, $servicio, $password, $ssid, 'all', self::SOURCE_HUAWEI, $estado);
+
+        $ssidsOut = self::mapHuaweiSsidsForPortal(
+            ! empty($result['radios']) ? $result['radios'] : ($result['ssids'] ?? [$ssid])
+        );
+
+        Log::info('[Portal CPE WiFi] cambio huawei aplicado', [
+            'cliente_id' => $cliente->cliente_id,
+            'servicio_id' => $servicio->servicio_id,
+            'via' => $result['via'] ?? null,
+        ]);
+
+        $data = [
+            'queued' => false,
+            'applied_now' => true,
+            'source' => self::SOURCE_HUAWEI,
+            'servicio_id' => (int) $servicio->servicio_id,
+            'wifi_id' => 'all',
+            'ssid' => $ssid,
+            'ssids' => $ssidsOut !== [] ? $ssidsOut : $estado['ssids'],
+            'pending_inform' => false,
+        ];
+        if ($ticket) {
+            $data['ticket'] = $ticket;
+        }
+
+        return [
+            'success' => true,
+            'http' => 200,
+            'message' => (string) ($result['message'] ?? 'Wi‑Fi actualizado en la ONU.'),
+            'data' => $data,
+        ];
+    }
+
+    /**
+     * Historial portal + ticket resuelto (tema Wi‑Fi).
+     *
+     * @param  array<string, mixed>  $estado
+     * @return array{id: int, estado: string, fecha_cierre: string|null, asunto: string}|null
+     */
+    private function registrarAccionWifi(
+        Cliente $cliente,
+        Servicio $servicio,
+        ?string $password,
+        ?string $ssid,
+        string $wifiId,
+        string $source,
+        array $estado
+    ): ?array {
+        $ssidGuardar = $ssid;
+        if ($ssidGuardar === null) {
+            $ssidGuardar = trim((string) ($estado['ssids'][0]['ssid'] ?? ''));
+            $ssidGuardar = $ssidGuardar !== '' ? $ssidGuardar : null;
+        }
+
+        app(PortalClienteAccionService::class)->registrarWifi($cliente, $servicio, [
+            'ssid' => $ssidGuardar,
+            'wifi_id' => $wifiId,
+            'password' => $password,
+            'source' => $source,
+        ]);
+
+        return app(PortalAccionTicketService::class)->ticketCambioWifi(
+            $cliente,
+            (int) $servicio->servicio_id,
+            $password !== null,
+            $ssid !== null,
+            $ssidGuardar,
+            $wifiId,
+            $source
+        );
     }
 
     private function resolverServicio(Cliente $cliente, ?int $servicioId): ?Servicio
     {
         $base = Servicio::query()
+            ->with(['pool.router.nodo', 'plan', 'cajaNapPuertoActivo'])
             ->where('cliente_id', $cliente->cliente_id)
             ->where('estado', '!=', Servicio::ESTADO_CANCELADO);
 
@@ -325,12 +625,57 @@ class PortalCpeWifiService
             return $acs;
         }
 
+        $huawei = $servicios->first(fn (Servicio $s) => $this->puedeHuawei($s));
+        if ($huawei) {
+            return $huawei;
+        }
+
         return $servicios->first();
+    }
+
+    private function puedeHuawei(Servicio $servicio): bool
+    {
+        $ip = trim((string) ($servicio->ip ?? ''));
+        if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            return false;
+        }
+
+        if (CpeInventario::esHuaweiOnu($servicio) || CpeInventario::usaSshCpe($servicio)) {
+            return true;
+        }
+
+        if (! $this->servicioEsFibra($servicio)) {
+            return false;
+        }
+
+        return HuaweiOnuWeb::detectarCacheado(
+            $ip,
+            (int) config('huawei.web_port', 80),
+            (int) config('huawei.web_detect_timeout', 3)
+        );
+    }
+
+    private function servicioEsFibra(Servicio $servicio): bool
+    {
+        if ($servicio->cajaNapPuertoActivo) {
+            return true;
+        }
+        if ($servicio->pool?->olt_id) {
+            return true;
+        }
+        if ($servicio->pool?->router?->nodo?->manejaGpon()) {
+            return true;
+        }
+        $planNombre = strtolower((string) ($servicio->plan?->nombre ?? ''));
+
+        return str_contains($planNombre, 'fibra')
+            || str_contains($planNombre, 'gpon')
+            || str_contains($planNombre, 'ftth');
     }
 
     private function motivoNoAcs(Servicio $servicio): ?string
     {
-        if (CpeInventario::usaSshCpe($servicio)) {
+        if (CpeInventario::usaSshCpe($servicio) && ! $this->puedeHuawei($servicio)) {
             return self::REASON_SSH_CPE;
         }
         if (! $this->acs->configured()) {
@@ -362,6 +707,7 @@ class PortalCpeWifiService
     /**
      * @return array{
      *   can_change: false,
+     *   can_rename: false,
      *   source: null,
      *   servicio_id: int|null,
      *   password_readable: false,

@@ -19,11 +19,12 @@ class EnsureClientePortalApi
             ], 403);
         }
 
-        // Heartbeat last_seen para Staff Activos (soft: no bloquea el request)
+        // Heartbeat last_seen + app_version para Staff / solicitudes (soft: no bloquea)
         try {
             app(DispositivoHeartbeatService::class)->tocarLastSeen(
                 (int) $user->cliente_id,
-                $request->header('X-Device-Name')
+                $request->header('X-Device-Name'),
+                DispositivoHeartbeatService::versionDesdeRequest($request)
             );
         } catch (\Throwable) {
             // ignore

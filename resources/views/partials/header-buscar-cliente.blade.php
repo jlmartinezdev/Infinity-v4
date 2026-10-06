@@ -55,7 +55,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
         </button>
-        <kbd class="hidden sm:flex absolute inset-y-0 right-2 items-center text-[10px] font-medium text-gray-400 dark:text-gray-500 pointer-events-none">Ctrl K</kbd>
+        
     </div>
     <ul
         id="header-cliente-resultados"
@@ -142,6 +142,7 @@
             meta.className = 'block text-xs text-gray-500 dark:text-gray-400 truncate';
             var partes = ['#' + c.cliente_id];
             if (c.cedula) partes.push(c.cedula);
+            if (c.alias) partes.push(c.alias);
             var est = etiquetaEstado(c.estado);
             if (est) partes.push(est);
             meta.textContent = partes.join(' · ');

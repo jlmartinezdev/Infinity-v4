@@ -65,6 +65,8 @@ class ApiController extends Controller
                 'telefono' => $user->cliente->telefono,
                 'direccion' => $user->cliente->direccion,
                 'estado' => $user->cliente->estado,
+                'debe_cambiar_clave_app' => (bool) ($user->cliente->debe_cambiar_clave_app ?? false),
+                'push_cambio_clave' => (bool) ($user->cliente->push_cambio_clave ?? true),
             ] : null,
         ];
     }

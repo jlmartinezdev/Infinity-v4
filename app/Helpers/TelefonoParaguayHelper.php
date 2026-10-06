@@ -46,6 +46,28 @@ class TelefonoParaguayHelper
     }
 
     /**
+     * Muestra un móvil paraguayo como 595 9XX XXXXXX (ej. 595 984 995239).
+     */
+    public static function formatear(?string $raw): string
+    {
+        $original = trim((string) $raw);
+        if ($original === '') {
+            return '';
+        }
+
+        $norm = self::normalize($raw);
+        if ($norm !== null && str_starts_with($norm, '09') && strlen($norm) === 10) {
+            $nacional = substr($norm, 1);
+
+            return '595 '.substr($nacional, 0, 3).' '.substr($nacional, 3);
+        }
+
+        $digits = preg_replace('/\D/', '', $original) ?? '';
+
+        return $digits !== '' ? $digits : $original;
+    }
+
+    /**
      * Indica si otro cliente (distinto de $excludeClienteId) con al menos un pedido
      * tiene el mismo número normalizado.
      */

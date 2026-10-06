@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Factura;
 use App\Services\Sifen\SifenService;
+use App\Support\DocumentoParaguaySifen;
+use App\Support\FacturaFechaTopeEmision;
 use App\Support\FacturaLimiteMes;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -46,6 +48,34 @@ class EmitirFacturaSifenJob implements ShouldBeUnique, ShouldQueue
 
         // Ya enviada a lote o autorizada: no reemitir.
         if ($factura->lotePendienteSifen() || $factura->set_estado_envio === 'autorizado') {
+            return;
+        }
+
+        $topeFecha = FacturaFechaTopeEmision::evaluar($factura->fecha_emision);
+        if (! $topeFecha['ok']) {
+            $factura->update([
+                'set_estado_envio' => 'rechazado',
+                'set_xml_respuesta' => $topeFecha['message'],
+            ]);
+            Log::warning('[SIFEN job] Emisión bloqueada por fecha tope', [
+                'factura_id' => $this->facturaId,
+                'fecha_emision' => $factura->fecha_emision?->toDateString(),
+            ]);
+
+            return;
+        }
+
+        $doc = DocumentoParaguaySifen::evaluarFactura($factura);
+        if (! $doc['ok']) {
+            $factura->update([
+                'set_estado_envio' => 'rechazado',
+                'set_xml_respuesta' => $doc['message'],
+            ]);
+            Log::warning('[SIFEN job] Emisión bloqueada por documento inválido', [
+                'factura_id' => $this->facturaId,
+                'documento' => $doc['documento'],
+            ]);
+
             return;
         }
 

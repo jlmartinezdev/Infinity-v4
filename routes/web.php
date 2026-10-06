@@ -89,6 +89,9 @@ use Illuminate\Support\Facades\Route;
 // Rutas de autenticación
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login/dispositivo', [AuthController::class, 'loginDispositivo'])
+    ->middleware('throttle:20,1')
+    ->name('login.dispositivo');
 
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
@@ -222,6 +225,7 @@ Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
     Route::get('/clientes/mapa-activos/ping-estados', [ClienteController::class, 'mapaActivosPingEstados'])->name('clientes.mapa-activos.ping-estados');
     Route::post('/clientes/mapa-activos/ejecutar-ping', [ClienteController::class, 'mapaActivosEjecutarPing'])->name('clientes.mapa-activos.ejecutar-ping');
     Route::get('/clientes/{cliente}/detalle', [ClienteController::class, 'detalle'])->name('clientes.detalle');
+    Route::get('/clientes/{cliente}/contrato', [ClienteController::class, 'contrato'])->name('clientes.contrato');
     Route::put('/clientes/{cliente}/saldo-a-favor', [ClienteController::class, 'actualizarSaldoAFavor'])->name('clientes.actualizar-saldo-a-favor');
     Route::get('/clientes/{cliente}/acciones', [ClienteController::class, 'acciones'])->name('clientes.acciones');
     Route::get('/clientes/create', [ClienteController::class, 'create'])->name('clientes.create')->middleware('permiso:clientes.crear');
@@ -249,9 +253,13 @@ Route::get('/clientes/mapas-pedidos/clientes', [StaffMapaController::class, 'cli
 // Solicitudes de acceso (App móvil) — permiso dedicado, no hereda de clientes
 Route::middleware(['auth', 'permiso:solicitudes-acceso.ver'])->group(function () {
     Route::get('/solicitudes-acceso', [SolicitudAccesoWebController::class, 'index'])->name('solicitudes-acceso.index');
+    Route::get('/solicitudes-acceso/buscar-clientes', [SolicitudAccesoWebController::class, 'buscarClientes'])
+        ->middleware('permiso:solicitudes-acceso.editar')
+        ->name('solicitudes-acceso.buscar-clientes');
     Route::get('/solicitudes-acceso/{solicitud}', [SolicitudAccesoWebController::class, 'show'])->name('solicitudes-acceso.show');
 });
 Route::middleware(['auth', 'permiso:solicitudes-acceso.editar'])->group(function () {
+    Route::put('/solicitudes-acceso/{solicitud}', [SolicitudAccesoWebController::class, 'actualizar'])->name('solicitudes-acceso.actualizar');
     Route::post('/solicitudes-acceso/{solicitud}/aprobar', [SolicitudAccesoWebController::class, 'aprobar'])->name('solicitudes-acceso.aprobar');
     Route::post('/solicitudes-acceso/{solicitud}/rechazar', [SolicitudAccesoWebController::class, 'rechazar'])->name('solicitudes-acceso.rechazar');
     Route::post('/solicitudes-acceso/{solicitud}/reenviar-clave', [SolicitudAccesoWebController::class, 'reenviarClave'])->name('solicitudes-acceso.reenviar-clave');
@@ -526,10 +534,15 @@ Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
     Route::get('/facturas', [FacturaController::class, 'index'])->name('facturas.index');
     Route::get('/facturas/pdf-resumen', [FacturaController::class, 'pdfResumen'])->name('facturas.pdf-resumen');
     Route::post('/facturas/limite-mes', [FacturaController::class, 'guardarLimiteMes'])->name('facturas.limite-mes');
+    Route::post('/facturas/fecha-tope-emision', [FacturaController::class, 'guardarFechaTopeEmision'])->name('facturas.fecha-tope-emision');
     Route::get('/facturas/generar-interna', [FacturaController::class, 'generarInterna'])->name('facturas.generar-interna');
     Route::get('/facturas/create', [FacturaController::class, 'create'])->name('facturas.create')->middleware('permiso:facturas.crear');
     Route::get('/facturas/create/manual', [FacturaController::class, 'createManual'])->name('facturas.create-manual')->middleware('permiso:facturas.crear');
     Route::get('/facturas/create/cliente/{cliente}', [FacturaController::class, 'createParaCliente'])->name('facturas.create-cliente')->middleware('permiso:facturas.crear');
+    Route::get('/facturas/{factura}/kude', [FacturaController::class, 'descargarKude'])->name('facturas.kude');
+    Route::get('/facturas/{factura}/kude-pos', [FacturaController::class, 'verKudePos'])->name('facturas.kude-pos');
+    Route::get('/facturas/{factura}/xml', [FacturaController::class, 'descargarXml'])->name('facturas.xml');
+    Route::get('/facturas/{factura}', [FacturaController::class, 'show'])->name('facturas.show');
 });
 Route::get('/facturacion/dashboard', [FacturacionDashboardController::class, 'index'])
     ->name('facturacion.dashboard')
@@ -543,6 +556,7 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::post('/facturas', [FacturaController::class, 'store'])->name('facturas.store');
     Route::post('/facturas/masivo', [FacturaController::class, 'storeMasivo'])->name('facturas.store-masivo');
     Route::post('/facturas/listas', [FacturaController::class, 'storeLista'])->name('facturas.listas.store');
+    Route::get('/facturas/listas/{lista}', [FacturaController::class, 'showLista'])->name('facturas.listas.show');
     Route::post('/facturas/listas/{lista}/facturar', [FacturaController::class, 'facturarLista'])->name('facturas.listas.facturar');
     Route::delete('/facturas/listas/{lista}', [FacturaController::class, 'destroyLista'])->name('facturas.listas.destroy');
     Route::post('/facturas/generar-interna', [FacturaController::class, 'storeGenerarInterna'])->name('facturas.store-generar-interna');
@@ -556,18 +570,13 @@ Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
     Route::get('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'crearInternaFraccionDeudaServicio'])->name('facturas.crear-interna-servicio-fraccion-deuda');
     Route::post('/facturas/crear-interna-servicio-fraccion-deuda/{servicio}', [FacturaController::class, 'storeInternaFraccionDeudaServicio'])->name('facturas.store-interna-servicio-fraccion-deuda');
     Route::post('/facturas/suspender-falta-pago', [FacturaController::class, 'suspenderFaltaPago'])->name('facturas.suspender-falta-pago');
+    Route::post('/facturas/emitir-lote', [FacturaController::class, 'emitirLote'])->name('facturas.emitir-lote');
     Route::post('/facturas/{factura}/emitir', [FacturaController::class, 'emitir'])->name('facturas.emitir');
     Route::post('/facturas/{factura}/cancelar', [FacturaController::class, 'cancelar'])->name('facturas.cancelar');
     Route::post('/facturas/{factura}/nota-credito', [FacturaController::class, 'prepararNotaCredito'])->name('facturas.nota-credito');
     Route::post('/facturas/{factura}/consultar-lote', [FacturaController::class, 'consultarLote'])->name('facturas.consultar-lote');
     Route::post('/facturas/consultar-lotes', [FacturaController::class, 'consultarLotesPendientes'])->name('facturas.consultar-lotes');
-});
-Route::middleware(['auth', 'permiso:facturas.crear'])->group(function () {
-    Route::get('/facturas/{factura}/kude', [FacturaController::class, 'descargarKude'])->name('facturas.kude');
-    Route::get('/facturas/{factura}/kude-pos', [FacturaController::class, 'verKudePos'])->name('facturas.kude-pos');
-    Route::get('/facturas/{factura}/xml', [FacturaController::class, 'descargarXml'])->name('facturas.xml');
     Route::post('/facturas/{factura}/whatsapp', [FacturaController::class, 'enviarWhatsApp'])->name('facturas.enviar-whatsapp');
-    Route::get('/facturas/{factura}', [FacturaController::class, 'show'])->name('facturas.show');
     Route::get('/facturas/{factura}/edit', [FacturaController::class, 'edit'])->name('facturas.edit');
     Route::put('/facturas/{factura}', [FacturaController::class, 'update'])->name('facturas.update');
 });
@@ -659,6 +668,7 @@ Route::middleware(['auth', 'permiso:tickets.crear'])->group(function () {
 Route::middleware(['auth', 'permiso:tickets.crear'])->group(function () {
     Route::get('/tickets/{ticket}/crear-agenda', [TicketController::class, 'crearAgenda'])->name('tickets.crear-agenda');
     Route::patch('/tickets/{ticket}/estado', [TicketController::class, 'updateEstado'])->name('tickets.update-estado');
+    Route::post('/tickets/bulk-update', [TicketController::class, 'bulkUpdate'])->name('tickets.bulk-update');
     Route::get('/tickets/{ticket}/edit', [TicketController::class, 'edit'])->name('tickets.edit');
     Route::put('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
 });

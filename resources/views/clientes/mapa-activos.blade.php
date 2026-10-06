@@ -31,7 +31,7 @@
                     @else
                         En mapa: <strong>{{ number_format($statsMapa['en_mapa'] ?? 0) }}</strong>
                     @endif
-                    · Con servicio activo y ubicación: {{ number_format($statsMapa['total_candidatos'] ?? 0) }}
+                    · Con servicio vigente y ubicación: {{ number_format($statsMapa['total_candidatos'] ?? 0) }}
                     @if(($statsMapa['sin_coordenadas'] ?? 0) > 0)
                         · Sin coordenadas parseables: {{ number_format($statsMapa['sin_coordenadas']) }}
                     @endif
@@ -98,7 +98,7 @@
 
     @if (empty($puntos))
         <div class="mt-4 px-4 py-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-            No hay clientes con servicio activo y coordenadas válidas. Revisá que tengan URL de ubicación o GPS en el pedido (formato coordenadas o enlace de Google Maps).
+            No hay clientes con servicio activo o suspendido y coordenadas válidas. Revisá que tengan URL de ubicación o GPS en el pedido (formato coordenadas o enlace de Google Maps).
         </div>
     @elseif(!empty($pingEstadoFiltro) && ($statsMapa['en_mapa'] ?? 0) === 0)
         <div class="mt-4 px-4 py-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">

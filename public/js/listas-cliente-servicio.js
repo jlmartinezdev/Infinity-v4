@@ -27406,6 +27406,10 @@ var UMBRAL_SCROLL_SUBIR = 320;
       type: String,
       default: ''
     },
+    urlContratoClienteBase: {
+      type: String,
+      default: ''
+    },
     puedeEditar: {
       type: Boolean,
       default: false
@@ -27667,6 +27671,12 @@ var UMBRAL_SCROLL_SUBIR = 320;
         return b.replace('__id__', id);
       } : null;
     });
+    var urlContratoCliente = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      var b = props.urlContratoClienteBase;
+      return b && String(b).includes('__id__') ? function (id) {
+        return b.replace('__id__', id);
+      } : null;
+    });
     function normalizarTexto(valor) {
       return (valor || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
     }
@@ -27674,9 +27684,9 @@ var UMBRAL_SCROLL_SUBIR = 320;
       if (!termino) return true;
       var tokens = normalizarTexto(termino).split(' ').filter(Boolean);
       if (tokens.length === 0) return true;
-      var textoCliente = normalizarTexto([cliente.nombre, cliente.apellido, cliente.cedula, cliente.email, cliente.telefono, cliente.celular, cliente.direccion].concat(_toConsumableArray(Array.isArray(cliente.servicios) ? cliente.servicios.flatMap(function (s) {
+      var textoCliente = normalizarTexto([cliente.cliente_id, cliente.nombre, cliente.apellido, cliente.cedula, cliente.email, cliente.telefono, cliente.celular, cliente.direccion].concat(_toConsumableArray(Array.isArray(cliente.servicios) ? cliente.servicios.flatMap(function (s) {
         var _s$plan;
-        return [s.alias, (_s$plan = s.plan) === null || _s$plan === void 0 ? void 0 : _s$plan.nombre, s.ip];
+        return [s.servicio_id, s.alias, (_s$plan = s.plan) === null || _s$plan === void 0 ? void 0 : _s$plan.nombre, s.ip];
       }) : [])).filter(Boolean).join(' '));
       return tokens.every(function (token) {
         return textoCliente.includes(token);
@@ -28157,6 +28167,7 @@ var UMBRAL_SCROLL_SUBIR = 320;
       urlCreate: urlCreate,
       urlDetalleCliente: urlDetalleCliente,
       urlAccionesCliente: urlAccionesCliente,
+      urlContratoCliente: urlContratoCliente,
       normalizarTexto: normalizarTexto,
       coincideBusqueda: coincideBusqueda,
       clientesFiltrados: clientesFiltrados,
@@ -28627,11 +28638,11 @@ var STORAGE_KEY_BUSCAR = 'servicios_index_buscar';
       return (valor || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
     }
     function coincideBusquedaServicio(servicio, termino) {
-      var _servicio$cliente, _servicio$cliente2, _servicio$cliente3, _servicio$plan, _servicio$pool, _servicio$pool2;
+      var _servicio$cliente, _servicio$cliente2, _servicio$cliente3, _servicio$cliente4, _servicio$plan, _servicio$pool, _servicio$pool2;
       if (!termino) return true;
       var tokens = normalizarTexto(termino).split(' ').filter(Boolean);
       if (tokens.length === 0) return true;
-      var textoServicio = normalizarTexto([(_servicio$cliente = servicio.cliente) === null || _servicio$cliente === void 0 ? void 0 : _servicio$cliente.nombre, (_servicio$cliente2 = servicio.cliente) === null || _servicio$cliente2 === void 0 ? void 0 : _servicio$cliente2.apellido, (_servicio$cliente3 = servicio.cliente) === null || _servicio$cliente3 === void 0 ? void 0 : _servicio$cliente3.cedula, servicio.ip, servicio.usuario_pppoe, (_servicio$plan = servicio.plan) === null || _servicio$plan === void 0 ? void 0 : _servicio$plan.nombre, servicio.alias, (_servicio$pool = servicio.pool) === null || _servicio$pool === void 0 || (_servicio$pool = _servicio$pool.router) === null || _servicio$pool === void 0 ? void 0 : _servicio$pool.nombre, (_servicio$pool2 = servicio.pool) === null || _servicio$pool2 === void 0 || (_servicio$pool2 = _servicio$pool2.router) === null || _servicio$pool2 === void 0 || (_servicio$pool2 = _servicio$pool2.nodo) === null || _servicio$pool2 === void 0 ? void 0 : _servicio$pool2.descripcion, servicio.servicio_id].filter(Boolean).join(' '));
+      var textoServicio = normalizarTexto([(_servicio$cliente = servicio.cliente) === null || _servicio$cliente === void 0 ? void 0 : _servicio$cliente.cliente_id, (_servicio$cliente2 = servicio.cliente) === null || _servicio$cliente2 === void 0 ? void 0 : _servicio$cliente2.nombre, (_servicio$cliente3 = servicio.cliente) === null || _servicio$cliente3 === void 0 ? void 0 : _servicio$cliente3.apellido, (_servicio$cliente4 = servicio.cliente) === null || _servicio$cliente4 === void 0 ? void 0 : _servicio$cliente4.cedula, servicio.ip, servicio.usuario_pppoe, (_servicio$plan = servicio.plan) === null || _servicio$plan === void 0 ? void 0 : _servicio$plan.nombre, servicio.alias, (_servicio$pool = servicio.pool) === null || _servicio$pool === void 0 || (_servicio$pool = _servicio$pool.router) === null || _servicio$pool === void 0 ? void 0 : _servicio$pool.nombre, (_servicio$pool2 = servicio.pool) === null || _servicio$pool2 === void 0 || (_servicio$pool2 = _servicio$pool2.router) === null || _servicio$pool2 === void 0 || (_servicio$pool2 = _servicio$pool2.nodo) === null || _servicio$pool2 === void 0 ? void 0 : _servicio$pool2.descripcion, servicio.servicio_id].filter(Boolean).join(' '));
       return tokens.every(function (token) {
         return textoServicio.includes(token);
       });
@@ -29264,8 +29275,9 @@ var _hoisted_84 = {
 var _hoisted_85 = ["disabled"];
 var _hoisted_86 = ["href"];
 var _hoisted_87 = ["href"];
-var _hoisted_88 = ["disabled"];
-var _hoisted_89 = {
+var _hoisted_88 = ["href"];
+var _hoisted_89 = ["disabled"];
+var _hoisted_90 = {
   key: 0,
   class: "w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400",
   fill: "none",
@@ -29273,15 +29285,15 @@ var _hoisted_89 = {
   viewBox: "0 0 24 24",
   "aria-hidden": "true"
 };
-var _hoisted_90 = {
+var _hoisted_91 = {
   key: 1,
   class: "w-4 h-4 shrink-0 animate-spin text-amber-600 dark:text-amber-400",
   fill: "none",
   viewBox: "0 0 24 24",
   "aria-hidden": "true"
 };
-var _hoisted_91 = ["href"];
 var _hoisted_92 = ["href"];
+var _hoisted_93 = ["href"];
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   var _$setup$modalRucClien, _$setup$modalRucClien2, _$setup$modalRucClien3;
   return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_1, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_2, [!$props.hideSearchBar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_3, [_cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
@@ -29301,7 +29313,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       return $setup.buscar = $event;
     }),
     type: "text",
-    placeholder: "Buscar por cédula, nombre, apellido, email o teléfono...",
+    placeholder: "Buscar por nº cliente, cédula, nombre, apellido, email o teléfono...",
     class: "w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
   }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.buscar]]), $setup.buscar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
     key: 0,
@@ -29371,7 +29383,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "px-4 py-8 text-center text-gray-500 dark:text-gray-400"
   }, " No hay clientes para los filtros aplicados. ", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.clientesFiltrados, function (c, idx) {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.clientesFiltrados, function (c) {
     var _c$servicios, _c$servicios2, _c$servicios3, _c$servicios4, _c$servicios5, _c$servicios6;
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: c.cliente_id
@@ -29396,7 +29408,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         var _c$servicios9;
         return ((_c$servicios9 = c.servicios) === null || _c$servicios9 === void 0 ? void 0 : _c$servicios9.length) && $setup.toggle(c.cliente_id);
       }, ["prevent"]), ["space"])]
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_11, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.firstItem + idx), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_12, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.apellido), 1 /* TEXT */), _cache[19] || (_cache[19] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("br", null, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatDocument(c.cedula)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_15, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_11, " #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.cliente_id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_12, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.apellido), 1 /* TEXT */), _cache[19] || (_cache[19] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("br", null, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatDocument(c.cedula)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", _hoisted_15, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
       class: "truncate",
       title: c.direccion || ''
     }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.direccion || '—'), 9 /* TEXT, PROPS */, _hoisted_16), $setup.getMapsUrl(c) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
@@ -29715,15 +29727,34 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ver detalle ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_87)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ver detalle ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_87)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.urlContratoCliente ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
     key: 2,
+    href: $setup.urlContratoCliente($setup.clienteMenuAcciones.cliente_id),
+    target: "_blank",
+    rel: "noopener",
+    class: "flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80",
+    role: "menuitem",
+    onClick: $setup.cerrarMenuAcciones
+  }, _toConsumableArray(_cache[47] || (_cache[47] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    class: "w-4 h-4 shrink-0 text-gray-700 dark:text-gray-300",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    "aria-hidden": "true"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": "2",
+    d: "M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Imprimir contrato ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_88)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+    key: 3,
     type: "button",
     class: "flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80",
     role: "menuitem",
     onClick: _cache[10] || (_cache[10] = function ($event) {
       return $setup.accionBuscarTemp($setup.clienteMenuAcciones);
     })
-  }, _toConsumableArray(_cache[47] || (_cache[47] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[48] || (_cache[48] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400",
     fill: "none",
     stroke: "currentColor",
@@ -29735,7 +29766,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-width": "2",
     d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
   })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Buscar en temp ", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.puedeConsultarRuc($setup.clienteMenuAcciones) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
-    key: 3,
+    key: 4,
     type: "button",
     class: "flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80 disabled:opacity-50",
     role: "menuitem",
@@ -29743,12 +29774,12 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: _cache[11] || (_cache[11] = function ($event) {
       return $setup.accionConsultarRuc($setup.clienteMenuAcciones);
     })
-  }, [$setup.consultaRucLoadingId !== $setup.clienteMenuAcciones.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_89, _toConsumableArray(_cache[48] || (_cache[48] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [$setup.consultaRucLoadingId !== $setup.clienteMenuAcciones.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_90, _toConsumableArray(_cache[49] || (_cache[49] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_90, _toConsumableArray(_cache[49] || (_cache[49] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_91, _toConsumableArray(_cache[50] || (_cache[50] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
     class: "opacity-25",
     cx: "12",
     cy: "12",
@@ -29759,13 +29790,13 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "opacity-75",
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  }, null, -1 /* CACHED */)])))), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.consultaRucLoadingId === $setup.clienteMenuAcciones.cliente_id ? 'Consultando RUC…' : 'Consultar RUC'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_88)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.urlCreateServicioBase && (!$setup.clienteMenuAcciones.servicios || $setup.clienteMenuAcciones.servicios.length === 0) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
-    key: 4,
+  }, null, -1 /* CACHED */)])))), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.consultaRucLoadingId === $setup.clienteMenuAcciones.cliente_id ? 'Consultando RUC…' : 'Consultar RUC'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_89)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $props.urlCreateServicioBase && (!$setup.clienteMenuAcciones.servicios || $setup.clienteMenuAcciones.servicios.length === 0) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
+    key: 5,
     href: $setup.urlCreateServicio($setup.clienteMenuAcciones.cliente_id),
     class: "flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80",
     role: "menuitem",
     onClick: $setup.cerrarMenuAcciones
-  }, _toConsumableArray(_cache[50] || (_cache[50] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[51] || (_cache[51] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-4 h-4 shrink-0 text-green-600 dark:text-green-400",
     fill: "none",
     stroke: "currentColor",
@@ -29776,12 +29807,12 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M12 4v16m8-8H4"
-  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Crear servicio ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_91)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Crear servicio ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_92)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
     href: $setup.urlEditCliente($setup.clienteMenuAcciones.cliente_id),
     class: "flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80",
     role: "menuitem",
     onClick: $setup.cerrarMenuAcciones
-  }, _toConsumableArray(_cache[51] || (_cache[51] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[52] || (_cache[52] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400",
     fill: "none",
     stroke: "currentColor",
@@ -29792,14 +29823,14 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Editar ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_92), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Editar ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_93), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-gray-200 dark:border-gray-600 mt-1 pt-2.5",
     role: "menuitem",
     onClick: _cache[12] || (_cache[12] = function ($event) {
       return $setup.eliminarCliente($setup.clienteMenuAcciones);
     })
-  }, _toConsumableArray(_cache[52] || (_cache[52] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[53] || (_cache[53] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-4 h-4 shrink-0",
     fill: "none",
     stroke: "currentColor",
@@ -31545,7 +31576,7 @@ __webpack_require__.r(__webpack_exports__);
 
 
 var SEARCH_PLACEHOLDERS = {
-  clientes: 'Buscar por cédula, nombre, apellido, email o teléfono...',
+  clientes: 'Buscar por nº cliente, cédula, nombre, apellido, email o teléfono...',
   servicios: 'Buscar por cliente, plan, IP o PPPoE...'
 };
 function getInitialBuscar() {
@@ -31578,6 +31609,7 @@ function mountClientesList() {
     urlActualizarDesdeTempBase: cfg.urlActualizarDesdeTempBase || '',
     urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
     urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',
+    urlContratoClienteBase: cfg.urlContratoClienteBase || '',
     puedeEditar: (_cfg$puedeEditar = cfg.puedeEditar) !== null && _cfg$puedeEditar !== void 0 ? _cfg$puedeEditar : false,
     initialBuscar: cfg.initialBuscar || '',
     initialEstado: cfg.initialEstado || 'todos',

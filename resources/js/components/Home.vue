@@ -310,6 +310,11 @@ const handleMenuClick = (item) => {
 
 const handleLogout = async () => {
     try {
+        localStorage.removeItem('infinity_web_sesion');
+    } catch {
+        // ignore
+    }
+    try {
         await axios.post('/api/logout');
         window.location.href = '/login';
     } catch (error) {

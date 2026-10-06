@@ -13,19 +13,19 @@ La clave **nunca** se lee (el ACS no la expone). El nombre sí: viene en el GET.
 
 ## Cuándo aplica
 
-Misma herramienta que el panel: **Servicios → Herramientas de red → TR-069**.
+Misma herramienta que el panel: **TR-069** o **ONU Huawei (Editar SSID)**.
 
-Fuente: GenieACS (`GenieAcsService::setWifi`).
+Fuentes: GenieACS (`setWifi`) o `HuaweiOnuService` (SSH/web).
 
 | Equipo | `can_change` / `can_rename` | Qué hace la app |
 |--------|-----------------------------|-----------------|
-| Router/ONT con ACS (Huawei ACS, Iuron, TP-Link, TCL, …) | `true` | Formulario nombre y/o clave |
+| Router/ONT con ACS (Iuron, TP-Link, TCL, Huawei ACS, …) | `true` · `source: tr069_acs` | Formulario nombre y/o clave |
+| ONU Huawei sin TR-069 (SSH/web, como el panel) | `true` · `source: huawei_onu` | Ver SSID; cambiar clave (y nombre si mandás clave) |
 | Solo antena Ubiquiti | `false` `no_acs` | FAQ `192.168.1.1` |
 | ONU V-SOL en bridge (sin router ACS) | `false` `no_acs` | FAQ |
-| Huawei marcado acceso SSH | `false` `ssh_cpe` | FAQ |
 | CPE aún no hizo Inform | `false` `cpe_not_found` | Retry / FAQ |
 
-No hay cambio por SSH Ubnt ni por OLT V-SOL.
+Fuente Huawei: misma que **Editar SSID** del panel (`HuaweiOnuService`). La ONU exige **SSID + clave** juntos: si la app manda solo `ssid` sin `password` → 422 `huawei_needs_password`. Si manda solo `password`, Infinity reusa el SSID actual leído de la ONU.
 
 No hay PIN/OTP: alcanza el cliente autenticado. Límite: 5 cambios/hora por cliente (nombre y clave comparten el cupo).
 
@@ -65,7 +65,7 @@ Si `can_change` / `can_rename` son `false`: no mostrar form; usar `hint` (FAQ 19
 | `can_change` | Se puede POST `password` |
 | `can_rename` | Se puede POST `ssid` (mismo ACS) |
 | `ssids[].id` | Mandar en POST `wifi_id` para una sola banda; omitir / `all` = todas las activas |
-| `ssids[].ssid` | Nombre actual visible |
+| `ssids[].band` | Preferir tecnología real: ACS `OperatingFrequencyBand`; Huawei canal/estándar/`SSID Index` (1–4 → 2.4, ≥5 → 5G). El nombre SSID es solo fallback. |
 
 ---
 
@@ -102,9 +102,25 @@ No hay cambio de clave **admin** del router en este contrato.
 
 ---
 
+## Historial (panel Infinity + tickets)
+
+Cada POST exitoso de Wi‑Fi desde la app:
+
+1. Se guarda en `portal_cliente_acciones` (máx. 40 por cliente; clave cifrada para staff).
+2. Se **autogenera un ticket resuelto** en la cuenta del cliente:
+   - Asunto: **Cambio de Contraseña en Router Wifi**
+   - `reportado_desde = app`, `estado = resuelto`, `fecha_cierre = now`
+   - Aparece en `GET /portal/tickets` como historial normal
+3. La respuesta incluye `data.ticket`: `{ id, estado, fecha_cierre, asunto }`
+
+Contrato UX diseñador: `docs/CONTRATO_UX_APP_CAMBIO_CLAVE_TICKETS.md`.
+
+---
+
 ## App (QA)
 
-1. FTTH ACS (p. ej. EG8145V5) → GET `can_rename: true` → POST `{ "ssid": "Casa" }` → la red cambia de nombre.
-2. POST `{ "password": "…" }` sigue igual (solo clave).
+1. FTTH ACS (p. ej. EG8145V5) → GET `can_rename: true` → POST `{ "ssid": "Casa" }` → la red cambia de nombre **y** aparece ticket resuelto.
+2. POST `{ "password": "…" }` → clave actualizada + ticket *Cambio de Contraseña en Router Wifi*.
 3. Cliente solo LiteBeam → `can_rename: false` → FAQ.
 4. Avisar: “vas a tener que volver a conectar los dispositivos a la red nueva”.
+5. En app → Tickets → el ítem debe verse **Resuelto** con fecha del cambio.

@@ -9,7 +9,7 @@
           v-model="busqueda"
           type="search"
           autocomplete="off"
-          placeholder="Buscar cliente por nombre, cédula, teléfono o plan…"
+          placeholder="Buscar por nº cliente, nombre, cédula, teléfono o plan…"
           class="w-full pl-9 pr-9 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
           @focus="mostrarResultados = true"
           @input="mostrarResultados = true"
@@ -38,7 +38,7 @@
               @click.stop.prevent="enfocarCliente(punto.cliente_id)"
             >
               <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {{ punto.nombre || ('Cliente #' + punto.cliente_id) }}
+                #{{ punto.cliente_id }} · {{ punto.nombre || 'Sin nombre' }}
               </div>
               <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
                 <span v-if="punto.cedula">CI {{ punto.cedula }}</span>
@@ -130,9 +130,24 @@ function normalizarTexto(valor) {
     .toLowerCase();
 }
 
+const PALABRAS_BUSQUEDA_IGNORAR = new Set(['cliente', 'clientes', 'nro', 'n', 'num', 'numero', 'id']);
+
+function extraerIdCliente(termino) {
+  const t = String(termino || '').trim();
+  const exacto = t.match(/^(?:cliente|id|nro|n|num|numero)?\s*#?(\d+)$/i);
+  if (exacto) return exacto[1];
+  const conHash = t.match(/#(\d+)/);
+  return conHash ? conHash[1] : null;
+}
+
 function clienteCoincide(punto, termino) {
   if (!termino) return true;
-  const tokens = normalizarTexto(termino).split(' ').filter(Boolean);
+  const idBuscado = extraerIdCliente(termino);
+  if (idBuscado && String(punto.cliente_id) === idBuscado) return true;
+
+  const tokens = normalizarTexto(termino)
+    .split(' ')
+    .filter((token) => token && !PALABRAS_BUSQUEDA_IGNORAR.has(token));
   if (!tokens.length) return true;
   const haystack = normalizarTexto([
     punto.cliente_id,
@@ -151,7 +166,18 @@ const resultadosBusqueda = computed(() => {
   const fuente = Object.keys(puntosByClienteId).length
     ? Object.values(puntosByClienteId)
     : props.puntos;
-  return fuente.filter((p) => clienteCoincide(p, q) && pasaFiltroPingEstado(p)).slice(0, 12);
+  const idBuscado = extraerIdCliente(q);
+  return fuente
+    .filter((p) => clienteCoincide(p, q) && pasaFiltroPingEstado(p))
+    .sort((a, b) => {
+      if (idBuscado) {
+        const ae = String(a.cliente_id) === idBuscado ? 0 : 1;
+        const be = String(b.cliente_id) === idBuscado ? 0 : 1;
+        if (ae !== be) return ae - be;
+      }
+      return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es');
+    })
+    .slice(0, 20);
 });
 
 function onBlurBusqueda() {
@@ -320,8 +346,14 @@ function formatVerificadoAt(value) {
   return date.toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function tituloCliente(punto, fallbackId) {
+  const id = punto?.cliente_id ?? fallbackId;
+  const nombre = (punto?.nombre || '').toString().trim();
+  return `#${id}${nombre ? ' · ' + nombre : ''}`;
+}
+
 function buildInfoWindowContent(p) {
-  const titulo = p.nombre || `Cliente #${p.cliente_id}`;
+  const titulo = tituloCliente(p);
   const detalleHref = urlDetalle(p.cliente_id);
   const pingLabel = pingEstadoLabel(p.ping_estado);
   const pingColor = markerColorByPingEstado(p.ping_estado);
@@ -417,7 +449,7 @@ async function initMap(google) {
 
     batch.forEach((p) => {
       const position = { lat: p.lat, lng: p.lon };
-      const titulo = p.nombre || `Cliente #${p.cliente_id}`;
+      const titulo = tituloCliente(p);
       const marker = new google.maps.Marker({
         position,
         map: pasaFiltroPingEstado(p) ? map : null,
@@ -494,7 +526,7 @@ function applyPingEstados(estados, actualizadoAt) {
     punto.ping_verificado_at = ping.verificado_at ?? null;
 
     marker.setIcon(markerIconForPunto(googleRef, punto));
-    const titulo = punto.nombre || `Cliente #${clienteId}`;
+    const titulo = tituloCliente(punto, clienteId);
     marker.setTitle(`${titulo} · ${pingEstadoLabel(punto.ping_estado)}`);
   });
 

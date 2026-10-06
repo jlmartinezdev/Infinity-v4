@@ -11,7 +11,7 @@
           <input
             v-model="buscar"
             type="text"
-            placeholder="Buscar por cédula, nombre, apellido, email o teléfono..."
+            placeholder="Buscar por nº cliente, cédula, nombre, apellido, email o teléfono..."
             class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100"
           >
           <button
@@ -65,7 +65,7 @@
             </tr>
           </template>
           <template v-else>
-            <template v-for="(c, idx) in clientesFiltrados" :key="c.cliente_id">
+            <template v-for="c in clientesFiltrados" :key="c.cliente_id">
       <tr
         class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
         :class="{ 'cursor-pointer': c.servicios && c.servicios.length > 0 }"
@@ -80,7 +80,7 @@
         @keydown.space.prevent="c.servicios?.length && toggle(c.cliente_id)"
       >
       <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-        {{ firstItem + idx }}
+        #{{ c.cliente_id }}
       </td>
         <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 w-[min(16rem,52vw)] max-w-[min(16rem,52vw)] sm:w-[min(22rem,34vw)] sm:max-w-[min(22rem,34vw)]">
           <span class="text-gray-600 dark:text-gray-300 font-medium">{{ c.nombre }} {{ c.apellido }}</span><br>
@@ -462,6 +462,20 @@
         </svg>
         Ver detalle
       </a>
+      <a
+        v-if="urlContratoCliente"
+        :href="urlContratoCliente(clienteMenuAcciones.cliente_id)"
+        target="_blank"
+        rel="noopener"
+        class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+        role="menuitem"
+        @click="cerrarMenuAcciones"
+      >
+        <svg class="w-4 h-4 shrink-0 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" />
+        </svg>
+        Imprimir contrato
+      </a>
       <button
         v-if="puedeEditar"
         type="button"
@@ -554,6 +568,7 @@ const props = defineProps({
   urlActualizarDesdeTempBase: { type: String, default: '' },
   urlDetalleClienteBase: { type: String, default: '' },
   urlAccionesClienteBase: { type: String, default: '' },
+  urlContratoClienteBase: { type: String, default: '' },
   puedeEditar: { type: Boolean, default: false },
   initialBuscar: { type: String, default: '' },
   initialEstado: { type: String, default: 'todos' },
@@ -789,6 +804,11 @@ const urlAccionesCliente = computed(() => {
   return b && String(b).includes('__id__') ? (id) => b.replace('__id__', id) : null;
 });
 
+const urlContratoCliente = computed(() => {
+  const b = props.urlContratoClienteBase;
+  return b && String(b).includes('__id__') ? (id) => b.replace('__id__', id) : null;
+});
+
 function normalizarTexto(valor) {
   return (valor || '')
     .toString()
@@ -807,6 +827,7 @@ function coincideBusqueda(cliente, termino) {
   if (tokens.length === 0) return true;
 
   const textoCliente = normalizarTexto([
+    cliente.cliente_id,
     cliente.nombre,
     cliente.apellido,
     cliente.cedula,
@@ -814,7 +835,7 @@ function coincideBusqueda(cliente, termino) {
     cliente.telefono,
     cliente.celular,
     cliente.direccion,
-    ...(Array.isArray(cliente.servicios) ? cliente.servicios.flatMap((s) => [s.alias, s.plan?.nombre, s.ip]) : []),
+    ...(Array.isArray(cliente.servicios) ? cliente.servicios.flatMap((s) => [s.servicio_id, s.alias, s.plan?.nombre, s.ip]) : []),
   ].filter(Boolean).join(' '));
 
   return tokens.every((token) => textoCliente.includes(token));

@@ -460,10 +460,11 @@ class ClientePortalUserService
         $user->estado = 'activo';
         $user->save();
 
+        $cliente->debe_cambiar_clave_app = true;
         if (! $cliente->fecha_otorgamiento) {
             $cliente->fecha_otorgamiento = now();
-            $cliente->save();
         }
+        $cliente->save();
 
         try {
             app(\App\Services\Loyalty\PuntosService::class)->aplicarBienvenidaUnaVez(

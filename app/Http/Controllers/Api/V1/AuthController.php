@@ -123,7 +123,8 @@ class AuthController extends ApiController
             try {
                 app(\App\Services\Portal\DispositivoHeartbeatService::class)->tocarLastSeen(
                     (int) $user->cliente_id,
-                    $request->header('X-Device-Name')
+                    $request->header('X-Device-Name'),
+                    \App\Services\Portal\DispositivoHeartbeatService::versionDesdeRequest($request)
                 );
             } catch (\Throwable) {
                 // ignore
@@ -170,6 +171,8 @@ class AuthController extends ApiController
             'token' => ['nullable', 'string', 'max:512'],
             'device_type' => ['nullable', 'string', 'max:40'],
             'platform' => ['nullable', 'string', 'max:40'],
+            'device_name' => ['nullable', 'string', 'max:100'],
+            'app_version' => ['nullable', 'string', 'max:40'],
             'cliente_id' => ['nullable', 'integer', 'min:1'],
             'usuario_id' => ['nullable', 'integer', 'min:1'],
         ]);
@@ -182,6 +185,23 @@ class AuthController extends ApiController
             isset($validated['cliente_id']) ? (int) $validated['cliente_id'] : null,
             isset($validated['usuario_id']) ? (int) $validated['usuario_id'] : null
         );
+
+        // Tras update de APK suele reenviarse el FCM sin re-login: refrescar versión acá también.
+        if ($user->esClientePortal() && $user->cliente_id) {
+            try {
+                $version = \App\Services\Portal\DispositivoHeartbeatService::normalizarVersion(
+                    $validated['app_version'] ?? null
+                ) ?? \App\Services\Portal\DispositivoHeartbeatService::versionDesdeRequest($request);
+
+                app(\App\Services\Portal\DispositivoHeartbeatService::class)->tocarLastSeen(
+                    (int) $user->cliente_id,
+                    $validated['device_name'] ?? $request->header('X-Device-Name'),
+                    $version
+                );
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
 
         return $this->ok([
             'usuario_id' => $user->usuario_id,

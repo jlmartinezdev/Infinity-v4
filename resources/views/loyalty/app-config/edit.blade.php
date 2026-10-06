@@ -57,6 +57,8 @@
         'firma_digital' => ['Firma digital', 'Firmar documentos en app'],
         'router_realtime_monitoring' => ['Router en vivo', 'Monitoreo del router'],
         'coverage_map' => ['Mapa de cobertura', 'Ver cobertura'],
+        'cambio_clave_app' => ['Cambio de clave app', 'El cliente cambia PLUS**** por su propia clave (ticket + push)'],
+        'hotspot_slots' => ['Slots Hotspot', 'Hasta 3 usuarios hotspot desde la app'],
     ];
     $previewByKey = collect($previewFlags)->keyBy('key');
     $labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-300';

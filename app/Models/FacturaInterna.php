@@ -157,6 +157,12 @@ class FacturaInterna extends Model
     /** Monto aplicado a esta factura (suma de pivot.monto; cap en total para no exceder por sobrepagos). */
     public function getMontoPagadoAttribute(): float
     {
+        if ($this->relationLoaded('cobros')) {
+            $suma = (float) $this->cobros->sum(fn ($c) => (float) ($c->pivot->monto ?? 0));
+
+            return min((float) $this->total, $suma);
+        }
+
         $suma = (float) DB::table('cobro_factura_interna')
             ->where('factura_interna_id', $this->id)
             ->sum('monto');

@@ -164,21 +164,10 @@ class ClienteAvisoPushService
             return [];
         }
 
-        $like = '%'.$q.'%';
-
         return $this->queryConPush()
-            ->where(function ($outer) use ($like, $q, $idHint) {
-                $outer->whereHas('cliente', function ($query) use ($like, $q) {
-                    $query->where(function ($inner) use ($like, $q) {
-                        $inner->where('nombre', 'like', $like)
-                            ->orWhere('apellido', 'like', $like)
-                            ->orWhereRaw("CONCAT(nombre, ' ', apellido) like ?", [$like])
-                            ->orWhere('cedula', 'like', $like)
-                            ->orWhere('telefono', 'like', $like);
-                        if (ctype_digit($q)) {
-                            $inner->orWhere('cliente_id', (int) $q);
-                        }
-                    });
+            ->where(function ($outer) use ($q, $idHint) {
+                $outer->whereHas('cliente', function ($query) use ($q) {
+                    $query->buscarTexto($q);
                 });
                 if ($idHint) {
                     $outer->orWhere('cliente_id', $idHint);

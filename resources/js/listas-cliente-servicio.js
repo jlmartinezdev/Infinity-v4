@@ -5,7 +5,7 @@ import ClientesList from '@/components/ClientesList.vue';
 import ServiciosIndex from '@/components/ServiciosIndex.vue';
 
 const SEARCH_PLACEHOLDERS = {
-  clientes: 'Buscar por cédula, nombre, apellido, email o teléfono...',
+  clientes: 'Buscar por nº cliente, cédula, nombre, apellido, email o teléfono...',
   servicios: 'Buscar por cliente, plan, IP o PPPoE...',
 };
 
@@ -37,6 +37,7 @@ function mountClientesList() {
     urlActualizarDesdeTempBase: cfg.urlActualizarDesdeTempBase || '',
     urlDetalleClienteBase: cfg.urlDetalleClienteBase || '',
     urlAccionesClienteBase: cfg.urlAccionesClienteBase || '',
+    urlContratoClienteBase: cfg.urlContratoClienteBase || '',
     puedeEditar: cfg.puedeEditar ?? false,
     initialBuscar: cfg.initialBuscar || '',
     initialEstado: cfg.initialEstado || 'todos',

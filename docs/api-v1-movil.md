@@ -627,15 +627,39 @@ Documentación detallada de flota: [API_STAFF_FLOTA.md](./API_STAFF_FLOTA.md).
   "cliente_id_vinculacion": 1504,
   "documento_corregido": "1234568",
   "nombre_corregido": "Juan Carlos",
+  "whatsapp_corregido": "0983106871",
+  "direccion_corregida": "Guazu Cai",
   "actualizar_telefono": true,
   "actualizar_ubicacion": false
 }
 ```
 
+- `cliente_id_vinculacion`: forzá vínculo a un cliente existente (aunque el documento no coincida). Buscar antes con `GET /staff/clientes/buscar?q=`.
+- `documento_corregido` / `nombre_corregido` / `whatsapp_corregido` / `direccion_corregida`: corrigen la solicitud al aprobar.
 - Por defecto **no** actualiza celular/ubicación del cliente existente (hay que confirmar en app).
-- Cliente nuevo: sí usa datos de la solicitud.
+- Sin `cliente_id_vinculacion`: match por cédula; si no hay match → crea cliente nuevo.
 - Genera `PLUS####`, guarda `fecha_otorgamiento` / `aprobado_por`.
 - Envía WhatsApp al número de la **solicitud** con la clave.
+
+**Corregir datos sin aprobar** — `PUT|PATCH /staff/solicitudes/{id}`:
+
+```json
+{
+  "nombre": "EDGAR DIAZ TABOADA",
+  "documento": "7674896",
+  "whatsapp": "0983106871",
+  "direccion": "Guazu Cai"
+}
+```
+
+Permiso: `solicitudes-acceso.editar`. Respuesta incluye de nuevo el bloque de pre-aprobación (`coincide_bd`, etc.).
+
+**Flujo UI Staff recomendado:**
+
+1. `GET /staff/solicitudes/{id}` → ver datos + `coincide_bd`
+2. Si hay que corregir → `PATCH /staff/solicitudes/{id}`
+3. Si no hay match o el match es incorrecto → `GET /staff/clientes/buscar?q=` (mín. 3) → elegir `id`
+4. `POST …/aprobar` con `cliente_id_vinculacion` (+ flags de actualizar tel/ubicación)
 
 **Rechazar** — body opcional `{ "motivo": "…" }` → WhatsApp al número de la solicitud.
 
@@ -663,6 +687,17 @@ php artisan portal:avisar-acceso-aprobado {solicitud_id} --clave=PLUS5685
 ```
 
 Tras login OK se actualizan en `clientes`: `ultimo_ingreso`, `dispositivo`, `app_version`, y si `app_activa` era false → `true` + `fecha_activacion_app`.
+
+**Importante — actualización de APK sin re-login:** la app debe mandar en **todos** los requests autenticados del portal:
+
+| Header | Ejemplo | Uso |
+|--------|---------|-----|
+| `X-Device-Name` | `Android App` | Identifica el dispositivo |
+| `X-App-Version` | `3.2.12` | Refresca `clientes.app_version` / `dispositivos.app_version` |
+
+El heartbeat (`api.cliente` + `GET /me`) actualiza `ultimo_ingreso` cada ~60s y **persiste la versión en cuanto cambia**, aunque no haya nuevo login. También se acepta `app_version` en `POST /portal/save-push-token` (body).
+
+Sin `X-App-Version` tras un update, el panel seguirá mostrando la versión del último login (ej. `3.2.11`).
 
 Compatibilidad: si aún no se aprobó con PLUS, sigue aceptando documento como contraseña (legacy).
 

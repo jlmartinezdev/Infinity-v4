@@ -9,6 +9,7 @@ use App\Models\TicketAsunto;
 use App\Models\User;
 use App\Services\FacturacionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -20,10 +21,32 @@ class TicketController extends Controller
         $query = Ticket::with(['cliente.servicios.pool.router', 'pedido', 'ticketAsunto', 'usuario', 'asignado'])
             ->orderBy('created_at', 'desc');
 
-        if ($request->filled('estado')) {
+        $cola = trim((string) $request->get('cola', ''));
+        if ($cola === 'abiertos') {
+            $query->whereIn('estado', ['pendiente', 'en_camino', 'en_proceso']);
+        } elseif ($cola === 'pendientes' || $cola === 'pendiente') {
+            $query->where('estado', 'pendiente');
+        } elseif ($cola === 'en_camino') {
+            $query->where('estado', 'en_camino');
+        } elseif ($cola === 'en_proceso') {
+            $query->where('estado', 'en_proceso');
+        } elseif ($cola === 'resueltos') {
+            $query->whereIn('estado', ['resuelto', 'cerrado']);
+        } elseif ($cola === 'alta') {
+            $query->where('prioridad', 'alta')->whereIn('estado', ['pendiente', 'en_camino', 'en_proceso']);
+        } elseif ($cola === 'sin_asignar') {
+            $query->whereNull('asignado_id')->whereIn('estado', ['pendiente', 'en_camino', 'en_proceso']);
+        } elseif ($request->filled('estado')) {
             $query->where('estado', $request->estado);
         } elseif ($request->boolean('ocultar_resuelto_cerrado')) {
             $query->whereNotIn('estado', ['resuelto', 'cerrado']);
+        }
+
+        if ($request->filled('prioridad') && $cola !== 'alta') {
+            $query->where('prioridad', $request->prioridad);
+        }
+        if ($request->boolean('sin_asignar') && $cola !== 'sin_asignar') {
+            $query->whereNull('asignado_id')->whereIn('estado', ['pendiente', 'en_camino', 'en_proceso']);
         }
         if ($request->filled('ticket_asunto_id')) {
             $query->where('ticket_asunto_id', $request->ticket_asunto_id);
@@ -69,10 +92,25 @@ class TicketController extends Controller
             $clienteFiltro = Cliente::query()->find((int) $request->cliente_id);
         }
 
-        $ticketsPendientesCount = Ticket::query()->where('estado', 'pendiente')->count();
+        // Métricas de KPIs y resumen para tabs en una sola consulta optimizada
+        $kpis = Ticket::query()
+            ->selectRaw("
+                COUNT(*) as total,
+                COUNT(CASE WHEN estado IN ('pendiente', 'en_camino', 'en_proceso') THEN 1 END) as abiertos,
+                COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pendientes,
+                COUNT(CASE WHEN estado = 'en_camino' THEN 1 END) as en_camino,
+                COUNT(CASE WHEN estado = 'en_proceso' THEN 1 END) as en_proceso,
+                COUNT(CASE WHEN estado IN ('resuelto', 'cerrado') THEN 1 END) as resueltos,
+                COUNT(CASE WHEN prioridad = 'alta' AND estado IN ('pendiente', 'en_camino', 'en_proceso') THEN 1 END) as alta,
+                COUNT(CASE WHEN estado IN ('pendiente', 'en_camino', 'en_proceso') AND asignado_id IS NULL THEN 1 END) as sin_asignar,
+                COUNT(CASE WHEN estado IN ('resuelto', 'cerrado') AND DATE(COALESCE(fecha_cierre, updated_at)) = ? THEN 1 END) as resueltos_hoy
+            ", [now()->toDateString()])
+            ->first();
+
+        $ticketsPendientesCount = (int) ($kpis->pendientes ?? 0);
         $tecnicos = User::staff()->activos()->orderBy('name')->get(['usuario_id', 'name']);
 
-        return view('tickets.index', compact('tickets', 'asuntos', 'busqueda', 'clienteFiltro', 'ticketsPendientesCount', 'tecnicos'));
+        return view('tickets.index', compact('tickets', 'asuntos', 'busqueda', 'clienteFiltro', 'ticketsPendientesCount', 'tecnicos', 'kpis', 'cola'));
     }
 
     public function create(Request $request)
@@ -282,4 +320,53 @@ class TicketController extends Controller
             'message' => 'Factura interna generada correctamente.',
         ]);
     }
+
+    /**
+     * Actualización masiva de tickets (asignar técnico, cambiar estado o marcar resuelto).
+     */
+    public function bulkUpdate(Request $request)
+    {
+        $estadosValidos = implode(',', array_keys(Ticket::estados()));
+        $validated = $request->validate([
+            'ticket_ids' => ['required', 'array', 'min:1'],
+            'ticket_ids.*' => ['integer', 'exists:tickets,id'],
+            'accion' => ['required', 'string', 'in:asignar_tecnico,cambiar_estado,marcar_resuelto'],
+            'asignado_id' => ['nullable', 'integer', Rule::exists('users', 'usuario_id')->whereNull('cliente_id')],
+            'estado' => ['nullable', 'string', 'in:'.$estadosValidos],
+        ]);
+
+        $ids = $validated['ticket_ids'];
+        $count = count($ids);
+
+        DB::transaction(function () use ($validated, $ids) {
+            if ($validated['accion'] === 'asignar_tecnico') {
+                Ticket::whereIn('id', $ids)->update([
+                    'asignado_id' => $validated['asignado_id'] ?? null,
+                ]);
+            } elseif ($validated['accion'] === 'cambiar_estado') {
+                $estado = $validated['estado'];
+                if ($estado) {
+                    $updateData = ['estado' => $estado];
+                    if (in_array($estado, ['resuelto', 'cerrado', 'cancelado'], true)) {
+                        Ticket::whereIn('id', $ids)
+                            ->whereNull('fecha_cierre')
+                            ->update(['fecha_cierre' => now()]);
+                    }
+                    Ticket::whereIn('id', $ids)->update($updateData);
+                }
+            } elseif ($validated['accion'] === 'marcar_resuelto') {
+                Ticket::whereIn('id', $ids)
+                    ->whereNull('fecha_cierre')
+                    ->update(['fecha_cierre' => now()]);
+                Ticket::whereIn('id', $ids)->update(['estado' => 'resuelto']);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'count' => $count,
+            'message' => "Se actualizaron {$count} tickets correctamente.",
+        ]);
+    }
 }
+

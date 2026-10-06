@@ -70,6 +70,198 @@
     >No hay servicios para consultar.</p>
 
     <template v-else-if="payload">
+      <div
+        v-if="wifiBackup"
+        class="mb-4 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3"
+      >
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Backup Wi‑Fi (app)</p>
+          <button
+            v-if="wifiBackup.password"
+            type="button"
+            class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            title="Copiar contraseña WiFi"
+            @click="copyText(wifiBackup.password, 'wifi')"
+          >
+            <svg v-if="!copiedWifi" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-[11px]">{{ copiedWifi ? '¡Copiado!' : 'Copiar Clave' }}</span>
+          </button>
+        </div>
+        <p class="mt-1 text-sm text-gray-800 dark:text-gray-100">
+          <span v-if="wifiBackup.ssid" class="font-medium">{{ wifiBackup.ssid }}</span>
+          <span v-else>Clave guardada</span>
+          <span v-if="wifiBackup.changed_at" class="text-xs text-gray-500 dark:text-gray-400"> · {{ wifiBackup.changed_at }}</span>
+        </p>
+        <div class="mt-2 flex items-center gap-2">
+          <code class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{{ wifiBackupVisible ? wifiBackup.password : '••••••••' }}</code>
+          <button
+            type="button"
+            class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            @click="wifiBackupVisible = !wifiBackupVisible"
+          >{{ wifiBackupVisible ? 'Ocultar' : 'Mostrar' }}</button>
+        </div>
+      </div>
+
+      <!-- Auto-Diagnóstico Rápido 1-Click -->
+      <div class="mb-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-gradient-to-r from-slate-50 via-white to-blue-50/30 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-800/60 p-3.5 shadow-sm">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-gray-100">Diagnóstico Rápido NOC</h3>
+                <span class="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+                  1-Click Health Check
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Prueba ping CPE, sesión MikroTik y estado de señal en simultáneo.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="diagnosticoResultado"
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
+              title="Copiar resumen estructurado para WhatsApp o Ticket"
+              @click="copyDiagnosticoResumen"
+            >
+              <svg v-if="!copiedDiag" class="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <svg v-else class="h-3.5 w-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <span>{{ copiedDiag ? '¡Copiado!' : 'Copiar Resumen' }}</span>
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
+              :disabled="isDiagnosing || (!canPing && !canMac)"
+              @click="runAutoDiagnostico"
+            >
+              <svg v-if="!isDiagnosing" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 1 0 0118 0z"/></svg>
+              <svg v-else class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              <span>{{ isDiagnosing ? diagnosticoStep : (diagnosticoResultado ? 'Re-ejecutar Diagnóstico' : 'Ejecutar Diagnóstico') }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel de resultado del diagnóstico -->
+        <div
+          v-if="diagnosticoResultado"
+          class="mt-3 rounded-lg border p-3"
+          :class="[
+            diagnosticoResultado.status === 'optimo'
+              ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/60 dark:bg-emerald-950/20'
+              : (diagnosticoResultado.status === 'advertencia'
+                ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800/60 dark:bg-amber-950/20'
+                : 'border-rose-200 bg-rose-50/50 dark:border-rose-800/60 dark:bg-rose-950/20')
+          ]"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="noc-pulse-beacon">
+                <span
+                  class="noc-pulse-beacon-ping"
+                  :class="diagnosticoResultado.status === 'optimo' ? 'bg-emerald-400' : (diagnosticoResultado.status === 'advertencia' ? 'bg-amber-400' : 'bg-rose-400')"
+                ></span>
+                <span
+                  class="noc-pulse-beacon-dot"
+                  :class="diagnosticoResultado.status === 'optimo' ? 'bg-emerald-500' : (diagnosticoResultado.status === 'advertencia' ? 'bg-amber-500' : 'bg-rose-500')"
+                ></span>
+              </span>
+              <h4
+                class="text-xs font-bold uppercase tracking-wider"
+                :class="diagnosticoResultado.status === 'optimo' ? 'text-emerald-800 dark:text-emerald-300' : (diagnosticoResultado.status === 'advertencia' ? 'text-amber-800 dark:text-amber-300' : 'text-rose-800 dark:text-rose-300')"
+              >
+                {{ diagnosticoResultado.titulo }}
+              </h4>
+              <span class="text-[10px] text-gray-500 dark:text-gray-400">· {{ diagnosticoResultado.timestamp }}</span>
+            </div>
+          </div>
+          <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">{{ diagnosticoResultado.resumen }}</p>
+
+          <!-- 4 KPIs del diagnóstico -->
+          <div class="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <!-- KPI 1: Ping / Latencia -->
+            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ping CPE</span>
+              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                <template v-if="diagnosticoResultado.ping">
+                  <span>{{ diagnosticoResultado.ping.avg_ms != null ? diagnosticoResultado.ping.avg_ms + ' ms' : (diagnosticoResultado.ping.alive ? 'Online' : 'Sin resp.') }}</span>
+                  <span
+                    class="inline-block h-1.5 w-1.5 rounded-full"
+                    :class="diagnosticoResultado.ping.loss_pct === 0 ? 'bg-emerald-500' : (diagnosticoResultado.ping.loss_pct < 50 ? 'bg-amber-500' : 'bg-rose-500')"
+                  ></span>
+                </template>
+                <template v-else>—</template>
+              </p>
+              <p v-if="diagnosticoResultado.ping" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                {{ diagnosticoResultado.ping.loss_pct }}% pérdida ({{ diagnosticoResultado.ping.received }}/{{ diagnosticoResultado.ping.sent }})
+              </p>
+            </div>
+
+            <!-- KPI 2: Sesión MikroTik -->
+            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Sesión PPPoE</span>
+              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                <template v-if="diagnosticoResultado.mikrotik">
+                  <span :class="diagnosticoResultado.mikrotik.online ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
+                    {{ diagnosticoResultado.mikrotik.online ? 'Activa' : 'Desconectada' }}
+                  </span>
+                </template>
+                <template v-else>—</template>
+              </p>
+              <p v-if="diagnosticoResultado.mikrotik?.uptime" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                Uptime: {{ diagnosticoResultado.mikrotik.uptime }}
+              </p>
+              <p v-else-if="diagnosticoResultado.mikrotik" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                {{ diagnosticoResultado.mikrotik.online ? 'Sin uptime' : 'No responde PPP' }}
+              </p>
+            </div>
+
+            <!-- KPI 3: Tráfico MikroTik -->
+            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tráfico Actual</span>
+              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100">
+                <template v-if="diagnosticoResultado.mikrotik?.download_humano || diagnosticoResultado.mikrotik?.upload_humano">
+                  <span class="text-blue-600 dark:text-blue-400">↓ {{ diagnosticoResultado.mikrotik.download_humano || '0' }}</span>
+                </template>
+                <template v-else>En espera</template>
+              </p>
+              <p v-if="diagnosticoResultado.mikrotik?.upload_humano" class="text-[10px] text-purple-600 dark:text-purple-400 truncate">
+                ↑ {{ diagnosticoResultado.mikrotik.upload_humano }}
+              </p>
+            </div>
+
+            <!-- KPI 4: Señal (Óptica / Antena) -->
+            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {{ esFibra ? 'Potencia Óptica' : (esAntena ? 'Señal Antena' : 'Parámetro CPE') }}
+              </span>
+              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100">
+                <template v-if="diagnosticoResultado.signal?.tipo === 'fibra' && diagnosticoResultado.signal.rx != null">
+                  <span :class="rxQuality(diagnosticoResultado.signal.rx).color">
+                    {{ diagnosticoResultado.signal.rx }} dBm
+                  </span>
+                </template>
+                <template v-else-if="diagnosticoResultado.signal?.tipo === 'antena' && diagnosticoResultado.signal.signal != null">
+                  <span class="text-sky-600 dark:text-sky-400">
+                    {{ diagnosticoResultado.signal.signal }} dBm
+                  </span>
+                </template>
+                <template v-else>—</template>
+              </p>
+              <p v-if="diagnosticoResultado.signal?.tipo === 'fibra' && diagnosticoResultado.signal.rx != null" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                {{ rxQuality(diagnosticoResultado.signal.rx).label }}
+              </p>
+              <p v-else-if="diagnosticoResultado.signal?.tipo === 'antena' && diagnosticoResultado.signal.ccq != null" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                CCQ {{ diagnosticoResultado.signal.ccq }}%
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="noc-tools-grid" :class="{ 'is-4': toolsCols >= 4 }">
         <!-- Ping -->
         <section class="noc-card">
@@ -77,8 +269,21 @@
             <span class="noc-icon noc-icon--blue">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </span>
-            <div>
-              <h2 class="noc-card-title">Ping CPE</h2>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <h2 class="noc-card-title">Ping CPE</h2>
+                <button
+                  v-if="pingStats"
+                  type="button"
+                  class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  title="Copiar resultado ping"
+                  @click="copyPingStats"
+                >
+                  <svg v-if="!copiedPing" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                  <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  <span class="text-[11px]">{{ copiedPing ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
+              </div>
               <p class="noc-card-sub">ICMP desde el servidor</p>
             </div>
           </div>
@@ -99,42 +304,48 @@
             </div>
             <div v-show="outPing" class="text-sm" v-html="outPing"></div>
             <div v-if="pingStats" class="space-y-2">
-              <div class="flex flex-wrap items-center gap-2">
-                <span
-                  v-if="pingStats.alive"
-                  class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                >Responde</span>
-                <span
-                  v-else
-                  class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                >Sin respuesta</span>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span
+                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                    :class="pingQuality(pingStats.avg_ms, pingStats.loss_pct).badge"
+                  >
+                    <span class="h-1.5 w-1.5 rounded-full" :class="pingQuality(pingStats.avg_ms, pingStats.loss_pct).dot"></span>
+                    {{ pingQuality(pingStats.avg_ms, pingStats.loss_pct).label }}
+                  </span>
+                  <span
+                    v-if="pingStats.alive"
+                    class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                  >Responde</span>
+                  <span
+                    v-else
+                    class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                  >Sin respuesta</span>
+                </div>
               </div>
-              <p class="text-sm text-gray-700 dark:text-gray-200">{{ pingStats.calidad }}</p>
+              <p class="text-xs text-gray-600 dark:text-gray-300">{{ pingStats.calidad }}</p>
               <div class="grid grid-cols-2 gap-2">
-                <div>
+                <div class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
                   <p class="noc-metric-label">Paquetes</p>
                   <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {{ pingStats.received }} de {{ pingStats.sent }}
                   </p>
                 </div>
-                <div>
+                <div class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
                   <p class="noc-metric-label">Pérdida</p>
                   <p
                     class="text-sm font-semibold"
-                    :class="pingStats.loss_pct > 0 ? 'noc-metric--warn' : 'text-gray-900 dark:text-gray-100'"
+                    :class="pingStats.loss_pct > 0 ? 'noc-metric--warn' : 'text-emerald-600 dark:text-emerald-400'"
                   >{{ pingStats.loss_pct }}%</p>
                 </div>
-                <div v-if="pingStats.avg_ms != null">
+                <div v-if="pingStats.avg_ms != null" class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
                   <p class="noc-metric-label">Promedio</p>
                   <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ pingStats.avg_ms }} ms</p>
                 </div>
-                <div v-if="pingStats.min_ms != null || pingStats.max_ms != null">
+                <div v-if="pingStats.min_ms != null || pingStats.max_ms != null" class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
                   <p class="noc-metric-label">Mín / Máx</p>
-                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {{ pingStats.min_ms != null ? pingStats.min_ms : '—' }}
-                    /
-                    {{ pingStats.max_ms != null ? pingStats.max_ms : '—' }}
-                    ms
+                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 font-mono text-xs">
+                    {{ pingStats.min_ms != null ? pingStats.min_ms : '—' }} / {{ pingStats.max_ms != null ? pingStats.max_ms : '—' }} ms
                   </p>
                 </div>
               </div>
@@ -152,9 +363,22 @@
             <span class="noc-icon noc-icon--indigo">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </span>
-            <div>
-              <h2 class="noc-card-title">MAC Address</h2>
-              <p class="noc-card-sub">Consulta MikroTik</p>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <h2 class="noc-card-title">MAC Address</h2>
+                <button
+                  v-if="servicio.mac_address || mikrotikMac"
+                  type="button"
+                  class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  title="Copiar dirección MAC"
+                  @click="copyText(mikrotikMac || servicio.mac_address, 'mac')"
+                >
+                  <svg v-if="!copiedMac" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                  <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  <span class="text-[11px]">{{ copiedMac ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
+              </div>
+              <p class="noc-card-sub">Consulta MikroTik RouterOS</p>
             </div>
           </div>
           <div class="noc-card-body space-y-3">
@@ -199,7 +423,7 @@
                 <h2 class="noc-card-title">ONU Signal</h2>
                 <span v-if="ultimaOptica" class="noc-live-badge">REGISTRO</span>
               </div>
-              <p class="noc-card-sub">Señal óptica OLT</p>
+              <p class="noc-card-sub">Señal óptica OLT GPON</p>
             </div>
           </div>
           <div class="noc-card-body space-y-3">
@@ -210,12 +434,35 @@
                   <p class="noc-metric noc-metric--blue">{{ ultimaOptica.tx_power_dbm }} <span class="text-sm font-normal">dBm</span></p>
                 </div>
                 <div v-if="ultimaOptica.rx_power_dbm != null">
-                  <p class="noc-metric-label">RX Power</p>
+                  <div class="flex items-center justify-between">
+                    <p class="noc-metric-label">RX Power</p>
+                    <span class="text-[10px] font-semibold" :class="rxQuality(ultimaOptica.rx_power_dbm).color">
+                      {{ rxQuality(ultimaOptica.rx_power_dbm).label }}
+                    </span>
+                  </div>
                   <p :class="Number(ultimaOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber'">
                     {{ ultimaOptica.rx_power_dbm }} <span class="text-sm font-normal">dBm</span>
                   </p>
                 </div>
               </div>
+
+              <!-- Optical Gauge Bar -->
+              <div v-if="ultimaOptica.rx_power_dbm != null" class="optical-gauge-container">
+                <div class="optical-gauge-track">
+                  <div
+                    class="optical-gauge-needle"
+                    :style="{ left: rxGaugePercent(ultimaOptica.rx_power_dbm) + '%' }"
+                    :title="'Potencia RX: ' + ultimaOptica.rx_power_dbm + ' dBm'"
+                  ></div>
+                </div>
+                <div class="optical-gauge-labels">
+                  <span>-30 dBm (Crítico)</span>
+                  <span>-25 dBm</span>
+                  <span>-20 dBm (Óptimo)</span>
+                  <span>-10 dBm</span>
+                </div>
+              </div>
+
               <div class="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <div v-if="ultimaOptica.pon_port != null && ultimaOptica.onu_index != null">
                   PON <span class="font-mono text-gray-700 dark:text-gray-200">{{ ultimaOptica.pon_port }}:{{ ultimaOptica.onu_index }}</span>
@@ -820,6 +1067,45 @@
           </div>
         </div>
 
+        <!-- Filtros de eventos -->
+        <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-gray-500 dark:text-gray-400 font-medium mr-1">Filtrar:</span>
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1 font-medium transition-colors"
+              :class="eventsFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+              @click="eventsFilter = 'todos'"
+            >Todos ({{ eventos.length }})</button>
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1 font-medium transition-colors"
+              :class="eventsFilter === 'pppoe' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+              @click="eventsFilter = 'pppoe'"
+            >PPPoE</button>
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1 font-medium transition-colors"
+              :class="eventsFilter === 'optica' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+              @click="eventsFilter = 'optica'"
+            >Señal / Óptica</button>
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1 font-medium transition-colors"
+              :class="eventsFilter === 'noc' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+              @click="eventsFilter = 'noc'"
+            >NOC / Sistema</button>
+          </div>
+          <div class="relative w-full sm:w-48">
+            <input
+              v-model="eventsSearch"
+              type="search"
+              placeholder="Buscar evento..."
+              class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-1 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+            >
+          </div>
+        </div>
+
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
             <thead class="bg-gray-50 dark:bg-gray-900/40">
@@ -832,7 +1118,7 @@
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
               <tr
-                v-for="(ev, idx) in eventos"
+                v-for="(ev, idx) in filteredEventos"
                 :key="'ev-' + idx"
                 class="hover:bg-gray-50 dark:hover:bg-gray-700/40"
               >
@@ -848,9 +1134,9 @@
                 <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ ev.detalle }}</td>
                 <td class="px-3 py-2 text-xs text-gray-500">{{ ev.fuente || '—' }}</td>
               </tr>
-              <tr v-if="!eventos.length">
+              <tr v-if="!filteredEventos.length">
                 <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">
-                  Todavía no hay eventos. Se registran al consultar MAC/tráfico o ONU en OLT.
+                  {{ eventos.length ? 'No hay eventos que coincidan con la búsqueda o filtro.' : 'Todavía no hay eventos. Se registran al consultar MAC/tráfico o ONU en OLT.' }}
                 </td>
               </tr>
             </tbody>
@@ -934,7 +1220,20 @@ let huaweiSsidReq = 0;
 let mikrotikCache = null;
 let ignoreNextServicioWatch = false;
 
+const isDiagnosing = ref(false);
+const diagnosticoStep = ref('');
+const diagnosticoResultado = ref(null);
+const copiedDiag = ref(false);
+const copiedMac = ref(false);
+const copiedPing = ref(false);
+const copiedWifi = ref(false);
+const mikrotikMac = ref('');
+const eventsFilter = ref('todos');
+const eventsSearch = ref('');
+
 const servicio = computed(() => payload.value?.servicio || {});
+const wifiBackup = computed(() => payload.value?.wifi_backup || null);
+const wifiBackupVisible = ref(false);
 const ultimaOptica = computed(() => payload.value?.ultima_optica || null);
 const ultimaAntena = computed(() => payload.value?.ultima_antena || null);
 const timeline = computed(() => payload.value?.timeline || null);
@@ -980,6 +1279,27 @@ const eventos = computed(() => {
     return all.filter((e) => e.tipo !== 'senal_optica');
   }
   return all;
+});
+const filteredEventos = computed(() => {
+  let list = eventos.value;
+  if (eventsFilter.value === 'pppoe') {
+    list = list.filter((e) => e.tipo === 'conexion' || e.badge === 'up' || e.badge === 'down');
+  } else if (eventsFilter.value === 'optica') {
+    list = list.filter((e) => e.tipo === 'senal_optica' || e.tipo === 'senal_antena' || e.badge === 'olt');
+  } else if (eventsFilter.value === 'noc') {
+    list = list.filter((e) => e.tipo !== 'conexion' && e.tipo !== 'senal_optica' && e.tipo !== 'senal_antena');
+  }
+
+  if (eventsSearch.value.trim()) {
+    const q = eventsSearch.value.trim().toLowerCase();
+    list = list.filter((e) =>
+      (e.ocurrio_at && e.ocurrio_at.toLowerCase().includes(q))
+      || (e.badge_label && e.badge_label.toLowerCase().includes(q))
+      || (e.detalle && e.detalle.toLowerCase().includes(q))
+      || (e.fuente && e.fuente.toLowerCase().includes(q))
+    );
+  }
+  return list;
 });
 const registroSubtitulo = computed(() => {
   if (esFibra.value) return 'Señal óptica ONU y eventos PPPoE';
@@ -1059,7 +1379,15 @@ function clearResults() {
   huaweiPass2Visible.value = false;
   huaweiDispositivos.value = [];
   huaweiOptica.value = null;
+  wifiBackupVisible.value = false;
   mikrotikCache = null;
+  diagnosticoResultado.value = null;
+  copiedDiag.value = false;
+  copiedMac.value = false;
+  copiedPing.value = false;
+  copiedWifi.value = false;
+  mikrotikMac.value = '';
+  eventsSearch.value = '';
 }
 
 function servicioItemById(id) {
@@ -1143,6 +1471,9 @@ function fetchMikrotik(force) {
   return postJson(payload.value.urls.mikrotik).then(function (res) {
     if (res.ok && res.data.success) {
       mikrotikCache = res.data;
+      if (res.data.mac) {
+        mikrotikMac.value = res.data.mac;
+      }
     }
     return res;
   });
@@ -1297,16 +1628,311 @@ function oltCmdResultHtml(oltPayload) {
   return parts;
 }
 
+function rxGaugePercent(dbm) {
+  if (dbm === null || dbm === undefined || dbm === '') return 50;
+  const val = Number(dbm);
+  if (isNaN(val)) return 50;
+  // In optical GPON, values are negative:
+  // -32 dBm is extreme low / critical (0%)
+  // -8 dBm is overload / high (100%)
+  const minDbm = -32;
+  const maxDbm = -8;
+  const pct = ((val - minDbm) / (maxDbm - minDbm)) * 100;
+  return Math.max(4, Math.min(96, Math.round(pct)));
+}
+
+function rxQuality(dbm) {
+  if (dbm === null || dbm === undefined || dbm === '') {
+    return { label: 'Sin datos', color: 'text-gray-400', status: 'unknown' };
+  }
+  const val = Number(dbm);
+  if (val <= -27) {
+    return { label: 'Crítico / Atenuado', color: 'text-rose-600 dark:text-rose-400', status: 'critical', badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300' };
+  }
+  if (val <= -24) {
+    return { label: 'Límite de Atenuación', color: 'text-amber-600 dark:text-amber-400', status: 'warning', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' };
+  }
+  if (val >= -10) {
+    return { label: 'Saturación Alta', color: 'text-amber-600 dark:text-amber-400', status: 'warning', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' };
+  }
+  return { label: 'Potencia Óptima', color: 'text-emerald-600 dark:text-emerald-400', status: 'optimal', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' };
+}
+
+function pingQuality(avgMs, lossPct) {
+  if (lossPct === 100) {
+    return { label: 'Sin respuesta', color: 'text-rose-600 dark:text-rose-400', badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300', dot: 'bg-rose-500' };
+  }
+  if (lossPct > 0) {
+    return { label: `Pérdida (${lossPct}%)`, color: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300', dot: 'bg-amber-500' };
+  }
+  if (avgMs == null) {
+    return { label: 'En línea', color: 'text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300', dot: 'bg-emerald-500' };
+  }
+  const ms = Number(avgMs);
+  if (ms < 25) {
+    return { label: 'Excelente (<25ms)', color: 'text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300', dot: 'bg-emerald-500' };
+  }
+  if (ms < 50) {
+    return { label: 'Bueno (25-50ms)', color: 'text-sky-600 dark:text-sky-400', badge: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300', dot: 'bg-sky-500' };
+  }
+  if (ms < 90) {
+    return { label: 'Moderado (50-90ms)', color: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300', dot: 'bg-amber-500' };
+  }
+  return { label: 'Elevado (>90ms)', color: 'text-rose-600 dark:text-rose-400', badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300', dot: 'bg-rose-500' };
+}
+
+function setCopiedState(type) {
+  if (type === 'diag') {
+    copiedDiag.value = true;
+    setTimeout(() => { copiedDiag.value = false; }, 2500);
+  } else if (type === 'mac') {
+    copiedMac.value = true;
+    setTimeout(() => { copiedMac.value = false; }, 2500);
+  } else if (type === 'ping') {
+    copiedPing.value = true;
+    setTimeout(() => { copiedPing.value = false; }, 2500);
+  } else if (type === 'wifi') {
+    copiedWifi.value = true;
+    setTimeout(() => { copiedWifi.value = false; }, 2500);
+  }
+}
+
+function fallbackCopy(text, type) {
+  try {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.position = 'fixed';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    setCopiedState(type);
+  } catch (e) {
+    window.prompt('Copiar al portapapeles:', text);
+  }
+}
+
+function copyText(str, type) {
+  if (!str) return;
+  if (navigator?.clipboard?.writeText) {
+    navigator.clipboard.writeText(str).then(() => {
+      setCopiedState(type);
+    }).catch(() => {
+      fallbackCopy(str, type);
+    });
+  } else {
+    fallbackCopy(str, type);
+  }
+}
+
+function copyPingStats() {
+  if (!pingStats.value) return;
+  const p = pingStats.value;
+  const serv = servicio.value;
+  const text = `📡 Ping CPE [${serv.ip || '—'}]: ${p.alive ? 'Online' : 'Sin respuesta'} | Promedio: ${p.avg_ms ?? '—'} ms (Mín: ${p.min_ms ?? '—'} / Máx: ${p.max_ms ?? '—'} ms) | Pérdida: ${p.loss_pct}% (${p.received}/${p.sent})`;
+  copyText(text, 'ping');
+}
+
+async function runAutoDiagnostico() {
+  if (isDiagnosing.value) return;
+  isDiagnosing.value = true;
+  diagnosticoStep.value = 'Iniciando verificación integral...';
+  diagnosticoResultado.value = null;
+
+  let pingRes = null;
+  let mkRes = null;
+  let signalInfo = null;
+
+  try {
+    // 1. Ping
+    diagnosticoStep.value = '1/3 · ICMP Ping al CPE...';
+    try {
+      if (canPing.value) {
+        await onPing();
+        pingRes = pingStats.value;
+      }
+    } catch (e) {
+      console.error('AutoDiag Ping Error', e);
+    }
+
+    // 2. MikroTik
+    diagnosticoStep.value = '2/3 · Sesión MikroTik y tráfico...';
+    try {
+      if (canMac.value) {
+        const res = await fetchMikrotik(true);
+        if (res.ok && res.data) {
+          mkRes = res.data;
+          if (mkRes.mac) {
+            mikrotikMac.value = mkRes.mac;
+            outMac.value = `<p class="font-mono text-lg font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(mkRes.mac)}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Fuente: ${escapeHtml(mkRes.mac_fuente || '—')}</p>` +
+              (mkRes.online ? `<p class="text-xs text-green-600 dark:text-green-400">Sesión PPPoE activa${mkRes.uptime ? ' · uptime ' + escapeHtml(mkRes.uptime) : ''}</p>` : '');
+          }
+          if (mkRes.download_humano || mkRes.upload_humano) {
+            outTrafico.value = `<div class="space-y-1">
+              <p><span class="text-gray-500 dark:text-gray-400">Download:</span> <span class="font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(mkRes.download_humano || '—')}</span></p>
+              <p><span class="text-gray-500 dark:text-gray-400">Upload:</span> <span class="font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(mkRes.upload_humano || '—')}</span></p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Fuente: ${escapeHtml(mkRes.trafico_fuente || '—')}</p>
+            </div>`;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('AutoDiag MikroTik Error', e);
+    }
+
+    // 3. Signal (OLT or Antena)
+    diagnosticoStep.value = '3/3 · Comprobando señal óptica / radio...';
+    try {
+      if (esFibra.value) {
+        if (ultimaOptica.value) {
+          signalInfo = {
+            tipo: 'fibra',
+            rx: ultimaOptica.value.rx_power_dbm,
+            tx: ultimaOptica.value.tx_power_dbm,
+            pon: ultimaOptica.value.pon_port != null && ultimaOptica.value.onu_index != null ? `${ultimaOptica.value.pon_port}:${ultimaOptica.value.onu_index}` : null,
+            fecha: ultimaOptica.value.ocurrio_at,
+          };
+        }
+      } else if (esAntena.value) {
+        if (ultimaAntena.value) {
+          signalInfo = {
+            tipo: 'antena',
+            signal: ultimaAntena.value.antena_signal_dbm,
+            noise: ultimaAntena.value.noise_floor_dbm,
+            ccq: ultimaAntena.value.ccq,
+            fecha: ultimaAntena.value.ocurrio_at,
+          };
+        }
+      }
+    } catch (e) {
+      console.error('AutoDiag Signal Error', e);
+    }
+
+    // Calculate evaluation
+    let status = 'optimo';
+    let issues = [];
+
+    // Evaluate Ping
+    if (pingRes) {
+      if (!pingRes.alive || pingRes.loss_pct === 100) {
+        status = 'critico';
+        issues.push('Sin respuesta ICMP (100% pérdida)');
+      } else if (pingRes.loss_pct > 0) {
+        if (status !== 'critico') status = 'advertencia';
+        issues.push(`Pérdida de paquetes (${pingRes.loss_pct}%)`);
+      }
+      if (pingRes.avg_ms != null && pingRes.avg_ms > 80) {
+        if (status !== 'critico') status = 'advertencia';
+        issues.push(`Latencia alta (${pingRes.avg_ms} ms)`);
+      }
+    } else if (canPing.value) {
+      if (status !== 'critico') status = 'advertencia';
+      issues.push('No se pudo verificar ping');
+    }
+
+    // Evaluate MikroTik
+    if (mkRes) {
+      if (mkRes.online === false) {
+        status = 'critico';
+        issues.push('Sesión PPPoE desconectada');
+      }
+    }
+
+    // Evaluate Signal
+    if (signalInfo?.tipo === 'fibra' && signalInfo.rx != null) {
+      const rxVal = Number(signalInfo.rx);
+      if (rxVal <= -27) {
+        status = 'critico';
+        issues.push(`Potencia óptica crítica (${rxVal} dBm)`);
+      } else if (rxVal <= -24) {
+        if (status !== 'critico') status = 'advertencia';
+        issues.push(`Atenuación óptica al límite (${rxVal} dBm)`);
+      }
+    } else if (signalInfo?.tipo === 'antena' && signalInfo.signal != null) {
+      const sigVal = Number(signalInfo.signal);
+      if (sigVal < -78) {
+        if (status !== 'critico') status = 'advertencia';
+        issues.push(`Señal inalámbrica débil (${sigVal} dBm)`);
+      }
+    }
+
+    let titulo = 'Enlace Óptimo';
+    let resumen = 'Todos los parámetros operativos responden con normalidad.';
+    if (status === 'critico') {
+      titulo = 'Atención Requerida · Falla Detectada';
+      resumen = issues.join(' · ') || 'El servicio presenta cortes o fallas de conectividad.';
+    } else if (status === 'advertencia') {
+      titulo = 'Enlace Operativo con Advertencias';
+      resumen = issues.join(' · ') || 'El servicio responde pero muestra parámetros fuera de lo ideal.';
+    }
+
+    diagnosticoResultado.value = {
+      status,
+      titulo,
+      resumen,
+      ping: pingRes,
+      mikrotik: mkRes,
+      signal: signalInfo,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    };
+
+  } finally {
+    isDiagnosing.value = false;
+    diagnosticoStep.value = '';
+  }
+}
+
+function copyDiagnosticoResumen() {
+  const d = diagnosticoResultado.value;
+  if (!d) return;
+
+  const serv = servicio.value;
+  let lines = [
+    '📋 REPORTE DE DIAGNÓSTICO NOC · INFINITY',
+    '──────────────────────────────────────────',
+    `Cliente: ${serv.cliente_nombre || ('Servicio #' + serv.servicio_id)}`,
+    `IP: ${serv.ip || 'Sin asignar'} | PPPoE: ${serv.usuario_pppoe || '—'}`,
+    `Router / Nodo: ${serv.router_nombre || '—'}${serv.nodo ? ' · ' + serv.nodo : ''}`,
+    `Estado General: ${d.titulo.toUpperCase()} (${d.status === 'optimo' ? '🟢 ÓPTIMO' : (d.status === 'advertencia' ? '🟡 ADVERTENCIA' : '🔴 CRÍTICO')})`,
+    `Detalle: ${d.resumen}`,
+    '──────────────────────────────────────────',
+  ];
+
+  if (d.ping) {
+    lines.push(`• Ping ICMP: ${d.ping.alive ? 'Responde' : 'Sin respuesta'} | Pérdida: ${d.ping.loss_pct}% | Promedio: ${d.ping.avg_ms != null ? d.ping.avg_ms + ' ms' : '—'} (Mín: ${d.ping.min_ms ?? '—'} / Máx: ${d.ping.max_ms ?? '—'})`);
+  }
+
+  if (d.mikrotik) {
+    lines.push(`• Sesión MikroTik: ${d.mikrotik.online ? 'Online' : 'Desconectado'} | Uptime: ${d.mikrotik.uptime || '—'} | MAC: ${d.mikrotik.mac || '—'}`);
+    if (d.mikrotik.download_humano || d.mikrotik.upload_humano) {
+      lines.push(`• Tráfico actual: ↓ ${d.mikrotik.download_humano || '0'} / ↑ ${d.mikrotik.upload_humano || '0'}`);
+    }
+  }
+
+  if (d.signal?.tipo === 'fibra') {
+    lines.push(`• Señal Óptica (GPON): RX ${d.signal.rx != null ? d.signal.rx + ' dBm' : '—'} | TX ${d.signal.tx != null ? d.signal.tx + ' dBm' : '—'}${d.signal.pon ? ' | PON ' + d.signal.pon : ''}`);
+  } else if (d.signal?.tipo === 'antena') {
+    lines.push(`• Señal Antena: ${d.signal.signal != null ? d.signal.signal + ' dBm' : '—'} | Ruido: ${d.signal.noise != null ? d.signal.noise + ' dBm' : '—'}${d.signal.ccq ? ' | CCQ ' + d.signal.ccq + '%' : ''}`);
+  }
+
+  lines.push('──────────────────────────────────────────');
+  lines.push(`Hora de prueba: ${d.timestamp} · Generado desde NOC Infinity`);
+
+  copyText(lines.join('\n'), 'diag');
+}
+
 function onPing() {
   loading.ping = true;
   pingStats.value = null;
   outPing.value = '<p class="text-gray-500 dark:text-gray-400">Consultando…</p>';
-  postJson(payload.value.urls.ping).then(function (res) {
+  return postJson(payload.value.urls.ping).then(function (res) {
     var d = res.data;
     outPing.value = '';
     if (!res.ok && !d.output && d.sent == null) {
       outPing.value = errHtml(d.message);
-      return;
+      return res;
     }
     pingStats.value = {
       alive: !!d.alive,
@@ -1320,9 +1946,11 @@ function onPing() {
       calidad: d.calidad || d.message || '',
       output: d.output || '',
     };
-  }).catch(function () {
+    return res;
+  }).catch(function (err) {
     pingStats.value = null;
     outPing.value = errHtml('Error de conexión al ejecutar ping.');
+    throw err;
   }).finally(function () {
     loading.ping = false;
   });
@@ -1331,16 +1959,17 @@ function onPing() {
 function onMac() {
   loading.mac = true;
   outMac.value = '<p class="text-gray-500 dark:text-gray-400">Consultando MikroTik…</p>';
-  fetchMikrotik(true).then(function (res) {
+  return fetchMikrotik(true).then(function (res) {
     var d = res.data;
     if (!res.ok || d.success === false) {
       outMac.value = errHtml(d.message);
-      return;
+      return res;
     }
     if (!d.mac) {
       outMac.value = '<p class="text-amber-600 dark:text-amber-400">' + escapeHtml(d.message || 'MAC no encontrada.') + '</p>';
-      return;
+      return res;
     }
+    mikrotikMac.value = d.mac;
     var html = '<p class="font-mono text-lg font-semibold text-gray-900 dark:text-gray-100">' + escapeHtml(d.mac) + '</p>' +
       '<p class="text-xs text-gray-500 dark:text-gray-400">Fuente: ' + escapeHtml(d.mac_fuente || '—') + '</p>';
     if (d.online) {
@@ -1350,8 +1979,10 @@ function onMac() {
       html += '<p class="text-xs text-gray-400">MAC en sistema: ' + escapeHtml(d.mac_sistema) + '</p>';
     }
     outMac.value = html;
-  }).catch(function () {
+    return res;
+  }).catch(function (err) {
     outMac.value = errHtml('Error de conexión con MikroTik.');
+    throw err;
   }).finally(function () {
     loading.mac = false;
   });

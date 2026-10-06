@@ -17,6 +17,9 @@ Contrato alineado a `API_BACKEND_COMPLETO_V320.md`.
 | GET | `/portal/v1/cpe/dhcp-clients` | LAN del CPE: TR-069 hosts (FTTH/ACS) o SSH Ubnt. Soft-fail vacío. Doc: `INFINITY_CPE_DHCP_CLIENTS.md` |
 | GET | `/portal/v1/cpe/wifi` | SSIDs + `can_change` / `can_rename`. Doc: `INFINITY_CPE_WIFI.md` |
 | POST | `/portal/v1/cpe/wifi` | Clave y/o nombre SSID (TR-069, write-only la clave). Doc: `INFINITY_CPE_WIFI.md` |
+| GET/PATCH | `/portal/v1/preferencias` | `push_cambio_clave`, `debe_cambiar_clave_app`. Doc: `API_PORTAL_CAMBIO_CLAVE_HOTSPOT.md` |
+| POST | `/portal/v1/cambiar-clave` | Cambio clave ingreso app (PLUS→propia) + ticket resuelto + push. Doc: `API_PORTAL_CAMBIO_CLAVE_HOTSPOT.md` |
+| GET/POST/PATCH/DELETE | `/portal/v1/hotspot/slots` | Hasta 3 slots hotspot. Doc: `API_PORTAL_CAMBIO_CLAVE_HOTSPOT.md` |
 
 ## Ya existentes (sin breaking)
 
