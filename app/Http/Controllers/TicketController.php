@@ -8,6 +8,7 @@ use App\Models\Ticket;
 use App\Models\TicketAsunto;
 use App\Models\User;
 use App\Services\FacturacionService;
+use App\Services\TicketEnCaminoVencidoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,11 +16,19 @@ use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, TicketEnCaminoVencidoService $enCaminoVencido)
     {
+        $enCaminoVencido->devolverAPendiente();
+
         $busqueda = trim((string) $request->get('q', ''));
-        $query = Ticket::with(['cliente.servicios.pool.router', 'pedido', 'ticketAsunto', 'usuario', 'asignado'])
-            ->orderBy('created_at', 'desc');
+        $query = Ticket::with([
+            'cliente.servicios.pool.router.nodo',
+            'cliente.servicios.cajaNapPuertoActivo.cajaNap.nodo',
+            'pedido',
+            'ticketAsunto',
+            'usuario',
+            'asignado',
+        ]);
 
         $cola = trim((string) $request->get('cola', ''));
         if ($cola === 'abiertos') {
@@ -36,6 +45,8 @@ class TicketController extends Controller
             $query->where('prioridad', 'alta')->whereIn('estado', ['pendiente', 'en_camino', 'en_proceso']);
         } elseif ($cola === 'sin_asignar') {
             $query->whereNull('asignado_id')->whereIn('estado', ['pendiente', 'en_camino', 'en_proceso']);
+        } elseif ($cola === 'en_curso') {
+            $query->whereNotIn('estado', ['resuelto', 'cerrado']);
         } elseif ($request->filled('estado')) {
             $query->where('estado', $request->estado);
         } elseif ($request->boolean('ocultar_resuelto_cerrado')) {
@@ -79,6 +90,8 @@ class TicketController extends Controller
             $query->where('cliente_id', (int) $request->cliente_id);
         }
 
+        $query->orderByDesc('created_at');
+
         $perPagePermitidos = [10, 15, 25, 50, 100];
         $perPage = (int) $request->get('per_page', 15);
         if (! in_array($perPage, $perPagePermitidos, true)) {
@@ -86,7 +99,11 @@ class TicketController extends Controller
         }
 
         $tickets = $query->paginate($perPage)->withQueryString();
-        $asuntos = TicketAsunto::orderBy('nombre')->get();
+        $asuntos = TicketAsunto::query()
+            ->withCount(['tickets as pendientes_count' => fn ($q) => $q->where('estado', 'pendiente')])
+            ->orderByDesc('pendientes_count')
+            ->orderBy('nombre')
+            ->get();
         $clienteFiltro = null;
         if ($busqueda === '' && $request->filled('cliente_id')) {
             $clienteFiltro = Cliente::query()->find((int) $request->cliente_id);
@@ -96,6 +113,8 @@ class TicketController extends Controller
         $kpis = Ticket::query()
             ->selectRaw("
                 COUNT(*) as total,
+                COUNT(CASE WHEN estado NOT IN ('resuelto', 'cerrado') THEN 1 END) as en_curso,
+                COUNT(CASE WHEN estado = 'no_realizado' THEN 1 END) as no_realizados,
                 COUNT(CASE WHEN estado IN ('pendiente', 'en_camino', 'en_proceso') THEN 1 END) as abiertos,
                 COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN estado = 'en_camino' THEN 1 END) as en_camino,
@@ -109,8 +128,13 @@ class TicketController extends Controller
 
         $ticketsPendientesCount = (int) ($kpis->pendientes ?? 0);
         $tecnicos = User::staff()->activos()->orderBy('name')->get(['usuario_id', 'name']);
+        $tecnicosCampo = User::staff()->activos()
+            ->whereHas('rol', fn ($q) => $q->whereRaw('LOWER(descripcion) = ?', ['tecnico']))
+            ->whereRaw('LOWER(name) NOT LIKE ?', ['%test%'])
+            ->orderBy('name')
+            ->get(['usuario_id', 'name']);
 
-        return view('tickets.index', compact('tickets', 'asuntos', 'busqueda', 'clienteFiltro', 'ticketsPendientesCount', 'tecnicos', 'kpis', 'cola'));
+        return view('tickets.index', compact('tickets', 'asuntos', 'busqueda', 'clienteFiltro', 'ticketsPendientesCount', 'tecnicos', 'tecnicosCampo', 'kpis', 'cola'));
     }
 
     public function create(Request $request)
@@ -216,6 +240,7 @@ class TicketController extends Controller
             $validated['imagen'] = $request->file('imagen')->store('tickets', 'public');
         }
 
+        $ticket->omitirAvisoCliente = $request->boolean('sin_avisar');
         $ticket->update($validated);
 
         return redirect()->route('tickets.index')->with('success', 'Ticket actualizado correctamente.');
@@ -274,6 +299,7 @@ class TicketController extends Controller
         if (in_array($validated['estado'], ['resuelto', 'cerrado', 'cancelado'], true) && ! $ticket->fecha_cierre) {
             $data['fecha_cierre'] = now();
         }
+        $ticket->omitirAvisoCliente = $request->boolean('sin_avisar');
         $ticket->update($data);
 
         return response()->json(['success' => true, 'estado' => $ticket->estado, 'asignado_id' => $ticket->asignado_id]);

@@ -38,6 +38,7 @@ class PermisoSeeder extends Seeder
             'tv.ver', 'tv.crear', 'tv.editar', 'tv.eliminar',
             'whatsapp.ver', 'whatsapp.editar',
             'tickets.ver', 'tickets.crear', 'tickets.editar',
+            'trabajos-red.ver', 'trabajos-red.crear', 'trabajos-red.editar',
             'planes.ver',
             'tipos-tecnologia.ver', 'perfiles-pppoe.ver', 'nodos.ver', 'ticket-asuntos.ver',
             'facturacion-dashboard.ver',

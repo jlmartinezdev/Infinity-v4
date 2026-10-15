@@ -57,7 +57,7 @@
         'nombre_desc' => 'Nombre Z → A',
         'usuario_asc' => 'Usuario app A → Z',
         'usuario_desc' => 'Usuario app Z → A',
-        'app' => 'App (Nebula / Lumix)',
+        'app' => 'App (Suffixed / Lumix)',
         'cupos_desc' => 'Cupos — más en uso',
         'cupos_asc' => 'Cupos — más libres',
         'estado_pago' => 'Estado de pago',
@@ -87,7 +87,7 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cuentas TV (streaming)</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Nebula: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta. Los badges indican vencimiento (por vencer en {{ $tvAviso['dias_antes'] ?? \App\Models\TvCuenta::diasAvisoPorVencer() }} días o menos, vencido).
+                Suffixed: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta. Los badges indican vencimiento (por vencer en {{ $tvAviso['dias_antes'] ?? \App\Models\TvCuenta::diasAvisoPorVencer() }} días o menos, vencido).
                 @if(!empty($tvAviso['enabled']))
                     <span class="inline-flex items-center gap-1 ml-1 text-emerald-600 dark:text-emerald-400">· Avisos WA activos a las {{ $tvAviso['hora'] }}</span>
                 @endif
@@ -287,7 +287,7 @@
                             <select name="app" aria-label="Aplicación"
                                 class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
                                 <option value="todos" @selected($filtroApp === 'todos')>Todas las apps</option>
-                                <option value="nebula" @selected($filtroApp === 'nebula')>Solo Nebula</option>
+                                <option value="suffixed" @selected($filtroApp === 'suffixed' || $filtroApp === 'nebula')>Solo Suffixed</option>
                                 <option value="lumix" @selected($filtroApp === 'lumix')>Solo Lumix</option>
                             </select>
                         </div>
@@ -345,7 +345,7 @@
                 $estado = $c->estadoVencimiento();
                 $maxSlots = $c->maxAsignaciones();
                 $asigPorPerfil = $c->asignaciones->keyBy(fn ($a) => (int) $a->perfil_numero);
-                $nombresPerfil = $c->esNebula()
+                $nombresPerfil = $c->esSuffixed()
                     ? [1 => $c->perfil_1 ?: 'Perfil 1', 2 => $c->perfil_2 ?: 'Perfil 2', 3 => $c->perfil_3 ?: 'Perfil 3']
                     : [1 => 'Pantalla 1', 2 => 'Pantalla 2', 3 => 'Pantalla 3', 4 => 'Pantalla 4'];
             @endphp
@@ -416,11 +416,19 @@
 
                     <div class="flex-shrink-0 flex items-center gap-3">
                         @if(auth()->user()?->tienePermiso('tv.editar'))
-                            <form action="{{ route('tv-cuentas.renovar', $c) }}" method="POST" class="inline"
-                                onsubmit="return confirm('¿Renovar esta cuenta por 1 mes adelante?');">
+                            <form action="{{ route('tv-cuentas.renovar', $c) }}" method="POST" class="inline js-tv-renovar"
+                                data-dia="{{ $c->diaVencimientoMensual() }}"
+                                data-vencimiento="{{ $c->fechaVencimientoReferencia()->format('d/m/Y') }}"
+                                data-cuenta="{{ $c->nombre ?: $c->usuario_app }}">
                                 @csrf
-                                <button type="submit" class="text-green-600 dark:text-green-400 hover:underline text-sm font-medium whitespace-nowrap" title="Adelantar vencimiento 1 mes">
-                                    +1 mes
+                                <input type="hidden" name="dia_aviso_vencimiento" value="{{ $c->diaVencimientoMensual() }}">
+                                <button type="submit"
+                                    class="inline-flex items-center gap-1.5 min-h-9 px-3 rounded-full text-sm font-medium whitespace-nowrap bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                    title="Adelantar vencimiento 1 mes">
+                                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    Renovar +1 mes
                                 </button>
                             </form>
                             <a href="{{ route('tv-cuentas.edit', $c) }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm font-medium">Editar</a>
@@ -432,7 +440,7 @@
                     @for($i = 1; $i <= $maxSlots; $i++)
                         @php
                             $asig = $asigPorPerfil->get($i);
-                            $precioCampo = $c->esNebula() ? 'precio_perfil_'.$i : 'precio_pantalla_'.$i;
+                            $precioCampo = $c->esSuffixed() ? 'precio_perfil_'.$i : 'precio_pantalla_'.$i;
                             $precio = $c->{$precioCampo};
                             $cliente = $asig?->servicio?->cliente;
                             $nombreCliente = trim(($cliente?->nombre ?? '').' '.($cliente?->apellido ?? ''));
@@ -596,5 +604,6 @@
     }
 })();
 </script>
+@include('tv-cuentas._renovar-script')
 @endpush
 @endsection

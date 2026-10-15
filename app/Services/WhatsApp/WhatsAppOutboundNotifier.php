@@ -504,7 +504,7 @@ class WhatsAppOutboundNotifier
             return false;
         }
 
-        $app = TvCuenta::aplicaciones()[$cuenta->aplicacion ?? TvCuenta::APP_NEBULA] ?? ($cuenta->aplicacion ?? 'TV');
+        $app = TvCuenta::aplicaciones()[$cuenta->aplicacion ?? TvCuenta::APP_SUFFIXED] ?? ($cuenta->aplicacion ?? 'TV');
         $estado = $dias < 0
             ? ('vencida hace '.abs($dias).' día'.(abs($dias) === 1 ? '' : 's'))
             : ($dias === 0 ? 'vence HOY' : ('vence en '.$dias.' día'.($dias === 1 ? '' : 's')));

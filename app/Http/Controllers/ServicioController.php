@@ -14,6 +14,7 @@ use App\Models\Ticket;
 use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\ServicioImportarService;
 use App\Services\NetworkPingService;
 use App\Services\Huawei\HuaweiOnuService;
 use App\Services\PedidoNodoOpcionesService;
@@ -142,6 +143,7 @@ class ServicioController extends Controller
             'tecnologia_id' => ['required', 'integer', 'exists:tipos_tecnologias,tecnologia_id'],
             'plan_id' => ['required', 'integer', 'exists:planes,plan_id'],
             'alias' => ['nullable', 'string', 'max:80'],
+            'url_ubicacion' => ['nullable', 'string', 'max:500'],
             'ip' => ['nullable', 'string', 'max:15', function ($attribute, $value, $fail) {
                 if ($value && str_ends_with(trim($value), '.255')) {
                     $fail('La IP no puede terminar en .255 (reservada para broadcast).');
@@ -173,6 +175,7 @@ class ServicioController extends Controller
         $validated = $this->normalizarCpeInventario($validated);
         $validated = $this->validarPlanDeTecnologia($validated);
         $validated['alias'] = trim((string) ($validated['alias'] ?? '')) ?: null;
+        $validated['url_ubicacion'] = trim((string) ($validated['url_ubicacion'] ?? '')) ?: null;
         $validated['ipv6_configurado'] = $request->boolean('ipv6_configurado');
         $validated['punto_hotspot'] = $request->boolean('punto_hotspot');
 
@@ -198,6 +201,9 @@ class ServicioController extends Controller
         if (empty(trim((string) ($validated['password_pppoe'] ?? '')))) {
             $evitar = $cliente?->servicios->pluck('password_pppoe')->all() ?? [];
             $validated['password_pppoe'] = Servicio::generarPasswordPppoe($evitar);
+        }
+        if (empty($validated['url_ubicacion'])) {
+            $validated['url_ubicacion'] = trim((string) ($cliente?->url_ubicacion ?? '')) ?: null;
         }
 
         $yaTeniaOtros = Servicio::where('cliente_id', $validated['cliente_id'])->exists();
@@ -245,6 +251,7 @@ class ServicioController extends Controller
             'tecnologia_id' => ['required', 'integer', 'exists:tipos_tecnologias,tecnologia_id'],
             'plan_id' => ['required', 'integer', 'exists:planes,plan_id'],
             'alias' => ['nullable', 'string', 'max:80'],
+            'url_ubicacion' => ['nullable', 'string', 'max:500'],
             'ip' => ['nullable', 'string', 'max:15', function ($attribute, $value, $fail) {
                 if ($value && str_ends_with(trim($value), '.255')) {
                     $fail('La IP no puede terminar en .255 (reservada para broadcast).');
@@ -275,6 +282,7 @@ class ServicioController extends Controller
         $validated = $this->normalizarCpeInventario($validated);
         $validated = $this->validarPlanDeTecnologia($validated);
         $validated['alias'] = trim((string) ($validated['alias'] ?? '')) ?: null;
+        $validated['url_ubicacion'] = trim((string) ($validated['url_ubicacion'] ?? '')) ?: null;
         $validated['ipv6_configurado'] = $request->boolean('ipv6_configurado');
         $validated['punto_hotspot'] = $request->boolean('punto_hotspot');
         $validated['acuerdo_tipo'] = $validated['acuerdo_tipo'] ?? 'ninguno';
@@ -587,7 +595,11 @@ class ServicioController extends Controller
         }
 
         $precioPlan = (float) ($servicio->plan?->precio ?? 0);
-        $monto = FacturacionService::calcularMontoProrrateoCancelacionMes($fechaCancel, $precioPlan);
+        $monto = FacturacionService::calcularMontoProrrateoCancelacionMes(
+            $fechaCancel,
+            $precioPlan,
+            $servicio->fecha_instalacion ? Carbon::parse($servicio->fecha_instalacion) : null
+        );
 
         $clienteId = (int) $servicio->cliente_id;
         $soloEsteServicioNoCancelado = Servicio::where('cliente_id', $clienteId)
@@ -2053,6 +2065,115 @@ class ServicioController extends Controller
         unset($validated['cpe_onu_otro'], $validated['cpe_router_otro'], $validated['cpe_antena_otro']);
 
         return $validated;
+    }
+
+    /**
+     * Servicios de otros clientes que se pueden traer a este, con cuentas TV.
+     */
+    public function importables(Request $request, Cliente $cliente)
+    {
+        $q = ltrim(trim((string) $request->get('q', '')), '#');
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $query = Cliente::query()
+            ->where('cliente_id', '!=', $cliente->cliente_id)
+            ->whereIn('estado', ['activo', 'inactivo', 'suspendido'])
+            ->buscarTexto($q);
+
+        if (ctype_digit($q)) {
+            $query->orderByRaw('CASE WHEN cliente_id = ? THEN 0 ELSE 1 END', [(int) $q]);
+        }
+
+        $origenes = $query
+            ->with(['servicios' => static function ($q) {
+                $q->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+                    ->with(['plan', 'pedido', 'tvCuentaAsignaciones.tvCuenta'])
+                    ->orderBy('servicio_id');
+            }])
+            ->orderBy('nombre')
+            ->limit(15)
+            ->get();
+
+        $estados = Servicio::estadosDisponibles();
+
+        return response()->json($origenes
+            ->map(static function (Cliente $origen) use ($estados) {
+                $servicios = $origen->servicios->map(static function (Servicio $s) use ($origen, $estados) {
+                    $cuentas = $s->tvCuentaAsignaciones->map(static function ($asig) {
+                        $tv = $asig->tvCuenta;
+                        $perfil = $tv ? $tv->nombreSlot((int) $asig->perfil_numero) : 'Perfil '.$asig->perfil_numero;
+
+                        return [
+                            'nombre' => $tv?->nombre ?: ($tv?->usuario_app ?: 'Cuenta TV'),
+                            'aplicacion' => $tv?->aplicacion,
+                            'perfil' => $perfil,
+                        ];
+                    })->values()->all();
+
+                    $gps = ServicioImportarService::resolverUrlUbicacion($s, $origen);
+
+                    return [
+                        'servicio_id' => $s->servicio_id,
+                        'alias' => $s->aliasNormalizado(),
+                        'plan' => $s->plan?->nombre,
+                        'ip' => $s->ip,
+                        'usuario_pppoe' => $s->usuario_pppoe,
+                        'estado' => $s->estado,
+                        'estado_label' => $estados[$s->estado] ?? $s->estado,
+                        'gps' => $gps,
+                        'cuentas' => $cuentas,
+                    ];
+                })->values()->all();
+
+                if ($servicios === []) {
+                    return null;
+                }
+
+                return [
+                    'cliente_id' => $origen->cliente_id,
+                    'nombre' => trim($origen->nombre.' '.$origen->apellido),
+                    'cedula' => $origen->cedula,
+                    'servicios' => $servicios,
+                ];
+            })
+            ->filter()
+            ->values());
+    }
+
+    /**
+     * Trae un servicio de otro cliente (con cuentas TV y hotspot) a este titular.
+     */
+    public function importar(Request $request, Cliente $cliente, ServicioImportarService $importar)
+    {
+        $validated = $request->validate([
+            'servicio_id' => ['required', 'integer', 'exists:servicios,servicio_id'],
+        ]);
+
+        $servicio = Servicio::query()
+            ->with(['cliente', 'pedido', 'tvCuentaAsignaciones.tvCuenta', 'servicioHotspots'])
+            ->findOrFail($validated['servicio_id']);
+
+        try {
+            $importar->importar($cliente, $servicio);
+        } catch (ValidationException $e) {
+            $mensaje = collect($e->errors())->flatten()->first() ?: 'No se pudo importar el servicio.';
+
+            return response()->json(['message' => $mensaje], 422);
+        }
+
+        $cuentas = $servicio->tvCuentaAsignaciones->count();
+        $mensaje = 'Servicio #'.$servicio->servicio_id.' importado.';
+        if ($cuentas > 0) {
+            $mensaje .= ' Se trajeron '.$cuentas.' cuenta'.($cuentas === 1 ? '' : 's').' de TV.';
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => $mensaje,
+            'redirect' => route('clientes.detalle', ['cliente' => $cliente->cliente_id, 'tab' => 'servicio']),
+        ]);
     }
 
     private function kindDeTecnologia(?int $tecnologiaId): string

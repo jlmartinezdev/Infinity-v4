@@ -10,6 +10,11 @@ class Ticket extends Model
 {
     use Auditable;
 
+    /**
+     * No se guarda. Si es true, un cambio de estado no avisa al cliente (app ni WhatsApp).
+     */
+    public bool $omitirAvisoCliente = false;
+
     protected $table = 'tickets';
 
     protected $fillable = [

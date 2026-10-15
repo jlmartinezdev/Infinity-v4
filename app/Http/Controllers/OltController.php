@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Nodo;
 use App\Models\Olt;
 use App\Models\RouterIpPool;
+use App\Services\Olt\OltN6DesvioService;
 use App\Services\Olt\OltOnuSyncService;
 use App\Support\OltModelosCatalogo;
+use App\Support\OltN6DesvioConfig;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -254,6 +256,32 @@ class OltController extends Controller
         $poolIdsSeleccionados = old('pool_ids', $olt->pools()->pluck('pool_id')->all());
 
         return view('olts.edit', compact('olt', 'nodos', 'modelosPorMarca', 'pools', 'poolIdsSeleccionados'));
+    }
+
+    public function aplicarDesvioN6(Olt $olt, OltN6DesvioService $desvio)
+    {
+        if (! OltN6DesvioConfig::aplica($olt)) {
+            return redirect()->route('sistema.olts.show', $olt)
+                ->with('error', 'Este desvío es solo para el OLT-UA de N6.');
+        }
+
+        $r = $desvio->aplicarDesvio();
+
+        return redirect()->route('sistema.olts.show', $olt)
+            ->with($r['ok'] ? 'success' : 'error', $r['message']);
+    }
+
+    public function prepararIpNuevaN6(Olt $olt, OltN6DesvioService $desvio)
+    {
+        if (! OltN6DesvioConfig::aplica($olt)) {
+            return redirect()->route('sistema.olts.show', $olt)
+                ->with('error', 'Este cambio de IP es solo para el OLT-UA de N6.');
+        }
+
+        $r = $desvio->prepararIpNueva($olt);
+
+        return redirect()->route('sistema.olts.show', $olt)
+            ->with($r['ok'] ? 'success' : 'error', $r['message']);
     }
 
     public function update(Request $request, Olt $olt)

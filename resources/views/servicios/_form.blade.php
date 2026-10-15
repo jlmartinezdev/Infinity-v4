@@ -144,6 +144,23 @@
             @enderror
         </div>
 
+        @php
+            $urlUbicacionServicio = old('url_ubicacion', $servicio?->url_ubicacion);
+            if (($urlUbicacionServicio === null || $urlUbicacionServicio === '') && ! $servicio && ! empty($clienteId)) {
+                $urlUbicacionServicio = \App\Models\Cliente::where('cliente_id', $clienteId)->value('url_ubicacion');
+            }
+        @endphp
+        <div>
+            <label for="url_ubicacion" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación GPS</label>
+            <input type="text" name="url_ubicacion" id="url_ubicacion" value="{{ $urlUbicacionServicio }}" maxlength="500"
+                placeholder="https://maps.google.com/... o lat, lon"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-gray-100">
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enlace de Google Maps o coordenadas de este servicio. Si queda vacío se copia la del cliente.</p>
+            @error('url_ubicacion')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="pool_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pool de IP *</label>

@@ -5,30 +5,120 @@
 @push('styles')
 <style>
     mark.search-mark {
-        background-color: #facc15;
-        color: inherit;
+        background-color: #ddd6fe;
+        color: #3b0764;
         padding: 0 0.12em;
-        border-radius: 0.15rem;
+        border-radius: 0.5rem;
         box-decoration-break: clone;
         -webkit-box-decoration-break: clone;
     }
     .dark mark.search-mark {
-        background-color: rgba(250, 204, 21, 0.45);
-        color: inherit;
+        background-color: #5b21b6;
+        color: #f5f3ff;
     }
-    @keyframes fadeInUpBulk {
-        from {
-            opacity: 0;
-            transform: translate(-50%, 20px);
+    .ticket-col-cliente a:hover,
+    .ticket-col-cliente a:focus-visible {
+        text-decoration-line: underline;
+        text-underline-offset: 2px;
+    }
+    .ticket-mas-colas > summary { list-style: none; }
+    .ticket-mas-colas > summary::-webkit-details-marker { display: none; }
+    .ticket-mas-colas-panel {
+        position: absolute;
+        left: 0;
+        z-index: 30;
+        margin-top: 0.25rem;
+        width: min(18rem, calc(100vw - 2rem));
+        max-height: 20rem;
+        overflow-y: auto;
+    }
+    @media (max-width: 767px) {
+        .ticket-mas-colas-panel {
+            position: fixed;
+            left: 1rem;
+            right: 1rem;
+            width: auto;
         }
-        to {
-            opacity: 1;
-            transform: translate(-50%, 0);
+        .ticket-row {
+            padding: 0.75rem;
         }
+        .ticket-row-grid {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                "identidad overflow"
+                "cliente cliente"
+                "tecnico tecnico"
+                "acciones acciones";
+            gap: 0.375rem 0.5rem;
+            align-items: start;
+        }
+        .ticket-col-acciones-wrap {
+            display: contents;
+        }
+        .ticket-col-identidad { grid-area: identidad; align-items: flex-start; }
+        .ticket-col-overflow { grid-area: overflow; align-self: start; }
+        .ticket-col-cliente { grid-area: cliente; }
+        .ticket-col-tecnico {
+            grid-area: tecnico;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.375rem 0.75rem;
+            justify-self: stretch;
+            text-align: left;
+        }
+        .ticket-col-tecnico > p {
+            margin-top: 0;
+        }
+        .ticket-col-acciones {
+            grid-area: acciones;
+            justify-content: stretch !important;
+            flex-wrap: nowrap;
+            padding-top: 0.5rem;
+            margin-top: 0.125rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        .dark .ticket-col-acciones {
+            border-top-color: #4b5563;
+        }
+        .ticket-col-acciones > .btn-asignar-fila,
+        .ticket-col-acciones > .btn-quick-resolver {
+            flex: 1 1 0;
+            justify-content: center;
+        }
+        .ticket-col-identidad .truncate {
+            overflow: hidden;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .ticket-icono > span {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.5rem;
+        }
+        .ticket-icono svg {
+            width: 1.125rem;
+            height: 1.125rem;
+        }
+        .ticket-meta-contacto a {
+            height: 1.75rem;
+            width: 1.75rem;
+            border-color: transparent;
+            background: transparent;
+        }
+        .ticket-col-acciones:not(:has(button)) {
+            display: none;
+        }
+        .ticket-meta-fecha-absoluta { display: none; }
+        .ticket-col-tecnico .btn-asignar-rapido { display: none; }
+        .ticket-sin-tecnico-movil { display: inline-flex; }
+        .ticket-cliente-icono,
+        .ticket-linea-via { display: none; }
     }
-    .animate-bulk-bar {
-        animation: fadeInUpBulk 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
+    .ticket-sin-tecnico-movil { display: none; }
     .swal-tab-btn.active {
         border-bottom-color: #9333ea;
         color: #9333ea;
@@ -45,13 +135,13 @@
     $busqueda = $busqueda ?? '';
     $clienteFiltro = $clienteFiltro ?? null;
     $cola = $cola ?? request('cola', '');
+    $ocultaCerrados = request()->boolean('ocultar_resuelto_cerrado');
     $cantidadFiltrosPanel = (int) (
         request()->filled('estado')
         + request()->filled('ticket_asunto_id')
         + request()->filled('asignado_id')
         + request()->filled('prioridad')
         + request()->boolean('sin_asignar')
-        + request()->boolean('ocultar_resuelto_cerrado')
     );
     $resaltar = fn (?string $texto): string => \App\Support\SearchHighlight::html($texto, $busqueda);
     $mapsUrlCliente = fn (?\App\Models\Cliente $cliente): ?string => \App\Helpers\MapsUrlHelper::toGoogleMapsUrl($cliente?->url_ubicacion);
@@ -67,28 +157,16 @@
             default => 'hace '.$dias.' días',
         };
     };
-    $esSlaVencido = function (?string $estado, ?\Illuminate\Support\Carbon $fecha): bool {
-        if (! $fecha || in_array($estado, ['resuelto', 'cerrado', 'cancelado'], true)) {
-            return false;
-        }
-        return $fecha->diffInHours(now()) >= 24;
-    };
 @endphp
 
 <div class="max-w-7xl mx-auto space-y-5">
     {{-- Header principal --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
-                Tickets de Soporte
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
-                    {{ $kpis->abiertos ?? 0 }} en atención
-                </span>
-            </h1>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mesa de ayuda, despacho a terreno y diagnóstico de red</p>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Tickets de soporte</h1>
         </div>
         <div class="flex items-center gap-2">
-            <a href="{{ route('tickets.index') }}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm" title="Recargar vista">
+            <a href="{{ request()->fullUrl() }}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Recargar esta misma lista">
                 <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <span class="hidden sm:inline">Actualizar</span>
             </a>
@@ -100,95 +178,10 @@
         </div>
     </div>
 
-    {{-- Paquete A: Deck de Métricas NOC (KPIs) --}}
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <!-- Card 1: Abiertos Activos -->
-        <a href="{{ route('tickets.index', ['cola' => 'abiertos']) }}"
-           class="group relative overflow-hidden rounded-xl border p-3.5 transition-all shadow-sm {{ $cola === 'abiertos' ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 ring-2 ring-purple-500/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow' }}">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400">Abiertos</span>
-                <span class="p-1 rounded-md bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                </span>
-            </div>
-            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">{{ $kpis->abiertos ?? 0 }}</p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">En atención</p>
-        </a>
-
-        <!-- Card 2: Pendientes -->
-        <a href="{{ route('tickets.index', ['cola' => 'pendientes']) }}"
-           class="group relative overflow-hidden rounded-xl border p-3.5 transition-all shadow-sm {{ $cola === 'pendientes' || $cola === 'pendiente' ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 ring-2 ring-amber-500/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-amber-300 dark:hover:border-amber-700 hover:shadow' }}">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 group-hover:text-amber-600 dark:group-hover:text-amber-400">Pendientes</span>
-                <span class="p-1 rounded-md bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </span>
-            </div>
-            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">{{ $kpis->pendientes ?? 0 }}</p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Por despachar</p>
-        </a>
-
-        <!-- Card 3: En Camino -->
-        <a href="{{ route('tickets.index', ['cola' => 'en_camino']) }}"
-           class="group relative overflow-hidden rounded-xl border p-3.5 transition-all shadow-sm {{ $cola === 'en_camino' ? 'border-cyan-500 bg-cyan-50/70 dark:bg-cyan-950/40 ring-2 ring-cyan-500/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow' }}">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-400">En Camino</span>
-                <span class="p-1 rounded-md bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-300">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
-                </span>
-            </div>
-            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">{{ $kpis->en_camino ?? 0 }}</p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">En terreno</p>
-        </a>
-
-        <!-- Card 4: Prioridad Alta -->
-        <a href="{{ route('tickets.index', ['cola' => 'alta']) }}"
-           class="group relative overflow-hidden rounded-xl border p-3.5 transition-all shadow-sm {{ $cola === 'alta' ? 'border-red-500 bg-red-50/70 dark:bg-red-950/40 ring-2 ring-red-500/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-red-300 dark:hover:border-red-700 hover:shadow' }}">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400">Prioridad Alta</span>
-                <span class="p-1 rounded-md bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                </span>
-            </div>
-            <p class="text-2xl font-bold text-red-600 dark:text-red-400 mt-2 flex items-center gap-1.5">
-                {{ $kpis->alta ?? 0 }}
-                @if(($kpis->alta ?? 0) > 0)
-                    <span class="inline-flex w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                @endif
-            </p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Urgentes</p>
-        </a>
-
-        <!-- Card 5: Sin Técnico Asignado -->
-        <a href="{{ route('tickets.index', ['cola' => 'sin_asignar']) }}"
-           class="group relative overflow-hidden rounded-xl border p-3.5 transition-all shadow-sm {{ $cola === 'sin_asignar' ? 'border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 ring-2 ring-orange-500/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300 dark:hover:border-orange-700 hover:shadow' }}">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 group-hover:text-orange-600 dark:group-hover:text-orange-400">Sin Técnico</span>
-                <span class="p-1 rounded-md bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                </span>
-            </div>
-            <p class="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-2">{{ $kpis->sin_asignar ?? 0 }}</p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Por asignar</p>
-        </a>
-
-        <!-- Card 6: Resueltos -->
-        <a href="{{ route('tickets.index', ['cola' => 'resueltos']) }}"
-           class="group relative overflow-hidden rounded-xl border p-3.5 transition-all shadow-sm {{ $cola === 'resueltos' ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/40' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow' }}">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Resueltos</span>
-                <span class="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </span>
-            </div>
-            <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{{ $kpis->resueltos ?? 0 }}</p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Hoy: +{{ $kpis->resueltos_hoy ?? 0 }}</p>
-        </a>
-    </div>
-
     {{-- Paquete A: Segmented Queue Tabs (1-Click) --}}
     @php
         $tabActiva = match(true) {
+            $cola === 'en_curso' => 'en_curso',
             $cola === 'abiertos' => 'abiertos',
             $cola === 'pendientes' || $cola === 'pendiente' || request('estado') === 'pendiente' => 'pendientes',
             $cola === 'en_camino' || request('estado') === 'en_camino' => 'en_camino',
@@ -196,64 +189,91 @@
             $cola === 'alta' => 'alta',
             $cola === 'sin_asignar' => 'sin_asignar',
             $cola === 'resueltos' || request('estado') === 'resuelto' => 'resueltos',
-            default => 'todos',
+            default => ($ocultaCerrados && ! request()->filled('estado') ? 'en_curso' : 'todos'),
         };
         $linkTab = fn ($c) => route('tickets.index', array_merge(request()->except(['cola', 'page', 'estado']), $c ? ['cola' => $c] : []));
+        $linkEnCurso = route('tickets.index', array_merge(request()->except(['cola', 'page', 'estado', 'ocultar_resuelto_cerrado']), ['cola' => 'en_curso']));
+        $linkTodos = route('tickets.index', request()->except(['cola', 'page', 'estado', 'ocultar_resuelto_cerrado']));
+        $fraseLista = match ($tabActiva) {
+            'en_curso' => 'en curso',
+            'abiertos' => 'abiertos',
+            'pendientes' => 'pendientes',
+            'en_camino' => 'en camino',
+            'en_proceso' => 'en proceso',
+            'alta' => 'de prioridad alta',
+            'sin_asignar' => 'sin técnico',
+            'resueltos' => 'resueltos',
+            default => 'en total',
+        };
+        $urlSinOcultar = route('tickets.index', request()->except(['ocultar_resuelto_cerrado', 'page']));
+        $chipsCola = [
+            ['id' => 'en_curso', 'label' => 'En curso', 'n' => $kpis->en_curso ?? 0, 'href' => $linkEnCurso, 'extra' => ''],
+            ['id' => 'abiertos', 'label' => 'Abiertos', 'n' => $kpis->abiertos ?? 0, 'href' => $linkTab('abiertos'), 'extra' => ''],
+            ['id' => 'pendientes', 'label' => 'Pendientes', 'n' => $kpis->pendientes ?? 0, 'href' => $linkTab('pendientes'), 'extra' => ''],
+            ['id' => 'en_camino', 'label' => 'En camino', 'n' => $kpis->en_camino ?? 0, 'href' => $linkTab('en_camino'), 'extra' => ''],
+            ['id' => 'en_proceso', 'label' => 'En proceso', 'n' => $kpis->en_proceso ?? 0, 'href' => $linkTab('en_proceso'), 'extra' => ''],
+            ['id' => 'alta', 'label' => 'Prioridad alta', 'n' => $kpis->alta ?? 0, 'href' => $linkTab('alta'), 'extra' => ''],
+            ['id' => 'sin_asignar', 'label' => 'Sin técnico', 'n' => $kpis->sin_asignar ?? 0, 'href' => $linkTab('sin_asignar'), 'extra' => ''],
+            ['id' => 'resueltos', 'label' => 'Resueltos', 'n' => $kpis->resueltos ?? 0, 'href' => $linkTab('resueltos'), 'extra' => ''],
+            ['id' => 'todos', 'label' => 'Todos', 'n' => $kpis->total ?? 0, 'href' => $linkTodos, 'extra' => 'js-quitar-ocultar'],
+        ];
+        $chipClase = function (bool $activo): string {
+            $base = 'inline-flex items-center gap-1.5 min-h-11 px-3 rounded-lg text-sm font-semibold shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900';
+            return $base.($activo
+                ? ' bg-purple-600 text-white'
+                : ' bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700');
+        };
+        $chipConteo = function (bool $activo): string {
+            return $activo
+                ? 'bg-white/20 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100';
+        };
+        $idsFijos = ['en_curso', 'en_camino', 'alta', 'sin_asignar'];
+        $chipsPorId = [];
+        foreach ($chipsCola as $chipCola) {
+            $chipsPorId[$chipCola['id']] = $chipCola;
+        }
+        $chipsVisibles = [];
+        if (isset($chipsPorId[$tabActiva]) && ! in_array($tabActiva, $idsFijos, true)) {
+            $chipsVisibles[] = $chipsPorId[$tabActiva];
+        }
+        foreach ($idsFijos as $idFijo) {
+            $chipsVisibles[] = $chipsPorId[$idFijo];
+        }
+        $idsVisibles = array_column($chipsVisibles, 'id');
+        $idsFueraDeMas = ['abiertos', 'pendientes'];
+        $chipsMas = array_values(array_filter(
+            $chipsCola,
+            fn ($chipCola) => ! in_array($chipCola['id'], $idsVisibles, true) && ! in_array($chipCola['id'], $idsFueraDeMas, true)
+        ));
     @endphp
-    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-        <a href="{{ $linkTab('abiertos') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'abiertos' ? 'bg-purple-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>⚡ Abiertos</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'abiertos' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->abiertos ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('pendientes') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'pendientes' ? 'bg-amber-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>⏳ Pendientes</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'pendientes' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->pendientes ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('en_camino') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'en_camino' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>🚗 En camino</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'en_camino' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->en_camino ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('en_proceso') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'en_proceso' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>⚙️ En proceso</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'en_proceso' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->en_proceso ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('alta') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'alta' ? 'bg-red-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>🚨 Prioridad Alta</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'alta' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->alta ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('sin_asignar') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'sin_asignar' ? 'bg-orange-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>👤 Sin técnico</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'sin_asignar' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->sin_asignar ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('resueltos') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'resueltos' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>✅ Resueltos</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'resueltos' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->resueltos ?? 0 }}</span>
-        </a>
-
-        <a href="{{ $linkTab('') }}"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {{ $tabActiva === 'todos' ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-            <span>📋 Todos</span>
-            <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] {{ $tabActiva === 'todos' ? 'bg-white/20 text-white dark:bg-black/20 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }}">{{ $kpis->total ?? 0 }}</span>
-        </a>
+    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+        @foreach ($chipsVisibles as $chip)
+            @php $etiquetaChip = $chip['id'] === 'alta' ? 'Alta' : $chip['label']; @endphp
+            <a href="{{ $chip['href'] }}" @if($chip['id'] === $tabActiva) aria-current="page" @endif class="{{ trim($chip['extra'].' '.$chipClase($chip['id'] === $tabActiva)) }}">
+                <span>{{ $etiquetaChip }}</span>
+                <span data-chip-count="{{ $chip['id'] }}" class="inline-flex items-center justify-center min-w-5 px-1.5 rounded-full text-xs {{ $chipConteo($chip['id'] === $tabActiva) }}">{{ $chip['n'] }}</span>
+            </a>
+        @endforeach
+        @if(count($chipsMas) > 0)
+            <details class="ticket-mas-colas relative shrink-0">
+                <summary class="{{ $chipClase(false) }} cursor-pointer" aria-label="Más colas">Más colas</summary>
+                <div class="ticket-mas-colas-panel rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
+                    @foreach ($chipsMas as $chip)
+                        <a href="{{ $chip['href'] }}" @if($chip['id'] === $tabActiva) aria-current="page" @endif class="{{ trim($chip['extra'].' flex items-center justify-between gap-2 min-h-11 px-3 rounded-lg text-sm font-semibold text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700') }}">
+                            <span>{{ $chip['label'] }}</span>
+                            <span data-chip-count="{{ $chip['id'] }}" class="inline-flex items-center justify-center min-w-5 px-1.5 rounded-full text-xs {{ $chipConteo($chip['id'] === $tabActiva) }}">{{ $chip['n'] }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </details>
+        @endif
     </div>
 
     {{-- Contenedor principal de lista y filtros --}}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         {{-- Barra de búsqueda y selector de filtros --}}
-        <form method="GET" action="{{ route('tickets.index') }}" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 rounded-t-xl">
+        <form method="GET" action="{{ route('tickets.index') }}" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 rounded-t-lg">
             @if($clienteFiltro && $busqueda === '')
                 <input type="hidden" name="cliente_id" value="{{ $clienteFiltro->cliente_id }}">
             @endif
@@ -263,13 +283,6 @@
             <input type="hidden" name="per_page" value="{{ $tickets->perPage() }}">
 
             <div class="flex items-center gap-3">
-                {{-- Paquete C: Checkbox Seleccionar Todos --}}
-                <div class="flex items-center shrink-0 pl-1" title="Seleccionar todos los tickets de esta página">
-                    <input type="checkbox" id="ticket-select-all"
-                        class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
-                        aria-label="Seleccionar todos los tickets">
-                </div>
-
                 {{-- Campo de búsqueda rápida --}}
                 <div class="flex items-center flex-1 min-w-0 min-h-[2.75rem] sm:min-h-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20 shadow-sm">
                     <span class="pl-3 flex items-center shrink-0 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true">
@@ -300,12 +313,12 @@
                         </svg>
                         <span class="hidden sm:inline">Filtros</span>
                         @if($cantidadFiltrosPanel)
-                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold bg-white text-purple-700">{{ $cantidadFiltrosPanel }}</span>
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-white text-purple-700">{{ $cantidadFiltrosPanel }}</span>
                         @endif
                     </button>
                     <div
                         id="ticket-filtros-menu"
-                        class="hidden absolute right-0 mt-2 w-80 max-w-sm py-3 px-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl z-30"
+                        class="hidden absolute right-0 mt-2 w-80 max-w-sm py-3 px-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 z-30"
                     >
                         <div class="flex items-center justify-between gap-2 mb-3">
                             <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros avanzados</p>
@@ -340,19 +353,21 @@
                                     class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
                                     <option value="">Todos los asuntos</option>
                                     @foreach ($asuntos as $a)
-                                        <option value="{{ $a->id }}" {{ request('ticket_asunto_id') == $a->id ? 'selected' : '' }}>{{ $a->nombre }}</option>
+                                        <option value="{{ $a->id }}" {{ request('ticket_asunto_id') == $a->id ? 'selected' : '' }}>{{ $a->getIconoOrDefault() }} {{ $a->nombre }}@if((int) $a->pendientes_count > 0) · {{ $a->pendientes_count }}@endif</option>
                                     @endforeach
                                 </select>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">El número es de tickets en Pendiente.</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Técnico Asignado</label>
-                                <select name="asignado_id" aria-label="Técnico"
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Técnico (histórico)</label>
+                                <select name="asignado_id" aria-label="Técnico histórico"
                                     class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
                                     <option value="">Todos los técnicos</option>
                                     @foreach ($tecnicos as $t)
                                         <option value="{{ $t->usuario_id }}" {{ (string) request('asignado_id') === (string) $t->usuario_id ? 'selected' : '' }}>{{ $t->name }}</option>
                                     @endforeach
                                 </select>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Incluye a quien ya no sale a la calle.</p>
                             </div>
                             <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 select-none">
                                 <input type="checkbox" name="sin_asignar" value="1" {{ request()->boolean('sin_asignar') ? 'checked' : '' }}
@@ -369,6 +384,25 @@
                     </div>
                 </div>
             </div>
+
+            <p id="tickets-resumen" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                <span><span id="tickets-resumen-conteo">{{ $tickets->total() }}</span> {{ $fraseLista }}</span>
+                @if($tabActiva === 'en_curso')
+                    @php
+                        $nNoRealizados = (int) ($kpis->no_realizados ?? 0);
+                        $nSinTecnico = (int) ($kpis->sin_asignar ?? 0);
+                    @endphp
+                    <span>· <span id="tickets-resumen-sin-tecnico">{{ $nSinTecnico }}</span> sin técnico</span>
+                    <span>· <span id="tickets-resumen-no-realizados">{{ $nNoRealizados }}</span> <span id="tickets-resumen-no-realizados-palabra">{{ $nNoRealizados === 1 ? 'no realizado' : 'no realizados' }}</span></span>
+                @endif
+                @if($ocultaCerrados && $tabActiva !== 'en_curso')
+                    <a href="{{ $urlSinOcultar }}" class="js-quitar-ocultar inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Sin resueltos ni cerrados
+                        <span aria-hidden="true">×</span>
+                        <span class="sr-only">Quitar filtro</span>
+                    </a>
+                @endif
+            </p>
 
             @if($clienteFiltro && $busqueda === '')
                 <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
@@ -388,7 +422,7 @@
         </form>
 
         {{-- Paquete B: Lista de Filas Ergonómicas con Prioridad y Técnico Visibles --}}
-        <div class="divide-y divide-gray-200 dark:divide-gray-700" id="tickets-lista-container">
+        <div class="divide-y divide-gray-200 dark:divide-gray-700" id="tickets-lista-container" data-tab="{{ $tabActiva }}">
             @forelse ($tickets as $ticket)
                 @php
                     $servicioConIp = $ticket->cliente
@@ -401,12 +435,40 @@
                     $nombreClienteTicket = $ticket->cliente
                         ? trim($ticket->cliente->nombre.' '.($ticket->cliente->apellido ?? ''))
                         : '';
+                    $detalleFila = \App\Support\TicketNotaLista::paraLista($ticket->descripcion ?: $ticket->observaciones);
+                    $lineaFila = \Illuminate\Support\Str::limit($detalleFila, 160);
                     $estados = App\Models\Ticket::estados();
                     $prioridades = App\Models\Ticket::prioridades();
                     $reportado = App\Models\Ticket::reportadoDesdeOpciones();
+                    $viaTicket = $reportado[$ticket->reportado_desde] ?? null;
+                    $claseEstadoFila = match ($ticket->estado) {
+                        'resuelto', 'cerrado' => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
+                        'cancelado' => 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300',
+                        'en_proceso' => 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300',
+                        'en_camino' => 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300',
+                        default => 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
+                    };
                     $esActivo = ! in_array($ticket->estado, ['resuelto', 'cerrado', 'cancelado'], true);
                     $mapsUrl = $mapsUrlCliente($ticket->cliente);
-
+                    if (! $mapsUrl && $ticket->pedido) {
+                        $mapsUrl = \App\Helpers\MapsUrlHelper::toGoogleMapsUrl(
+                            $ticket->pedido->maps_gps,
+                            $ticket->pedido->lat !== null ? (float) $ticket->pedido->lat : null,
+                            $ticket->pedido->lon !== null ? (float) $ticket->pedido->lon : null
+                        );
+                    }
+                    $nodoTicket = null;
+                    if ($ticket->cliente?->servicios) {
+                        $nodoTicket = $ticket->cliente->servicios
+                            ->filter(fn ($s) => $s->estado !== \App\Models\Servicio::ESTADO_CANCELADO)
+                            ->sortBy(fn ($s) => $s->estado === \App\Models\Servicio::ESTADO_ACTIVO ? 0 : 1)
+                            ->map(fn ($s) => $s->pool?->router?->nodo?->descripcion
+                                ?? $s->cajaNapPuertoActivo?->cajaNap?->nodo?->descripcion)
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->implode(' · ') ?: null;
+                    }
                     $canServicioCrear = auth()->user()?->tienePermiso('servicios.crear') ?? false;
                     $canServiciosVer = auth()->user()?->tienePermiso('servicios.ver') ?? false;
                     $canFacturaInternaCrear = auth()->user()?->tienePermiso('factura-interna.crear') ?? false;
@@ -418,14 +480,16 @@
                     $detalleTicket = [
                         'id' => $ticket->id,
                         'asunto' => $ticket->ticketAsunto?->nombre,
+                        'asunto_icono' => $ticket->ticketAsunto?->getIconoOrDefault(),
+                        'asunto_badge_style' => $ticket->ticketAsunto?->badgeStyle(),
                         'cliente' => $nombreClienteTicket !== '' ? $nombreClienteTicket : null,
                         'cliente_cedula' => $ticket->cliente?->cedula,
                         'cliente_telefono' => $ticket->cliente?->telefono,
                         'ip_cliente' => $ipClienteTicket,
                         'pedido_id' => $ticket->pedido_id,
-                        'descripcion' => $ticket->descripcion,
-                        'observaciones' => $ticket->observaciones,
-                        'nota_tecnico' => $ticket->nota_tecnico,
+                        'descripcion' => \App\Support\TicketNotaLista::paraDetalle($ticket->descripcion),
+                        'observaciones' => \App\Support\TicketNotaLista::paraDetalle($ticket->observaciones),
+                        'nota_tecnico' => \App\Support\TicketNotaLista::paraDetalle($ticket->nota_tecnico),
                         'diagnostico_vista' => (new \App\Support\TicketDiagnosticoPresenter($ticket->datos_diagnostico))->secciones(),
                         'estado' => $estados[$ticket->estado] ?? $ticket->estado,
                         'prioridad' => $prioridades[$ticket->prioridad ?? 'media'] ?? $ticket->prioridad,
@@ -444,8 +508,11 @@
                     $menuCfg = [
                         'estado' => $ticket->estado,
                         'asignado_id' => $ticket->asignado_id,
+                        'asignado_nombre' => $ticket->asignado?->name,
                         'ticket_id' => $ticket->id,
                         'cliente' => $nombreClienteTicket !== '' ? $nombreClienteTicket : null,
+                        'asunto' => $ticket->ticketAsunto?->nombre,
+                        'nota' => $lineaFila,
                         'update_estado_url' => route('tickets.update-estado', $ticket),
                         'edit_ticket_url' => route('tickets.edit', $ticket),
                         'agenda_url' => route('tickets.crear-agenda', $ticket),
@@ -459,204 +526,179 @@
                             : null,
                         'puede_facturar_ticket' => $canFacturaInternaCrear && $ticket->cliente_id && ! $ticket->factura_interna_id,
                         'facturar_url' => $canFacturaInternaCrear ? route('tickets.facturar', $ticket) : '',
+                        'asignar_en_fila' => $esActivo && ! $ticket->asignado,
                     ];
                 @endphp
 
-                <article class="ticket-row p-3.5 sm:p-4 transition-colors {{ $loop->even ? 'bg-gray-50/70 dark:bg-gray-800/40' : 'bg-white dark:bg-gray-800' }} hover:bg-gray-100/80 dark:hover:bg-gray-700/50" data-id="{{ $ticket->id }}">
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
-                        {{-- Columna 1: Checkbox + ID + Asunto + Badges de Estado y Prioridad --}}
-                        <div class="md:col-span-4 min-w-0 flex items-start gap-2.5">
-                            {{-- Checkbox selección masiva --}}
-                            <div class="pt-0.5 shrink-0">
-                                <input type="checkbox"
-                                    class="ticket-row-check rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
-                                    value="{{ $ticket->id }}"
-                                    aria-label="Seleccionar ticket #{{ $ticket->id }}">
+                <article class="ticket-row p-3.5 sm:p-4 transition-colors {{ $loop->even ? 'bg-gray-50/70 dark:bg-gray-800/40' : 'bg-white dark:bg-gray-800' }} hover:bg-gray-100/80 dark:hover:bg-gray-700/50" data-id="{{ $ticket->id }}" data-antiguedad="{{ $etiquetaAntiguedad($ticket->created_at) }}">
+                    <div class="ticket-row-grid grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+                        {{-- Columna 1: ID + Asunto + Badges de Estado y Prioridad --}}
+                        <div class="ticket-col-identidad md:col-span-3 min-w-0 flex items-center gap-3">
+                            <div class="ticket-icono shrink-0">
+                                @if($ticket->ticketAsunto)
+                                    <x-asunto-icono :asunto="$ticket->ticketAsunto" size="md" class="shadow-xs" />
+                                @else
+                                    <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700/60 text-gray-400 border border-gray-200 dark:border-gray-600">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                    </span>
+                                @endif
                             </div>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="font-mono text-xs font-semibold text-gray-400 dark:text-gray-500">#{!! $resaltar((string) $ticket->id) !!}</span>
-                                    <p class="text-sm font-bold text-gray-900 dark:text-gray-100 truncate" title="{{ $ticket->ticketAsunto?->nombre ?? '—' }}">
+                                    <span class="text-sm font-bold text-gray-900 dark:text-gray-100 truncate" title="{{ $ticket->ticketAsunto?->nombre ?? '—' }}">
                                         {!! $resaltar($ticket->ticketAsunto?->nombre ?? '—') !!}
-                                    </p>
+                                    </span>
                                 </div>
 
-                                {{-- Badges en fila principal: Estado + Prioridad + SLA --}}
                                 <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                                    {{-- Estado --}}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                                        @if($ticket->estado === 'resuelto' || $ticket->estado === 'cerrado') bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300
-                                        @elseif($ticket->estado === 'cancelado') bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300
-                                        @elseif($ticket->estado === 'en_proceso') bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300
-                                        @elseif($ticket->estado === 'en_camino') bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300
-                                        @else bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 @endif">
-                                        {{ $estados[$ticket->estado] ?? $ticket->estado }}
+                                    <span data-estado-badge class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $claseEstadoFila }}">{{ $estados[$ticket->estado] ?? $ticket->estado }}</span>
+                                    <span class="ticket-meta-fecha text-xs">
+                                        <span class="ticket-meta-fecha-absoluta font-normal text-gray-500 dark:text-gray-400">{{ $ticket->created_at?->format('d/m/Y H:i') ?? '—' }}</span>
+                                        @if($ticket->created_at)
+                                            <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $etiquetaAntiguedad($ticket->created_at) }}</span>
+                                        @endif
                                     </span>
-
-                                    {{-- Prioridad visible directamente --}}
-                                    @if(($ticket->prioridad ?? 'media') === 'alta')
-                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200 border border-red-200 dark:border-red-800" title="Prioridad Alta">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                                            Alta
-                                        </span>
-                                    @elseif(($ticket->prioridad ?? '') === 'baja')
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300" title="Prioridad Baja">
-                                            Baja
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" title="Prioridad Media">
-                                            Media
-                                        </span>
-                                    @endif
-
-                                    {{-- Alerta de SLA (>24h sin resolver) --}}
-                                    @if($esSlaVencido($ticket->estado, $ticket->created_at))
-                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200" title="Ticket activo creado hace más de 24 horas">
-                                            ⏰ >24h
-                                        </span>
-                                    @endif
                                 </div>
                             </div>
                         </div>
 
-                        {{-- Columna 2: Cliente + Cédula + Teléfono + IP --}}
-                        <div class="md:col-span-4 min-w-0">
+                        {{-- Columna 2: Cliente + nodo + mapa; CI/tel ocultos --}}
+                        <div class="ticket-col-cliente md:col-span-3 min-w-0">
                             <div class="flex items-start gap-2">
-                                <svg class="w-4 h-4 mt-0.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                <svg class="ticket-cliente-icono w-4 h-4 mt-0.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                 </svg>
                                 <div class="min-w-0">
                                     @if($ticket->cliente)
-                                        <a href="{{ route('clientes.detalle', $ticket->cliente) }}" class="inline-block text-sm font-semibold text-purple-600 dark:text-purple-400 hover:underline truncate max-w-full" title="Ver ficha del cliente">{!! $resaltar($nombreClienteTicket) !!}</a>
-                                        <div class="flex items-center gap-2 flex-wrap text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                            @if($ticket->cliente->cedula)
-                                                <span>CI: {!! $resaltar($ticket->cliente->cedula) !!}</span>
-                                            @endif
-                                            @if($ticket->cliente->telefono)
-                                                <span>· Tel: {!! $resaltar($ticket->cliente->telefono) !!}</span>
-                                            @endif
-                                        </div>
+                                        <a href="{{ route('clientes.detalle', $ticket->cliente) }}" class="inline-block text-sm font-semibold text-gray-900 dark:text-gray-100 underline-offset-2 hover:underline focus-visible:underline truncate max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-sm" title="Ver ficha del cliente">{!! $resaltar($nombreClienteTicket) !!}</a>
+                                        @if($mapsUrl || $nodoTicket)
+                                            <div class="ticket-meta-contacto flex items-center gap-1.5 flex-wrap text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                @if($mapsUrl)
+                                                    <a href="{{ $mapsUrl }}" target="_blank" rel="noopener noreferrer"
+                                                       class="inline-flex items-center justify-center h-8 w-8 rounded-md text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                                       title="Abrir mapa"
+                                                       aria-label="Abrir mapa de {{ $nombreClienteTicket }}">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                        </svg>
+                                                    </a>
+                                                @endif
+                                                @if($nodoTicket)
+                                                    <span class="min-w-0 truncate" title="Nodo: {{ $nodoTicket }}">Nodo {{ $nodoTicket }}</span>
+                                                @endif
+                                            </div>
+                                        @endif
                                     @else
                                         <p class="text-sm text-gray-500 dark:text-gray-400">—</p>
                                     @endif
 
                                     @if($ticket->pedido_id)
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Pedido #{!! $resaltar((string) $ticket->pedido_id) !!}</p>
+                                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Pedido #{!! $resaltar((string) $ticket->pedido_id) !!}</p>
                                     @endif
                                 </div>
                             </div>
                         </div>
 
                         {{-- Columna 3: Técnico Asignado + Fecha y Antigüedad --}}
-                        <div class="md:col-span-2 min-w-0">
+                        <div class="ticket-col-tecnico md:col-span-3 min-w-0">
                             {{-- Técnico Asignado Chip directo --}}
-                            <div>
+                            <div data-tecnico-slot>
                                 @if($ticket->asignado)
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600" title="Técnico asignado">
+                                    <span class="inline-flex items-start gap-1.5 max-w-full px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600" title="{{ $ticket->asignado->name }}">
                                         <svg class="w-3.5 h-3.5 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                        <span class="truncate max-w-[120px]">{!! $resaltar($ticket->asignado->name) !!}</span>
+                                        <span class="min-w-0 break-words whitespace-normal leading-snug">{!! $resaltar($ticket->asignado->name) !!}</span>
                                     </span>
                                 @else
                                     <button type="button" class="btn-asignar-rapido inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200 dark:border-orange-800 hover:bg-orange-200 transition-colors"
-                                        title="Click para asignar técnico"
+                                        title="Asignar técnico"
                                         data-ticket-id="{{ $ticket->id }}"
                                         data-url="{{ route('tickets.update-estado', $ticket) }}"
                                         data-estado="{{ $ticket->estado }}"
-                                        data-cliente="{{ $nombreClienteTicket }}">
-                                        <span>⚠️ Sin técnico</span>
+                                        data-cliente="{{ $nombreClienteTicket }}"
+                                        data-asunto="{{ $ticket->ticketAsunto?->nombre ?? '' }}">
+                                        <span>Sin técnico</span>
+                                    </button>
+                                    <span class="ticket-sin-tecnico-movil items-center px-2 py-1 rounded-md text-xs font-semibold bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200 dark:border-orange-800">Sin técnico</span>
+                                @endif
+                            </div>
+                            <p class="mt-1.5 text-xs {{ ($ticket->prioridad ?? 'media') === 'alta' ? 'font-semibold text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-300' }}">Prioridad {{ $prioridades[$ticket->prioridad ?? 'media'] ?? ($ticket->prioridad ?? 'Media') }}</p>
+                        </div>
+
+                        {{-- Acciones: Resolver/Asignar + menú; en móvil el menú sube a la cabecera --}}
+                        <div class="ticket-col-acciones-wrap md:col-span-3 flex items-center justify-end gap-1 flex-wrap">
+                            <div class="ticket-col-acciones flex items-center justify-end gap-1 flex-wrap min-w-0 flex-1 md:flex-initial">
+                                @if($esActivo && ! $ticket->asignado)
+                                    <button type="button"
+                                        class="btn-asignar-rapido btn-asignar-fila inline-flex items-center min-h-11 px-3 rounded-lg text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                        data-url="{{ route('tickets.update-estado', $ticket) }}"
+                                        data-ticket-id="{{ $ticket->id }}"
+                                        data-estado="{{ $ticket->estado }}"
+                                        data-cliente="{{ $nombreClienteTicket }}"
+                                        data-asunto="{{ $ticket->ticketAsunto?->nombre ?? '' }}">
+                                        Asignar
+                                    </button>
+                                @endif
+                                @if($esActivo)
+                                    <button type="button"
+                                        class="btn-quick-resolver inline-flex items-center gap-1.5 min-h-11 px-3 rounded-lg text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                        data-url="{{ route('tickets.update-estado', $ticket) }}"
+                                        data-ticket-id="{{ $ticket->id }}"
+                                        data-estado="{{ $ticket->estado }}"
+                                        data-cliente="{{ $nombreClienteTicket }}"
+                                        data-asunto="{{ $ticket->ticketAsunto?->nombre ?? '' }}"
+                                        data-nota="{{ $lineaFila }}"
+                                        data-via="{{ $viaTicket }}"
+                                        data-sin-tecnico="{{ $ticket->asignado ? '0' : '1' }}"
+                                        data-estado-etiqueta="{{ $estados[$ticket->estado] ?? $ticket->estado }}"
+                                        data-tecnico="{{ $ticket->asignado?->name ?? '' }}">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        Resolver
                                     </button>
                                 @endif
                             </div>
-
-                            {{-- Fecha / Antigüedad --}}
-                            <div class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ $ticket->created_at?->format('d/m/Y H:i') ?? '—' }}</span>
-                                @if($ticket->created_at)
-                                    <span class="text-gray-400 dark:text-gray-500">· {{ $etiquetaAntiguedad($ticket->created_at) }}</span>
-                                @endif
-                            </div>
-                        </div>
-
-                        {{-- Columna 4: Barra de Herramientas y Acciones --}}
-                        <div class="md:col-span-2 flex items-center justify-end gap-1 flex-wrap">
-                            {{-- Botón rápido: Resolver ticket (solo si está activo) --}}
-                            @if($esActivo)
+                            <div class="ticket-col-overflow inline-flex items-center">
                                 <button type="button"
-                                    class="btn-quick-resolver p-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition-colors"
-                                    title="Marcar como resuelto"
-                                    aria-label="Marcar como resuelto"
-                                    data-url="{{ route('tickets.update-estado', $ticket) }}"
-                                    data-ticket-id="{{ $ticket->id }}">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    class="ticket-acciones-kebab inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                    title="Más opciones"
+                                    aria-label="Menú de acciones del ticket #{{ $ticket->id }}"
+                                    aria-expanded="false"
+                                    data-menu-b64="{{ base64_encode(json_encode($menuCfg, JSON_UNESCAPED_UNICODE)) }}">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                                 </button>
-                            @endif
-
-                            {{-- IP / CPE Link --}}
-                            @if($ipClienteTicket)
-                                <a href="http://{{ $ipClienteTicket }}" target="_blank" rel="noopener noreferrer"
-                                    class="p-2 rounded-lg text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 transition-colors"
-                                    title="Abrir equipo {{ $ipClienteTicket }}"
-                                    aria-label="Abrir IP del cliente">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                                <button type="button"
+                                    class="ticket-expandir-btn inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                    title="Más detalles"
+                                    aria-label="Mostrar más detalles del ticket #{{ $ticket->id }}"
+                                    aria-expanded="false"
+                                    aria-controls="ticket-extra-{{ $ticket->id }}">
+                                    <svg class="ticket-expandir-icon w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                                     </svg>
-                                </a>
-                            @endif
-
-                            {{-- Maps GPS Link --}}
-                            @if($mapsUrl)
-                                <a href="{{ $mapsUrl }}" target="_blank" rel="noopener noreferrer"
-                                    class="p-2 rounded-lg text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
-                                    title="Abrir ubicación en Google Maps"
-                                    aria-label="Abrir ubicación en Google Maps">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                    </svg>
-                                </a>
-                            @endif
-
-                            {{-- Botón: Ver observaciones / Telemetría --}}
-                            <button type="button"
-                                class="btn-ver-detalle-ticket p-2 rounded-lg relative {{ filled($ticket->observaciones) || filled($ticket->descripcion) || !empty($ticket->datos_diagnostico) ? 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700' }} transition-colors"
-                                title="Ver notas y telemetría"
-                                aria-label="Ver notas y telemetría"
-                                data-detalle-b64="{{ base64_encode(json_encode($detalleTicket, JSON_UNESCAPED_UNICODE)) }}">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                @if(!empty($ticket->datos_diagnostico))
-                                    <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500" title="Telemetría de app disponible"></span>
-                                @endif
-                            </button>
-
-                            {{-- Kebab Menú de Acciones completas --}}
-                            <button type="button"
-                                class="ticket-acciones-kebab p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                title="Más opciones"
-                                aria-label="Menú de acciones"
-                                aria-expanded="false"
-                                data-menu-b64="{{ base64_encode(json_encode($menuCfg, JSON_UNESCAPED_UNICODE)) }}">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                            </button>
-
-                            {{-- Chevron desplegar datos secundarios --}}
-                            <button type="button"
-                                class="ticket-expandir-btn p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                title="Más detalles"
-                                aria-label="Mostrar más detalles"
-                                aria-expanded="false"
-                                aria-controls="ticket-extra-{{ $ticket->id }}">
-                                <svg class="ticket-expandir-icon w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            </button>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     {{-- Acordeón de datos secundarios colapsables --}}
                     <div id="ticket-extra-{{ $ticket->id }}" class="hidden mt-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-3 grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        @if($detalleFila !== '')
+                            <div class="col-span-2 lg:col-span-4">
+                                <p class="font-medium uppercase tracking-wide text-gray-400">Detalle</p>
+                                <p class="mt-1 text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap break-words">{{ $detalleFila }}</p>
+                            </div>
+                        @endif
+                        <div class="col-span-2 lg:col-span-4 flex flex-wrap gap-2">
+                            @if($ipClienteTicket)
+                                <a href="http://{{ $ipClienteTicket }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/40">Equipo {{ $ipClienteTicket }}</a>
+                            @endif
+                            <button type="button"
+                                class="btn-ver-detalle-ticket inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-800"
+                                data-detalle-b64="{{ base64_encode(json_encode($detalleTicket, JSON_UNESCAPED_UNICODE)) }}">
+                                Notas{{ !empty($ticket->datos_diagnostico) ? ' y diagnóstico' : '' }}
+                            </button>
+                        </div>
                         <div>
                             <p class="font-medium uppercase tracking-wide text-gray-400">Reportado vía</p>
                             <p class="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-300">{{ $ticket->reportado_desde ? ($reportado[$ticket->reportado_desde] ?? $ticket->reportado_desde) : '—' }}</p>
@@ -714,38 +756,28 @@
                     <span>por página · Mostrando {{ $tickets->firstItem() ?? 0 }}-{{ $tickets->lastItem() ?? 0 }} de {{ $tickets->total() }}</span>
                 </label>
                 @if ($tickets->hasPages())
-                    <div class="min-w-0">{{ $tickets->links() }}</div>
+                    <nav class="flex items-center gap-2 text-sm" aria-label="Paginación">
+                        @if ($tickets->onFirstPage())
+                            <span class="px-3 py-1.5 rounded-lg text-gray-400 dark:text-gray-500">Anterior</span>
+                        @else
+                            <a href="{{ $tickets->previousPageUrl() }}" class="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700">Anterior</a>
+                        @endif
+                        <span class="text-gray-600 dark:text-gray-300">Página {{ $tickets->currentPage() }} de {{ $tickets->lastPage() }}</span>
+                        @if ($tickets->hasMorePages())
+                            <a href="{{ $tickets->nextPageUrl() }}" class="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700">Siguiente</a>
+                        @else
+                            <span class="px-3 py-1.5 rounded-lg text-gray-400 dark:text-gray-500">Siguiente</span>
+                        @endif
+                    </nav>
                 @endif
             </div>
         @endif
     </div>
 </div>
 
-{{-- Paquete C: Barra Flotante de Acciones Masivas --}}
-<div id="tickets-bulk-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden max-w-2xl w-[94vw] bg-gray-900/95 text-white backdrop-blur-md rounded-2xl px-5 py-3.5 shadow-2xl border border-gray-700 flex flex-wrap items-center justify-between gap-3 animate-bulk-bar">
-    <div class="flex items-center gap-3">
-        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-xs font-bold" id="bulk-selected-badge">0</span>
-        <span id="bulk-selected-count" class="font-bold text-sm text-gray-100">0 tickets seleccionados</span>
-        <button type="button" id="bulk-btn-deseleccionar" class="text-xs text-gray-400 hover:text-white underline cursor-pointer">Deseleccionar</button>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap">
-        <button type="button" id="bulk-btn-asignar" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-sm transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-            Asignar técnico
-        </button>
-        <button type="button" id="bulk-btn-estado" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-xs font-semibold text-white shadow-sm transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-            Cambiar estado
-        </button>
-        <button type="button" id="bulk-btn-resolver" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-sm transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-            Resolver seleccionados
-        </button>
-    </div>
-</div>
 
 {{-- Menú acciones kebab flotante --}}
-<div id="ticket-acciones-dropdown" class="fixed z-[9999] hidden py-1 min-w-[220px] bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl" role="menu" aria-hidden="true"></div>
+<div id="ticket-acciones-dropdown" class="fixed z-[9999] hidden py-1 min-w-[220px] bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700" role="menu" aria-hidden="true"></div>
 
 {{-- Modal táctil para Cambiar Estado (usado tanto individual como masivo) --}}
 @php
@@ -775,7 +807,7 @@
 <div id="ticket-estado-modal" class="fixed inset-0 z-[9999] hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-estado-modal-title" aria-hidden="true">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="ticket-estado-modal-backdrop"></div>
     <div class="relative min-h-full flex items-center justify-center p-4 overflow-y-auto">
-        <div class="w-full max-w-xl rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl p-6">
+        <div class="w-full max-w-xl rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <div class="min-w-0">
                     <h3 id="ticket-estado-modal-title" class="text-lg font-bold text-gray-900 dark:text-gray-100">Cambiar estado</h3>
@@ -785,11 +817,13 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Seleccione el estado</p>
-            <div id="ticket-estado-cards" class="grid grid-cols-4 gap-2 mb-4">
-                @foreach (App\Models\Ticket::estados() as $key => $label)
+            <div id="ticket-estado-cards-wrap">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2" id="ticket-estado-cards-label">Elegí el estado</p>
+            <div id="ticket-estado-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                @foreach (['pendiente', 'en_camino', 'en_proceso', 'no_realizado'] as $key)
+                    @php $label = App\Models\Ticket::estados()[$key]; @endphp
                     <button type="button"
-                        class="ticket-estado-card relative h-20 w-full rounded-xl border p-2 cursor-pointer flex flex-col items-center justify-center transition-all {{ $claseEstadoTarjeta($key) }}"
+                        class="ticket-estado-card relative min-h-20 w-full rounded-lg border p-2 cursor-pointer flex flex-col items-center justify-center transition-all {{ $claseEstadoTarjeta($key) }}"
                         data-estado="{{ $key }}">
                         <span class="ticket-estado-check hidden absolute top-1 right-2 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center pointer-events-none" aria-hidden="true">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
@@ -799,11 +833,12 @@
                     </button>
                 @endforeach
             </div>
+            </div>
             <label for="ticket-estado-tecnico" class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Técnico Asignado</label>
             <select id="ticket-estado-tecnico"
                 class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none">
-                <option value="">Sin asignar / Mantener asignación</option>
-                @foreach ($tecnicos as $t)
+                <option value="">Sin técnico</option>
+                @foreach ($tecnicosCampo as $t)
                     <option value="{{ $t->usuario_id }}">{{ $t->name }}</option>
                 @endforeach
             </select>
@@ -813,6 +848,29 @@
             </div>
         </div>
     </div>
+</div>
+
+<div id="ticket-resolver-modal" class="fixed inset-0 z-[10000] hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-resolver-title" aria-describedby="ticket-resolver-nota ticket-resolver-sale ticket-resolver-deshacer" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/60" id="ticket-resolver-backdrop"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+            <h3 id="ticket-resolver-title" class="text-lg font-bold text-gray-900 dark:text-gray-100">Resolver</h3>
+            <p id="ticket-resolver-nota" class="mt-3 text-sm text-gray-800 dark:text-gray-100 truncate"></p>
+            <p id="ticket-resolver-sale" class="mt-2 text-sm text-gray-600 dark:text-gray-300">Sale de En curso.</p>
+            <p id="ticket-resolver-aviso" class="mt-1 text-sm text-gray-600 dark:text-gray-300">Resolver avisa al cliente por la app y por WhatsApp.</p>
+            <p id="ticket-resolver-deshacer" class="mt-1 text-sm text-gray-600 dark:text-gray-300">Se puede deshacer 4 segundos.</p>
+            <p id="ticket-resolver-error" class="mt-3 text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+            <div class="mt-5 flex flex-wrap justify-end gap-2">
+                <button type="button" id="ticket-resolver-cancelar" class="min-h-11 px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">Cancelar</button>
+                <button type="button" id="ticket-resolver-sin-avisar" class="min-h-11 px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-50">Resolver sin avisar</button>
+                <button type="button" id="ticket-resolver-confirmar" class="min-h-11 px-5 py-2 text-sm rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-50">Resolver</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="ticket-deshacer" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[10001] hidden w-[min(28rem,calc(100%-2rem))] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between gap-3" role="status">
+    <p id="ticket-deshacer-texto" class="text-sm text-gray-900 dark:text-gray-100"></p>
+    <button type="button" id="ticket-deshacer-btn" class="min-h-11 px-3 text-sm font-medium text-purple-700 dark:text-purple-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-lg">Deshacer</button>
 </div>
 
 @push('scripts')
@@ -845,7 +903,9 @@
         panel.classList.toggle('hidden', !abierto);
         btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
         btn.setAttribute('title', abierto ? 'Ocultar detalles' : 'Más detalles');
-        btn.setAttribute('aria-label', abierto ? 'Ocultar detalles' : 'Mostrar más detalles');
+        var fila = btn.closest('article');
+        var idFila = fila ? fila.getAttribute('data-id') : '';
+        btn.setAttribute('aria-label', (abierto ? 'Ocultar detalles' : 'Mostrar más detalles') + (idFila ? ' del ticket #' + idFila : ''));
         var icono = btn.querySelector('.ticket-expandir-icon');
         if (icono) icono.classList.toggle('rotate-180', abierto);
     });
@@ -870,12 +930,20 @@
             if (!wrapFiltros.contains(e.target)) setFiltrosOpen(false);
         });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') setFiltrosOpen(false);
+            if (e.key !== 'Escape') return;
+            setFiltrosOpen(false);
+            document.querySelectorAll('details.ticket-mas-colas[open]').forEach(function (d) { d.open = false; });
+            cerrarMenuTicketAcciones();
         });
     }
 
     // Persistencia del checkbox ocultar resuelto/cerrado
     var filtroOcultarCheck = document.querySelector('input[name="ocultar_resuelto_cerrado"]');
+    document.querySelectorAll('.js-quitar-ocultar').forEach(function(enlace) {
+        enlace.addEventListener('click', function() {
+            localStorage.setItem(filtroOcultarStorageKey, '0');
+        });
+    });
     if (filtroOcultarCheck) {
         var formularioFiltros = filtroOcultarCheck.closest('form');
         var hasFiltroOcultarQuery = new URLSearchParams(window.location.search).has('ocultar_resuelto_cerrado');
@@ -1000,7 +1068,12 @@
         // Panel 1: Notas
         html += '<div id="swal-tab-notas" class="swal-tab-pane space-y-3">';
         if (t.asunto) {
-            html += '<p class="' + (isDark ? 'text-gray-300' : 'text-gray-600') + ' font-medium">' + escapeHtml(t.asunto) + (t.cliente ? ' · <span class="text-purple-500 font-bold">' + escapeHtml(t.cliente) + '</span>' : '') + '</p>';
+            var ico = t.asunto_icono ? ('<span class="text-sm">' + escapeHtml(t.asunto_icono) + '</span> ') : '';
+            var bStyle = t.asunto_badge_style ? ('style="' + escapeHtml(t.asunto_badge_style) + '"') : '';
+            html += '<div class="flex items-center gap-2 flex-wrap mb-2">' +
+                '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold" ' + bStyle + '>' + ico + escapeHtml(t.asunto) + '</span>' +
+                (t.cliente ? ' · <span class="' + (isDark ? 'text-gray-100' : 'text-gray-900') + ' font-semibold">' + escapeHtml(t.cliente) + '</span>' : '') +
+                '</div>';
         }
         html += bloqueNota('Descripción del Reclamo', t.descripcion, isDark);
         html += bloqueNota('Observaciones de Atención', t.observaciones, isDark);
@@ -1116,24 +1189,28 @@
         var icTrash = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
         var icCheck = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         var icWifi = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>';
-        var baseBtn = 'w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-colors';
+        var baseBtn = 'w-full min-h-11 px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-colors';
+        var sep = '<div class="my-1 border-t border-gray-200 dark:border-gray-700" role="separator"></div>';
+        var datosEstado = ' data-url="' + escapeHtml(cfg.update_estado_url) + '" data-estado="' + escapeHtml(cfg.estado || '') + '" data-asignado-id="' + escapeHtml(cfg.asignado_id != null ? String(cfg.asignado_id) : '') + '" data-asignado-nombre="' + escapeHtml(cfg.asignado_nombre || '') + '" data-ticket-id="' + escapeHtml(cfg.ticket_id != null ? String(cfg.ticket_id) : '') + '" data-cliente="' + escapeHtml(cfg.cliente || '') + '" data-asunto="' + escapeHtml(cfg.asunto || '') + '"';
         var h = '';
+        h += '<button type="button" role="menuitem" class="' + baseBtn + ' text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 ticket-menu-item" data-accion="estado"' + datosEstado + '>' + icLista + ' Cambiar estado</button>';
+        if (!cfg.asignar_en_fila) {
+            h += '<button type="button" role="menuitem" class="' + baseBtn + ' text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 ticket-menu-item" data-accion="asignar"' + datosEstado + '>' + icLista + ' Asignar técnico</button>';
+        }
+        h += sep;
         if (cfg.herramientas_red_url) {
-            h += '<a href="' + escapeHtml(cfg.herramientas_red_url) + '" class="block ' + baseBtn + ' text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30">' + icWifi + ' Herramientas de red</a>';
+            h += '<a href="' + escapeHtml(cfg.herramientas_red_url) + '" role="menuitem" class="block ' + baseBtn + ' text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">' + icWifi + ' Herramientas de red</a>';
         }
-        h += '<button type="button" class="' + baseBtn + ' text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 ticket-menu-item" data-accion="estado" data-url="' + escapeHtml(cfg.update_estado_url) + '" data-estado="' + escapeHtml(cfg.estado || '') + '" data-asignado-id="' + escapeHtml(cfg.asignado_id != null ? String(cfg.asignado_id) : '') + '" data-ticket-id="' + escapeHtml(cfg.ticket_id != null ? String(cfg.ticket_id) : '') + '" data-cliente="' + escapeHtml(cfg.cliente || '') + '">' + icLista + ' Cambiar estado</button>';
         if (cfg.puede_facturar_ticket && cfg.facturar_url) {
-            h += '<button type="button" class="' + baseBtn + ' text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 ticket-menu-item" data-accion="facturar-ticket" data-facturar-url="' + escapeHtml(cfg.facturar_url) + '">' + icDoc + ' Crear factura por ticket</button>';
+            h += '<button type="button" role="menuitem" class="' + baseBtn + ' text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 ticket-menu-item" data-accion="facturar-ticket" data-facturar-url="' + escapeHtml(cfg.facturar_url) + '">' + icDoc + ' Crear factura por ticket</button>';
         }
-        if (cfg.puede_marcar_resuelto) {
-            h += '<button type="button" class="' + baseBtn + ' text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 ticket-menu-item" data-accion="resuelto" data-url="' + escapeHtml(cfg.update_estado_url) + '" data-ticket-id="' + escapeHtml(cfg.ticket_id != null ? String(cfg.ticket_id) : '') + '">' + icCheck + ' Marcar como resuelto</button>';
-        }
-        h += '<a href="' + escapeHtml(cfg.edit_ticket_url) + '" class="block ' + baseBtn + ' text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30">' + icEdit + ' Editar</a>';
-        h += '<a href="' + escapeHtml(cfg.agenda_url) + '" class="block ' + baseBtn + ' text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">' + icCal + ' Crear cita en agenda</a>';
+        h += '<a href="' + escapeHtml(cfg.edit_ticket_url) + '" role="menuitem" class="block ' + baseBtn + ' text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">' + icEdit + ' Editar</a>';
+        h += '<a href="' + escapeHtml(cfg.agenda_url) + '" role="menuitem" class="block ' + baseBtn + ' text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">' + icCal + ' Crear cita en agenda</a>';
         if (cfg.imagen_url) {
-            h += '<a href="' + escapeHtml(cfg.imagen_url) + '" target="_blank" rel="noopener" class="block ' + baseBtn + ' text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">' + icImg + ' Ver imagen</a>';
+            h += '<a href="' + escapeHtml(cfg.imagen_url) + '" role="menuitem" target="_blank" rel="noopener" class="block ' + baseBtn + ' text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30">' + icImg + ' Ver imagen</a>';
         }
-        h += '<form method="POST" action="' + escapeHtml(cfg.destroy_url) + '" class="block ticket-menu-eliminar-form" onsubmit="return confirm(\'¿Eliminar este ticket?\');"><input type="hidden" name="_token" value="' + escapeHtml(cfg.csrf) + '"><input type="hidden" name="_method" value="DELETE"><button type="submit" class="' + baseBtn + ' text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">' + icTrash + ' Eliminar</button></form>';
+        h += sep;
+        h += '<form method="POST" action="' + escapeHtml(cfg.destroy_url) + '" class="block ticket-menu-eliminar-form" onsubmit="return confirm(\'¿Eliminar este ticket?\');"><input type="hidden" name="_token" value="' + escapeHtml(cfg.csrf) + '"><input type="hidden" name="_method" value="DELETE"><button type="submit" role="menuitem" class="' + baseBtn + ' text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">' + icTrash + ' Eliminar</button></form>';
         return h;
     }
 
@@ -1150,6 +1227,8 @@
                 Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo abrir el menú.' });
                 return;
             }
+            var cardMenu = this.closest('article');
+            cfg.asignar_en_fila = !!(cardMenu && cardMenu.querySelector('.btn-asignar-fila'));
             if (ticketMenuOpenBtn === this) {
                 cerrarMenuTicketAcciones();
                 return;
@@ -1159,6 +1238,8 @@
             this.setAttribute('aria-expanded', 'true');
             ticketMenuEl.innerHTML = construirHtmlMenuTicket(cfg);
             posicionarMenuTicketAcciones(this);
+            var primeroMenu = ticketMenuEl.querySelector('[role="menuitem"]');
+            if (primeroMenu) primeroMenu.focus();
         });
     });
 
@@ -1225,59 +1306,119 @@
                         Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'No se pudo generar la factura.' });
                     });
                 });
-            } else if (accion === 'estado') {
+            } else if (accion === 'estado' || accion === 'asignar') {
                 e.preventDefault();
                 cerrarMenuTicketAcciones();
                 abrirModalEstadoTicket({
                     url: t.getAttribute('data-url'),
                     estado: t.getAttribute('data-estado') || '',
                     asignadoId: t.getAttribute('data-asignado-id') || '',
+                    asignadoNombre: t.getAttribute('data-asignado-nombre') || '',
                     ticketId: t.getAttribute('data-ticket-id') || '',
-                    cliente: t.getAttribute('data-cliente') || ''
+                    cliente: t.getAttribute('data-cliente') || '',
+                    asunto: t.getAttribute('data-asunto') || '',
+                    soloAsignar: accion === 'asignar'
                 });
             } else if (accion === 'resuelto') {
                 e.preventDefault();
-                var urlR = t.getAttribute('data-url');
-                var tid = t.getAttribute('data-ticket-id');
                 cerrarMenuTicketAcciones();
-                confirmarYResolverTicket(urlR, tid);
+                confirmarYResolverTicket({
+                    url: t.getAttribute('data-url'),
+                    ticketId: t.getAttribute('data-ticket-id'),
+                    estado: t.getAttribute('data-estado') || '',
+                    cliente: t.getAttribute('data-cliente') || '',
+                    asunto: t.getAttribute('data-asunto') || '',
+                    nota: t.getAttribute('data-nota') || ''
+                });
             }
         });
     }
 
-    // Paquete B: Botón Rápido "Resolver" directo en fila
-    function confirmarYResolverTicket(url, ticketId) {
-        Swal.fire({
-            title: '¿Marcar como resuelto?',
-            text: 'El ticket #' + (ticketId || '') + ' pasará al estado Resuelto.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, marcar resuelto',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#10b981',
-            cancelButtonColor: '#6b7280'
-        }).then(function(result) {
-            if (!result.isConfirmed) return;
-            enviarEstadoTicket(url, 'resuelto').then(function() {
-                return Swal.fire({ icon: 'success', title: '¡Resuelto!', text: 'El ticket fue marcado como resuelto correctamente.' });
-            }).then(function() {
-                window.location.reload();
-            }).catch(function() {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el estado del ticket.' });
-            });
+    function colaOcultaResueltos() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('ocultar_resuelto_cerrado') === '1') return true;
+        return ['en_curso', 'abiertos', 'pendientes', 'en_camino', 'en_proceso', 'alta', 'sin_asignar'].indexOf(params.get('cola') || '') !== -1;
+    }
+
+    function filaTicket(ticketId) {
+        return document.querySelector('article[data-id="' + ticketId + '"]');
+    }
+
+    function claseBadgeEstado(estado) {
+        if (estado === 'resuelto' || estado === 'cerrado') return 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300';
+        if (estado === 'cancelado') return 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300';
+        if (estado === 'en_proceso') return 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300';
+        if (estado === 'en_camino') return 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300';
+        return 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300';
+    }
+
+    function quitarFilaOContar(card) {
+        card.remove();
+        var conteo = document.getElementById('tickets-resumen-conteo');
+        if (!conteo) return;
+        var n = parseInt(conteo.textContent, 10);
+        if (!isNaN(n) && n > 0) conteo.textContent = String(n - 1);
+    }
+
+    function aplicarEstadoEnFila(ticketId, estado, etiqueta) {
+        var card = filaTicket(ticketId);
+        if (!card) return;
+        var sale = (estado === 'resuelto' || estado === 'cerrado' || estado === 'cancelado') && colaOcultaResueltos();
+        if (sale) {
+            quitarFilaOContar(card);
+            return;
+        }
+        var badge = card.querySelector('[data-estado-badge]');
+        if (badge) {
+            var textoEstado = etiqueta || estado;
+            badge.textContent = textoEstado;
+            badge.className = claseBadgeEstado(estado);
+        }
+        card.querySelectorAll('.btn-quick-resolver').forEach(function(b) {
+            b.setAttribute('data-estado', estado || '');
+            if (etiqueta) b.setAttribute('data-estado-etiqueta', etiqueta);
         });
+        if (estado === 'resuelto' || estado === 'cerrado' || estado === 'cancelado') {
+            card.querySelectorAll('.btn-quick-resolver').forEach(function(b) { b.remove(); });
+        }
+    }
+
+    function pintarTecnicoEnFila(ticketId, nombre) {
+        var card = filaTicket(ticketId);
+        if (!card) return;
+        var slot = card.querySelector('[data-tecnico-slot]');
+        if (!slot) return;
+        slot.innerHTML = '<span class="inline-flex items-start gap-1.5 max-w-full px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600" title="' + escapeHtml(nombre || 'Sin técnico') + '"><span class="min-w-0 break-words whitespace-normal leading-snug">' + escapeHtml(nombre || 'Sin técnico') + '</span></span>';
+        card.querySelectorAll('.btn-asignar-fila').forEach(function(b) { b.remove(); });
+        card.querySelectorAll('.btn-quick-resolver').forEach(function(b) {
+            b.setAttribute('data-tecnico', nombre || '');
+            b.setAttribute('data-sin-tecnico', nombre ? '0' : '1');
+        });
+    }
+
+    function confirmarYResolverTicket(opts) {
+        abrirModalResolver(opts);
     }
 
     document.querySelectorAll('.btn-quick-resolver').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            var url = this.getAttribute('data-url');
-            var tid = this.getAttribute('data-ticket-id');
-            confirmarYResolverTicket(url, tid);
+            cerrarMenuTicketAcciones();
+            abrirModalResolver({
+                url: this.getAttribute('data-url'),
+                ticketId: this.getAttribute('data-ticket-id'),
+                estado: this.getAttribute('data-estado') || '',
+                cliente: this.getAttribute('data-cliente') || '',
+                asunto: this.getAttribute('data-asunto') || '',
+                nota: this.getAttribute('data-nota') || '',
+                via: this.getAttribute('data-via') || '',
+                sinTecnico: this.getAttribute('data-sin-tecnico') === '1',
+                estadoEtiqueta: this.getAttribute('data-estado-etiqueta') || '',
+                tecnico: this.getAttribute('data-tecnico') || ''
+            });
         });
     });
 
-    // Clic rápido en "Sin técnico" para asignar inmediatamente
     document.querySelectorAll('.btn-asignar-rapido').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -1286,16 +1427,19 @@
                 estado: this.getAttribute('data-estado') || '',
                 asignadoId: '',
                 ticketId: this.getAttribute('data-ticket-id') || '',
-                cliente: this.getAttribute('data-cliente') || ''
+                cliente: this.getAttribute('data-cliente') || '',
+                asunto: this.getAttribute('data-asunto') || '',
+                soloAsignar: true
             });
         });
     });
 
-    function enviarEstadoTicket(url, nuevoEstado, asignadoId) {
+    function enviarEstadoTicket(url, nuevoEstado, asignadoId, sinAvisar) {
         var body = { estado: nuevoEstado };
         if (typeof asignadoId !== 'undefined') {
             body.asignado_id = (asignadoId === '' || asignadoId === null) ? null : Number(asignadoId);
         }
+        if (sinAvisar) body.sin_avisar = true;
         return fetch(url, {
             method: 'PATCH',
             headers: {
@@ -1312,10 +1456,13 @@
 
     // Modal de cambio de estado (Individual y Masivo)
     var estadoModalEl = document.getElementById('ticket-estado-modal');
+    var estadoModalTitle = document.getElementById('ticket-estado-modal-title');
     var estadoModalSub = document.getElementById('ticket-estado-modal-sub');
     var estadoModalSelect = document.getElementById('ticket-estado-tecnico');
     var estadoModalGuardar = document.getElementById('ticket-estado-modal-guardar');
-    var estadoModalCtx = { url: '', estado: '', bulkIds: [] };
+    var estadoCardsWrap = document.getElementById('ticket-estado-cards-wrap');
+    var estadoModalCtx = { url: '', estado: '', bulkIds: [], ticketId: '', soloAsignar: false };
+    var focoAlCerrarEstado = null;
     var estadoCardSel = 'ring-2 ring-purple-500 border-purple-500';
 
     function marcarTarjetaEstado(estado) {
@@ -1335,16 +1482,29 @@
         if (!estadoModalEl) return;
         estadoModalEl.classList.add('hidden');
         estadoModalEl.setAttribute('aria-hidden', 'true');
-        estadoModalCtx = { url: '', estado: '', bulkIds: [] };
+        estadoModalCtx = { url: '', estado: '', bulkIds: [], ticketId: '', soloAsignar: false };
+        if (estadoModalSelect) {
+            estadoModalSelect.querySelectorAll('option[data-extra="1"]').forEach(function(o) { o.remove(); });
+        }
+        if (estadoCardsWrap) estadoCardsWrap.classList.remove('hidden');
+        if (estadoModalTitle) estadoModalTitle.textContent = 'Cambiar estado';
         if (estadoModalGuardar) estadoModalGuardar.disabled = false;
+        var volver = focoAlCerrarEstado;
+        focoAlCerrarEstado = null;
+        if (volver && typeof volver.focus === 'function') volver.focus();
     }
 
     function abrirModalEstadoTicket(opts) {
         if (!estadoModalEl) return;
+        var solo = !!opts.soloAsignar;
+        var estadosDespacho = ['pendiente', 'en_camino', 'en_proceso', 'no_realizado'];
+        var estadoInicial = estadosDespacho.indexOf(opts.estado || '') !== -1 ? opts.estado : '';
         estadoModalCtx = {
             url: opts.url || '',
-            estado: opts.estado || '',
-            bulkIds: opts.bulkIds || []
+            estado: estadoInicial,
+            bulkIds: opts.bulkIds || [],
+            ticketId: opts.ticketId || '',
+            soloAsignar: solo
         };
         var partes = [];
         if (opts.bulkIds && opts.bulkIds.length > 0) {
@@ -1352,12 +1512,32 @@
         } else {
             if (opts.ticketId) partes.push('Ticket #' + opts.ticketId);
             if (opts.cliente) partes.push(opts.cliente);
+            if (opts.asunto) partes.push(opts.asunto);
         }
+        if (estadoModalTitle) estadoModalTitle.textContent = solo ? 'Asignar técnico' : 'Cambiar estado';
+        if (estadoCardsWrap) estadoCardsWrap.classList.toggle('hidden', solo);
         if (estadoModalSub) estadoModalSub.textContent = partes.join(' · ');
-        marcarTarjetaEstado(opts.estado || '');
-        if (estadoModalSelect) estadoModalSelect.value = opts.asignadoId || '';
+        marcarTarjetaEstado(estadoInicial);
+        if (estadoModalSelect) {
+            estadoModalSelect.querySelectorAll('option[data-extra="1"]').forEach(function(o) { o.remove(); });
+            if (opts.asignadoId) {
+                var existe = Array.prototype.some.call(estadoModalSelect.options, function(o) {
+                    return o.value === String(opts.asignadoId);
+                });
+                if (!existe && opts.asignadoNombre) {
+                    var extra = document.createElement('option');
+                    extra.value = String(opts.asignadoId);
+                    extra.textContent = opts.asignadoNombre;
+                    extra.setAttribute('data-extra', '1');
+                    estadoModalSelect.appendChild(extra);
+                }
+            }
+            estadoModalSelect.value = opts.asignadoId || '';
+        }
+        if (solo) focoAlCerrarEstado = document.activeElement;
         estadoModalEl.classList.remove('hidden');
         estadoModalEl.setAttribute('aria-hidden', 'false');
+        if (solo && estadoModalSelect) estadoModalSelect.focus();
     }
 
     document.querySelectorAll('.ticket-estado-card').forEach(function(card) {
@@ -1382,11 +1562,15 @@
 
     if (estadoModalGuardar) {
         estadoModalGuardar.addEventListener('click', function() {
-            if (!estadoModalCtx.estado) {
-                Swal.fire({ icon: 'warning', title: 'Seleccione un estado', text: 'Elija el estado para los tickets.' });
+            if (!estadoModalCtx.estado && !estadoModalCtx.soloAsignar) {
+                Swal.fire({ icon: 'warning', title: 'Elegí un estado', text: 'Marcá el estado de los tickets seleccionados.' });
                 return;
             }
             var asignadoId = estadoModalSelect ? estadoModalSelect.value : '';
+            if (estadoModalCtx.soloAsignar && !asignadoId) {
+                Swal.fire({ icon: 'warning', title: 'Elegí un técnico', text: 'El ticket sigue sin asignación.' });
+                return;
+            }
             estadoModalGuardar.disabled = true;
 
             // Masivo
@@ -1406,79 +1590,25 @@
 
             // Individual
             if (!estadoModalCtx.url) return;
-            enviarEstadoTicket(estadoModalCtx.url, estadoModalCtx.estado, asignadoId).then(function() {
+            var estadoGuardado = estadoModalCtx.estado;
+            var ticketGuardado = estadoModalCtx.ticketId;
+            var solo = estadoModalCtx.soloAsignar;
+            var etiqueta = estadoGuardado;
+            var cardActiva = document.querySelector('.ticket-estado-card[data-estado="' + estadoGuardado + '"] span.mt-1');
+            if (cardActiva) etiqueta = cardActiva.textContent.trim();
+            var nombreTecnico = '';
+            if (estadoModalSelect && estadoModalSelect.selectedIndex >= 0 && asignadoId) {
+                nombreTecnico = estadoModalSelect.options[estadoModalSelect.selectedIndex].text;
+            }
+            enviarEstadoTicket(estadoModalCtx.url, estadoGuardado, asignadoId).then(function() {
+                if (asignadoId) pintarTecnicoEnFila(ticketGuardado, nombreTecnico);
+                if (!solo) aplicarEstadoEnFila(ticketGuardado, estadoGuardado, etiqueta);
                 cerrarModalEstadoTicket();
-                return Swal.fire({ icon: 'success', title: 'Guardado', text: 'Estado y técnico actualizados.' });
-            }).then(function() {
-                window.location.reload();
+                Swal.fire({ icon: 'success', title: solo ? 'Técnico asignado' : 'Guardado', timer: 1200, showConfirmButton: false });
             }).catch(function() {
                 estadoModalGuardar.disabled = false;
                 Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el ticket.' });
             });
-        });
-    }
-
-    // ==========================================
-    // Paquete C: Operaciones Masivas (Bulk Ops)
-    // ==========================================
-    var selectAllCheck = document.getElementById('ticket-select-all');
-    var rowChecks = document.querySelectorAll('.ticket-row-check');
-    var bulkBar = document.getElementById('tickets-bulk-bar');
-    var bulkCountText = document.getElementById('bulk-selected-count');
-    var bulkBadge = document.getElementById('bulk-selected-badge');
-    var btnDeseleccionar = document.getElementById('bulk-btn-deseleccionar');
-    var btnBulkAsignar = document.getElementById('bulk-btn-asignar');
-    var btnBulkEstado = document.getElementById('bulk-btn-estado');
-    var btnBulkResolver = document.getElementById('bulk-btn-resolver');
-
-    function getSelectedTicketIds() {
-        var ids = [];
-        rowChecks.forEach(function(c) {
-            if (c.checked) ids.push(Number(c.value));
-        });
-        return ids;
-    }
-
-    function actualizarBarraMasiva() {
-        var ids = getSelectedTicketIds();
-        var n = ids.length;
-        if (n > 0) {
-            bulkBar.classList.remove('hidden');
-            bulkCountText.textContent = n + ' ticket' + (n === 1 ? '' : 's') + ' seleccionado' + (n === 1 ? '' : 's');
-            if (bulkBadge) bulkBadge.textContent = n;
-        } else {
-            bulkBar.classList.add('hidden');
-        }
-        if (selectAllCheck) {
-            selectAllCheck.checked = (n > 0 && n === rowChecks.length);
-            selectAllCheck.indeterminate = (n > 0 && n < rowChecks.length);
-        }
-    }
-
-    if (selectAllCheck) {
-        selectAllCheck.addEventListener('change', function() {
-            var val = this.checked;
-            rowChecks.forEach(function(c) {
-                c.checked = val;
-            });
-            actualizarBarraMasiva();
-        });
-    }
-
-    rowChecks.forEach(function(c) {
-        c.addEventListener('change', function() {
-            actualizarBarraMasiva();
-        });
-    });
-
-    if (btnDeseleccionar) {
-        btnDeseleccionar.addEventListener('click', function() {
-            rowChecks.forEach(function(c) { c.checked = false; });
-            if (selectAllCheck) {
-                selectAllCheck.checked = false;
-                selectAllCheck.indeterminate = false;
-            }
-            actualizarBarraMasiva();
         });
     }
 
@@ -1517,78 +1647,242 @@
         });
     }
 
-    // Masivo: Asignar a técnico
-    if (btnBulkAsignar) {
-        btnBulkAsignar.addEventListener('click', function() {
-            var ids = getSelectedTicketIds();
-            if (ids.length === 0) return;
+    var resolverModalEl = document.getElementById('ticket-resolver-modal');
+    var resolverTitleEl = document.getElementById('ticket-resolver-title');
+    var resolverNotaEl = document.getElementById('ticket-resolver-nota');
+    var resolverSaleEl = document.getElementById('ticket-resolver-sale');
+    var resolverDeshacerEl = document.getElementById('ticket-resolver-deshacer');
+    var resolverErrorEl = document.getElementById('ticket-resolver-error');
+    var resolverCancelarEl = document.getElementById('ticket-resolver-cancelar');
+    var resolverConfirmarEl = document.getElementById('ticket-resolver-confirmar');
+    var resolverSinAvisarEl = document.getElementById('ticket-resolver-sin-avisar');
+    var resolverAvisoEl = document.getElementById('ticket-resolver-aviso');
+    var deshacerEl = document.getElementById('ticket-deshacer');
+    var deshacerTextoEl = document.getElementById('ticket-deshacer-texto');
+    var deshacerBtnEl = document.getElementById('ticket-deshacer-btn');
+    var resolverCtx = null;
+    var deshacerCtx = null;
+    var deshacerTimer = null;
 
-            // Clonar opciones de técnicos
-            var tecnicoSelectHtml = '<select id="swal-bulk-tecnico" class="swal2-input !mt-2 !w-full"><option value="">-- Sin asignar (Desasignar) --</option>';
-            @foreach($tecnicos as $t)
-                tecnicoSelectHtml += '<option value="{{ $t->usuario_id }}">{{ addslashes($t->name) }}</option>';
-            @endforeach
-            tecnicoSelectHtml += '</select>';
+    function ajustarNumero(el, delta) {
+        var n = parseInt(el.textContent, 10);
+        if (isNaN(n)) return;
+        el.textContent = String(Math.max(0, n + delta));
+    }
 
-            Swal.fire({
-                title: 'Asignar técnico masivo',
-                html: '<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Seleccione el técnico para ' + ids.length + ' tickets:</p>' + tecnicoSelectHtml,
-                showCancelButton: true,
-                confirmButtonText: 'Asignar a cuadrilla',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#6366f1',
-                preConfirm: function() {
-                    var el = document.getElementById('swal-bulk-tecnico');
-                    return el ? el.value : '';
+    function ajustarChip(id, delta) {
+        document.querySelectorAll('[data-chip-count="' + id + '"]').forEach(function(el) {
+            ajustarNumero(el, delta);
+        });
+    }
+
+    function ajustarBadgeMenu(delta) {
+        document.querySelectorAll('a[href="/tickets"], a[href$="/tickets"]').forEach(function(a) {
+            if (!a.pathname || a.pathname !== '/tickets') return;
+            a.querySelectorAll('span.rounded-full').forEach(function(el) {
+                ajustarNumero(el, delta);
+            });
+        });
+    }
+
+    function colaVisible() {
+        var params = new URLSearchParams(window.location.search);
+        var cola = params.get('cola') || '';
+        if (!cola && params.get('ocultar_resuelto_cerrado') === '1' && !params.get('estado')) return 'en_curso';
+        return cola;
+    }
+
+    function cerrarDeshacer(commit) {
+        if (deshacerTimer) {
+            clearTimeout(deshacerTimer);
+            deshacerTimer = null;
+        }
+        if (deshacerEl) deshacerEl.classList.add('hidden');
+        if (commit && deshacerCtx && !deshacerCtx.conteoHecho) {
+            deshacerCtx.conteoHecho = true;
+            ajustarChip('en_curso', -1);
+            ajustarBadgeMenu(-1);
+            if (deshacerCtx.estado === 'no_realizado') {
+                var nr = document.getElementById('tickets-resumen-no-realizados');
+                var nrPalabra = document.getElementById('tickets-resumen-no-realizados-palabra');
+                if (nr) {
+                    ajustarNumero(nr, -1);
+                    var nNo = parseInt(nr.textContent, 10);
+                    if (nrPalabra && !isNaN(nNo)) nrPalabra.textContent = nNo === 1 ? 'no realizado' : 'no realizados';
                 }
-            }).then(function(res) {
-                if (!res.isConfirmed) return;
-                var asignadoId = res.value ? Number(res.value) : null;
-                ejecutarBulkUpdate({
-                    accion: 'asignar_tecnico',
-                    ticket_ids: ids,
-                    asignado_id: asignadoId
-                });
-            });
+            }
+            if (deshacerCtx.estado === 'en_camino') ajustarChip('en_camino', -1);
+            if (deshacerCtx.sinTecnico) {
+                ajustarChip('sin_asignar', -1);
+                var st = document.getElementById('tickets-resumen-sin-tecnico');
+                if (st) ajustarNumero(st, -1);
+            }
+            var cola = colaVisible();
+            if (cola && cola !== 'en_curso' && cola !== 'todos' && cola !== 'resueltos') {
+                ajustarChip(cola, -1);
+            }
+        }
+        if (commit && deshacerCtx && deshacerCtx.card && deshacerCtx.card.isConnected) {
+            if (colaOcultaResueltos()) {
+                quitarFilaOContar(deshacerCtx.card);
+            } else {
+                deshacerCtx.card.querySelectorAll('.btn-quick-resolver').forEach(function(b) { b.remove(); });
+            }
+        }
+        deshacerCtx = null;
+    }
+
+    function iniciarDeshacer(ctx) {
+        cerrarDeshacer(true);
+        var card = filaTicket(ctx.ticketId);
+        var badge = card && card.querySelector('[data-estado-badge]');
+        var snapshot = badge ? { text: badge.textContent, className: badge.className } : null;
+        if (badge) {
+            badge.textContent = 'Resuelto';
+            badge.className = claseBadgeEstado('resuelto');
+        }
+        if (card) {
+            card.querySelectorAll('.btn-quick-resolver').forEach(function(b) { b.classList.add('hidden'); });
+        }
+        deshacerCtx = {
+            url: ctx.url,
+            estado: ctx.estado || 'pendiente',
+            ticketId: ctx.ticketId,
+            cliente: ctx.cliente || '',
+            card: card,
+            snapshot: snapshot,
+            conteoHecho: false,
+            sinTecnico: !!ctx.sinTecnico,
+            sinAvisar: !!ctx.sinAvisar
+        };
+        var quien = deshacerCtx.cliente ? ' de ' + deshacerCtx.cliente : '';
+        if (deshacerTextoEl) deshacerTextoEl.textContent = 'Ticket #' + (ctx.ticketId || '') + quien + (deshacerCtx.sinAvisar ? ' resuelto, sin aviso al cliente.' : ' resuelto.');
+        if (deshacerEl) deshacerEl.classList.remove('hidden');
+        if (deshacerBtnEl) deshacerBtnEl.focus();
+        deshacerTimer = setTimeout(function() { cerrarDeshacer(true); }, 4000);
+    }
+
+    function deshacerResolucion() {
+        if (!deshacerCtx) return;
+        var ctx = deshacerCtx;
+        if (deshacerTimer) {
+            clearTimeout(deshacerTimer);
+            deshacerTimer = null;
+        }
+        if (deshacerBtnEl) deshacerBtnEl.disabled = true;
+        enviarEstadoTicket(ctx.url, ctx.estado, undefined, ctx.sinAvisar).then(function() {
+            var badge = ctx.card && ctx.card.querySelector('[data-estado-badge]');
+            if (badge && ctx.snapshot) {
+                badge.textContent = ctx.snapshot.text;
+                badge.className = ctx.snapshot.className;
+            }
+            if (ctx.card) {
+                ctx.card.querySelectorAll('.btn-quick-resolver').forEach(function(b) { b.classList.remove('hidden'); });
+            }
+            deshacerCtx = null;
+            if (deshacerEl) deshacerEl.classList.add('hidden');
+        }).catch(function() {
+            if (deshacerTextoEl) deshacerTextoEl.textContent = 'No se pudo deshacer. El ticket #' + (ctx.ticketId || '') + (ctx.cliente ? ' de ' + ctx.cliente : '') + ' sigue resuelto.';
+            deshacerTimer = setTimeout(function() { cerrarDeshacer(true); }, 2500);
+        }).finally(function() {
+            if (deshacerBtnEl) deshacerBtnEl.disabled = false;
         });
     }
 
-    // Masivo: Cambiar estado
-    if (btnBulkEstado) {
-        btnBulkEstado.addEventListener('click', function() {
-            var ids = getSelectedTicketIds();
-            if (ids.length === 0) return;
-            abrirModalEstadoTicket({
-                bulkIds: ids,
-                estado: 'en_camino'
+    function cerrarModalResolver() {
+        if (!resolverModalEl) return;
+        resolverModalEl.classList.add('hidden');
+        resolverModalEl.setAttribute('aria-hidden', 'true');
+        resolverCtx = null;
+        if (resolverConfirmarEl) resolverConfirmarEl.disabled = false;
+        if (resolverSinAvisarEl) resolverSinAvisarEl.disabled = false;
+    }
+
+    function abrirModalResolver(opts) {
+        if (!resolverModalEl) return;
+        resolverCtx = opts || {};
+        var esLote = resolverCtx.bulkIds && resolverCtx.bulkIds.length > 0;
+        var titulo = esLote
+            ? ('Resolver ' + resolverCtx.bulkIds.length + (resolverCtx.bulkIds.length === 1 ? ' ticket' : ' tickets'))
+            : ('Resolver #' + (resolverCtx.ticketId || ''));
+        if (!esLote && resolverCtx.cliente) titulo += ' · ' + resolverCtx.cliente;
+        if (!esLote && resolverCtx.asunto) titulo += ' · ' + resolverCtx.asunto;
+        if (resolverTitleEl) resolverTitleEl.textContent = titulo;
+        if (resolverNotaEl) {
+            var partesNota = [];
+            if (esLote) {
+                partesNota.push('Pasan a Resuelto.');
+            } else {
+                var calle = '';
+                var etiquetaEstado = resolverCtx.estadoEtiqueta || '';
+                if (etiquetaEstado && etiquetaEstado !== 'Pendiente') calle = etiquetaEstado;
+                var quien = resolverCtx.tecnico || (resolverCtx.sinTecnico ? 'Sin técnico' : '');
+                if (quien) calle = calle ? (calle + ' · ' + quien) : quien;
+                if (calle) partesNota.unshift(calle);
+                if (resolverCtx.nota) partesNota.push(resolverCtx.nota);
+                if (resolverCtx.via) partesNota.push('Vía ' + resolverCtx.via);
+            }
+            var nota = partesNota.join(' · ');
+            resolverNotaEl.textContent = nota;
+            resolverNotaEl.title = nota;
+            resolverNotaEl.classList.toggle('hidden', nota === '');
+        }
+        if (resolverSaleEl) resolverSaleEl.textContent = esLote ? 'Salen de En curso.' : 'Sale de En curso.';
+        if (resolverAvisoEl) resolverAvisoEl.textContent = esLote ? 'Este lote no avisa al cliente.' : 'Resolver avisa al cliente por la app y por WhatsApp.';
+        if (resolverSinAvisarEl) {
+            resolverSinAvisarEl.classList.toggle('hidden', !!esLote);
+            resolverSinAvisarEl.disabled = false;
+        }
+        if (resolverDeshacerEl) resolverDeshacerEl.classList.toggle('hidden', !!esLote);
+        if (resolverErrorEl) {
+            resolverErrorEl.textContent = '';
+            resolverErrorEl.classList.add('hidden');
+        }
+        resolverModalEl.classList.remove('hidden');
+        resolverModalEl.setAttribute('aria-hidden', 'false');
+        if (resolverCancelarEl) resolverCancelarEl.focus();
+    }
+
+    if (resolverCancelarEl) resolverCancelarEl.addEventListener('click', cerrarModalResolver);
+    var resolverBackdrop = document.getElementById('ticket-resolver-backdrop');
+    if (resolverBackdrop) resolverBackdrop.addEventListener('click', cerrarModalResolver);
+    if (deshacerBtnEl) deshacerBtnEl.addEventListener('click', deshacerResolucion);
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        if (resolverModalEl && !resolverModalEl.classList.contains('hidden')) {
+            e.preventDefault();
+            cerrarModalResolver();
+        }
+    });
+    function pedirResolver(sinAvisar) {
+        if (!resolverCtx) return;
+        var ctx = resolverCtx;
+        var esLote = ctx.bulkIds && ctx.bulkIds.length;
+        if (!esLote && !ctx.url) return;
+        ctx.sinAvisar = !!sinAvisar;
+        if (resolverConfirmarEl) resolverConfirmarEl.disabled = true;
+        if (resolverSinAvisarEl) resolverSinAvisarEl.disabled = true;
+        if (resolverErrorEl) resolverErrorEl.classList.add('hidden');
+        var promesa = esLote
+            ? ejecutarBulkUpdate({ accion: 'marcar_resuelto', ticket_ids: ctx.bulkIds })
+            : enviarEstadoTicket(ctx.url, 'resuelto', undefined, sinAvisar).then(function() {
+                cerrarModalResolver();
+                iniciarDeshacer(ctx);
             });
+        promesa.then(function() {
+            if (esLote) cerrarModalResolver();
+        }).catch(function() {
+            if (resolverConfirmarEl) resolverConfirmarEl.disabled = false;
+            if (resolverSinAvisarEl) resolverSinAvisarEl.disabled = false;
+            if (resolverErrorEl) {
+                resolverErrorEl.textContent = 'No se pudo actualizar el estado del ticket.';
+                resolverErrorEl.classList.remove('hidden');
+            }
         });
     }
 
-    // Masivo: Resolver seleccionados
-    if (btnBulkResolver) {
-        btnBulkResolver.addEventListener('click', function() {
-            var ids = getSelectedTicketIds();
-            if (ids.length === 0) return;
-
-            Swal.fire({
-                title: '¿Resolver ' + ids.length + ' tickets?',
-                text: 'Todos los tickets seleccionados pasarán inmediatamente al estado Resuelto.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, resolver lote',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#10b981',
-                cancelButtonColor: '#6b7280'
-            }).then(function(res) {
-                if (!res.isConfirmed) return;
-                ejecutarBulkUpdate({
-                    accion: 'marcar_resuelto',
-                    ticket_ids: ids
-                });
-            });
-        });
-    }
+    if (resolverConfirmarEl) resolverConfirmarEl.addEventListener('click', function() { pedirResolver(false); });
+    if (resolverSinAvisarEl) resolverSinAvisarEl.addEventListener('click', function() { pedirResolver(true); });
 
 })();
 </script>

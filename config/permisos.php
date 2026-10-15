@@ -303,6 +303,7 @@ return [
         [
             'label' => 'FTTH',
             'items' => [
+                ['label' => 'Trabajos de red', 'base' => 'trabajos-red', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'OLTs', 'base' => 'ftth-olts', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Marcas OLT', 'base' => 'ftth-marcas-olt', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Cajas NAP', 'base' => 'ftth-cajas-nap', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],

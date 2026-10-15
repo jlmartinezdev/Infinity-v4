@@ -25,10 +25,10 @@
             <select name="aplicacion" id="aplicacion" required
                     class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 @foreach($aplicaciones as $valor => $etiqueta)
-                    <option value="{{ $valor }}" @selected(old('aplicacion', \App\Models\TvCuenta::APP_NEBULA) === $valor)>{{ $etiqueta }}</option>
+                    <option value="{{ $valor }}" @selected(old('aplicacion', \App\Models\TvCuenta::APP_SUFFIXED) === $valor)>{{ $etiqueta }}</option>
                 @endforeach
             </select>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Nebula: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta (sin nombre de perfil).</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Suffixed: 3 perfiles con nombre. Lumix: 4 pantallas por cuenta (sin nombre de perfil).</p>
             @error('aplicacion')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
         <div>
@@ -57,12 +57,12 @@
             @error('dia_aviso_vencimiento')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
 
-        <div id="bloque-nebula" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div id="bloque-suffixed" class="grid grid-cols-1 md:grid-cols-3 gap-3">
             @foreach([1, 2, 3] as $i)
                 <div>
                     <label for="perfil_{{ $i }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Perfil {{ $i }} *</label>
                     <input type="text" name="perfil_{{ $i }}" id="perfil_{{ $i }}" value="{{ old('perfil_'.$i, 'Perfil '.$i) }}" maxlength="120"
-                           class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 campo-nebula">
+                           class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 campo-suffixed">
                     @error('perfil_'.$i)<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     <label for="precio_perfil_{{ $i }}" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mt-2">Precio perfil {{ $i }}</label>
                     <input type="number" name="precio_perfil_{{ $i }}" id="precio_perfil_{{ $i }}" value="{{ old('precio_perfil_'.$i) }}" min="0" step="0.01"
@@ -103,15 +103,15 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const select = document.getElementById('aplicacion');
-    const bloqueNebula = document.getElementById('bloque-nebula');
+    const bloqueSuffixed = document.getElementById('bloque-suffixed');
     const bloqueLumix = document.getElementById('bloque-lumix');
-    const camposNebula = document.querySelectorAll('.campo-nebula');
+    const camposSuffixed = document.querySelectorAll('.campo-suffixed');
 
     const actualizar = () => {
         const esLumix = select.value === '{{ \App\Models\TvCuenta::APP_LUMIX }}';
-        bloqueNebula.classList.toggle('hidden', esLumix);
+        bloqueSuffixed.classList.toggle('hidden', esLumix);
         bloqueLumix.classList.toggle('hidden', !esLumix);
-        camposNebula.forEach((input) => {
+        camposSuffixed.forEach((input) => {
             input.required = !esLumix;
         });
     };

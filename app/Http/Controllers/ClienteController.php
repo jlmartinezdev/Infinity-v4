@@ -334,6 +334,7 @@ class ClienteController extends Controller
     {
         $cliente->load([
             'servicios.plan',
+            'servicios.pedido',
             'servicios.pool.olt',
             'servicios.pool.router.nodo',
             'servicios.cajaNapPuertoActivo.cajaNap.salidaPon.olt',

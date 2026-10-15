@@ -18,32 +18,126 @@ class CajaNapController extends Controller
 {
     public function index(Request $request)
     {
-        $query = CajaNap::with('nodo')
+        $busqueda = trim((string) ($request->input('q', $request->input('buscar', ''))));
+        $nodoId = $request->input('nodo_id');
+        $salidaPonId = $request->input('salida_pon_id');
+        $tipo = $request->input('tipo');
+        $estado = $request->input('estado');
+        $splitterSegundo = $request->input('splitter_segundo_nivel');
+        $filtroGps = $request->input('filtro_gps');
+        $filtroOcupacion = $request->input('filtro_ocupacion');
+        $perPage = (int) $request->input('per_page', 15);
+        if (! in_array($perPage, [10, 15, 25, 50, 100], true)) {
+            $perPage = 15;
+        }
+
+        $query = CajaNap::with(['nodo', 'salidaPon.olt', 'salidaPon.oltPuerto'])
             ->withCount([
                 'puertosActivos as puertos_ocupados_count' => fn ($q) => $q->whereNotNull('servicio_id'),
+                'puertosActivos as puertos_total_count',
             ])
             ->orderBy('codigo');
 
-        if ($request->filled('buscar')) {
-            $q = $request->buscar;
-            $query->where(function ($qry) use ($q) {
-                $qry->where('codigo', 'like', "%{$q}%")
-                    ->orWhere('descripcion', 'like', "%{$q}%")
-                    ->orWhere('direccion', 'like', "%{$q}%")
-                    ->orWhereHas('nodo', fn ($n) => $n->where('descripcion', 'like', "%{$q}%"));
+        if ($busqueda !== '') {
+            $query->where(function ($qry) use ($busqueda) {
+                $qry->where('codigo', 'like', "%{$busqueda}%")
+                    ->orWhere('descripcion', 'like', "%{$busqueda}%")
+                    ->orWhere('direccion', 'like', "%{$busqueda}%")
+                    ->orWhere('nota', 'like', "%{$busqueda}%")
+                    ->orWhereHas('nodo', fn ($n) => $n->where('descripcion', 'like', "%{$busqueda}%"))
+                    ->orWhereHas('salidaPon', function ($sp) use ($busqueda) {
+                        $sp->where('codigo', 'like', "%{$busqueda}%")
+                            ->orWhereHas('olt', fn ($o) => $o->where('codigo', 'like', "%{$busqueda}%")->orWhere('ip', 'like', "%{$busqueda}%"));
+                    });
             });
         }
+
         if ($request->filled('nodo_id')) {
-            $query->where('nodo_id', $request->nodo_id);
+            $query->where('nodo_id', (int) $nodoId);
         }
+
+        if ($request->filled('salida_pon_id')) {
+            $query->where('salida_pon_id', (int) $salidaPonId);
+        }
+
         if ($request->filled('tipo')) {
-            $query->where('tipo', $request->tipo);
+            $query->where('tipo', $tipo);
         }
 
-        $cajas = $query->paginate(15)->withQueryString();
-        $nodos = Nodo::orderBy('descripcion')->get();
+        if ($request->filled('estado')) {
+            $query->where('estado', $estado);
+        }
 
-        return view('cajas-nap.index', compact('cajas', 'nodos'));
+        if ($request->filled('splitter_segundo_nivel')) {
+            $query->where('splitter_segundo_nivel', (int) $splitterSegundo);
+        }
+
+        if ($filtroGps === 'con_gps') {
+            $query->whereNotNull('lat')->whereNotNull('lon');
+        } elseif ($filtroGps === 'sin_gps') {
+            $query->where(function ($qry) {
+                $qry->whereNull('lat')->orWhereNull('lon');
+            });
+        }
+
+        if ($filtroOcupacion === 'con_libres') {
+            $query->whereRaw('COALESCE(splitter_segundo_nivel, 0) > (SELECT COUNT(*) FROM caja_nap_puerto_activos WHERE caja_nap_puerto_activos.caja_nap_id = caja_naps.caja_nap_id AND caja_nap_puerto_activos.servicio_id IS NOT NULL)');
+        } elseif ($filtroOcupacion === 'saturadas') {
+            $query->whereRaw('COALESCE(splitter_segundo_nivel, 0) > 0 AND COALESCE(splitter_segundo_nivel, 0) <= (SELECT COUNT(*) FROM caja_nap_puerto_activos WHERE caja_nap_puerto_activos.caja_nap_id = caja_naps.caja_nap_id AND caja_nap_puerto_activos.servicio_id IS NOT NULL)');
+        } elseif ($filtroOcupacion === 'vacias') {
+            $query->whereRaw('(SELECT COUNT(*) FROM caja_nap_puerto_activos WHERE caja_nap_puerto_activos.caja_nap_id = caja_naps.caja_nap_id AND caja_nap_puerto_activos.servicio_id IS NOT NULL) = 0');
+        }
+
+        $cajas = $query->paginate($perPage)->withQueryString();
+        $nodos = Nodo::orderBy('descripcion')->get();
+        $salidas = SalidaPon::with(['nodo', 'olt'])->orderBy('codigo')->get();
+
+        // Métricas FTTH / NOC
+        $totalCajas = CajaNap::count();
+        $activasCajas = CajaNap::where('estado', 'activo')->count();
+        $totalPuertosCapacidad = (int) CajaNap::sum('splitter_segundo_nivel');
+        $puertosOcupados = CajaNapPuertoActivo::whereNotNull('servicio_id')->count();
+        $puertosLibres = max(0, $totalPuertosCapacidad - $puertosOcupados);
+        $porcentajeOcupacion = $totalPuertosCapacidad > 0
+            ? round(($puertosOcupados / $totalPuertosCapacidad) * 100, 1)
+            : 0;
+        $conGps = CajaNap::whereNotNull('lat')->whereNotNull('lon')->count();
+        $avgPotencia = CajaNap::whereNotNull('potencia_salida')->avg('potencia_salida');
+        $conPotencia = CajaNap::whereNotNull('potencia_salida')->count();
+
+        $kpis = [
+            'total' => $totalCajas,
+            'activas' => $activasCajas,
+            'capacidad_total' => $totalPuertosCapacidad,
+            'puertos_ocupados' => $puertosOcupados,
+            'puertos_libres' => $puertosLibres,
+            'porcentaje_ocupacion' => $porcentajeOcupacion,
+            'con_gps' => $conGps,
+            'potencia_promedio' => $avgPotencia !== null ? round((float) $avgPotencia, 1) : null,
+            'con_potencia' => $conPotencia,
+        ];
+
+        // Trabajos de red abiertos sobre activos tipo caja_nap
+        $trabajosAbiertosPorCaja = [];
+        if (class_exists(\App\Models\TrabajoRed::class)) {
+            $trabajosAbiertosPorCaja = \App\Models\TrabajoRed::query()
+                ->where('activo_tipo', 'caja_nap')
+                ->whereIn('estado', \App\Models\TrabajoRed::estadosAbiertos())
+                ->selectRaw('activo_id, COUNT(*) as total')
+                ->groupBy('activo_id')
+                ->pluck('total', 'activo_id')
+                ->all();
+        }
+
+        return view('cajas-nap.index', compact(
+            'cajas',
+            'nodos',
+            'salidas',
+            'kpis',
+            'busqueda',
+            'perPage',
+            'trabajosAbiertosPorCaja'
+        ));
     }
 
     public function create()

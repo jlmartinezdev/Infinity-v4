@@ -427,6 +427,9 @@
                 <div class="cd-panel__head">
                     <h2>Servicios asociados</h2>
                     <div class="cd-panel__actions">
+                        @if($puedeEditarServicio)
+                            <button type="button" class="cd-header-btn cd-header-btn--sky" id="cd-importar-servicio-open">Importar servicio</button>
+                        @endif
                         @if($puedeCrearServicio)
                             <a href="{{ route('servicios.create', ['cliente_id' => $cliente->cliente_id]) }}" class="cd-header-btn cd-header-btn--primary">Agregar servicio</a>
                         @endif
@@ -445,6 +448,7 @@
                                     <th>Instalación</th>
                                     <th>Router / IP</th>
                                     <th>PPPoE</th>
+                                    <th>GPS</th>
                                     <th>Estado</th>
                                     <th></th>
                                 </tr>
@@ -483,6 +487,17 @@
                                             </span>
                                         </td>
                                         <td class="font-mono text-xs cd-muted">{{ $s->usuario_pppoe ?? '—' }}</td>
+                                        <td>
+                                            @php $servicioMapsUrl = $s->mapsUrl(); @endphp
+                                            @if($servicioMapsUrl)
+                                                <a href="{{ $servicioMapsUrl }}" target="_blank" rel="noopener noreferrer" class="cd-gps-link" title="Ver ubicación del servicio">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                    <span>Mapa</span>
+                                                </a>
+                                            @else
+                                                <span class="cd-muted">—</span>
+                                            @endif
+                                        </td>
                                         <td>
                                             <span class="cd-status {{ $estadoBadge }}">
                                                 <span class="cd-status__dot"></span>
@@ -806,7 +821,13 @@
                                             @endif
                                         @endif
                                         @if($puedeCancelarServicio)
-                                            <form action="{{ route('servicios.cancelar', $s) }}" method="POST" class="js-swal-confirm" data-swal-title="¿Cancelar este servicio?" data-swal-text="Se generará una factura interna con el monto prorrateado desde el día 1 del mes hasta hoy, el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo." data-swal-confirm="Sí, cancelar" data-swal-icon="warning" data-swal-color="#e11d48">
+                                            @php
+                                                $instalacionEsteMes = $s->fecha_instalacion && $s->fecha_instalacion->isSameMonth(now());
+                                                $textoProrrateoCancelar = $instalacionEsteMes
+                                                    ? 'Se generará una factura interna prorrateada por los días usados desde la instalación ('.$s->fecha_instalacion->format('d/m/Y').') hasta hoy'
+                                                    : 'Se generará una factura interna prorrateada por los días usados desde el día 1 del mes hasta hoy';
+                                            @endphp
+                                            <form action="{{ route('servicios.cancelar', $s) }}" method="POST" class="js-swal-confirm" data-swal-title="¿Cancelar este servicio?" data-swal-text="{{ $textoProrrateoCancelar }}, el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo." data-swal-confirm="Sí, cancelar" data-swal-icon="warning" data-swal-color="#e11d48">
                                                 @csrf
                                                 <button type="submit" class="cd-action cd-action--danger">
                                                     <span class="cd-action__icon cd-action__icon--rose">
@@ -2055,6 +2076,27 @@
         </main>
     </div>
 
+    @if($puedeEditarServicio ?? false)
+    <div id="cd-importar-servicio-modal" class="cd-modal" hidden>
+        <div class="cd-modal__box cd-modal__box--wide" role="dialog" aria-modal="true" aria-labelledby="cd-importar-servicio-title">
+            <div class="cd-modal__head">
+                <h3 id="cd-importar-servicio-title">Importar servicio de otro cliente</h3>
+                <button type="button" class="cd-modal__ghost" data-cd-importar-close aria-label="Cerrar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="cd-modal__body">
+                <div class="cd-modal__field">
+                    <label for="cd-importar-servicio-q">Buscar cliente de origen</label>
+                    <input id="cd-importar-servicio-q" type="search" autocomplete="off" placeholder="Nombre, cédula, alias o #id">
+                </div>
+                <p class="cd-importar-hint">Se trae el servicio con PPPoE, plan, IP, GPS y las cuentas de TV asignadas. Las facturas históricas quedan en el cliente original.</p>
+                <div id="cd-importar-servicio-resultados" class="cd-importar-resultados"></div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     @if($cliente->servicios->isNotEmpty() && $u?->tienePermiso('servicios.ver'))
     <div id="cd-pppoe-modal" class="cd-modal" hidden>
         <div class="cd-modal__box" role="dialog" aria-modal="true" aria-labelledby="cd-pppoe-title">
@@ -2618,6 +2660,161 @@
             copyToClipboard(btn.getAttribute('data-cd-copy') || '');
         });
     });
+
+    (function initImportarServicio() {
+        var modal = document.getElementById('cd-importar-servicio-modal');
+        var openBtn = document.getElementById('cd-importar-servicio-open');
+        var input = document.getElementById('cd-importar-servicio-q');
+        var box = document.getElementById('cd-importar-servicio-resultados');
+        if (!modal || !openBtn || !input || !box) return;
+
+        var buscarUrl = @json(route('clientes.servicios-importables', $cliente));
+        var importarUrl = @json(route('clientes.servicios.importar', $cliente));
+        var token = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+        var timer = null;
+        var lastQuery = '';
+
+        function setOpen(open) {
+            modal.hidden = !open;
+            if (open) {
+                input.focus();
+                if (input.value.trim().length >= 2 && box.innerHTML === '') {
+                    buscar(input.value);
+                }
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, function(ch) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+            });
+        }
+
+        function render(origenes) {
+            if (!origenes.length) {
+                box.innerHTML = '<p class="cd-importar-hint">No hay clientes con servicios para importar.</p>';
+                return;
+            }
+            box.innerHTML = origenes.map(function(origen) {
+                var servicios = (origen.servicios || []).map(function(s) {
+                    var cuentas = (s.cuentas || []).map(function(c) {
+                        return '<span class="cd-importar-chip">' + escapeHtml((c.nombre || 'TV') + (c.perfil ? ' · ' + c.perfil : '')) + '</span>';
+                    }).join('');
+                    var meta = ['#' + s.servicio_id, s.plan || '', s.usuario_pppoe || '', s.ip || '', s.estado_label || '']
+                        .filter(Boolean).join(' · ');
+                    return '<div class="cd-importar-svc">' +
+                        '<div><p>' + escapeHtml(s.alias || ('Servicio #' + s.servicio_id)) + '</p>' +
+                        '<small>' + escapeHtml(meta) + (s.gps ? ' · GPS' : '') + '</small>' +
+                        (cuentas ? '<div class="cd-importar-chips">' + cuentas + '</div>' : '') +
+                        '</div>' +
+                        '<button type="button" class="cd-header-btn cd-header-btn--sky" data-importar-servicio="' + s.servicio_id + '">Importar</button>' +
+                        '</div>';
+                }).join('');
+                return '<div class="cd-importar-origen"><p class="cd-importar-origen__tit">' +
+                    escapeHtml(origen.nombre) +
+                    ' <span class="cd-importar-origen__meta">#' + origen.cliente_id +
+                    (origen.cedula ? ' · CI ' + escapeHtml(origen.cedula) : '') +
+                    '</span></p>' + servicios + '</div>';
+            }).join('');
+        }
+
+        function buscar(q) {
+            lastQuery = q;
+            box.innerHTML = '<p class="cd-importar-hint">Buscando…</p>';
+            fetch(buscarUrl + '?q=' + encodeURIComponent(q), {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function(res) { return res.json(); }).then(function(data) {
+                if (input.value.trim() !== lastQuery) return;
+                render(Array.isArray(data) ? data : []);
+            }).catch(function() {
+                box.innerHTML = '<p class="cd-importar-hint">No se pudo buscar. Intentá de nuevo.</p>';
+            });
+        }
+
+        openBtn.addEventListener('click', function() { setOpen(true); });
+        modal.querySelectorAll('[data-cd-importar-close]').forEach(function(btn) {
+            btn.addEventListener('click', function() { setOpen(false); });
+        });
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) setOpen(false);
+        });
+        input.addEventListener('input', function() {
+            var q = input.value.trim();
+            clearTimeout(timer);
+            if (q.length < 2) {
+                box.innerHTML = '';
+                return;
+            }
+            timer = setTimeout(function() { buscar(q); }, 280);
+        });
+        box.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-importar-servicio]');
+            if (!btn) return;
+            var servicioId = btn.getAttribute('data-importar-servicio');
+            var card = btn.closest('.cd-importar-svc');
+            var label = card ? card.querySelector('p')?.textContent : ('#' + servicioId);
+            var origen = btn.closest('.cd-importar-origen');
+            var origenNombre = origen ? origen.querySelector('.cd-importar-origen__tit')?.childNodes[0]?.textContent?.trim() : '';
+
+            function enviar() {
+                btn.disabled = true;
+                fetch(importarUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': token
+                    },
+                    body: JSON.stringify({ servicio_id: Number(servicioId) })
+                }).then(function(res) {
+                    return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+                }).then(function(result) {
+                    if (!result.ok) {
+                        btn.disabled = false;
+                        var msg = result.data?.message || 'No se pudo importar el servicio.';
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire(Object.assign({ icon: 'error', title: 'No se importó', text: msg }, swalTheme()));
+                        } else {
+                            window.alert(msg);
+                        }
+                        return;
+                    }
+                    if (result.data.redirect) {
+                        window.location.href = result.data.redirect;
+                        return;
+                    }
+                    window.location.reload();
+                }).catch(function() {
+                    btn.disabled = false;
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire(Object.assign({ icon: 'error', title: 'Error de red', text: 'No se pudo importar el servicio.' }, swalTheme()));
+                    }
+                });
+            }
+
+            if (typeof Swal === 'undefined') {
+                if (window.confirm('¿Importar ' + (label || 'este servicio') + ' a este cliente?')) enviar();
+                return;
+            }
+            Swal.fire(Object.assign({
+                icon: 'question',
+                title: '¿Importar este servicio?',
+                html: 'Se mueve <strong>' + escapeHtml(label || 'el servicio') + '</strong>' +
+                    (origenNombre ? ' de <strong>' + escapeHtml(origenNombre) + '</strong>' : '') +
+                    ' a este cliente, con sus cuentas de TV y la ubicación GPS.',
+                showCancelButton: true,
+                confirmButtonColor: '#0284c7',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, importar',
+                cancelButtonText: 'Volver',
+                reverseButtons: true,
+                focusCancel: true
+            }, swalTheme())).then(function(result) {
+                if (result.isConfirmed) enviar();
+            });
+        });
+    })();
 })();
 </script>
 @endpush

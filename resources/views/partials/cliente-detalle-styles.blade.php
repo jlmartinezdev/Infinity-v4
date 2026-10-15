@@ -1036,6 +1036,108 @@
         box-shadow: 0 20px 50px rgb(15 23 42 / 0.25);
         overflow: hidden;
     }
+    .cliente-detalle-page .cd-modal__box--wide {
+        max-width: 36rem;
+    }
+    .cliente-detalle-page .cd-modal__body input[type="search"] {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid var(--cd-card-border);
+        background: var(--cd-thead);
+        color: var(--cd-text);
+        padding: 0.55rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    .cliente-detalle-page .cd-importar-hint {
+        margin: 0;
+        font-size: 0.75rem;
+        color: var(--cd-muted);
+        line-height: 1.4;
+    }
+    .cliente-detalle-page .cd-importar-resultados {
+        max-height: 22rem;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .cliente-detalle-page .cd-importar-origen {
+        border: 1px solid var(--cd-card-border);
+        border-radius: 0.65rem;
+        padding: 0.65rem 0.75rem;
+        background: var(--cd-thead);
+    }
+    .cliente-detalle-page .cd-importar-origen__tit {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        margin: 0 0 0.45rem;
+    }
+    .cliente-detalle-page .cd-importar-origen__meta {
+        font-weight: 400;
+        color: var(--cd-muted);
+        font-size: 0.75rem;
+    }
+    .cliente-detalle-page .cd-importar-svc {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-top: 1px solid var(--cd-card-border);
+    }
+    .cliente-detalle-page .cd-importar-svc > div {
+        flex: 1;
+        min-width: 0;
+    }
+    .cliente-detalle-page .cd-importar-svc:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+    }
+    .cliente-detalle-page .cd-importar-svc p {
+        margin: 0;
+        font-size: 0.8125rem;
+        line-height: 1.35;
+    }
+    .cliente-detalle-page .cd-importar-svc small {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 0.6875rem;
+        color: var(--cd-muted);
+    }
+    .cliente-detalle-page .cd-importar-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        margin-top: 0.35rem;
+    }
+    .cliente-detalle-page .cd-importar-chip {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 0.15rem 0.45rem;
+        background: #f5d0fe;
+        color: #86198f;
+    }
+    html.dark .cliente-detalle-page .cd-importar-chip {
+        background: rgb(134 27 143 / 0.25);
+        color: #f0abfc;
+    }
+    .cliente-detalle-page .cd-gps-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: #0284c7;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .cliente-detalle-page .cd-gps-link:hover {
+        color: #0369a1;
+        text-decoration: underline;
+    }
     .cliente-detalle-page .cd-modal__head {
         display: flex;
         align-items: center;

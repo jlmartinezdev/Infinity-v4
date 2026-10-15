@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Services\WhatsApp\WhatsAppAgentService;
 use App\Services\WhatsApp\WhatsAppInboundTicketService;
 use App\Services\WhatsApp\WhatsAppService;
+use App\Services\WhatsApp\WhatsAppSolicitudVerificacionService;
+use App\Services\WhatsApp\WhatsAppTvCuentaInboundService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +24,8 @@ class WhatsAppWebhookController extends ApiController
         private readonly WhatsAppService $whatsapp,
         private readonly WhatsAppInboundTicketService $inboundTickets,
         private readonly WhatsAppAgentService $agent,
-        private readonly \App\Services\WhatsApp\WhatsAppSolicitudVerificacionService $solicitudVerificacion,
+        private readonly WhatsAppSolicitudVerificacionService $solicitudVerificacion,
+        private readonly WhatsAppTvCuentaInboundService $tvCuentasInbound,
     ) {}
 
     public function verify(Request $request): Response|SymfonyResponse
@@ -134,6 +137,11 @@ class WhatsAppWebhookController extends ApiController
 
             // Primero: OTP invertido de registro ("Quiero mi código de verificación")
             if ($this->solicitudVerificacion->intentarVerificar($registro)) {
+                continue;
+            }
+
+            // Credenciales TV: (Lumix: correo, clave) o (Suffixed: correo, clave)
+            if ($this->tvCuentasInbound->intentar($registro)) {
                 continue;
             }
 

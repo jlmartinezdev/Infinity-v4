@@ -28017,8 +28017,18 @@ var STORAGE_KEY_BUSCAR = 'servicios_index_buscar';
         ev.target.closest('form').submit();
       }
     }
-    function confirmCancelar(ev) {
-      var msg = '¿Cancelar este servicio? Se generará una factura interna con el monto prorrateado desde el día 1 del mes hasta hoy, el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
+    function confirmCancelar(ev, servicio) {
+      var periodo = 'desde el día 1 del mes hasta hoy';
+      var inst = servicio !== null && servicio !== void 0 && servicio.fecha_instalacion ? String(servicio.fecha_instalacion) : '';
+      if (inst.length >= 7) {
+        var hoy = new Date();
+        var ymInst = inst.slice(0, 7);
+        var ymHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+        if (ymInst === ymHoy) {
+          periodo = 'desde la instalación (' + (servicio.fecha_instalacion_formatted || inst) + ') hasta hoy';
+        }
+      }
+      var msg = '¿Cancelar este servicio? Se generará una factura interna prorrateada por los días usados ' + periodo + ', el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
       if (window.confirm(msg)) {
         ev.target.closest('form').submit();
       }
@@ -28963,7 +28973,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     method: "POST",
     class: "block",
     onSubmit: _cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
-      return $setup.confirmCancelar($event);
+      return $setup.confirmCancelar($event, $setup.servicioAcciones);
     }, ["prevent"]))
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",

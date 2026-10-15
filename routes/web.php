@@ -75,6 +75,7 @@ use App\Http\Controllers\TareaController;
 use App\Http\Controllers\TareaPeriodicaController;
 use App\Http\Controllers\TicketAsuntoController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TrabajoRedController;
 use App\Http\Controllers\TipoTecnologiaController;
 use App\Http\Controllers\TpagoPaymentLinkController;
 use App\Http\Controllers\TvCuentaController;
@@ -675,6 +676,23 @@ Route::middleware(['auth', 'permiso:tickets.crear'])->group(function () {
 Route::delete('/tickets/{ticket}', [TicketController::class, 'destroy'])->name('tickets.destroy')->middleware(['auth', 'permiso:tickets.eliminar']);
 Route::post('/tickets/{ticket}/facturar', [TicketController::class, 'facturar'])->name('tickets.facturar')->middleware(['auth', 'permiso:factura-interna.crear']);
 
+Route::middleware(['auth', 'permiso:trabajos-red.ver'])->group(function () {
+    Route::get('/trabajos-red', [TrabajoRedController::class, 'index'])->name('trabajos-red.index');
+    Route::get('/trabajos-red/activos', [TrabajoRedController::class, 'activos'])->name('trabajos-red.activos');
+    Route::get('/trabajos-red/create', [TrabajoRedController::class, 'create'])->name('trabajos-red.create')->middleware('permiso:trabajos-red.crear');
+});
+Route::middleware(['auth', 'permiso:trabajos-red.crear'])->group(function () {
+    Route::post('/trabajos-red', [TrabajoRedController::class, 'store'])->name('trabajos-red.store');
+});
+Route::middleware(['auth', 'permiso:trabajos-red.editar'])->group(function () {
+    Route::get('/trabajos-red/{trabajoRed}/edit', [TrabajoRedController::class, 'edit'])->name('trabajos-red.edit');
+    Route::put('/trabajos-red/{trabajoRed}', [TrabajoRedController::class, 'update'])->name('trabajos-red.update');
+});
+Route::patch('/trabajos-red/{trabajoRed}/estado', [TrabajoRedController::class, 'updateEstado'])
+    ->name('trabajos-red.update-estado')
+    ->middleware(['auth', 'permiso:trabajos-red.editar,trabajos-red.crear']);
+Route::delete('/trabajos-red/{trabajoRed}', [TrabajoRedController::class, 'destroy'])->name('trabajos-red.destroy')->middleware(['auth', 'permiso:trabajos-red.eliminar']);
+
 // Servicios (CRUD, servicio_id auto-increment como PK)
 Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::get('/servicios', [ServicioController::class, 'index'])->name('servicios.index');
@@ -720,6 +738,8 @@ Route::middleware(['auth', 'permiso:servicios.crear,servicios.editar'])->group(f
     Route::post('/servicios/{servicio_id}/sync-pppoe', [ServicioController::class, 'syncPppoe'])->name('servicios.sync-pppoe');
     Route::post('/servicios/{servicio_id}/migrar', [ServicioController::class, 'migrarStore'])->name('servicios.migrar-store');
     Route::post('/servicios/{servicio_id}/cambiar-tecnologia', [ServicioController::class, 'cambiarTecnologiaStore'])->name('servicios.cambiar-tecnologia-store');
+    Route::get('/clientes/{cliente}/servicios-importables', [ServicioController::class, 'importables'])->name('clientes.servicios-importables');
+    Route::post('/clientes/{cliente}/servicios/importar', [ServicioController::class, 'importar'])->name('clientes.servicios.importar');
 });
 Route::delete('/servicios/{servicio_id}', [ServicioController::class, 'destroy'])->name('servicios.destroy')->middleware(['auth', 'permiso:servicios.eliminar']);
 
@@ -989,6 +1009,8 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::get('olts/{olt}/pon/{ponPort}', [OltController::class, 'showPonOnus'])->whereNumber('ponPort')->name('olts.pon-onus');
     Route::post('olts/{olt}/sync-vista', [OltController::class, 'syncVista'])->name('olts.sync-vista');
     Route::post('olts/{olt}/test-gestion', [OltController::class, 'testGestion'])->name('olts.test-gestion')->middleware('permiso:ftth-olts.editar');
+    Route::post('olts/{olt}/desvio-n6', [OltController::class, 'aplicarDesvioN6'])->name('olts.desvio-n6')->middleware('permiso:ftth-olts.editar');
+    Route::post('olts/{olt}/desvio-n6/ip-nueva', [OltController::class, 'prepararIpNuevaN6'])->name('olts.desvio-n6.ip-nueva')->middleware('permiso:ftth-olts.editar');
     Route::post('olts/{olt}/import-onus', [OltController::class, 'importOnus'])->name('olts.import-onus')->middleware('permiso:ftth-olts.editar');
     Route::post('olts/{olt}/refresh-onu-detalles', [OltController::class, 'refreshOnuDetalles'])->name('olts.refresh-onu-detalles')->middleware('permiso:ftth-olts.editar');
     Route::post('olts/{olt}/pon/{ponPort}/refresh-onu-detalles', [OltController::class, 'refreshOnuDetallesPon'])->whereNumber('ponPort')->name('olts.refresh-onu-detalles-pon')->middleware('permiso:ftth-olts.editar');

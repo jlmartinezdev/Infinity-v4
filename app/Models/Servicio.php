@@ -28,6 +28,7 @@ class Servicio extends Model
         'pool_id',
         'plan_id',
         'alias',
+        'url_ubicacion',
         'pedido_id',
         'ip',
         'ipv6_configurado',
@@ -231,6 +232,30 @@ class Servicio extends Model
         }
 
         return $plan !== '' ? $plan : 'Servicio #'.$this->servicio_id;
+    }
+
+    /**
+     * GPS propio, del pedido de instalación o del cliente titular.
+     */
+    public function urlUbicacionEfectiva(): ?string
+    {
+        foreach ([
+            $this->url_ubicacion,
+            $this->pedido?->maps_gps,
+            $this->cliente?->url_ubicacion,
+        ] as $raw) {
+            $url = trim((string) $raw);
+            if ($url !== '') {
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
+    public function mapsUrl(): ?string
+    {
+        return \App\Helpers\MapsUrlHelper::toGoogleMapsUrl($this->urlUbicacionEfectiva());
     }
 
     public function acuerdoAplicaEnPeriodo(Carbon $periodoDesde, Carbon $periodoHasta): bool

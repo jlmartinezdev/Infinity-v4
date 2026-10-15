@@ -15,16 +15,80 @@ class SalidaPonController extends Controller
 {
     public function index(Request $request)
     {
-        $query = SalidaPon::with(['nodo', 'olt.nodo', 'oltPuerto', 'cajaNaps'])->orderBy('codigo');
-
-        if ($request->filled('nodo_id')) {
-            $query->where('nodo_id', $request->nodo_id);
+        $busqueda = trim((string) $request->get('q', ''));
+        $nodoId = $request->get('nodo_id');
+        $oltId = $request->get('olt_id');
+        $tipoModulo = $request->get('tipo_modulo');
+        $filtroNap = $request->get('filtro_nap');
+        $perPage = (int) $request->get('per_page', 15);
+        if (! in_array($perPage, [10, 15, 25, 50, 100], true)) {
+            $perPage = 15;
         }
 
-        $salidas = $query->paginate(15)->withQueryString();
-        $nodos = Nodo::orderBy('descripcion')->get();
+        $query = SalidaPon::with(['nodo', 'olt.nodo', 'oltPuerto', 'cajaNaps'])->orderBy('codigo');
 
-        return view('salida-pons.index', compact('salidas', 'nodos'));
+        if ($busqueda !== '') {
+            $term = '%'.addcslashes($busqueda, '%_\\').'%';
+            $query->where(function ($q) use ($term, $busqueda) {
+                if (ctype_digit($busqueda)) {
+                    $q->orWhere('salida_pon_id', (int) $busqueda)
+                      ->orWhere('puerto_olt', (int) $busqueda);
+                }
+                $q->orWhere('codigo', 'like', $term)
+                  ->orWhere('nota', 'like', $term)
+                  ->orWhereHas('nodo', fn ($n) => $n->where('descripcion', 'like', $term))
+                  ->orWhereHas('olt', fn ($o) => $o->where('codigo', 'like', $term)->orWhere('ip', 'like', $term))
+                  ->orWhereHas('cajaNaps', fn ($c) => $c->where('codigo', 'like', $term)->orWhere('descripcion', 'like', $term));
+            });
+        }
+
+        if ($nodoId) {
+            $query->where('nodo_id', (int) $nodoId);
+        }
+        if ($oltId) {
+            $query->where('olt_id', (int) $oltId);
+        }
+        if ($tipoModulo) {
+            $query->where('tipo_modulo', $tipoModulo);
+        }
+        if ($filtroNap === 'con_naps') {
+            $query->has('cajaNaps');
+        } elseif ($filtroNap === 'sin_naps') {
+            $query->doesntHave('cajaNaps');
+        }
+
+        $salidas = $query->paginate($perPage)->withQueryString();
+        $nodos = Nodo::orderBy('descripcion')->get();
+        $olts = Olt::orderBy('codigo')->orderBy('ip')->get();
+
+        $kpis = [
+            'total' => SalidaPon::count(),
+            'con_olt' => SalidaPon::whereNotNull('olt_id')->count(),
+            'total_naps' => \App\Models\CajaNap::whereNotNull('salida_pon_id')->count(),
+            'potencia_promedio' => round((float) SalidaPon::whereNotNull('potencia_salida')->avg('potencia_salida'), 2),
+            'con_potencia' => SalidaPon::whereNotNull('potencia_salida')->count(),
+        ];
+
+        // Conteo de Trabajos de Red abiertos por salida PON
+        $trabajosAbiertosPorSalida = [];
+        if (class_exists(\App\Models\TrabajoRed::class)) {
+            $trabajosAbiertosPorSalida = \App\Models\TrabajoRed::query()
+                ->where('activo_tipo', 'salida_pon')
+                ->whereIn('estado', \App\Models\TrabajoRed::estadosAbiertos())
+                ->selectRaw('activo_id, COUNT(*) as total')
+                ->groupBy('activo_id')
+                ->pluck('total', 'activo_id')
+                ->all();
+        }
+
+        return view('salida-pons.index', compact(
+            'salidas',
+            'nodos',
+            'olts',
+            'kpis',
+            'busqueda',
+            'trabajosAbiertosPorSalida'
+        ));
     }
 
     public function create()

@@ -19,7 +19,7 @@
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold
                     {{ $tv_cuenta->esLumix() ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800' }}">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                    {{ $tv_cuenta->esLumix() ? 'Lumix TV (4 Pantallas)' : 'Nebula TV (3 Perfiles)' }}
+                    {{ $tv_cuenta->esLumix() ? 'Lumix TV (4 Pantallas)' : 'Suffixed TV (3 Perfiles)' }}
                 </span>
                 {{-- Badge Estado Vencimiento --}}
                 @php
@@ -42,8 +42,12 @@
         <div class="flex flex-wrap items-center gap-2">
             @if(auth()->user()?->tienePermiso('tv.editar'))
                 <form action="{{ route('tv-cuentas.renovar', $tv_cuenta) }}" method="POST"
-                      onsubmit="return confirm('¿Renovar esta cuenta por 1 mes adelante?');" class="inline">
+                      class="inline js-tv-renovar"
+                      data-dia="{{ $tv_cuenta->diaVencimientoMensual() }}"
+                      data-vencimiento="{{ $tv_cuenta->fechaVencimientoReferencia()->format('d/m/Y') }}"
+                      data-cuenta="{{ $tv_cuenta->nombre ?: $tv_cuenta->usuario_app }}">
                     @csrf
+                    <input type="hidden" name="dia_aviso_vencimiento" value="{{ $tv_cuenta->diaVencimientoMensual() }}">
                     <button type="submit"
                             class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
                             title="Extender vencimiento mensual por 1 mes">
@@ -554,7 +558,7 @@
                         <select name="aplicacion" id="aplicacion" required
                                 class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
                             @foreach($aplicaciones as $valor => $etiqueta)
-                                <option value="{{ $valor }}" @selected(old('aplicacion', $tv_cuenta->aplicacion ?? \App\Models\TvCuenta::APP_NEBULA) === $valor)>{{ $etiqueta }}</option>
+                                <option value="{{ $valor }}" @selected(old('aplicacion', $tv_cuenta->aplicacion ?? \App\Models\TvCuenta::APP_SUFFIXED) === $valor)>{{ $etiqueta }}</option>
                             @endforeach
                         </select>
                         @error('aplicacion')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
@@ -591,15 +595,15 @@
                     </div>
                 </div>
 
-                {{-- Precios Nebula --}}
-                <div id="bloque-nebula" class="space-y-2">
-                    <p class="text-xs font-bold uppercase text-gray-500 tracking-wider">Perfiles y Precios Nebula (3 Perfiles)</p>
+                {{-- Precios Suffixed --}}
+                <div id="bloque-suffixed" class="space-y-2">
+                    <p class="text-xs font-bold uppercase text-gray-500 tracking-wider">Perfiles y Precios Suffixed (3 Perfiles)</p>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                         @foreach([1, 2, 3] as $i)
                             <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
                                 <label for="perfil_{{ $i }}" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Nombre Perfil {{ $i }}</label>
                                 <input type="text" name="perfil_{{ $i }}" id="perfil_{{ $i }}" value="{{ old('perfil_'.$i, $tv_cuenta->{'perfil_'.$i} ?: 'Perfil '.$i) }}" maxlength="120"
-                                       class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs campo-nebula">
+                                       class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs campo-suffixed">
 
                                 <label for="precio_perfil_{{ $i }}" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mt-2 mb-1">Precio Gs.</label>
                                 <input type="number" name="precio_perfil_{{ $i }}" id="precio_perfil_{{ $i }}" value="{{ old('precio_perfil_'.$i, $tv_cuenta->{'precio_perfil_'.$i}) }}" min="0" step="0.01"
@@ -661,19 +665,19 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // ----------------------------------------------------
-    // 1. Alternancia de Aplicación (Nebula vs Lumix)
+    // 1. Alternancia de Aplicación (Suffixed vs Lumix)
     // ----------------------------------------------------
     const selectApp = document.getElementById('aplicacion');
-    const bloqueNebula = document.getElementById('bloque-nebula');
+    const bloqueSuffixed = document.getElementById('bloque-suffixed');
     const bloqueLumix = document.getElementById('bloque-lumix');
-    const camposNebula = document.querySelectorAll('.campo-nebula');
+    const camposSuffixed = document.querySelectorAll('.campo-suffixed');
 
-    if (selectApp && bloqueNebula && bloqueLumix) {
+    if (selectApp && bloqueSuffixed && bloqueLumix) {
         const actualizarApp = () => {
             const esLumix = selectApp.value === '{{ \App\Models\TvCuenta::APP_LUMIX }}';
-            bloqueNebula.classList.toggle('hidden', esLumix);
+            bloqueSuffixed.classList.toggle('hidden', esLumix);
             bloqueLumix.classList.toggle('hidden', !esLumix);
-            camposNebula.forEach((input) => {
+            camposSuffixed.forEach((input) => {
                 input.required = !esLumix;
             });
         };
@@ -946,6 +950,7 @@ document.addEventListener('DOMContentLoaded', function () {
     actualizarServicios();
 });
 </script>
+@include('tv-cuentas._renovar-script')
 @endpush
 
 @include('tv-cuentas._historial-pago-modal')

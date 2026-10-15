@@ -59,7 +59,10 @@ class TvCuentaController extends Controller
         }
 
         $filtroApp = (string) $request->get('app', 'todos');
-        if (! in_array($filtroApp, ['todos', TvCuenta::APP_NEBULA, TvCuenta::APP_LUMIX], true)) {
+        if ($filtroApp === 'nebula') {
+            $filtroApp = TvCuenta::APP_SUFFIXED;
+        }
+        if (! in_array($filtroApp, ['todos', TvCuenta::APP_SUFFIXED, TvCuenta::APP_LUMIX], true)) {
             $filtroApp = 'todos';
         }
 
@@ -472,9 +475,9 @@ class TvCuentaController extends Controller
         $validated = $request->validate($this->reglasCuentaTv($request, $tv_cuenta));
         $validated = $this->normalizarCamposPorAplicacion($validated);
 
-        $maxNuevo = ($validated['aplicacion'] ?? TvCuenta::APP_NEBULA) === TvCuenta::APP_LUMIX
+        $maxNuevo = ($validated['aplicacion'] ?? TvCuenta::APP_SUFFIXED) === TvCuenta::APP_LUMIX
             ? TvCuenta::MAX_LUMIX
-            : TvCuenta::MAX_NEBULA;
+            : TvCuenta::MAX_SUFFIXED;
         if ($tv_cuenta->asignaciones()->count() > $maxNuevo) {
             return redirect()->route('tv-cuentas.edit', $tv_cuenta)
                 ->withInput()
@@ -511,7 +514,15 @@ class TvCuentaController extends Controller
 
     public function renovar(Request $request, TvCuenta $tv_cuenta)
     {
-        $nueva = $tv_cuenta->renovarUnMesAdelante();
+        $validated = $request->validate([
+            'dia_aviso_vencimiento' => ['nullable', 'integer', 'between:1,31'],
+        ]);
+
+        $dia = isset($validated['dia_aviso_vencimiento'])
+            ? (int) $validated['dia_aviso_vencimiento']
+            : null;
+
+        $nueva = $tv_cuenta->renovarUnMesAdelante($dia);
 
         $mensaje = 'Cuenta renovada. Próximo vencimiento: ' . $nueva->format('d/m/Y') . '.';
 
@@ -623,7 +634,7 @@ class TvCuentaController extends Controller
 
     private function reglasCuentaTv(Request $request, ?TvCuenta $cuenta = null): array
     {
-        $aplicacion = $request->input('aplicacion', $cuenta?->aplicacion ?? TvCuenta::APP_NEBULA);
+        $aplicacion = $request->input('aplicacion', $cuenta?->aplicacion ?? TvCuenta::APP_SUFFIXED);
         $esLumix = $aplicacion === TvCuenta::APP_LUMIX;
 
         $rules = [
@@ -658,7 +669,7 @@ class TvCuentaController extends Controller
      */
     private function normalizarCamposPorAplicacion(array $validated): array
     {
-        if (($validated['aplicacion'] ?? TvCuenta::APP_NEBULA) === TvCuenta::APP_LUMIX) {
+        if (($validated['aplicacion'] ?? TvCuenta::APP_SUFFIXED) === TvCuenta::APP_LUMIX) {
             $validated['perfil_1'] = null;
             $validated['perfil_2'] = null;
             $validated['perfil_3'] = null;

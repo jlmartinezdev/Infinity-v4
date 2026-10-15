@@ -28,9 +28,13 @@
         ? \App\Models\Tarea::where('estado', 'pendiente')->count()
         : 0;
 
-    // Tickets con estado pendiente
+    // El mismo corte que el chip En curso: todo lo que no está resuelto ni cerrado
     $ticketsPendientesCount = $user && $user->tienePermiso('tickets.ver')
-        ? \App\Models\Ticket::where('estado', 'pendiente')->count()
+        ? \App\Models\Ticket::whereNotIn('estado', ['resuelto', 'cerrado'])->count()
+        : 0;
+
+    $trabajosRedAbiertosCount = $user && $user->tienePermiso('trabajos-red.ver')
+        ? \App\Models\TrabajoRed::whereIn('estado', \App\Models\TrabajoRed::estadosAbiertos())->count()
         : 0;
 
     foreach ($menuItems as &$item) {
@@ -47,6 +51,9 @@
         }
         if (($item['name'] ?? '') === 'tickets' && $ticketsPendientesCount > 0) {
             $item['badge'] = (string) $ticketsPendientesCount;
+        }
+        if (($item['name'] ?? '') === 'trabajos-red' && $trabajosRedAbiertosCount > 0) {
+            $item['badge'] = (string) $trabajosRedAbiertosCount;
         }
     }
     unset($item, $subItem);

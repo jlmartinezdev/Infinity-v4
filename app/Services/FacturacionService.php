@@ -1988,27 +1988,53 @@ class FacturacionService
     }
 
     /**
-     * Prorrateo por cambio de plan en el mes: plan anterior del día 1 al día anterior al cambio;
-     * plan nuevo desde el día del cambio hasta fin de mes (sin solapar el día del cambio).
-     * Redondeo igual que el resto de la facturación (saltos de {@see self::SALTO_REDONDEO}).
+     * Cobro del mes por cancelación: días usados hasta la fecha de cancelación (inclusive).
+     * Si la instalación es del mismo mes, cuenta desde esa fecha; si no, desde el día 1.
      *
-     * @return array{dias_plan_anterior: int, dias_plan_nuevo: int, dias_en_mes: int, monto_plan_anterior: float, monto_plan_nuevo: float}
+     * @return array{monto: float, dias_usados: int, dias_en_mes: int, periodo_desde: Carbon, periodo_hasta: Carbon}
      */
-    /**
-     * Cobro del mes por cancelación: del día 1 al día de la cancelación (inclusive),
-     * sobre el precio del plan. Mismo redondeo que el resto de prorrateos (saltos de 5000).
-     */
-    public static function calcularMontoProrrateoCancelacionMes(Carbon $fechaCancelacion, float $precioPlan): float
-    {
-        $fechaCancelacion = $fechaCancelacion->copy()->startOfDay();
-        $diasEnMes = $fechaCancelacion->daysInMonth;
-        $diasFacturados = $fechaCancelacion->day;
-        if ($diasEnMes <= 0) {
-            return 0.0;
-        }
-        $raw = $precioPlan * $diasFacturados / $diasEnMes;
+    public static function detalleProrrateoCancelacionMes(
+        Carbon $fechaCancelacion,
+        float $precioPlan,
+        ?Carbon $fechaInstalacion = null
+    ): array {
+        $hasta = $fechaCancelacion->copy()->startOfDay();
+        $desde = $hasta->copy()->startOfMonth();
 
-        return (float) (ceil($raw / self::SALTO_REDONDEO) * self::SALTO_REDONDEO);
+        if ($fechaInstalacion !== null) {
+            $instalacion = $fechaInstalacion->copy()->startOfDay();
+            if ($instalacion->lte($hasta) && $instalacion->isSameMonth($hasta)) {
+                $desde = $instalacion;
+            }
+        }
+
+        $diasEnMes = $hasta->daysInMonth;
+        $diasUsados = max(0, (int) $desde->diffInDays($hasta) + 1);
+        if ($diasEnMes <= 0 || $diasUsados <= 0 || $precioPlan <= 0) {
+            $monto = 0.0;
+        } else {
+            $raw = $precioPlan * $diasUsados / $diasEnMes;
+            $monto = (float) (ceil($raw / self::SALTO_REDONDEO) * self::SALTO_REDONDEO);
+        }
+
+        return [
+            'monto' => $monto,
+            'dias_usados' => $diasUsados,
+            'dias_en_mes' => $diasEnMes,
+            'periodo_desde' => $desde,
+            'periodo_hasta' => $hasta,
+        ];
+    }
+
+    /**
+     * Cobro del mes por cancelación: días usados (desde instalación si es este mes, si no desde el día 1).
+     */
+    public static function calcularMontoProrrateoCancelacionMes(
+        Carbon $fechaCancelacion,
+        float $precioPlan,
+        ?Carbon $fechaInstalacion = null
+    ): float {
+        return self::detalleProrrateoCancelacionMes($fechaCancelacion, $precioPlan, $fechaInstalacion)['monto'];
     }
 
     /**
@@ -2032,24 +2058,31 @@ class FacturacionService
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $impuestoPlan = $this->resolverImpuestoPlanes();
         $cliente = $servicio->cliente;
-        $inicioMes = $fechaCancelacion->copy()->startOfMonth();
+        $detalle = self::detalleProrrateoCancelacionMes(
+            $fechaCancelacion,
+            (float) ($servicio->plan?->precio ?? $monto),
+            $servicio->fecha_instalacion ? Carbon::parse($servicio->fecha_instalacion) : null
+        );
+        $inicioPeriodo = $detalle['periodo_desde'];
         $nombrePlan = $servicio->plan?->nombre ?? 'N/A';
         $montoStr = number_format($monto, 0, ',', '.');
         $descripcion = sprintf(
-            'Cancelación — %s — prorr. %s a %s — %s Gs.',
+            'Cancelación — %s — prorr. %s a %s (%d/%d días) — %s Gs.',
             $nombrePlan,
-            $inicioMes->format('d/m/Y'),
+            $inicioPeriodo->format('d/m/Y'),
             $fechaCancelacion->format('d/m/Y'),
+            $detalle['dias_usados'],
+            $detalle['dias_en_mes'],
             $montoStr
         );
 
-        $factura = DB::transaction(function () use ($servicio, $cliente, $fechaCancelacion, $inicioMes, $monto, $diasVencimiento, $impuestoExento, $impuestoPlan, $usuarioId, $descripcion) {
+        $factura = DB::transaction(function () use ($servicio, $cliente, $fechaCancelacion, $inicioPeriodo, $monto, $diasVencimiento, $impuestoExento, $impuestoPlan, $usuarioId, $descripcion) {
             $fechaEmision = now()->toDateString();
             $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
 
             $factura = FacturaInterna::create([
                 'cliente_id' => $cliente->cliente_id,
-                'periodo_desde' => $inicioMes->toDateString(),
+                'periodo_desde' => $inicioPeriodo->toDateString(),
                 'periodo_hasta' => $fechaCancelacion->toDateString(),
                 'fecha_emision' => $fechaEmision,
                 'fecha_vencimiento' => $fechaVencimiento,
@@ -2063,7 +2096,7 @@ class FacturacionService
                 'observaciones' => sprintf(
                     'Factura por cancelación de servicio #%d — %s a %s',
                     $servicio->servicio_id,
-                    $inicioMes->format('d/m/Y'),
+                    $inicioPeriodo->format('d/m/Y'),
                     $fechaCancelacion->format('d/m/Y')
                 ),
             ]);
@@ -2099,6 +2132,12 @@ class FacturacionService
         return $factura;
     }
 
+    /**
+     * Prorrateo por cambio de plan en el mes: plan anterior del día 1 al día anterior al cambio;
+     * plan nuevo desde el día del cambio hasta fin de mes (sin solapar el día del cambio).
+     *
+     * @return array{dias_plan_anterior: int, dias_plan_nuevo: int, dias_en_mes: int, monto_plan_anterior: float, monto_plan_nuevo: float}
+     */
     public static function calcularMontosProrrateoCambioPlan(Carbon $fechaCambio, float $precioPlanViejo, float $precioPlanNuevo): array
     {
         $fechaCambio = $fechaCambio->copy()->startOfDay();
@@ -2275,9 +2314,8 @@ class FacturacionService
 
                     $mensajeFactura = 'Factura interna #'.$facturaActualizable->id.' actualizada con prorrateo por cambio de plan.';
                 } else {
-                    $diasVencimiento = FacturacionParametro::diasVencimientoFactura();
                     $fechaEmision = now()->toDateString();
-                    $fechaVencimiento = now()->addDays($diasVencimiento)->toDateString();
+                    $fechaVencimiento = FacturacionParametro::fechaVencimientoMesSiguiente($fechaCambio);
                     $nueva = $this->generarFacturaInternaDesdeUnServicio(
                         $servicio,
                         $inicioMes->copy()->startOfDay(),

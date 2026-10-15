@@ -94,6 +94,29 @@
             </div>
         </div>
 
+        @if(\App\Support\OltN6DesvioConfig::aplica($olt) && auth()->user()?->tienePermiso('ftth-olts.editar'))
+        <div class="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm dark:border-sky-800 dark:bg-gray-800">
+            <div class="border-b border-sky-200 bg-sky-50 px-6 py-4 dark:border-sky-800 dark:bg-sky-950/40">
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-200">Desvío IP — enlace dedicado N6</h2>
+                <p class="mt-1 text-xs text-sky-700 dark:text-sky-300">El OLT quedó en ether2 de MK-N6-R1. Antes respondía en la LAN de N2 (172.16.30.0/24).</p>
+            </div>
+            <div class="space-y-3 p-6 text-sm text-gray-700 dark:text-gray-300">
+                <p>1) <strong>Aplicar desvío</strong> recupera el <span class="font-mono">172.16.30.200</span> por ether2 (solo si volvió esa IP).</p>
+                <p>2) <strong>Quitar desvío y meter al bridge</strong> saca las rutas/ARP de 172.16.30.x, pone <span class="font-mono">ether2_aux_olt</span> en <span class="font-mono">bridge-lan</span> y apunta Infinity a <span class="font-mono">172.16.60.200</span>. Gateway del OLT: <span class="font-mono">172.16.60.1</span>.</p>
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <form action="{{ route('sistema.olts.desvio-n6', $olt) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center rounded-lg border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50 dark:border-sky-700 dark:bg-gray-800 dark:text-sky-200">Aplicar desvío</button>
+                    </form>
+                    <form action="{{ route('sistema.olts.desvio-n6.ip-nueva', $olt) }}" method="POST" class="inline" onsubmit="return confirm('¿El OLT ya está en 172.16.60.200? Se quita el desvío y ether2 entra a bridge-lan.');">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">Quitar desvío y meter al bridge</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        @endif
+
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div class="flex flex-col gap-3 border-b border-gray-200 bg-gray-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900/40">
                 <div>

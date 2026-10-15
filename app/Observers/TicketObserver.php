@@ -31,6 +31,10 @@ class TicketObserver
             $this->whatsappOutbound->ticketAsignado($ticket);
         }
 
+        if ($ticket->omitirAvisoCliente) {
+            return;
+        }
+
         // Aviso al cliente de la app cuando cambia estado u observaciones
         if ($ticket->cliente_id && ($ticket->wasChanged('estado') || $ticket->wasChanged('observaciones'))) {
             $cambio = $ticket->wasChanged('observaciones') && ! $ticket->wasChanged('estado')

@@ -522,7 +522,7 @@
             :action="urlCancelar.replace('__id__', servicioAcciones.servicio_id)"
             method="POST"
             class="block"
-            @submit.prevent="confirmCancelar($event)"
+            @submit.prevent="confirmCancelar($event, servicioAcciones)"
           >
             <input type="hidden" name="_token" :value="csrfToken" />
             <button type="submit" class="w-full px-4 py-2.5 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center gap-2">
@@ -1168,8 +1168,18 @@ function confirmDestroy(ev) {
   }
 }
 
-function confirmCancelar(ev) {
-  const msg = '¿Cancelar este servicio? Se generará una factura interna con el monto prorrateado desde el día 1 del mes hasta hoy, el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
+function confirmCancelar(ev, servicio) {
+  let periodo = 'desde el día 1 del mes hasta hoy';
+  const inst = servicio?.fecha_instalacion ? String(servicio.fecha_instalacion) : '';
+  if (inst.length >= 7) {
+    const hoy = new Date();
+    const ymInst = inst.slice(0, 7);
+    const ymHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    if (ymInst === ymHoy) {
+      periodo = 'desde la instalación (' + (servicio.fecha_instalacion_formatted || inst) + ') hasta hoy';
+    }
+  }
+  const msg = '¿Cancelar este servicio? Se generará una factura interna prorrateada por los días usados ' + periodo + ', el servicio pasará a cancelado y se deshabilitará PPPoE en el router (si aplica). Si el cliente no tiene otros servicios no cancelados, quedará inactivo.';
   if (window.confirm(msg)) {
     ev.target.closest('form').submit();
   }

@@ -480,7 +480,13 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-sm" :class="row.cliente_dado_baja ? '' : 'text-gray-900 dark:text-gray-100'">
-                {{ row.cliente_nombre }}
+                <a
+                  v-if="urlClienteDetalle(row)"
+                  :href="urlClienteDetalle(row)"
+                  class="underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-sm"
+                  title="Ver ficha del cliente"
+                >{{ row.cliente_nombre }}</a>
+                <template v-else>{{ row.cliente_nombre }}</template>
                 <span v-if="row.cliente_dado_baja" class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300">Baja</span>
               </td>
               <td class="px-4 py-3 text-sm" :class="row.cliente_dado_baja ? '' : 'text-gray-600 dark:text-gray-400'">{{ fmtPeriodo(row) }}</td>
@@ -1659,6 +1665,13 @@ function hrefExcel(base, { incluirDeuda }) {
 function tplReplace(tpl, id) {
   if (!tpl) return '#';
   return tpl.split('{id}').join(String(id));
+}
+
+function urlClienteDetalle(row) {
+  if (!props.canVerClienteDetalle || !props.clienteDetalleTpl || row?.cliente_id == null) {
+    return '';
+  }
+  return tplReplace(props.clienteDetalleTpl, row.cliente_id);
 }
 
 function urlFacturaShow(id) {

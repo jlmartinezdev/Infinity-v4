@@ -9,16 +9,22 @@ use Illuminate\Support\Carbon;
 
 class TvCuenta extends Model
 {
-    public const APP_NEBULA = 'nebula';
+    public const APP_SUFFIXED = 'suffixed';
+
+    /** @deprecated Usar APP_SUFFIXED */
+    public const APP_NEBULA = 'suffixed';
 
     public const APP_LUMIX = 'lumix';
 
+    public const MAX_SUFFIXED = 3;
+
+    /** @deprecated Usar MAX_SUFFIXED */
     public const MAX_NEBULA = 3;
 
     public const MAX_LUMIX = 4;
 
     /** @deprecated Usar maxAsignaciones() según aplicación */
-    public const MAX_ASIGNACIONES = self::MAX_NEBULA;
+    public const MAX_ASIGNACIONES = self::MAX_SUFFIXED;
 
     /** Fallback si no hay config de avisos TV. */
     public const DIAS_AVISO_POR_VENCER = 7;
@@ -84,14 +90,25 @@ class TvCuenta extends Model
     public static function aplicaciones(): array
     {
         return [
-            self::APP_NEBULA => 'Nebula',
+            self::APP_SUFFIXED => 'Suffixed',
             self::APP_LUMIX => 'Lumix',
         ];
     }
 
-    public function esNebula(): bool
+    public function getAplicacionAttribute($value): string
+    {
+        return ($value === 'nebula' || empty($value)) ? self::APP_SUFFIXED : $value;
+    }
+
+    public function esSuffixed(): bool
     {
         return $this->aplicacion !== self::APP_LUMIX;
+    }
+
+    /** @deprecated Usar esSuffixed() */
+    public function esNebula(): bool
+    {
+        return $this->esSuffixed();
     }
 
     public function esLumix(): bool
@@ -101,7 +118,7 @@ class TvCuenta extends Model
 
     public function maxAsignaciones(): int
     {
-        return $this->esLumix() ? self::MAX_LUMIX : self::MAX_NEBULA;
+        return $this->esLumix() ? self::MAX_LUMIX : self::MAX_SUFFIXED;
     }
 
     public function etiquetaTipoSlot(): string
@@ -185,9 +202,13 @@ class TvCuenta extends Model
         return $this->vencimientoDelMesActual($hoy);
     }
 
-    /** Renueva la cuenta: próximo vencimiento + 1 mes (mismo día mensual). */
-    public function renovarUnMesAdelante(): Carbon
+    /** Renueva la cuenta: próximo vencimiento + 1 mes (mismo día mensual, o el día indicado). */
+    public function renovarUnMesAdelante(?int $diaMensual = null): Carbon
     {
+        if ($diaMensual !== null) {
+            $this->dia_aviso_vencimiento = max(1, min(31, $diaMensual));
+        }
+
         $hoy = Carbon::today();
         $dia = $this->diaVencimientoMensual();
         $base = $this->fechaVencimientoReferencia($hoy);
@@ -207,7 +228,10 @@ class TvCuenta extends Model
             $nueva = $mes->copy()->startOfMonth()->day($diaAjustado);
         }
 
-        $this->update(['vencimiento_pago' => $nueva->toDateString()]);
+        $this->update([
+            'vencimiento_pago' => $nueva->toDateString(),
+            'dia_aviso_vencimiento' => $dia,
+        ]);
 
         return $nueva;
     }
