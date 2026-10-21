@@ -33,6 +33,19 @@ class EstadoPedidoDetalle extends Model
     protected $primaryKey = 'pedido_id';
 
     /**
+     * Delete/update must include estado_id; otherwise Eloquent borra todo el pedido.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    protected function setKeysForSaveQuery($query)
+    {
+        return $query
+            ->where($this->getTable().'.pedido_id', $this->getAttribute('pedido_id'))
+            ->where($this->getTable().'.estado_id', $this->getAttribute('estado_id'));
+    }
+
+    /**
      * Indicates if the model should be timestamped.
      *
      * @var bool
@@ -120,5 +133,28 @@ class EstadoPedidoDetalle extends Model
     public function pool(): BelongsTo
     {
         return $this->belongsTo(RouterIpPool::class, 'pool_id', 'pool_id');
+    }
+
+    /**
+     * IDs de estado a borrar al eliminar uno del historial (ese y los posteriores).
+     * Null si no existe o si es el primer estado del pedido.
+     *
+     * @param  list<int>  $estadoIdsDelPedido
+     * @return list<int>|null
+     */
+    public static function idsABorrarDesde(array $estadoIdsDelPedido, int $estadoId): ?array
+    {
+        $ids = array_values(array_unique(array_map('intval', $estadoIdsDelPedido)));
+        if ($ids === [] || ! in_array($estadoId, $ids, true)) {
+            return null;
+        }
+        if ($estadoId === min($ids)) {
+            return null;
+        }
+
+        $borrar = array_values(array_filter($ids, fn (int $id) => $id >= $estadoId));
+        sort($borrar);
+
+        return $borrar;
     }
 }

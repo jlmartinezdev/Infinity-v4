@@ -27941,6 +27941,18 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       type: String,
       default: ''
     },
+    agregarEstadoUrl: {
+      type: String,
+      default: ''
+    },
+    eliminarEstadoUrl: {
+      type: String,
+      default: ''
+    },
+    esAdmin: {
+      type: Boolean,
+      default: false
+    },
     esperaAmpliacionRedUrl: {
       type: String,
       default: ''
@@ -28045,16 +28057,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       return _abrirModalResolucionesHoy.apply(this, arguments);
     }
     function _abrirModalResolucionesHoy() {
-      _abrirModalResolucionesHoy = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-        var _yield$axios$get, data, _e$response, _t7;
-        return _regenerator().w(function (_context8) {
-          while (1) switch (_context8.p = _context8.n) {
+      _abrirModalResolucionesHoy = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+        var _yield$axios$get, data, _e$response, _t9;
+        return _regenerator().w(function (_context0) {
+          while (1) switch (_context0.p = _context0.n) {
             case 0:
               if (props.urlResolucionesHoy) {
-                _context8.n = 1;
+                _context0.n = 1;
                 break;
               }
-              return _context8.a(2);
+              return _context0.a(2);
             case 1:
               modalResolucionesHoyOpen.value = true;
               resolucionesCargando.value = true;
@@ -28063,30 +28075,30 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               resolucionesDesaprobados.value = [];
               resolucionesFechaLabel.value = '';
               resolucionesStats.value = null;
-              _context8.p = 2;
-              _context8.n = 3;
+              _context0.p = 2;
+              _context0.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].get(props.urlResolucionesHoy);
             case 3:
-              _yield$axios$get = _context8.v;
+              _yield$axios$get = _context0.v;
               data = _yield$axios$get.data;
               resolucionesAprobados.value = data.aprobados || [];
               resolucionesDesaprobados.value = data.desaprobados || [];
               resolucionesFechaLabel.value = data.fecha_label ? "Hoy \xB7 ".concat(data.fecha_label) : 'Hoy';
               resolucionesStats.value = data.stats || null;
-              _context8.n = 5;
+              _context0.n = 5;
               break;
             case 4:
-              _context8.p = 4;
-              _t7 = _context8.v;
-              resolucionesError.value = ((_e$response = _t7.response) === null || _e$response === void 0 || (_e$response = _e$response.data) === null || _e$response === void 0 ? void 0 : _e$response.message) || 'No se pudo cargar el listado.';
+              _context0.p = 4;
+              _t9 = _context0.v;
+              resolucionesError.value = ((_e$response = _t9.response) === null || _e$response === void 0 || (_e$response = _e$response.data) === null || _e$response === void 0 ? void 0 : _e$response.message) || 'No se pudo cargar el listado.';
             case 5:
-              _context8.p = 5;
+              _context0.p = 5;
               resolucionesCargando.value = false;
-              return _context8.f(5);
+              return _context0.f(5);
             case 6:
-              return _context8.a(2);
+              return _context0.a(2);
           }
-        }, _callee8, null, [[2, 4, 5, 6]]);
+        }, _callee0, null, [[2, 4, 5, 6]]);
       }));
       return _abrirModalResolucionesHoy.apply(this, arguments);
     }
@@ -28173,16 +28185,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       return _abrirPedidoDesdeKanban.apply(this, arguments);
     }
     function _abrirPedidoDesdeKanban() {
-      _abrirPedidoDesdeKanban = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(pedidoId) {
+      _abrirPedidoDesdeKanban = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(pedidoId) {
         var el;
-        return _regenerator().w(function (_context9) {
-          while (1) switch (_context9.n) {
+        return _regenerator().w(function (_context1) {
+          while (1) switch (_context1.n) {
             case 0:
               setVista('lista');
               if (!expandedPedidos.value.includes(pedidoId)) {
                 expandedPedidos.value.push(pedidoId);
               }
-              _context9.n = 1;
+              _context1.n = 1;
               return (0,vue__WEBPACK_IMPORTED_MODULE_0__.nextTick)();
             case 1:
               el = document.getElementById('pedido-row-' + pedidoId);
@@ -28191,9 +28203,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 block: 'center'
               });
             case 2:
-              return _context9.a(2);
+              return _context1.a(2);
           }
-        }, _callee9);
+        }, _callee1);
       }));
       return _abrirPedidoDesdeKanban.apply(this, arguments);
     }
@@ -28404,6 +28416,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var loadingAprobar = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loadingDescartar = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loadingReabrir = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
+    var loadingEliminar = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
+    var loadingAgregarEstado = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loadingFinalizar = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loadingCrearPppoe = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
     var loadingEsperaRed = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
@@ -28986,7 +29000,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context4.n = 2;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Finalizar pedido?',
-                html: 'Se marcará el pedido como instalado y los servicios asociados quedarán activos. Si el servicio tiene acuerdo de no facturación, no se genera factura interna.',
+                html: 'Se marcará el pedido como instalado y los servicios asociados quedarán activos. Se registrará la potencia óptica (fibra) o la intensidad de antena. Si el servicio tiene acuerdo de no facturación, no se genera factura interna.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#16a34a',
@@ -29136,14 +29150,236 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         return _ref9.apply(this, arguments);
       };
     }();
-    var descartarEstado = /*#__PURE__*/function () {
-      var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(pedidoId, estadoId) {
-        var notasValue, result, notas, _response$data8, url, response, _error$response$data, status, message, _t6;
+    var puedeEliminarEstado = function puedeEliminarEstado(pedido, detalle) {
+      if (!props.esAdmin || !props.eliminarEstadoUrl) return false;
+      var ids = ((pedido === null || pedido === void 0 ? void 0 : pedido.estado_pedido_detalles) || []).map(function (d) {
+        return Number(d === null || d === void 0 ? void 0 : d.estado_id);
+      }).filter(function (id) {
+        return Number.isFinite(id);
+      });
+      if (!ids.length) return false;
+      return Number(detalle === null || detalle === void 0 ? void 0 : detalle.estado_id) !== Math.min.apply(Math, _toConsumableArray(ids));
+    };
+    var eliminarEstado = /*#__PURE__*/function () {
+      var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(pedido, detalle) {
+        var _detalle$estado_pedid;
+        var pedidoId, estadoId, nombre, confirmResult, _response$data8, _response$data9, url, response, _error$response1, _error$response10, _error$response11, message, _t6;
         return _regenerator().w(function (_context6) {
           while (1) switch (_context6.p = _context6.n) {
             case 0:
+              if (puedeEliminarEstado(pedido, detalle)) {
+                _context6.n = 1;
+                break;
+              }
+              return _context6.a(2);
+            case 1:
+              pedidoId = pedido === null || pedido === void 0 ? void 0 : pedido.pedido_id;
+              estadoId = detalle === null || detalle === void 0 ? void 0 : detalle.estado_id;
+              nombre = (detalle === null || detalle === void 0 || (_detalle$estado_pedid = detalle.estado_pedido) === null || _detalle$estado_pedid === void 0 ? void 0 : _detalle$estado_pedid.descripcion) || "estado ".concat(estadoId);
+              _context6.n = 2;
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                title: '¿Eliminar este estado?',
+                html: "Se quitar\xE1 <strong>".concat(nombre, "</strong> del historial y tambi\xE9n los estados posteriores. El estado anterior se mantiene. Esta acci\xF3n es solo para administradores."),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#b91c1c',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+              });
+            case 2:
+              confirmResult = _context6.v;
+              if (confirmResult.isConfirmed) {
+                _context6.n = 3;
+                break;
+              }
+              return _context6.a(2);
+            case 3:
+              loadingEliminar.value = "".concat(pedidoId, "-").concat(estadoId);
+              _context6.p = 4;
+              url = props.eliminarEstadoUrl.replace(':pedido', String(pedidoId));
+              _context6.n = 5;
+              return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, {
+                estado_id: estadoId
+              }, {
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json'
+                }
+              });
+            case 5:
+              response = _context6.v;
+              _context6.n = 6;
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                icon: 'success',
+                title: 'Estado eliminado',
+                text: ((_response$data8 = response.data) === null || _response$data8 === void 0 ? void 0 : _response$data8.message) || 'El estado se eliminó del historial.',
+                confirmButtonColor: '#7c3aed',
+                timer: 1500,
+                timerProgressBar: true
+              });
+            case 6:
+              if ((_response$data9 = response.data) !== null && _response$data9 !== void 0 && _response$data9.redirect) {
+                window.location.href = response.data.redirect;
+              } else {
+                window.location.reload();
+              }
+              _context6.n = 8;
+              break;
+            case 7:
+              _context6.p = 7;
+              _t6 = _context6.v;
+              message = ((_error$response1 = _t6.response) === null || _error$response1 === void 0 || (_error$response1 = _error$response1.data) === null || _error$response1 === void 0 ? void 0 : _error$response1.message) || 'No se pudo eliminar el estado.';
+              sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                icon: ((_error$response10 = _t6.response) === null || _error$response10 === void 0 ? void 0 : _error$response10.status) === 400 ? 'warning' : 'error',
+                title: ((_error$response11 = _t6.response) === null || _error$response11 === void 0 ? void 0 : _error$response11.status) === 400 ? 'Advertencia' : 'Error',
+                text: message,
+                confirmButtonColor: '#7c3aed'
+              });
+            case 8:
+              _context6.p = 8;
+              loadingEliminar.value = null;
+              return _context6.f(8);
+            case 9:
+              return _context6.a(2);
+          }
+        }, _callee6, null, [[4, 7, 8, 9]]);
+      }));
+      return function eliminarEstado(_x0, _x1) {
+        return _ref0.apply(this, arguments);
+      };
+    }();
+    var primerEstadoCatalogo = function primerEstadoCatalogo() {
+      var lista = _toConsumableArray(props.estados || []).map(function (e) {
+        return {
+          estado_id: Number(e === null || e === void 0 ? void 0 : e.estado_id),
+          descripcion: (e === null || e === void 0 ? void 0 : e.descripcion) || "Estado ".concat(e === null || e === void 0 ? void 0 : e.estado_id)
+        };
+      }).filter(function (e) {
+        return Number.isFinite(e.estado_id);
+      });
+      if (!lista.length) return null;
+      lista.sort(function (a, b) {
+        return a.estado_id - b.estado_id;
+      });
+      return lista[0];
+    };
+    var agregarEstadoInicial = /*#__PURE__*/function () {
+      var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(pedido) {
+        var pedidoId, tieneEstados, inicial, confirmResult, _response$data0, _response$data1, url, response, _error$response12, message, _t7;
+        return _regenerator().w(function (_context7) {
+          while (1) switch (_context7.p = _context7.n) {
+            case 0:
+              if (props.agregarEstadoUrl) {
+                _context7.n = 1;
+                break;
+              }
+              return _context7.a(2);
+            case 1:
+              pedidoId = pedido === null || pedido === void 0 ? void 0 : pedido.pedido_id;
+              tieneEstados = ((pedido === null || pedido === void 0 ? void 0 : pedido.estado_pedido_detalles) || []).length > 0;
+              if (!tieneEstados) {
+                _context7.n = 2;
+                break;
+              }
+              return _context7.a(2);
+            case 2:
+              inicial = primerEstadoCatalogo();
+              if (inicial) {
+                _context7.n = 4;
+                break;
+              }
+              _context7.n = 3;
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                icon: 'warning',
+                title: 'Sin catálogo',
+                text: 'No hay estados de pedido configurados para agregar.',
+                confirmButtonColor: '#7c3aed'
+              });
+            case 3:
+              return _context7.a(2);
+            case 4:
+              _context7.n = 5;
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                title: '¿Agregar estado?',
+                html: "El pedido qued\xF3 sin historial. Se agregar\xE1 <strong>".concat(inicial.descripcion, "</strong> como pendiente."),
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#7c3aed',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, agregar',
+                cancelButtonText: 'Cancelar'
+              });
+            case 5:
+              confirmResult = _context7.v;
+              if (confirmResult.isConfirmed) {
+                _context7.n = 6;
+                break;
+              }
+              return _context7.a(2);
+            case 6:
+              loadingAgregarEstado.value = pedidoId;
+              _context7.p = 7;
+              url = props.agregarEstadoUrl.replace(':pedido', String(pedidoId));
+              _context7.n = 8;
+              return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, {
+                estado_id: inicial.estado_id
+              }, {
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json'
+                }
+              });
+            case 8:
+              response = _context7.v;
+              _context7.n = 9;
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                icon: 'success',
+                title: 'Estado agregado',
+                text: ((_response$data0 = response.data) === null || _response$data0 === void 0 ? void 0 : _response$data0.message) || 'Se agregó el estado al pedido.',
+                confirmButtonColor: '#7c3aed',
+                timer: 1500,
+                timerProgressBar: true
+              });
+            case 9:
+              if ((_response$data1 = response.data) !== null && _response$data1 !== void 0 && _response$data1.redirect) {
+                window.location.href = response.data.redirect;
+              } else {
+                window.location.reload();
+              }
+              _context7.n = 11;
+              break;
+            case 10:
+              _context7.p = 10;
+              _t7 = _context7.v;
+              message = ((_error$response12 = _t7.response) === null || _error$response12 === void 0 || (_error$response12 = _error$response12.data) === null || _error$response12 === void 0 ? void 0 : _error$response12.message) || 'No se pudo agregar el estado.';
+              sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
+                icon: 'error',
+                title: 'Error',
+                text: message,
+                confirmButtonColor: '#7c3aed'
+              });
+            case 11:
+              _context7.p = 11;
+              loadingAgregarEstado.value = null;
+              return _context7.f(11);
+            case 12:
+              return _context7.a(2);
+          }
+        }, _callee7, null, [[7, 10, 11, 12]]);
+      }));
+      return function agregarEstadoInicial(_x10) {
+        return _ref1.apply(this, arguments);
+      };
+    }();
+    var descartarEstado = /*#__PURE__*/function () {
+      var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(pedidoId, estadoId) {
+        var notasValue, result, notas, _response$data10, url, response, _error$response$data, status, message, _t8;
+        return _regenerator().w(function (_context8) {
+          while (1) switch (_context8.p = _context8.n) {
+            case 0:
               notasValue = '';
-              _context6.n = 1;
+              _context8.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Descartar este estado?',
                 html: "\n            <div class=\"text-left\">\n                <p class=\"mb-4\">Esta acci\xF3n no se puede deshacer.</p>\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Notas (opcional)</label>\n                <textarea id=\"swal-notas-descartar\" \n                          rows=\"3\" \n                          maxlength=\"1000\"\n                          placeholder=\"Agregar notas sobre el descarte...\"\n                          class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none\"></textarea>\n                <p id=\"swal-char-count-descartar\" class=\"mt-1 text-xs text-gray-500\">0/1000 caracteres</p>\n            </div>\n        ",
@@ -29169,24 +29405,24 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 }
               });
             case 1:
-              result = _context6.v;
+              result = _context8.v;
               if (result.isConfirmed) {
-                _context6.n = 2;
+                _context8.n = 2;
                 break;
               }
-              return _context6.a(2);
+              return _context8.a(2);
             case 2:
               notas = notasValue || null;
               loadingDescartar.value = "".concat(pedidoId, "-").concat(estadoId);
-              _context6.p = 3;
+              _context8.p = 3;
               if (props.descartarEstadoUrl) {
-                _context6.n = 4;
+                _context8.n = 4;
                 break;
               }
               throw new Error('URL de descartar estado no configurada');
             case 4:
               url = props.descartarEstadoUrl.replace(':pedido', pedidoId);
-              _context6.n = 5;
+              _context8.n = 5;
               return axios__WEBPACK_IMPORTED_MODULE_2__["default"].post(url, {
                 estado_id: estadoId,
                 notas: notas
@@ -29197,12 +29433,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 }
               });
             case 5:
-              response = _context6.v;
-              _context6.n = 6;
+              response = _context8.v;
+              _context8.n = 6;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 icon: 'success',
                 title: '¡Éxito!',
-                text: ((_response$data8 = response.data) === null || _response$data8 === void 0 ? void 0 : _response$data8.message) || 'Estado descartado correctamente.',
+                text: ((_response$data10 = response.data) === null || _response$data10 === void 0 ? void 0 : _response$data10.message) || 'Estado descartado correctamente.',
                 confirmButtonColor: '#7c3aed',
                 timer: 1500,
                 timerProgressBar: true
@@ -29213,16 +29449,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               } else {
                 window.location.reload();
               }
-              _context6.n = 8;
+              _context8.n = 8;
               break;
             case 7:
-              _context6.p = 7;
-              _t6 = _context6.v;
-              console.error('Error:', _t6);
+              _context8.p = 7;
+              _t8 = _context8.v;
+              console.error('Error:', _t8);
               loadingDescartar.value = null;
-              if (_t6.response) {
-                status = _t6.response.status;
-                message = ((_error$response$data = _t6.response.data) === null || _error$response$data === void 0 ? void 0 : _error$response$data.message) || 'Error al descartar el estado';
+              if (_t8.response) {
+                status = _t8.response.status;
+                message = ((_error$response$data = _t8.response.data) === null || _error$response$data === void 0 ? void 0 : _error$response$data.message) || 'Error al descartar el estado';
                 if (status === 400) {
                   sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                     icon: 'warning',
@@ -29247,21 +29483,21 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 });
               }
             case 8:
-              return _context6.a(2);
+              return _context8.a(2);
           }
-        }, _callee6, null, [[3, 7]]);
+        }, _callee8, null, [[3, 7]]);
       }));
-      return function descartarEstado(_x0, _x1) {
-        return _ref0.apply(this, arguments);
+      return function descartarEstado(_x11, _x12) {
+        return _ref10.apply(this, arguments);
       };
     }();
     var eliminarPedido = /*#__PURE__*/function () {
-      var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(pedidoId) {
+      var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(pedidoId) {
         var result, form, tokenInput, methodInput;
-        return _regenerator().w(function (_context7) {
-          while (1) switch (_context7.n) {
+        return _regenerator().w(function (_context9) {
+          while (1) switch (_context9.n) {
             case 0:
-              _context7.n = 1;
+              _context9.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_3___default().fire({
                 title: '¿Eliminar este pedido?',
                 text: 'Esta acción no se puede deshacer.',
@@ -29273,12 +29509,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 cancelButtonText: 'Cancelar'
               });
             case 1:
-              result = _context7.v;
+              result = _context9.v;
               if (result.isConfirmed) {
-                _context7.n = 2;
+                _context9.n = 2;
                 break;
               }
-              return _context7.a(2);
+              return _context9.a(2);
             case 2:
               try {
                 form = document.createElement('form');
@@ -29306,12 +29542,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 });
               }
             case 3:
-              return _context7.a(2);
+              return _context9.a(2);
           }
-        }, _callee7);
+        }, _callee9);
       }));
-      return function eliminarPedido(_x10) {
-        return _ref1.apply(this, arguments);
+      return function eliminarPedido(_x13) {
+        return _ref11.apply(this, arguments);
       };
     }();
     var __returned__ = {
@@ -29367,6 +29603,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       loadingAprobar: loadingAprobar,
       loadingDescartar: loadingDescartar,
       loadingReabrir: loadingReabrir,
+      loadingEliminar: loadingEliminar,
+      loadingAgregarEstado: loadingAgregarEstado,
       loadingFinalizar: loadingFinalizar,
       loadingCrearPppoe: loadingCrearPppoe,
       loadingEsperaRed: loadingEsperaRed,
@@ -29403,6 +29641,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       crearAgenda: crearAgenda,
       finalizarPedido: finalizarPedido,
       reabrirEstado: reabrirEstado,
+      puedeEliminarEstado: puedeEliminarEstado,
+      eliminarEstado: eliminarEstado,
+      primerEstadoCatalogo: primerEstadoCatalogo,
+      agregarEstadoInicial: agregarEstadoInicial,
       descartarEstado: descartarEstado,
       eliminarPedido: eliminarPedido,
       ref: vue__WEBPACK_IMPORTED_MODULE_0__.ref,
@@ -30209,16 +30451,56 @@ var _hoisted_124 = {
 var _hoisted_125 = {
   key: 3
 };
-var _hoisted_126 = {
-  key: 0,
-  class: "p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
-};
+var _hoisted_126 = ["onClick", "disabled"];
 var _hoisted_127 = {
+  key: 0,
+  class: "w-3 h-3 mr-1",
+  fill: "none",
+  stroke: "currentColor",
+  viewBox: "0 0 24 24"
+};
+var _hoisted_128 = {
+  key: 1,
+  class: "w-3 h-3 mr-1 animate-spin",
+  fill: "none",
+  viewBox: "0 0 24 24"
+};
+var _hoisted_129 = {
+  key: 2
+};
+var _hoisted_130 = {
+  key: 3
+};
+var _hoisted_131 = {
+  key: 0,
+  class: "p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3"
+};
+var _hoisted_132 = ["onClick", "disabled"];
+var _hoisted_133 = {
+  key: 0,
+  class: "w-3.5 h-3.5 mr-1",
+  fill: "none",
+  stroke: "currentColor",
+  viewBox: "0 0 24 24"
+};
+var _hoisted_134 = {
+  key: 1,
+  class: "w-3.5 h-3.5 mr-1 animate-spin",
+  fill: "none",
+  viewBox: "0 0 24 24"
+};
+var _hoisted_135 = {
+  key: 2
+};
+var _hoisted_136 = {
+  key: 3
+};
+var _hoisted_137 = {
   class: "fixed inset-0 z-50 overflow-hidden",
   role: "dialog",
   "aria-modal": "true"
 };
-var _hoisted_128 = {
+var _hoisted_138 = {
   ref: "modalPedidoContentRef",
   class: "absolute w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl",
   style: {
@@ -30227,19 +30509,19 @@ var _hoisted_128 = {
     "transform": "translate(-50%, -50%)"
   }
 };
-var _hoisted_129 = {
+var _hoisted_139 = {
   ref: "modalPedidoHeaderRef",
   class: "sticky top-0 z-10 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-move select-none"
 };
-var _hoisted_130 = {
+var _hoisted_140 = {
   class: "p-3 sm:p-4 bg-white dark:bg-gray-800 min-w-0"
 };
-var _hoisted_131 = {
+var _hoisted_141 = {
   class: "fixed inset-0 z-50 overflow-hidden",
   role: "dialog",
   "aria-modal": "true"
 };
-var _hoisted_132 = {
+var _hoisted_142 = {
   class: "absolute w-full max-w-md border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl p-4",
   style: {
     "top": "50%",
@@ -30247,128 +30529,128 @@ var _hoisted_132 = {
     "transform": "translate(-50%, -50%)"
   }
 };
-var _hoisted_133 = {
+var _hoisted_143 = {
   class: "flex items-center justify-between mb-4"
 };
-var _hoisted_134 = ["action"];
-var _hoisted_135 = ["value"];
-var _hoisted_136 = ["value"];
-var _hoisted_137 = {
+var _hoisted_144 = ["action"];
+var _hoisted_145 = ["value"];
+var _hoisted_146 = ["value"];
+var _hoisted_147 = {
   class: "flex justify-end gap-2 mt-5"
 };
-var _hoisted_138 = {
+var _hoisted_148 = {
   class: "fixed inset-0 z-[60] overflow-y-auto",
   role: "dialog",
   "aria-modal": "true",
   "aria-labelledby": "modal-resoluciones-hoy-titulo"
 };
-var _hoisted_139 = {
+var _hoisted_149 = {
   class: "relative min-h-full flex items-center justify-center p-4"
 };
-var _hoisted_140 = {
+var _hoisted_150 = {
   class: "relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl"
 };
-var _hoisted_141 = {
+var _hoisted_151 = {
   class: "flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700 shrink-0"
 };
-var _hoisted_142 = {
+var _hoisted_152 = {
   key: 0,
   class: "text-sm text-gray-500 dark:text-gray-400 mt-0.5"
 };
-var _hoisted_143 = {
+var _hoisted_153 = {
   key: 0
 };
-var _hoisted_144 = {
+var _hoisted_154 = {
   key: 0,
   class: "p-10 text-center text-gray-500 dark:text-gray-400 text-sm"
 };
-var _hoisted_145 = {
+var _hoisted_155 = {
   key: 1,
   class: "p-4 text-sm text-red-600 dark:text-red-400"
 };
-var _hoisted_146 = {
+var _hoisted_156 = {
   key: 2,
   class: "overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-4"
 };
-var _hoisted_147 = {
+var _hoisted_157 = {
   class: "rounded-lg border border-green-200 dark:border-green-800/60 bg-green-50/50 dark:bg-green-900/10 overflow-hidden"
 };
-var _hoisted_148 = {
+var _hoisted_158 = {
   class: "px-4 py-2.5 text-sm font-semibold text-green-800 dark:text-green-300 bg-green-100/80 dark:bg-green-900/30 border-b border-green-200 dark:border-green-800/60"
 };
-var _hoisted_149 = {
+var _hoisted_159 = {
   key: 0,
   class: "divide-y divide-green-100 dark:divide-green-900/40 max-h-[50vh] overflow-y-auto"
 };
-var _hoisted_150 = {
+var _hoisted_160 = {
   class: "font-medium text-gray-900 dark:text-gray-100"
 };
-var _hoisted_151 = {
+var _hoisted_161 = {
   class: "text-xs text-gray-600 dark:text-gray-400"
 };
-var _hoisted_152 = {
+var _hoisted_162 = {
   key: 0
 };
-var _hoisted_153 = {
+var _hoisted_163 = {
   class: "text-xs text-gray-500 dark:text-gray-500 mt-1"
 };
-var _hoisted_154 = {
+var _hoisted_164 = {
   key: 0
 };
-var _hoisted_155 = {
+var _hoisted_165 = {
   key: 1
 };
-var _hoisted_156 = {
+var _hoisted_166 = {
   class: "text-xs text-gray-500 mt-0.5"
 };
-var _hoisted_157 = {
+var _hoisted_167 = {
   key: 0
 };
-var _hoisted_158 = {
+var _hoisted_168 = {
   key: 0,
   class: "text-xs text-gray-600 dark:text-gray-400 mt-1 italic"
 };
-var _hoisted_159 = {
+var _hoisted_169 = {
   key: 1,
   class: "px-4 py-6 text-sm text-gray-500 dark:text-gray-400 text-center"
 };
-var _hoisted_160 = {
+var _hoisted_170 = {
   class: "rounded-lg border border-red-200 dark:border-red-800/60 bg-red-50/50 dark:bg-red-900/10 overflow-hidden"
 };
-var _hoisted_161 = {
+var _hoisted_171 = {
   class: "px-4 py-2.5 text-sm font-semibold text-red-800 dark:text-red-300 bg-red-100/80 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800/60"
 };
-var _hoisted_162 = {
+var _hoisted_172 = {
   key: 0,
   class: "divide-y divide-red-100 dark:divide-red-900/40 max-h-[50vh] overflow-y-auto"
 };
-var _hoisted_163 = {
+var _hoisted_173 = {
   class: "font-medium text-gray-900 dark:text-gray-100"
 };
-var _hoisted_164 = {
+var _hoisted_174 = {
   class: "text-xs text-gray-600 dark:text-gray-400"
 };
-var _hoisted_165 = {
+var _hoisted_175 = {
   key: 0
 };
-var _hoisted_166 = {
+var _hoisted_176 = {
   class: "text-xs text-gray-500 dark:text-gray-500 mt-1"
 };
-var _hoisted_167 = {
+var _hoisted_177 = {
   class: "text-xs text-gray-500 mt-0.5"
 };
-var _hoisted_168 = {
+var _hoisted_178 = {
   key: 0
 };
-var _hoisted_169 = {
+var _hoisted_179 = {
   key: 0,
   class: "text-xs text-gray-600 dark:text-gray-400 mt-1 italic"
 };
-var _hoisted_170 = {
+var _hoisted_180 = {
   key: 1,
   class: "px-4 py-6 text-sm text-gray-500 dark:text-gray-400 text-center"
 };
-var _hoisted_171 = {
+var _hoisted_181 = {
   class: "p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0"
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
@@ -30872,7 +31154,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
     })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ver mapa ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_85)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_86, [_cache[66] || (_cache[66] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
       class: "font-medium text-gray-700 dark:text-gray-300"
-    }, "Selección:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_87, " Nodo: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getNodoDescripcion((_$setup$getSeleccionP = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP === void 0 ? void 0 : _$setup$getSeleccionP.nodo_id) || '—') + " · Tecnología: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getTecnologiaDescripcion((_$setup$getSeleccionP2 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP2 === void 0 ? void 0 : _$setup$getSeleccionP2.tecnologia_id) || '—') + " · Plan: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getPlanNombre((_$setup$getSeleccionP3 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP3 === void 0 ? void 0 : _$setup$getSeleccionP3.plan_id) || '—'), 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Historial de Estados "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[75] || (_cache[75] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h4", {
+    }, "Selección:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_87, " Nodo: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getNodoDescripcion((_$setup$getSeleccionP = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP === void 0 ? void 0 : _$setup$getSeleccionP.nodo_id) || '—') + " · Tecnología: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getTecnologiaDescripcion((_$setup$getSeleccionP2 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP2 === void 0 ? void 0 : _$setup$getSeleccionP2.tecnologia_id) || '—') + " · Plan: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getPlanNombre((_$setup$getSeleccionP3 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP3 === void 0 ? void 0 : _$setup$getSeleccionP3.plan_id) || '—'), 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Historial de Estados "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h4", {
       class: "text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3"
     }, "Historial de Estados", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_88, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.getDetallesOrdenados(pedido.estado_pedido_detalles), function (detalle) {
       var _detalle$estado_pedid, _detalle$estado_pedid2, _detalle$estado_pedid3;
@@ -30936,7 +31218,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
           var _detalle$estado_pedid4;
           return $setup.aprobarEstado(pedido, detalle.estado_id, (_detalle$estado_pedid4 = detalle.estado_pedido) === null || _detalle$estado_pedid4 === void 0 ? void 0 : _detalle$estado_pedid4.parametro);
         }, ["stop"]),
-        disabled: $setup.loadingAprobar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) || $setup.loadingDescartar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id),
+        disabled: $setup.loadingAprobar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) || $setup.loadingDescartar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) || $setup.loadingEliminar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id),
         class: "inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
         title: "Aprobar estado"
       }, [$setup.loadingAprobar !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_117, _toConsumableArray(_cache[71] || (_cache[71] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
@@ -30959,7 +31241,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
           return $setup.descartarEstado(pedido.pedido_id, detalle.estado_id);
         }, ["stop"]),
-        disabled: $setup.loadingAprobar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) || $setup.loadingDescartar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id),
+        disabled: $setup.loadingAprobar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) || $setup.loadingDescartar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) || $setup.loadingEliminar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id),
         class: "inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
         title: "Descartar estado"
       }, [$setup.loadingDescartar !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_122, _toConsumableArray(_cache[73] || (_cache[73] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
@@ -30978,15 +31260,67 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         class: "opacity-75",
         fill: "currentColor",
         d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      }, null, -1 /* CACHED */)])))), $setup.loadingDescartar !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_124, "Descartar")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_125, "Descartando..."))], 8 /* PROPS */, _hoisted_121)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]);
-    }), 128 /* KEYED_FRAGMENT */)), !pedido.estado_pedido_detalles || pedido.estado_pedido_detalles.length === 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_126, " No hay estados registrados ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])])], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.expandedPedidos.includes(pedido.pedido_id)]])], 10 /* CLASS, PROPS */, _hoisted_36)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.vista === 'lista']]);
+      }, null, -1 /* CACHED */)])))), $setup.loadingDescartar !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_124, "Descartar")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_125, "Descartando..."))], 8 /* PROPS */, _hoisted_121)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.puedeEliminarEstado(pedido, detalle) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+        key: 8,
+        type: "button",
+        onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
+          return $setup.eliminarEstado(pedido, detalle);
+        }, ["stop"]),
+        disabled: $setup.loadingEliminar === "".concat(pedido.pedido_id, "-").concat(detalle.estado_id),
+        class: "inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-red-700 rounded-lg hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
+        title: "Eliminar estado del historial (solo administradores)"
+      }, [$setup.loadingEliminar !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_127, _toConsumableArray(_cache[75] || (_cache[75] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_128, _toConsumableArray(_cache[76] || (_cache[76] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+        class: "opacity-25",
+        cx: "12",
+        cy: "12",
+        r: "10",
+        stroke: "currentColor",
+        "stroke-width": "4"
+      }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+        class: "opacity-75",
+        fill: "currentColor",
+        d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      }, null, -1 /* CACHED */)])))), $setup.loadingEliminar !== "".concat(pedido.pedido_id, "-").concat(detalle.estado_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_129, "Eliminar")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_130, "Eliminando..."))], 8 /* PROPS */, _hoisted_126)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]);
+    }), 128 /* KEYED_FRAGMENT */)), !pedido.estado_pedido_detalles || pedido.estado_pedido_detalles.length === 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_131, [_cache[79] || (_cache[79] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+      class: "m-0"
+    }, "No hay estados registrados", -1 /* CACHED */)), $props.agregarEstadoUrl ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+      key: 0,
+      type: "button",
+      onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function ($event) {
+        return $setup.agregarEstadoInicial(pedido);
+      }, ["stop"]),
+      disabled: $setup.loadingAgregarEstado === pedido.pedido_id,
+      class: "inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
+      title: "Agregar el primer estado del flujo"
+    }, [$setup.loadingAgregarEstado !== pedido.pedido_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_133, _toConsumableArray(_cache[77] || (_cache[77] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "stroke-width": "2",
+      d: "M12 4v16m8-8H4"
+    }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_134, _toConsumableArray(_cache[78] || (_cache[78] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+      class: "opacity-25",
+      cx: "12",
+      cy: "12",
+      r: "10",
+      stroke: "currentColor",
+      "stroke-width": "4"
+    }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      class: "opacity-75",
+      fill: "currentColor",
+      d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    }, null, -1 /* CACHED */)])))), $setup.loadingAgregarEstado !== pedido.pedido_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_135, "Agregar estado")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_136, "Agregando..."))], 8 /* PROPS */, _hoisted_132)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])])], 2 /* CLASS */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.expandedPedidos.includes(pedido.pedido_id)]])], 10 /* CLASS, PROPS */, _hoisted_36)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.vista === 'lista']]);
   }), 128 /* KEYED_FRAGMENT */))])])], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal crear pedido "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
     to: "body"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_127, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_137, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-gray-900/60 transition-opacity",
     onClick: $setup.closeModalPedido,
     "aria-hidden": "true"
-  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_128, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_129, [_cache[77] || (_cache[77] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_138, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_139, [_cache[82] || (_cache[82] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-4 h-4 text-gray-400 dark:text-gray-500",
@@ -31003,7 +31337,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: $setup.closeModalPedido,
     class: "p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors",
     "aria-label": "Cerrar"
-  }, _toConsumableArray(_cache[76] || (_cache[76] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[81] || (_cache[81] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-5 h-5 text-gray-600 dark:text-gray-400",
     fill: "none",
     stroke: "currentColor",
@@ -31013,7 +31347,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M6 18L18 6M6 6l12 12"
-  })], -1 /* CACHED */)])))], 512 /* NEED_PATCH */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_130, [$setup.modalPedidoOpen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)($setup["PedidoForm"], {
+  })], -1 /* CACHED */)])))], 512 /* NEED_PATCH */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_140, [$setup.modalPedidoOpen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)($setup["PedidoForm"], {
     key: 0,
     "pedido-id": $props.pedidoFormConfig.pedidoId,
     planes: $props.pedidoFormConfig.planes,
@@ -31028,13 +31362,13 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "modal-mode": true
   }, null, 8 /* PROPS */, ["pedido-id", "planes", "estado-id", "buscar-cliente-url", "verificar-telefono-url", "cedula-temporal-url", "consultar-padron-url", "submit-url", "cancel-url", "csrf-token"])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 512 /* NEED_PATCH */)], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalPedidoOpen]])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal Análisis de Factibilidad "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
     to: "body"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_131, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_141, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-gray-900/60 transition-opacity",
     onClick: _cache[17] || (_cache[17] = function ($event) {
       return $setup.modalFactibilidadOpen = false;
     }),
     "aria-hidden": "true"
-  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_132, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_133, [_cache[79] || (_cache[79] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_142, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_143, [_cache[84] || (_cache[84] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     class: "text-lg font-semibold text-gray-900 dark:text-gray-100"
   }, "Análisis de Factibilidad", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
@@ -31043,7 +31377,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     class: "p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors",
     "aria-label": "Cerrar"
-  }, _toConsumableArray(_cache[78] || (_cache[78] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[83] || (_cache[83] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-5 h-5 text-gray-600 dark:text-gray-400",
     fill: "none",
     stroke: "currentColor",
@@ -31053,7 +31387,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M6 18L18 6M6 6l12 12"
-  })], -1 /* CACHED */)])))]), _cache[85] || (_cache[85] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  })], -1 /* CACHED */)])))]), _cache[90] || (_cache[90] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-sm text-gray-500 dark:text-gray-400 mb-4"
   }, "CLIENTE TEST", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     action: $props.urlPedidosStore,
@@ -31062,15 +31396,15 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "hidden",
     name: "_token",
     value: $props.csrfToken
-  }, null, 8 /* PROPS */, _hoisted_135), _cache[81] || (_cache[81] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, 8 /* PROPS */, _hoisted_145), _cache[86] || (_cache[86] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "cedula",
     value: "1"
-  }, null, -1 /* CACHED */)), _cache[82] || (_cache[82] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, -1 /* CACHED */)), _cache[87] || (_cache[87] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "nombre",
     value: "cliente test"
-  }, null, -1 /* CACHED */)), _cache[83] || (_cache[83] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, null, -1 /* CACHED */)), _cache[88] || (_cache[88] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     type: "hidden",
     name: "apellido",
     value: ""
@@ -31078,7 +31412,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "hidden",
     name: "fecha_pedido",
     value: $setup.fechaHoy
-  }, null, 8 /* PROPS */, _hoisted_136), _cache[84] || (_cache[84] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }, null, 8 /* PROPS */, _hoisted_146), _cache[89] || (_cache[89] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "space-y-4 mb-4"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     for: "factibilidad-maps-gps",
@@ -31111,34 +31445,34 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     rows: "3",
     class: "w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100",
     placeholder: "Descripción del análisis de factibilidad"
-  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_137, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  })])], -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_147, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     onClick: _cache[19] || (_cache[19] = function ($event) {
       return $setup.modalFactibilidadOpen = false;
     }),
     class: "px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-  }, " Cancelar "), _cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, " Cancelar "), _cache[85] || (_cache[85] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "submit",
     class: "px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
-  }, " Guardar ", -1 /* CACHED */))])], 8 /* PROPS */, _hoisted_134)])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalFactibilidadOpen]])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal resoluciones de hoy (aprobados / desaprobados) "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
+  }, " Guardar ", -1 /* CACHED */))])], 8 /* PROPS */, _hoisted_144)])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalFactibilidadOpen]])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal resoluciones de hoy (aprobados / desaprobados) "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
     to: "body"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_138, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_148, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-gray-900/60",
     "aria-hidden": "true",
     onClick: _cache[20] || (_cache[20] = function ($event) {
       return $setup.modalResolucionesHoyOpen = false;
     })
-  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_139, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_140, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_141, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[86] || (_cache[86] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
+  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_149, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_150, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_151, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[91] || (_cache[91] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     id: "modal-resoluciones-hoy-titulo",
     class: "text-lg font-semibold text-gray-900 dark:text-gray-100"
-  }, " Clientes aprobados y desaprobados ", -1 /* CACHED */)), $setup.resolucionesFechaLabel ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_142, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesFechaLabel) + " ", 1 /* TEXT */), $setup.resolucionesStats ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_143, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesStats.clientes_aprobados) + " cliente(s) aprobado(s) · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesStats.clientes_desaprobados) + " desaprobado(s) ", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, " Clientes aprobados y desaprobados ", -1 /* CACHED */)), $setup.resolucionesFechaLabel ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_152, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesFechaLabel) + " ", 1 /* TEXT */), $setup.resolucionesStats ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_153, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesStats.clientes_aprobados) + " cliente(s) aprobado(s) · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesStats.clientes_desaprobados) + " desaprobado(s) ", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500",
     "aria-label": "Cerrar",
     onClick: _cache[21] || (_cache[21] = function ($event) {
       return $setup.modalResolucionesHoyOpen = false;
     })
-  }, _toConsumableArray(_cache[87] || (_cache[87] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[92] || (_cache[92] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "w-5 h-5",
     fill: "none",
     stroke: "currentColor",
@@ -31148,17 +31482,17 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M6 18L18 6M6 6l12 12"
-  })], -1 /* CACHED */)])))]), $setup.resolucionesCargando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_144, "Cargando…")) : $setup.resolucionesError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_145, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesError), 1 /* TEXT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_146, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_147, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_148, " Aprobados (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesAprobados.length) + ") ", 1 /* TEXT */), $setup.resolucionesAprobados.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_149, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.resolucionesAprobados, function (row, idx) {
+  })], -1 /* CACHED */)])))]), $setup.resolucionesCargando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_154, "Cargando…")) : $setup.resolucionesError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_155, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesError), 1 /* TEXT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_156, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_157, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_158, " Aprobados (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesAprobados.length) + ") ", 1 /* TEXT */), $setup.resolucionesAprobados.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_159, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.resolucionesAprobados, function (row, idx) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
       key: 'a-' + row.pedido_id + '-' + row.estado_id + '-' + idx,
       class: "px-4 py-3 text-sm"
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_150, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_nombre || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_151, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_cedula), 1 /* TEXT */), row.cliente_telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_152, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_153, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Pedido #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.pedido_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.estado_pedido) + " ", 1 /* TEXT */), row.plan_nombre ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_154, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.plan_nombre), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), row.nodo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_155, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.nodo), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_156, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatResolucionHora(row.fecha)), 1 /* TEXT */), row.usuario ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_157, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.usuario), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), row.notas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_158, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.notas), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
-  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_159, "Sin aprobaciones hoy."))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_160, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_161, " Desaprobados (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesDesaprobados.length) + ") ", 1 /* TEXT */), $setup.resolucionesDesaprobados.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_162, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.resolucionesDesaprobados, function (row, idx) {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_160, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_nombre || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_161, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_cedula), 1 /* TEXT */), row.cliente_telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_162, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_163, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Pedido #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.pedido_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.estado_pedido) + " ", 1 /* TEXT */), row.plan_nombre ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_164, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.plan_nombre), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), row.nodo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_165, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.nodo), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_166, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatResolucionHora(row.fecha)), 1 /* TEXT */), row.usuario ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_167, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.usuario), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), row.notas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_168, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.notas), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_169, "Sin aprobaciones hoy."))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", _hoisted_170, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h3", _hoisted_171, " Desaprobados (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.resolucionesDesaprobados.length) + ") ", 1 /* TEXT */), $setup.resolucionesDesaprobados.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_172, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.resolucionesDesaprobados, function (row, idx) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
       key: 'd-' + row.pedido_id + '-' + row.estado_id + '-' + idx,
       class: "px-4 py-3 text-sm"
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_163, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_nombre || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_164, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_cedula), 1 /* TEXT */), row.cliente_telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_165, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_166, " Pedido #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.pedido_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.estado_pedido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_167, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatResolucionHora(row.fecha)), 1 /* TEXT */), row.usuario ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_168, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.usuario), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), row.notas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_169, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.notas), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
-  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_170, "Sin desaprobaciones hoy."))])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_171, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_173, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_nombre || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_174, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_cedula), 1 /* TEXT */), row.cliente_telefono ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_175, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.cliente_telefono), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_176, " Pedido #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.pedido_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.estado_pedido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_177, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatResolucionHora(row.fecha)), 1 /* TEXT */), row.usuario ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_178, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.usuario), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), row.notas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_179, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(row.notas), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_180, "Sin desaprobaciones hoy."))])])), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_181, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700",
     onClick: _cache[22] || (_cache[22] = function ($event) {
@@ -36742,6 +37076,9 @@ if (el) {
     urlOpcionesNodoAprobacion: cfg.urlOpcionesNodoAprobacion || '',
     descartarEstadoUrl: cfg.descartarEstadoUrl || '',
     reabrirEstadoUrl: cfg.reabrirEstadoUrl || '',
+    agregarEstadoUrl: cfg.agregarEstadoUrl || '',
+    eliminarEstadoUrl: cfg.eliminarEstadoUrl || '',
+    esAdmin: Boolean(cfg.esAdmin),
     esperaAmpliacionRedUrl: cfg.esperaAmpliacionRedUrl || '',
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',
     crearAgendaUrl: cfg.crearAgendaUrl || '',

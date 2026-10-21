@@ -572,7 +572,7 @@
                                     <div v-if="detalle.estado === 'P'" class="flex items-center gap-1">
                                         <button
                                             @click.stop="aprobarEstado(pedido, detalle.estado_id, detalle.estado_pedido?.parametro)"
-                                            :disabled="loadingAprobar === `${pedido.pedido_id}-${detalle.estado_id}` || loadingDescartar === `${pedido.pedido_id}-${detalle.estado_id}`"
+                                            :disabled="loadingAprobar === `${pedido.pedido_id}-${detalle.estado_id}` || loadingDescartar === `${pedido.pedido_id}-${detalle.estado_id}` || loadingEliminar === `${pedido.pedido_id}-${detalle.estado_id}`"
                                             class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                             title="Aprobar estado">
                                             <svg v-if="loadingAprobar !== `${pedido.pedido_id}-${detalle.estado_id}`" 
@@ -594,7 +594,7 @@
                                         </button>
                                         <button
                                             @click.stop="descartarEstado(pedido.pedido_id, detalle.estado_id)"
-                                            :disabled="loadingAprobar === `${pedido.pedido_id}-${detalle.estado_id}` || loadingDescartar === `${pedido.pedido_id}-${detalle.estado_id}`"
+                                            :disabled="loadingAprobar === `${pedido.pedido_id}-${detalle.estado_id}` || loadingDescartar === `${pedido.pedido_id}-${detalle.estado_id}` || loadingEliminar === `${pedido.pedido_id}-${detalle.estado_id}`"
                                             class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                             title="Descartar estado">
                                             <svg v-if="loadingDescartar !== `${pedido.pedido_id}-${detalle.estado_id}`" 
@@ -615,11 +615,43 @@
                                             <span v-else>Descartando...</span>
                                         </button>
                                     </div>
+                                    <button v-if="puedeEliminarEstado(pedido, detalle)"
+                                            type="button"
+                                            @click.stop="eliminarEstado(pedido, detalle)"
+                                            :disabled="loadingEliminar === `${pedido.pedido_id}-${detalle.estado_id}`"
+                                            class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-red-700 rounded-lg hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            title="Eliminar estado del historial (solo administradores)">
+                                        <svg v-if="loadingEliminar !== `${pedido.pedido_id}-${detalle.estado_id}`" class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                        <svg v-else class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span v-if="loadingEliminar !== `${pedido.pedido_id}-${detalle.estado_id}`">Eliminar</span>
+                                        <span v-else>Eliminando...</span>
+                                    </button>
                                 </div>
                             </div>
                             <div v-if="!pedido.estado_pedido_detalles || pedido.estado_pedido_detalles.length === 0"
-                                 class="p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                No hay estados registrados
+                                 class="p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+                                <p class="m-0">No hay estados registrados</p>
+                                <button v-if="agregarEstadoUrl"
+                                        type="button"
+                                        @click.stop="agregarEstadoInicial(pedido)"
+                                        :disabled="loadingAgregarEstado === pedido.pedido_id"
+                                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        title="Agregar el primer estado del flujo">
+                                    <svg v-if="loadingAgregarEstado !== pedido.pedido_id" class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    <svg v-else class="w-3.5 h-3.5 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span v-if="loadingAgregarEstado !== pedido.pedido_id">Agregar estado</span>
+                                    <span v-else>Agregando...</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -830,6 +862,18 @@ const props = defineProps({
     reabrirEstadoUrl: {
         type: String,
         default: ''
+    },
+    agregarEstadoUrl: {
+        type: String,
+        default: ''
+    },
+    eliminarEstadoUrl: {
+        type: String,
+        default: ''
+    },
+    esAdmin: {
+        type: Boolean,
+        default: false
     },
     esperaAmpliacionRedUrl: {
         type: String,
@@ -1194,6 +1238,8 @@ const expandedPedidos = ref([]);
 const loadingAprobar = ref(null);
 const loadingDescartar = ref(null);
 const loadingReabrir = ref(null);
+const loadingEliminar = ref(null);
+const loadingAgregarEstado = ref(null);
 const loadingFinalizar = ref(null);
 const loadingCrearPppoe = ref(null);
 const loadingEsperaRed = ref(null);
@@ -1641,7 +1687,7 @@ const finalizarPedido = async (pedido) => {
 
     const confirmResult = await Swal.fire({
         title: '¿Finalizar pedido?',
-        html: 'Se marcará el pedido como instalado y los servicios asociados quedarán activos. Si el servicio tiene acuerdo de no facturación, no se genera factura interna.',
+        html: 'Se marcará el pedido como instalado y los servicios asociados quedarán activos. Se registrará la potencia óptica (fibra) o la intensidad de antena. Si el servicio tiene acuerdo de no facturación, no se genera factura interna.',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#16a34a',
@@ -1729,6 +1775,138 @@ const reabrirEstado = async (pedidoId, estadoId) => {
             text: message,
             confirmButtonColor: '#7c3aed'
         });
+    }
+};
+
+const puedeEliminarEstado = (pedido, detalle) => {
+    if (!props.esAdmin || !props.eliminarEstadoUrl) return false;
+    const ids = (pedido?.estado_pedido_detalles || [])
+        .map((d) => Number(d?.estado_id))
+        .filter((id) => Number.isFinite(id));
+    if (!ids.length) return false;
+    return Number(detalle?.estado_id) !== Math.min(...ids);
+};
+
+const eliminarEstado = async (pedido, detalle) => {
+    if (!puedeEliminarEstado(pedido, detalle)) return;
+    const pedidoId = pedido?.pedido_id;
+    const estadoId = detalle?.estado_id;
+    const nombre = detalle?.estado_pedido?.descripcion || `estado ${estadoId}`;
+
+    const confirmResult = await Swal.fire({
+        title: '¿Eliminar este estado?',
+        html: `Se quitará <strong>${nombre}</strong> del historial y también los estados posteriores. El estado anterior se mantiene. Esta acción es solo para administradores.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#b91c1c',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    loadingEliminar.value = `${pedidoId}-${estadoId}`;
+    try {
+        const url = props.eliminarEstadoUrl.replace(':pedido', String(pedidoId));
+        const response = await axios.post(url, { estado_id: estadoId }, {
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+        });
+        await Swal.fire({
+            icon: 'success',
+            title: 'Estado eliminado',
+            text: response.data?.message || 'El estado se eliminó del historial.',
+            confirmButtonColor: '#7c3aed',
+            timer: 1500,
+            timerProgressBar: true
+        });
+        if (response.data?.redirect) {
+            window.location.href = response.data.redirect;
+        } else {
+            window.location.reload();
+        }
+    } catch (error) {
+        const message = error.response?.data?.message || 'No se pudo eliminar el estado.';
+        Swal.fire({
+            icon: error.response?.status === 400 ? 'warning' : 'error',
+            title: error.response?.status === 400 ? 'Advertencia' : 'Error',
+            text: message,
+            confirmButtonColor: '#7c3aed'
+        });
+    } finally {
+        loadingEliminar.value = null;
+    }
+};
+
+const primerEstadoCatalogo = () => {
+    const lista = [...(props.estados || [])]
+        .map((e) => ({
+            estado_id: Number(e?.estado_id),
+            descripcion: e?.descripcion || `Estado ${e?.estado_id}`,
+        }))
+        .filter((e) => Number.isFinite(e.estado_id));
+    if (!lista.length) return null;
+    lista.sort((a, b) => a.estado_id - b.estado_id);
+    return lista[0];
+};
+
+const agregarEstadoInicial = async (pedido) => {
+    if (!props.agregarEstadoUrl) return;
+    const pedidoId = pedido?.pedido_id;
+    const tieneEstados = (pedido?.estado_pedido_detalles || []).length > 0;
+    if (tieneEstados) return;
+
+    const inicial = primerEstadoCatalogo();
+    if (!inicial) {
+        await Swal.fire({
+            icon: 'warning',
+            title: 'Sin catálogo',
+            text: 'No hay estados de pedido configurados para agregar.',
+            confirmButtonColor: '#7c3aed',
+        });
+        return;
+    }
+
+    const confirmResult = await Swal.fire({
+        title: '¿Agregar estado?',
+        html: `El pedido quedó sin historial. Se agregará <strong>${inicial.descripcion}</strong> como pendiente.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#7c3aed',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, agregar',
+        cancelButtonText: 'Cancelar',
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    loadingAgregarEstado.value = pedidoId;
+    try {
+        const url = props.agregarEstadoUrl.replace(':pedido', String(pedidoId));
+        const response = await axios.post(url, { estado_id: inicial.estado_id }, {
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+        });
+        await Swal.fire({
+            icon: 'success',
+            title: 'Estado agregado',
+            text: response.data?.message || 'Se agregó el estado al pedido.',
+            confirmButtonColor: '#7c3aed',
+            timer: 1500,
+            timerProgressBar: true,
+        });
+        if (response.data?.redirect) {
+            window.location.href = response.data.redirect;
+        } else {
+            window.location.reload();
+        }
+    } catch (error) {
+        const message = error.response?.data?.message || 'No se pudo agregar el estado.';
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: message,
+            confirmButtonColor: '#7c3aed',
+        });
+    } finally {
+        loadingAgregarEstado.value = null;
     }
 };
 

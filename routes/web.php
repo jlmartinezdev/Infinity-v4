@@ -509,6 +509,7 @@ Route::middleware(['auth', 'permiso:pedidos.editar'])->group(function () {
     Route::post('/pedidos/{pedido}/aprobar-estado', [PedidoController::class, 'aprobarEstado'])->name('pedidos.aprobar-estado');
     Route::post('/pedidos/{pedido}/descartar-estado', [PedidoController::class, 'descartarEstado'])->name('pedidos.descartar-estado');
     Route::post('/pedidos/{pedido}/reabrir-estado', [PedidoController::class, 'reabrirEstado'])->name('pedidos.reabrir-estado');
+    Route::post('/pedidos/{pedido}/eliminar-estado', [PedidoController::class, 'eliminarEstado'])->name('pedidos.eliminar-estado');
     Route::post('/pedidos/{pedido}/espera-ampliacion-red', [PedidoController::class, 'esperaAmpliacionRed'])->name('pedidos.espera-ampliacion-red');
     Route::get('/pedidos/{pedido}/crear-usuario-pppoe', [PedidoController::class, 'crearUsuarioPppoe'])->name('pedidos.crear-usuario-pppoe');
     Route::get('/pedidos/{pedido}/crear-agenda', [AgendaController::class, 'createFromPedido'])->name('pedidos.crear-agenda');
@@ -1001,7 +1002,8 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::get('splitters-secundarios/{splitterSecundario}/edit', [SplitterSecundarioController::class, 'edit'])->name('splitters-secundarios.edit');
     Route::put('splitters-secundarios/{splitterSecundario}', [SplitterSecundarioController::class, 'update'])->name('splitters-secundarios.update');
     Route::delete('splitters-secundarios/{splitterSecundario}', [SplitterSecundarioController::class, 'destroy'])->name('splitters-secundarios.destroy');
-    Route::resource('lineas-cable', LineaCableController::class)->except(['show']);
+    Route::post('lineas-cable/{lineas_cable}/pelos', [LineaCableController::class, 'guardarPelos'])->name('lineas-cable.pelos.guardar');
+    Route::resource('lineas-cable', LineaCableController::class);
     Route::resource('salida-pons', SalidaPonController::class)->except(['show']);
     Route::resource('olt-marcas', OltMarcaController::class);
     Route::resource('olt-modelos', OltModeloController::class)->except(['show']);

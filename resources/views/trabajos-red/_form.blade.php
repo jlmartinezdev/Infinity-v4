@@ -227,13 +227,6 @@
     </div>
 </div>
 
-@if($trabajo && auth()->user()?->tienePermiso('trabajos-red.eliminar'))
-<form id="trabajo-eliminar-form" action="{{ route('trabajos-red.destroy', $trabajo) }}" method="POST" class="hidden">
-    @csrf
-    @method('DELETE')
-</form>
-@endif
-
 <script>
 (function () {
     var root = document.getElementById('trabajo-red-form');

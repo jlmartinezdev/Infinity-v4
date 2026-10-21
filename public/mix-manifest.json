@@ -4,7 +4,7 @@
     "/js/login.js": "/js/login.js?id=64aef004c2ad5272334d934728bfccd1",
     "/js/register.js": "/js/register.js?id=3fba10a25d8f76d2e9419435ae9837b5",
     "/js/pedido-form.js": "/js/pedido-form.js?id=990adb4141dc6322711a870d5d9b7cda",
-    "/js/pedidos-list.js": "/js/pedidos-list.js?id=a60d8a19e99202796725d3219d75eab8",
+    "/js/pedidos-list.js": "/js/pedidos-list.js?id=76a6637178c223e03ed7b4909178d91e",
     "/js/clientes-list.js": "/js/clientes-list.js?id=779deda5ff4ee644b5b3614a4064bffa",
     "/js/cliente-form-mapa.js": "/js/cliente-form-mapa.js?id=2636bda90a3d27ef1390072281213e8f",
     "/js/recibo-copy-image.js": "/js/recibo-copy-image.js?id=5671ac89794a2a45decb9f64144ae561",
@@ -31,5 +31,5 @@
     "/js/tareas-dashboard.js": "/js/tareas-dashboard.js?id=bcca6662a0b8e2ae23be5f7546f46cce",
     "/js/whatsapp-mensajes.js": "/js/whatsapp-mensajes.js?id=0d5e2d430b248e99e4e17dc926ab92a4",
     "/js/whatsapp-test-n8n.js": "/js/whatsapp-test-n8n.js?id=138b3d5bca7894b2c0b19a1de14c2199",
-    "/css/app.css": "/css/app.css?id=b799a70b32e6ab30c7da0683673d98bc"
+    "/css/app.css": "/css/app.css?id=4a85f550e47b27152810028ed7d84d2c"
 }

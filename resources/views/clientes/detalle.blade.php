@@ -568,14 +568,15 @@
                                 && $s->esCandidatoFinalizarInstalacion()
                                 && empty(($serviciosFacturadosMes ?? [])[$s->servicio_id]);
                             $acuerdoSinFactura = $s->acuerdoAplicaEnPeriodo(now()->startOfMonth(), now()->endOfMonth());
+                            $textoSenalInstalacion = ' También se registrará la potencia óptica (fibra) o la intensidad de antena.';
                             if ($acuerdoSinFactura) {
-                                $textoFinalizarInstalacion = 'El servicio pasará a activo. No se genera factura porque tiene acuerdo de no facturación en este período.';
+                                $textoFinalizarInstalacion = 'El servicio pasará a activo. No se genera factura porque tiene acuerdo de no facturación en este período.'.$textoSenalInstalacion;
                                 $subFinalizarInstalacion = 'Activar sin facturar (acuerdo)';
                             } elseif (\App\Services\FacturacionService::puedeEmitirFacturaPorInstalacion()) {
-                                $textoFinalizarInstalacion = 'El servicio pasará a activo y se generará la factura interna prorrateada del mes (igual que al finalizar un pedido).';
+                                $textoFinalizarInstalacion = 'El servicio pasará a activo y se generará la factura interna prorrateada del mes (igual que al finalizar un pedido).'.$textoSenalInstalacion;
                                 $subFinalizarInstalacion = 'Activar y facturar prorrateo';
                             } else {
-                                $textoFinalizarInstalacion = 'El servicio pasará a activo. No se emite factura entre el día 1 y 6; volvé a finalizar desde el día 7 para generar la factura prorrateada.';
+                                $textoFinalizarInstalacion = 'El servicio pasará a activo. No se emite factura entre el día 1 y 6; volvé a finalizar desde el día 7 para generar la factura prorrateada.'.$textoSenalInstalacion;
                                 $subFinalizarInstalacion = 'Activar (factura desde el día 7)';
                             }
                         @endphp

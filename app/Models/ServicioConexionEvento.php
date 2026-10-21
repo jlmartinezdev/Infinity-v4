@@ -31,6 +31,8 @@ class ServicioConexionEvento extends Model
 
     public const FUENTE_MANUAL = 'manual';
 
+    public const FUENTE_INSTALACION = 'instalacion';
+
     public const FUENTE_WEBHOOK = 'webhook';
 
     protected $fillable = [
@@ -112,6 +114,7 @@ class ServicioConexionEvento extends Model
             self::FUENTE_UBNT_SSH => 'SSH Ubiquiti',
             self::FUENTE_CRON => 'Cron',
             self::FUENTE_MANUAL => 'Manual',
+            self::FUENTE_INSTALACION => 'Finalizar instalación',
             default => $this->fuente ?? '—',
         };
     }

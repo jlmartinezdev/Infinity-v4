@@ -290,7 +290,7 @@ class HerramientasRedPayload
             'badge' => $badge,
             'badge_label' => $badgeLabel,
             'detalle' => self::eventoDetalle($ev),
-            'fuente' => $ev->fuente ?: '—',
+            'fuente' => $ev->etiquetaFuente(),
         ];
     }
 

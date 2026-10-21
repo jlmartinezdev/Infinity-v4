@@ -14,6 +14,7 @@ use App\Models\Ticket;
 use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\RegistroSenalInstalacionService;
 use App\Services\ServicioImportarService;
 use App\Services\NetworkPingService;
 use App\Services\Huawei\HuaweiOnuService;
@@ -467,7 +468,7 @@ class ServicioController extends Controller
      * Cierra la instalación de un servicio adicional (sin pedido): activa, sincroniza PPPoE
      * y genera la factura interna prorrateada con la misma regla de calendario que los pedidos.
      */
-    public function finalizarInstalacion(Request $request, $servicio_id, FacturacionService $facturacion, MikroTikService $mikrotik)
+    public function finalizarInstalacion(Request $request, $servicio_id, FacturacionService $facturacion, MikroTikService $mikrotik, RegistroSenalInstalacionService $registroSenal)
     {
         if (! $request->user()?->tienePermiso('facturas.crear')) {
             abort(403, 'No tenés permiso para generar la factura de instalación.');
@@ -553,6 +554,14 @@ class ServicioController extends Controller
             $mensaje .= ' No se generó factura interna: el servicio tiene acuerdo de no facturación en este período.';
         } elseif ($omitirFacturaPorCalendario) {
             $mensaje .= ' No se generó factura interna: solo se emite desde el día 7 hasta fin de mes.';
+        }
+
+        $servicio->load(HerramientasRedPayload::relaciones());
+        $lecturaSenal = $registroSenal->capturarParaServicio($servicio);
+        if (($lecturaSenal['ok'] ?? false) && filled($lecturaSenal['mensaje'] ?? null)) {
+            $mensaje .= ' '.$lecturaSenal['mensaje'];
+        } elseif (empty($lecturaSenal['omitido']) && filled($lecturaSenal['mensaje'] ?? null)) {
+            $warning = trim(($warning ? $warning.' ' : '').$lecturaSenal['mensaje']);
         }
 
         $redirect = redirect()

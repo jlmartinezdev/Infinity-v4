@@ -19,6 +19,7 @@ use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\PedidoNodoOpcionesService;
+use App\Services\RegistroSenalInstalacionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -869,6 +870,67 @@ class PedidoController extends Controller
     }
 
     /**
+     * Eliminar un estado del historial (admin). Borra ese detalle y los posteriores.
+     */
+    public function eliminarEstado(Request $request, Pedido $pedido)
+    {
+        if (! $request->user()?->esAdministrador()) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo administradores pueden eliminar un estado del pedido.',
+                ], 403);
+            }
+
+            abort(403, 'Solo administradores pueden eliminar un estado del pedido.');
+        }
+
+        $validated = $request->validate([
+            'estado_id' => ['required', 'integer', 'exists:estados_pedidos,estado_id'],
+        ]);
+
+        $estadoId = (int) $validated['estado_id'];
+        $idsPedido = EstadoPedidoDetalle::where('pedido_id', $pedido->pedido_id)
+            ->pluck('estado_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $idsBorrar = EstadoPedidoDetalle::idsABorrarDesde($idsPedido, $estadoId);
+        if ($idsBorrar === null) {
+            $msg = ! in_array($estadoId, $idsPedido, true)
+                ? 'El estado no pertenece a este pedido.'
+                : 'No se puede eliminar el primer estado del pedido.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $msg,
+                ], 400);
+            }
+
+            return redirect()->route('pedidos.index')->with('error', $msg);
+        }
+
+        EstadoPedidoDetalle::where('pedido_id', $pedido->pedido_id)
+            ->whereIn('estado_id', $idsBorrar)
+            ->get()
+            ->each(fn (EstadoPedidoDetalle $detalle) => $detalle->delete());
+
+        $mensaje = count($idsBorrar) > 1
+            ? 'Estado eliminado. También se quitaron los estados posteriores.'
+            : 'Estado eliminado del historial.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'redirect' => route('pedidos.index'),
+            ]);
+        }
+
+        return redirect()->route('pedidos.index')->with('success', $mensaje);
+    }
+
+    /**
      * Si el pedido quedó en un cliente solo_pedido duplicado, pasa la instalación al cliente que ya tiene servicio.
      */
     private function clienteDestinoInstalacion(Pedido $pedido): ?Cliente
@@ -1125,7 +1187,7 @@ class PedidoController extends Controller
      * Finalizar pedido: todos los estados aprobados y usuario PPPoE creado.
      * Actualiza pedido.estado_instalado = true y servicios del pedido (estado = A). No modifica fecha_instalacion.
      */
-    public function finalizar(Pedido $pedido, FacturacionService $facturacionService)
+    public function finalizar(Pedido $pedido, FacturacionService $facturacionService, ?RegistroSenalInstalacionService $registroSenal = null)
     {
         $pedido->load('estadoPedidoDetalles.estadoPedido', 'cliente');
 
@@ -1224,10 +1286,21 @@ class PedidoController extends Controller
             $msgFactura = ' No se generó factura interna: solo se emite desde el día 7 hasta fin de mes.';
         }
 
+        $registroSenal ??= app(RegistroSenalInstalacionService::class);
+        $capturaSenal = $registroSenal->capturarParaPedido($pedido);
+        $msgSenal = RegistroSenalInstalacionService::textoResumenPedido($capturaSenal);
+        if ($msgSenal !== '') {
+            $msgFactura .= ' '.$msgSenal;
+        }
+
         $payload = [
             'message' => 'Pedido finalizado. Instalación marcada como completada.'.$msgFactura,
             'redirect' => route('pedidos.index'),
+            'senal' => $capturaSenal['lecturas'],
         ];
+        if ($capturaSenal['warnings'] !== []) {
+            $payload['warning'] = implode(' ', $capturaSenal['warnings']);
+        }
         if ($facturaInternaId !== null) {
             $payload['factura_interna_id'] = $facturaInternaId;
             $payload['factura_interna_url'] = route('factura-internas.show', $facturaInternaId);

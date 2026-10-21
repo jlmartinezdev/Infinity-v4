@@ -10,6 +10,12 @@
         <form action="{{ route('trabajos-red.update', $trabajo) }}" method="POST" enctype="multipart/form-data">
             @include('trabajos-red._form', ['trabajo' => $trabajo])
         </form>
+        @if(auth()->user()?->tienePermiso('trabajos-red.eliminar'))
+            <form id="trabajo-eliminar-form" action="{{ route('trabajos-red.destroy', $trabajo) }}" method="POST" class="hidden">
+                @csrf
+                @method('DELETE')
+            </form>
+        @endif
     </div>
 </div>
 @endsection
