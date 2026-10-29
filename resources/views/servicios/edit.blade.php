@@ -31,7 +31,8 @@
             action="{{ route('servicios.update', $servicio->servicio_id) }}"
             method="POST"
             data-initial-plan-id="{{ (int) $servicio->plan_id }}"
-            data-initial-plan-precio="{{ (float) ($servicio->plan->precio ?? 0) }}">
+            data-initial-plan-precio="{{ (float) ($servicio->plan->precio ?? 0) }}"
+            data-modo-cambio="{{ $modoCambioPlan ?? 'prorratear' }}">
             <input type="hidden" name="generar_factura_prorrateo_cambio_plan" id="generar_factura_prorrateo_cambio_plan" value="1">
             @include('servicios._form', [
                 'servicio' => $servicio,
@@ -66,6 +67,54 @@
             return;
         }
         e.preventDefault();
+        var modo = form.dataset.modoCambio || 'prorratear';
+        if (modo === 'pagada') {
+            Swal.fire({
+                icon: 'info',
+                title: 'El mes ya está pagado',
+                text: 'No se genera factura prorrateada. El plan nuevo se factura al iniciar el mes siguiente.',
+                showCancelButton: true,
+                confirmButtonText: 'Guardar cambio',
+                cancelButtonText: 'Cancelar'
+            }).then(function(r) {
+                if (!r.isConfirmed) return;
+                hiddenProrr.value = '0';
+                HTMLFormElement.prototype.submit.call(form);
+            });
+            return;
+        }
+        if (modo === 'editar') {
+            Swal.fire({
+                icon: 'question',
+                title: 'La factura del mes está impaga',
+                text: 'Se edita esa factura con el prorrateo del cambio. No se crea una factura nueva.',
+                showDenyButton: true,
+                confirmButtonText: 'Editar la factura',
+                denyButtonText: 'Guardar sin modificarla',
+                focusDeny: false,
+                reverseButtons: true
+            }).then(function(r) {
+                if (r.isDismissed) return;
+                hiddenProrr.value = r.isConfirmed ? '1' : '0';
+                HTMLFormElement.prototype.submit.call(form);
+            });
+            return;
+        }
+        if (modo === 'ninguna') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Sin factura nueva',
+                text: 'Con la configuración actual no se genera ni se edita una factura por este cambio.',
+                showCancelButton: true,
+                confirmButtonText: 'Guardar cambio',
+                cancelButtonText: 'Cancelar'
+            }).then(function(r) {
+                if (!r.isConfirmed) return;
+                hiddenProrr.value = '0';
+                HTMLFormElement.prototype.submit.call(form);
+            });
+            return;
+        }
         Swal.fire({
             icon: 'question',
             title: 'Cambio de plan con distinto precio',

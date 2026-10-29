@@ -92,6 +92,46 @@
             </div>
         </div>
 
+        {{-- Cambio de plan --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Cambio de plan</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Antes del día elegido se crea la factura prorrateada. Desde ese día se revisa si el mes ya está pago.</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label for="dia_cambio_plan" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Día del cambio de plan</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Antes de este día se genera la factura prorrateada. Desde este día, si la factura del mes está impaga se edita; si ya está pagada no se genera otra.</p>
+                    <select name="dia_cambio_plan" id="dia_cambio_plan"
+                            class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 dark:text-gray-100">
+                        @for($d = 1; $d <= 31; $d++)
+                            <option value="{{ $d }}" {{ (int) old('dia_cambio_plan', $params['dia_cambio_plan'] ?? 20) === $d ? 'selected' : '' }}>
+                                Día {{ $d }} del mes
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="hidden" name="cambio_plan_prorrateo_antes" value="0">
+                    <input type="checkbox" name="cambio_plan_prorrateo_antes" value="1" class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        {{ old('cambio_plan_prorrateo_antes', ! empty($params['cambio_plan_prorrateo_antes']) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                    <span>Antes de ese día, generar la factura prorrateada del cambio.</span>
+                </label>
+                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="hidden" name="cambio_plan_editar_impaga" value="0">
+                    <input type="checkbox" name="cambio_plan_editar_impaga" value="1" class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        {{ old('cambio_plan_editar_impaga', ! empty($params['cambio_plan_editar_impaga']) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                    <span>Desde ese día, si la factura del mes está impaga, editarla con el prorrateo.</span>
+                </label>
+                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="hidden" name="cambio_plan_omitir_si_pagada" value="0">
+                    <input type="checkbox" name="cambio_plan_omitir_si_pagada" value="1" class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        {{ old('cambio_plan_omitir_si_pagada', ! empty($params['cambio_plan_omitir_si_pagada']) ? '1' : '0') === '1' ? 'checked' : '' }}>
+                    <span>Desde ese día, si la factura del mes ya está pagada, no generar otra.</span>
+                </label>
+            </div>
+        </div>
+
         {{-- Notificaciones --}}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">

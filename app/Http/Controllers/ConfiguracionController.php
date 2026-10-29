@@ -96,6 +96,10 @@ class ConfiguracionController extends Controller
             'hora_corte_automatico' => FacturacionParametro::horaCorteAutomatico(),
             'notificacion_tipo_plataforma' => FacturacionParametro::notificacionTipoPlataforma(),
             'notificacion_dias_antes' => FacturacionParametro::notificacionDiasAntes(),
+            'dia_cambio_plan' => FacturacionParametro::diaCambioPlan(),
+            'cambio_plan_prorrateo_antes' => FacturacionParametro::cambioPlanProrrateoAntes(),
+            'cambio_plan_editar_impaga' => FacturacionParametro::cambioPlanEditarImpaga(),
+            'cambio_plan_omitir_si_pagada' => FacturacionParametro::cambioPlanOmitirSiPagada(),
         ];
         return view('configuracion.facturacion', compact('params'));
     }
@@ -110,6 +114,10 @@ class ConfiguracionController extends Controller
             'hora_corte_automatico' => ['required', 'string', 'regex:/^\d{1,2}:\d{2}$/'],
             'notificacion_tipo_plataforma' => ['required', 'in:web,email,ambas'],
             'notificacion_dias_antes' => ['required', 'integer', 'min:0', 'max:30'],
+            'dia_cambio_plan' => ['required', 'integer', 'min:1', 'max:31'],
+            'cambio_plan_prorrateo_antes' => ['required', 'in:0,1'],
+            'cambio_plan_editar_impaga' => ['required', 'in:0,1'],
+            'cambio_plan_omitir_si_pagada' => ['required', 'in:0,1'],
         ]);
 
         FacturacionParametro::establecer('dia_creacion_factura_automatica', $validated['dia_creacion_factura_automatica'], 'Día del mes para creación automática de facturas internas');
@@ -119,6 +127,10 @@ class ConfiguracionController extends Controller
         FacturacionParametro::establecer('hora_corte_automatico', $validated['hora_corte_automatico'], 'Hora para ejecutar corte automático (HH:MM)');
         FacturacionParametro::establecer('notificacion_tipo_plataforma', $validated['notificacion_tipo_plataforma'], 'Tipo de plataforma: web, email, ambas');
         FacturacionParametro::establecer('notificacion_dias_antes', $validated['notificacion_dias_antes'], 'Días antes del vencimiento para enviar recordatorio');
+        FacturacionParametro::establecer('dia_cambio_plan', $validated['dia_cambio_plan'], 'Día desde el cual un cambio de plan revisa la factura del mes');
+        FacturacionParametro::establecer('cambio_plan_prorrateo_antes', $validated['cambio_plan_prorrateo_antes'], 'Antes del día de cambio de plan, generar factura prorrateada');
+        FacturacionParametro::establecer('cambio_plan_editar_impaga', $validated['cambio_plan_editar_impaga'], 'Desde el día de cambio de plan, editar la factura impaga del mes');
+        FacturacionParametro::establecer('cambio_plan_omitir_si_pagada', $validated['cambio_plan_omitir_si_pagada'], 'Desde el día de cambio de plan, no generar factura si el mes ya está pagado');
 
         return redirect()->route('configuracion.facturacion')->with('success', 'Configuración guardada correctamente.');
     }

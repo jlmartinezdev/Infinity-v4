@@ -227,15 +227,32 @@ class ServicioController extends Controller
             ->with('success', $mensaje);
     }
 
+    private function modoCambioPlanDe(Servicio $servicio): string
+    {
+        $accion = app(FacturacionService::class)->decidirFacturaCambioPlan(
+            (int) $servicio->cliente_id,
+            (int) $servicio->servicio_id,
+            now()
+        )['accion'];
+
+        return match ($accion) {
+            'crear' => 'prorratear',
+            'editar' => 'editar',
+            'omitir_pagada' => 'pagada',
+            default => 'ninguna',
+        };
+    }
+
     public function edit($servicio_id)
     {
         $servicio = Servicio::with(['cliente', 'plan', 'pool', 'servicioHotspots.router'])
             ->findOrFail($servicio_id);
 
         $clientes = Cliente::whereIn('estado', ['activo', 'inactivo', 'suspendido'])->orderBy('nombre')->get();
+        $modoCambioPlan = $this->modoCambioPlanDe($servicio);
 
         return view('servicios.edit', array_merge(
-            compact('servicio', 'clientes'),
+            compact('servicio', 'clientes', 'modoCambioPlan'),
             $this->catalogosFormularioServicio($servicio)
         ));
     }
@@ -1763,6 +1780,7 @@ class ServicioController extends Controller
             'tecnologiaActualId' => $tecnologiaActualId,
             'kindActual' => $kindActual,
             'precioActual' => (float) ($servicio->plan->precio ?? 0),
+            'modoCambioPlan' => $this->modoCambioPlanDe($servicio),
             'planActualId' => (int) $servicio->plan_id,
             'nodoActualId' => $nodoActual?->nodo_id ? (int) $nodoActual->nodo_id : null,
             'nodoActualGpon' => (bool) ($nodoActual?->manejaGpon()),

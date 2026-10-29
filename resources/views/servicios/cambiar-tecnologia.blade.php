@@ -411,6 +411,54 @@
             var oldPrecio = Number(cfg.precioActual || 0);
             if (Math.abs(newPrecio - oldPrecio) < 0.01) return;
             e.preventDefault();
+            var modo = cfg.modoCambioPlan || 'prorratear';
+            var hidden = document.getElementById('generar_factura_prorrateo_cambio_plan');
+            if (modo === 'pagada') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'El mes ya está pagado',
+                    text: 'No se genera factura prorrateada. El plan nuevo se factura al iniciar el mes siguiente.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar cambio',
+                    cancelButtonText: 'Cancelar'
+                }).then(function (r) {
+                    if (!r.isConfirmed) return;
+                    hidden.value = '0';
+                    HTMLFormElement.prototype.submit.call(form);
+                });
+                return;
+            }
+            if (modo === 'editar') {
+                Swal.fire({
+                    icon: 'question',
+                    title: 'La factura del mes está impaga',
+                    text: 'Se edita esa factura con el prorrateo del cambio. No se crea una factura nueva.',
+                    showDenyButton: true,
+                    confirmButtonText: 'Editar la factura',
+                    denyButtonText: 'Guardar sin modificarla',
+                    reverseButtons: true
+                }).then(function (r) {
+                    if (r.isDismissed) return;
+                    hidden.value = r.isConfirmed ? '1' : '0';
+                    HTMLFormElement.prototype.submit.call(form);
+                });
+                return;
+            }
+            if (modo === 'ninguna') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin factura nueva',
+                    text: 'Con la configuración actual no se genera ni se edita una factura por este cambio.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar cambio',
+                    cancelButtonText: 'Cancelar'
+                }).then(function (r) {
+                    if (!r.isConfirmed) return;
+                    hidden.value = '0';
+                    HTMLFormElement.prototype.submit.call(form);
+                });
+                return;
+            }
             Swal.fire({
                 icon: 'question',
                 title: 'Cambio de plan con distinto precio',
@@ -421,7 +469,7 @@
                 reverseButtons: true
             }).then(function (r) {
                 if (r.isDismissed) return;
-                document.getElementById('generar_factura_prorrateo_cambio_plan').value = r.isConfirmed ? '1' : '0';
+                hidden.value = r.isConfirmed ? '1' : '0';
                 HTMLFormElement.prototype.submit.call(form);
             });
         });

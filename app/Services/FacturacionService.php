@@ -2183,6 +2183,93 @@ class FacturacionService
         return null;
     }
 
+    /**
+     * Factura pendiente y sin cobros del servicio en el mes.
+     * Prefiere la del mes completo (día 1 al último).
+     */
+    public function buscarFacturaMesServicioSinCobros(int $clienteId, int $servicioId, Carbon $referenciaMes): ?FacturaInterna
+    {
+        if ($clienteId <= 0 || $servicioId <= 0) {
+            return null;
+        }
+
+        $ini = $referenciaMes->copy()->startOfMonth()->toDateString();
+        $fin = $referenciaMes->copy()->endOfMonth()->toDateString();
+
+        $facturas = FacturaInterna::query()
+            ->where('cliente_id', $clienteId)
+            ->where('estado', 'pendiente')
+            ->where('periodo_desde', '<=', $fin)
+            ->where('periodo_hasta', '>=', $ini)
+            ->whereHas('detalles', fn ($q) => $q->where('servicio_id', $servicioId))
+            ->orderByDesc('id')
+            ->get();
+
+        $candidatas = $facturas->filter(fn (FacturaInterna $factura) => (float) $factura->monto_pagado < 0.00001)->values();
+        $mesCompleto = $candidatas->first(function (FacturaInterna $factura) use ($ini, $fin) {
+            return $factura->periodo_desde?->toDateString() === $ini
+                && $factura->periodo_hasta?->toDateString() === $fin;
+        });
+
+        return $mesCompleto ?? $candidatas->first();
+    }
+
+    /**
+     * Qué hacer con la factura al cambiar de plan.
+     *
+     * @return array{accion: string, factura: ?FacturaInterna, dia: int}
+     */
+    public function decidirFacturaCambioPlan(int $clienteId, int $servicioId, Carbon $fecha): array
+    {
+        $dia = FacturacionParametro::diaCambioPlan();
+        $antes = $fecha->copy()->startOfDay()->day < $dia;
+        $factura = $this->buscarFacturaMesServicioSinCobros($clienteId, $servicioId, $fecha);
+        $pagado = $this->mesDelServicioEstaPagado($clienteId, $servicioId, $fecha);
+        $base = ['factura' => null, 'dia' => $dia];
+
+        if ($antes) {
+            if (! FacturacionParametro::cambioPlanProrrateoAntes()) {
+                return $base + ['accion' => 'omitir'];
+            }
+            if ($factura) {
+                return ['accion' => 'editar', 'factura' => $factura, 'dia' => $dia];
+            }
+
+            return $base + ['accion' => 'crear'];
+        }
+
+        if ($factura && FacturacionParametro::cambioPlanEditarImpaga()) {
+            return ['accion' => 'editar', 'factura' => $factura, 'dia' => $dia];
+        }
+        if ($pagado && FacturacionParametro::cambioPlanOmitirSiPagada()) {
+            return $base + ['accion' => 'omitir_pagada'];
+        }
+
+        return $base + ['accion' => 'omitir'];
+    }
+
+    /**
+     * El servicio ya tiene una factura pagada que cubre el mes del cambio.
+     * En ese caso no se emite prorrateo: el plan nuevo entra en la factura del mes siguiente.
+     */
+    public function mesDelServicioEstaPagado(int $clienteId, int $servicioId, Carbon $referenciaMes): bool
+    {
+        if ($clienteId <= 0 || $servicioId <= 0) {
+            return false;
+        }
+
+        $ini = $referenciaMes->copy()->startOfMonth()->toDateString();
+        $fin = $referenciaMes->copy()->endOfMonth()->toDateString();
+
+        return FacturaInterna::query()
+            ->where('cliente_id', $clienteId)
+            ->where('estado', 'pagada')
+            ->where('periodo_desde', '<=', $fin)
+            ->where('periodo_hasta', '>=', $ini)
+            ->whereHas('detalles', fn ($q) => $q->where('servicio_id', $servicioId))
+            ->exists();
+    }
+
     private function recalcularTotalesFacturaInternaDesdeDetalles(FacturaInterna $factura): void
     {
         $detalles = FacturaInternaDetalle::where('factura_interna_id', $factura->id)->get();
@@ -2203,7 +2290,8 @@ class FacturacionService
     }
 
     /**
-     * Ajusta o crea factura interna por cambio de plan y deja ticket de historial.
+     * Antes del día configurado crea la factura prorrateada.
+     * Desde ese día edita la factura impaga del mes, o no emite nada si ya está pagada.
      *
      * @param  bool  $generarFacturaProrrateo  Si es false, no se crea ni ajusta factura (p. ej. decisión del operador).
      * @return string Fragmento para concatenar al mensaje de éxito (puede estar vacío).
@@ -2231,6 +2319,8 @@ class FacturacionService
         $impuestoExento = Impuesto::where('codigo', 'EXENTO')->first() ?? Impuesto::first();
         $impuestoPlan = $this->resolverImpuestoPlanes();
         $mensajeFactura = '';
+        $omitidaPorMesPagado = false;
+        $sinFacturaImpaga = false;
         $items = [];
 
         if ($servicio->cliente_id && $servicio->estado === Servicio::ESTADO_ACTIVO) {
@@ -2280,9 +2370,14 @@ class FacturacionService
 
         if ($servicio->cliente_id && $servicio->estado === Servicio::ESTADO_ACTIVO) {
             if ($items !== []) {
-                $facturaActualizable = $this->buscarFacturaInternaPendienteMesSinCobros((int) $servicio->cliente_id, $fechaCambio);
+                $decision = $this->decidirFacturaCambioPlan(
+                    (int) $servicio->cliente_id,
+                    (int) $servicio->servicio_id,
+                    $fechaCambio
+                );
+                $facturaActualizable = $decision['factura'];
 
-                if ($facturaActualizable) {
+                if ($decision['accion'] === 'editar' && $facturaActualizable) {
                     DB::transaction(function () use ($facturaActualizable, $servicio, $items, $impuestoExento) {
                         FacturaInternaDetalle::where('factura_interna_id', $facturaActualizable->id)
                             ->where('servicio_id', $servicio->servicio_id)
@@ -2313,7 +2408,7 @@ class FacturacionService
                     });
 
                     $mensajeFactura = 'Factura interna #'.$facturaActualizable->id.' actualizada con prorrateo por cambio de plan.';
-                } else {
+                } elseif ($decision['accion'] === 'crear') {
                     $fechaEmision = now()->toDateString();
                     $fechaVencimiento = FacturacionParametro::fechaVencimientoMesSiguiente($fechaCambio);
                     $nueva = $this->generarFacturaInternaDesdeUnServicio(
@@ -2328,6 +2423,10 @@ class FacturacionService
                         $usuarioId
                     );
                     $mensajeFactura = 'Factura interna #'.$nueva->id.' generada con prorrateo por cambio de plan.';
+                } elseif ($decision['accion'] === 'omitir_pagada') {
+                    $omitidaPorMesPagado = true;
+                } else {
+                    $sinFacturaImpaga = true;
                 }
             }
         }
@@ -2360,6 +2459,13 @@ class FacturacionService
             $lineasTicket[] = 'No se generó ni ajustó factura interna (servicio no activo).';
         } elseif ($facturaProrrOmitidaPorOperador) {
             $lineasTicket[] = 'No se generó factura interna prorrateada (el operador eligió no generarla en este guardado).';
+        } elseif ($omitidaPorMesPagado) {
+            $lineasTicket[] = 'No se generó factura prorrateada: el mes '.$fechaCambio->format('m/Y').' ya está pagado. El plan nuevo se factura al iniciar el mes siguiente.';
+        } elseif ($sinFacturaImpaga) {
+            $dia = FacturacionParametro::diaCambioPlan();
+            $lineasTicket[] = $fechaCambio->day < $dia
+                ? 'No se generó factura prorrateada: en configuración está desactivado el prorrateo antes del día '.$dia.'.'
+                : 'No se generó factura prorrateada: desde el día '.$dia.' no se crea una factura nueva. El plan nuevo se factura al iniciar el mes siguiente.';
         } elseif ($items === []) {
             $lineasTicket[] = $mismoPrecioPlan
                 ? 'No se generó factura interna (el nuevo plan mantiene el mismo precio).'
@@ -2379,6 +2485,19 @@ class FacturacionService
 
         if ($mensajeFactura !== '') {
             return 'Ticket de historial registrado. '.$mensajeFactura;
+        }
+
+        if ($omitidaPorMesPagado) {
+            return 'Ticket de historial registrado. No se generó factura prorrateada porque el mes ya está pagado. El plan nuevo se factura al iniciar el mes siguiente.';
+        }
+
+        if ($sinFacturaImpaga) {
+            $dia = FacturacionParametro::diaCambioPlan();
+            if ($fechaCambio->day < $dia) {
+                return 'Ticket de historial registrado. No se generó factura prorrateada: en configuración está desactivado el prorrateo antes del día '.$dia.'.';
+            }
+
+            return 'Ticket de historial registrado. Desde el día '.$dia.' no se crea una factura nueva. El plan nuevo se factura al iniciar el mes siguiente.';
         }
 
         return 'Ticket de historial registrado por cambio de plan.';

@@ -63,6 +63,32 @@ class FacturacionParametro extends Model
         return (int) static::obtener('dia_creacion_factura_automatica', 1);
     }
 
+    /**
+     * Antes de este día, un cambio de plan genera factura prorrateada.
+     * Desde este día, se edita la factura impaga del mes o no se emite nada si ya está pagada.
+     */
+    public static function diaCambioPlan(): int
+    {
+        $dia = (int) static::obtener('dia_cambio_plan', 20);
+
+        return max(1, min(31, $dia));
+    }
+
+    public static function cambioPlanProrrateoAntes(): bool
+    {
+        return (int) static::obtener('cambio_plan_prorrateo_antes', 1) === 1;
+    }
+
+    public static function cambioPlanEditarImpaga(): bool
+    {
+        return (int) static::obtener('cambio_plan_editar_impaga', 1) === 1;
+    }
+
+    public static function cambioPlanOmitirSiPagada(): bool
+    {
+        return (int) static::obtener('cambio_plan_omitir_si_pagada', 1) === 1;
+    }
+
     public static function notificacionTipoPlataforma(): string
     {
         return (string) static::obtener('notificacion_tipo_plataforma', 'web');
