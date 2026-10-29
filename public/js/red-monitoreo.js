@@ -27399,7 +27399,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       x: 0,
       y: 0,
       w: 1200,
-      h: 720
+      h: 900
     });
     var panning = (0,vue__WEBPACK_IMPORTED_MODULE_1__.ref)(false);
     var panOrigin = (0,vue__WEBPACK_IMPORTED_MODULE_1__.ref)({
@@ -27791,7 +27791,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
         x: 0,
         y: 0,
         w: 1200,
-        h: 720
+        h: 900
       };
     }
     function onWheel(e) {

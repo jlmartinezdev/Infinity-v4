@@ -459,7 +459,7 @@ export default {
     const ahora = ref(Date.now());
     const animarPaquetes = ref(true);
     const canvasWrap = ref(null);
-    const view = ref({ x: 0, y: 0, w: 1200, h: 720 });
+    const view = ref({ x: 0, y: 0, w: 1200, h: 900 });
     const panning = ref(false);
     const panOrigin = ref({ x: 0, y: 0, vx: 0, vy: 0 });
     const pointers = new Map();
@@ -754,7 +754,7 @@ export default {
       };
     }
     function resetView() {
-      view.value = { x: 0, y: 0, w: 1200, h: 720 };
+      view.value = { x: 0, y: 0, w: 1200, h: 900 };
     }
     function onWheel(e) {
       if (e.deltaY < 0) zoomIn();

@@ -9,7 +9,7 @@ return [
     'subtitulo' => 'Topología lógica — núcleo y nodos',
 
     /**
-     * Posiciones en canvas SVG (viewBox 1200×720). Centro de cada tarjeta.
+     * Posiciones en canvas SVG (viewBox 1200×900). Centro de cada tarjeta.
      */
     'layout' => [
         'MK-N2-BORDE' => ['x' => 600, 'y' => 90, 'rol' => 'core'],
@@ -20,6 +20,7 @@ return [
         'MK-N3-R1' => ['x' => 760, 'y' => 450, 'rol' => 'acceso'],
         'MK-N7-01' => ['x' => 1020, 'y' => 450, 'rol' => 'acceso'],
         'MK-N7-02' => ['x' => 1020, 'y' => 620, 'rol' => 'acceso'],
+        'MK-N9-01' => ['x' => 1020, 'y' => 790, 'rol' => 'acceso'],
         'MK-N4-01' => ['x' => 400, 'y' => 620, 'rol' => 'acceso'],
         'Mk-N4-02' => ['x' => 650, 'y' => 620, 'rol' => 'acceso'],
     ],
@@ -36,5 +37,6 @@ return [
         ['from' => 'MK-N3-FTTH', 'to' => 'MK-N3-R1'],
         ['from' => 'MK-N3-FTTH', 'to' => 'MK-N7-01'],
         ['from' => 'MK-N7-01', 'to' => 'MK-N7-02'],
+        ['from' => 'MK-N7-02', 'to' => 'MK-N9-01'],
     ],
 ];
