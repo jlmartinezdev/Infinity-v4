@@ -19,6 +19,9 @@ class WhatsAppImagenClasificadorService
 
     public const TIPO_ONU = 'onu';
 
+    /** Captura de WiFi / celular: sin internet, poca señal, red sin salida. */
+    public const TIPO_WIFI_FALLA = 'wifi_falla';
+
     public const TIPO_OTRO = 'otro';
 
     public const TIPO_DESCONOCIDO = 'desconocido';
@@ -72,6 +75,7 @@ class WhatsAppImagenClasificadorService
             self::TIPO_MAPA => 'captura de mapa / ubicación',
             self::TIPO_COMPROBANTE => 'comprobante de transferencia',
             self::TIPO_ONU => 'foto de equipo / ONU',
+            self::TIPO_WIFI_FALLA => 'captura de WiFi sin internet',
             default => $ocr !== '' ? mb_substr($ocr, 0, 120) : 'foto',
         };
 
@@ -96,15 +100,20 @@ class WhatsAppImagenClasificadorService
             self::TIPO_COMPROBANTE,
             self::TIPO_MAPA,
             self::TIPO_ONU,
+            self::TIPO_WIFI_FALLA,
             self::TIPO_OTRO,
         ];
 
-        if ($tipoVision === self::TIPO_MAPA || $tipoTexto === self::TIPO_MAPA) {
-            if ($tipoVision === self::TIPO_COMPROBANTE || $tipoTexto === self::TIPO_COMPROBANTE) {
-                return self::TIPO_COMPROBANTE;
-            }
+        if ($tipoVision === self::TIPO_COMPROBANTE || $tipoTexto === self::TIPO_COMPROBANTE) {
+            return self::TIPO_COMPROBANTE;
+        }
 
+        if ($tipoVision === self::TIPO_MAPA || $tipoTexto === self::TIPO_MAPA) {
             return self::TIPO_MAPA;
+        }
+
+        if ($tipoVision === self::TIPO_WIFI_FALLA || $tipoTexto === self::TIPO_WIFI_FALLA) {
+            return self::TIPO_WIFI_FALLA;
         }
 
         if (in_array($tipoVision, $validos, true) && $tipoVision !== self::TIPO_OTRO) {
@@ -137,7 +146,12 @@ class WhatsAppImagenClasificadorService
             '/comprobante de transferencia|transferencia exitosa|ueno|tigo\s*money|gs\.\s*[\d.]{3,}|guaran[ií]|banco/u',
             $t
         );
-        $onu = (bool) preg_match('/\b(onu|gpon|los|pon led|router|modem|m[oó]dem)\b/u', $t);
+        $wifiFalla = (bool) preg_match(
+            '/sin conexi[oó]n a internet|no internet connection|sin acceso a internet|wifi.*(sin internet|no anda)|olvidar esta red|conexi[oó]n autom[aá]tica|direcci[oó]n privada de wi-?fi|poca seguridad|wpa\/?wpa2\s*\(?tkip\)?|wi-?fi.*ajustes|ajustes.*wi-?fi|flia |familia /u',
+            $t
+        );
+        $onu = (bool) preg_match('/\b(onu|gpon|los|pon led)\b/u', $t)
+            || ((bool) preg_match('/\b(router|modem|m[oó]dem)\b/u', $t) && ! $wifiFalla);
 
         if ($pago) {
             return self::TIPO_COMPROBANTE;
@@ -145,11 +159,34 @@ class WhatsAppImagenClasificadorService
         if ($mapa) {
             return self::TIPO_MAPA;
         }
+        if ($wifiFalla) {
+            return self::TIPO_WIFI_FALLA;
+        }
         if ($onu) {
             return self::TIPO_ONU;
         }
 
         return self::TIPO_OTRO;
+    }
+
+    /**
+     * Texto sintético para que el soporte trate la captura como un reclamo.
+     */
+    public static function sintomaParaSoporte(string $tipo, string $ocr = ''): ?string
+    {
+        return match ($tipo) {
+            self::TIPO_WIFI_FALLA => 'No me anda el internet. Estoy conectado al WiFi pero sin conexión a Internet.',
+            self::TIPO_ONU => 'No me anda el internet. Le mando foto del equipo.',
+            default => self::ocrPareceFallaWifi($ocr)
+                ? 'No me anda el internet. '.$ocr
+                : null,
+        };
+    }
+
+    public static function ocrPareceFallaWifi(string $ocr): bool
+    {
+        return self::clasificarDesdeTexto($ocr) === self::TIPO_WIFI_FALLA
+            || (bool) preg_match('/sin conexi[oó]n|sin internet|no anda|no navega/iu', $ocr);
     }
 
     /**
@@ -166,11 +203,13 @@ class WhatsAppImagenClasificadorService
         $jpeg = $this->jpegParaVision($binario);
         $prompt = <<<'TXT'
 Clasificá esta captura de un cliente de internet (WhatsApp, Paraguay).
-Respondé SOLO JSON, sin markdown: {"tipo":"comprobante"|"mapa"|"onu"|"otro","texto":"palabras visibles"}
+Respondé SOLO JSON, sin markdown: {"tipo":"comprobante"|"mapa"|"onu"|"wifi_falla"|"otro","texto":"palabras visibles"}
 - comprobante: recibo bancario, transferencia, ueno, Tigo Money, Gs, monto.
 - mapa: Google Maps, "Enviar ubicación", pin, lista de lugares, captura de mapa.
-- onu: foto de router/ONU/módem/LEDs.
+- wifi_falla: ajustes de WiFi del celular con "Sin conexión a Internet", poca señal, red WiFi sin salida, WPA/TKIP, Olvidar esta red.
+- onu: foto física de router/ONU/módem/LEDs (no pantalla de ajustes WiFi).
 - otro: cualquier otra foto.
+En "texto" copiá las frases visibles más útiles (máx 200 caracteres).
 TXT;
 
         $modelos = [];
@@ -227,7 +266,7 @@ TXT;
             $parsed = self::parsearRespuestaVision($texto);
             if ($parsed === null && $texto !== '') {
                 $tipoBruto = self::clasificarDesdeTexto($texto);
-                if (preg_match('/"tipo"\s*:\s*"(comprobante|mapa|onu|otro)"/i', $texto, $tm)) {
+                if (preg_match('/"tipo"\s*:\s*"(comprobante|mapa|onu|wifi_falla|otro)"/i', $texto, $tm)) {
                     $tipoBruto = mb_strtolower($tm[1]);
                 }
                 if ($tipoBruto !== self::TIPO_DESCONOCIDO) {
@@ -261,7 +300,7 @@ TXT;
             $texto = $m[0];
         }
         $json = json_decode($texto, true);
-        if (! is_array($json) && preg_match('/"tipo"\s*:\s*"(comprobante|mapa|onu|otro)"/i', $texto, $tm)) {
+        if (! is_array($json) && preg_match('/"tipo"\s*:\s*"(comprobante|mapa|onu|wifi_falla|otro)"/i', $texto, $tm)) {
             $ocr = $texto;
             if (preg_match('/"texto"\s*:\s*"(.*)"/s', $texto, $tm2)) {
                 $ocr = stripcslashes($tm2[1]);
@@ -282,6 +321,7 @@ TXT;
             self::TIPO_COMPROBANTE,
             self::TIPO_MAPA,
             self::TIPO_ONU,
+            self::TIPO_WIFI_FALLA,
             self::TIPO_OTRO,
         ];
         if (! in_array($tipo, $permitidos, true)) {

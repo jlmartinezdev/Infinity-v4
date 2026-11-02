@@ -93,12 +93,15 @@ class WhatsAppAgentService
             return $this->resultadoVacio('duplicado');
         }
 
+        $clasificacion = $this->clasificarImagenSiCorresponde($mensaje);
+        $this->aplicarVisionAlMensaje($mensaje, $clasificacion);
+
         $soporte = $this->soporte->intentar($mensaje, $sandbox);
         if ($soporte !== null) {
             return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
         }
 
-        $consulta = $this->consultarN8n($mensaje);
+        $consulta = $this->consultarN8n($mensaje, $clasificacion);
         $reply = $consulta['reply'];
         $escalate = $consulta['escalate'];
         $error = $consulta['error'];
@@ -243,7 +246,10 @@ class WhatsAppAgentService
      *   error: string|null
      * }
      */
-    public function consultarN8n(WhatsappMensaje $mensaje): array
+    /**
+     * @param  array{tipo?: string, ocr?: string, fuente?: string|null, descripcion?: string}|null  $clasificacion
+     */
+    public function consultarN8n(WhatsappMensaje $mensaje, ?array $clasificacion = null): array
     {
         $url = (string) config('whatsapp.agent.url');
         $secret = (string) config('whatsapp.agent.secret');
@@ -274,15 +280,15 @@ class WhatsAppAgentService
             $mensaje->id ? (int) $mensaje->id : null,
         );
         $catalogo = $this->catalogoPlanes();
-        $clasificacion = $mensaje->tipo === 'image'
-            ? $this->imagenes->clasificar($mensaje)
-            : ['tipo' => WhatsAppImagenClasificadorService::TIPO_DESCONOCIDO, 'ocr' => '', 'fuente' => null, 'descripcion' => ''];
+        $clasificacion ??= $this->clasificarImagenSiCorresponde($mensaje);
         $tipoImagen = (string) ($clasificacion['tipo'] ?? '');
         $cuerpo = self::captionUtil((string) $mensaje->cuerpo);
         if ($cuerpo === '' && $mensaje->tipo === 'image') {
             $cuerpo = match ($tipoImagen) {
                 WhatsAppImagenClasificadorService::TIPO_MAPA => 'Te envié una captura de mapa',
                 WhatsAppImagenClasificadorService::TIPO_COMPROBANTE => 'Te envié un comprobante de transferencia',
+                WhatsAppImagenClasificadorService::TIPO_WIFI_FALLA => 'No me anda el internet. Estoy en WiFi sin conexión a Internet.',
+                WhatsAppImagenClasificadorService::TIPO_ONU => 'No me anda el internet. Le mando foto del equipo.',
                 default => 'Te envié una foto',
             };
         }
@@ -817,6 +823,50 @@ class WhatsAppAgentService
         }
 
         return mb_substr($t, 0, 280);
+    }
+
+    /**
+     * @return array{tipo: string, ocr: string, fuente: string|null, descripcion: string}
+     */
+    private function clasificarImagenSiCorresponde(WhatsappMensaje $mensaje): array
+    {
+        if ($mensaje->tipo !== 'image') {
+            return [
+                'tipo' => WhatsAppImagenClasificadorService::TIPO_DESCONOCIDO,
+                'ocr' => '',
+                'fuente' => null,
+                'descripcion' => '',
+            ];
+        }
+
+        return $this->imagenes->clasificar($mensaje);
+    }
+
+    /**
+     * @param  array{tipo?: string, ocr?: string, fuente?: string|null, descripcion?: string}  $clasificacion
+     */
+    private function aplicarVisionAlMensaje(WhatsappMensaje $mensaje, array $clasificacion): void
+    {
+        $tipo = (string) ($clasificacion['tipo'] ?? '');
+        $ocr = trim((string) ($clasificacion['ocr'] ?? ''));
+        $payload = is_array($mensaje->payload) ? $mensaje->payload : [];
+        $payload['wa_vision'] = [
+            'tipo' => $tipo,
+            'ocr' => mb_substr($ocr, 0, 600),
+            'descripcion' => (string) ($clasificacion['descripcion'] ?? ''),
+            'fuente' => $clasificacion['fuente'] ?? null,
+        ];
+        $mensaje->payload = $payload;
+
+        $caption = self::captionUtil((string) $mensaje->cuerpo);
+        if ($caption !== '') {
+            return;
+        }
+
+        $sintoma = WhatsAppImagenClasificadorService::sintomaParaSoporte($tipo, $ocr);
+        if ($sintoma) {
+            $mensaje->cuerpo = $sintoma;
+        }
     }
 
     public static function textoParecePago(?string $texto): bool

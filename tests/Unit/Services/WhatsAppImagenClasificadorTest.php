@@ -51,4 +51,29 @@ class WhatsAppImagenClasificadorTest extends TestCase
             WhatsAppImagenClasificadorService::resolverTipo('mapa', 'otro')
         );
     }
+
+    public function test_ocr_de_wifi_sin_internet_iphone(): void
+    {
+        $ocr = 'Flia Maidana-5G. Sin conexión a Internet. Si esta es tu red Wi-Fi, intenta reiniciar el módem. Poca seguridad. WPA/WPA2 (TKIP). Olvidar esta red. Conexión automática.';
+        $this->assertSame(
+            WhatsAppImagenClasificadorService::TIPO_WIFI_FALLA,
+            WhatsAppImagenClasificadorService::clasificarDesdeTexto($ocr)
+        );
+        $this->assertSame(
+            WhatsAppImagenClasificadorService::TIPO_WIFI_FALLA,
+            WhatsAppImagenClasificadorService::resolverTipo('otro', 'wifi_falla')
+        );
+        $sintoma = WhatsAppImagenClasificadorService::sintomaParaSoporte('wifi_falla', $ocr);
+        $this->assertNotNull($sintoma);
+        $this->assertStringContainsString('sin conexión a Internet', $sintoma);
+    }
+
+    public function test_parsea_wifi_falla_en_json(): void
+    {
+        $parsed = WhatsAppImagenClasificadorService::parsearRespuestaVision(
+            '{"tipo":"wifi_falla","texto":"Sin conexión a Internet. Olvidar esta red."}'
+        );
+        $this->assertNotNull($parsed);
+        $this->assertSame('wifi_falla', $parsed['tipo']);
+    }
 }
