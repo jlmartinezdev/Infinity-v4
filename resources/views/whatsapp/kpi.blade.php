@@ -6,9 +6,14 @@
 @php
     $r = $resumen;
     $periodo = $rango['periodo'];
+    $fmtSeg = function (?int $seg): string {
+        if ($seg === null) return '—';
+        if ($seg < 60) return $seg.' s';
+        return intdiv($seg, 60).'m '.($seg % 60).'s';
+    };
     $qs = array_filter([
         'periodo' => $periodo === 'custom' ? 'custom' : $periodo,
-        'desde' => request('desde'),
+        'desde' => request('desde', $fechaDia),
         'hasta' => request('hasta'),
         'sandbox' => $incluirSandbox ? 1 : null,
     ]);
@@ -18,7 +23,7 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">WhatsApp</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Productividad del agente · {{ $rango['etiqueta'] }}
+                Productividad · primera respuesta &lt; {{ $sla['meta_min'] }} min (humano o agente) · {{ $rango['etiqueta'] }}
             </p>
         </div>
         <a href="{{ route('whatsapp.kpi.export', $qs) }}"
@@ -30,7 +35,7 @@
     @include('whatsapp._tabs', ['waTab' => 'kpi'])
 
     <form method="get" action="{{ route('whatsapp.kpi') }}" class="mb-6 flex flex-wrap items-end gap-2">
-        @foreach(['dia' => 'Hoy', 'semana' => 'Semana', 'mes' => 'Mes', 'anio' => 'Año'] as $key => $label)
+        @foreach(['dia' => 'Día', 'semana' => 'Semana', 'mes' => 'Mes', 'anio' => 'Año'] as $key => $label)
             <a href="{{ route('whatsapp.kpi', array_filter(['periodo' => $key, 'sandbox' => $incluirSandbox ? 1 : null])) }}"
                class="rounded-full px-3 py-1.5 text-sm {{ $periodo === $key ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' }}">
                 {{ $label }}
@@ -38,36 +43,67 @@
         @endforeach
         <div class="flex items-end gap-2">
             <div>
-                <label class="block text-xs text-gray-500">Desde</label>
-                <input type="date" name="desde" value="{{ request('desde') }}"
+                <label class="block text-xs text-gray-500">Día / desde</label>
+                <input type="date" name="desde" value="{{ request('desde', $fechaDia) }}"
                        class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900">
             </div>
             <div>
-                <label class="block text-xs text-gray-500">Hasta</label>
+                <label class="block text-xs text-gray-500">Hasta (rango)</label>
                 <input type="date" name="hasta" value="{{ request('hasta') }}"
                        class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900">
             </div>
-            <input type="hidden" name="periodo" value="custom">
-            <button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white">Aplicar</button>
+            <input type="hidden" name="periodo" id="kpiPeriodoInput" value="{{ request('hasta') ? 'custom' : 'dia' }}">
+            <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white"
+                    onclick="document.getElementById('kpiPeriodoInput').value = this.form.hasta.value ? 'custom' : 'dia'">Ver</button>
         </div>
         <label class="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <input type="checkbox" name="sandbox" value="1" @checked($incluirSandbox) onchange="this.form.periodo.value='{{ $periodo === 'custom' ? 'custom' : $periodo }}'; this.form.submit()">
+            <input type="checkbox" name="sandbox" value="1" @checked($incluirSandbox) onchange="this.form.submit()">
             Incluir sandbox
         </label>
     </form>
 
+    <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        @php
+            $slaCards = [
+                ['% bajo '.$sla['meta_min'].' min', ($sla['pct_ok'] !== null ? $sla['pct_ok'].'%' : '—'), $sla['ok'].' ok / '.$sla['fail'].' tarde'],
+                ['1ª respuesta p50 / p95', $fmtSeg($sla['p50_seg']).' / '.$fmtSeg($sla['p95_seg']), 'promedio '.$fmtSeg($sla['promedio_seg'])],
+                ['Contestó humano', number_format($sla['humano']), 'app / panel'],
+                ['Contestó agente', number_format($sla['agente']), $sla['sin_respuesta'].' sin respuesta'],
+            ];
+        @endphp
+        @foreach($slaCards as [$title, $value, $sub])
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <p class="text-xs font-medium uppercase tracking-wide text-emerald-800 dark:text-emerald-300">{{ $title }}</p>
+                <p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $value }}</p>
+                <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{{ $sub }}</p>
+            </div>
+        @endforeach
+    </div>
+
+    <div class="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Volumen en el tiempo</h2>
+                <p class="text-xs text-gray-500">Eje X = {{ $serie['granularidad'] }} · Y = cantidad. Entradas del cliente vs respuestas humanas y del agente.</p>
+            </div>
+        </div>
+        <div class="mt-3 w-full" style="height: 320px;">
+            <canvas id="kpiLineChart"></canvas>
+        </div>
+    </div>
+
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         @php
             $cards = [
-                ['Conversaciones', number_format($r['conversaciones']), null],
-                ['Respuestas', number_format($r['respuestas']), null],
+                ['Conversaciones agente', number_format($r['conversaciones']), null],
+                ['Respuestas agente', number_format($r['respuestas']), null],
                 ['% resuelto auto', $r['pct_resuelto_auto'].'%', $r['resuelto_auto'].' casos'],
                 ['Tickets agente', number_format($r['tickets']), null],
                 ['Comprobantes', number_format($r['comprobantes']), null],
                 ['Zona avisos / OK', $r['zona_aviso'].' / '.$r['zona_ok'], null],
                 ['Ventas atribuidas', number_format($r['ventas_n']), number_format($r['ventas_monto'], 0, ',', '.').' Gs'],
                 ['CSAT', $r['csat_promedio'] !== null ? number_format($r['csat_promedio'], 2) : '—', $r['csat_n'] ? $r['csat_n'].' respuestas' : 'sin datos'],
-                ['Latencia p50 / p95', ($r['latency_p50'] ?? '—').' / '.($r['latency_p95'] ?? '—').' ms', null],
+                ['Latencia modelo p50/p95', ($r['latency_p50'] ?? '—').' / '.($r['latency_p95'] ?? '—').' ms', 'solo agente'],
                 ['Costo modelo', 'US$ '.number_format($r['costo_usd'], 4), $r['llamadas_modelo'].' llamadas'],
                 ['ROI', number_format($r['roi'], 2).'×', 'margen − costo / costo'],
                 ['Errores', number_format($r['errores']), null],
@@ -231,6 +267,85 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (function () {
+    const serie = @json($serie);
+    const lineEl = document.getElementById('kpiLineChart');
+    if (lineEl && serie.labels && serie.labels.length) {
+        new Chart(lineEl, {
+            type: 'line',
+            data: {
+                labels: serie.labels,
+                datasets: [
+                    {
+                        label: 'Entradas cliente',
+                        data: serie.entradas,
+                        borderColor: 'rgb(107, 114, 128)',
+                        backgroundColor: 'rgba(107, 114, 128, 0.12)',
+                        tension: 0.25,
+                        fill: false,
+                        pointRadius: 2,
+                    },
+                    {
+                        label: 'Respuesta humana',
+                        data: serie.humano,
+                        borderColor: 'rgb(37, 99, 235)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                        tension: 0.25,
+                        fill: false,
+                        pointRadius: 2,
+                    },
+                    {
+                        label: 'Respuesta agente',
+                        data: serie.agente,
+                        borderColor: 'rgb(5, 150, 105)',
+                        backgroundColor: 'rgba(5, 150, 105, 0.12)',
+                        tension: 0.25,
+                        fill: false,
+                        pointRadius: 2,
+                    },
+                    {
+                        label: 'SLA ok (< meta)',
+                        data: serie.sla_ok,
+                        borderColor: 'rgb(16, 185, 129)',
+                        borderDash: [4, 3],
+                        tension: 0.2,
+                        fill: false,
+                        pointRadius: 0,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'SLA tarde / sin resp.',
+                        data: serie.sla_fail,
+                        borderColor: 'rgb(244, 63, 94)',
+                        borderDash: [4, 3],
+                        tension: 0.2,
+                        fill: false,
+                        pointRadius: 0,
+                        yAxisID: 'y',
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Tiempo (' + serie.granularidad + ')' },
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 24, font: { size: 10 } },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Cantidad' },
+                        ticks: { precision: 0 },
+                    },
+                },
+            },
+        });
+    }
+
     const modos = @json($r['por_modo']);
     const el = document.getElementById('kpiModoChart');
     if (!el || !modos.length) return;

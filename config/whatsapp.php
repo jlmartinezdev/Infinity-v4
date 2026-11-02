@@ -132,6 +132,8 @@ return [
                 'WA_AGENT_KPI_CSAT_PREGUNTA',
                 '¿Cómo calificaría la atención? Responda solo con un número del 1 al 5 (5 = excelente).'
             ),
+            /** Meta de saludo / primera respuesta (humano o agente), en segundos. */
+            'sla_primera_respuesta_seg' => max(30, (int) env('WA_AGENT_KPI_SLA_SEG', 120)),
         ],
 
         /**

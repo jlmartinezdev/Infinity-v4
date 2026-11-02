@@ -19,6 +19,8 @@ class WhatsAppKpiController extends Controller
         $sandbox = $request->boolean('sandbox');
 
         $resumen = $kpi->resumen($rango['desde'], $rango['hasta'], $sandbox);
+        $serie = $kpi->serieLineal($rango['desde'], $rango['hasta'], $rango['periodo'], $sandbox);
+        $sla = $kpi->slaPrimeraRespuesta($rango['desde'], $rango['hasta'], $sandbox);
         $heatmap = $kpi->heatmap($rango['desde'], $rango['hasta'], $sandbox);
         $ventas = $kpi->ventasRecientes($rango['desde'], $rango['hasta'], 40, $sandbox);
         $eventos = $kpi->eventosRecientes($rango['desde'], $rango['hasta'], 60, $sandbox);
@@ -26,10 +28,13 @@ class WhatsAppKpiController extends Controller
         return view('whatsapp.kpi', [
             'rango' => $rango,
             'resumen' => $resumen,
+            'serie' => $serie,
+            'sla' => $sla,
             'heatmap' => $heatmap,
             'ventas' => $ventas,
             'eventos' => $eventos,
             'incluirSandbox' => $sandbox,
+            'fechaDia' => $rango['periodo'] === 'dia' ? $rango['desde']->toDateString() : null,
             'diasSemana' => ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
         ]);
     }
