@@ -93,6 +93,24 @@ class WhatsAppAgentService
             return $this->resultadoVacio('duplicado');
         }
 
+        try {
+            if (app(WaAgentAnalyticsService::class)->capturarCsatSiCorresponde($mensaje)) {
+                return $this->cerrarConSoporte($mensaje, [
+                    'reply' => 'Gracias por su calificación. Quedamos a las órdenes.',
+                    'escalate' => false,
+                    'cliente_id' => $mensaje->cliente_id,
+                    'motivo_escalado' => null,
+                    'n8n_latency_ms' => 0,
+                    'error' => null,
+                    'modo' => 'csat',
+                    'resumen_admin' => 'CSAT registrado',
+                    'diagnostico' => null,
+                ], $enviar, $sandbox);
+            }
+        } catch (\Throwable) {
+            // seguir flujo normal
+        }
+
         $clasificacion = $this->clasificarImagenSiCorresponde($mensaje);
         $this->aplicarVisionAlMensaje($mensaje, $clasificacion);
 
@@ -1324,6 +1342,24 @@ class WhatsAppAgentService
         ];
         $mensaje->payload = $payload;
         $mensaje->save();
+
+        try {
+            app(WaAgentAnalyticsService::class)->desdeAuditoriaAgente(
+                $mensaje,
+                $consulta,
+                $reply,
+                $escalate,
+                $error,
+                $ticketId,
+            );
+            if ((string) ($consulta['modo'] ?? '') === 'soporte_resuelto'
+                && ! self::esTelefonoTest((string) $mensaje->telefono)
+                && (bool) config('whatsapp.agent.auto_send', false)) {
+                app(WaAgentAnalyticsService::class)->enviarPreguntaCsat((string) $mensaje->telefono);
+            }
+        } catch (\Throwable) {
+            // KPI no debe romper el agente
+        }
     }
 
     public static function esTelefonoTest(?string $telefono): bool

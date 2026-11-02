@@ -119,6 +119,21 @@ return [
         /** Visión para clasificar fotos (mapa vs comprobante). Misma API que n8n Gemini. */
         'gemini_api_key' => env('WA_AGENT_GEMINI_API_KEY'),
         'gemini_model' => env('WA_AGENT_GEMINI_MODEL', 'gemini-3.6-flash'),
+        /** KPI / ROI del agente */
+        'kpi' => [
+            'venta_ventana_horas' => max(1, (int) env('WA_AGENT_KPI_VENTA_VENTANA_H', 72)),
+            'margen_meses_plan' => max(0.1, (float) env('WA_AGENT_KPI_MARGEN_MESES', 1)),
+            'gemini_usd_por_1m_in' => (float) env('WA_AGENT_KPI_GEMINI_USD_1M_IN', 0.10),
+            'gemini_usd_por_1m_out' => (float) env('WA_AGENT_KPI_GEMINI_USD_1M_OUT', 0.40),
+            'n8n_usd_por_llamada' => (float) env('WA_AGENT_KPI_N8N_USD', 0.002),
+            'vision_tokens_estimados' => max(100, (int) env('WA_AGENT_KPI_VISION_TOKENS', 1200)),
+            'csat_enabled' => (bool) env('WA_AGENT_KPI_CSAT', true),
+            'csat_pregunta' => env(
+                'WA_AGENT_KPI_CSAT_PREGUNTA',
+                '¿Cómo calificaría la atención? Responda solo con un número del 1 al 5 (5 = excelente).'
+            ),
+        ],
+
         /**
          * Respuestas fijas que el staff ya usa en WhatsApp. El agente las copia tal cual
          * (sobre todo la cuenta: no dejar que Gemini invente números).

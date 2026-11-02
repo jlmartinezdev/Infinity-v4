@@ -84,6 +84,7 @@ use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\WhatsAppAsuntoController;
 use App\Http\Controllers\WhatsAppCasoController;
+use App\Http\Controllers\WhatsAppKpiController;
 use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\WispHubImportController;
 use Illuminate\Support\Facades\Route;
@@ -312,6 +313,8 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
     Route::get('/whatsapp/contactos', [WhatsAppWebController::class, 'contactos'])->name('whatsapp.contactos');
     Route::get('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'index'])->name('whatsapp.asuntos.index');
+    Route::get('/whatsapp/kpi', [WhatsAppKpiController::class, 'index'])->name('whatsapp.kpi');
+    Route::get('/whatsapp/kpi/export', [WhatsAppKpiController::class, 'export'])->name('whatsapp.kpi.export');
     Route::get('/whatsapp/casos', [WhatsAppCasoController::class, 'index'])->name('whatsapp.casos.index');
     Route::get('/whatsapp/soporte/impresoras/{reserva}/bat', [WhatsAppWebController::class, 'impresoraBat'])->name('whatsapp.impresora.bat');
     Route::get('/whatsapp/asuntos-json', [WhatsAppWebController::class, 'asuntosJson'])->name('whatsapp.asuntos.json');

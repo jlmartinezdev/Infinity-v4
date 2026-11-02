@@ -78,5 +78,15 @@ class OfertaCierreService
             'telefono' => $telefono,
             'referencia' => $referencia,
         ]);
+        try {
+            app(\App\Services\WhatsApp\WaAgentAnalyticsService::class)->registrarEvento(
+                \App\Models\WaAgentEvento::TIPO_OFERTA_PLAN,
+                $telefono,
+                'oferta',
+                ['referencia' => $referencia],
+            );
+        } catch (\Throwable) {
+            //
+        }
     }
 }

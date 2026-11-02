@@ -527,6 +527,23 @@ class WhatsAppWebController extends Controller
             'estado' => 'P',
         ]);
 
+        try {
+            $telAtrib = $telefonoNorm ?: TelefonoParaguayHelper::normalize($cliente->telefono ?? null);
+            if ($telAtrib) {
+                $analytics = app(\App\Services\WhatsApp\WaAgentAnalyticsService::class);
+                $planId = isset($validated['plan_id']) ? (int) $validated['plan_id'] : null;
+                $analytics->atribuirVentaPedido(
+                    $telAtrib,
+                    (int) $pedido->pedido_id,
+                    (int) $cliente->cliente_id,
+                    $planId,
+                    $analytics->montoPlan($planId),
+                );
+            }
+        } catch (\Throwable) {
+            //
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Pedido #'.$pedido->pedido_id.' creado.',
@@ -684,6 +701,21 @@ class WhatsAppWebController extends Controller
         }
 
         $cobro->load(['cliente', 'facturaInternas']);
+
+        try {
+            $cli = $cobro->cliente;
+            $tel = $cli ? TelefonoParaguayHelper::normalize($cli->telefono ?? null) : null;
+            if ($tel) {
+                app(\App\Services\WhatsApp\WaAgentAnalyticsService::class)->atribuirVentaCobro(
+                    $tel,
+                    (int) $cobro->id,
+                    (int) $validated['cliente_id'],
+                    $monto,
+                );
+            }
+        } catch (\Throwable) {
+            //
+        }
 
         return response()->json([
             'success' => true,

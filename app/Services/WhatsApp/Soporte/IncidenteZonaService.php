@@ -135,6 +135,25 @@ class IncidenteZonaService
                 'notificado_at' => null,
             ]
         );
+
+        try {
+            app(\App\Services\WhatsApp\WaAgentAnalyticsService::class)->registrarEvento(
+                \App\Models\WaAgentEvento::TIPO_ZONA_AVISO,
+                $tel,
+                'soporte_zona',
+                ['incidente_id' => $incidente->id, 'router_id' => $routerId],
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                $sandbox,
+            );
+        } catch (\Throwable) {
+            //
+        }
     }
 
     public function notificarCierre(int $incidenteId): void
@@ -188,6 +207,25 @@ class IncidenteZonaService
 
                 $aviso->notificado_at = now();
                 $aviso->save();
+
+                try {
+                    app(\App\Services\WhatsApp\WaAgentAnalyticsService::class)->registrarEvento(
+                        \App\Models\WaAgentEvento::TIPO_ZONA_OK,
+                        (string) $aviso->telefono,
+                        'soporte_zona',
+                        ['incidente_id' => $incidenteId, 'aviso_id' => $aviso->id],
+                        null,
+                        $aviso->cliente_id ? (int) $aviso->cliente_id : null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        (bool) $aviso->sandbox,
+                    );
+                } catch (\Throwable) {
+                    //
+                }
             } catch (\Throwable $e) {
                 Log::warning('[soporte] zona aviso', [
                     'aviso_id' => $aviso->id,

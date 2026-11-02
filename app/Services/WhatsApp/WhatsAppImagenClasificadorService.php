@@ -86,6 +86,20 @@ class WhatsAppImagenClasificadorService
             'ocr_len' => mb_strlen($ocr),
         ]);
 
+        try {
+            $modelo = (string) ($vision['fuente'] ?? config('whatsapp.agent.gemini_model', 'gemini'));
+            $modelo = str_starts_with($modelo, 'gemini:') ? substr($modelo, 7) : $modelo;
+            app(\App\Services\WhatsApp\WaAgentAnalyticsService::class)->registrarVision(
+                $mensaje->id ? (int) $mensaje->id : null,
+                (string) $mensaje->telefono,
+                $modelo !== '' ? $modelo : (string) config('whatsapp.agent.gemini_model'),
+                isset($vision['tokens_in']) ? (int) $vision['tokens_in'] : null,
+                isset($vision['tokens_out']) ? (int) $vision['tokens_out'] : null,
+            );
+        } catch (\Throwable) {
+            //
+        }
+
         return [
             'tipo' => $tipo,
             'ocr' => mb_substr($ocr, 0, 600),
@@ -283,6 +297,11 @@ TXT;
             }
             if ($parsed !== null) {
                 $parsed['fuente'] = 'gemini:'.$modelo;
+                $usage = $response->json('usageMetadata') ?? [];
+                if (is_array($usage)) {
+                    $parsed['tokens_in'] = (int) ($usage['promptTokenCount'] ?? 0) ?: null;
+                    $parsed['tokens_out'] = (int) ($usage['candidatesTokenCount'] ?? 0) ?: null;
+                }
 
                 return $parsed;
             }

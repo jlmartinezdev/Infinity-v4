@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'WhatsApp - Casos')
+@section('title', 'WhatsApp - Plantillas')
 
 @section('content')
 <div class="mx-auto max-w-4xl">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">WhatsApp</h1>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Textos que el soporte puede usar. Sin decibeles, IP ni velocidades: eso queda para el técnico.</p>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Plantillas de texto que el soporte puede usar. Sin decibeles, IP ni velocidades: eso queda para el técnico.</p>
 
     @include('whatsapp._tabs', ['waTab' => 'casos'])
 
