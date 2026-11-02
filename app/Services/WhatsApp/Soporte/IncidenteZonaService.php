@@ -90,6 +90,20 @@ class IncidenteZonaService
         return true;
     }
 
+    /** El teléfono ya quedó anotado en un incidente de zona aún abierto. */
+    public function telefonoConAvisoAbierto(?string $telefono): bool
+    {
+        $tel = preg_replace('/\D+/', '', (string) $telefono) ?: '';
+        if ($tel === '') {
+            return false;
+        }
+
+        return WaZonaAviso::query()
+            ->where('telefono', $tel)
+            ->whereHas('incidente', fn ($q) => $q->where('estado', 'abierto'))
+            ->exists();
+    }
+
     public function abiertoDe(?int $routerId): ?WaIncidenteZona
     {
         if (! $routerId) {

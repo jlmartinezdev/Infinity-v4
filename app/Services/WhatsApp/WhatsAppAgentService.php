@@ -6,6 +6,7 @@ use App\Jobs\ProcesarWhatsappAgentJob;
 use App\Models\Plan;
 use App\Models\WhatsappMensaje;
 use App\Services\PedidoNodoOpcionesService;
+use App\Services\WhatsApp\Soporte\FraseCliente;
 use App\Services\WhatsApp\Soporte\OfertaCierreService;
 use App\Services\WhatsApp\Soporte\SoporteOrquestador;
 use App\Services\WhatsApp\Soporte\SoporteTexto;
@@ -140,6 +141,15 @@ class WhatsAppAgentService
             $reply = $fijo['reply'];
             $escalate = (bool) $fijo['escalate'];
             $error = null;
+        }
+
+        if (filled($reply)) {
+            $replyFiltrado = FraseCliente::filtrar((string) $reply, (string) config('whatsapp.agent.fallback_message'));
+            if ($replyFiltrado !== (string) $reply) {
+                $reply = $replyFiltrado;
+                $consulta['reply'] = $reply;
+                $consulta['modo'] = ($consulta['modo'] ?? 'n8n').'_filtrado';
+            }
         }
 
         if ($error !== null || ($reply === null && ! $escalate)) {
@@ -328,6 +338,12 @@ class WhatsAppAgentService
                 default => 'Te envié una foto',
             };
         }
+        $rafaga = $this->rafagaClienteReciente(
+            (string) $mensaje->telefono,
+            $mensaje->id ? (int) $mensaje->id : null,
+            120,
+        );
+        $cuerpoAnalisis = $rafaga['unido'] !== '' ? $rafaga['unido'] : $cuerpo;
         $pareceComprobante = self::detectarComprobante(
             (string) $mensaje->tipo,
             (string) $mensaje->cuerpo,
@@ -341,17 +357,17 @@ class WhatsAppAgentService
             $tipoImagen,
         );
         $horarioLaboral = self::horarioLaboral();
-        $pareceDatosTransferencia = self::textoPareceDatosTransferencia($cuerpo);
-        $parecePagoTexto = ! $pareceComprobante && ! $pareceMapa && ! $pareceDatosTransferencia && self::textoParecePago($cuerpo);
-        $pareceBaja = self::textoPareceBajaServicio($cuerpo);
+        $pareceDatosTransferencia = self::textoPareceDatosTransferencia($cuerpoAnalisis);
+        $parecePagoTexto = ! $pareceComprobante && ! $pareceMapa && ! $pareceDatosTransferencia && self::textoParecePago($cuerpoAnalisis);
+        $pareceBaja = self::textoPareceBajaServicio($cuerpoAnalisis);
         $primeraVez = $this->esPrimeraConversacion((string) $mensaje->telefono, $mensaje->id ? (int) $mensaje->id : null);
         $pareceCedula = self::textoPareceCedula($cuerpo);
-        $pareceBeneficios = self::textoPareceBeneficiosPlanes($cuerpo);
-        $pareceCondiciones = self::textoPareceCondicionesServicio($cuerpo);
+        $pareceBeneficios = self::textoPareceBeneficiosPlanes($cuerpoAnalisis);
+        $pareceCondiciones = self::textoPareceCondicionesServicio($cuerpoAnalisis);
         $canned = self::textosCanned();
         $pareceInstalacion = ! $pareceBaja && (
-            self::textoPareceInstalacion($cuerpo)
-            || ($primeraVez && self::textoPareceWifi($cuerpo))
+            self::textoPareceInstalacion($cuerpoAnalisis)
+            || ($primeraVez && self::textoPareceWifi($cuerpoAnalisis))
         );
         $nombreCorto = '';
         try {
@@ -374,6 +390,7 @@ class WhatsAppAgentService
                     'wa_id' => $mensaje->telefono,
                     'nombre_perfil' => null,
                     'mensaje' => $cuerpo,
+                    'mensaje_hilo_reciente' => $cuerpoAnalisis,
                     'message_id' => (string) ($mensaje->wamid ?: 'local-'.$mensaje->id),
                     'timestamp' => $timestamp,
                     'tipo' => (string) ($mensaje->tipo ?: 'text'),
@@ -396,12 +413,12 @@ class WhatsAppAgentService
                     'cobertura_aprobada' => $this->telefonoTieneCoberturaAprobada(
                         (string) $mensaje->telefono,
                         $mensaje->id ? (int) $mensaje->id : null,
-                        $cuerpo,
+                        $cuerpoAnalisis,
                         is_array($mensaje->payload) ? $mensaje->payload : [],
                     ),
                     'parece_baja' => $pareceBaja,
                     'parece_instalacion' => $pareceInstalacion,
-                    'primera_vez' => $primeraVez,
+                    'primera_vez' => $primeraVez && $hilo['historial'] === [],
                     'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
                     'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
                     'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
@@ -715,7 +732,44 @@ class WhatsAppAgentService
 
         $out = implode("\n", $lineas);
 
-        return mb_strlen($out) > 1800 ? mb_substr($out, -1800) : $out;
+        return mb_strlen($out) > 4000 ? mb_substr($out, -4000) : $out;
+    }
+
+    /**
+     * Últimos mensajes del cliente (ráfaga) para clasificar y enviar a n8n juntos.
+     *
+     * @return array{textos: list<string>, unido: string}
+     */
+    public function rafagaClienteReciente(string $telefono, ?int $excludeId = null, int $segundos = 120): array
+    {
+        $tel = $this->whatsapp->normalizePhone($telefono)
+            ?? (preg_replace('/\D+/', '', $telefono) ?: '');
+        if ($tel === '') {
+            return ['textos' => [], 'unido' => ''];
+        }
+        $q = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->where('created_at', '>=', now()->subSeconds(max(30, $segundos)))
+            ->orderBy('id');
+        if ($excludeId) {
+            $q->where('id', '<=', $excludeId);
+        }
+        $textos = [];
+        foreach ($q->get(['id', 'cuerpo', 'tipo']) as $m) {
+            $t = self::captionUtil((string) $m->cuerpo);
+            if ($t === '' && $m->tipo === 'image') {
+                $t = 'Te envié una foto';
+            }
+            if ($t !== '') {
+                $textos[] = $t;
+            }
+        }
+
+        return [
+            'textos' => $textos,
+            'unido' => SoporteTexto::unirHilo($textos),
+        ];
     }
 
     public static function textoHistorial(WhatsappMensaje $mensaje): string
@@ -964,6 +1018,10 @@ class WhatsAppAgentService
     {
         $t = mb_strtolower(trim((string) $texto));
         if ($t === '') {
+            return false;
+        }
+        // Pregunta de fecha/ciclo de pago: no es comprobante ni “ya pagué”.
+        if (preg_match('/d[ií]a (de )?(mi |el )?pago|cuando (me )?toca pagar|fecha de pago|vencimiento|hasta qu[eé] d[ií]a/u', $t)) {
             return false;
         }
 

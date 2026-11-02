@@ -15,9 +15,40 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente/u',
+            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar/u',
             $t
         );
+    }
+
+    /** Seguimiento de un reclamo/zona ya avisado (no abrir diagnóstico de cero). */
+    public static function pareceSeguimientoZona(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+        if (preg_match('/^(gracias|muchas gracias|ok|listo|perfecto)\.?$/u', $t)) {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/alguna novedad|hay novedad|sigue sin|todav[ií]a sin|a[uú]n sin|sigue (el|la)?\s*(problema|falla|corte)|cuando vuelve|ya volvi[oó]|sigue ca[ií]do|sigue cortado|👀|novedades/u',
+            $t
+        );
+    }
+
+    /** Une textos recientes del mismo hilo para clasificar mejor ráfagas. */
+    public static function unirHilo(array $textos): string
+    {
+        $partes = [];
+        foreach ($textos as $t) {
+            $t = trim((string) $t);
+            if ($t !== '') {
+                $partes[] = $t;
+            }
+        }
+
+        return trim(implode(' ', $partes));
     }
 
     public static function pareceCambioWifi(?string $texto): bool

@@ -47,6 +47,18 @@ class FraseCliente
         return self::ZONA;
     }
 
+    /** Seguimiento cuando el cliente vuelve a preguntar por el mismo corte de zona. */
+    public static function zonaSeguimiento(?string $nombre = null, ?string $apellido = null): string
+    {
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        $cuerpo = 'seguimos con el inconveniente de zona en revisión. Apenas tengamos novedades se lo comunicamos por aquí. Quedamos a las órdenes.';
+        if ($vocativo) {
+            return $vocativo.', '.$cuerpo;
+        }
+
+        return 'Seguimos con el inconveniente de zona en revisión. Apenas tengamos novedades se lo comunicamos por aquí. Quedamos a las órdenes.';
+    }
+
     public static function comprobante(?string $nombre = null, ?string $apellido = null, ?bool $enHorario = null): string
     {
         $vocativo = TratoCliente::vocativo($nombre, $apellido);

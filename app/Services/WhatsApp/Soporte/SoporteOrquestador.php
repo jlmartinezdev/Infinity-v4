@@ -49,7 +49,13 @@ class SoporteOrquestador
         }
         $paso = isset($estadoDialogo['paso']) ? (string) $estadoDialogo['paso'] : '';
 
-        $parecePago = WhatsAppAgentService::textoParecePago($texto);
+        $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente(
+            (string) $mensaje->telefono,
+            $mensaje->id ? (int) $mensaje->id : null,
+            120,
+        );
+        $textoHilo = $rafaga['unido'] !== '' ? $rafaga['unido'] : $texto;
+        $parecePago = WhatsAppAgentService::textoParecePago($textoHilo);
         $tipoImagen = (string) data_get($mensaje->payload, 'wa_vision.tipo', '');
         $pareceComprobante = WhatsAppAgentService::detectarComprobante(
             (string) ($mensaje->tipo ?: 'text'),
@@ -57,9 +63,9 @@ class SoporteOrquestador
             [],
             $tipoImagen !== '' ? $tipoImagen : null,
         );
-        $pareceFalla = SoporteTexto::pareceFalla($texto) && ! WhatsAppAgentService::textoPareceInstalacion($texto);
-        $pareceWifi = SoporteTexto::pareceCambioWifi($texto);
-        $pareceImpresora = SoporteTexto::pareceImpresora($texto);
+        $pareceFalla = SoporteTexto::pareceFalla($textoHilo) && ! WhatsAppAgentService::textoPareceInstalacion($textoHilo);
+        $pareceWifi = SoporteTexto::pareceCambioWifi($textoHilo);
+        $pareceImpresora = SoporteTexto::pareceImpresora($textoHilo);
         $identificando = $paso === 'identificar';
         $soloIdentificador = SoporteTexto::esSoloIdentificador($texto);
         if ($cuenta && ($identificando || ($soloIdentificador && $pareceFalla === false && $paso !== ''))) {
@@ -69,6 +75,31 @@ class SoporteOrquestador
             $pareceFalla = true;
         }
         $suspendido = $cuenta && in_array($cuenta['estado'] ?? '', ['suspendido', 'cortado'], true);
+        $zonaAbierta = ($cuenta && $this->incidentes->hayAbierto($cuenta['router_id'] ?? null))
+            || $this->incidentes->telefonoConAvisoAbierto((string) $mensaje->telefono)
+            || $this->incidentes->telefonoConAvisoAbierto($telefono);
+        $seguimientoZona = $zonaAbierta && (
+            SoporteTexto::pareceSeguimientoZona($texto)
+            || SoporteTexto::pareceFalla($textoHilo)
+            || SoporteTexto::pareceCierre($texto)
+        );
+
+        // Ya hay corte de zona: no mandar a n8n a reiniciar el router ni a saludar de nuevo.
+        if ($seguimientoZona && $cuenta) {
+            $nombrePila = is_string($cuenta['nombre_pila'] ?? null) ? $cuenta['nombre_pila'] : (is_string($cuenta['nombre'] ?? null) ? $cuenta['nombre'] : null);
+            $apellido = is_string($cuenta['apellido'] ?? null) ? $cuenta['apellido'] : null;
+            $this->incidentes->registrarAviso($cuenta, (string) ($cuenta['whatsapp'] ?? $mensaje->telefono), $sandbox);
+
+            return $this->paquete(
+                FraseCliente::zonaSeguimiento($nombrePila, $apellido),
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_zona',
+                'Seguimiento de incidente de zona abierto',
+                null,
+            );
+        }
 
         $entra = $paso !== ''
             || $pareceFalla
@@ -252,6 +283,9 @@ class SoporteOrquestador
 
         $estilo = app(EstiloInterplus::class)->texto();
 
+        $zonaAbierta = ($cuenta && $this->incidentes->hayAbierto($cuenta['router_id'] ?? null))
+            || $this->incidentes->telefonoConAvisoAbierto((string) $mensaje->telefono);
+
         return [
             'estado_servicio' => $cuenta['estado'] ?? null,
             'saldo_pendiente' => $cuenta['saldo'] ?? null,
@@ -261,6 +295,8 @@ class SoporteOrquestador
             'vocativo' => $cuenta['vocativo'] ?? null,
             'conocimiento' => $casos,
             'estilo_interplus' => $estilo,
+            'incidente_zona_abierto' => $zonaAbierta,
+            'instruccion_hilo' => 'Leé TODO historial_texto antes de responder. Continuá el mismo hilo: no vuelvas a saludar ni digas "te saluda Interplus" si ya hay conversación. No pidas cédula/reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analizá el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
         ];
     }
 
