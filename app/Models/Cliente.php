@@ -163,6 +163,34 @@ class Cliente extends Model
     }
 
     /**
+     * Nombre completo o nombre de pila exacto (sin LIKE). Solo si hay un único resultado.
+     */
+    public static function buscarPorNombreExacto(?string $nombre): ?self
+    {
+        $norm = preg_replace('/\s+/u', ' ', trim(mb_strtolower((string) $nombre))) ?? '';
+        $norm = trim($norm, ".,;:");
+        if (mb_strlen($norm) < 3) {
+            return null;
+        }
+
+        $completo = "LOWER(TRIM(CONCAT(COALESCE(nombre,''), ' ', COALESCE(apellido,''))))";
+        $candidatos = self::query()
+            ->where(function (Builder $q) use ($norm, $completo) {
+                $q->whereRaw($completo.' = ?', [$norm])
+                    ->orWhereRaw('LOWER(TRIM(nombre)) = ?', [$norm]);
+            })
+            ->withCount([
+                'servicios as servicios_vigentes_count' => fn ($q) => $q->where('estado', '!=', Servicio::ESTADO_CANCELADO),
+            ])
+            ->orderByDesc('servicios_vigentes_count')
+            ->orderByRaw("CASE estado WHEN 'activo' THEN 0 WHEN 'suspendido' THEN 1 WHEN 'solo_pedido' THEN 2 ELSE 3 END")
+            ->limit(2)
+            ->get();
+
+        return $candidatos->count() === 1 ? $candidatos->first() : null;
+    }
+
+    /**
      * Cada palabra debe coincidir en nombre, apellido, cédula, teléfono, ID o alias de servicio.
      * Así "dario v" encuentra DARIO VERA, no exige la frase completa en un solo campo.
      */

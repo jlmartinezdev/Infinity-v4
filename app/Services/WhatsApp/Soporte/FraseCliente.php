@@ -21,7 +21,7 @@ class FraseCliente
 
     public const PREGUNTA_EQUIPO = '¿Te pasa en todos los aparatos o en uno? Decime el número del equipo:';
 
-    public const SIN_CUENTA = 'No encuentro un servicio con este número. Escribinos desde el WhatsApp con el que estás registrado.';
+    public const SIN_CUENTA = 'No encuentro un servicio con este número. Escribí tu cédula, tu WhatsApp registrado o tu nombre completo tal como figura en la factura.';
 
     public const SITIO_MAL = 'Esa página no está respondiendo ahora. Tu conexión está bien.';
 

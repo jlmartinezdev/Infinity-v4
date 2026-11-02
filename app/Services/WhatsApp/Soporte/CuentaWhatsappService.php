@@ -32,7 +32,7 @@ class CuentaWhatsappService
     }
 
     /**
-     * Busca por cédula o teléfono escritos en el mensaje (cuando WhatsApp no coincide).
+     * Busca por teléfono, cédula/nro o nombre exacto en el mensaje.
      *
      * @return array<string, mixed>|null
      */
@@ -47,11 +47,19 @@ class CuentaWhatsappService
         }
 
         $cedula = SoporteTexto::cedulaEnTexto($texto);
-        if (! $cedula) {
+        if ($cedula) {
+            $cliente = Cliente::buscarPorCedula($cedula);
+            if ($cliente) {
+                return $this->desdeCliente($cliente, $cliente->telefono);
+            }
+        }
+
+        $nombre = SoporteTexto::nombreEnTexto($texto);
+        if (! $nombre) {
             return null;
         }
 
-        $cliente = Cliente::buscarPorCedula($cedula);
+        $cliente = Cliente::buscarPorNombreExacto($nombre);
         if (! $cliente) {
             return null;
         }

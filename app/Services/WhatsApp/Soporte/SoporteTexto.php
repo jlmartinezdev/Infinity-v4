@@ -159,7 +159,7 @@ class SoporteTexto
             return null;
         }
 
-        if (preg_match('/(?:soy|ci|c[eé]dula|documento)\s*[:.]?\s*(\d{5,8})\b/u', $t, $m)) {
+        if (preg_match('/(?:soy|ci|c[eé]dula|documento|nro?\.?|n[ºo°])\s*[:.]?\s*(\d{5,8})\b/u', $t, $m)) {
             return ltrim($m[1], '0') ?: $m[1];
         }
 
@@ -168,6 +168,53 @@ class SoporteTexto
         }
 
         return null;
+    }
+
+    public static function nombreEnTexto(?string $texto): ?string
+    {
+        $raw = trim((string) $texto);
+        if ($raw === '') {
+            return null;
+        }
+
+        $t = self::norm($raw);
+        if (self::telefonoEnTexto($raw) || self::cedulaEnTexto($raw)) {
+            return null;
+        }
+
+        if (preg_match(
+            '/(?:soy|me llamo|mi nombre(?:\s+es)?|nombre)\s*[:.]?\s*([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,4})/u',
+            $t,
+            $m
+        )) {
+            return self::limpiarNombre($m[1]);
+        }
+
+        if (preg_match('/^[a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,4}$/u', $t)) {
+            return self::limpiarNombre($t);
+        }
+
+        return null;
+    }
+
+    public static function limpiarNombre(string $nombre): ?string
+    {
+        $n = preg_replace('/\s+/u', ' ', trim($nombre)) ?? '';
+        $n = trim($n, ".,;:");
+        $n = preg_replace(
+            '/\s+(?:no|sin|por|porque|anda|el|la|los|las|mi|su|wifi|wi-fi|internet|señal|senal|reclamo|problema|ayuda|favor)\b.*$/u',
+            '',
+            $n
+        ) ?? $n;
+        $n = trim($n, ".,;:");
+        if (mb_strlen($n) < 3) {
+            return null;
+        }
+        if (preg_match('/^(hola|buenas|buenos|gracias|ok|dale|listo|internet|wifi|wi-fi)$/u', $n)) {
+            return null;
+        }
+
+        return $n;
     }
 
     public static function normalizarTelefonoPy(string $digitos): ?string

@@ -120,7 +120,11 @@ class SoporteDiagnosticoTest extends TestCase
     public function test_saca_cedula_y_telefono_del_texto(): void
     {
         $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('soy 4765661 Por que no anda la señal de wifi'));
+        $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('nr 4765661'));
+        $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('nro 4765661'));
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('595 986 504437'));
+        $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos'));
+        $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('soy Rufino Leiva Avalos no anda el wifi'));
         $this->assertSame(
             FraseCliente::ESCALADO,
             FraseCliente::filtrar(
