@@ -70,10 +70,24 @@ class IncidenteZonaService
             return false;
         }
 
-        return WaIncidenteZona::query()
+        $abierto = WaIncidenteZona::query()
             ->where('estado', 'abierto')
             ->where('router_id', $routerId)
             ->exists();
+
+        if (! $abierto) {
+            return false;
+        }
+
+        // Si el ping ya recuperó el router, cerramos el incidente stale.
+        $router = Router::query()->find($routerId);
+        if ($router && $router->estaConectado()) {
+            $this->cerrar($routerId, (string) $router->ip);
+
+            return false;
+        }
+
+        return true;
     }
 
     public function abiertoDe(?int $routerId): ?WaIncidenteZona

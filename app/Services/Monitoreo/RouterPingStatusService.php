@@ -18,6 +18,7 @@ class RouterPingStatusService
     public function __construct(
         private readonly WhatsAppOutboundNotifier $whatsapp,
         private readonly IncidenteZonaService $incidentes,
+        private readonly ServicioPingMonitoreoService $pingServicios,
     ) {}
 
     /**
@@ -90,6 +91,15 @@ class RouterPingStatusService
             $this->incidentes->cerrarDesdeRouter($router);
         } elseif ($fallos >= RouterCaidaAvisoConfig::confirmaciones()) {
             $this->incidentes->abrirDesdeRouter($router, 'router_ping');
+            // Evita casitas verdes con el último PPPoE previo a la caída.
+            try {
+                $this->pingServicios->marcarRouterCaido($router);
+            } catch (\Throwable $e) {
+                Log::warning('[router-caida] no se pudo alinear mapa', [
+                    'router_id' => $router->router_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         if ($ok || ! $tieneFallos || ! $tieneAlerta) {

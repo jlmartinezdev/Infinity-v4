@@ -62,9 +62,22 @@ class ServicioPingMonitoreoService
                 continue;
             }
 
+            if (! $router->estaConectado()) {
+                $marcados = $this->marcarGrupoSinRouter($grupo, 'Router de zona sin respuesta');
+                $stats['errores'] += $marcados;
+                $stats['sin_respuesta'] += $marcados;
+
+                continue;
+            }
+
             $sesiones = $this->mikroTik->listarSesionesPppoeActivas($router);
             if (! ($sesiones['success'] ?? false)) {
-                $stats['errores'] += $grupo->count();
+                $marcados = $this->marcarGrupoSinRouter(
+                    $grupo,
+                    (string) ($sesiones['error'] ?? 'Sin respuesta del MikroTik')
+                );
+                $stats['errores'] += $marcados;
+                $stats['sin_respuesta'] += $marcados;
 
                 continue;
             }
@@ -170,8 +183,18 @@ class ServicioPingMonitoreoService
             }
 
             $registros = $pings->get($clienteId, collect());
-            $online = $registros->where('en_linea', true)->count();
-            $totalPing = $registros->count();
+            $staleMin = max(1, (int) config('monitoreo.mapa_stale_minutos', 15));
+            $limite = now()->subMinutes($staleMin);
+            $vigentes = $registros->filter(function ($reg) use ($limite) {
+                $at = $reg->verificado_at ?? null;
+                if (! $at) {
+                    return false;
+                }
+
+                return $at->greaterThan($limite);
+            });
+            $online = $vigentes->where('en_linea', true)->count();
+            $totalPing = $vigentes->count();
             $totalEsperado = $monitoreables->count();
 
             if ($totalPing === 0) {
@@ -185,7 +208,7 @@ class ServicioPingMonitoreoService
             }
 
             $ultimo = $registros->sortByDesc('verificado_at')->first();
-            $latencias = $registros->where('en_linea', true)->pluck('latencia_ms')->filter();
+            $latencias = $vigentes->where('en_linea', true)->pluck('latencia_ms')->filter();
 
             $resultado[$clienteId] = [
                 'estado' => $estado,
@@ -281,6 +304,19 @@ class ServicioPingMonitoreoService
         return $out;
     }
 
+    /**
+     * Cuando cae el router de zona, el mapa no puede seguir en Online con datos viejos.
+     */
+    public function marcarRouterCaido(Router $router, string $error = 'Router de zona sin respuesta'): int
+    {
+        $servicios = Servicio::query()
+            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->whereHas('pool', fn ($q) => $q->where('router_id', $router->router_id))
+            ->get(['servicio_id', 'cliente_id', 'ip', 'usuario_pppoe']);
+
+        return $this->marcarGrupoSinRouter($servicios, $error);
+    }
+
     private function aplicarFiltroNodo(Builder $query, ?int $nodoId): void
     {
         if ($nodoId === null || $nodoId <= 0) {
@@ -304,5 +340,36 @@ class ServicioPingMonitoreoService
         $router = $grupo->first()?->pool?->router;
 
         return $router instanceof Router ? $router : null;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Servicio>|iterable<int, Servicio>  $grupo
+     */
+    private function marcarGrupoSinRouter(iterable $grupo, string $error): int
+    {
+        $n = 0;
+        foreach ($grupo as $servicio) {
+            if (! $servicio instanceof Servicio || ! $this->servicioEsMonitoreable($servicio)) {
+                continue;
+            }
+            $ip = trim((string) $servicio->ip);
+            if (str_contains($ip, '/')) {
+                $ip = explode('/', $ip, 2)[0];
+            }
+            MonitoreoPingServicio::query()->updateOrCreate(
+                ['servicio_id' => $servicio->servicio_id],
+                [
+                    'cliente_id' => $servicio->cliente_id,
+                    'ip' => $ip,
+                    'en_linea' => false,
+                    'latencia_ms' => null,
+                    'verificado_at' => now(),
+                    'error' => mb_substr($error, 0, 255),
+                ]
+            );
+            $n++;
+        }
+
+        return $n;
     }
 }
