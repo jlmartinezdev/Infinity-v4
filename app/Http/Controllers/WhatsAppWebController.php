@@ -83,6 +83,33 @@ class WhatsAppWebController extends Controller
             'fallidosPorCodigo' => $fallidosPorCodigo,
             'conteos' => $conteos,
             'puedeEditar' => auth()->user()?->tienePermiso('whatsapp.editar') ?? false,
+            'staff' => User::query()->staff()->activos()->orderBy('name')->get(['usuario_id', 'name', 'telefono']),
+            'adminSoporteId' => \App\Support\SoporteAdminConfig::usuarioId(),
+        ]);
+    }
+
+    public function guardarSoporteAdmin(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $validated = $request->validate([
+            'usuario_id' => ['nullable', 'integer'],
+        ]);
+        $id = isset($validated['usuario_id']) ? (int) $validated['usuario_id'] : 0;
+        if ($id > 0 && ! User::query()->staff()->activos()->where('usuario_id', $id)->exists()) {
+            return back()->with('error', 'Ese usuario no está activo.');
+        }
+        \App\Support\SoporteAdminConfig::guardar($id > 0 ? $id : null);
+
+        return back()->with('success', 'Listo. Ese staff recibe el resumen técnico cuando el soporte no se resuelve.');
+    }
+
+    public function impresoraBat(int $reserva): \Symfony\Component\HttpFoundation\Response
+    {
+        $item = \App\Models\WaImpresoraReserva::query()->findOrFail($reserva);
+        $nombre = 'impresora-'.$item->id.'.bat';
+
+        return response($item->bat(), 200, [
+            'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
         ]);
     }
 

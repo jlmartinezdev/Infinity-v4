@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\Ticket;
+use App\Services\WhatsApp\Soporte\FraseCliente;
 
 /**
  * Resumen de cliente para el agente N8N (GET /api/v1/clientes/por-telefono).
@@ -59,6 +60,7 @@ class ClientePorTelefonoService
             'cliente_id' => (int) $cliente->cliente_id,
             'nombre' => $nombre !== '' ? $nombre : (string) $cliente->nombre,
             'nombre_corto' => $this->nombreCorto((string) $cliente->nombre),
+            'cedula' => FraseCliente::cedulaVisible($cliente->cedula),
             'plan' => $planInfo['nombre'] ?? $plan?->nombre,
             'plan_id' => $plan?->plan_id ? (int) $plan->plan_id : null,
             'plan_tecnologia' => $planInfo['tecnologia'] ?? null,

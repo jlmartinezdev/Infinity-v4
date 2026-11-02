@@ -3,6 +3,7 @@
 namespace App\Services\Monitoreo;
 
 use App\Models\Router;
+use App\Services\WhatsApp\Soporte\IncidenteZonaService;
 use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use App\Support\RouterCaidaAvisoConfig;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +17,7 @@ class RouterPingStatusService
 {
     public function __construct(
         private readonly WhatsAppOutboundNotifier $whatsapp,
+        private readonly IncidenteZonaService $incidentes,
     ) {}
 
     /**
@@ -83,6 +85,12 @@ class RouterPingStatusService
         }
 
         $router->fill($update)->saveQuietly();
+
+        if ($ok) {
+            $this->incidentes->cerrarDesdeRouter($router);
+        } elseif ($fallos >= RouterCaidaAvisoConfig::confirmaciones()) {
+            $this->incidentes->abrirDesdeRouter($router, 'router_ping');
+        }
 
         if ($ok || ! $tieneFallos || ! $tieneAlerta) {
             return;

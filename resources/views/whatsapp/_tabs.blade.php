@@ -5,6 +5,7 @@
         'estado' => ['label' => 'Estado', 'route' => 'whatsapp.index'],
         'mensajes' => ['label' => 'Mensajes', 'route' => 'whatsapp.mensajes'],
         'test-n8n' => ['label' => 'Test n8n', 'route' => 'whatsapp.test-n8n'],
+        'casos' => ['label' => 'Casos', 'route' => 'whatsapp.casos.index'],
         'contactos' => ['label' => 'Contactos', 'route' => 'whatsapp.contactos'],
         'asuntos' => ['label' => 'Asuntos', 'route' => 'whatsapp.asuntos.index'],
         'enviar' => ['label' => 'Enviar', 'route' => 'whatsapp.enviar'],

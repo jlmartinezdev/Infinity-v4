@@ -104,11 +104,13 @@
         <div v-if="ultimo.error" class="wa-warn border-t px-4 py-2 text-xs">
           n8n: {{ ultimo.error }}
         </div>
-        <div v-else-if="ultimo.n8n_latency_ms" class="wa-muted border-t px-4 py-1.5 text-[11px]">
-          {{ ultimo.n8n_latency_ms }} ms
+        <div v-else-if="ultimo.modo || ultimo.n8n_latency_ms" class="wa-muted border-t px-4 py-1.5 text-[11px]">
+          <template v-if="ultimo.n8n_latency_ms">{{ ultimo.n8n_latency_ms }} ms</template>
+          <template v-if="ultimo.modo"> · {{ ultimo.modo }}</template>
           <template v-if="ultimo.escalate"> · escala {{ ultimo.motivo_escalado || '' }}</template>
           <template v-if="flagsLabel"> · {{ flagsLabel }}</template>
         </div>
+        <pre v-if="ultimo.resumen_admin" class="max-h-40 overflow-auto border-t px-4 py-2 text-[11px] whitespace-pre-wrap text-gray-500">{{ ultimo.resumen_admin }}</pre>
 
         <div class="wa-sidebar-body flex flex-wrap gap-1.5 border-t px-3 py-2">
           <button

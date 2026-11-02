@@ -1206,6 +1206,29 @@ class WhatsAppOutboundNotifier
         }
     }
 
+    /**
+     * Resumen técnico al administrador marcado. No usa el evento general de tickets.
+     */
+    public function resumenDiagnostico(User $admin, string $texto, ?int $ticketId = null): bool
+    {
+        if (! (bool) config('whatsapp.agent.aviso_admin', false) || ! $this->whatsapp->isConfigured()) {
+            return false;
+        }
+
+        $telefono = $this->telefonoStaff($admin);
+        if (! $telefono) {
+            return false;
+        }
+
+        $cuerpo = ($ticketId ? "Ticket #{$ticketId}\n" : '').$texto;
+        $salida = $this->whatsapp->sendText($telefono, mb_substr($cuerpo, 0, 4000), [
+            'contexto_tipo' => 'wa_soporte_admin',
+            'ticket_id' => $ticketId,
+        ]);
+
+        return ! $salida->esFallido();
+    }
+
     private function telefonoStaff(User $user): ?string
     {
         $fromUser = $user->telefono ?? null;

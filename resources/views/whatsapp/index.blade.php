@@ -62,6 +62,25 @@
         @endif
     </div>
 
+    @if(!empty($puedeEditar))
+        <form method="POST" action="{{ route('whatsapp.soporte-admin') }}" class="mb-6 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            @csrf
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Quién recibe el resumen técnico</h2>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Si el soporte no se resuelve, el ticket queda asignado a esta persona. El WhatsApp con las mediciones sale solo cuando el aviso está habilitado.</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                <select name="usuario_id" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+                    <option value="">Sin asignar</option>
+                    @foreach(($staff ?? []) as $persona)
+                        <option value="{{ $persona->usuario_id }}" @selected((int) ($adminSoporteId ?? 0) === (int) $persona->usuario_id)>
+                            {{ $persona->name }}{{ $persona->telefono ? '' : ' (sin teléfono)' }}
+                        </option>
+                    @endforeach
+                </select>
+                <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white">Guardar</button>
+            </div>
+        </form>
+    @endif
+
     @php
         $plantillasAprobadas = collect($plantillasMeta ?? [])
             ->filter(fn ($t) => strtoupper((string) ($t['status'] ?? '')) === 'APPROVED')

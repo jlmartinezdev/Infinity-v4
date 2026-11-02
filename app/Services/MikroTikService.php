@@ -3166,6 +3166,43 @@ class MikroTikService
         return $items;
     }
 
+    /**
+     * Deja fijo el lease DHCP de esa IP si existe y es dinámico.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function fijarLeaseDhcp(Router $router, string $address): array
+    {
+        $address = trim($address);
+        if (! filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return ['success' => false, 'message' => 'IP inválida'];
+        }
+
+        try {
+            $client = $this->connect($router);
+            $leases = $client->query((new Query('/ip/dhcp-server/lease/print'))->where('address', $address))->read();
+            $lease = is_array($leases) && isset($leases[0]) && is_array($leases[0]) ? $leases[0] : null;
+            if ($lease === null) {
+                $this->disconnect();
+
+                return ['success' => false, 'message' => 'No hay un lease para esa IP en el router.'];
+            }
+
+            $id = (string) ($lease['.id'] ?? '');
+            $dinamico = strtolower((string) ($lease['dynamic'] ?? 'false')) === 'true';
+            if ($id !== '' && $dinamico) {
+                $client->query((new Query('/ip/dhcp-server/lease/make-static'))->equal('.id', $id))->read();
+            }
+            $this->disconnect();
+
+            return ['success' => true, 'message' => $dinamico ? 'Lease dejado fijo.' : 'El lease ya era fijo.'];
+        } catch (Throwable $e) {
+            $this->disconnect();
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
     private function escapeRouterOsValue(string $value): string
     {
         $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);

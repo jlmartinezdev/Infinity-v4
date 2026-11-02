@@ -40,6 +40,9 @@ class McaStatusParser
             $canal = $this->canalDesdeMhz((int) $freq);
         }
 
+        $lanRaw = $this->primero($kv, ['lanspeed', 'lan.speed', 'eth0.speed', 'lanspd']);
+        $lanPlug = $this->primero($kv, ['lanplugged', 'lan.plugged', 'lan.link', 'eth0.status']);
+
         return [
             'hostname' => $hostname,
             'ssid' => $ssid,
@@ -52,6 +55,8 @@ class McaStatusParser
             'mac' => $mac,
             'uptime_segundos' => $uptime,
             'estaciones' => $estaciones,
+            'lan_speed' => $this->lanSpeed($lanRaw),
+            'lan_conectado' => $this->lanConectado($lanRaw, $lanPlug),
             'extra' => array_filter([
                 'noise' => $this->primero($kv, ['noise', 'noisefloor']),
                 'ccq' => $this->primero($kv, ['ccq']),
@@ -105,6 +110,40 @@ class McaStatusParser
             if (isset($kv[$k]) && $kv[$k] !== '') {
                 return $kv[$k];
             }
+        }
+
+        return null;
+    }
+
+    private function lanSpeed(?string $raw): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        if (! preg_match('/(\d+)/', $raw, $m)) {
+            return null;
+        }
+        $n = (int) $m[1];
+
+        return in_array($n, [10, 100, 1000], true) ? $n : null;
+    }
+
+    private function lanConectado(?string $speed, ?string $plug): ?bool
+    {
+        if ($plug !== null && $plug !== '') {
+            $p = strtolower($plug);
+            if (in_array($p, ['0', 'false', 'no', 'down', 'unplugged'], true)) {
+                return false;
+            }
+            if (in_array($p, ['1', 'true', 'yes', 'up'], true)) {
+                return true;
+            }
+        }
+        if ($speed !== null && preg_match('/discon|down|unplug/i', $speed)) {
+            return false;
+        }
+        if ($speed !== null && preg_match('/\d+/', $speed)) {
+            return true;
         }
 
         return null;

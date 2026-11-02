@@ -83,6 +83,7 @@ use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\WhatsAppAsuntoController;
+use App\Http\Controllers\WhatsAppCasoController;
 use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\WispHubImportController;
 use Illuminate\Support\Facades\Route;
@@ -311,6 +312,8 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
     Route::get('/whatsapp/contactos', [WhatsAppWebController::class, 'contactos'])->name('whatsapp.contactos');
     Route::get('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'index'])->name('whatsapp.asuntos.index');
+    Route::get('/whatsapp/casos', [WhatsAppCasoController::class, 'index'])->name('whatsapp.casos.index');
+    Route::get('/whatsapp/soporte/impresoras/{reserva}/bat', [WhatsAppWebController::class, 'impresoraBat'])->name('whatsapp.impresora.bat');
     Route::get('/whatsapp/asuntos-json', [WhatsAppWebController::class, 'asuntosJson'])->name('whatsapp.asuntos.json');
     Route::get('/whatsapp/rapido/meta', [WhatsAppWebController::class, 'rapidoMeta'])->name('whatsapp.rapido.meta');
 });
@@ -331,6 +334,10 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::get('/whatsapp/asuntos/{asunto}/edit', [WhatsAppAsuntoController::class, 'edit'])->name('whatsapp.asuntos.edit');
     Route::put('/whatsapp/asuntos/{asunto}', [WhatsAppAsuntoController::class, 'update'])->name('whatsapp.asuntos.update');
     Route::delete('/whatsapp/asuntos/{asunto}', [WhatsAppAsuntoController::class, 'destroy'])->name('whatsapp.asuntos.destroy');
+    Route::post('/whatsapp/soporte-admin', [WhatsAppWebController::class, 'guardarSoporteAdmin'])->name('whatsapp.soporte-admin');
+    Route::post('/whatsapp/casos', [WhatsAppCasoController::class, 'store'])->name('whatsapp.casos.store');
+    Route::put('/whatsapp/casos/{caso}', [WhatsAppCasoController::class, 'update'])->name('whatsapp.casos.update');
+    Route::delete('/whatsapp/casos/{caso}', [WhatsAppCasoController::class, 'destroy'])->name('whatsapp.casos.destroy');
 });
 Route::post('/whatsapp/rapido/ticket', [WhatsAppWebController::class, 'storeTicketRapido'])
     ->name('whatsapp.rapido.ticket')

@@ -19,6 +19,7 @@
             Cargando test n8n...
         </div>
     </div>
+    <pre id="wa-resumen-admin" class="mx-auto mt-3 hidden max-h-48 max-w-3xl overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"></pre>
 </div>
 
 <script>
@@ -30,5 +31,18 @@ window.__WHATSAPP_TEST_N8N_CONFIG__ = @json([
 
 @push('scripts')
 <script src="{{ asset(mix('js/whatsapp-test-n8n.js')) }}" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.axios) return;
+    window.axios.interceptors.response.use(function (response) {
+        var resumen = response && response.data && response.data.agent && response.data.agent.resumen_admin;
+        var box = document.getElementById('wa-resumen-admin');
+        if (!box) return response;
+        box.textContent = resumen || '';
+        box.classList.toggle('hidden', !resumen);
+        return response;
+    });
+});
+</script>
 @endpush
 @endsection

@@ -35,7 +35,7 @@ class WhatsAppInboundTicketService
      *
      * @return array{ticket: Ticket|null, created: bool}
      */
-    public function crearOAdjuntar(WhatsappMensaje $mensaje, bool $autoRespuesta = true): array
+    public function crearOAdjuntar(WhatsappMensaje $mensaje, bool $autoRespuesta = true, array $extra = []): array
     {
         if (! $mensaje->esEntrada()) {
             return ['ticket' => null, 'created' => false];
@@ -45,13 +45,14 @@ class WhatsAppInboundTicketService
             $abierto = $this->buscarTicketAbierto($mensaje);
             if ($abierto) {
                 $this->adjuntarMensaje($abierto, $mensaje);
+                $this->aplicarExtra($abierto, $extra);
                 $mensaje->ticket_id = $abierto->id;
                 $mensaje->save();
 
                 return ['ticket' => $abierto->fresh(), 'created' => false];
             }
 
-            $ticket = $this->crearTicket($mensaje);
+            $ticket = $this->crearTicket($mensaje, $extra);
             $mensaje->ticket_id = $ticket->id;
             $mensaje->save();
 
@@ -100,20 +101,26 @@ class WhatsAppInboundTicketService
         return $query->orderByDesc('updated_at')->first();
     }
 
-    private function crearTicket(WhatsappMensaje $mensaje): Ticket
+    private function crearTicket(WhatsappMensaje $mensaje, array $extra = []): Ticket
     {
         $linea = $this->formatoLinea($mensaje);
         $descripcion = "Mensaje WhatsApp desde {$mensaje->telefono}\n\n{$linea}";
 
-        $asignadoId = config('whatsapp.inbound_ticket_asignado_id');
+        $asignadoId = $extra['asignado_id'] ?? config('whatsapp.inbound_ticket_asignado_id');
         $asignadoId = filled($asignadoId) ? (int) $asignadoId : null;
+        $prioridad = (string) ($extra['prioridad'] ?? config('whatsapp.inbound_ticket_prioridad', 'media'));
+        $datos = is_array($extra['datos_diagnostico'] ?? null) ? $extra['datos_diagnostico'] : null;
+        if ($datos !== null && filled($extra['resumen_admin'] ?? null)) {
+            $datos['resumen_admin'] = (string) $extra['resumen_admin'];
+        }
 
         return Ticket::query()->create([
             'cliente_id' => $mensaje->cliente_id,
             'ticket_asunto_id' => $this->resolverAsuntoId(),
             'descripcion' => $descripcion,
+            'datos_diagnostico' => $datos,
             'estado' => 'pendiente',
-            'prioridad' => (string) config('whatsapp.inbound_ticket_prioridad', 'media'),
+            'prioridad' => $prioridad,
             'reportado_desde' => 'whatsapp',
             'observaciones' => $linea,
             'asignado_id' => $asignadoId,
@@ -170,6 +177,31 @@ class WhatsAppInboundTicketService
         $asunto = TicketAsunto::query()->firstOrCreate(['nombre' => $nombre]);
 
         return (int) $asunto->id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function aplicarExtra(Ticket $ticket, array $extra): void
+    {
+        if ($extra === []) {
+            return;
+        }
+
+        $datos = is_array($extra['datos_diagnostico'] ?? null) ? $extra['datos_diagnostico'] : null;
+        if ($datos !== null && filled($extra['resumen_admin'] ?? null)) {
+            $datos['resumen_admin'] = (string) $extra['resumen_admin'];
+        }
+        if ($datos !== null) {
+            $ticket->datos_diagnostico = $datos;
+        }
+        if (filled($extra['prioridad'] ?? null)) {
+            $ticket->prioridad = (string) $extra['prioridad'];
+        }
+        if (filled($extra['asignado_id'] ?? null) && ! $ticket->asignado_id) {
+            $ticket->asignado_id = (int) $extra['asignado_id'];
+        }
+        $ticket->save();
     }
 
     private function autoRespuestaSiCorresponde(WhatsappMensaje $mensaje, Ticket $ticket): void

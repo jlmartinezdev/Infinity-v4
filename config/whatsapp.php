@@ -85,7 +85,7 @@ return [
         ),
         'escalate_message' => env(
             'WA_AGENT_ESCALATE_MESSAGE',
-            'Te comunico con un asesor. Te responden por este mismo WhatsApp.'
+            'Agradecemos tu aviso. De inmediato estaremos verificando y monitoreando tu servicio para poder ayudarte.'
         ),
         /** Si un humano (panel o app Business) escribió en las últimas N horas, no llamar a N8N. Solo aplica con auto_send. */
         'humano_silencio_horas' => (int) env('WA_AGENT_HUMANO_SILENCIO_HORAS', 2),
@@ -98,6 +98,13 @@ return [
         'auto_send' => (bool) env('WA_AGENT_AUTO_SEND', false),
         /** Crear ticket si escalate=true. En entrenamiento conviene false. */
         'auto_ticket' => (bool) env('WA_AGENT_AUTO_TICKET', false),
+        /** WhatsApp al administrador con el resumen técnico. Apagado en prueba. */
+        'aviso_admin' => (bool) env('WA_AGENT_AVISO_ADMIN', false),
+        /** Cambia la clave WiFi solo si el número es el del cliente y esto está en true. */
+        'wifi_auto' => (bool) env('WA_AGENT_WIFI_AUTO', false),
+        /** Deja fijo el lease DHCP de una impresora en el MikroTik. No toca la antena. */
+        'impresora_auto' => (bool) env('WA_AGENT_IMPRESORA_AUTO', false),
+        'zabbix_secret' => env('ZABBIX_WEBHOOK_SECRET'),
         /** Últimos N mensajes del hilo que se mandan a N8N (no incluye el actual). */
         'historial_limite' => max(0, (int) env('WA_AGENT_HISTORIAL_LIMITE', 12)),
         /** true = solo el chat de hoy (zona horaria de la app). Días anteriores no entran al prompt. */

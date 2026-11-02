@@ -6,6 +6,10 @@ use App\Jobs\ProcesarWhatsappAgentJob;
 use App\Models\Plan;
 use App\Models\WhatsappMensaje;
 use App\Services\PedidoNodoOpcionesService;
+use App\Services\WhatsApp\Soporte\OfertaCierreService;
+use App\Services\WhatsApp\Soporte\SoporteOrquestador;
+use App\Services\WhatsApp\Soporte\SoporteTexto;
+use App\Support\SoporteAdminConfig;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +29,8 @@ class WhatsAppAgentService
         private readonly WhatsAppService $whatsapp,
         private readonly WhatsAppInboundTicketService $inboundTickets,
         private readonly WhatsAppImagenClasificadorService $imagenes,
+        private readonly SoporteOrquestador $soporte,
+        private readonly WhatsAppOutboundNotifier $salientes,
     ) {}
 
     public function isEnabled(): bool
@@ -87,6 +93,11 @@ class WhatsAppAgentService
             return $this->resultadoVacio('duplicado');
         }
 
+        $soporte = $this->soporte->intentar($mensaje, $sandbox);
+        if ($soporte !== null) {
+            return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
+        }
+
         $consulta = $this->consultarN8n($mensaje);
         $reply = $consulta['reply'];
         $escalate = $consulta['escalate'];
@@ -101,6 +112,13 @@ class WhatsAppAgentService
 
         if ($escalate && ($reply === null || $reply === '')) {
             $reply = (string) config('whatsapp.agent.escalate_message');
+        }
+
+        if (! $escalate && filled($reply) && SoporteTexto::pareceCierre((string) $mensaje->cuerpo)) {
+            $oferta = app(OfertaCierreService::class)->sugerir($this->soporte->cuentaDe($mensaje), false);
+            if ($oferta) {
+                $reply = rtrim($reply)."\n\n".$oferta;
+            }
         }
 
         $ticketId = null;
@@ -151,6 +169,67 @@ class WhatsAppAgentService
             'enviado' => $enviado,
             'ticket_id' => $ticketId,
             'modo' => $consulta['modo'] ?? null,
+            'resumen_admin' => $consulta['resumen_admin'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $soporte
+     * @return array<string, mixed>
+     */
+    private function cerrarConSoporte(WhatsappMensaje $mensaje, array $soporte, bool $enviar, bool $sandbox): array
+    {
+        $reply = $soporte['reply'] ?? null;
+        $escalate = (bool) ($soporte['escalate'] ?? false);
+        $error = $soporte['error'] ?? null;
+        $clienteId = $soporte['cliente_id'] ?? $mensaje->cliente_id;
+        if ($clienteId && ! $mensaje->cliente_id) {
+            $mensaje->cliente_id = $clienteId;
+        }
+
+        $ticketId = null;
+        if (! $sandbox && $escalate && ($enviar || (bool) config('whatsapp.agent.auto_ticket', false))) {
+            $ticket = $this->inboundTickets->crearOAdjuntar($mensaje, false, [
+                'asignado_id' => data_get($soporte, 'diagnostico.asignado_id') ?: SoporteAdminConfig::usuarioId(),
+                'prioridad' => 'alta',
+                'datos_diagnostico' => $soporte['diagnostico'] ?? null,
+                'resumen_admin' => $soporte['resumen_admin'] ?? null,
+            ]);
+            $ticketId = $ticket['ticket']?->id;
+            $admin = SoporteAdminConfig::usuario();
+            if ($admin && filled($soporte['resumen_admin'] ?? null)) {
+                $this->salientes->resumenDiagnostico($admin, (string) $soporte['resumen_admin'], $ticketId);
+            }
+        }
+
+        $enviado = false;
+        if ($enviar && filled($reply)) {
+            $salida = $this->whatsapp->sendText($mensaje->telefono, $reply, [
+                'cliente_id' => $clienteId,
+                'ticket_id' => $ticketId ?? $mensaje->ticket_id,
+                'contexto_tipo' => self::CONTEXTO,
+                'contexto_id' => $mensaje->id,
+            ]);
+            $enviado = ! $salida->esFallido();
+            if ($salida->esFallido()) {
+                $error = trim(($error ? $error.' | ' : '').'meta: '.($salida->error_message ?: 'envio_fallido'));
+            }
+        }
+
+        $this->auditarEntrada($mensaje, $soporte, $reply, $escalate, $error, $ticketId);
+
+        return [
+            'ok' => $error === null,
+            'reply' => $reply,
+            'escalate' => $escalate,
+            'cliente_id' => $clienteId,
+            'motivo_escalado' => $soporte['motivo_escalado'] ?? null,
+            'n8n_latency_ms' => 0,
+            'error' => $error,
+            'enviado' => $enviado,
+            'ticket_id' => $ticketId,
+            'modo' => $soporte['modo'] ?? null,
+            'resumen_admin' => $soporte['resumen_admin'] ?? null,
         ];
     }
 
@@ -284,7 +363,7 @@ class WhatsAppAgentService
                     'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
                     'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
                     'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
-                ]);
+                ] + $this->soporte->contextoParaN8n($mensaje));
         } catch (\Throwable $e) {
             $vacio['n8n_latency_ms'] = (int) round((microtime(true) - $started) * 1000);
             $vacio['error'] = 'n8n_excepcion: '.$e->getMessage();
@@ -1106,6 +1185,7 @@ class WhatsAppAgentService
             'usada' => false,
             'descartada' => false,
             'modo' => $consulta['modo'] ?? null,
+            'resumen_admin' => $consulta['resumen_admin'] ?? null,
         ];
         $mensaje->payload = $payload;
         $mensaje->save();
@@ -1145,6 +1225,21 @@ class WhatsAppAgentService
     {
         $tel = self::telefonoSandbox($telefono);
         $cuerpo = trim($cuerpo);
+        $crudo = preg_replace('/\D+/', '', $telefono) ?: '';
+        $cuentaTel = ($crudo !== '' && ! str_starts_with($crudo, self::PREFIJO_TEST))
+            ? $crudo
+            : null;
+        if ($cuentaTel === null) {
+            $previo = WhatsappMensaje::query()
+                ->where('telefono', $tel)
+                ->where('contexto_tipo', self::CONTEXTO_TEST)
+                ->orderByDesc('id')
+                ->limit(30)
+                ->get()
+                ->map(fn (WhatsappMensaje $m) => data_get($m->payload, 'telefono_cuenta'))
+                ->first(fn ($v) => is_string($v) && $v !== '');
+            $cuentaTel = is_string($previo) ? $previo : null;
+        }
         $vacioAgent = $this->resultadoVacio('mensaje_vacio');
 
         if ($cuerpo === '') {
@@ -1169,6 +1264,7 @@ class WhatsAppAgentService
             'payload' => [
                 'timestamp' => time(),
                 'origen' => 'test_n8n',
+                'telefono_cuenta' => $cuentaTel,
             ],
         ]);
         $mensaje->save();
