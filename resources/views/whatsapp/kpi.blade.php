@@ -95,17 +95,17 @@
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         @php
             $cards = [
+                ['Ventas agente solo', number_format($r['ventas_agente'] ?? 0), number_format($r['ventas_n'] ?? 0).' planes en total'],
+                ['Ventas asistidas', number_format($r['ventas_asistidas'] ?? 0), number_format($r['ventas_monto'] ?? 0, 0, ',', '.').' Gs'],
+                ['Plan más convencido', $r['top_plan'] ?? '—', count($r['planes_convencidos'] ?? []).' planes distintos'],
                 ['Conversaciones agente', number_format($r['conversaciones']), null],
                 ['Respuestas agente', number_format($r['respuestas']), null],
                 ['% resuelto auto', $r['pct_resuelto_auto'].'%', $r['resuelto_auto'].' casos'],
                 ['Tickets agente', number_format($r['tickets']), null],
                 ['Comprobantes', number_format($r['comprobantes']), null],
                 ['Zona avisos / OK', $r['zona_aviso'].' / '.$r['zona_ok'], null],
-                ['Ventas atribuidas', number_format($r['ventas_n']), number_format($r['ventas_monto'], 0, ',', '.').' Gs'],
                 ['CSAT', $r['csat_promedio'] !== null ? number_format($r['csat_promedio'], 2) : '—', $r['csat_n'] ? $r['csat_n'].' respuestas' : 'sin datos'],
                 ['Latencia modelo p50/p95', ($r['latency_p50'] ?? '—').' / '.($r['latency_p95'] ?? '—').' ms', 'solo agente'],
-                ['Costo modelo', 'US$ '.number_format($r['costo_usd'], 4), $r['llamadas_modelo'].' llamadas'],
-                ['ROI', number_format($r['roi'], 2).'×', 'margen − costo / costo'],
                 ['Errores', number_format($r['errores']), null],
             ];
         @endphp
@@ -118,6 +118,37 @@
                 @endif
             </div>
         @endforeach
+    </div>
+
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Planes convencidos</h2>
+        <p class="mt-1 text-xs text-gray-500">Pedidos atribuibles al agente (solo o con ayuda humana) en el período.</p>
+        <div class="mt-3 overflow-x-auto">
+            <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
+                <thead>
+                    <tr class="text-left text-xs text-gray-500">
+                        <th class="py-1.5 pr-2">Plan</th>
+                        <th class="py-1.5 pr-2 text-right">Agente</th>
+                        <th class="py-1.5 pr-2 text-right">Asistida</th>
+                        <th class="py-1.5 pr-2 text-right">Total</th>
+                        <th class="py-1.5 text-right">Monto Gs</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    @forelse(($r['planes_convencidos'] ?? []) as $planRow)
+                        <tr>
+                            <td class="py-1.5 pr-2 text-gray-900 dark:text-gray-100">{{ $planRow['nombre'] }}</td>
+                            <td class="py-1.5 pr-2 text-right">{{ $planRow['agente'] }}</td>
+                            <td class="py-1.5 pr-2 text-right">{{ $planRow['asistida'] }}</td>
+                            <td class="py-1.5 pr-2 text-right font-medium">{{ $planRow['total'] }}</td>
+                            <td class="py-1.5 text-right">{{ number_format($planRow['monto'], 0, ',', '.') }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="py-4 text-center text-gray-500">Sin ventas de plan en el período.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="mt-6 grid gap-6 lg:grid-cols-2">
@@ -186,14 +217,14 @@
 
     <div class="mt-6 grid gap-6 lg:grid-cols-2">
         <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Ventas atribuidas</h2>
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Ventas de plan</h2>
             <div class="mt-3 overflow-x-auto">
                 <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
                     <thead>
                         <tr class="text-left text-xs text-gray-500">
                             <th class="py-1.5 pr-2">Cuándo</th>
-                            <th class="py-1.5 pr-2">Teléfono</th>
-                            <th class="py-1.5 pr-2">Canal</th>
+                            <th class="py-1.5 pr-2">Plan</th>
+                            <th class="py-1.5 pr-2">Origen</th>
                             <th class="py-1.5 text-right">Monto</th>
                             <th class="py-1.5"></th>
                         </tr>
@@ -203,24 +234,21 @@
                             <tr>
                                 <td class="py-1.5 pr-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $v->ocurrido_at?->format('d/m H:i') }}</td>
                                 <td class="py-1.5 pr-2">
+                                    <div class="text-gray-900 dark:text-gray-100">{{ data_get($v->meta, 'plan_nombre') ?: ('Plan #'.(data_get($v->meta, 'plan_id') ?: '—')) }}</div>
                                     @if($v->telefono)
-                                        <a class="text-emerald-700 hover:underline dark:text-emerald-400" href="{{ route('whatsapp.mensajes', ['tel' => $v->telefono]) }}">{{ $v->telefono }}</a>
-                                    @else
-                                        —
+                                        <a class="text-xs text-emerald-700 hover:underline dark:text-emerald-400" href="{{ route('whatsapp.mensajes', ['tel' => $v->telefono]) }}">{{ $v->telefono }}</a>
                                     @endif
                                 </td>
-                                <td class="py-1.5 pr-2 text-gray-600">{{ data_get($v->meta, 'canal', $v->modo) }}</td>
+                                <td class="py-1.5 pr-2 text-gray-600">{{ data_get($v->meta, 'origen') ?: ($v->modo === 'venta_agente' ? 'agente' : 'asistida') }}</td>
                                 <td class="py-1.5 text-right font-medium">{{ number_format((float) data_get($v->meta, 'monto', 0), 0, ',', '.') }}</td>
                                 <td class="py-1.5 pl-2 text-right text-xs">
                                     @if($v->pedido_id)
                                         <a class="text-emerald-700 hover:underline" href="{{ route('pedidos.edit', $v->pedido_id) }}">Pedido</a>
-                                    @elseif($v->cobro_id)
-                                        <a class="text-emerald-700 hover:underline" href="{{ route('cobros.show', $v->cobro_id) }}">Cobro</a>
                                     @endif
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="py-4 text-center text-gray-500">Sin ventas atribuidas en el período.</td></tr>
+                            <tr><td colspan="5" class="py-4 text-center text-gray-500">Sin ventas de plan en el período.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

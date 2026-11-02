@@ -3,7 +3,6 @@
 namespace App\Services\WhatsApp;
 
 use App\Models\WaAgentEvento;
-use App\Models\WaAgentUsoModelo;
 use App\Models\WhatsappMensaje;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -98,7 +97,6 @@ class WaAgentKpiService
         $comprobantes = (int) ($porTipo[WaAgentEvento::TIPO_COMPROBANTE] ?? 0);
         $zonaAviso = (int) ($porTipo[WaAgentEvento::TIPO_ZONA_AVISO] ?? 0);
         $zonaOk = (int) ($porTipo[WaAgentEvento::TIPO_ZONA_OK] ?? 0);
-        $ventas = (int) ($porTipo[WaAgentEvento::TIPO_VENTA_ATRIBUIDA] ?? 0);
         $errores = (int) ($porTipo[WaAgentEvento::TIPO_ERROR] ?? 0);
 
         $conversaciones = (int) (clone $base)
@@ -120,22 +118,63 @@ class WaAgentKpiService
             ->map(fn ($v) => (int) $v)
             ->values();
 
-        $costoQ = WaAgentUsoModelo::query()
-            ->whereBetween('ocurrido_at', [$desde, $hasta]);
-        if (! $incluirSandbox) {
-            $costoQ->where('sandbox', false);
-        }
-        $costoUsd = (float) $costoQ->sum('costo_usd_estimado');
-        $llamadasModelo = (int) $costoQ->sum('llamadas');
-
         $ventasMeta = (clone $base)
             ->where('tipo', WaAgentEvento::TIPO_VENTA_ATRIBUIDA)
-            ->get(['meta', 'pedido_id', 'cobro_id', 'telefono', 'ocurrido_at', 'modo']);
+            ->whereNotNull('pedido_id')
+            ->get(['meta', 'pedido_id', 'telefono', 'ocurrido_at', 'modo']);
 
+        $ventasAgente = 0;
+        $ventasAsistidas = 0;
         $montoVentas = 0.0;
+        $porPlan = [];
         foreach ($ventasMeta as $ev) {
-            $montoVentas += (float) data_get($ev->meta, 'monto', 0);
+            // Solo ventas de plan (pedidos). Ignorar legado cobro_asistido.
+            if (data_get($ev->meta, 'canal') === 'cobro' || ($ev->modo === 'cobro_asistido')) {
+                continue;
+            }
+            $origen = (string) (data_get($ev->meta, 'origen')
+                ?: ($ev->modo === 'venta_agente' ? 'agente' : 'asistida'));
+            if ($origen === 'agente') {
+                $ventasAgente++;
+            } else {
+                $ventasAsistidas++;
+            }
+            $monto = (float) data_get($ev->meta, 'monto', 0);
+            $montoVentas += $monto;
+            $planId = (int) (data_get($ev->meta, 'plan_id') ?: 0);
+            $planNombre = trim((string) (data_get($ev->meta, 'plan_nombre') ?: ''));
+            $clave = $planId > 0 ? (string) $planId : ($planNombre !== '' ? $planNombre : 'sin_plan');
+            if (! isset($porPlan[$clave])) {
+                $porPlan[$clave] = [
+                    'plan_id' => $planId > 0 ? $planId : null,
+                    'nombre' => $planNombre !== '' ? $planNombre : ('Plan #'.($planId ?: '?')),
+                    'agente' => 0,
+                    'asistida' => 0,
+                    'total' => 0,
+                    'monto' => 0.0,
+                ];
+            }
+            if ($origen === 'agente') {
+                $porPlan[$clave]['agente']++;
+            } else {
+                $porPlan[$clave]['asistida']++;
+            }
+            $porPlan[$clave]['total']++;
+            $porPlan[$clave]['monto'] += $monto;
         }
+        $planesConvencidos = collect($porPlan)
+            ->sortByDesc('total')
+            ->values()
+            ->map(fn ($row) => [
+                'plan_id' => $row['plan_id'],
+                'nombre' => $row['nombre'],
+                'agente' => $row['agente'],
+                'asistida' => $row['asistida'],
+                'total' => $row['total'],
+                'monto' => round($row['monto'], 2),
+            ])
+            ->all();
+        $topPlan = $planesConvencidos[0]['nombre'] ?? null;
 
         $csatScores = (clone $base)
             ->where('tipo', WaAgentEvento::TIPO_CSAT)
@@ -147,9 +186,6 @@ class WaAgentKpiService
             ? round($csatScores->avg(), 2)
             : null;
         $csatN = $csatScores->count();
-
-        $eps = 0.000001;
-        $roi = ($montoVentas - $costoUsd) / max($costoUsd, $eps);
 
         $porModo = (clone $base)
             ->where('tipo', WaAgentEvento::TIPO_RESPUESTA)
@@ -169,15 +205,16 @@ class WaAgentKpiService
             'comprobantes' => $comprobantes,
             'zona_aviso' => $zonaAviso,
             'zona_ok' => $zonaOk,
-            'ventas_n' => $ventas,
+            'ventas_n' => $ventasAgente + $ventasAsistidas,
+            'ventas_agente' => $ventasAgente,
+            'ventas_asistidas' => $ventasAsistidas,
             'ventas_monto' => round($montoVentas, 2),
+            'planes_convencidos' => $planesConvencidos,
+            'top_plan' => $topPlan,
             'csat_promedio' => $csatPromedio,
             'csat_n' => $csatN,
             'latency_p50' => $this->percentil($latencias, 50),
             'latency_p95' => $this->percentil($latencias, 95),
-            'costo_usd' => round($costoUsd, 4),
-            'llamadas_modelo' => $llamadasModelo,
-            'roi' => round($roi, 2),
             'errores' => $errores,
             'por_modo' => $porModo,
             'por_tipo' => $porTipo->map(fn ($v) => (int) $v)->all(),
@@ -411,6 +448,10 @@ class WaAgentKpiService
         $q = WaAgentEvento::query()
             ->whereBetween('ocurrido_at', [$desde, $hasta])
             ->where('tipo', WaAgentEvento::TIPO_VENTA_ATRIBUIDA)
+            ->whereNotNull('pedido_id')
+            ->where(function ($w) {
+                $w->whereNull('modo')->orWhere('modo', '!=', 'cobro_asistido');
+            })
             ->orderByDesc('ocurrido_at')
             ->limit($limit);
         if (! $incluirSandbox) {

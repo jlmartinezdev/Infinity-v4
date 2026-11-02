@@ -702,21 +702,6 @@ class WhatsAppWebController extends Controller
 
         $cobro->load(['cliente', 'facturaInternas']);
 
-        try {
-            $cli = $cobro->cliente;
-            $tel = $cli ? TelefonoParaguayHelper::normalize($cli->telefono ?? null) : null;
-            if ($tel) {
-                app(\App\Services\WhatsApp\WaAgentAnalyticsService::class)->atribuirVentaCobro(
-                    $tel,
-                    (int) $cobro->id,
-                    (int) $validated['cliente_id'],
-                    $monto,
-                );
-            }
-        } catch (\Throwable) {
-            //
-        }
-
         return response()->json([
             'success' => true,
             'message' => 'Cobro registrado. Recibo: '.$cobro->numero_recibo,

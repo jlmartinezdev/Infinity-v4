@@ -51,9 +51,12 @@ class OfertaCierreService
             });
 
         if ($upsell && $upsell->plan) {
-            $this->registrar($telefono, 'plan:'.$upsell->plan_id);
+            $this->registrar($telefono, 'plan:'.$upsell->plan_id, [
+                'plan_id' => (int) $upsell->plan_id,
+                'plan_nombre' => (string) $upsell->plan->nombre,
+            ]);
 
-            return 'Si más adelante querés más velocidad, tenemos un plan superior. Cuando quieras te cuento.';
+            return $this->fraseUpsellSuave($upsell);
         }
 
         $novedad = Novedad::publicadas()
@@ -65,14 +68,32 @@ class OfertaCierreService
             $titulo = trim((string) $novedad->titulo);
 
             return $titulo !== ''
-                ? 'Tenemos una novedad: '.$titulo.'. Si te interesa, te cuento.'
+                ? 'Si más adelante le interesa, tenemos una novedad: '.$titulo.'. Sin compromiso, cuando quiera le cuento.'
                 : null;
         }
 
         return null;
     }
 
-    private function registrar(string $telefono, string $referencia): void
+    private function fraseUpsellSuave(PlanUpsell $upsell): string
+    {
+        $nombre = trim((string) ($upsell->plan?->nombre ?? 'un plan con más prioridad'));
+        $beneficio = trim((string) ($upsell->beneficios ?? ''));
+        // Una sola idea: prioridad / tranquilidad; el plan actual sigue siendo válido.
+        if ($beneficio !== '') {
+            $beneficio = preg_replace('/\s+/u', ' ', $beneficio) ?: $beneficio;
+            $beneficio = mb_substr($beneficio, 0, 140);
+
+            return 'Su plan actual está bien. Si alguna vez quiere más tranquilidad ante un reclamo, el '.$nombre.' incluye '.$beneficio.'. Cuando quiera, le detallo.';
+        }
+
+        return 'Su plan actual está bien. Si alguna vez quiere más prioridad de atención cuando hay un inconveniente, el '.$nombre.' lo contempla. Cuando quiera, le cuento.';
+    }
+
+    /**
+     * @param  array<string, mixed>  $metaExtra
+     */
+    private function registrar(string $telefono, string $referencia, array $metaExtra = []): void
     {
         WaOfertaEnvio::query()->create([
             'telefono' => $telefono,
@@ -83,7 +104,7 @@ class OfertaCierreService
                 \App\Models\WaAgentEvento::TIPO_OFERTA_PLAN,
                 $telefono,
                 'oferta',
-                ['referencia' => $referencia],
+                array_merge(['referencia' => $referencia], $metaExtra),
             );
         } catch (\Throwable) {
             //

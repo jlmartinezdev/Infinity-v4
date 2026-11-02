@@ -483,11 +483,26 @@ class WhatsAppAgentService
             ->orderBy('nombre')
             ->get();
 
+        $beneficiosPorPlan = [];
+        try {
+            $beneficiosPorPlan = \App\Models\PlanUpsell::query()
+                ->where('activo', true)
+                ->whereIn('plan_id', $planes->pluck('plan_id'))
+                ->orderBy('orden')
+                ->get(['plan_id', 'beneficios'])
+                ->groupBy('plan_id')
+                ->map(fn ($rows) => trim((string) ($rows->first()->beneficios ?? '')))
+                ->filter(fn ($b) => $b !== '')
+                ->all();
+        } catch (\Throwable) {
+            $beneficiosPorPlan = [];
+        }
+
         $fibra = [];
         $antena = [];
         $otros = [];
         foreach ($planes as $plan) {
-            $item = self::serializarPlanWa($plan);
+            $item = self::serializarPlanWa($plan, $beneficiosPorPlan[(int) $plan->plan_id] ?? null);
             match ($item['grupo']) {
                 'fibra' => $fibra[] = $item,
                 'antena' => $antena[] = $item,
@@ -504,9 +519,9 @@ class WhatsAppAgentService
     }
 
     /**
-     * @return array{plan_id: int, nombre: string, velocidad: string, precio: int, precio_texto: string, tecnologia: string|null, grupo: string}
+     * @return array{plan_id: int, nombre: string, velocidad: string, precio: int, precio_texto: string, tecnologia: string|null, grupo: string, prioridad: int|null, beneficios: string|null}
      */
-    public static function serializarPlanWa(Plan $plan): array
+    public static function serializarPlanWa(Plan $plan, ?string $beneficios = null): array
     {
         $tech = trim((string) ($plan->tipoTecnologia?->descripcion ?? ''));
         $nombre = (string) ($plan->nombre ?? '');
@@ -527,20 +542,23 @@ class WhatsAppAgentService
             'precio_texto' => 'Gs. '.number_format($precio, 0, ',', '.'),
             'tecnologia' => $tech !== '' ? $tech : null,
             'grupo' => $grupo,
+            'prioridad' => isset($plan->prioridad) ? (int) $plan->prioridad : null,
+            'beneficios' => $beneficios !== null && trim($beneficios) !== '' ? trim($beneficios) : null,
         ];
     }
 
     /**
-     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string}>  $fibra
-     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string}>  $antena
-     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string}>  $otros
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, prioridad?: int|null, beneficios?: string|null}>  $fibra
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, prioridad?: int|null, beneficios?: string|null}>  $antena
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, prioridad?: int|null, beneficios?: string|null}>  $otros
      */
     public static function planesComoTexto(array $fibra, array $antena, array $otros = []): string
     {
         $bloques = [
-            'Planes vigentes (mensual, IVA incluido, megas ilimitados, sin permanencia, equipos en comodato). Cotizá SOLO estos; no inventes precios.',
+            'Planes vigentes (mensual, IVA incluido, megas ilimitados, sin permanencia, equipos en comodato). Cotice SOLO estos; no invente precios.',
+            'Venta suave: no venda “internet genérico”. Hable de experiencia (prioridad de soporte, tráfico prioritario, cambios WiFi). Un gancho por conversación, 1–2 oraciones. El plan básico también es bueno; nunca lo menosprecie. Un plan superior = más tranquilidad/prioridad si hay reclamo.',
             'Enrutado: pregunta fibra/FTTH/100/200/300 → SOLO fibra. Pregunta antena/10/20/30 megas → SOLO antena. "Qué planes hay" → las dos listas.',
-            'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca digas que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor.',
+            'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca diga que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor. Si hay beneficio, puede mencionarlo en una frase corta.',
         ];
 
         $seccion = static function (string $titulo, array $items): ?string {
@@ -558,7 +576,12 @@ class WhatsAppAgentService
                 $extra = $vel !== '' && ! str_contains(mb_strtolower($nombre), mb_strtolower($vel))
                     ? ' ('.$vel.')'
                     : '';
-                $lineas[] = '- '.$nombre.$extra.($precio !== '' ? ' — '.$precio : '');
+                $prio = isset($item['prioridad']) && $item['prioridad'] !== null
+                    ? ' · prioridad '.(int) $item['prioridad']
+                    : '';
+                $ben = trim((string) ($item['beneficios'] ?? ''));
+                $benTxt = $ben !== '' ? ' · '.mb_substr($ben, 0, 80) : '';
+                $lineas[] = '- '.$nombre.$extra.($precio !== '' ? ' — '.$precio : '').$prio.$benTxt;
             }
 
             return count($lineas) > 1 ? implode("\n", $lineas) : null;

@@ -289,6 +289,14 @@ class WaAgentAnalyticsService
      */
     public function haySenalVentaReciente(string $telefono, ?\DateTimeInterface $antesDe = null): bool
     {
+        return $this->primeraSenalVentaReciente($telefono, $antesDe) !== null;
+    }
+
+    /**
+     * Primera señal comercial en la ventana de atribución.
+     */
+    public function primeraSenalVentaReciente(string $telefono, ?\DateTimeInterface $antesDe = null): ?WaAgentEvento
+    {
         $tel = preg_replace('/\D+/', '', $telefono) ?: $telefono;
         $horas = (int) config('whatsapp.agent.kpi.venta_ventana_horas', 72);
         $desde = now()->subHours($horas);
@@ -300,18 +308,51 @@ class WaAgentAnalyticsService
                 WaAgentEvento::TIPO_INSTALACION,
                 WaAgentEvento::TIPO_OFERTA_PLAN,
             ])
-            ->where('ocurrido_at', '>=', $desde);
+            ->where('ocurrido_at', '>=', $desde)
+            ->orderBy('ocurrido_at');
         if ($antesDe) {
             $q->where('ocurrido_at', '<=', $antesDe);
         }
 
-        return $q->exists();
+        return $q->first();
+    }
+
+    /**
+     * Agente solo = sin salida humana conversacional entre la señal y el pedido.
+     */
+    public function origenVentaPedido(string $telefono, \DateTimeInterface $desdeSenal, ?\DateTimeInterface $hastaPedido = null): string
+    {
+        $tel = preg_replace('/\D+/', '', $telefono) ?: $telefono;
+        $hasta = $hastaPedido ?? now();
+        $huboHumano = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->where('direccion', WhatsappMensaje::DIRECCION_SALIDA)
+            ->whereIn('contexto_tipo', WaAgentKpiService::CTX_HUMANO)
+            ->where('created_at', '>', $desdeSenal)
+            ->where('created_at', '<=', $hasta)
+            ->exists();
+
+        return $huboHumano ? 'asistida' : 'agente';
     }
 
     public function atribuirVentaPedido(string $telefono, int $pedidoId, ?int $clienteId, ?int $planId, ?float $montoPlan): ?WaAgentEvento
     {
-        if ($this->esSandbox($telefono) || ! $this->haySenalVentaReciente($telefono)) {
+        if ($this->esSandbox($telefono) || ! $planId) {
             return null;
+        }
+        $senal = $this->primeraSenalVentaReciente($telefono);
+        if (! $senal || ! $senal->ocurrido_at) {
+            return null;
+        }
+
+        $origen = $this->origenVentaPedido($telefono, $senal->ocurrido_at);
+        $planNombre = null;
+        $plan = Plan::query()->find($planId);
+        if ($plan) {
+            $planNombre = (string) ($plan->nombre ?? '');
+            if ($montoPlan === null) {
+                $montoPlan = (float) ($plan->precio ?? 0);
+            }
         }
         $margenMeses = (float) config('whatsapp.agent.kpi.margen_meses_plan', 1);
         $monto = $montoPlan !== null ? round($montoPlan * $margenMeses, 2) : null;
@@ -319,46 +360,22 @@ class WaAgentAnalyticsService
         return $this->registrarEvento(
             WaAgentEvento::TIPO_VENTA_ATRIBUIDA,
             $telefono,
-            'venta_asistida',
+            $origen === 'agente' ? 'venta_agente' : 'venta_asistida',
             [
                 'canal' => 'pedido',
+                'origen' => $origen,
                 'plan_id' => $planId,
+                'plan_nombre' => $planNombre,
                 'monto' => $monto,
                 'margen_meses' => $margenMeses,
+                'senal_tipo' => $senal->tipo,
+                'senal_at' => optional($senal->ocurrido_at)->toDateTimeString(),
             ],
             null,
             $clienteId,
             null,
             $pedidoId,
             null,
-        );
-    }
-
-    public function atribuirVentaCobro(string $telefono, int $cobroId, ?int $clienteId, float $monto): ?WaAgentEvento
-    {
-        // Cobros no son "venta de plan"; se atribuyen solo si hubo comprobante agente reciente.
-        $tel = preg_replace('/\D+/', '', $telefono) ?: $telefono;
-        $horas = (int) config('whatsapp.agent.kpi.venta_ventana_horas', 72);
-        $hubo = WaAgentEvento::query()
-            ->where('sandbox', false)
-            ->where('telefono', $tel)
-            ->where('tipo', WaAgentEvento::TIPO_COMPROBANTE)
-            ->where('ocurrido_at', '>=', now()->subHours($horas))
-            ->exists();
-        if (! $hubo || $this->esSandbox($telefono)) {
-            return null;
-        }
-
-        return $this->registrarEvento(
-            WaAgentEvento::TIPO_VENTA_ATRIBUIDA,
-            $telefono,
-            'cobro_asistido',
-            ['canal' => 'cobro', 'monto' => $monto],
-            null,
-            $clienteId,
-            null,
-            null,
-            $cobroId,
         );
     }
 

@@ -142,12 +142,12 @@ return [
          */
         'canned' => [
             'beneficios' => env('WA_AGENT_TEXTO_BENEFICIOS') ?: <<<'TXT'
-Usted sabe que lo planes Estandar y Premiun tiene mas beneficios aparte de la velocidad?
--Ejemplo:
-Tenes trafico prioritario por sobre el basico, osea que tu navegacion sale primero a internet, asegurando tu coneccion estable.
--Los cambios de contraseña son totalmente bonificado, en cambio con el plan básico tenes uno solo gratis, luego ya tiene costo adicional.
-Y el servicio técnico para planes mejores tienen prioridad si le pasa algo a su servicio.
-Son algunos beneficios que tienen los planes mas elevados.
+Todos nuestros planes son buenos y válidos. La diferencia no es “internet sí o no”, sino la experiencia:
+• Tráfico prioritario en planes superiores: su navegación sale primero cuando hay mucha demanda.
+• Cambios de contraseña WiFi: en planes superiores suelen ir bonificados; en el básico hay uno gratis y luego puede tener costo.
+• Soporte técnico: si ocurre un inconveniente, los planes superiores tienen prioridad de atención.
+
+Use esto solo si el cliente pregunta por planes o beneficios, o al cerrar un caso resuelto (1 o 2 oraciones). Nunca diga que el plan básico es malo. Nunca empuje si solo quiere soporte o pagar.
 TXT,
             'transferencia' => env('WA_AGENT_TEXTO_TRANSFERENCIA') ?: <<<'TXT'
 Transferencias a esta cuenta:
