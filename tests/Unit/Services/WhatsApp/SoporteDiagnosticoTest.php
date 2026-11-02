@@ -125,6 +125,9 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('595 986 504437'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('soy Rufino Leiva Avalos no anda el wifi'));
+        $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos no anda el wifi'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('595 986 504437'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('nr 4765661'));
         $this->assertSame(
             FraseCliente::ESCALADO,
             FraseCliente::filtrar(

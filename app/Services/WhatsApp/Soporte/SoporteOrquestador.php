@@ -35,9 +35,17 @@ class SoporteOrquestador
             $cuenta = $this->cuentas->buscarEnTexto($texto);
         }
         $claveDialogo = $telefono !== '' ? $telefono : (string) ($cuenta['whatsapp'] ?? $mensaje->telefono);
-        $estadoDialogo = $this->dialogo->leer($claveDialogo);
-        if ($estadoDialogo === [] && $cuenta && ($cuenta['whatsapp'] ?? '') !== '' && ($cuenta['whatsapp'] ?? '') !== $claveDialogo) {
-            $estadoDialogo = $this->dialogo->leer((string) $cuenta['whatsapp']);
+        $clavesDialogo = array_values(array_unique(array_filter([
+            $claveDialogo,
+            (string) $mensaje->telefono,
+            (string) ($cuenta['whatsapp'] ?? ''),
+        ])));
+        $estadoDialogo = [];
+        foreach ($clavesDialogo as $clave) {
+            $estadoDialogo = $this->dialogo->leer($clave);
+            if ($estadoDialogo !== []) {
+                break;
+            }
         }
         $paso = isset($estadoDialogo['paso']) ? (string) $estadoDialogo['paso'] : '';
 
@@ -47,7 +55,11 @@ class SoporteOrquestador
         $pareceWifi = SoporteTexto::pareceCambioWifi($texto);
         $pareceImpresora = SoporteTexto::pareceImpresora($texto);
         $identificando = $paso === 'identificar';
-        if ($identificando && $cuenta) {
+        $soloIdentificador = SoporteTexto::esSoloIdentificador($texto);
+        if ($cuenta && ($identificando || ($soloIdentificador && $pareceFalla === false && $paso !== ''))) {
+            $pareceFalla = true;
+        }
+        if ($cuenta && $soloIdentificador && $identificando) {
             $pareceFalla = true;
         }
         $suspendido = $cuenta && in_array($cuenta['estado'] ?? '', ['suspendido', 'cortado'], true);
@@ -56,6 +68,7 @@ class SoporteOrquestador
             || $pareceFalla
             || $pareceWifi
             || $pareceImpresora
+            || ($cuenta && $soloIdentificador && $identificando)
             || ($suspendido && ! $parecePago && ! $pareceComprobante);
 
         if (! $entra) {
@@ -151,10 +164,9 @@ class SoporteOrquestador
             // sin oferta durante la falla
         }
 
-        $guardarEn = [
-            $claveDialogo,
+        $guardarEn = array_merge($clavesDialogo, [
             (string) ($cuenta['whatsapp'] ?? ''),
-        ];
+        ]);
         if ($decision['paso']) {
             $estado = [
                 'paso' => $decision['paso'],

@@ -190,11 +190,36 @@ class SoporteTexto
             return self::limpiarNombre($m[1]);
         }
 
+        if (preg_match(
+            '/^([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){1,4})\s+(?:no|sin|por|porque|anda|wifi|wi-fi|internet|señal|senal|reclamo|problema)\b/u',
+            $t,
+            $m
+        )) {
+            return self::limpiarNombre($m[1]);
+        }
+
         if (preg_match('/^[a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,4}$/u', $t)) {
             return self::limpiarNombre($t);
         }
 
         return null;
+    }
+
+    public static function esSoloIdentificador(?string $texto): bool
+    {
+        $raw = trim((string) $texto);
+        if ($raw === '') {
+            return false;
+        }
+        if (self::telefonoEnTexto($raw) && preg_match('/^[\d\s+().-]{8,20}$/', $raw)) {
+            return true;
+        }
+        if (self::cedulaEnTexto($raw) && preg_match('/^(?:soy|ci|c[eé]dula|documento|nro?\.?|n[ºo°])?\s*[:.]?\s*\d{5,8}$/iu', $raw)) {
+            return true;
+        }
+        $nombre = self::nombreEnTexto($raw);
+
+        return $nombre !== null && self::norm($raw) === $nombre;
     }
 
     public static function limpiarNombre(string $nombre): ?string
