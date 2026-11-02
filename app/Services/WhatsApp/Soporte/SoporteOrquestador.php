@@ -139,11 +139,35 @@ class SoporteOrquestador
             $extra['impresora'] = $impresora;
         }
 
-        if (in_array($decision['tipo'], ['escalado', 'zona'], true)) {
-            $decision['reply'] = FraseCliente::escalado($cuenta['cedula'] ?? null, $cuenta['nombre'] ?? null);
+        $nombrePila = $cuenta['nombre_pila'] ?? $cuenta['nombre'] ?? null;
+        $apellido = $cuenta['apellido'] ?? null;
+        if ($decision['tipo'] === 'escalado') {
+            $decision['reply'] = FraseCliente::escalado($cuenta['cedula'] ?? null, is_string($nombrePila) ? $nombrePila : null, is_string($apellido) ? $apellido : null);
+        } elseif ($decision['tipo'] === 'zona') {
+            $vocativo = is_string($cuenta['vocativo'] ?? null) ? $cuenta['vocativo'] : TratoCliente::vocativo(
+                is_string($nombrePila) ? $nombrePila : null,
+                is_string($apellido) ? $apellido : null,
+            );
+            $decision['reply'] = $vocativo
+                ? $vocativo.', '.mb_strtolower(mb_substr(FraseCliente::ZONA, 0, 1)).mb_substr(FraseCliente::ZONA, 1)
+                : FraseCliente::ZONA;
+        } elseif ($decision['tipo'] === 'cobranza') {
+            $decision['reply'] = FraseCliente::cobranza(
+                (float) ($cuenta['saldo'] ?? 0),
+                is_string($nombrePila) ? $nombrePila : null,
+                is_string($apellido) ? $apellido : null,
+            );
+        } elseif ($decision['tipo'] === 'resuelto' && ($decision['etiqueta'] ?? '') === 'resuelto') {
+            $decision['reply'] = FraseCliente::resuelto(
+                is_string($nombrePila) ? $nombrePila : null,
+                is_string($apellido) ? $apellido : null,
+            );
         }
 
-        $reply = FraseCliente::filtrar((string) $decision['reply'], $this->fallback($decision['tipo'], $cuenta['cedula'] ?? null, $cuenta['nombre'] ?? null));
+        $reply = FraseCliente::filtrar(
+            (string) $decision['reply'],
+            $this->fallback($decision['tipo'], $cuenta['cedula'] ?? null, is_string($nombrePila) ? $nombrePila : null, is_string($apellido) ? $apellido : null)
+        );
         $caso = $this->casos->para($decision['etiqueta'] ?? null, $texto, 1);
         if ($caso !== [] && ! in_array($decision['tipo'], ['wifi', 'escalado', 'zona'], true)) {
             $anexo = trim((string) $caso[0]['texto']);
@@ -215,12 +239,17 @@ class SoporteOrquestador
         $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
         $casos = $this->casos->para(null, (string) $mensaje->cuerpo, 3);
 
+        $estilo = app(EstiloInterplus::class)->texto();
+
         return [
             'estado_servicio' => $cuenta['estado'] ?? null,
             'saldo_pendiente' => $cuenta['saldo'] ?? null,
             'dias_mora' => $cuenta['dias_mora'] ?? null,
             'contexto_cuenta' => $this->textoCuenta($cuenta),
+            'trato' => $cuenta['trato'] ?? null,
+            'vocativo' => $cuenta['vocativo'] ?? null,
             'conocimiento' => $casos,
+            'estilo_interplus' => $estilo,
         ];
     }
 
@@ -316,15 +345,15 @@ class SoporteOrquestador
         return $medicion;
     }
 
-    private function fallback(string $tipo, ?string $cedula = null, ?string $nombre = null): string
+    private function fallback(string $tipo, ?string $cedula = null, ?string $nombre = null, ?string $apellido = null): string
     {
         return match ($tipo) {
-            'cobranza' => FraseCliente::cobranza(0),
+            'cobranza' => FraseCliente::cobranza(0, $nombre, $apellido),
             'pregunta' => FraseCliente::PREGUNTA_SINTOMA,
             'accion' => FraseCliente::CABLE,
-            'resuelto' => FraseCliente::RESUELTO,
-            'zona', 'escalado' => FraseCliente::escalado($cedula, $nombre),
-            default => FraseCliente::escalado($cedula, $nombre),
+            'resuelto' => FraseCliente::resuelto($nombre, $apellido),
+            'zona', 'escalado' => FraseCliente::escalado($cedula, $nombre, $apellido),
+            default => FraseCliente::escalado($cedula, $nombre, $apellido),
         };
     }
 

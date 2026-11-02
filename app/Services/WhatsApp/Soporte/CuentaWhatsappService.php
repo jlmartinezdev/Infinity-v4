@@ -80,14 +80,21 @@ class CuentaWhatsappService
         $servicio = $this->servicioPrincipal($cliente);
         $plan = $servicio?->plan;
         $saldos = $this->saldos((int) $cliente->cliente_id);
-        $nombre = trim(trim((string) $cliente->nombre).' '.trim((string) $cliente->apellido));
+        $nombrePila = trim((string) $cliente->nombre);
+        $apellido = trim((string) $cliente->apellido);
+        $nombre = trim($nombrePila.' '.$apellido);
+        $trato = TratoCliente::resolver($nombrePila, $apellido);
         $wa = $this->whatsapp->normalizePhone($telefono)
             ?: $this->whatsapp->normalizePhone($cliente->telefono)
             ?: (string) ($telefono ?: $cliente->telefono);
 
         return [
             'cliente_id' => (int) $cliente->cliente_id,
-            'nombre' => $nombre !== '' ? $nombre : (string) $cliente->nombre,
+            'nombre' => $nombre !== '' ? $nombre : $nombrePila,
+            'nombre_pila' => $nombrePila !== '' ? $nombrePila : null,
+            'apellido' => $apellido !== '' ? $apellido : null,
+            'trato' => $trato['trato'],
+            'vocativo' => $trato['vocativo'],
             'cedula' => FraseCliente::cedulaVisible($cliente->cedula),
             'estado' => $this->estado($servicio?->estado),
             'saldo' => $saldos['saldo'],

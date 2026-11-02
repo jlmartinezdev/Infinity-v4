@@ -81,11 +81,11 @@ return [
         'timeout_ms' => (int) env('N8N_WA_AGENT_TIMEOUT_MS', 25000),
         'fallback_message' => env(
             'WA_AGENT_FALLBACK_MESSAGE',
-            'Gracias por escribir a Interplus. Un asesor te responde en breve por este mismo WhatsApp.'
+            'Recibimos su mensaje. Un asesor le responde en breve por este mismo WhatsApp.'
         ),
         'escalate_message' => env(
             'WA_AGENT_ESCALATE_MESSAGE',
-            'Agradecemos tu aviso. De inmediato estaremos verificando y monitoreando tu servicio para poder ayudarte.'
+            'Recibimos su aviso. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.'
         ),
         /** Si un humano (panel o app Business) escribió en las últimas N horas, no llamar a N8N. Solo aplica con auto_send. */
         'humano_silencio_horas' => (int) env('WA_AGENT_HUMANO_SILENCIO_HORAS', 2),

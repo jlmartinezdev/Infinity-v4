@@ -3,60 +3,62 @@
 namespace App\Services\WhatsApp\Soporte;
 
 /**
- * Frases permitidas al cliente. Si un texto se escapa con una medición, se descarta.
+ * Frases permitidas al cliente. Voz formal (usted). Sin mediciones ni teléfono.
  */
 class FraseCliente
 {
-    public const RESUELTO = 'Ya revisamos tu conexión y está funcionando bien. Si vuelve a fallar, escribinos.';
+    public const RESUELTO = 'Ya revisamos su conexión y está funcionando bien. Fue un placer atender su reclamo. Quedamos a las órdenes.';
 
-    public const ESCALADO = 'Agradecemos tu aviso. De inmediato estaremos verificando y monitoreando tu servicio para poder ayudarte.';
+    public const ESCALADO = 'Recibimos su aviso. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
 
-    public const ZONA = 'Detectamos un inconveniente en tu zona y ya lo estamos revisando.';
+    public const ZONA = 'Detectamos un inconveniente en su zona y ya lo estamos revisando.';
 
-    public const CABLE = 'Revisá que el cable que entra al router esté bien enchufado. Cuando lo hagas, escribinos.';
+    public const CABLE = 'Revise que el cable que entra al router esté bien enchufado. Cuando lo haga, escribanos por aquí.';
 
-    public const ACERCATE = 'Probá acercarte al router de tu casa y volvé a conectarte al WiFi.';
+    public const ACERCATE = 'Pruebe acercarse al router de su casa y vuelva a conectarse al WiFi.';
 
-    public const PREGUNTA_SINTOMA = '¿No te anda nada o solo una página?';
+    public const PREGUNTA_SINTOMA = '¿No le anda nada o solo una página?';
 
-    public const PREGUNTA_EQUIPO = '¿Te pasa en todos los aparatos o en uno? Decime el número del equipo:';
+    public const PREGUNTA_EQUIPO = '¿Le pasa en todos los aparatos o en uno? Indíquenos el número del equipo:';
 
-    public const SIN_CUENTA = 'No encuentro un servicio con este número. Escribí tu cédula, tu WhatsApp registrado o tu nombre completo tal como figura en la factura.';
+    public const SIN_CUENTA = 'No encontramos un servicio con este número. Escriba su cédula, su WhatsApp registrado o su nombre completo tal como figura en la factura.';
 
-    public const SITIO_MAL = 'Esa página no está respondiendo ahora. Tu conexión está bien.';
+    public const SITIO_MAL = 'Esa página no está respondiendo ahora. Su conexión está bien.';
 
-    public const SITIO_BIEN = 'Ya revisamos y esa página abre bien desde tu conexión.';
+    public const SITIO_BIEN = 'Ya revisamos y esa página abre bien desde su conexión.';
 
-    public const IMPRESORA = 'Encontramos la impresora y la dejamos lista. Si en la computadora no aparece, avisanos y te pasamos un archivo para volver a conectarla.';
+    public const IMPRESORA = 'Encontramos la impresora y la dejamos lista. Si en la computadora no aparece, avísenos y le pasamos un archivo para volver a conectarla.';
 
-    public const IMPRESORA_NO = 'No vimos la impresora conectada en este momento. Revisá que esté encendida y en la misma red, y escribinos de nuevo.';
+    public const IMPRESORA_NO = 'No vimos la impresora conectada en este momento. Revise que esté encendida y en la misma red, y escribanos de nuevo.';
 
-    public static function escalado(?string $cedula, ?string $nombre = null): string
+    public const CIERRE = 'Fue un placer atender su reclamo. Quedamos a las órdenes.';
+
+    public static function escalado(?string $cedula, ?string $nombre = null, ?string $apellido = null): string
     {
-        $quien = self::nombreVisible($nombre);
-        $apertura = $quien ? "{$quien}, agradecemos tu aviso." : 'Agradecemos tu aviso.';
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        $apertura = $vocativo ? "{$vocativo}, recibimos su aviso." : 'Recibimos su aviso.';
         $visible = self::cedulaVisible($cedula);
-        $registro = $visible ? " Registramos tu número de cédula {$visible}." : '';
+        $registro = $visible ? " Registramos su número de cédula {$visible}." : '';
 
         return $apertura
-            .' De inmediato estaremos verificando y monitoreando tu servicio para poder ayudarte.'
+            .' De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.'
             .$registro;
+    }
+
+    public static function resuelto(?string $nombre = null, ?string $apellido = null): string
+    {
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        $cuerpo = 'Ya revisamos su conexión y está funcionando bien.';
+        if ($vocativo) {
+            $cuerpo = "{$vocativo}, ya revisamos su conexión y está funcionando bien.";
+        }
+
+        return $cuerpo.' '.self::CIERRE;
     }
 
     public static function nombreVisible(?string $nombre): ?string
     {
-        $nombre = trim((string) $nombre);
-        if ($nombre === '') {
-            return null;
-        }
-
-        $primero = preg_split('/\s+/u', $nombre)[0] ?? '';
-        $primero = trim((string) $primero, ".,");
-        if ($primero === '') {
-            return null;
-        }
-
-        return mb_convert_case(mb_strtolower($primero), MB_CASE_TITLE, 'UTF-8');
+        return TratoCliente::primerNombre($nombre);
     }
 
     public static function cedulaVisible(?string $cedula): ?string
@@ -70,31 +72,33 @@ class FraseCliente
         return preg_replace('/\B(?=(\d{3})+(?!\d))/', '.', $digitos) ?: $digitos;
     }
 
-    public static function cobranza(float $saldo): string
+    public static function cobranza(float $saldo, ?string $nombre = null, ?string $apellido = null): string
     {
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        $pref = $vocativo ? "{$vocativo}, " : '';
         if ($saldo > 0) {
             $monto = number_format($saldo, 0, ',', '.');
 
-            return "Tu servicio está suspendido. El saldo pendiente es de {$monto} guaraníes. Cuando el pago se acredite, se reactiva solo. Si ya pagaste, enviá el comprobante por acá.";
+            return "{$pref}su servicio está suspendido. El saldo pendiente es de {$monto} guaraníes. Cuando el pago se acredite, se reactiva solo. Si ya pagó, envíe el comprobante por aquí.";
         }
 
-        return 'Tu servicio está suspendido. Cuando el pago se acredite, se reactiva solo. Si ya pagaste, enviá el comprobante por acá.';
+        return "{$pref}su servicio está suspendido. Cuando el pago se acredite, se reactiva solo. Si ya pagó, envíe el comprobante por aquí.";
     }
 
     public static function wifiPendiente(string $clave, ?string $ssid): string
     {
         $red = $ssid ? " La red quedaría como «{$ssid}»." : '';
 
-        return "Anoté el pedido para cambiar la clave del WiFi.{$red} La clave nueva sería {$clave}. En esta prueba todavía no la cambio.";
+        return "Anotamos el pedido para cambiar la clave del WiFi.{$red} La clave nueva sería {$clave}. En esta prueba todavía no la cambiamos.";
     }
 
     public static function wifiAplicado(string $clave, ?string $ssid): string
     {
         if ($ssid) {
-            return "Listo. La red ahora se llama «{$ssid}» y la clave es {$clave}. Conectate de nuevo con esos datos.";
+            return "Listo. La red ahora se llama «{$ssid}» y la clave es {$clave}. Conéctese de nuevo con esos datos.";
         }
 
-        return "Listo. La clave nueva de tu WiFi es {$clave}. Conectate de nuevo con esa clave.";
+        return "Listo. La clave nueva de su WiFi es {$clave}. Conéctese de nuevo con esa clave.";
     }
 
     public static function listaEquipos(array $nombres): string
@@ -108,7 +112,7 @@ class FraseCliente
     }
 
     /**
-     * Si la frase menciona una medición de red, vuelve a la frase fija.
+     * Si la frase menciona una medición de red o tono prohibido, vuelve a la frase fija.
      */
     public static function filtrar(?string $reply, string $fallback): string
     {
@@ -132,7 +136,7 @@ class FraseCliente
         if (preg_match('/\+?595[\s.-]*9\d{2}[\s.-]*\d{3}[\s.-]*\d{3}|\b971[\s.-]*714[\s.-]*322\b/u', $reply)) {
             return $fallback;
         }
-        if (preg_match('/comunicarte al|atenci[oó]n directa|te saluda interplus|lamentamos/iu', $reply)) {
+        if (preg_match('/comunicarte al|atenci[oó]n directa|te saluda interplus|lamentamos|agradecemos (tu|su) aviso/iu', $reply)) {
             return $fallback;
         }
 

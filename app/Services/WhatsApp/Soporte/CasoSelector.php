@@ -6,6 +6,10 @@ use App\Models\WaCaso;
 
 class CasoSelector
 {
+    public function __construct(
+        private readonly EstiloInterplus $estilo,
+    ) {}
+
     /**
      * @return list<array{titulo: string, texto: string}>
      */
@@ -14,7 +18,7 @@ class CasoSelector
         try {
             $casos = WaCaso::query()->where('activo', true)->orderBy('id')->get();
         } catch (\Throwable) {
-            return [];
+            $casos = collect();
         }
 
         $texto = SoporteTexto::norm($mensaje);
@@ -36,9 +40,17 @@ class CasoSelector
         }
 
         $salida = [];
+        $estilo = trim($this->estilo->texto());
+        if ($estilo !== '') {
+            $salida[] = [
+                'titulo' => 'Estilo Interplus',
+                'texto' => $estilo,
+            ];
+        }
+
         foreach (array_slice($elegidos, 0, $max) as $caso) {
             $limpio = FraseCliente::filtrar((string) $caso->texto, '');
-            if ($limpio === '' || $limpio === (string) $caso->texto && $this->tieneMedicion((string) $caso->texto)) {
+            if ($limpio === '' || ($limpio === (string) $caso->texto && $this->tieneMedicion((string) $caso->texto))) {
                 continue;
             }
             if ($this->tieneMedicion($limpio)) {

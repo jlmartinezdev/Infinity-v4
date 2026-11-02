@@ -7,6 +7,7 @@ use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Services\WhatsApp\Soporte\FraseCliente;
+use App\Services\WhatsApp\Soporte\TratoCliente;
 
 /**
  * Resumen de cliente para el agente N8N (GET /api/v1/clientes/por-telefono).
@@ -54,12 +55,16 @@ class ClientePorTelefonoService
         $nombre = trim(trim((string) $cliente->nombre).' '.trim((string) $cliente->apellido));
         $hilo = $this->agent->hiloParaTelefono($waId ?: $this->whatsapp->normalizePhone($cliente->telefono));
         $planInfo = $plan ? WhatsAppAgentService::serializarPlanWa($plan) : null;
+        $trato = TratoCliente::resolver((string) $cliente->nombre, (string) $cliente->apellido);
 
         return [
             'encontrado' => true,
             'cliente_id' => (int) $cliente->cliente_id,
             'nombre' => $nombre !== '' ? $nombre : (string) $cliente->nombre,
             'nombre_corto' => $this->nombreCorto((string) $cliente->nombre),
+            'apellido' => trim((string) $cliente->apellido) !== '' ? trim((string) $cliente->apellido) : null,
+            'trato' => $trato['trato'],
+            'vocativo' => $trato['vocativo'],
             'cedula' => FraseCliente::cedulaVisible($cliente->cedula),
             'plan' => $planInfo['nombre'] ?? $plan?->nombre,
             'plan_id' => $plan?->plan_id ? (int) $plan->plan_id : null,

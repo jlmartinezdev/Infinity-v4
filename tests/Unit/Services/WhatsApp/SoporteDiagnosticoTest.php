@@ -6,6 +6,7 @@ use App\Services\Ubnt\McaStatusParser;
 use App\Services\WhatsApp\Soporte\EvaluadorDiagnostico;
 use App\Services\WhatsApp\Soporte\FraseCliente;
 use App\Services\WhatsApp\Soporte\SoporteTexto;
+use App\Services\WhatsApp\Soporte\TratoCliente;
 use PHPUnit\Framework\TestCase;
 
 class SoporteDiagnosticoTest extends TestCase
@@ -98,16 +99,25 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue($datos['lan_conectado']);
     }
 
-    public function test_escalado_nombra_la_cedula_del_cliente(): void
+    public function test_trato_por_nombre_y_escalado_formal(): void
     {
-        $texto = FraseCliente::escalado('7156404', 'María López');
+        $this->assertSame('Señor', TratoCliente::resolver('Rufino', 'Leiva Avalos')['trato']);
+        $this->assertSame('Señor Leiva', TratoCliente::vocativo('Rufino', 'Leiva Avalos'));
+        $this->assertSame('Señora', TratoCliente::resolver('María', 'López')['trato']);
+        $this->assertSame('Señora López', TratoCliente::vocativo('María', 'López'));
+        $this->assertNull(TratoCliente::generoDe('Alex'));
 
-        $this->assertStringContainsString('María, agradecemos tu aviso.', $texto);
-        $this->assertStringContainsString('De inmediato estaremos verificando y monitoreando tu servicio', $texto);
+        $texto = FraseCliente::escalado('7156404', 'María', 'López');
+        $this->assertStringContainsString('Señora López, recibimos su aviso.', $texto);
+        $this->assertStringContainsString('monitoreando su servicio', $texto);
         $this->assertStringContainsString('7.156.404', $texto);
         $this->assertStringNotContainsString('971 714 322', $texto);
+        $this->assertStringNotContainsString('agradecemos', mb_strtolower($texto));
         $this->assertStringNotContainsString('Lamentamos', $texto);
-        $this->assertStringNotContainsString('Te saluda Interplus', $texto);
+
+        $cierre = FraseCliente::resuelto('Rufino', 'Leiva');
+        $this->assertStringContainsString('Señor Leiva', $cierre);
+        $this->assertStringContainsString(FraseCliente::CIERRE, $cierre);
     }
 
     public function test_clasifica_cambio_de_wifi_y_un_sitio(): void
@@ -134,6 +144,10 @@ class SoporteDiagnosticoTest extends TestCase
                 'Un técnico revisará tu línea. Comunicate al +595 971 714 322.',
                 FraseCliente::ESCALADO
             )
+        );
+        $this->assertSame(
+            FraseCliente::ESCALADO,
+            FraseCliente::filtrar('María, agradecemos tu aviso.', FraseCliente::ESCALADO)
         );
     }
 }
