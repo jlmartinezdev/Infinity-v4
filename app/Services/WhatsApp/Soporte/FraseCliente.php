@@ -165,6 +165,7 @@ class FraseCliente
 
     /**
      * Si la frase menciona una medición de red o tono prohibido, vuelve a la frase fija.
+     * Saludos de marca se recortan; se conserva el resto útil del mensaje.
      */
     public static function filtrar(?string $reply, string $fallback): string
     {
@@ -188,10 +189,70 @@ class FraseCliente
         if (preg_match('/\+?595[\s.-]*9\d{2}[\s.-]*\d{3}[\s.-]*\d{3}|\b971[\s.-]*714[\s.-]*322\b/u', $reply)) {
             return $fallback;
         }
-        if (preg_match('/comunicarte al|atenci[oó]n directa|te saluda interplus|lamentamos|agradecemos (tu|su) aviso|recibimos tu comprobante|¡hola!/iu', $reply)) {
+        if (preg_match('/comunicarte al|atenci[oó]n directa/iu', $reply)) {
+            return $fallback;
+        }
+
+        $reply = self::recortarSaludoMarca($reply);
+        if ($reply === '') {
+            return $fallback;
+        }
+        if (preg_match('/recibimos tu comprobante/iu', $reply)) {
             return $fallback;
         }
 
         return $reply;
+    }
+
+    /** Quita aperturas tipo “Hola, te saluda Interplus / lamentamos…”. */
+    public static function recortarSaludoMarca(string $reply): string
+    {
+        $out = trim($reply);
+        for ($i = 0; $i < 3; $i++) {
+            $prev = $out;
+            $out = preg_replace(
+                '/^(?:¡?\s*)?(?:hola|buenos?\s+d[ií]as|buen\s+d[ií]a|buenas\s+tardes|qu[eé]\s+tal)[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
+            $out = preg_replace(
+                '/^(?:te\s+)?salud(?:a|amos)(?:\s+de)?\s+interplus[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
+            $out = preg_replace(
+                '/^soy\s+de\s+interplus[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
+            $out = preg_replace(
+                '/^en\s+interplus[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
+            $out = preg_replace(
+                '/^lamentamos[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
+            $out = preg_replace(
+                '/^agradecemos\s+(?:tu|su)\s+aviso[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
+            $out = trim($out);
+            if ($out === $prev) {
+                break;
+            }
+        }
+
+        // Si aún queda la marca en la primera línea, descartar esa línea.
+        $lineas = preg_split('/\R+/', $out) ?: [];
+        if ($lineas !== [] && preg_match('/interplus|te saluda|lamentamos/iu', $lineas[0] ?? '')) {
+            array_shift($lineas);
+            $out = trim(implode("\n", $lineas));
+        }
+
+        return $out;
     }
 }
