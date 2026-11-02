@@ -27,6 +27,10 @@ class EvaluadorDiagnostico
             return $this->cerrar('cobranza', FraseCliente::cobranza((float) ($in['saldo'] ?? 0)), false, null, null, 'cobranza');
         }
 
+        if ($comprobante) {
+            return $this->cerrar('comprobante', FraseCliente::comprobante(), true, 'comprobante', null, 'comprobante');
+        }
+
         if ($incidente && ($paso !== '' || (bool) ($in['parece_falla'] ?? false) || (bool) ($in['parece_impresora'] ?? false))) {
             return $this->cerrar('zona', FraseCliente::zona(), false, null, null, 'zona');
         }

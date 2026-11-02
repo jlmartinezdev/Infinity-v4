@@ -146,6 +146,28 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertStringContainsString('novedades', mb_strtolower($decision['reply']));
     }
 
+    public function test_comprobante_responde_formal_sin_saludo_interplus(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'parece_comprobante' => true,
+            'texto' => 'te mando el comprobante',
+            'medicion' => [],
+        ]);
+
+        $this->assertSame('comprobante', $decision['tipo']);
+        $this->assertTrue($decision['escalate']);
+
+        $enHorario = FraseCliente::comprobante('Gloria', 'Benítez', true);
+        $fuera = FraseCliente::comprobante('Gloria', 'Benítez', false);
+        $this->assertStringContainsString('Señora Benítez, gracias por enviarnos su comprobante', $enHorario);
+        $this->assertStringContainsString('en breve', mb_strtolower($enHorario));
+        $this->assertStringContainsString('lunes a viernes', mb_strtolower($fuera));
+        $this->assertStringNotContainsString('Te saluda', $enHorario);
+        $this->assertStringNotContainsString('tu comprobante', $enHorario);
+        $this->assertStringNotContainsString('¡Hola', $enHorario);
+    }
+
     public function test_clasifica_cambio_de_wifi_y_un_sitio(): void
     {
         $this->assertTrue(SoporteTexto::pareceCambioWifi('cambia la clave del wifi'));

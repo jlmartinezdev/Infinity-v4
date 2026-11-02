@@ -50,7 +50,13 @@ class SoporteOrquestador
         $paso = isset($estadoDialogo['paso']) ? (string) $estadoDialogo['paso'] : '';
 
         $parecePago = WhatsAppAgentService::textoParecePago($texto);
-        $pareceComprobante = WhatsAppAgentService::detectarComprobante('text', $texto);
+        $tipoImagen = (string) data_get($mensaje->payload, 'wa_vision.tipo', '');
+        $pareceComprobante = WhatsAppAgentService::detectarComprobante(
+            (string) ($mensaje->tipo ?: 'text'),
+            (string) $mensaje->cuerpo,
+            [],
+            $tipoImagen !== '' ? $tipoImagen : null,
+        );
         $pareceFalla = SoporteTexto::pareceFalla($texto) && ! WhatsAppAgentService::textoPareceInstalacion($texto);
         $pareceWifi = SoporteTexto::pareceCambioWifi($texto);
         $pareceImpresora = SoporteTexto::pareceImpresora($texto);
@@ -68,6 +74,7 @@ class SoporteOrquestador
             || $pareceFalla
             || $pareceWifi
             || $pareceImpresora
+            || $pareceComprobante
             || ($cuenta && $soloIdentificador && $identificando)
             || ($suspendido && ! $parecePago && ! $pareceComprobante);
 
@@ -149,6 +156,12 @@ class SoporteOrquestador
                 is_string($apellido) ? $apellido : null,
             );
             $this->incidentes->registrarAviso($cuenta ?? [], (string) $mensaje->telefono, $sandbox);
+        } elseif ($decision['tipo'] === 'comprobante') {
+            $decision['reply'] = FraseCliente::comprobante(
+                is_string($nombrePila) ? $nombrePila : null,
+                is_string($apellido) ? $apellido : null,
+                WhatsAppAgentService::horarioLaboral(),
+            );
         } elseif ($decision['tipo'] === 'cobranza') {
             $decision['reply'] = FraseCliente::cobranza(
                 (float) ($cuenta['saldo'] ?? 0),
@@ -167,7 +180,7 @@ class SoporteOrquestador
             $this->fallback($decision['tipo'], $cuenta['cedula'] ?? null, is_string($nombrePila) ? $nombrePila : null, is_string($apellido) ? $apellido : null)
         );
         $caso = $this->casos->para($decision['etiqueta'] ?? null, $texto, 1);
-        if ($caso !== [] && ! in_array($decision['tipo'], ['wifi', 'escalado', 'zona'], true)) {
+        if ($caso !== [] && ! in_array($decision['tipo'], ['wifi', 'escalado', 'zona', 'comprobante'], true)) {
             $anexo = trim((string) $caso[0]['texto']);
             if ($anexo !== '' && ! str_contains($reply, $anexo)) {
                 $reply = rtrim($reply)."\n\n".$anexo;
@@ -175,7 +188,7 @@ class SoporteOrquestador
         }
 
         $bloquearOferta = $decision['escalate']
-            || in_array($decision['tipo'], ['cobranza', 'pregunta', 'accion', 'zona', 'wifi', 'escalado'], true)
+            || in_array($decision['tipo'], ['cobranza', 'pregunta', 'accion', 'zona', 'wifi', 'escalado', 'comprobante'], true)
             || $paso !== '' && $decision['paso'] !== null;
         if ($decision['tipo'] === 'resuelto') {
             $oferta = $this->ofertas->sugerir($cuenta, false);
@@ -351,6 +364,7 @@ class SoporteOrquestador
             'accion' => FraseCliente::CABLE,
             'resuelto' => FraseCliente::resuelto($nombre, $apellido),
             'zona' => FraseCliente::zona($nombre, $apellido),
+            'comprobante' => FraseCliente::comprobante($nombre, $apellido),
             'escalado' => FraseCliente::escalado($cedula, $nombre, $apellido),
             default => FraseCliente::escalado($cedula, $nombre, $apellido),
         };

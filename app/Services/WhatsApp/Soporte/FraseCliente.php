@@ -15,6 +15,8 @@ class FraseCliente
 
     public const ZONA_RESTABLECIDA = 'El servicio en su zona ya está restablecido. Puede volver a utilizar internet con normalidad.';
 
+    public const COMPROBANTE = 'Gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registrará en breve. Quedamos a las órdenes.';
+
     public const CABLE = 'Revise que el cable que entra al router esté bien enchufado. Cuando lo haga, escribanos por aquí.';
 
     public const ACERCATE = 'Pruebe acercarse al router de su casa y vuelva a conectarse al WiFi.';
@@ -43,6 +45,18 @@ class FraseCliente
         }
 
         return self::ZONA;
+    }
+
+    public static function comprobante(?string $nombre = null, ?string $apellido = null, ?bool $enHorario = null): string
+    {
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        $pref = $vocativo ? "{$vocativo}, " : '';
+        $enHorario ??= true;
+        if ($enHorario) {
+            return "{$pref}gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registrará en breve. Quedamos a las órdenes.";
+        }
+
+        return "{$pref}gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registra de lunes a viernes, de 9 a 18. Quedamos a las órdenes.";
     }
 
     public static function zonaRestablecida(?string $nombre = null, ?string $apellido = null): string
@@ -159,7 +173,7 @@ class FraseCliente
         if (preg_match('/\+?595[\s.-]*9\d{2}[\s.-]*\d{3}[\s.-]*\d{3}|\b971[\s.-]*714[\s.-]*322\b/u', $reply)) {
             return $fallback;
         }
-        if (preg_match('/comunicarte al|atenci[oó]n directa|te saluda interplus|lamentamos|agradecemos (tu|su) aviso/iu', $reply)) {
+        if (preg_match('/comunicarte al|atenci[oó]n directa|te saluda interplus|lamentamos|agradecemos (tu|su) aviso|recibimos tu comprobante|¡hola!/iu', $reply)) {
             return $fallback;
         }
 
