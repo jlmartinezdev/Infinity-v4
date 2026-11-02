@@ -28,7 +28,7 @@ class EvaluadorDiagnostico
         }
 
         if ($incidente && ($paso !== '' || (bool) ($in['parece_falla'] ?? false) || (bool) ($in['parece_impresora'] ?? false))) {
-            return $this->cerrar('zona', FraseCliente::ZONA, false, null, null, 'zona');
+            return $this->cerrar('zona', FraseCliente::zona(), false, null, null, 'zona');
         }
 
         if ((bool) ($in['parece_wifi'] ?? false)) {

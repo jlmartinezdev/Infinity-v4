@@ -118,6 +118,32 @@ class SoporteDiagnosticoTest extends TestCase
         $cierre = FraseCliente::resuelto('Rufino', 'Leiva');
         $this->assertStringContainsString('Señor Leiva', $cierre);
         $this->assertStringContainsString(FraseCliente::CIERRE, $cierre);
+
+        $zona = FraseCliente::zona('Gloria', 'Benítez');
+        $this->assertStringContainsString('Señora Benítez, gracias por avisarnos', $zona);
+        $this->assertStringContainsString('novedades', mb_strtolower($zona));
+        $this->assertStringContainsString('órdenes', $zona);
+        $this->assertStringNotContainsString('agradecemos', mb_strtolower($zona));
+
+        $ok = FraseCliente::zonaRestablecida('Gloria', 'Benítez');
+        $this->assertStringContainsString('Señora Benítez', $ok);
+        $this->assertStringContainsString('restablecido', mb_strtolower($ok));
+        $this->assertStringContainsString(FraseCliente::CIERRE, $ok);
+    }
+
+    public function test_incidente_de_zona_usa_frase_con_agradecimiento(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'parece_falla' => true,
+            'incidente' => true,
+            'texto' => 'sin internet desde la tarde',
+            'medicion' => [],
+        ]);
+
+        $this->assertSame('zona', $decision['tipo']);
+        $this->assertStringContainsString('gracias por avisarnos', mb_strtolower($decision['reply']));
+        $this->assertStringContainsString('novedades', mb_strtolower($decision['reply']));
     }
 
     public function test_clasifica_cambio_de_wifi_y_un_sitio(): void

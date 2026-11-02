@@ -100,6 +100,8 @@ return [
         'auto_ticket' => (bool) env('WA_AGENT_AUTO_TICKET', false),
         /** WhatsApp al administrador con el resumen técnico. Apagado en prueba. */
         'aviso_admin' => (bool) env('WA_AGENT_AVISO_ADMIN', false),
+        /** Avisa por WhatsApp a quienes reclamaron cuando se cierra el incidente de zona. */
+        'zona_aviso' => (bool) env('WA_AGENT_ZONA_AVISO', true),
         /** Cambia la clave WiFi solo si el número es el del cliente y esto está en true. */
         'wifi_auto' => (bool) env('WA_AGENT_WIFI_AUTO', false),
         /** Deja fijo el lease DHCP de una impresora en el MikroTik. No toca la antena. */

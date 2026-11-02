@@ -144,13 +144,11 @@ class SoporteOrquestador
         if ($decision['tipo'] === 'escalado') {
             $decision['reply'] = FraseCliente::escalado($cuenta['cedula'] ?? null, is_string($nombrePila) ? $nombrePila : null, is_string($apellido) ? $apellido : null);
         } elseif ($decision['tipo'] === 'zona') {
-            $vocativo = is_string($cuenta['vocativo'] ?? null) ? $cuenta['vocativo'] : TratoCliente::vocativo(
+            $decision['reply'] = FraseCliente::zona(
                 is_string($nombrePila) ? $nombrePila : null,
                 is_string($apellido) ? $apellido : null,
             );
-            $decision['reply'] = $vocativo
-                ? $vocativo.', '.mb_strtolower(mb_substr(FraseCliente::ZONA, 0, 1)).mb_substr(FraseCliente::ZONA, 1)
-                : FraseCliente::ZONA;
+            $this->incidentes->registrarAviso($cuenta ?? [], (string) $mensaje->telefono, $sandbox);
         } elseif ($decision['tipo'] === 'cobranza') {
             $decision['reply'] = FraseCliente::cobranza(
                 (float) ($cuenta['saldo'] ?? 0),
@@ -352,7 +350,8 @@ class SoporteOrquestador
             'pregunta' => FraseCliente::PREGUNTA_SINTOMA,
             'accion' => FraseCliente::CABLE,
             'resuelto' => FraseCliente::resuelto($nombre, $apellido),
-            'zona', 'escalado' => FraseCliente::escalado($cedula, $nombre, $apellido),
+            'zona' => FraseCliente::zona($nombre, $apellido),
+            'escalado' => FraseCliente::escalado($cedula, $nombre, $apellido),
             default => FraseCliente::escalado($cedula, $nombre, $apellido),
         };
     }

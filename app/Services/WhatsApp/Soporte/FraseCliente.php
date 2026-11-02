@@ -11,7 +11,9 @@ class FraseCliente
 
     public const ESCALADO = 'Recibimos su aviso. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
 
-    public const ZONA = 'Detectamos un inconveniente en su zona y ya lo estamos revisando.';
+    public const ZONA = 'Gracias por avisarnos. Detectamos un inconveniente en su zona y ya lo estamos revisando. Apenas tengamos novedades, se lo estaremos comunicando. Quedamos a las órdenes.';
+
+    public const ZONA_RESTABLECIDA = 'El servicio en su zona ya está restablecido. Puede volver a utilizar internet con normalidad.';
 
     public const CABLE = 'Revise que el cable que entra al router esté bien enchufado. Cuando lo haga, escribanos por aquí.';
 
@@ -32,6 +34,27 @@ class FraseCliente
     public const IMPRESORA_NO = 'No vimos la impresora conectada en este momento. Revise que esté encendida y en la misma red, y escribanos de nuevo.';
 
     public const CIERRE = 'Fue un placer atender su reclamo. Quedamos a las órdenes.';
+
+    public static function zona(?string $nombre = null, ?string $apellido = null): string
+    {
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        if ($vocativo) {
+            return $vocativo.', gracias por avisarnos. Detectamos un inconveniente en su zona y ya lo estamos revisando. Apenas tengamos novedades, se lo estaremos comunicando. Quedamos a las órdenes.';
+        }
+
+        return self::ZONA;
+    }
+
+    public static function zonaRestablecida(?string $nombre = null, ?string $apellido = null): string
+    {
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        $cuerpo = self::ZONA_RESTABLECIDA;
+        if ($vocativo) {
+            $cuerpo = "{$vocativo}, ".mb_strtolower(mb_substr($cuerpo, 0, 1)).mb_substr($cuerpo, 1);
+        }
+
+        return $cuerpo.' '.self::CIERRE;
+    }
 
     public static function escalado(?string $cedula, ?string $nombre = null, ?string $apellido = null): string
     {
