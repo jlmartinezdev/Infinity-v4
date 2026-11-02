@@ -116,4 +116,17 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame('facebook.com', SoporteTexto::sitio('no me abre facebook'));
         $this->assertTrue(SoporteTexto::pareceFalla('no anda internet'));
     }
+
+    public function test_saca_cedula_y_telefono_del_texto(): void
+    {
+        $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('soy 4765661 Por que no anda la señal de wifi'));
+        $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('595 986 504437'));
+        $this->assertSame(
+            FraseCliente::ESCALADO,
+            FraseCliente::filtrar(
+                'Un técnico revisará tu línea. Comunicate al +595 971 714 322.',
+                FraseCliente::ESCALADO
+            )
+        );
+    }
 }

@@ -31,7 +31,14 @@ class SoporteOrquestador
         $telefono = $this->telefonoCuenta($mensaje);
         $texto = trim((string) $mensaje->cuerpo);
         $cuenta = $this->cuentas->buscar($telefono);
-        $estadoDialogo = $this->dialogo->leer($telefono);
+        if (! $cuenta) {
+            $cuenta = $this->cuentas->buscarEnTexto($texto);
+        }
+        $claveDialogo = $telefono !== '' ? $telefono : (string) ($cuenta['whatsapp'] ?? $mensaje->telefono);
+        $estadoDialogo = $this->dialogo->leer($claveDialogo);
+        if ($estadoDialogo === [] && $cuenta && ($cuenta['whatsapp'] ?? '') !== '' && ($cuenta['whatsapp'] ?? '') !== $claveDialogo) {
+            $estadoDialogo = $this->dialogo->leer((string) $cuenta['whatsapp']);
+        }
         $paso = isset($estadoDialogo['paso']) ? (string) $estadoDialogo['paso'] : '';
 
         $parecePago = WhatsAppAgentService::textoParecePago($texto);
@@ -39,6 +46,10 @@ class SoporteOrquestador
         $pareceFalla = SoporteTexto::pareceFalla($texto) && ! WhatsAppAgentService::textoPareceInstalacion($texto);
         $pareceWifi = SoporteTexto::pareceCambioWifi($texto);
         $pareceImpresora = SoporteTexto::pareceImpresora($texto);
+        $identificando = $paso === 'identificar';
+        if ($identificando && $cuenta) {
+            $pareceFalla = true;
+        }
         $suspendido = $cuenta && in_array($cuenta['estado'] ?? '', ['suspendido', 'cortado'], true);
 
         $entra = $paso !== ''
@@ -51,8 +62,12 @@ class SoporteOrquestador
             return null;
         }
 
-        if (! $cuenta && ($pareceFalla || $paso !== '' || $pareceImpresora || $pareceWifi)) {
-            $this->dialogo->olvidar($telefono);
+        if (! $cuenta && ($pareceFalla || $identificando || $pareceImpresora || $pareceWifi)) {
+            $this->dialogo->guardar($claveDialogo, [
+                'paso' => 'identificar',
+                'medicion' => [],
+                'cliente_id' => null,
+            ]);
 
             return $this->paquete(FraseCliente::SIN_CUENTA, false, null, null, 'sin_cuenta', null, null);
         }
@@ -136,14 +151,23 @@ class SoporteOrquestador
             // sin oferta durante la falla
         }
 
+        $guardarEn = [
+            $claveDialogo,
+            (string) ($cuenta['whatsapp'] ?? ''),
+        ];
         if ($decision['paso']) {
-            $this->dialogo->guardar($telefono, [
+            $estado = [
                 'paso' => $decision['paso'],
                 'medicion' => $this->medicionSinClaves($medicion),
                 'cliente_id' => $cuenta['cliente_id'] ?? null,
-            ]);
+            ];
+            foreach (array_unique(array_filter($guardarEn)) as $clave) {
+                $this->dialogo->guardar($clave, $estado);
+            }
         } else {
-            $this->dialogo->olvidar($telefono);
+            foreach (array_unique(array_filter($guardarEn)) as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
         }
 
         $resumen = $this->resumen($cuenta, $medicion, $decision, $extra);

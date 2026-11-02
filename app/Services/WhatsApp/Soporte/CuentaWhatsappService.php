@@ -28,6 +28,42 @@ class CuentaWhatsappService
             return null;
         }
 
+        return $this->desdeCliente($cliente, $telefono);
+    }
+
+    /**
+     * Busca por cédula o teléfono escritos en el mensaje (cuando WhatsApp no coincide).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function buscarEnTexto(?string $texto): ?array
+    {
+        $tel = SoporteTexto::telefonoEnTexto($texto);
+        if ($tel) {
+            $porTel = $this->buscar($tel);
+            if ($porTel) {
+                return $porTel;
+            }
+        }
+
+        $cedula = SoporteTexto::cedulaEnTexto($texto);
+        if (! $cedula) {
+            return null;
+        }
+
+        $cliente = Cliente::buscarPorCedula($cedula);
+        if (! $cliente) {
+            return null;
+        }
+
+        return $this->desdeCliente($cliente, $cliente->telefono);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function desdeCliente(Cliente $cliente, ?string $telefono): array
+    {
         $cliente->load([
             'servicios.plan',
             'servicios.pool.router',
@@ -37,6 +73,9 @@ class CuentaWhatsappService
         $plan = $servicio?->plan;
         $saldos = $this->saldos((int) $cliente->cliente_id);
         $nombre = trim(trim((string) $cliente->nombre).' '.trim((string) $cliente->apellido));
+        $wa = $this->whatsapp->normalizePhone($telefono)
+            ?: $this->whatsapp->normalizePhone($cliente->telefono)
+            ?: (string) ($telefono ?: $cliente->telefono);
 
         return [
             'cliente_id' => (int) $cliente->cliente_id,
@@ -54,7 +93,7 @@ class CuentaWhatsappService
                 ->where('cliente_id', $cliente->cliente_id)
                 ->whereNotIn('estado', ['resuelto', 'cerrado', 'cancelado'])
                 ->exists(),
-            'whatsapp' => $this->whatsapp->normalizePhone($telefono) ?: (string) $telefono,
+            'whatsapp' => $wa,
             'es_antena' => $servicio ? HerramientasRedPayload::esAntena($servicio) : false,
         ];
     }

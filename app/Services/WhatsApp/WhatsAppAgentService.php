@@ -1230,6 +1230,12 @@ class WhatsAppAgentService
             ? $crudo
             : null;
         if ($cuentaTel === null) {
+            $enCuerpo = SoporteTexto::telefonoEnTexto($cuerpo);
+            if ($enCuerpo) {
+                $cuentaTel = $enCuerpo;
+            }
+        }
+        if ($cuentaTel === null) {
             $previo = WhatsappMensaje::query()
                 ->where('telefono', $tel)
                 ->where('contexto_tipo', self::CONTEXTO_TEST)

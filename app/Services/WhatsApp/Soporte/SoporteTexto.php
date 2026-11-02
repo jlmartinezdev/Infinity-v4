@@ -132,6 +132,62 @@ class SoporteTexto
         return null;
     }
 
+    public static function telefonoEnTexto(?string $texto): ?string
+    {
+        $raw = trim((string) $texto);
+        if ($raw === '') {
+            return null;
+        }
+
+        $solo = preg_replace('/[\s().+-]+/', '', $raw) ?? '';
+        if (preg_match('/^\d{9,14}$/', $solo)) {
+            return self::normalizarTelefonoPy($solo);
+        }
+
+        $compacto = preg_replace('/\s+/', '', $raw) ?? '';
+        if (preg_match('/(?:\+?595|0)?9\d{8}/', $compacto, $m)) {
+            return self::normalizarTelefonoPy(preg_replace('/\D+/', '', $m[0]) ?? '');
+        }
+
+        return null;
+    }
+
+    public static function cedulaEnTexto(?string $texto): ?string
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return null;
+        }
+
+        if (preg_match('/(?:soy|ci|c[eé]dula|documento)\s*[:.]?\s*(\d{5,8})\b/u', $t, $m)) {
+            return ltrim($m[1], '0') ?: $m[1];
+        }
+
+        if (preg_match('/^\d{5,8}$/', $t)) {
+            return ltrim($t, '0') ?: $t;
+        }
+
+        return null;
+    }
+
+    public static function normalizarTelefonoPy(string $digitos): ?string
+    {
+        $d = preg_replace('/\D+/', '', $digitos) ?? '';
+        if ($d === '') {
+            return null;
+        }
+        if (str_starts_with($d, '0') && strlen($d) === 10) {
+            $d = '595'.substr($d, 1);
+        } elseif (! str_starts_with($d, '595') && strlen($d) === 9 && str_starts_with($d, '9')) {
+            $d = '595'.$d;
+        }
+        if (strlen($d) < 11 || strlen($d) > 14) {
+            return null;
+        }
+
+        return $d;
+    }
+
     public static function norm(?string $texto): string
     {
         $t = mb_strtolower(trim((string) $texto));

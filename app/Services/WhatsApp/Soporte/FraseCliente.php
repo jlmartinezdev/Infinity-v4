@@ -129,6 +129,12 @@ class FraseCliente
         if (preg_match('/\bping\b|\bms\b/i', $reply)) {
             return $fallback;
         }
+        if (preg_match('/\+?595[\s.-]*9\d{2}[\s.-]*\d{3}[\s.-]*\d{3}|\b971[\s.-]*714[\s.-]*322\b/u', $reply)) {
+            return $fallback;
+        }
+        if (preg_match('/comunicarte al|atenci[oó]n directa|te saluda interplus|lamentamos/iu', $reply)) {
+            return $fallback;
+        }
 
         return $reply;
     }
