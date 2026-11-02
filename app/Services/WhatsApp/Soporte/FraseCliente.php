@@ -50,13 +50,16 @@ class FraseCliente
     public static function comprobante(?string $nombre = null, ?string $apellido = null, ?bool $enHorario = null): string
     {
         $vocativo = TratoCliente::vocativo($nombre, $apellido);
-        $pref = $vocativo ? "{$vocativo}, " : '';
         $enHorario ??= true;
-        if ($enHorario) {
-            return "{$pref}gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registrará en breve. Quedamos a las órdenes.";
+        $cuerpo = $enHorario
+            ? 'gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registrará en breve. Quedamos a las órdenes.'
+            : 'gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registra de lunes a viernes, de 9 a 18. Quedamos a las órdenes.';
+
+        if ($vocativo) {
+            return $vocativo.', '.$cuerpo;
         }
 
-        return "{$pref}gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registra de lunes a viernes, de 9 a 18. Quedamos a las órdenes.";
+        return mb_strtoupper(mb_substr($cuerpo, 0, 1)).mb_substr($cuerpo, 1);
     }
 
     public static function zonaRestablecida(?string $nombre = null, ?string $apellido = null): string

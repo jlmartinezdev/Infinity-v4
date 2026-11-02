@@ -76,4 +76,19 @@ class WhatsAppImagenClasificadorTest extends TestCase
         $this->assertNotNull($parsed);
         $this->assertSame('wifi_falla', $parsed['tipo']);
     }
+
+    public function test_ocr_json_roto_sigue_siendo_comprobante(): void
+    {
+        $this->assertSame(
+            WhatsAppImagenClasificadorService::TIPO_COMPROBANTE,
+            WhatsAppImagenClasificadorService::clasificarDesdeTexto('{"tipo":"comprobante","texto":"ueno')
+        );
+        $this->assertSame(
+            WhatsAppImagenClasificadorService::TIPO_COMPROBANTE,
+            WhatsAppImagenClasificadorService::resolverTipo(
+                'otro',
+                WhatsAppImagenClasificadorService::clasificarDesdeTexto('{"tipo":"comprobante"')
+            )
+        );
+    }
 }

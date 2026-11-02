@@ -142,8 +142,12 @@ class WhatsAppImagenClasificadorService
             '/enviar ubicaci|ubicaci[oó]n actual|ubicaci[oó]n en tiempo real|google maps|maps\.google|mi ubicaci[oó]n|estaci[oó]n n[uú]mero|hip[oó]dromo|tiempo real/u',
             $t
         );
+        if (preg_match('/"tipo"\s*:\s*"comprobante"/i', $t)) {
+            return self::TIPO_COMPROBANTE;
+        }
+
         $pago = (bool) preg_match(
-            '/comprobante de transferencia|transferencia exitosa|ueno|tigo\s*money|gs\.\s*[\d.]{3,}|guaran[ií]|banco/u',
+            '/\bcomprobante\b|transferencia exitosa|ueno|tigo\s*money|gs\.\s*[\d.]{3,}|guaran[ií]|\bbanco\b|pago (exitoso|realizado)/u',
             $t
         );
         $wifiFalla = (bool) preg_match(

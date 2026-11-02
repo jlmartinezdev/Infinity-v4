@@ -272,6 +272,38 @@ class SoporteOrquestador
         return $this->cuentas->buscar($this->telefonoCuenta($mensaje));
     }
 
+    /**
+     * Respuesta fija de comprobante (formal). Evita el texto informal de n8n.
+     *
+     * @return array<string, mixed>
+     */
+    public function paqueteComprobante(WhatsappMensaje $mensaje): array
+    {
+        $cuenta = $this->cuentaDe($mensaje);
+        $nombrePila = is_string($cuenta['nombre_pila'] ?? null) ? $cuenta['nombre_pila'] : (is_string($cuenta['nombre'] ?? null) ? $cuenta['nombre'] : null);
+        $apellido = is_string($cuenta['apellido'] ?? null) ? $cuenta['apellido'] : null;
+        $reply = FraseCliente::comprobante(
+            $nombrePila,
+            $apellido,
+            WhatsAppAgentService::horarioLaboral(),
+        );
+
+        return $this->paquete(
+            $reply,
+            true,
+            'comprobante',
+            isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+            'soporte_comprobante',
+            'Comprobante recibido. Pendiente de registro por asesor.',
+            [
+                'tipo' => 'comprobante',
+                'motivo' => 'comprobante',
+                'cliente_id' => $cuenta['cliente_id'] ?? null,
+                'asignado_id' => SoporteAdminConfig::usuarioId(),
+            ],
+        );
+    }
+
     public function telefonoCuenta(WhatsappMensaje $mensaje): string
     {
         $guardado = data_get($mensaje->payload, 'telefono_cuenta');

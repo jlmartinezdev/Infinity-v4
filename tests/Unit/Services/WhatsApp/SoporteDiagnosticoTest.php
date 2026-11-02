@@ -160,9 +160,11 @@ class SoporteDiagnosticoTest extends TestCase
 
         $enHorario = FraseCliente::comprobante('Gloria', 'Benítez', true);
         $fuera = FraseCliente::comprobante('Gloria', 'Benítez', false);
+        $sinNombre = FraseCliente::comprobante(null, null, false);
         $this->assertStringContainsString('Señora Benítez, gracias por enviarnos su comprobante', $enHorario);
         $this->assertStringContainsString('en breve', mb_strtolower($enHorario));
         $this->assertStringContainsString('lunes a viernes', mb_strtolower($fuera));
+        $this->assertStringStartsWith('Gracias por enviarnos su comprobante', $sinNombre);
         $this->assertStringNotContainsString('Te saluda', $enHorario);
         $this->assertStringNotContainsString('tu comprobante', $enHorario);
         $this->assertStringNotContainsString('¡Hola', $enHorario);

@@ -96,6 +96,16 @@ class WhatsAppAgentService
         $clasificacion = $this->clasificarImagenSiCorresponde($mensaje);
         $this->aplicarVisionAlMensaje($mensaje, $clasificacion);
 
+        // Comprobante: frase formal fija. No dejar que n8n diga "tu comprobante" / "Te saluda".
+        if ($this->esComprobanteDetectado($mensaje, $clasificacion)) {
+            return $this->cerrarConSoporte(
+                $mensaje,
+                $this->soporte->paqueteComprobante($mensaje),
+                $enviar,
+                $sandbox
+            );
+        }
+
         $soporte = $this->soporte->intentar($mensaje, $sandbox);
         if ($soporte !== null) {
             return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
@@ -105,6 +115,14 @@ class WhatsAppAgentService
         $reply = $consulta['reply'];
         $escalate = $consulta['escalate'];
         $error = $consulta['error'];
+
+        if ($this->replyPareceComprobanteInformal($reply)) {
+            $fijo = $this->soporte->paqueteComprobante($mensaje);
+            $consulta = array_merge($consulta, $fijo);
+            $reply = $fijo['reply'];
+            $escalate = (bool) $fijo['escalate'];
+            $error = null;
+        }
 
         if ($error !== null || ($reply === null && ! $escalate)) {
             $error = $error ?: 'n8n_sin_reply';
@@ -1242,6 +1260,41 @@ class WhatsAppAgentService
             'ticket_id' => null,
             'modo' => null,
         ];
+    }
+
+    /**
+     * @param  array{tipo?: string, ocr?: string}|null  $clasificacion
+     */
+    private function esComprobanteDetectado(WhatsappMensaje $mensaje, ?array $clasificacion = null): bool
+    {
+        $tipo = (string) ($clasificacion['tipo'] ?? data_get($mensaje->payload, 'wa_vision.tipo', ''));
+        $ocr = (string) ($clasificacion['ocr'] ?? data_get($mensaje->payload, 'wa_vision.ocr', ''));
+        if ($tipo === WhatsAppImagenClasificadorService::TIPO_COMPROBANTE) {
+            return true;
+        }
+        if (WhatsAppImagenClasificadorService::clasificarDesdeTexto($ocr) === WhatsAppImagenClasificadorService::TIPO_COMPROBANTE) {
+            return true;
+        }
+
+        return self::detectarComprobante(
+            (string) ($mensaje->tipo ?: 'text'),
+            (string) $mensaje->cuerpo,
+            [],
+            $tipo !== '' ? $tipo : null,
+        );
+    }
+
+    private function replyPareceComprobanteInformal(?string $reply): bool
+    {
+        $t = mb_strtolower(trim((string) $reply));
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/recibimos tu comprobante|te saluda interplus.*comprobante|asesor lo registra de lunes a viernes/u',
+            $t
+        );
     }
 
     /**
