@@ -859,14 +859,46 @@ class WhatsAppAgentService
         $mensaje->payload = $payload;
 
         $caption = self::captionUtil((string) $mensaje->cuerpo);
-        if ($caption !== '') {
-            return;
-        }
-
         $sintoma = WhatsAppImagenClasificadorService::sintomaParaSoporte($tipo, $ocr);
-        if ($sintoma) {
+        if ($caption === '' && $sintoma) {
             $mensaje->cuerpo = $sintoma;
         }
+
+        if ($mensaje->exists) {
+            $mensaje->save();
+        }
+    }
+
+    /**
+     * @return array{path: string, mime: string, size: int, voice: bool}|null
+     */
+    private function guardarImagenTest(\Illuminate\Http\UploadedFile $imagen): ?array
+    {
+        try {
+            $binario = file_get_contents($imagen->getRealPath());
+        } catch (\Throwable) {
+            return null;
+        }
+        if (! is_string($binario) || strlen($binario) < 32) {
+            return null;
+        }
+
+        $mime = WhatsAppService::mimeDesdeBinario($binario, (string) $imagen->getMimeType());
+        $ext = match ($mime) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+            default => 'jpg',
+        };
+        $path = 'whatsapp/test/'.date('Y/m/d').'/'.uniqid('img_', true).'.'.$ext;
+        \Illuminate\Support\Facades\Storage::disk('local')->put($path, $binario);
+
+        return [
+            'path' => $path,
+            'mime' => $mime,
+            'size' => strlen($binario),
+            'voice' => false,
+        ];
     }
 
     public static function textoParecePago(?string $texto): bool
@@ -1271,7 +1303,17 @@ class WhatsAppAgentService
      *   flags: array<string, mixed>
      * }
      */
-    public function simularMensajeCliente(string $telefono, string $cuerpo): array
+    /**
+     * @param  \Illuminate\Http\UploadedFile|null  $imagen
+     * @return array{
+     *   ok: bool,
+     *   telefono: string,
+     *   error: string|null,
+     *   agent: array<string, mixed>,
+     *   flags: array<string, mixed>
+     * }
+     */
+    public function simularMensajeCliente(string $telefono, string $cuerpo, $imagen = null): array
     {
         $tel = self::telefonoSandbox($telefono);
         $cuerpo = trim($cuerpo);
@@ -1298,7 +1340,12 @@ class WhatsAppAgentService
         }
         $vacioAgent = $this->resultadoVacio('mensaje_vacio');
 
-        if ($cuerpo === '') {
+        $local = null;
+        if ($imagen instanceof \Illuminate\Http\UploadedFile && $imagen->isValid()) {
+            $local = $this->guardarImagenTest($imagen);
+        }
+
+        if ($cuerpo === '' && $local === null) {
             return [
                 'ok' => false,
                 'telefono' => $tel,
@@ -1308,20 +1355,23 @@ class WhatsAppAgentService
             ];
         }
 
+        $esImagen = $local !== null;
         $mensaje = new WhatsappMensaje([
             'direccion' => WhatsappMensaje::DIRECCION_ENTRADA,
             'telefono' => $tel,
             'contacto_nombre' => 'Test n8n',
-            'tipo' => 'text',
-            'cuerpo' => mb_substr($cuerpo, 0, 4096),
+            'tipo' => $esImagen ? 'image' : 'text',
+            'cuerpo' => mb_substr($cuerpo !== '' ? $cuerpo : ($esImagen ? '[imagen]' : ''), 0, 4096),
             'wamid' => 'test-n8n-in-'.uniqid('', true),
             'estado' => WhatsappMensaje::ESTADO_RECIBIDO,
             'contexto_tipo' => self::CONTEXTO_TEST,
-            'payload' => [
+            'payload' => array_filter([
                 'timestamp' => time(),
                 'origen' => 'test_n8n',
                 'telefono_cuenta' => $cuentaTel,
-            ],
+                '_local' => $local,
+                'image' => $esImagen ? ['id' => 'test-local'] : null,
+            ], fn ($v) => $v !== null),
         ]);
         $mensaje->save();
 
@@ -1329,8 +1379,8 @@ class WhatsAppAgentService
         $flags = [
             'primera_vez' => $this->esPrimeraConversacion($tel, (int) $mensaje->id),
             'parece_cedula' => self::textoPareceCedula($cuerpo),
-            'parece_mapa' => self::detectarUbicacion('text', $cuerpo, $hilo['historial']),
-            'parece_comprobante' => self::detectarComprobante('text', $cuerpo, $hilo['historial']),
+            'parece_mapa' => self::detectarUbicacion($esImagen ? 'image' : 'text', $cuerpo, $hilo['historial']),
+            'parece_comprobante' => self::detectarComprobante($esImagen ? 'image' : 'text', $cuerpo, $hilo['historial']),
             'parece_instalacion' => self::textoPareceInstalacion($cuerpo) || (
                 $this->esPrimeraConversacion($tel, (int) $mensaje->id) && self::textoPareceWifi($cuerpo)
             ),
@@ -1340,9 +1390,11 @@ class WhatsAppAgentService
             'parece_beneficios' => self::textoPareceBeneficiosPlanes($cuerpo),
             'parece_condiciones' => self::textoPareceCondicionesServicio($cuerpo),
             'cobertura_aprobada' => $this->telefonoTieneCoberturaAprobada($tel, (int) $mensaje->id, $cuerpo),
+            'tiene_imagen' => $esImagen,
         ];
 
         $resultado = $this->procesar($mensaje, false, true);
+        $mensaje->refresh();
 
         if (filled($resultado['reply'])) {
             WhatsappMensaje::query()->create([

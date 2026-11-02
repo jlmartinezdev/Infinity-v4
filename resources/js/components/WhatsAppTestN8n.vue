@@ -84,7 +84,13 @@
               class="wa-bubble relative max-w-[85%] px-2.5 py-1.5 shadow-sm sm:max-w-[70%]"
               :class="m.direccion === 'salida' ? 'wa-bubble-out' : 'wa-bubble-in'"
             >
-              <p class="wa-msg-body whitespace-pre-wrap text-[14.2px] leading-5">{{ m.cuerpo }}</p>
+              <img
+                v-if="m.tipo === 'image' && m.media_url"
+                :src="m.media_url"
+                alt="imagen"
+                class="mb-1 max-h-52 max-w-full rounded-md object-contain"
+              >
+              <p v-if="m.cuerpo" class="wa-msg-body whitespace-pre-wrap text-[14.2px] leading-5">{{ m.cuerpo }}</p>
               <p class="wa-muted mt-0.5 text-right text-[10px]">
                 {{ m.hora }}
                 <span v-if="m.direccion === 'salida'"> · agente</span>
@@ -124,19 +130,37 @@
         </div>
 
         <form class="wa-composer border-t px-3 py-2.5" @submit.prevent="enviar()">
+          <div v-if="imagenNombre" class="mb-1.5 flex items-center gap-2 text-[11px] text-emerald-700">
+            <span class="truncate">Imagen: {{ imagenNombre }}</span>
+            <button type="button" class="underline" @click="quitarImagen">sacar</button>
+          </div>
           <div class="flex items-end gap-2">
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              class="hidden"
+              @change="onImagenElegida"
+            >
+            <button
+              type="button"
+              class="wa-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg disabled:opacity-40"
+              title="Adjuntar imagen"
+              :disabled="enviando"
+              @click="$refs.fileInput && $refs.fileInput.click()"
+            >📷</button>
             <textarea
               v-model="draft"
               rows="1"
               class="wa-input max-h-32 min-h-[40px] flex-1 resize-none rounded-lg border-0 px-3 py-2 text-sm focus:ring-0"
-              placeholder="Mensaje del cliente..."
+              placeholder="Mensaje del cliente o caption de la imagen..."
               :disabled="enviando"
               @keydown.enter.exact.prevent="enviar()"
             />
             <button
               type="submit"
               class="wa-send flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
-              :disabled="enviando || !draft.trim()"
+              :disabled="enviando || (!draft.trim() && !imagenFile)"
             >
               <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -178,6 +202,8 @@ export default {
       mensajes: [],
       recientes: [],
       draft: '',
+      imagenFile: null,
+      imagenNombre: '',
       loadingHilo: false,
       enviando: false,
       borrando: false,
@@ -302,17 +328,44 @@ export default {
         this.borrando = false;
       }
     },
+    onImagenElegida(ev) {
+      const file = ev?.target?.files?.[0] || null;
+      this.imagenFile = file;
+      this.imagenNombre = file ? file.name : '';
+    },
+    quitarImagen() {
+      this.imagenFile = null;
+      this.imagenNombre = '';
+      if (this.$refs.fileInput) this.$refs.fileInput.value = '';
+    },
     async enviar(texto) {
-      const mensaje = String(texto != null ? texto : this.draft).trim();
-      if (!mensaje || this.enviando) return;
+      const desdeAtajo = texto != null;
+      const mensaje = String(desdeAtajo ? texto : this.draft).trim();
+      const file = desdeAtajo ? null : this.imagenFile;
+      if ((!mensaje && !file) || this.enviando) return;
       this.enviando = true;
-      if (texto == null) this.draft = '';
+      if (!desdeAtajo) this.draft = '';
       try {
-        const { data } = await window.axios.post(
-          this.urls.mensaje,
-          { telefono: this.telActivo, mensaje },
-          { timeout: 40000, headers: { 'X-CSRF-TOKEN': this.csrf() } },
-        );
+        let data;
+        if (file) {
+          const fd = new FormData();
+          fd.append('telefono', this.telActivo);
+          fd.append('mensaje', mensaje);
+          fd.append('imagen', file);
+          const res = await window.axios.post(this.urls.mensaje, fd, {
+            timeout: 90000,
+            headers: { 'X-CSRF-TOKEN': this.csrf() },
+          });
+          data = res.data;
+          this.quitarImagen();
+        } else {
+          const res = await window.axios.post(
+            this.urls.mensaje,
+            { telefono: this.telActivo, mensaje },
+            { timeout: 40000, headers: { 'X-CSRF-TOKEN': this.csrf() } },
+          );
+          data = res.data;
+        }
         this.aplicarPayload(data);
         if (data.error) this.mostrarToast(data.error, false);
       } catch (e) {

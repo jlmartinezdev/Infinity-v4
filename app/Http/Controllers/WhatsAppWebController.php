@@ -229,13 +229,27 @@ class WhatsAppWebController extends Controller
     {
         $validated = $request->validate([
             'telefono' => ['nullable', 'string', 'max:32'],
-            'mensaje' => ['required', 'string', 'max:2000'],
+            'mensaje' => ['nullable', 'string', 'max:2000'],
+            'imagen' => ['nullable', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,gif'],
         ]);
 
-        @set_time_limit(60);
+        if (! filled($validated['mensaje'] ?? null) && ! $request->hasFile('imagen')) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'mensaje_vacio',
+                'telefono' => WhatsAppAgentService::telefonoSandbox($validated['telefono'] ?? ''),
+                'agent' => [],
+                'flags' => [],
+                'mensajes' => [],
+                'recientes' => $agent->telefonosTestRecientes(),
+            ], 422);
+        }
+
+        @set_time_limit(90);
         $sim = $agent->simularMensajeCliente(
             (string) ($validated['telefono'] ?? ''),
-            (string) $validated['mensaje'],
+            (string) ($validated['mensaje'] ?? ''),
+            $request->file('imagen'),
         );
         $tel = $sim['telefono'];
         $mensajes = WhatsappMensaje::query()

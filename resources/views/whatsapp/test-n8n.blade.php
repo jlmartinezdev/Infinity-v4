@@ -42,6 +42,111 @@ document.addEventListener('DOMContentLoaded', function () {
         box.classList.toggle('hidden', !resumen);
         return response;
     });
+
+    // Botón de imagen (sin recompilar el bundle Vue).
+    var urls = (window.__WHATSAPP_TEST_N8N_CONFIG__ || {}).urls || {};
+    var intentos = 0;
+    var timer = setInterval(function () {
+        intentos += 1;
+        var row = document.querySelector('.wa-composer .flex.items-end');
+        if (!row || row.dataset.waImgReady === '1') {
+            if (intentos > 40) clearInterval(timer);
+            if (row && row.dataset.waImgReady === '1') clearInterval(timer);
+            return;
+        }
+        clearInterval(timer);
+        row.dataset.waImgReady = '1';
+
+        var file = document.createElement('input');
+        file.type = 'file';
+        file.accept = 'image/jpeg,image/png,image/webp,image/gif';
+        file.className = 'hidden';
+        file.id = 'wa-test-n8n-imagen';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = 'Adjuntar imagen';
+        btn.className = 'wa-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg';
+        btn.textContent = '📷';
+        btn.addEventListener('click', function () { file.click(); });
+
+        var hint = document.createElement('div');
+        hint.id = 'wa-test-n8n-img-hint';
+        hint.className = 'mb-1.5 hidden px-1 text-[11px] text-emerald-700';
+
+        var form = row.closest('form');
+        if (form) form.insertBefore(hint, row);
+        row.insertBefore(btn, row.firstChild);
+        row.appendChild(file);
+
+        file.addEventListener('change', function () {
+            var f = file.files && file.files[0];
+            if (!f) return;
+            hint.textContent = 'Imagen lista: ' + f.name + ' — enviá con el botón o Enter (podés poner un caption).';
+            hint.classList.remove('hidden');
+            hint.dataset.hasFile = '1';
+
+            var sendBtn = row.querySelector('button[type="submit"]');
+            if (sendBtn) sendBtn.disabled = false;
+
+            var origSubmit = form.onsubmit;
+            form.addEventListener('submit', function onImgSubmit(ev) {
+                if (!(file.files && file.files[0])) return;
+                ev.preventDefault();
+                ev.stopImmediatePropagation();
+                enviarImagenPrueba(file.files[0]);
+            }, true);
+        });
+    }, 250);
+
+    function csrf() {
+        var el = document.head.querySelector('meta[name="csrf-token"]');
+        return el ? el.content : '';
+    }
+
+    function telefonoActivo() {
+        var el = document.querySelector('.wa-header .font-mono');
+        return el ? (el.textContent || '').trim() : '';
+    }
+
+    function captionActual() {
+        var ta = document.querySelector('.wa-composer textarea');
+        return ta ? (ta.value || '').trim() : '';
+    }
+
+    function enviarImagenPrueba(archivo) {
+        if (!urls.mensaje || !window.axios) {
+            alert('No hay endpoint de mensaje');
+            return;
+        }
+        var fd = new FormData();
+        fd.append('telefono', telefonoActivo());
+        fd.append('mensaje', captionActual());
+        fd.append('imagen', archivo);
+        var hint = document.getElementById('wa-test-n8n-img-hint');
+        if (hint) {
+            hint.textContent = 'Enviando imagen al agente...';
+            hint.classList.remove('hidden');
+        }
+        window.axios.post(urls.mensaje, fd, {
+            timeout: 90000,
+            headers: { 'X-CSRF-TOKEN': csrf() },
+        }).then(function (res) {
+            var data = res.data || {};
+            var box = document.getElementById('wa-resumen-admin');
+            if (box) {
+                box.textContent = (data.agent && data.agent.resumen_admin) || '';
+                box.classList.toggle('hidden', !box.textContent);
+            }
+            // Recarga el hilo para ver la imagen y la respuesta.
+            var tel = data.telefono || telefonoActivo();
+            window.location = window.location.pathname + '?tel=' + encodeURIComponent(tel);
+        }).catch(function (e) {
+            var msg = (e.response && e.response.data && (e.response.data.error || e.response.data.message)) || e.message || 'Error';
+            alert(msg);
+            if (hint) hint.textContent = msg;
+        });
+    }
 });
 </script>
 @endpush
