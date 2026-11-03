@@ -217,11 +217,18 @@ class SoporteOrquestador
         );
         $casoIdUsado = null;
         $caso = $this->casos->para($decision['etiqueta'] ?? null, $texto, 1);
-        if ($caso !== [] && ! in_array($decision['tipo'], ['wifi', 'escalado', 'zona', 'comprobante'], true)) {
-            $anexo = trim((string) $caso[0]['texto']);
-            if ($anexo !== '' && ! str_contains($reply, $anexo)) {
+        // No anexar plantillas en medio del diagnóstico (pregunta/acción): el estilo/casos
+        // no deben filtrarse al cliente. Solo casos reales con caso_id en cierres útiles.
+        $noAnexar = ['wifi', 'escalado', 'zona', 'comprobante', 'pregunta', 'accion', 'impresora', 'cobranza'];
+        if ($caso !== [] && ! in_array($decision['tipo'], $noAnexar, true)) {
+            $candidato = $caso[0];
+            $anexo = trim((string) ($candidato['texto'] ?? ''));
+            $casoId = isset($candidato['caso_id']) ? (int) $candidato['caso_id'] : 0;
+            $pareceEstilo = str_contains(mb_strtolower($anexo), 'estilo interplus')
+                || str_contains(mb_strtolower($anexo), 'obligatorio');
+            if ($casoId > 0 && $anexo !== '' && ! $pareceEstilo && ! str_contains($reply, $anexo)) {
                 $reply = rtrim($reply)."\n\n".$anexo;
-                $casoIdUsado = isset($caso[0]['caso_id']) ? (int) $caso[0]['caso_id'] : null;
+                $casoIdUsado = $casoId;
             }
         }
 

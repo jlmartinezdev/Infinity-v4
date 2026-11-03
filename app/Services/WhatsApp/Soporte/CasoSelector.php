@@ -6,10 +6,6 @@ use App\Models\WaCaso;
 
 class CasoSelector
 {
-    public function __construct(
-        private readonly EstiloInterplus $estilo,
-    ) {}
-
     /**
      * @return list<array{titulo: string, texto: string, caso_id?: int}>
      */
@@ -50,14 +46,8 @@ class CasoSelector
             return $diff !== 0 ? $diff : ((int) $a->id) - ((int) $b->id);
         });
 
+        // El estilo va solo por estilo_interplus al payload n8n; NUNCA al reply del cliente.
         $salida = [];
-        $estilo = trim($this->estilo->texto());
-        if ($estilo !== '') {
-            $salida[] = [
-                'titulo' => 'Estilo Interplus',
-                'texto' => $estilo,
-            ];
-        }
 
         foreach (array_slice($elegidos, 0, $max) as $caso) {
             $limpio = FraseCliente::filtrar((string) $caso->texto, '');

@@ -172,6 +172,16 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame($texto, FraseCliente::filtrar($texto, FraseCliente::ESCALADO));
     }
 
+    public function test_pregunta_de_enlace_no_incluye_estilo_en_la_frase(): void
+    {
+        $this->assertStringNotContainsString('Estilo Interplus', FraseCliente::ENLACE_OK_PREGUNTA);
+        $this->assertStringNotContainsString('obligatorio', FraseCliente::ENLACE_OK_PREGUNTA);
+        $this->assertSame(
+            FraseCliente::ENLACE_OK_PREGUNTA,
+            FraseCliente::filtrar(FraseCliente::ENLACE_OK_PREGUNTA, FraseCliente::ESCALADO)
+        );
+    }
+
     public function test_parser_lee_velocidad_del_puerto(): void
     {
         $datos = (new McaStatusParser)->parse("lanSpeed=100Mbps\nlanPlugged=1\n");
