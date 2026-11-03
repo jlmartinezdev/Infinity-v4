@@ -170,6 +170,29 @@ class FraseCliente
         return implode("\n", $lineas);
     }
 
+    /** Lista equipos vistos en su red (sin dBm). No incluye redes de vecinos. */
+    public static function listaEquiposVista(array $nombres, bool $pidioVecinos = false): string
+    {
+        if ($nombres === []) {
+            $base = 'Por ahora no vemos equipos conectados en su red desde nuestro sistema.';
+            if ($pidioVecinos) {
+                $base .= ' Las redes WiFi de vecinos no las listamos desde acá.';
+            }
+
+            return $base.' Si está cerca del router, pruebe conectar su celular y escribanos de nuevo.';
+        }
+
+        $lineas = ['Estos son los equipos que vemos ahora en su red:'];
+        foreach (array_values($nombres) as $i => $nombre) {
+            $lineas[] = ($i + 1).'. '.$nombre;
+        }
+        if ($pidioVecinos) {
+            $lineas[] = 'Las redes WiFi de vecinos no las listamos desde acá; solo equipos de su servicio.';
+        }
+
+        return implode("\n", $lineas);
+    }
+
     /**
      * Si la frase menciona una medición de red o tono prohibido, vuelve a la frase fija.
      * Saludos de marca se recortan; se conserva el resto útil del mensaje.

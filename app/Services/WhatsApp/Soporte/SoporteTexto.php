@@ -15,9 +15,33 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar/u',
+            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet)|se[nñ]al (wifi|wi-?fi)|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar/u',
             $t
         );
+    }
+
+    /** Pedido de listar equipos/dispositivos de su red (ACS/DHCP). No es escaneo de vecinos. */
+    public static function pareceConsultaEquipos(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n est[aá] conectado|aparatos conectados/u',
+            $t
+        );
+    }
+
+    public static function pideVecinosWifi(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match('/vecinos?|redes? (ajenas|de al lado|cercanas)|ssid (ajen|vecin)/u', $t);
     }
 
     /** Seguimiento de un reclamo/zona ya avisado (no abrir diagnóstico de cero). */

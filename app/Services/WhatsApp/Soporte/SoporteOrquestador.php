@@ -66,6 +66,11 @@ class SoporteOrquestador
         $pareceFalla = SoporteTexto::pareceFalla($textoHilo) && ! WhatsAppAgentService::textoPareceInstalacion($textoHilo);
         $pareceWifi = SoporteTexto::pareceCambioWifi($textoHilo);
         $pareceImpresora = SoporteTexto::pareceImpresora($textoHilo);
+        $pareceEquipos = SoporteTexto::pareceConsultaEquipos($textoHilo);
+        $pideVecinos = SoporteTexto::pideVecinosWifi($textoHilo);
+        if ($pareceEquipos) {
+            $pareceFalla = true; // entra a soporte y mide; no mandar a n8n a inventar
+        }
         $identificando = $paso === 'identificar';
         $soloIdentificador = SoporteTexto::esSoloIdentificador($texto);
         if ($cuenta && ($identificando || ($soloIdentificador && $pareceFalla === false && $paso !== ''))) {
@@ -105,6 +110,7 @@ class SoporteOrquestador
             || $pareceFalla
             || $pareceWifi
             || $pareceImpresora
+            || $pareceEquipos
             || $pareceComprobante
             || ($cuenta && $soloIdentificador && $identificando)
             || ($suspendido && ! $parecePago && ! $pareceComprobante);
@@ -113,7 +119,7 @@ class SoporteOrquestador
             return null;
         }
 
-        if (! $cuenta && ($pareceFalla || $identificando || $pareceImpresora || $pareceWifi)) {
+        if (! $cuenta && ($pareceFalla || $identificando || $pareceImpresora || $pareceWifi || $pareceEquipos)) {
             $this->dialogo->guardar($claveDialogo, [
                 'paso' => 'identificar',
                 'medicion' => [],
@@ -127,6 +133,7 @@ class SoporteOrquestador
         // Medir en el primer reclamo de falla (y en pasos de diálogo), no solo cable/sitio.
         $necesitaMedir = $pareceFalla
             || $pareceImpresora
+            || $pareceEquipos
             || $paso === 'cable'
             || $paso === 'equipo'
             || ($paso === 'sitio' && SoporteTexto::sitio($texto));
@@ -135,6 +142,47 @@ class SoporteOrquestador
         if ($servicio && $necesitaMedir && ! $suspendido && ! $pareceWifi) {
             $sitio = $paso === 'sitio' ? SoporteTexto::sitio($texto) : null;
             $medicion = $this->recolector->medir($servicio, $sitio);
+        }
+
+        // Listar equipos reales (ACS/DHCP). No inventar "no podemos ver".
+        if ($pareceEquipos && $servicio && ! $suspendido && ! $pareceWifi) {
+            if ($medicion === []) {
+                $medicion = $this->recolector->medir($servicio, null);
+            }
+            $equipos = is_array($medicion['equipos'] ?? null) ? $medicion['equipos'] : [];
+            $nombres = [];
+            foreach ($equipos as $equipo) {
+                if (! is_array($equipo)) {
+                    continue;
+                }
+                $n = trim((string) ($equipo['nombre'] ?? ''));
+                if ($n !== '') {
+                    $nombres[] = $n;
+                }
+            }
+            $replyEquipos = FraseCliente::listaEquiposVista($nombres, $pideVecinos);
+            $resumenEquipos = $this->resumen($cuenta, $medicion, [
+                'tipo' => 'equipos',
+                'motivo' => 'consulta_equipos',
+                'etiqueta' => 'equipos',
+            ], []);
+
+            return $this->paquete(
+                $replyEquipos,
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_equipos',
+                $resumenEquipos,
+                [
+                    'tipo' => 'equipos',
+                    'motivo' => 'consulta_equipos',
+                    'medicion' => $medicion,
+                    'servicio_id' => $cuenta['servicio_id'] ?? null,
+                    'cliente_id' => $cuenta['cliente_id'] ?? null,
+                    'asignado_id' => SoporteAdminConfig::usuarioId(),
+                ],
+            );
         }
 
         $decision = $this->evaluador->decidir([
@@ -408,6 +456,17 @@ class SoporteOrquestador
             }
         }
 
+        $nombresEquipos = [];
+        foreach (is_array($medicion['equipos'] ?? null) ? $medicion['equipos'] : [] as $equipo) {
+            if (! is_array($equipo)) {
+                continue;
+            }
+            $n = trim((string) ($equipo['nombre'] ?? ''));
+            if ($n !== '') {
+                $nombresEquipos[] = $n;
+            }
+        }
+
         return [
             'pudo_medir' => (bool) ($medicion['pudo_medir'] ?? false),
             'causas' => is_array($medicion['causas'] ?? null) ? $medicion['causas'] : [],
@@ -419,6 +478,10 @@ class SoporteOrquestador
             'lan_conectado' => $medicion['lan_conectado'] ?? null,
             'es_fibra' => $medicion['es_fibra'] ?? null,
             'es_antena' => $medicion['es_antena'] ?? ($cuenta['es_antena'] ?? null),
+            'equipos_count' => count($nombresEquipos),
+            'equipos_nombres' => array_slice($nombresEquipos, 0, 20),
+            'puede_listar_equipos' => true,
+            'puede_listar_vecinos_wifi' => false,
             'diagnostico_local' => $medicion !== [] ? [
                 'tiene_medicion' => true,
                 'causas' => $medicion['causas'] ?? [],

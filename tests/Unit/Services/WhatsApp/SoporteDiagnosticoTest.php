@@ -266,6 +266,17 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue(SoporteTexto::pareceCambioWifi('cambia la clave del wifi'));
         $this->assertSame('facebook.com', SoporteTexto::sitio('no me abre facebook'));
         $this->assertTrue(SoporteTexto::pareceFalla('no anda internet'));
+        $this->assertTrue(SoporteTexto::pareceFalla('quería saber la señal de mi wifi'));
+        $this->assertTrue(SoporteTexto::pareceConsultaEquipos('podes listarme los equipos que ves, si hay algun vecino'));
+        $this->assertTrue(SoporteTexto::pideVecinosWifi('si hay algun vecino'));
+    }
+
+    public function test_lista_equipos_vista_sin_dbm_y_aclara_vecinos(): void
+    {
+        $texto = FraseCliente::listaEquiposVista(['Samsung', 'Notebook'], true);
+        $this->assertStringContainsString('1. Samsung', $texto);
+        $this->assertStringContainsString('vecinos', mb_strtolower($texto));
+        $this->assertStringNotContainsString('dBm', $texto);
     }
 
     public function test_saca_cedula_y_telefono_del_texto(): void

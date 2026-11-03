@@ -44,6 +44,19 @@ class ValidadorHechos
             return ['reply' => $fallback, 'modo' => 'n8n_hechos_contradice', 'filtrado' => true];
         }
 
+        // n8n no puede negar la lectura de equipos si Laravel sí puede listarlos.
+        if (
+            ($hechos['puede_listar_equipos'] ?? false) === true
+            && preg_match('/no (nos )?es posible visualizar|no (podemos|podemos) ver (el detalle|los equipos|dispositivos)/iu', $reply)
+        ) {
+            $nombres = is_array($hechos['equipos_nombres'] ?? null) ? $hechos['equipos_nombres'] : [];
+            return [
+                'reply' => FraseCliente::listaEquiposVista(array_map('strval', $nombres), false),
+                'modo' => 'n8n_hechos_equipos',
+                'filtrado' => true,
+            ];
+        }
+
         if ($this->precioFueraDeCatalogo($reply, $catalogo)) {
             $planesTexto = (string) ($catalogo['planes_texto'] ?? '');
             if ($planesTexto !== '') {
