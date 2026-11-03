@@ -15,6 +15,36 @@ class WifiSoporteService
     ) {}
 
     /**
+     * SSIDs actuales del CPE (ACS). Vacío si no hay dato.
+     *
+     * @return list<string>
+     */
+    public function ssidsActuales(Servicio $servicio): array
+    {
+        try {
+            $resumen = $this->genie->resumen($servicio);
+            if (! ($resumen['success'] ?? false)) {
+                return [];
+            }
+            $lista = is_array($resumen['ssids'] ?? null) ? $resumen['ssids'] : [];
+            $out = [];
+            foreach ($lista as $s) {
+                $s = trim((string) $s);
+                if ($s !== '') {
+                    $out[] = $s;
+                }
+            }
+            if ($out === [] && filled($resumen['ssid'] ?? null)) {
+                $out[] = trim((string) $resumen['ssid']);
+            }
+
+            return array_values(array_unique($out));
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
      * @return array{reply: string, aplicado: bool, clave: string, ssid: ?string}
      */
     public function preparar(Servicio $servicio, string $texto, bool $aplicar): array

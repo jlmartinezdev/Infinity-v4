@@ -64,16 +64,24 @@ class SoporteOrquestador
             $tipoImagen !== '' ? $tipoImagen : null,
         );
         $pareceFalla = SoporteTexto::pareceFalla($textoHilo) && ! WhatsAppAgentService::textoPareceInstalacion($textoHilo);
-        $pareceWifi = SoporteTexto::pareceCambioWifi($textoHilo);
-        $pareceImpresora = SoporteTexto::pareceImpresora($textoHilo);
-        $pareceEquipos = SoporteTexto::pareceConsultaEquipos($textoHilo);
-        $pideVecinos = SoporteTexto::pideVecinosWifi($textoHilo);
-        if ($pareceEquipos || $pideVecinos) {
-            $pareceFalla = true; // entra a soporte y mide; no mandar a n8n a inventar
+        // Intenciones de acción: solo el mensaje actual (el hilo unido trababa el cambio de WiFi).
+        $pareceWifi = SoporteTexto::pareceCambioWifi($texto);
+        $pareceNombreWifi = SoporteTexto::pareceConsultaNombreWifi($texto);
+        $pareceImpresora = SoporteTexto::pareceImpresora($texto);
+        $pareceEquipos = SoporteTexto::pareceConsultaEquipos($texto);
+        $pideVecinos = SoporteTexto::pideVecinosWifi($texto);
+        if ($pareceEquipos || $pideVecinos || $pareceNombreWifi) {
+            $pareceFalla = true; // entra a soporte; no mandar a n8n a inventar
         }
-        // Tras listar equipos, si confirma cambio de WiFi seguimos en soporte (no n8n).
+        // Tras listar equipos, solo confirmación corta (no preguntas).
         if ($paso === 'wifi_sospecha' && SoporteTexto::pareceConfirmaCambioWifi($texto)) {
             $pareceWifi = true;
+        } elseif ($paso === 'wifi_sospecha' && ! $pareceWifi && ! $pareceEquipos && ! $pideVecinos) {
+            // Otra pregunta: salir del paso de sospecha para no quedar en bucle.
+            foreach (array_unique(array_filter($clavesDialogo)) as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
+            $paso = '';
         }
         $identificando = $paso === 'identificar';
         $soloIdentificador = SoporteTexto::esSoloIdentificador($texto);
@@ -113,6 +121,7 @@ class SoporteOrquestador
         $entra = $paso !== ''
             || $pareceFalla
             || $pareceWifi
+            || $pareceNombreWifi
             || $pareceImpresora
             || $pareceEquipos
             || $pareceComprobante
@@ -123,7 +132,7 @@ class SoporteOrquestador
             return null;
         }
 
-        if (! $cuenta && ($pareceFalla || $identificando || $pareceImpresora || $pareceWifi || $pareceEquipos)) {
+        if (! $cuenta && ($pareceFalla || $identificando || $pareceImpresora || $pareceWifi || $pareceNombreWifi || $pareceEquipos)) {
             $this->dialogo->guardar($claveDialogo, [
                 'paso' => 'identificar',
                 'medicion' => [],
@@ -146,6 +155,34 @@ class SoporteOrquestador
         if ($servicio && $necesitaMedir && ! $suspendido && ! $pareceWifi) {
             $sitio = $paso === 'sitio' ? SoporteTexto::sitio($texto) : null;
             $medicion = $this->recolector->medir($servicio, $sitio);
+        }
+
+        // Consulta del nombre WiFi actual (no es cambio de clave).
+        if ($pareceNombreWifi && $servicio && ! $suspendido && ! $pareceWifi) {
+            $ssids = $this->wifi->ssidsActuales($servicio);
+            $replySsid = FraseCliente::nombreWifiActual($ssids);
+            $resumenSsid = $this->resumen($cuenta, $medicion, [
+                'tipo' => 'wifi_nombre',
+                'motivo' => 'consulta_ssid',
+                'etiqueta' => 'wifi_nombre',
+            ], ['ssids' => $ssids]);
+
+            return $this->paquete(
+                $replySsid,
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_wifi_nombre',
+                $resumenSsid,
+                [
+                    'tipo' => 'wifi_nombre',
+                    'motivo' => 'consulta_ssid',
+                    'medicion' => $medicion,
+                    'servicio_id' => $cuenta['servicio_id'] ?? null,
+                    'cliente_id' => $cuenta['cliente_id'] ?? null,
+                    'asignado_id' => SoporteAdminConfig::usuarioId(),
+                ],
+            );
         }
 
         // Listar equipos reales (ACS/DHCP) y ofrecer cambio de clave si sospecha vecinos.

@@ -151,6 +151,27 @@ class FraseCliente
         return "Anotamos el pedido para cambiar la clave del WiFi.{$red} La clave nueva sería {$clave}. En esta prueba todavía no la cambiamos.";
     }
 
+    /** @param  list<string>  $ssids */
+    public static function nombreWifiActual(array $ssids): string
+    {
+        $ssids = array_values(array_filter(array_map(
+            static fn ($s) => trim((string) $s),
+            $ssids
+        )));
+        if ($ssids === []) {
+            return 'Por ahora no vemos el nombre de su WiFi desde el sistema. Puede revisarlo en la etiqueta del router o en los WiFi guardados de su celular.';
+        }
+        if (count($ssids) === 1) {
+            return 'El nombre de su red WiFi es «'.$ssids[0].'».';
+        }
+        $lineas = ['Estos son los nombres de WiFi que vemos en su equipo:'];
+        foreach ($ssids as $i => $ssid) {
+            $lineas[] = ($i + 1).'. «'.$ssid.'»';
+        }
+
+        return implode("\n", $lineas);
+    }
+
     public static function wifiAplicado(string $clave, ?string $ssid): string
     {
         if ($ssid) {

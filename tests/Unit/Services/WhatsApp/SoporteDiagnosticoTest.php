@@ -283,6 +283,18 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue(SoporteTexto::pideVecinosWifi('creo que un vecino está enganchado al wifi'));
     }
 
+    public function test_consulta_nombre_wifi_no_dispara_cambio_ni_inventa_ssid(): void
+    {
+        $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('que nombre de wifi tengo?'));
+        $this->assertFalse(SoporteTexto::pareceCambioWifi('que nombre de wifi tengo?'));
+        $this->assertNull(SoporteTexto::nombreWifi('que nombre de wifi tengo?'));
+        $this->assertFalse(SoporteTexto::pareceConfirmaCambioWifi('como vas a cambiar?'));
+        $this->assertFalse(SoporteTexto::pareceConfirmaCambioWifi('hace cuanto que no se apaga mi red?'));
+        $this->assertTrue(SoporteTexto::pareceCambioWifi('cambiar la clave del wifi'));
+        $this->assertSame('CasaNueva', SoporteTexto::nombreWifi('cambiar el nombre del wifi a CasaNueva'));
+        $this->assertStringContainsString('Interplus-5G', FraseCliente::nombreWifiActual(['Interplus-5G']));
+    }
+
     public function test_saca_cedula_y_telefono_del_texto(): void
     {
         $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('soy 4765661 Por que no anda la señal de wifi'));

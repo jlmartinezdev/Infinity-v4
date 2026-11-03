@@ -51,14 +51,19 @@ class SoporteTexto
     public static function pareceConfirmaCambioWifi(?string $texto): bool
     {
         $t = self::norm($texto);
-        if ($t === '') {
+        if ($t === '' || self::pareceConsultaNombreWifi($t)) {
+            return false;
+        }
+        // Preguntas ("cómo vas a cambiar?", "hace cuánto…") no confirman.
+        if (preg_match('/^(como|c[oó]mo|hace|por que|por qu[eé]|cuando|cu[aá]ndo|que|qu[eé]|cual|cu[aá]l)\b/u', $t)) {
             return false;
         }
 
         return (bool) preg_match(
             '/^(si|sí|dale|ok|okay|listo|cambiar|cambie|cambiá|cambiar wifi|cambiar clave|nueva clave|hacelo|hágalo)\.?$/u',
             $t
-        ) || (bool) preg_match('/cambi(ar|e|á|ame).{0,20}(clave|wifi|contrase)/u', $t);
+        ) || (bool) preg_match('/^(si|sí)[,.]?\s+(cambiar|cambie|cambiá)/u', $t)
+            || (bool) preg_match('/cambi(ar|e|á|ame)\s+(la\s+|el\s+)?(clave|wifi|contrase|ssid)/u', $t);
     }
 
     /** Seguimiento de un reclamo/zona ya avisado (no abrir diagnóstico de cero). */
@@ -92,7 +97,8 @@ class SoporteTexto
         return trim(implode(' ', $partes));
     }
 
-    public static function pareceCambioWifi(?string $texto): bool
+    /** Pregunta el SSID actual (no es pedido de cambio). */
+    public static function pareceConsultaNombreWifi(?string $texto): bool
     {
         $t = self::norm($texto);
         if ($t === '') {
@@ -100,7 +106,21 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/cambi(ar|a|ame|á)\s+(la\s+|el\s+)?(clave|contrase[nñ]a|password|nombre|ssid).{0,24}(wifi|wi-?fi)|(clave|contrase[nñ]a|nombre)\s+(del?\s+)?(wifi|wi-?fi)|wifi\s+nuevo|vecinos?\s+colgad/u',
+            '/(qu[eé]|cual|cu[aá]l).{0,20}(nombre|ssid).{0,20}(wifi|wi-?fi|red)|(nombre|ssid).{0,12}(wifi|wi-?fi).{0,12}(tengo|tiene|es)|como se llama.{0,12}(wifi|wi-?fi|red)/u',
+            $t
+        );
+    }
+
+    public static function pareceCambioWifi(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '' || self::pareceConsultaNombreWifi($t)) {
+            return false;
+        }
+
+        // Solo intención de cambiar; no "nombre de wifi" / "clave del wifi" en consulta.
+        return (bool) preg_match(
+            '/cambi(ar|a|ame|á)\s+(la\s+|el\s+)?(clave|contrase[nñ]a|password|nombre|ssid).{0,24}(wifi|wi-?fi)|cambi(ar|a|ame|á)\s+(el\s+)?(wifi|wi-?fi)|nueva\s+(clave|contrase[nñ]a).{0,16}(wifi|wi-?fi)|(clave|contrase[nñ]a)\s+nueva.{0,16}(wifi|wi-?fi)|wifi\s+nuevo|reset(ear)?\s+(el\s+)?(wifi|wi-?fi)|vecinos?\s+colgad/u',
             $t
         );
     }
@@ -197,8 +217,15 @@ class SoporteTexto
     public static function nombreWifi(?string $texto): ?string
     {
         $raw = trim((string) $texto);
-        if (preg_match('/(?:nombre|ssid)\s*(?:nuevo|wifi)?\s*[:=]?\s*([A-Za-z0-9][A-Za-z0-9 _.-]{1,31})/u', $raw, $m)) {
+        if ($raw === '' || self::pareceConsultaNombreWifi($raw)) {
+            return null;
+        }
+        // Solo si pide nombre nuevo explícito (no "qué nombre de wifi tengo").
+        if (preg_match('/(?:nombre|ssid)\s*(?:nuevo|nueva)?\s*(?:del?\s*wifi)?\s*(?:a|=|:)\s*[«"\']?([A-Za-z0-9][A-Za-z0-9 _.-]{1,31})[»"\']?/u', $raw, $m)) {
             return trim($m[1]);
+        }
+        if (preg_match('/cambi(ar|e|á|ame)\s+(el\s+)?(nombre|ssid).{0,20}(?:a|=|:)\s*[«"\']?([A-Za-z0-9][A-Za-z0-9 _.-]{1,31})[»"\']?/u', $raw, $m)) {
+            return trim($m[4]);
         }
 
         return null;
