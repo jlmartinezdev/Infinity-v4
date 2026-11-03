@@ -318,4 +318,73 @@ class SoporteDiagnosticoTest extends TestCase
             FraseCliente::filtrar('María, agradecemos tu aviso.', FraseCliente::ESCALADO)
         );
     }
+
+    public function test_validador_nunca_devuelve_prompt_de_catalogo(): void
+    {
+        $lista = "Estos son nuestros planes vigentes (mensual, IVA incluido):\nFibra:\n• Plan Básico 100 Mbps — Gs. 100.000";
+        $prompt = "Planes vigentes (mensual...\nVenta suave: no venda\nSalida WhatsApp: una línea\n· prioridad 2";
+        $out = (new ValidadorHechos)->validar(
+            'El plan cuesta Gs. 120.000 mensual',
+            [],
+            [
+                'fibra' => [['precio' => 100000]],
+                'antena' => [['precio' => 150000]],
+                'planes_texto' => $lista,
+            ],
+            FraseCliente::ESCALADO,
+        );
+        $this->assertTrue($out['filtrado']);
+        $this->assertSame('n8n_catalogo', $out['modo']);
+        $this->assertSame($lista, $out['reply']);
+        $this->assertStringNotContainsString('Venta suave', $out['reply']);
+
+        $fuga = (new ValidadorHechos)->validar($prompt, [], ['planes_texto' => $lista], FraseCliente::ESCALADO);
+        $this->assertTrue($fuga['filtrado']);
+        $this->assertSame('n8n_fuga_prompt', $fuga['modo']);
+        $this->assertSame($lista, $fuga['reply']);
+    }
+
+    public function test_cedula_con_palabra_plan_no_dispara_precio_inventado(): void
+    {
+        $out = (new ValidadorHechos)->validar(
+            'Su cédula 5263934 figura con el plan básico activo.',
+            [],
+            [
+                'fibra' => [['precio' => 100000]],
+                'antena' => [],
+                'planes_texto' => 'lista limpia',
+            ],
+            FraseCliente::ESCALADO,
+        );
+        $this->assertFalse($out['filtrado']);
+        $this->assertStringContainsString('5263934', $out['reply']);
+    }
+
+    public function test_filtro_permite_cotizacion_antena_con_mbps(): void
+    {
+        $texto = 'Antena Estandar 20 Mbps — Gs. 150.000';
+        $this->assertSame($texto, FraseCliente::filtrar($texto, FraseCliente::ESCALADO));
+        $this->assertTrue(FraseCliente::pareceFugaLineamiento('Venta suave: no venda internet genérico'));
+        $this->assertFalse(FraseCliente::pareceFugaLineamiento($texto));
+    }
+
+    public function test_detalle_servicio_y_deteccion_intents(): void
+    {
+        $this->assertTrue(SoporteTexto::pareceConsultaServicio('quiero ver detalle de mi servicio completo'));
+        $this->assertTrue(SoporteTexto::pareceConsultaCatalogo('qué planes de fibra tienen'));
+        $this->assertFalse(SoporteTexto::pareceConsultaCatalogo('cambiar la clave del wifi'));
+
+        $detalle = FraseCliente::detalleServicio([
+            'plan_nombre' => 'PLAN ESTANDAR 20 Mbps',
+            'plan_precio' => 150000,
+            'estado' => 'activo',
+            'saldo' => 0,
+            'es_antena' => true,
+            'cedula' => '3204406',
+        ]);
+        $this->assertStringContainsString('PLAN ESTANDAR 20 Mbps', $detalle);
+        $this->assertStringContainsString('activo', $detalle);
+        $this->assertStringContainsString('sin deuda', mb_strtolower($detalle));
+        $this->assertStringNotContainsString('Venta suave', $detalle);
+    }
 }

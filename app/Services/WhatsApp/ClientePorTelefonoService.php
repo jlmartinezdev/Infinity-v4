@@ -40,6 +40,7 @@ class ClientePorTelefonoService
                 'planes_fibra' => $catalogo['fibra'],
                 'planes_antena' => $catalogo['antena'],
                 'planes_texto' => $catalogo['planes_texto'],
+                'planes_prompt' => $catalogo['planes_prompt'] ?? '',
             ];
         }
 
@@ -84,6 +85,7 @@ class ClientePorTelefonoService
             'planes_fibra' => $catalogo['fibra'],
             'planes_antena' => $catalogo['antena'],
             'planes_texto' => $catalogo['planes_texto'],
+            'planes_prompt' => $catalogo['planes_prompt'] ?? '',
         ];
     }
 

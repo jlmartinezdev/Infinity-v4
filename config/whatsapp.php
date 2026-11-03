@@ -150,8 +150,6 @@ Todos nuestros planes son buenos y válidos. La diferencia no es “internet sí
 • Tráfico prioritario en planes superiores: su navegación sale primero cuando hay mucha demanda.
 • Cambios de contraseña WiFi: en planes superiores suelen ir bonificados; en el básico hay uno gratis y luego puede tener costo.
 • Soporte técnico: si ocurre un inconveniente, los planes superiores tienen prioridad de atención.
-
-Use esto solo si el cliente pregunta por planes o beneficios, o al cerrar un caso resuelto (1 o 2 oraciones). Nunca diga que el plan básico es malo. Nunca empuje si solo quiere soporte o pagar.
 TXT,
             'transferencia' => env('WA_AGENT_TEXTO_TRANSFERENCIA') ?: <<<'TXT'
 Transferencias a esta cuenta:

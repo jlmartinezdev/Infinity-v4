@@ -50,11 +50,21 @@ class CasoSelector
         $salida = [];
 
         foreach (array_slice($elegidos, 0, $max) as $caso) {
-            $limpio = FraseCliente::filtrar((string) $caso->texto, '');
-            if ($limpio === '' || ($limpio === (string) $caso->texto && $this->tieneMedicion((string) $caso->texto))) {
+            $raw = (string) $caso->texto;
+            if ($this->esInstruccionOSaludo($raw)) {
                 continue;
             }
-            if ($this->tieneMedicion($limpio)) {
+            $limpio = FraseCliente::filtrar($raw, '');
+            if ($limpio === '' || FraseCliente::pareceFugaLineamiento($limpio)) {
+                continue;
+            }
+            if ($this->tieneMedicion($limpio) || $this->esInstruccionOSaludo($limpio)) {
+                continue;
+            }
+            // Keywords demasiado genéricas (wifi/internet solos) no aportan conocimiento útil.
+            $palabras = array_filter(array_map('trim', explode(',', mb_strtolower((string) $caso->palabras))));
+            $soloGenericas = $palabras !== [] && count(array_diff($palabras, ['wifi', 'internet', 'router', 'hola', 'buenas'])) === 0;
+            if ($soloGenericas && $etiqueta === null) {
                 continue;
             }
             $salida[] = [
@@ -65,6 +75,28 @@ class CasoSelector
         }
 
         return $salida;
+    }
+
+    private function esInstruccionOSaludo(string $texto): bool
+    {
+        $t = mb_strtolower(trim($texto));
+        if ($t === '') {
+            return true;
+        }
+        if (FraseCliente::pareceFugaLineamiento($t)) {
+            return true;
+        }
+        if (preg_match('/estilo interplus|obligatorio|use esto solo|nunca diga|nunca empuje/u', $t)) {
+            return true;
+        }
+        if (preg_match('/^(muy )?(buenos? d[ií]as|buenas tardes|hola)[!¡.]*$/u', $t)) {
+            return true;
+        }
+        if (preg_match('/titular:|n[°º]\s*de cuenta|ueno bank/u', $t)) {
+            return true;
+        }
+
+        return false;
     }
 
     public function registrarUso(?int $casoId, bool $exito): void

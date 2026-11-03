@@ -20,6 +20,34 @@ class SoporteTexto
         );
     }
 
+    /** Consulta del plan/saldo/estado de la cuenta del cliente. */
+    public static function pareceConsultaServicio(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/detalle (de )?(mi |su )?servicio|qu[eé] plan (tengo|tengo contratado|estoy)|mi plan|plan (actual|contratado)|cu[aá]nto (pago|debo|debo pagar)|mi saldo|saldo (pendiente|deuda)|estado (de )?(mi )?(cuenta|servicio)|datos (de )?(mi )?(cuenta|servicio)/u',
+            $t
+        );
+    }
+
+    /** Pedido de catálogo / precios de planes (no beneficios genéricos). */
+    public static function pareceConsultaCatalogo(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/qu[eé] planes?( hay| tienen| ofrecen)?|planes? (de )?(fibra|antena|disponibles|vigentes)|precios?( de (los )?planes?)?|cu[aá]nto (cuesta|sale|vale).{0,20}(plan|fibra|antena|megas|mb)|cotiz(ar|ame|á)|lista (de )?planes/u',
+            $t
+        );
+    }
+
     /** Pedido de listar equipos/dispositivos de su red (ACS/DHCP). No es escaneo de vecinos. */
     public static function pareceConsultaEquipos(?string $texto): bool
     {

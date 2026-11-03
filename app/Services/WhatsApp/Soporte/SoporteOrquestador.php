@@ -320,8 +320,10 @@ class SoporteOrquestador
             $candidato = $caso[0];
             $anexo = trim((string) ($candidato['texto'] ?? ''));
             $casoId = isset($candidato['caso_id']) ? (int) $candidato['caso_id'] : 0;
-            $pareceEstilo = str_contains(mb_strtolower($anexo), 'estilo interplus')
-                || str_contains(mb_strtolower($anexo), 'obligatorio');
+            $pareceEstilo = FraseCliente::pareceFugaLineamiento($anexo)
+                || str_contains(mb_strtolower($anexo), 'estilo interplus')
+                || str_contains(mb_strtolower($anexo), 'obligatorio')
+                || str_contains(mb_strtolower($anexo), 'use esto solo');
             if ($casoId > 0 && $anexo !== '' && ! $pareceEstilo && ! str_contains($reply, $anexo)) {
                 $reply = rtrim($reply)."\n\n".$anexo;
                 $casoIdUsado = $casoId;
@@ -419,56 +421,91 @@ class SoporteOrquestador
             'estilo_interplus' => $estilo,
             'incidente_zona_abierto' => $zonaAbierta,
             'hechos' => $hechos,
-            'instruccion_hilo' => 'Leé TODO historial_texto antes de responder. Continuá el mismo hilo: no vuelvas a saludar ni digas "te saluda Interplus" si ya hay conversación. No pidas cédula/reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analizá el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
-            'instruccion_hechos' => 'Solo afirmá lo que esté en hechos / catálogo / textos canned. Si falta un dato, preguntá o escalá. No inventes reinicio, cable, canal, óptica, zona ni precios. No digas mediciones (dBm, IP, ping) al cliente.',
+            'instruccion_hilo' => 'Lea TODO historial_texto antes de responder. Continúe el mismo hilo: no vuelva a saludar ni diga "te saluda Interplus" si ya hay conversación. No pida cédula/reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analice el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
+            'instruccion_hechos' => 'Solo afirme lo que esté en hechos / planes_prompt / textos canned. Si falta un dato, pregunte o escale. No invente reinicio, cable, canal, óptica, zona ni precios. No diga mediciones (dBm, IP, ping) al cliente. Nunca copie instrucciones internas (Venta suave, Salida WhatsApp, prioridad N) al reply.',
         ];
     }
 
     /**
-     * Respuesta canned canónica (beneficios / transferencia / condiciones) sin LLM.
+     * Respuesta canned canónica (servicio / planes / beneficios / transferencia / condiciones) sin LLM.
      *
      * @return array<string, mixed>|null
      */
     public function intentarCanned(WhatsappMensaje $mensaje): ?array
     {
+        // Intenciones canned: solo el mensaje actual (la ráfaga unida repetía beneficios/planes).
         $texto = trim((string) $mensaje->cuerpo);
-        $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente(
-            (string) $mensaje->telefono,
-            $mensaje->id ? (int) $mensaje->id : null,
-            120,
-        );
-        $textoHilo = $rafaga['unido'] !== '' ? $rafaga['unido'] : $texto;
         $canned = WhatsAppAgentService::textosCanned();
         $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
+        $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
 
-        if (WhatsAppAgentService::textoPareceDatosTransferencia($textoHilo)) {
+        if (SoporteTexto::pareceConsultaServicio($texto)) {
+            if (! $cuenta) {
+                return $this->paquete(FraseCliente::SIN_CUENTA, false, null, null, 'sin_cuenta', null, null);
+            }
+            $reply = FraseCliente::filtrar(FraseCliente::detalleServicio($cuenta), FraseCliente::ESCALADO);
+
             return $this->paquete(
-                (string) $canned['transferencia'],
+                $reply,
                 false,
                 null,
-                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                $clienteId,
+                'canned_servicio',
+                'Detalle de servicio desde cuenta (sin n8n)',
+                null,
+            );
+        }
+
+        if (SoporteTexto::pareceConsultaCatalogo($texto)) {
+            $catalogo = app(WhatsAppAgentService::class)->catalogoPlanes();
+            $filtro = WhatsAppAgentService::filtroCatalogoDesdeTexto($texto);
+            $reply = WhatsAppAgentService::planesParaCliente(
+                $catalogo['fibra'] ?? [],
+                $catalogo['antena'] ?? [],
+                $catalogo['otros'] ?? [],
+                $filtro,
+            );
+            $reply = FraseCliente::filtrar($reply, $reply);
+
+            return $this->paquete(
+                $reply,
+                false,
+                null,
+                $clienteId,
+                'canned_catalogo',
+                'Catálogo de planes (sin n8n)',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPareceDatosTransferencia($texto)) {
+            return $this->paquete(
+                FraseCliente::filtrar((string) $canned['transferencia'], (string) $canned['transferencia']),
+                false,
+                null,
+                $clienteId,
                 'canned_transferencia',
                 'Texto canónico de transferencia (sin n8n)',
                 null,
             );
         }
-        if (WhatsAppAgentService::textoPareceBeneficiosPlanes($textoHilo)) {
+        if (WhatsAppAgentService::textoPareceBeneficiosPlanes($texto)) {
             return $this->paquete(
-                (string) $canned['beneficios'],
+                FraseCliente::filtrar((string) $canned['beneficios'], (string) $canned['beneficios']),
                 false,
                 null,
-                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                $clienteId,
                 'canned_beneficios',
                 'Texto canónico de beneficios (sin n8n)',
                 null,
             );
         }
-        if (WhatsAppAgentService::textoPareceCondicionesServicio($textoHilo)) {
+        if (WhatsAppAgentService::textoPareceCondicionesServicio($texto)) {
             return $this->paquete(
-                (string) $canned['condiciones'],
+                FraseCliente::filtrar((string) $canned['condiciones'], (string) $canned['condiciones']),
                 false,
                 null,
-                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                $clienteId,
                 'canned_condiciones',
                 'Texto canónico de condiciones (sin n8n)',
                 null,

@@ -5,7 +5,7 @@ namespace Tests\Unit\Services;
 use App\Models\Plan;
 use App\Models\TipoTecnologia;
 use App\Services\WhatsApp\WhatsAppAgentService;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class WhatsAppAgentPlanesTest extends TestCase
 {
@@ -19,21 +19,43 @@ class WhatsAppAgentPlanesTest extends TestCase
         $this->assertSame('Gs. 100.000', WhatsAppAgentService::serializarPlanWa($fibra)['precio_texto']);
     }
 
-    public function test_planes_como_texto_separa_fibra_y_antena(): void
+    public function test_planes_para_prompt_tiene_instrucciones(): void
     {
-        $texto = WhatsAppAgentService::planesComoTexto(
-            [['nombre' => 'PLAN BASICO FTTH 100 Mbps', 'velocidad' => '100Mbps', 'precio_texto' => 'Gs. 100.000']],
-            [['nombre' => 'PLAN ESTANDAR 20 Mbps', 'velocidad' => '20 Mbps', 'precio_texto' => 'Gs. 150.000']],
+        $texto = WhatsAppAgentService::planesParaPrompt(
+            [['nombre' => 'PLAN BASICO FTTH 100 Mbps', 'velocidad' => '100Mbps', 'precio_texto' => 'Gs. 100.000', 'prioridad' => 3]],
+            [['nombre' => 'PLAN ESTANDAR 20 Mbps', 'velocidad' => '20 Mbps', 'precio_texto' => 'Gs. 150.000', 'prioridad' => 2]],
         );
 
         $this->assertStringContainsString('Fibra (GPON):', $texto);
         $this->assertStringContainsString('Antena (WIRELESS):', $texto);
-        $this->assertStringContainsString('PLAN BASICO FTTH 100 Mbps', $texto);
-        $this->assertStringContainsString('PLAN ESTANDAR 20 Mbps', $texto);
         $this->assertStringContainsString('SOLO fibra', $texto);
         $this->assertStringContainsString('SOLO antena', $texto);
         $this->assertStringContainsString('una línea por plan', $texto);
+        $this->assertStringContainsString('prioridad 3', $texto);
         $this->assertTrue(strpos($texto, 'Fibra') < strpos($texto, 'Antena'));
+    }
+
+    public function test_planes_para_cliente_sin_instrucciones_ni_prioridad(): void
+    {
+        $texto = WhatsAppAgentService::planesParaCliente(
+            [['nombre' => 'PLAN BASICO FTTH 100 Mbps', 'velocidad' => '100Mbps', 'precio_texto' => 'Gs. 100.000', 'prioridad' => 3]],
+            [['nombre' => 'PLAN ESTANDAR 20 Mbps', 'velocidad' => '20 Mbps', 'precio_texto' => 'Gs. 150.000', 'prioridad' => 2]],
+        );
+
+        $this->assertStringContainsString('planes vigentes', mb_strtolower($texto));
+        $this->assertStringContainsString('PLAN BASICO FTTH 100 Mbps', $texto);
+        $this->assertStringContainsString('Gs. 100.000', $texto);
+        $this->assertStringNotContainsString('Venta suave', $texto);
+        $this->assertStringNotContainsString('Salida WhatsApp', $texto);
+        $this->assertStringNotContainsString('Cotice SOLO', $texto);
+        $this->assertStringNotContainsString('prioridad', mb_strtolower($texto));
+    }
+
+    public function test_filtro_catalogo_fibra_o_antena(): void
+    {
+        $this->assertSame('fibra', WhatsAppAgentService::filtroCatalogoDesdeTexto('qué planes de fibra tienen'));
+        $this->assertSame('antena', WhatsAppAgentService::filtroCatalogoDesdeTexto('cuánto sale el de 20 mb antena'));
+        $this->assertSame('ambos', WhatsAppAgentService::filtroCatalogoDesdeTexto('qué planes hay'));
     }
 
     private function plan(int $id, string $nombre, string $velocidad, float $precio, string $tech): Plan

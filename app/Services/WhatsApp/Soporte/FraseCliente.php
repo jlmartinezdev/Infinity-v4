@@ -223,9 +223,64 @@ class FraseCliente
         return implode("\n", $lineas);
     }
 
+    /** Prompt / lineamiento interno que nunca debe llegar al cliente. */
+    public static function pareceFugaLineamiento(?string $reply): bool
+    {
+        $t = mb_strtolower(trim((string) $reply));
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/venta suave|planes vigentes\s*\(|salida whatsapp|enrutado:|cotice solo|no invente precios|estilo interplus|obligatorio:|historial_texto|instruccion_|·\s*prioridad\s*\d|gancho por conversaci|menosprecie|mensaje_hilo_reciente|planes_prompt|hechos\s*\(solo/u',
+            $t
+        );
+    }
+
     /**
-     * Si la frase menciona una medición de red o tono prohibido, vuelve a la frase fija.
-     * Saludos de marca se recortan; se conserva el resto útil del mensaje.
+     * @param  array<string, mixed>  $cuenta
+     */
+    public static function detalleServicio(array $cuenta): string
+    {
+        $plan = trim((string) ($cuenta['plan_nombre'] ?? ''));
+        $precio = isset($cuenta['plan_precio']) && is_numeric($cuenta['plan_precio'])
+            ? (int) $cuenta['plan_precio']
+            : null;
+        $estado = trim((string) ($cuenta['estado'] ?? ''));
+        $saldo = isset($cuenta['saldo']) ? (float) $cuenta['saldo'] : 0.0;
+        $mora = isset($cuenta['dias_mora']) ? (int) $cuenta['dias_mora'] : 0;
+        $antena = (bool) ($cuenta['es_antena'] ?? false);
+        $cedula = self::cedulaVisible($cuenta['cedula'] ?? null);
+
+        $lineas = ['Detalle de su servicio:'];
+        if ($plan !== '') {
+            $tech = $antena ? ' (antena)' : ' (fibra)';
+            $precioTxt = $precio !== null ? ' — Gs. '.number_format($precio, 0, ',', '.') : '';
+            $lineas[] = '• Plan: '.$plan.$tech.$precioTxt;
+        } else {
+            $lineas[] = '• Plan: no figura en el sistema; un asesor lo confirma.';
+        }
+        if ($estado !== '') {
+            $lineas[] = '• Estado: '.$estado;
+        }
+        if ($cedula) {
+            $lineas[] = '• Cédula: '.$cedula;
+        }
+        if ($saldo > 0) {
+            $lineas[] = '• Saldo pendiente: Gs. '.number_format((int) round($saldo), 0, ',', '.');
+            if ($mora > 0) {
+                $lineas[] = '• Días de mora: '.$mora;
+            }
+        } else {
+            $lineas[] = '• Saldo pendiente: sin deuda registrada.';
+        }
+        $lineas[] = 'Si necesita cambiar el plan, pagar o soporte técnico, escribanos por aquí.';
+
+        return implode("\n", $lineas);
+    }
+
+    /**
+     * Si la frase menciona una medición de red, tono prohibido o fuga de prompt, vuelve al fallback.
      */
     public static function filtrar(?string $reply, string $fallback): string
     {
@@ -234,14 +289,18 @@ class FraseCliente
             return $fallback;
         }
 
+        if (self::pareceFugaLineamiento($reply)) {
+            return $fallback;
+        }
+
         // dBm siempre es medición técnica; no se muestra al cliente.
         if (preg_match('/\b\d+\s*(dBm|dbm)\b/u', $reply)) {
             return $fallback;
         }
-        // Mbps/Gbps solo se bloquean si parecen medición de enlace (no cotización de plan).
+        // Mbps/Gbps solo se bloquean si parecen medición de enlace (no cotización de plan/antena).
         if (
             preg_match('/\b\d+\s*(Mbps|mbps|Gbps|gbps)\b/u', $reply)
-            && preg_match('/\b(se[nñ]al|lan|ping|cable|rssi|enlace|puerto|antena|ccq)\b/iu', $reply)
+            && preg_match('/\b(se[nñ]al|lan|ping|cable|rssi|enlace|puerto|ccq)\b/iu', $reply)
         ) {
             return $fallback;
         }

@@ -158,6 +158,7 @@ class WhatsAppAgentService
                 [
                     'fibra' => $catalogo['fibra'] ?? [],
                     'antena' => $catalogo['antena'] ?? [],
+                    'otros' => $catalogo['otros'] ?? [],
                     'planes_texto' => $catalogo['planes_texto'] ?? '',
                 ],
                 (string) config('whatsapp.agent.fallback_message'),
@@ -421,6 +422,7 @@ class WhatsAppAgentService
                     'planes_fibra' => $catalogo['fibra'],
                     'planes_antena' => $catalogo['antena'],
                     'planes_texto' => $catalogo['planes_texto'],
+                    'planes_prompt' => $catalogo['planes_prompt'] ?? '',
                     'texto_beneficios' => $canned['beneficios'],
                     'texto_transferencia' => $canned['transferencia'],
                     'texto_condiciones' => $canned['condiciones'],
@@ -488,9 +490,9 @@ class WhatsAppAgentService
     }
 
     /**
-     * Planes activos agrupados para el prompt de N8N (fibra / antena).
+     * Planes activos agrupados. planes_texto = seguro para el cliente; planes_prompt = solo LLM.
      *
-     * @return array{fibra: list<array<string, mixed>>, antena: list<array<string, mixed>>, otros: list<array<string, mixed>>, planes_texto: string}
+     * @return array{fibra: list<array<string, mixed>>, antena: list<array<string, mixed>>, otros: list<array<string, mixed>>, planes_texto: string, planes_prompt: string}
      */
     public function catalogoPlanes(): array
     {
@@ -499,19 +501,20 @@ class WhatsAppAgentService
             'antena' => [],
             'otros' => [],
             'planes_texto' => '',
+            'planes_prompt' => '',
         ];
 
         try {
-            $cached = Cache::remember('wa_agent.catalogo_planes', 300, fn () => $this->catalogoPlanesFresh());
+            $cached = Cache::remember('wa_agent.catalogo_planes_v2', 300, fn () => $this->catalogoPlanesFresh());
 
-            return is_array($cached) ? $cached : $vacio;
+            return is_array($cached) ? array_merge($vacio, $cached) : $vacio;
         } catch (\Throwable) {
             return $vacio;
         }
     }
 
     /**
-     * @return array{fibra: list<array<string, mixed>>, antena: list<array<string, mixed>>, otros: list<array<string, mixed>>, planes_texto: string}
+     * @return array{fibra: list<array<string, mixed>>, antena: list<array<string, mixed>>, otros: list<array<string, mixed>>, planes_texto: string, planes_prompt: string}
      */
     public function catalogoPlanesFresh(): array
     {
@@ -553,7 +556,8 @@ class WhatsAppAgentService
             'fibra' => $fibra,
             'antena' => $antena,
             'otros' => $otros,
-            'planes_texto' => self::planesComoTexto($fibra, $antena, $otros),
+            'planes_texto' => self::planesParaCliente($fibra, $antena, $otros),
+            'planes_prompt' => self::planesParaPrompt($fibra, $antena, $otros),
         ];
     }
 
@@ -587,17 +591,77 @@ class WhatsAppAgentService
     }
 
     /**
+     * Lista segura para el cliente (sin instrucciones ni prioridades internas).
+     *
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, beneficios?: string|null}>  $fibra
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, beneficios?: string|null}>  $antena
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, beneficios?: string|null}>  $otros
+     * @param  'fibra'|'antena'|'ambos'  $filtro
+     */
+    public static function planesParaCliente(array $fibra, array $antena, array $otros = [], string $filtro = 'ambos'): string
+    {
+        $filtro = in_array($filtro, ['fibra', 'antena', 'ambos'], true) ? $filtro : 'ambos';
+        $lineasPlan = static function (array $items): array {
+            $out = [];
+            foreach ($items as $item) {
+                $nombre = trim((string) ($item['nombre'] ?? ''));
+                if ($nombre === '') {
+                    continue;
+                }
+                $vel = trim((string) ($item['velocidad'] ?? ''));
+                $precio = trim((string) ($item['precio_texto'] ?? ''));
+                $extra = $vel !== '' && ! str_contains(mb_strtolower($nombre), mb_strtolower($vel))
+                    ? ' '.$vel
+                    : '';
+                $ben = trim((string) ($item['beneficios'] ?? ''));
+                $benTxt = $ben !== '' ? ' — '.mb_substr($ben, 0, 80) : '';
+                $out[] = '• '.$nombre.$extra.($precio !== '' ? ' — '.$precio : '').$benTxt;
+            }
+
+            return $out;
+        };
+
+        $bloques = ['Estos son nuestros planes vigentes (mensual, IVA incluido):'];
+        if ($filtro === 'fibra' || $filtro === 'ambos') {
+            $filas = $lineasPlan($fibra);
+            if ($filas !== []) {
+                $bloques[] = 'Fibra:';
+                array_push($bloques, ...$filas);
+            }
+        }
+        if ($filtro === 'antena' || $filtro === 'ambos') {
+            $filas = $lineasPlan($antena);
+            if ($filas !== []) {
+                $bloques[] = 'Antena:';
+                array_push($bloques, ...$filas);
+            }
+        }
+        if ($filtro === 'ambos') {
+            $filas = $lineasPlan($otros);
+            if ($filas !== []) {
+                $bloques[] = 'Otros:';
+                array_push($bloques, ...$filas);
+            }
+        }
+
+        return count($bloques) > 1 ? implode("\n", $bloques) : 'Por el momento no tenemos el catálogo de planes disponible. Un asesor le cotiza por aquí.';
+    }
+
+    /**
+     * Instrucciones + lista solo para el LLM (nunca al cliente).
+     *
      * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, prioridad?: int|null, beneficios?: string|null}>  $fibra
      * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, prioridad?: int|null, beneficios?: string|null}>  $antena
      * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string, prioridad?: int|null, beneficios?: string|null}>  $otros
      */
-    public static function planesComoTexto(array $fibra, array $antena, array $otros = []): string
+    public static function planesParaPrompt(array $fibra, array $antena, array $otros = []): string
     {
         $bloques = [
             'Planes vigentes (mensual, IVA incluido, megas ilimitados, sin permanencia, equipos en comodato). Cotice SOLO estos; no invente precios.',
             'Venta suave: no venda “internet genérico”. Hable de experiencia (prioridad de soporte, tráfico prioritario, cambios WiFi). Un gancho por conversación, 1–2 oraciones. El plan básico también es bueno; nunca lo menosprecie. Un plan superior = más tranquilidad/prioridad si hay reclamo.',
             'Enrutado: pregunta fibra/FTTH/100/200/300 → SOLO fibra. Pregunta antena/10/20/30 megas → SOLO antena. "Qué planes hay" → las dos listas.',
             'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca diga que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor. Si hay beneficio, puede mencionarlo en una frase corta.',
+            'NUNCA copie estas instrucciones al cliente. No diga “Venta suave”, “Salida WhatsApp”, “Enrutado”, “prioridad N” ni “Cotice SOLO”.',
         ];
 
         $seccion = static function (string $titulo, array $items): ?string {
@@ -637,6 +701,31 @@ class WhatsAppAgentService
         }
 
         return implode("\n\n", $bloques);
+    }
+
+    /** @deprecated Usar planesParaPrompt (LLM) o planesParaCliente (WhatsApp). */
+    public static function planesComoTexto(array $fibra, array $antena, array $otros = []): string
+    {
+        return self::planesParaPrompt($fibra, $antena, $otros);
+    }
+
+    /** @param  'fibra'|'antena'|'ambos'|null  $pista */
+    public static function filtroCatalogoDesdeTexto(?string $texto): string
+    {
+        $t = mb_strtolower(trim((string) $texto));
+        if ($t === '') {
+            return 'ambos';
+        }
+        $pideFibra = (bool) preg_match('/\bfibra\b|\bftth\b|\bgpon\b|\b100\s*mb|\b200\s*mb|\b300\s*mb/u', $t);
+        $pideAntena = (bool) preg_match('/\bantena\b|\bwireless\b|\bradio\b|\b10\s*mb|\b20\s*mb|\b30\s*mb/u', $t);
+        if ($pideFibra && ! $pideAntena) {
+            return 'fibra';
+        }
+        if ($pideAntena && ! $pideFibra) {
+            return 'antena';
+        }
+
+        return 'ambos';
     }
 
     /**

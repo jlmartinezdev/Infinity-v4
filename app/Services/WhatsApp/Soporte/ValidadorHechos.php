@@ -3,21 +3,28 @@
 namespace App\Services\WhatsApp\Soporte;
 
 /**
- * Corta respuestas de n8n que inventan causas técnicas o precios fuera del catálogo.
+ * Corta respuestas de n8n que inventan causas técnicas, precios o filtrán prompts.
  */
 class ValidadorHechos
 {
     /**
      * @param  array<string, mixed>  $hechos
-     * @param  array{fibra?: list<array<string, mixed>>, antena?: list<array<string, mixed>>}  $catalogo
+     * @param  array{fibra?: list<array<string, mixed>>, antena?: list<array<string, mixed>>, otros?: list<array<string, mixed>>, planes_texto?: string}  $catalogo
      * @return array{reply: string, modo: ?string, filtrado: bool}
      */
     public function validar(string $reply, array $hechos, array $catalogo = [], string $fallback = ''): array
     {
         $reply = trim($reply);
         $fallback = $fallback !== '' ? $fallback : FraseCliente::ESCALADO;
+        $listaCliente = trim((string) ($catalogo['planes_texto'] ?? ''));
+        $fallbackVentas = $listaCliente !== '' ? $listaCliente : $fallback;
+
         if ($reply === '') {
             return ['reply' => $fallback, 'modo' => 'n8n_sin_reply', 'filtrado' => true];
+        }
+
+        if (FraseCliente::pareceFugaLineamiento($reply)) {
+            return ['reply' => $fallbackVentas, 'modo' => 'n8n_fuga_prompt', 'filtrado' => true];
         }
 
         $causas = is_array($hechos['causas'] ?? null) ? $hechos['causas'] : [];
@@ -29,6 +36,10 @@ class ValidadorHechos
         }
 
         if ($this->afirmaCable($reply) && ! in_array('cable_lan', $causas, true)) {
+            if (! $pudoMedir) {
+                return ['reply' => $fallback, 'modo' => 'n8n_hechos_cable', 'filtrado' => true];
+            }
+
             return ['reply' => FraseCliente::ENLACE_OK_PREGUNTA, 'modo' => 'n8n_hechos_cable', 'filtrado' => true];
         }
 
@@ -50,6 +61,7 @@ class ValidadorHechos
             && preg_match('/no (nos )?es posible visualizar|no (podemos|podemos) ver (el detalle|los equipos|dispositivos)/iu', $reply)
         ) {
             $nombres = is_array($hechos['equipos_nombres'] ?? null) ? $hechos['equipos_nombres'] : [];
+
             return [
                 'reply' => FraseCliente::listaEquiposVista(array_map('strval', $nombres), false),
                 'modo' => 'n8n_hechos_equipos',
@@ -58,16 +70,20 @@ class ValidadorHechos
         }
 
         if ($this->precioFueraDeCatalogo($reply, $catalogo)) {
-            $planesTexto = (string) ($catalogo['planes_texto'] ?? '');
-            if ($planesTexto !== '') {
-                return ['reply' => $planesTexto, 'modo' => 'n8n_catalogo', 'filtrado' => true];
-            }
-
-            return ['reply' => $fallback, 'modo' => 'n8n_precio_inventado', 'filtrado' => true];
+            return [
+                'reply' => $fallbackVentas,
+                'modo' => 'n8n_catalogo',
+                'filtrado' => true,
+            ];
         }
 
         $filtrado = FraseCliente::filtrar($reply, $fallback);
         if ($filtrado !== $reply) {
+            // Si el filtro tumba por fuga/medición pero el reply era cotización, preferir lista limpia.
+            if (FraseCliente::pareceFugaLineamiento($reply) && $listaCliente !== '') {
+                return ['reply' => $listaCliente, 'modo' => 'n8n_fuga_prompt', 'filtrado' => true];
+            }
+
             return ['reply' => $filtrado, 'modo' => 'n8n_filtrado', 'filtrado' => true];
         }
 
@@ -76,7 +92,7 @@ class ValidadorHechos
 
     private function afirmaReinicio(string $reply): bool
     {
-        return (bool) preg_match('/\b(reinicie|reiniciar|apague y prenda|desenchufe|reset(ee|ear)?)\b/iu', $reply);
+        return (bool) preg_match('/\b(reinicie|reiniciar|reinicia|apague y prenda|ap[aá]guelo|desenchufe|desconecte|reset(ee|ear)?)\b/iu', $reply);
     }
 
     private function afirmaCable(string $reply): bool
@@ -100,16 +116,17 @@ class ValidadorHechos
     }
 
     /**
-     * @param  array{fibra?: list<array<string, mixed>>, antena?: list<array<string, mixed>>}  $catalogo
+     * @param  array{fibra?: list<array<string, mixed>>, antena?: list<array<string, mixed>>, otros?: list<array<string, mixed>>}  $catalogo
      */
     private function precioFueraDeCatalogo(string $reply, array $catalogo): bool
     {
-        if (! preg_match_all('/\b(\d{1,3}(?:[.\s]\d{3})+|\d{5,7})\b/u', $reply, $m)) {
+        // Solo montos que parecen precio (Gs. / guaraníes), no cédulas ni cuentas.
+        if (! preg_match_all('/Gs\.?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,7})|(\d{1,3}(?:[.\s]\d{3})+|\d{5,7})\s*(?:Gs\.?|guaran)/iu', $reply, $m, PREG_SET_ORDER)) {
             return false;
         }
 
         $precios = [];
-        foreach (array_merge($catalogo['fibra'] ?? [], $catalogo['antena'] ?? []) as $plan) {
+        foreach (array_merge($catalogo['fibra'] ?? [], $catalogo['antena'] ?? [], $catalogo['otros'] ?? []) as $plan) {
             if (! is_array($plan)) {
                 continue;
             }
@@ -123,16 +140,14 @@ class ValidadorHechos
             return false;
         }
 
-        foreach ($m[1] as $raw) {
-            $n = (int) preg_replace('/\D+/', '', $raw);
+        foreach ($m as $match) {
+            $raw = $match[1] !== '' ? $match[1] : ($match[2] ?? '');
+            $n = (int) preg_replace('/\D+/', '', (string) $raw);
             if ($n < 50000) {
-                continue; // cédulas u otros números chicos
+                continue;
             }
             if (! in_array($n, $precios, true)) {
-                // Solo marcar si el contexto parece cotización
-                if (preg_match('/\b(gs\.?|guaran|plan|precio|cuesta|mensual)\b/iu', $reply)) {
-                    return true;
-                }
+                return true;
             }
         }
 
