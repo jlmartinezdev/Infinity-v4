@@ -1009,6 +1009,7 @@ class WhatsAppWebController extends Controller
         return response()->json(['ok' => true]);
     }
 
+
     public function media(WhatsappMensaje $mensaje)
     {
         $path = $this->whatsapp->rutaMediaLocal($mensaje);
@@ -1147,7 +1148,11 @@ class WhatsAppWebController extends Controller
 
         if (($validated['modo'] ?? '') === 'texto') {
             app(\App\Services\WhatsApp\WhatsAppAgentService::class)
-                ->marcarSugerencia($mensaje->telefono, 'usada');
+                ->marcarSugerencia(
+                    $mensaje->telefono,
+                    'usada',
+                    (string) ($validated['texto'] ?? $mensaje->cuerpo ?? ''),
+                );
         }
 
         return $wantsJson

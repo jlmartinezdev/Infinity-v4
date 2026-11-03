@@ -32,6 +32,10 @@ class WaAgentEvento extends Model
 
     public const TIPO_INSTALACION = 'instalacion';
 
+    public const TIPO_SUGERENCIA_USADA = 'sugerencia_usada';
+
+    public const TIPO_SUGERENCIA_DESCARTADA = 'sugerencia_descartada';
+
     protected $fillable = [
         'ocurrido_at',
         'telefono',

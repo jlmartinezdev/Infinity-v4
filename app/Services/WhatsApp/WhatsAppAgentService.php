@@ -130,6 +130,12 @@ class WhatsAppAgentService
             return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
         }
 
+        // Textos canónicos (transferencia / beneficios / condiciones): sin LLM.
+        $canned = $this->soporte->intentarCanned($mensaje);
+        if ($canned !== null) {
+            return $this->cerrarConSoporte($mensaje, $canned, $enviar, $sandbox);
+        }
+
         $consulta = $this->consultarN8n($mensaje, $clasificacion);
         $reply = $consulta['reply'];
         $escalate = $consulta['escalate'];
@@ -144,11 +150,24 @@ class WhatsAppAgentService
         }
 
         if (filled($reply)) {
-            $replyFiltrado = FraseCliente::filtrar((string) $reply, (string) config('whatsapp.agent.fallback_message'));
-            if ($replyFiltrado !== (string) $reply) {
-                $reply = $replyFiltrado;
+            $hechos = is_array($consulta['hechos'] ?? null) ? $consulta['hechos'] : [];
+            $catalogo = $this->catalogoPlanes();
+            $validado = app(\App\Services\WhatsApp\Soporte\ValidadorHechos::class)->validar(
+                (string) $reply,
+                $hechos,
+                [
+                    'fibra' => $catalogo['fibra'] ?? [],
+                    'antena' => $catalogo['antena'] ?? [],
+                    'planes_texto' => $catalogo['planes_texto'] ?? '',
+                ],
+                (string) config('whatsapp.agent.fallback_message'),
+            );
+            if ($validado['filtrado']) {
+                $reply = $validado['reply'];
                 $consulta['reply'] = $reply;
-                $consulta['modo'] = ($consulta['modo'] ?? 'n8n').'_filtrado';
+                if ($validado['modo']) {
+                    $consulta['modo'] = $validado['modo'];
+                }
             }
         }
 
@@ -379,6 +398,9 @@ class WhatsAppAgentService
             // lookup opcional
         }
 
+        $ctxN8n = $this->soporte->contextoParaN8n($mensaje);
+        $vacio['hechos'] = is_array($ctxN8n['hechos'] ?? null) ? $ctxN8n['hechos'] : [];
+
         try {
             $response = Http::timeout($timeoutSec)
                 ->connectTimeout(5)
@@ -422,7 +444,7 @@ class WhatsAppAgentService
                     'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
                     'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
                     'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
-                ] + $this->soporte->contextoParaN8n($mensaje));
+                ] + $ctxN8n);
         } catch (\Throwable $e) {
             $vacio['n8n_latency_ms'] = (int) round((microtime(true) - $started) * 1000);
             $vacio['error'] = 'n8n_excepcion: '.$e->getMessage();
@@ -1295,7 +1317,7 @@ class WhatsAppAgentService
         ];
     }
 
-    public function marcarSugerencia(string $telefono, string $estado): void
+    public function marcarSugerencia(string $telefono, string $estado, ?string $textoEnviado = null): void
     {
         if (! in_array($estado, ['usada', 'descartada'], true)) {
             return;
@@ -1312,9 +1334,47 @@ class WhatsAppAgentService
         }
 
         $payload = is_array($entrada->payload) ? $entrada->payload : [];
+        $agent = is_array($payload['wa_agent'] ?? null) ? $payload['wa_agent'] : [];
+        $sugerenciaIa = trim((string) ($agent['reply'] ?? ''));
         $payload['wa_agent'][$estado] = true;
+
+        $diff = null;
+        if ($estado === 'usada' && $textoEnviado !== null) {
+            $humano = trim($textoEnviado);
+            if ($humano !== '' && $sugerenciaIa !== '' && $humano !== $sugerenciaIa) {
+                $diff = [
+                    'ia' => mb_substr($sugerenciaIa, 0, 2000),
+                    'humano' => mb_substr($humano, 0, 2000),
+                ];
+                $payload['wa_agent']['diff_humano'] = $diff;
+            }
+        }
+
         $entrada->payload = $payload;
         $entrada->save();
+
+        $tipo = $estado === 'usada'
+            ? \App\Models\WaAgentEvento::TIPO_SUGERENCIA_USADA
+            : \App\Models\WaAgentEvento::TIPO_SUGERENCIA_DESCARTADA;
+        app(WaAgentAnalyticsService::class)->registrarEvento(
+            $tipo,
+            $telefono,
+            (string) ($agent['modo'] ?? 'n8n'),
+            [
+                'mensaje_id' => (int) $entrada->id,
+                'reescrita' => $diff !== null,
+                'diff' => $diff,
+            ],
+            (int) $entrada->id,
+            $entrada->cliente_id ? (int) $entrada->cliente_id : null,
+        );
+
+        // Feedback a casos: si la sugerencia anexó un caso_id, sumar éxito/descarte.
+        $casoId = data_get($agent, 'caso_id');
+        if (is_numeric($casoId)) {
+            app(\App\Services\WhatsApp\Soporte\CasoSelector::class)
+                ->registrarUso((int) $casoId, $estado === 'usada');
+        }
     }
 
     public function humanoAtendiendo(WhatsappMensaje $mensaje): bool
@@ -1420,6 +1480,8 @@ class WhatsAppAgentService
             'descartada' => false,
             'modo' => $consulta['modo'] ?? null,
             'resumen_admin' => $consulta['resumen_admin'] ?? null,
+            'caso_id' => isset($consulta['caso_id']) ? (int) $consulta['caso_id'] : null,
+            'hechos' => is_array($consulta['hechos'] ?? null) ? $consulta['hechos'] : null,
         ];
         $mensaje->payload = $payload;
         $mensaje->save();

@@ -23,6 +23,13 @@ class FraseCliente
 
     public const PREGUNTA_SINTOMA = '¿No le anda nada o solo una página?';
 
+    /** Enlace medido OK: informar análisis real y luego pedir síntoma. */
+    public const ENLACE_OK_PREGUNTA = 'Ya revisamos su enlace desde nuestra red y responde bien. ¿No le anda nada o solo una página?';
+
+    public const CPE_CAIDO = 'Detectamos que su equipo de casa no responde en este momento. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
+
+    public const OPTICA = 'Detectamos un problema en la señal de su fibra. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
+
     public const PREGUNTA_EQUIPO = '¿Le pasa en todos los aparatos o en uno? Indíquenos el número del equipo:';
 
     public const SIN_CUENTA = 'No encontramos un servicio con este número. Escriba su cédula, su WhatsApp registrado o su nombre completo tal como figura en la factura.';
@@ -174,7 +181,15 @@ class FraseCliente
             return $fallback;
         }
 
-        if (preg_match('/\b\d+\s*(dBm|dbm|Mbps|mbps|Gbps)\b/u', $reply)) {
+        // dBm siempre es medición técnica; no se muestra al cliente.
+        if (preg_match('/\b\d+\s*(dBm|dbm)\b/u', $reply)) {
+            return $fallback;
+        }
+        // Mbps/Gbps solo se bloquean si parecen medición de enlace (no cotización de plan).
+        if (
+            preg_match('/\b\d+\s*(Mbps|mbps|Gbps|gbps)\b/u', $reply)
+            && preg_match('/\b(se[nñ]al|lan|ping|cable|rssi|enlace|puerto|antena|ccq)\b/iu', $reply)
+        ) {
             return $fallback;
         }
         if (preg_match('/\b(ccq|pppoe|rssi|lanspeed|chain)\b/i', $reply)) {
@@ -198,6 +213,9 @@ class FraseCliente
             return $fallback;
         }
         if (preg_match('/recibimos tu comprobante/iu', $reply)) {
+            return $fallback;
+        }
+        if (preg_match('/agradecemos\s+(tu|su)\s+aviso/iu', $reply)) {
             return $fallback;
         }
 

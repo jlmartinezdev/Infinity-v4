@@ -7,6 +7,7 @@ use App\Services\WhatsApp\Soporte\EvaluadorDiagnostico;
 use App\Services\WhatsApp\Soporte\FraseCliente;
 use App\Services\WhatsApp\Soporte\SoporteTexto;
 use App\Services\WhatsApp\Soporte\TratoCliente;
+use App\Services\WhatsApp\Soporte\ValidadorHechos;
 use PHPUnit\Framework\TestCase;
 
 class SoporteDiagnosticoTest extends TestCase
@@ -89,6 +90,86 @@ class SoporteDiagnosticoTest extends TestCase
             FraseCliente::ESCALADO,
             FraseCliente::filtrar('Tu señal está en -70 dBm', FraseCliente::ESCALADO)
         );
+    }
+
+    public function test_enlace_sano_informa_analisis_antes_de_preguntar(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'parece_falla' => true,
+            'texto' => 'no anda internet',
+            'medicion' => [
+                'pudo_medir' => true,
+                'sesion_online' => true,
+                'ping_general_ok' => true,
+                'ping_cpe_ok' => true,
+                'causas' => [],
+            ],
+        ]);
+
+        $this->assertSame('pregunta', $decision['tipo']);
+        $this->assertSame(FraseCliente::ENLACE_OK_PREGUNTA, $decision['reply']);
+        $this->assertStringNotContainsString('dBm', $decision['reply']);
+    }
+
+    public function test_cpe_sin_respuesta_escala_con_frase_grounded(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'parece_falla' => true,
+            'texto' => 'sin internet',
+            'medicion' => [
+                'pudo_medir' => true,
+                'sesion_online' => true,
+                'ping_general_ok' => true,
+                'ping_cpe_ok' => false,
+                'causas' => ['cpe_sin_respuesta'],
+            ],
+        ]);
+
+        $this->assertSame('escalado', $decision['tipo']);
+        $this->assertSame('cpe', $decision['motivo']);
+        $this->assertSame(FraseCliente::CPE_CAIDO, $decision['reply']);
+    }
+
+    public function test_optica_mala_escala_sin_decir_dbm(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'parece_falla' => true,
+            'texto' => 'no anda',
+            'medicion' => [
+                'pudo_medir' => true,
+                'optica_ok' => false,
+                'optica_rx_dbm' => -31.5,
+                'causas' => ['optica_mala'],
+            ],
+        ]);
+
+        $this->assertSame('escalado', $decision['tipo']);
+        $this->assertSame('optica', $decision['motivo']);
+        $this->assertSame(FraseCliente::OPTICA, $decision['reply']);
+        $this->assertStringNotContainsString('-31', $decision['reply']);
+    }
+
+    public function test_validador_hechos_corta_reinicio_inventado(): void
+    {
+        $out = (new ValidadorHechos)->validar(
+            'Reinicie el router y pruebe de nuevo.',
+            ['pudo_medir' => true, 'causas' => [], 'incidente_zona_abierto' => false],
+            [],
+            FraseCliente::ESCALADO,
+        );
+
+        $this->assertTrue($out['filtrado']);
+        $this->assertSame('n8n_hechos_reinicio', $out['modo']);
+        $this->assertSame(FraseCliente::ESCALADO, $out['reply']);
+    }
+
+    public function test_filtro_permite_mbps_de_catalogo_sin_medicion(): void
+    {
+        $texto = 'Fibra Básico 100 Mbps — Gs. 100.000.';
+        $this->assertSame($texto, FraseCliente::filtrar($texto, FraseCliente::ESCALADO));
     }
 
     public function test_parser_lee_velocidad_del_puerto(): void

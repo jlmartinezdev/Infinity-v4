@@ -64,19 +64,37 @@ class EvaluadorDiagnostico
      */
     private function enlace(array $medicion): array
     {
-        if ($this->enlaceCaido($medicion)) {
+        $causas = is_array($medicion['causas'] ?? null) ? $medicion['causas'] : [];
+
+        if (in_array('optica_mala', $causas, true) || ($medicion['optica_ok'] ?? null) === false) {
+            return $this->cerrar('escalado', FraseCliente::OPTICA, true, 'optica', null, 'escalado');
+        }
+
+        if (in_array('cpe_sin_respuesta', $causas, true) || ($medicion['ping_cpe_ok'] ?? null) === false) {
+            return $this->cerrar('escalado', FraseCliente::CPE_CAIDO, true, 'cpe', null, 'escalado');
+        }
+
+        if ($this->enlaceCaido($medicion) || in_array('sesion_offline', $causas, true) || in_array('salida_pop_caida', $causas, true)) {
             return $this->cerrar('escalado', FraseCliente::ESCALADO, true, 'enlace', null, 'escalado');
         }
 
         $lan = $medicion['lan_speed'] ?? null;
         $lanConectado = $medicion['lan_conectado'] ?? null;
-        if ($lanConectado === false || (is_numeric($lan) && (int) $lan > 0 && (int) $lan < 1000)) {
+        if (
+            in_array('cable_lan', $causas, true)
+            || $lanConectado === false
+            || (is_numeric($lan) && (int) $lan > 0 && (int) $lan < 1000)
+        ) {
             return $this->cerrar('accion', FraseCliente::CABLE, false, null, 'cable', 'cable');
         }
 
         $delta = $medicion['chain_delta'] ?? null;
         $senalAntena = $medicion['senal_antena'] ?? null;
-        if ((is_numeric($delta) && (float) $delta > 4) || (is_numeric($senalAntena) && (int) $senalAntena <= -75)) {
+        if (
+            in_array('antena_debil', $causas, true)
+            || (is_numeric($delta) && (float) $delta > 4)
+            || (is_numeric($senalAntena) && (int) $senalAntena <= -75)
+        ) {
             return $this->cerrar('escalado', FraseCliente::ESCALADO, true, 'antena', null, 'escalado');
         }
 
@@ -84,7 +102,8 @@ class EvaluadorDiagnostico
             return $this->cerrar('escalado', FraseCliente::ESCALADO, true, 'sin_medicion', null, 'escalado');
         }
 
-        return $this->cerrar('pregunta', FraseCliente::PREGUNTA_SINTOMA, false, null, 'sitio', 'pregunta');
+        // Enlace sano medido: informar análisis real antes de preguntar síntoma.
+        return $this->cerrar('pregunta', FraseCliente::ENLACE_OK_PREGUNTA, false, null, 'sitio', 'pregunta');
     }
 
     /**

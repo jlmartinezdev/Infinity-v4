@@ -341,6 +341,7 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::post('/whatsapp/casos', [WhatsAppCasoController::class, 'store'])->name('whatsapp.casos.store');
     Route::put('/whatsapp/casos/{caso}', [WhatsAppCasoController::class, 'update'])->name('whatsapp.casos.update');
     Route::delete('/whatsapp/casos/{caso}', [WhatsAppCasoController::class, 'destroy'])->name('whatsapp.casos.destroy');
+    Route::put('/whatsapp/estilo', [WhatsAppCasoController::class, 'guardarEstilo'])->name('whatsapp.estilo.update');
 });
 Route::post('/whatsapp/rapido/ticket', [WhatsAppWebController::class, 'storeTicketRapido'])
     ->name('whatsapp.rapido.ticket')

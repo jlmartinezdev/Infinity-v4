@@ -13,6 +13,15 @@
         <p class="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">{{ session('success') }}</p>
     @endif
 
+    <form method="POST" action="{{ route('whatsapp.estilo.update') }}" class="mb-6 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        @csrf
+        @method('PUT')
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Estilo Interplus</h2>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se inyecta en cada consulta a n8n. Sin mediciones técnicas ni teléfonos.</p>
+        <textarea name="estilo" required rows="8" class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">{{ old('estilo', $estilo ?? '') }}</textarea>
+        <button class="mt-3 w-fit rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">Guardar estilo</button>
+    </form>
+
     <form method="POST" action="{{ route('whatsapp.casos.store') }}" class="mb-6 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         @csrf
         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Nuevo caso</h2>
@@ -41,6 +50,7 @@
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" name="activo" value="1" @checked($caso->activo)> Activo
                     </label>
+                    <p class="text-xs text-gray-500">Usos OK: {{ (int) ($caso->usos_exitosos ?? 0) }} · Descartes: {{ (int) ($caso->usos_descartes ?? 0) }}</p>
                     <div class="flex gap-2">
                         <button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white">Actualizar</button>
                     </div>

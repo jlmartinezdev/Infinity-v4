@@ -124,7 +124,12 @@ class SoporteOrquestador
         }
 
         $medicion = is_array($estadoDialogo['medicion'] ?? null) ? $estadoDialogo['medicion'] : [];
-        $necesitaMedir = $pareceFalla || $paso === 'cable' || ($paso === 'sitio' && SoporteTexto::sitio($texto));
+        // Medir en el primer reclamo de falla (y en pasos de diálogo), no solo cable/sitio.
+        $necesitaMedir = $pareceFalla
+            || $pareceImpresora
+            || $paso === 'cable'
+            || $paso === 'equipo'
+            || ($paso === 'sitio' && SoporteTexto::sitio($texto));
         $servicio = $cuenta ? $this->cuentas->servicioDe($cuenta['servicio_id'] ?? null) : null;
 
         if ($servicio && $necesitaMedir && ! $suspendido && ! $pareceWifi) {
@@ -210,11 +215,13 @@ class SoporteOrquestador
             (string) $decision['reply'],
             $this->fallback($decision['tipo'], $cuenta['cedula'] ?? null, is_string($nombrePila) ? $nombrePila : null, is_string($apellido) ? $apellido : null)
         );
+        $casoIdUsado = null;
         $caso = $this->casos->para($decision['etiqueta'] ?? null, $texto, 1);
         if ($caso !== [] && ! in_array($decision['tipo'], ['wifi', 'escalado', 'zona', 'comprobante'], true)) {
             $anexo = trim((string) $caso[0]['texto']);
             if ($anexo !== '' && ! str_contains($reply, $anexo)) {
                 $reply = rtrim($reply)."\n\n".$anexo;
+                $casoIdUsado = isset($caso[0]['caso_id']) ? (int) $caso[0]['caso_id'] : null;
             }
         }
 
@@ -262,7 +269,7 @@ class SoporteOrquestador
             'canal' => 'sin_cambio',
         ];
 
-        return $this->paquete(
+        $out = $this->paquete(
             $reply,
             (bool) $decision['escalate'],
             $decision['motivo'],
@@ -271,6 +278,11 @@ class SoporteOrquestador
             $resumen,
             $diagnostico,
         );
+        if ($casoIdUsado) {
+            $out['caso_id'] = $casoIdUsado;
+        }
+
+        return $out;
     }
 
     /**
@@ -286,17 +298,124 @@ class SoporteOrquestador
         $zonaAbierta = ($cuenta && $this->incidentes->hayAbierto($cuenta['router_id'] ?? null))
             || $this->incidentes->telefonoConAvisoAbierto((string) $mensaje->telefono);
 
+        $hechos = $this->hechosParaN8n($mensaje, $cuenta, $zonaAbierta);
+
         return [
             'estado_servicio' => $cuenta['estado'] ?? null,
             'saldo_pendiente' => $cuenta['saldo'] ?? null,
             'dias_mora' => $cuenta['dias_mora'] ?? null,
+            'plan_nombre' => $cuenta['plan_nombre'] ?? null,
+            'plan_precio' => $cuenta['plan_precio'] ?? null,
+            'cedula' => $cuenta['cedula'] ?? null,
+            'es_antena' => (bool) ($cuenta['es_antena'] ?? false),
+            'ticket_abierto' => (bool) ($cuenta['ticket_abierto'] ?? false),
             'contexto_cuenta' => $this->textoCuenta($cuenta),
             'trato' => $cuenta['trato'] ?? null,
             'vocativo' => $cuenta['vocativo'] ?? null,
             'conocimiento' => $casos,
             'estilo_interplus' => $estilo,
             'incidente_zona_abierto' => $zonaAbierta,
+            'hechos' => $hechos,
             'instruccion_hilo' => 'Leé TODO historial_texto antes de responder. Continuá el mismo hilo: no vuelvas a saludar ni digas "te saluda Interplus" si ya hay conversación. No pidas cédula/reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analizá el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
+            'instruccion_hechos' => 'Solo afirmá lo que esté en hechos / catálogo / textos canned. Si falta un dato, preguntá o escalá. No inventes reinicio, cable, canal, óptica, zona ni precios. No digas mediciones (dBm, IP, ping) al cliente.',
+        ];
+    }
+
+    /**
+     * Respuesta canned canónica (beneficios / transferencia / condiciones) sin LLM.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function intentarCanned(WhatsappMensaje $mensaje): ?array
+    {
+        $texto = trim((string) $mensaje->cuerpo);
+        $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente(
+            (string) $mensaje->telefono,
+            $mensaje->id ? (int) $mensaje->id : null,
+            120,
+        );
+        $textoHilo = $rafaga['unido'] !== '' ? $rafaga['unido'] : $texto;
+        $canned = WhatsAppAgentService::textosCanned();
+        $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
+
+        if (WhatsAppAgentService::textoPareceDatosTransferencia($textoHilo)) {
+            return $this->paquete(
+                (string) $canned['transferencia'],
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'canned_transferencia',
+                'Texto canónico de transferencia (sin n8n)',
+                null,
+            );
+        }
+        if (WhatsAppAgentService::textoPareceBeneficiosPlanes($textoHilo)) {
+            return $this->paquete(
+                (string) $canned['beneficios'],
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'canned_beneficios',
+                'Texto canónico de beneficios (sin n8n)',
+                null,
+            );
+        }
+        if (WhatsAppAgentService::textoPareceCondicionesServicio($textoHilo)) {
+            return $this->paquete(
+                (string) $canned['condiciones'],
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'canned_condiciones',
+                'Texto canónico de condiciones (sin n8n)',
+                null,
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $cuenta
+     * @return array<string, mixed>
+     */
+    private function hechosParaN8n(WhatsappMensaje $mensaje, ?array $cuenta, bool $zonaAbierta): array
+    {
+        $clave = $this->telefonoCuenta($mensaje);
+        $dialogo = $this->dialogo->leer($clave);
+        if ($dialogo === [] && (string) $mensaje->telefono !== $clave) {
+            $dialogo = $this->dialogo->leer((string) $mensaje->telefono);
+        }
+        $medicion = is_array($dialogo['medicion'] ?? null) ? $dialogo['medicion'] : [];
+
+        // Si hay cuenta y el texto parece falla, medir ahora para no mandar a n8n a ciegas.
+        $texto = trim((string) $mensaje->cuerpo);
+        $pareceFalla = SoporteTexto::pareceFalla($texto) && ! WhatsAppAgentService::textoPareceInstalacion($texto);
+        $servicio = $cuenta ? $this->cuentas->servicioDe($cuenta['servicio_id'] ?? null) : null;
+        $suspendido = $cuenta && in_array($cuenta['estado'] ?? '', ['suspendido', 'cortado'], true);
+        if ($servicio && $pareceFalla && ! $suspendido && $medicion === []) {
+            try {
+                $medicion = $this->recolector->medir($servicio, null);
+            } catch (\Throwable) {
+                $medicion = [];
+            }
+        }
+
+        return [
+            'pudo_medir' => (bool) ($medicion['pudo_medir'] ?? false),
+            'causas' => is_array($medicion['causas'] ?? null) ? $medicion['causas'] : [],
+            'incidente_zona_abierto' => $zonaAbierta,
+            'sesion_online' => $medicion['sesion_online'] ?? null,
+            'ping_cpe_ok' => $medicion['ping_cpe_ok'] ?? null,
+            'ping_general_ok' => $medicion['ping_general_ok'] ?? null,
+            'optica_ok' => $medicion['optica_ok'] ?? null,
+            'lan_conectado' => $medicion['lan_conectado'] ?? null,
+            'es_fibra' => $medicion['es_fibra'] ?? null,
+            'es_antena' => $medicion['es_antena'] ?? ($cuenta['es_antena'] ?? null),
+            'diagnostico_local' => $medicion !== [] ? [
+                'tiene_medicion' => true,
+                'causas' => $medicion['causas'] ?? [],
+            ] : null,
         ];
     }
 
@@ -359,12 +478,28 @@ class SoporteOrquestador
             return 'Sin cliente identificado.';
         }
 
-        return sprintf(
-            'Estado del servicio: %s. Saldo pendiente: %s. Días de mora: %d.',
-            (string) ($cuenta['estado'] ?? 'desconocido'),
-            number_format((float) ($cuenta['saldo'] ?? 0), 0, ',', '.'),
-            (int) ($cuenta['dias_mora'] ?? 0),
-        );
+        $partes = [
+            'Estado del servicio: '.(string) ($cuenta['estado'] ?? 'desconocido'),
+            'Saldo pendiente: '.number_format((float) ($cuenta['saldo'] ?? 0), 0, ',', '.'),
+            'Días de mora: '.(int) ($cuenta['dias_mora'] ?? 0),
+        ];
+        if (! empty($cuenta['plan_nombre'])) {
+            $partes[] = 'Plan actual: '.$cuenta['plan_nombre'];
+            if (isset($cuenta['plan_precio']) && is_numeric($cuenta['plan_precio'])) {
+                $partes[] = 'Precio plan: '.number_format((float) $cuenta['plan_precio'], 0, ',', '.').' Gs';
+            }
+        }
+        if (! empty($cuenta['cedula'])) {
+            $partes[] = 'Cédula: '.$cuenta['cedula'];
+        }
+        if (array_key_exists('es_antena', $cuenta)) {
+            $partes[] = 'Tecnología: '.(($cuenta['es_antena'] ?? false) ? 'antena' : 'fibra/otros');
+        }
+        if (! empty($cuenta['ticket_abierto'])) {
+            $partes[] = 'Tiene ticket abierto.';
+        }
+
+        return implode('. ', $partes).'.';
     }
 
     /**
@@ -385,8 +520,20 @@ class SoporteOrquestador
             $lineas[] = 'Sesión: '.var_export($medicion['sesion_online'], true);
         }
         if (array_key_exists('ping_general_ok', $medicion)) {
-            $lineas[] = 'Ping 1.1.1.1: '.var_export($medicion['ping_general_ok'], true)
+            $lineas[] = 'Ping 1.1.1.1 (POP): '.var_export($medicion['ping_general_ok'], true)
                 .' '.($medicion['ping_general_ms'] ?? '-').' ms';
+        }
+        if (array_key_exists('ping_cpe_ok', $medicion)) {
+            $lineas[] = 'Ping CPE: '.var_export($medicion['ping_cpe_ok'], true)
+                .' '.($medicion['ping_cpe_ms'] ?? '-').' ms';
+        }
+        if (array_key_exists('optica_rx_dbm', $medicion) || array_key_exists('optica_ok', $medicion)) {
+            $lineas[] = 'Óptica RX: '.($medicion['optica_rx_dbm'] ?? '-').' dBm ok='
+                .var_export($medicion['optica_ok'] ?? null, true)
+                .' fuente='.($medicion['optica_fuente'] ?? '-');
+        }
+        if (! empty($medicion['causas']) && is_array($medicion['causas'])) {
+            $lineas[] = 'Causas: '.implode(',', $medicion['causas']);
         }
         if (! empty($medicion['sitio'])) {
             $lineas[] = 'Sitio '.$medicion['sitio'].': '.var_export($medicion['sitio_ok'] ?? null, true)
@@ -397,6 +544,9 @@ class SoporteOrquestador
         }
         if (isset($medicion['lan_speed']) || isset($medicion['lan_conectado'])) {
             $lineas[] = 'Puerto LAN: '.($medicion['lan_speed'] ?? '-').' conectado='.var_export($medicion['lan_conectado'] ?? null, true);
+        }
+        if (isset($medicion['uptime']) || isset($medicion['bytes_out'])) {
+            $lineas[] = 'Uptime: '.($medicion['uptime'] ?? '-').' bytes_out='.($medicion['bytes_out'] ?? '-');
         }
         $equipos = is_array($medicion['equipos'] ?? null) ? $medicion['equipos'] : [];
         foreach ($equipos as $equipo) {

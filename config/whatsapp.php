@@ -73,10 +73,14 @@ return [
     | Si enabled: mensajes de texto entrantes se reenvían a N8N.
     | Con auto_send=false (entrenamiento) solo arma un borrador en el panel.
     | Con auto_send=true envía el reply por Graph API.
+    |
+    | n8n Interplus corre en la VM infinity (LAN 10.200.1.4:5678). Desde esta PC
+    | se alcanza por proxy user-space 127.0.0.1:5678 → 10.200.1.4:5678.
+    | NUNCA usar 200.59.9.117: esa IP no es el n8n de Interplus.
     */
     'agent' => [
         'enabled' => (bool) env('WA_AGENT_ENABLED', false),
-        'url' => env('N8N_WA_AGENT_URL', 'http://200.59.9.117:5678/webhook/interplus-wa-agent'),
+        'url' => env('N8N_WA_AGENT_URL', 'http://127.0.0.1:5678/webhook/interplus-wa-agent'),
         'secret' => env('N8N_WA_AGENT_SECRET'),
         'timeout_ms' => (int) env('N8N_WA_AGENT_TIMEOUT_MS', 25000),
         'fallback_message' => env(

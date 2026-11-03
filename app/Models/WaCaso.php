@@ -14,12 +14,16 @@ class WaCaso extends Model
         'palabras',
         'texto',
         'activo',
+        'usos_exitosos',
+        'usos_descartes',
     ];
 
     protected function casts(): array
     {
         return [
             'activo' => 'boolean',
+            'usos_exitosos' => 'integer',
+            'usos_descartes' => 'integer',
         ];
     }
 }
