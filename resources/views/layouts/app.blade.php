@@ -114,6 +114,14 @@
             </div>
         </header>
 
+        @auth
+            @php $discoAlerta = app(\App\Services\Sistema\DiscoService::class)->estado(); @endphp
+            @if($discoAlerta['alerta'])
+                <a href="{{ route('sistema.disco') }}" class="block bg-red-600 text-white text-sm px-4 py-2 print:hidden">
+                    Disco casi lleno: {{ $discoAlerta['texto'] }}. Abrir el detalle.
+                </a>
+            @endif
+        @endauth
         <main class="flex-1 min-w-0 overflow-x-hidden py-8 px-4 sm:px-6 lg:px-8 print:py-0 print:px-0">
             @if (session('success'))
                 <div data-app-flash role="status" class="mb-6 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-green-800 dark:text-green-200 print:hidden break-words text-sm">

@@ -69,7 +69,10 @@ class WhatsAppAgentService
 
     public function dispatchAfterResponse(WhatsappMensaje $mensaje): void
     {
-        ProcesarWhatsappAgentJob::dispatch($mensaje->id)->afterResponse();
+        $espera = max(8, (int) config('whatsapp.agent.rafaga_espera', 12));
+        ProcesarWhatsappAgentJob::dispatch($mensaje->id)
+            ->delay(now()->addSeconds($espera))
+            ->afterResponse();
     }
 
     /**
@@ -88,7 +91,9 @@ class WhatsAppAgentService
      */
     public function procesar(WhatsappMensaje $mensaje, ?bool $enviar = null, bool $sandbox = false): array
     {
-        $enviar = $sandbox ? false : ($enviar ?? (bool) config('whatsapp.agent.auto_send', false));
+        // Revisión siempre: el job llega con null y no sale a WhatsApp.
+        // Solo un humano (panel o artisan --enviar) pasa true.
+        $enviar = $sandbox ? false : $enviar === true;
 
         if ($this->yaProcesado($mensaje)) {
             return $this->resultadoVacio('duplicado');
@@ -190,6 +195,10 @@ class WhatsAppAgentService
             }
         }
 
+        if (filled($reply)) {
+            $reply = $this->conSaludoDeApertura($mensaje, $reply);
+        }
+
         $ticketId = null;
         if (! $sandbox && $escalate && ($enviar || (bool) config('whatsapp.agent.auto_ticket', false))) {
             $ticket = $this->inboundTickets->crearOAdjuntar($mensaje, false);
@@ -249,6 +258,9 @@ class WhatsAppAgentService
     private function cerrarConSoporte(WhatsappMensaje $mensaje, array $soporte, bool $enviar, bool $sandbox): array
     {
         $reply = $soporte['reply'] ?? null;
+        if (filled($reply)) {
+            $reply = $this->conSaludoDeApertura($mensaje, $reply);
+        }
         $escalate = (bool) ($soporte['escalate'] ?? false);
         $error = $soporte['error'] ?? null;
         $clienteId = $soporte['cliente_id'] ?? $mensaje->cliente_id;
@@ -257,7 +269,8 @@ class WhatsAppAgentService
         }
 
         $ticketId = null;
-        if (! $sandbox && $escalate && ($enviar || (bool) config('whatsapp.agent.auto_ticket', false))) {
+        $abrirTicket = (bool) ($soporte['abrir_ticket'] ?? false);
+        if (! $sandbox && $escalate && ($enviar || $abrirTicket || (bool) config('whatsapp.agent.auto_ticket', false))) {
             $ticket = $this->inboundTickets->crearOAdjuntar($mensaje, false, [
                 'asignado_id' => data_get($soporte, 'diagnostico.asignado_id') ?: SoporteAdminConfig::usuarioId(),
                 'prioridad' => 'alta',
@@ -883,6 +896,112 @@ class WhatsAppAgentService
         ];
     }
 
+    /**
+     * Hay un mensaje más nuevo de la misma ráfaga: este job no responde.
+     */
+    public function hayMensajePosteriorEnRafaga(WhatsappMensaje $mensaje): bool
+    {
+        $espera = max(8, (int) config('whatsapp.agent.rafaga_espera', 12));
+
+        return WhatsappMensaje::query()
+            ->where('telefono', $mensaje->telefono)
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->where('id', '>', $mensaje->id)
+            ->where('created_at', '<=', $mensaje->created_at->copy()->addSeconds($espera + 8))
+            ->exists();
+    }
+
+    /**
+     * Primer contacto del día (la ráfaga de los últimos 3 minutos cuenta como uno).
+     */
+    public function esAperturaDelDia(WhatsappMensaje $mensaje): bool
+    {
+        if (! $mensaje->created_at || ! $mensaje->id) {
+            return false;
+        }
+
+        $tz = (string) config('app.timezone', 'America/Argentina/Buenos_Aires');
+        $inicio = $mensaje->created_at->copy()->timezone($tz)->startOfDay();
+        $corte = $mensaje->created_at->copy()->subMinutes(3);
+
+        return ! WhatsappMensaje::query()
+            ->where('telefono', $mensaje->telefono)
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->where('id', '<', $mensaje->id)
+            ->where('created_at', '>=', $inicio)
+            ->where('created_at', '<', $corte)
+            ->exists();
+    }
+
+    public static function saludoSegunHora(?\DateTimeInterface $ahora = null): string
+    {
+        $tz = 'America/Argentina/Buenos_Aires';
+        try {
+            $tz = (string) config('app.timezone', $tz);
+        } catch (\Throwable) {
+        }
+        $ahora = $ahora
+            ? \Carbon\Carbon::parse($ahora)->timezone($tz)
+            : now($tz);
+        $hora = (int) $ahora->format('G');
+        if ($hora < 12) {
+            return 'Buenos días.';
+        }
+        if ($hora < 19) {
+            return 'Buenas tardes.';
+        }
+
+        return 'Buenas noches.';
+    }
+
+    public function conSaludoDeApertura(WhatsappMensaje $mensaje, ?string $reply): ?string
+    {
+        $reply = trim((string) $reply);
+        if ($reply === '') {
+            return null;
+        }
+        if (preg_match('/^(buen[oa]s?\s+(d[ií]as|tardes|noches)|hola\b)/iu', $reply)) {
+            return $reply;
+        }
+        if (! $this->esAperturaDelDia($mensaje)) {
+            return $reply;
+        }
+
+        return self::saludoSegunHora($mensaje->created_at)."\n\n".$reply;
+    }
+
+    /**
+     * Ubicación ya enviada en las últimas semanas: no volver a pedir el mapa.
+     */
+    public function yaEnvioUbicacion(string $telefono): bool
+    {
+        $tel = $this->whatsapp->normalizePhone($telefono)
+            ?? (preg_replace('/\D+/', '', $telefono) ?: '');
+        if ($tel === '') {
+            return false;
+        }
+
+        $filas = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->where('created_at', '>=', now()->subDays(21))
+            ->orderByDesc('id')
+            ->limit(80)
+            ->get(['tipo', 'cuerpo', 'payload']);
+
+        foreach ($filas as $m) {
+            if ((string) $m->tipo === 'location') {
+                return true;
+            }
+            $vision = data_get($m->payload, 'wa_vision.tipo');
+            if (self::detectarUbicacion((string) $m->tipo, (string) $m->cuerpo, [], is_string($vision) ? $vision : null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function textoHistorial(WhatsappMensaje $mensaje): string
     {
         $cuerpo = trim((string) ($mensaje->cuerpo ?? ''));
@@ -1196,6 +1315,131 @@ class WhatsAppAgentService
             'transferencia' => trim((string) ($c['transferencia'] ?? '')),
             'condiciones' => trim((string) ($c['condiciones'] ?? '')),
         ];
+    }
+
+    public static function textoPareceCambioPlan(?string $texto): bool
+    {
+        if (self::textoPareceBajaServicio($texto)) {
+            return false;
+        }
+
+        $t = mb_strtolower(trim((string) $texto));
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/cambi(ar|o)(\s+de)?\s+(el\s+|mi\s+)?plan|cambiarme\s+de\s+plan|pasar\s+a(l)?\s+(un\s+)?plan|bajar\s+a(l)?\s+(un\s+)?plan|subir\s+(de\s+|el\s+|a\s+)?(el\s+)?plan|plan\s+de\s+\d|un\s+plan\s+de\s+\d/u',
+            $t
+        );
+    }
+
+    /** Pregunta de cobertura de zona (el cliente), no la confirmación interna del técnico. */
+    public static function textoPareceConsultaCobertura(?string $texto): bool
+    {
+        if (preg_match('/ubicaci[oó]n\s+aprobada|cobertura\s+aprobada|\bya hay cobertura\b/u', mb_strtolower(trim((string) $texto)))) {
+            return false;
+        }
+
+        $t = mb_strtolower(trim((string) $texto));
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\bcobertura\b|llega(n)?\s+(la\s+|el\s+)?(fibra|internet|antena)|tienen\s+(servicio|fibra|internet)\s+en/u',
+            $t
+        );
+    }
+
+    /**
+     * @param  list<array{nombre?: string, velocidad?: string, precio_texto?: string}>  $planes
+     * @return array{nombre?: string, velocidad?: string, precio_texto?: string}|null
+     */
+    public static function planPedido(string $texto, array $planes): ?array
+    {
+        $t = mb_strtolower($texto);
+        $precio = null;
+        if (preg_match('/(\d{1,3})\s*mil\b/u', $t, $m)) {
+            $precio = ((int) $m[1]) * 1000;
+        } elseif (preg_match('/(\d{1,3}(?:\.\d{3})+)/u', $texto, $m)) {
+            $precio = (int) str_replace('.', '', $m[1]);
+        } elseif (preg_match('/\b(\d{5,7})\b/u', $t, $m)) {
+            $precio = (int) $m[1];
+        }
+
+        $mbps = null;
+        if (preg_match('/\b(\d{2,4})\s*(megas?|mbps?|mb)\b/u', $t, $m)) {
+            $mbps = (int) $m[1];
+        }
+
+        $porVelocidad = null;
+        foreach ($planes as $plan) {
+            if (! is_array($plan)) {
+                continue;
+            }
+            $nombre = mb_strtolower(trim((string) ($plan['nombre'] ?? '')));
+            $vel = mb_strtolower(trim((string) ($plan['velocidad'] ?? '')));
+            $precioPlan = (int) preg_replace('/\D+/', '', (string) ($plan['precio_texto'] ?? ''));
+            if ($nombre !== '' && str_contains($t, $nombre)) {
+                return $plan;
+            }
+            if ($precio !== null && $precioPlan > 0 && abs($precioPlan - $precio) <= 500) {
+                return $plan;
+            }
+            if ($mbps !== null && (preg_match('/\b'.$mbps.'\b/u', $vel) || preg_match('/\b'.$mbps.'\b/u', $nombre))) {
+                $porVelocidad = $plan;
+            }
+        }
+
+        return $porVelocidad;
+    }
+
+    public static function fraseBaja(): string
+    {
+        return 'La baja del servicio la confirma un asesor. ¿Me indica el motivo? El último mes utilizado se abona antes de cerrar.';
+    }
+
+    /**
+     * @param  array{nombre?: string, velocidad?: string, precio_texto?: string}|null  $plan
+     */
+    public static function fraseCambioPlan(?array $plan): string
+    {
+        $cierre = 'Un asesor confirma el cambio; desde este chat no lo aplicamos.';
+        if ($plan === null) {
+            return 'Para cambiar de plan indíqueme la velocidad o el precio que busca. '.$cierre;
+        }
+
+        $nombre = trim((string) ($plan['nombre'] ?? 'ese plan'));
+        $vel = trim((string) ($plan['velocidad'] ?? ''));
+        $precio = trim((string) ($plan['precio_texto'] ?? ''));
+        $detalle = $nombre;
+        if ($vel !== '' && ! str_contains(mb_strtolower($nombre), mb_strtolower($vel))) {
+            $detalle .= ' ('.$vel.')';
+        }
+        if ($precio !== '') {
+            $detalle .= ' sale '.$precio;
+        }
+
+        return 'El plan '.$detalle.'. '.$cierre;
+    }
+
+    public static function fraseInstalacion(bool $yaUbicacion): string
+    {
+        if ($yaUbicacion) {
+            return 'Ya tenemos la ubicación que nos envió. Un asesor coordina la instalación.';
+        }
+
+        return 'Para coordinar la instalación envíenos su ubicación (el mapa de WhatsApp). Un asesor le confirma el día.';
+    }
+
+    public static function fraseCobertura(bool $yaUbicacion): string
+    {
+        if ($yaUbicacion) {
+            return 'Ya tenemos la ubicación que nos envió. Un asesor confirma si hay cobertura en esa zona.';
+        }
+
+        return 'Para ver si hay cobertura envíenos su ubicación (el mapa de WhatsApp). Un asesor se lo confirma.';
     }
 
     /** Cancelar el servicio. No confundir con "bajar wifi" (instalar). */

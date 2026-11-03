@@ -71,8 +71,8 @@ return [
     | Agente IA (plugin N8N) — no reemplaza el webhook Meta
     |--------------------------------------------------------------------------
     | Si enabled: mensajes de texto entrantes se reenvían a N8N.
-    | Con auto_send=false (entrenamiento) solo arma un borrador en el panel.
-    | Con auto_send=true envía el reply por Graph API.
+        | El job no envía solo: el borrador queda en revisión en el panel.
+    | auto_send se ignora. Solo sale si un humano pide el envío.
     |
     | n8n Interplus corre en la VM infinity (LAN 10.200.1.4:5678). Desde esta PC
     | se alcanza por proxy user-space 127.0.0.1:5678 → 10.200.1.4:5678.
@@ -96,10 +96,12 @@ return [
         /** Enviar el reply de N8N aunque escalate=true (además de crear ticket). */
         'enviar_reply_en_escalado' => (bool) env('WA_AGENT_ENVIAR_REPLY_ESCALADO', true),
         /**
-         * false = modo entrenamiento: N8N arma un borrador en el panel, el humano envía.
-         * true = el bot manda solo por WhatsApp (cuando haya confianza).
+         * El automático no envía. El borrador queda en el panel hasta que una persona lo mande.
+         * La clave se conserva por compatibilidad y no dispara el envío.
          */
-        'auto_send' => (bool) env('WA_AGENT_AUTO_SEND', false),
+        'auto_send' => false,
+        /** Segundos de espera para juntar varios WhatsApp del cliente en una sola respuesta. */
+        'rafaga_espera' => (int) env('WA_AGENT_RAFAGA_ESPERA', 12),
         /** Crear ticket si escalate=true. En entrenamiento conviene false. */
         'auto_ticket' => (bool) env('WA_AGENT_AUTO_TICKET', false),
         /** WhatsApp al administrador con el resumen técnico. Apagado en prueba. */

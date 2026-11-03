@@ -148,4 +148,41 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $this->assertStringContainsString('CONDICIONES DEL SERVICIO', $canned['condiciones']);
         $this->assertStringContainsString('comodato', $canned['condiciones']);
     }
+
+    public function test_saludo_segun_la_hora(): void
+    {
+        config(['app.timezone' => 'America/Argentina/Buenos_Aires']);
+
+        $this->assertSame('Buenos días.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 10:52:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame('Buenas tardes.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 15:10:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame('Buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 21:05:00', 'America/Argentina/Buenos_Aires')));
+    }
+
+    public function test_cambio_de_plan_cotiza_y_no_aplica(): void
+    {
+        $this->assertTrue(WhatsAppAgentService::textoPareceCambioPlan('si quiero bajar a plan de 100 mil'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceCambioPlan('quiero darme de baja'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceInstalacion('si quiero bajar a plan de 100 mil'));
+
+        $planes = [
+            ['nombre' => 'PLAN BASICO FTTH 100 Mbps', 'velocidad' => '100Mbps', 'precio_texto' => 'Gs. 100.000'],
+            ['nombre' => 'PLAN ESTANDAR 20 Mbps', 'velocidad' => '20 Mbps', 'precio_texto' => 'Gs. 150.000'],
+        ];
+        $plan = WhatsAppAgentService::planPedido('bajar a plan de 100 mil', $planes);
+        $frase = WhatsAppAgentService::fraseCambioPlan($plan);
+
+        $this->assertSame('PLAN BASICO FTTH 100 Mbps', $plan['nombre']);
+        $this->assertStringContainsString('Gs. 100.000', $frase);
+        $this->assertStringContainsString('no lo aplicamos', $frase);
+        $this->assertStringNotContainsString('Venta suave', $frase);
+    }
+
+    public function test_instalacion_y_cobertura_no_repiten_ubicacion(): void
+    {
+        $this->assertStringContainsString('mapa de WhatsApp', WhatsAppAgentService::fraseInstalacion(false));
+        $this->assertStringNotContainsString('envíenos', WhatsAppAgentService::fraseInstalacion(true));
+        $this->assertStringContainsString('Ya tenemos la ubicación', WhatsAppAgentService::fraseCobertura(true));
+        $this->assertTrue(WhatsAppAgentService::textoPareceConsultaCobertura('hay cobertura en mi zona?'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceConsultaCobertura('ubicación aprobada'));
+    }
 }

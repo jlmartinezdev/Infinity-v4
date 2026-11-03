@@ -169,6 +169,32 @@ class SoporteOrquestador
         // Consulta del nombre WiFi actual (no es cambio de clave).
         if ($pareceNombreWifi && $servicio && ! $suspendido && ! $pareceWifi) {
             $ssids = $this->wifi->ssidsActuales($servicio);
+            $sinAcceso = $ssids === [] ? InformeAccesoCpe::texto((int) $servicio->id) : '';
+            if ($sinAcceso !== '') {
+                $out = $this->paquete(
+                    FraseCliente::escalado(
+                        $cuenta['cedula'] ?? null,
+                        is_string($cuenta['nombre_pila'] ?? null) ? $cuenta['nombre_pila'] : (is_string($cuenta['nombre'] ?? null) ? $cuenta['nombre'] : null),
+                        is_string($cuenta['apellido'] ?? null) ? $cuenta['apellido'] : null,
+                    ),
+                    true,
+                    'sin_acceso_cpe',
+                    isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                    'soporte_escalado',
+                    "Sin datos de WiFi. Equipos sin acceso:\n".$sinAcceso,
+                    [
+                        'tipo' => 'escalado',
+                        'motivo' => 'sin_acceso_cpe',
+                        'medicion' => $medicion,
+                        'servicio_id' => $cuenta['servicio_id'] ?? null,
+                        'cliente_id' => $cuenta['cliente_id'] ?? null,
+                        'asignado_id' => SoporteAdminConfig::usuarioId(),
+                    ],
+                );
+                $out['abrir_ticket'] = true;
+
+                return $out;
+            }
             $replySsid = FraseCliente::nombreWifiActual($ssids);
             $resumenSsid = $this->resumen($cuenta, $medicion, [
                 'tipo' => 'wifi_nombre',
@@ -209,6 +235,34 @@ class SoporteOrquestador
                 if ($n !== '') {
                     $nombres[] = $n;
                 }
+            }
+            $sinAccesoEquipos = ($nombres === [] && ($medicion['pudo_medir'] ?? false) !== true)
+                ? InformeAccesoCpe::texto((int) $servicio->id)
+                : '';
+            if ($sinAccesoEquipos !== '') {
+                $out = $this->paquete(
+                    FraseCliente::escalado(
+                        $cuenta['cedula'] ?? null,
+                        is_string($cuenta['nombre_pila'] ?? null) ? $cuenta['nombre_pila'] : (is_string($cuenta['nombre'] ?? null) ? $cuenta['nombre'] : null),
+                        is_string($cuenta['apellido'] ?? null) ? $cuenta['apellido'] : null,
+                    ),
+                    true,
+                    'sin_acceso_cpe',
+                    isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                    'soporte_escalado',
+                    "Sin equipos medidos. Equipos sin acceso:\n".$sinAccesoEquipos,
+                    [
+                        'tipo' => 'escalado',
+                        'motivo' => 'sin_acceso_cpe',
+                        'medicion' => $medicion,
+                        'servicio_id' => $cuenta['servicio_id'] ?? null,
+                        'cliente_id' => $cuenta['cliente_id'] ?? null,
+                        'asignado_id' => SoporteAdminConfig::usuarioId(),
+                    ],
+                );
+                $out['abrir_ticket'] = true;
+
+                return $out;
             }
             $replyEquipos = FraseCliente::listaEquiposVista($nombres, $pideVecinos || $pareceEquipos);
             foreach (array_unique(array_filter($clavesDialogo)) as $clave) {
@@ -395,6 +449,14 @@ class SoporteOrquestador
         if ($casoIdUsado) {
             $out['caso_id'] = $casoIdUsado;
         }
+        if (($decision['motivo'] ?? '') === 'sin_medicion') {
+            $out['abrir_ticket'] = true;
+            $out['escalate'] = true;
+            $informe = InformeAccesoCpe::texto((int) ($cuenta['servicio_id'] ?? 0));
+            if ($informe !== '') {
+                $out['resumen_admin'] = rtrim((string) $out['resumen_admin'])."\n\nEquipos sin acceso:\n".$informe;
+            }
+        }
 
         return $out;
     }
@@ -477,6 +539,67 @@ class SoporteOrquestador
                 $clienteId,
                 'canned_servicio',
                 'Detalle de servicio desde cuenta (sin n8n)',
+                null,
+            );
+        }
+
+        $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente((string) $mensaje->telefono, $mensaje->id);
+        $pedido = trim($rafaga['unido'] !== '' ? $rafaga['unido'] : $texto);
+
+        if (WhatsAppAgentService::textoPareceBajaServicio($pedido)) {
+            return $this->paquete(
+                WhatsAppAgentService::fraseBaja(),
+                false,
+                null,
+                $clienteId,
+                'canned_baja',
+                'Baja: queda para un asesor (sin n8n)',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPareceCambioPlan($pedido)) {
+            $catalogo = app(WhatsAppAgentService::class)->catalogoPlanes();
+            $plan = WhatsAppAgentService::planPedido(
+                $pedido,
+                array_merge($catalogo['fibra'] ?? [], $catalogo['antena'] ?? [], $catalogo['otros'] ?? []),
+            );
+
+            return $this->paquete(
+                WhatsAppAgentService::fraseCambioPlan($plan),
+                false,
+                null,
+                $clienteId,
+                'canned_cambio_plan',
+                'Cambio de plan cotizado, sin aplicar (sin n8n)',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPareceInstalacion($pedido)) {
+            $ya = app(WhatsAppAgentService::class)->yaEnvioUbicacion((string) $mensaje->telefono);
+
+            return $this->paquete(
+                WhatsAppAgentService::fraseInstalacion($ya),
+                false,
+                null,
+                $clienteId,
+                'canned_instalacion',
+                $ya ? 'Instalación: ubicación ya recibida' : 'Instalación: se pidió ubicación',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPareceConsultaCobertura($pedido)) {
+            $ya = app(WhatsAppAgentService::class)->yaEnvioUbicacion((string) $mensaje->telefono);
+
+            return $this->paquete(
+                WhatsAppAgentService::fraseCobertura($ya),
+                false,
+                null,
+                $clienteId,
+                'canned_cobertura',
+                $ya ? 'Cobertura: ubicación ya recibida' : 'Cobertura: se pidió ubicación',
                 null,
             );
         }
@@ -739,6 +862,9 @@ class SoporteOrquestador
         if (! empty($medicion['sitio'])) {
             $lineas[] = 'Sitio '.$medicion['sitio'].': '.var_export($medicion['sitio_ok'] ?? null, true)
                 .' '.($medicion['sitio_ms'] ?? '-').' ms';
+        }
+        foreach ((array) ($medicion['accesos_fallidos'] ?? []) as $falla) {
+            $lineas[] = 'Sin acceso: '.$falla;
         }
         if (isset($medicion['senal_antena'])) {
             $lineas[] = 'Señal antena: '.($medicion['senal_antena'] ?? '-').' dBm, delta cadenas: '.($medicion['chain_delta'] ?? '-');

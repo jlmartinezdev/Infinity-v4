@@ -31,6 +31,10 @@ class ProcesarWhatsappAgentJob implements ShouldQueue
             return;
         }
 
+        if ($agent->hayMensajePosteriorEnRafaga($mensaje)) {
+            return;
+        }
+
         try {
             $agent->procesar($mensaje);
         } catch (\Throwable $e) {

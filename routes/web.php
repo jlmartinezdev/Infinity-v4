@@ -16,6 +16,8 @@ use App\Http\Controllers\CobroRendicionController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\CotizacionDolarController;
 use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\CpeAccesoController;
+use App\Http\Controllers\DiscoController;
 use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EstadoPedidoController;
@@ -168,6 +170,7 @@ Route::delete('/tareas/{tarea}', [TareaController::class, 'destroy'])->name('tar
 
 // Configuración: índice e impresión para cualquier usuario autenticado; el resto requiere configuracion.ver
 Route::middleware('auth')->group(function () {
+    Route::get('/sistema/disco', [DiscoController::class, 'index'])->name('sistema.disco');
     Route::get('/configuracion', [ConfiguracionController::class, 'index'])->name('configuracion.index');
     Route::get('/configuracion/impresion', [ConfiguracionController::class, 'impresion'])->name('configuracion.impresion');
 });
@@ -302,6 +305,7 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     })->name('tmp.wa-agent.run');
 
     Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
+    Route::get('/whatsapp/accesos', [CpeAccesoController::class, 'index'])->name('whatsapp.accesos');
     Route::get('/whatsapp/mensajes', [WhatsAppWebController::class, 'mensajes'])->name('whatsapp.mensajes');
     Route::get('/whatsapp/test-n8n', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-n8n');
     Route::get('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nHilo'])->name('whatsapp.test-n8n.hilo');

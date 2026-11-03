@@ -36,8 +36,10 @@ class WifiSoporteService
             if ($out === [] && filled($resumen['ssid'] ?? null)) {
                 $out[] = trim((string) $resumen['ssid']);
             }
-        } catch (\Throwable) {
+            InformeAccesoCpe::registrarSiFalla($servicio, 'acs', $resumen);
+        } catch (\Throwable $e) {
             $out = [];
+            InformeAccesoCpe::registrarSiFalla($servicio, 'acs', ['success' => false, 'message' => $e->getMessage()]);
         }
 
         if ($out === []) {
@@ -61,11 +63,14 @@ class WifiSoporteService
 
         try {
             $ap = $this->ubnt->consultarApAirOs($ip);
+            InformeAccesoCpe::registrarSiFalla($servicio, 'ssh', $ap);
             $ssid = trim((string) ($ap['ssid'] ?? ''));
             if (($ap['success'] ?? false) === true && $ssid !== '') {
                 return [$ssid];
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            InformeAccesoCpe::registrarSiFalla($servicio, 'ssh', ['success' => false, 'message' => $e->getMessage()]);
+
             return [];
         }
 

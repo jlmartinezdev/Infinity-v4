@@ -55,6 +55,7 @@ class RecolectorDiagnostico
             'optica_tx_dbm' => null,
             'optica_ok' => null,
             'optica_fuente' => null,
+            'accesos_fallidos' => [],
             'es_fibra' => HerramientasRedPayload::esFibra($servicio),
             'es_antena' => HerramientasRedPayload::esAntena($servicio),
             'equipos' => [],
@@ -125,8 +126,10 @@ class RecolectorDiagnostico
                     $medicion['senal_antena'] = $estacion['signal_dbm'] ?? ($ap['extra']['signal'] ?? null);
                     $medicion['chain_delta'] = $estacion['chain_delta'] ?? null;
                 }
+                $this->anotarAcceso($servicio, $medicion, 'ssh', $ap);
             } catch (\Throwable $e) {
                 Log::warning('[soporte] antena', ['error' => $e->getMessage()]);
+                $this->anotarAcceso($servicio, $medicion, 'ssh', ['success' => false, 'message' => $e->getMessage()]);
             }
 
             try {
@@ -159,13 +162,27 @@ class RecolectorDiagnostico
                 $medicion['pudo_medir'] = true;
                 $medicion['equipos'] = $this->mezclarEquipos($medicion['equipos'], $hosts['hosts']);
             }
+            $this->anotarAcceso($servicio, $medicion, 'acs', $hosts);
         } catch (\Throwable $e) {
             Log::warning('[soporte] acs', ['error' => $e->getMessage()]);
+            $this->anotarAcceso($servicio, $medicion, 'acs', ['success' => false, 'message' => $e->getMessage()]);
         }
 
         $medicion['causas'] = $this->derivarCausas($medicion);
 
         return $medicion;
+    }
+
+    /**
+     * @param  array<string, mixed>  $medicion
+     * @param  array<string, mixed>  $respuesta
+     */
+    private function anotarAcceso(Servicio $servicio, array &$medicion, string $via, array $respuesta): void
+    {
+        $linea = InformeAccesoCpe::registrarSiFalla($servicio, $via, $respuesta);
+        if ($linea !== null) {
+            $medicion['accesos_fallidos'][] = $linea;
+        }
     }
 
     /**

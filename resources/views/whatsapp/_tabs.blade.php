@@ -6,6 +6,8 @@
         'mensajes' => ['label' => 'Mensajes', 'route' => 'whatsapp.mensajes'],
         'test-n8n' => ['label' => 'Test n8n', 'route' => 'whatsapp.test-n8n'],
         'kpi' => ['label' => 'KPI', 'route' => 'whatsapp.kpi'],
+        'accesos' => ['label' => 'Sin acceso', 'route' => 'whatsapp.accesos'],
+        'disco' => ['label' => 'Disco', 'route' => 'sistema.disco'],
         'casos' => ['label' => 'Plantillas', 'route' => 'whatsapp.casos.index'],
         'contactos' => ['label' => 'Contactos', 'route' => 'whatsapp.contactos'],
         'asuntos' => ['label' => 'Asuntos', 'route' => 'whatsapp.asuntos.index'],

@@ -83,6 +83,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 Log::info('Tarea iniciado: mikrotik:ping-routers');
             });
 
+        $schedule->command('sistema:vigilar-disco')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping(5);
+
         $schedule->command('soporte:vigilar-puertos')
             ->everyMinute()
             ->withoutOverlapping(2);
