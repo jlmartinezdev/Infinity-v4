@@ -70,9 +70,12 @@ class WhatsAppAgentService
     public function dispatchAfterResponse(WhatsappMensaje $mensaje): void
     {
         $espera = max(8, (int) config('whatsapp.agent.rafaga_espera', 12));
-        ProcesarWhatsappAgentJob::dispatch($mensaje->id)
-            ->delay(now()->addSeconds($espera))
-            ->afterResponse();
+        $id = (int) $mensaje->id;
+        // La cola sync ignora delay(). Se espera en este proceso, después del 200 a Meta.
+        app()->terminating(function () use ($espera, $id) {
+            sleep($espera);
+            app()->call([new ProcesarWhatsappAgentJob($id), 'handle']);
+        });
     }
 
     /**
