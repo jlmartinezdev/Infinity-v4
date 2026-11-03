@@ -55,6 +55,14 @@ class ValidadorHechos
             return ['reply' => $fallback, 'modo' => 'n8n_hechos_contradice', 'filtrado' => true];
         }
 
+        if (preg_match('/no (podemos|nos es posible) visualizar.*(nombre|wi-?fi|wifi|ssid)|no vemos el nombre (exacto )?(de )?(su |la )?red/iu', $reply)) {
+            return [
+                'reply' => 'El nombre de la red lo leemos del equipo cuando está en línea. Si no aparece ahora, figura en la etiqueta del router. Escriba NOMBRE WIFI y lo consultamos de nuevo.',
+                'modo' => 'n8n_hechos_ssid',
+                'filtrado' => true,
+            ];
+        }
+
         // n8n no puede negar la lectura de equipos si Laravel sí puede listarlos.
         if (
             ($hechos['puede_listar_equipos'] ?? false) === true

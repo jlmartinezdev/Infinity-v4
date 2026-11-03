@@ -439,6 +439,22 @@ class SoporteOrquestador
         $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
 
+        if (SoporteTexto::pareceConsultaTitular($texto)) {
+            if (! $cuenta) {
+                return $this->paquete(FraseCliente::SIN_CUENTA, false, null, null, 'sin_cuenta', null, null);
+            }
+
+            return $this->paquete(
+                FraseCliente::titularServicio($cuenta),
+                false,
+                null,
+                $clienteId,
+                'canned_titular',
+                'Titular desde cuenta (sin n8n)',
+                null,
+            );
+        }
+
         if (SoporteTexto::pareceConsultaServicio($texto)) {
             if (! $cuenta) {
                 return $this->paquete(FraseCliente::SIN_CUENTA, false, null, null, 'sin_cuenta', null, null);

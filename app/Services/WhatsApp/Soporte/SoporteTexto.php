@@ -15,7 +15,21 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet)|se[nñ]al (wifi|wi-?fi)|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar/u',
+            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet|servicio)|se[nñ]al (wifi|wi-?fi)|como (esta|está) (mi |la )?se[nñ]al|estado de (la |mi )?se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar/u',
+            $t
+        );
+    }
+
+    /** Pregunta el titular del servicio. */
+    public static function pareceConsultaTitular(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/a nombre de qui[eé]n|de qui[eé]n (esta|está|es)|qui[eé]n es el titular|nombre del titular|a nombre de quien/u',
             $t
         );
     }
@@ -133,8 +147,13 @@ class SoporteTexto
             return false;
         }
 
+        // "cambiar el nombre del wifi" es cambio, no consulta.
+        if (preg_match('/cambi(ar|a|ame|á|e)/u', $t)) {
+            return false;
+        }
+
         return (bool) preg_match(
-            '/(qu[eé]|cual|cu[aá]l).{0,20}(nombre|ssid).{0,20}(wifi|wi-?fi|red)|(nombre|ssid).{0,12}(wifi|wi-?fi).{0,12}(tengo|tiene|es)|como se llama.{0,12}(wifi|wi-?fi|red)/u',
+            '/(qu[eé]|cual|cu[aá]l).{0,24}(nombre|ssid).{0,24}(wifi|wi-?fi|red)|(nombre|ssid).{0,20}(del |de la |de )?(wifi|wi-?fi|red)|(wifi|wi-?fi).{0,16}(nombre|ssid)|como se llama.{0,20}(wifi|wi-?fi|red)|nombre actual|(no lo ves|no ves|no se ve|no visualiz).{0,48}(nombre|wifi|ssid|red)/u',
             $t
         );
     }

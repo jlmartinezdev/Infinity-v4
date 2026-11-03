@@ -151,6 +151,21 @@ class FraseCliente
         return "Anotamos el pedido para cambiar la clave del WiFi.{$red} La clave nueva sería {$clave}. En esta prueba todavía no la cambiamos.";
     }
 
+    /**
+     * @param  array<string, mixed>  $cuenta
+     */
+    public static function titularServicio(array $cuenta): string
+    {
+        $nombre = trim((string) ($cuenta['nombre'] ?? ''));
+        $cedula = self::cedulaVisible(isset($cuenta['cedula']) ? (string) $cuenta['cedula'] : null);
+        if ($nombre === '') {
+            return 'No tenemos el nombre del titular cargado. Puede indicarnos la cédula para confirmarlo.';
+        }
+        $doc = $cedula ? ' Cédula '.$cedula.'.' : '';
+
+        return 'El servicio está a nombre de '.$nombre.'.'.$doc;
+    }
+
     /** @param  list<string>  $ssids */
     public static function nombreWifiActual(array $ssids): string
     {

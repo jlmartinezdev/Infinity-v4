@@ -286,6 +286,12 @@ class SoporteDiagnosticoTest extends TestCase
     public function test_consulta_nombre_wifi_no_dispara_cambio_ni_inventa_ssid(): void
     {
         $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('que nombre de wifi tengo?'));
+        $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('y el nombre del wifi?'));
+        $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('que no lo ves en el escaneo de red el nombre actual?'));
+        $this->assertFalse(SoporteTexto::pareceConsultaNombreWifi('cambiar el nombre del wifi a CasaNueva'));
+        $this->assertTrue(SoporteTexto::pareceFalla('me deis la señal de mi servicio'));
+        $this->assertTrue(SoporteTexto::pareceConsultaTitular('a nombre de quien esta?'));
+        $this->assertStringContainsString('Gloria', FraseCliente::titularServicio(['nombre' => 'Gloria Britez', 'cedula' => '3204406']));
         $this->assertFalse(SoporteTexto::pareceCambioWifi('que nombre de wifi tengo?'));
         $this->assertNull(SoporteTexto::nombreWifi('que nombre de wifi tengo?'));
         $this->assertFalse(SoporteTexto::pareceConfirmaCambioWifi('como vas a cambiar?'));
