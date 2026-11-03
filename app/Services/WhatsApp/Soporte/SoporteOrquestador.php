@@ -68,8 +68,12 @@ class SoporteOrquestador
         $pareceImpresora = SoporteTexto::pareceImpresora($textoHilo);
         $pareceEquipos = SoporteTexto::pareceConsultaEquipos($textoHilo);
         $pideVecinos = SoporteTexto::pideVecinosWifi($textoHilo);
-        if ($pareceEquipos) {
+        if ($pareceEquipos || $pideVecinos) {
             $pareceFalla = true; // entra a soporte y mide; no mandar a n8n a inventar
+        }
+        // Tras listar equipos, si confirma cambio de WiFi seguimos en soporte (no n8n).
+        if ($paso === 'wifi_sospecha' && SoporteTexto::pareceConfirmaCambioWifi($texto)) {
+            $pareceWifi = true;
         }
         $identificando = $paso === 'identificar';
         $soloIdentificador = SoporteTexto::esSoloIdentificador($texto);
@@ -144,8 +148,8 @@ class SoporteOrquestador
             $medicion = $this->recolector->medir($servicio, $sitio);
         }
 
-        // Listar equipos reales (ACS/DHCP). No inventar "no podemos ver".
-        if ($pareceEquipos && $servicio && ! $suspendido && ! $pareceWifi) {
+        // Listar equipos reales (ACS/DHCP) y ofrecer cambio de clave si sospecha vecinos.
+        if (($pareceEquipos || $pideVecinos) && $servicio && ! $suspendido && ! $pareceWifi) {
             if ($medicion === []) {
                 $medicion = $this->recolector->medir($servicio, null);
             }
@@ -160,7 +164,14 @@ class SoporteOrquestador
                     $nombres[] = $n;
                 }
             }
-            $replyEquipos = FraseCliente::listaEquiposVista($nombres, $pideVecinos);
+            $replyEquipos = FraseCliente::listaEquiposVista($nombres, $pideVecinos || $pareceEquipos);
+            foreach (array_unique(array_filter($clavesDialogo)) as $clave) {
+                $this->dialogo->guardar($clave, [
+                    'paso' => 'wifi_sospecha',
+                    'medicion' => $this->medicionSinClaves($medicion),
+                    'cliente_id' => $cuenta['cliente_id'] ?? null,
+                ]);
+            }
             $resumenEquipos = $this->resumen($cuenta, $medicion, [
                 'tipo' => 'equipos',
                 'motivo' => 'consulta_equipos',

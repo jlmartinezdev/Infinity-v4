@@ -170,24 +170,33 @@ class FraseCliente
         return implode("\n", $lineas);
     }
 
-    /** Lista equipos vistos en su red (sin dBm). No incluye redes de vecinos. */
+    /** Lista equipos vistos en su red (sin dBm). Ofrece cambio de clave si sospecha vecinos. */
     public static function listaEquiposVista(array $nombres, bool $pidioVecinos = false): string
     {
-        if ($nombres === []) {
+        $cantidad = count($nombres);
+        if ($cantidad === 0) {
             $base = 'Por ahora no vemos equipos conectados en su red desde nuestro sistema.';
             if ($pidioVecinos) {
-                $base .= ' Las redes WiFi de vecinos no las listamos desde acá.';
+                $base .= ' No listamos redes WiFi ajenas; sí podemos cambiarle la clave del WiFi para cortar accesos no deseados.';
             }
 
-            return $base.' Si está cerca del router, pruebe conectar su celular y escribanos de nuevo.';
+            return $base.' Si está cerca del router, pruebe conectar su celular y escribanos de nuevo'
+                .($pidioVecinos ? ', o escriba CAMBIAR WIFI.' : '.');
         }
 
-        $lineas = ['Estos son los equipos que vemos ahora en su red:'];
+        $lineas = [
+            $cantidad === 1
+                ? 'Vemos 1 equipo conectado ahora en su red:'
+                : "Vemos {$cantidad} equipos conectados ahora en su red:",
+        ];
         foreach (array_values($nombres) as $i => $nombre) {
             $lineas[] = ($i + 1).'. '.$nombre;
         }
         if ($pidioVecinos) {
-            $lineas[] = 'Las redes WiFi de vecinos no las listamos desde acá; solo equipos de su servicio.';
+            $lineas[] = 'No listamos redes WiFi de vecinos; lo que sí vemos son los aparatos usando su servicio.';
+            $lineas[] = 'Si no reconoce alguno, escriba CAMBIAR WIFI y le generamos una clave nueva para sacar a quien no deba estar.';
+        } else {
+            $lineas[] = 'Si no reconoce alguno o sospecha que un vecino usa su WiFi, escriba CAMBIAR WIFI.';
         }
 
         return implode("\n", $lineas);

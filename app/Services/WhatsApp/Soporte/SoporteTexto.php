@@ -41,7 +41,24 @@ class SoporteTexto
             return false;
         }
 
-        return (bool) preg_match('/vecinos?|redes? (ajenas|de al lado|cercanas)|ssid (ajen|vecin)/u', $t);
+        return (bool) preg_match(
+            '/vecinos?|redes? (ajenas|de al lado|cercanas)|ssid (ajen|vecin)|enganchad|robando (el )?wifi|usan mi wifi|alguien (esta |está )?(en|usando) (mi )?wifi|colgad(os)? (en|al) (el )?wifi|no reconozco/u',
+            $t
+        );
+    }
+
+    /** Confirmación corta para cambiar WiFi tras sospecha de vecinos. */
+    public static function pareceConfirmaCambioWifi(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/^(si|sí|dale|ok|okay|listo|cambiar|cambie|cambiá|cambiar wifi|cambiar clave|nueva clave|hacelo|hágalo)\.?$/u',
+            $t
+        ) || (bool) preg_match('/cambi(ar|e|á|ame).{0,20}(clave|wifi|contrase)/u', $t);
     }
 
     /** Seguimiento de un reclamo/zona ya avisado (no abrir diagnóstico de cero). */
