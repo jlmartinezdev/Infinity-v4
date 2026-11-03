@@ -157,6 +157,15 @@ class SoporteOrquestador
             $medicion = $this->recolector->medir($servicio, $sitio);
         }
 
+        if ($pareceFalla && $servicio && $cuenta && $this->enlaceCaido($medicion)) {
+            $this->incidentes->anotarServicioCaido(
+                (int) $servicio->servicio_id,
+                $cuenta,
+                (string) ($cuenta['whatsapp'] ?? $mensaje->telefono),
+                $sandbox || WhatsAppAgentService::esTelefonoTest((string) $mensaje->telefono),
+            );
+        }
+
         // Consulta del nombre WiFi actual (no es cambio de clave).
         if ($pareceNombreWifi && $servicio && ! $suspendido && ! $pareceWifi) {
             $ssids = $this->wifi->ssidsActuales($servicio);
@@ -628,6 +637,27 @@ class SoporteOrquestador
                 'asignado_id' => SoporteAdminConfig::usuarioId(),
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $medicion
+     */
+    private function enlaceCaido(array $medicion): bool
+    {
+        if ($medicion === [] || ! ($medicion['pudo_medir'] ?? false)) {
+            return false;
+        }
+        if (array_key_exists('sesion_online', $medicion) && $medicion['sesion_online'] === false) {
+            return true;
+        }
+        if (array_key_exists('ping_cpe_ok', $medicion) && $medicion['ping_cpe_ok'] === false) {
+            return true;
+        }
+        if (array_key_exists('optica_ok', $medicion) && $medicion['optica_ok'] === false) {
+            return true;
+        }
+
+        return false;
     }
 
     public function telefonoCuenta(WhatsappMensaje $mensaje): string

@@ -6,6 +6,7 @@ use App\Models\MonitoreoPingServicio;
 use App\Models\Router;
 use App\Models\Servicio;
 use App\Services\MikroTikService;
+use App\Services\WhatsApp\Soporte\IncidenteZonaService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -118,6 +119,8 @@ class ServicioPingMonitoreoService
                 }
 
                 $ipGuardar = $ip !== '' ? $ip : (string) ($sesion['address'] ?? '');
+                $previo = MonitoreoPingServicio::query()->where('servicio_id', $servicio->servicio_id)->first();
+                $estabaFuera = $previo !== null && $previo->en_linea === false;
 
                 MonitoreoPingServicio::query()->updateOrCreate(
                     ['servicio_id' => $servicio->servicio_id],
@@ -130,6 +133,14 @@ class ServicioPingMonitoreoService
                         'error' => $enLinea ? null : 'PPPoE no activo en MikroTik',
                     ]
                 );
+
+                if ($estabaFuera && $enLinea) {
+                    try {
+                        app(IncidenteZonaService::class)->notificarServicioEnLinea((int) $servicio->servicio_id);
+                    } catch (\Throwable) {
+                        // el aviso no corta la ronda de monitoreo
+                    }
+                }
             }
         }
 

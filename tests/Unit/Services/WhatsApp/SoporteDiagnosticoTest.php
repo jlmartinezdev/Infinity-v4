@@ -216,6 +216,10 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertStringContainsString('órdenes', $zona);
         $this->assertStringNotContainsString('agradecemos', mb_strtolower($zona));
 
+        $propio = FraseCliente::servicioRestablecido('Gloria', 'Benítez');
+        $this->assertStringContainsString('volvió a conectar', mb_strtolower($propio));
+        $this->assertStringContainsString('Señora Benítez', $propio);
+
         $ok = FraseCliente::zonaRestablecida('Gloria', 'Benítez');
         $this->assertStringContainsString('Señora Benítez', $ok);
         $this->assertStringContainsString('restablecido', mb_strtolower($ok));

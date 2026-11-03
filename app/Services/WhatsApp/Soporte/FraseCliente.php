@@ -15,6 +15,8 @@ class FraseCliente
 
     public const ZONA_RESTABLECIDA = 'El servicio en su zona ya está restablecido. Puede volver a utilizar internet con normalidad.';
 
+    public const SERVICIO_RESTABLECIDO = 'Su servicio ya volvió a conectar. Puede probar internet con normalidad.';
+
     public const COMPROBANTE = 'Gracias por enviarnos su comprobante. Lo recibimos correctamente. Un asesor lo registrará en breve. Quedamos a las órdenes.';
 
     public const CABLE = 'Revise que el cable que entra al router esté bien enchufado. Cuando lo haga, escribanos por aquí.';
@@ -83,8 +85,17 @@ class FraseCliente
 
     public static function zonaRestablecida(?string $nombre = null, ?string $apellido = null): string
     {
+        return self::conVocativo(self::ZONA_RESTABLECIDA, $nombre, $apellido);
+    }
+
+    public static function servicioRestablecido(?string $nombre = null, ?string $apellido = null): string
+    {
+        return self::conVocativo(self::SERVICIO_RESTABLECIDO, $nombre, $apellido);
+    }
+
+    private static function conVocativo(string $cuerpo, ?string $nombre, ?string $apellido): string
+    {
         $vocativo = TratoCliente::vocativo($nombre, $apellido);
-        $cuerpo = self::ZONA_RESTABLECIDA;
         if ($vocativo) {
             $cuerpo = "{$vocativo}, ".mb_strtolower(mb_substr($cuerpo, 0, 1)).mb_substr($cuerpo, 1);
         }
