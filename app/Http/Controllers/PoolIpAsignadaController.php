@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PoolIpAsignada;
 use App\Models\RouterIpPool;
+use App\Services\N7PoolIpGuard;
 use Illuminate\Http\Request;
 
 class PoolIpAsignadaController extends Controller
@@ -50,6 +51,11 @@ class PoolIpAsignadaController extends Controller
         }
 
         PoolIpAsignada::create($validated);
+
+        $pool = RouterIpPool::with('router')->find($validated['pool_id']);
+        if ($pool) {
+            app(N7PoolIpGuard::class)->reservarSolapadas($pool);
+        }
 
         return redirect()->route('sistema.pool-ip-asignadas.index', ['pool_id' => $validated['pool_id']])
             ->with('success', 'IP agregada correctamente.');
@@ -115,6 +121,11 @@ class PoolIpAsignadaController extends Controller
             $agregadas++;
         }
 
+        $pool = RouterIpPool::with('router')->find($poolId);
+        if ($pool) {
+            app(N7PoolIpGuard::class)->reservarSolapadas($pool);
+        }
+
         $mensaje = $agregadas > 0
             ? "Se agregaron {$agregadas} IP(s) al pool."
             : 'No se agregó ninguna IP nueva (todas ya existían en el pool).';
@@ -141,6 +152,11 @@ class PoolIpAsignadaController extends Controller
         ]);
 
         $registro->update($validated);
+
+        $pool = RouterIpPool::with('router')->find($poolId);
+        if ($pool) {
+            app(N7PoolIpGuard::class)->reservarSolapadas($pool);
+        }
 
         return redirect()->route('sistema.pool-ip-asignadas.index', ['pool_id' => $poolId])
             ->with('success', 'Estado de IP actualizado correctamente.');

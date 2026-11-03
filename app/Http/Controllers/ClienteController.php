@@ -18,6 +18,7 @@ use App\Services\ClientePortalUserService;
 use App\Services\FacturacionService;
 use App\Services\Loyalty\PuntosService;
 use App\Services\MikroTikService;
+use App\Services\N7PoolIpGuard;
 use App\Services\Monitoreo\ServicioPingMonitoreoService;
 use App\Services\Portal\PortalClienteAccionService;
 use App\Support\HerramientasRedPayload;
@@ -1220,9 +1221,7 @@ class ClienteController extends Controller
             // 3. Servicios (liberar IPs del pool primero; MikroTik PPPoE ya limpiado antes de la transacción)
             foreach ($cliente->servicios as $servicio) {
                 if ($servicio->ip && $servicio->pool_id) {
-                    PoolIpAsignada::where('pool_id', $servicio->pool_id)
-                        ->where('ip', $servicio->ip)
-                        ->update(['estado' => 'disponible']);
+                    app(N7PoolIpGuard::class)->liberar((int) $servicio->pool_id, (string) $servicio->ip);
                 }
             }
             $cliente->servicios()->delete();

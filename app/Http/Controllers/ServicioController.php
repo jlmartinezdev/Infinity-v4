@@ -14,6 +14,7 @@ use App\Models\Ticket;
 use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\N7PoolIpGuard;
 use App\Services\RegistroSenalInstalacionService;
 use App\Services\ServicioImportarService;
 use App\Services\NetworkPingService;
@@ -54,6 +55,11 @@ class ServicioController extends Controller
         $poolId = $request->get('pool_id');
         if (! $poolId) {
             return response()->json(['ips' => []]);
+        }
+
+        $pool = RouterIpPool::with('router')->find($poolId);
+        if ($pool) {
+            app(N7PoolIpGuard::class)->reservarSolapadas($pool);
         }
 
         $ips = PoolIpAsignada::where('pool_id', $poolId)
@@ -209,6 +215,17 @@ class ServicioController extends Controller
 
         $yaTeniaOtros = Servicio::where('cliente_id', $validated['cliente_id'])->exists();
 
+        $poolNuevo = RouterIpPool::with('router')->find($validated['pool_id']);
+        $ipNueva = trim((string) ($validated['ip'] ?? ''));
+        if ($poolNuevo && $ipNueva !== '') {
+            $guard = app(N7PoolIpGuard::class);
+            $guard->reservarSolapadas($poolNuevo);
+            $aviso = $guard->mensajeSiOcupada($poolNuevo, $ipNueva);
+            if ($aviso) {
+                return redirect()->back()->withInput()->withErrors(['ip' => $aviso]);
+            }
+        }
+
         Servicio::create($validated);
 
         if (! empty($validated['ip'])) {
@@ -321,8 +338,19 @@ class ServicioController extends Controller
         $ipAnterior = $servicio->ip;
         $poolAnterior = $servicio->pool_id;
 
+        $guard = app(N7PoolIpGuard::class);
+        $poolDestinoEdicion = RouterIpPool::with('router')->find($validated['pool_id']);
+        $ipEditada = trim((string) ($validated['ip'] ?? ''));
+        if ($poolDestinoEdicion && $ipEditada !== '' && $ipEditada !== trim((string) ($ipAnterior ?? ''))) {
+            $guard->reservarSolapadas($poolDestinoEdicion);
+            $aviso = $guard->mensajeSiOcupada($poolDestinoEdicion, $ipEditada);
+            if ($aviso) {
+                return redirect()->back()->withInput()->withErrors(['ip' => $aviso]);
+            }
+        }
+
         if ($ipAnterior && ($poolAnterior != $validated['pool_id'] || $ipAnterior !== ($validated['ip'] ?? null))) {
-            PoolIpAsignada::where('pool_id', $poolAnterior)->where('ip', $ipAnterior)->update(['estado' => 'disponible']);
+            $guard->liberar((int) $poolAnterior, (string) $ipAnterior);
         }
 
         if (! empty($validated['ip'])) {
@@ -400,9 +428,7 @@ class ServicioController extends Controller
         $resultadoMk = $mikrotik->quitarPppoeAlBorrarServicio($servicio, 'servicios.destroy');
 
         if ($servicio->ip) {
-            PoolIpAsignada::where('pool_id', $servicio->pool_id)
-                ->where('ip', $servicio->ip)
-                ->update(['estado' => 'disponible']);
+            app(N7PoolIpGuard::class)->liberar((int) $servicio->pool_id, (string) $servicio->ip);
         }
 
         $servicio->delete();
@@ -773,9 +799,7 @@ class ServicioController extends Controller
             return false;
         }
 
-        PoolIpAsignada::where('pool_id', $servicio->pool_id)
-            ->where('ip', $ip)
-            ->update(['estado' => 'disponible']);
+        app(N7PoolIpGuard::class)->liberar((int) $servicio->pool_id, $ip);
 
         return true;
     }
@@ -1638,7 +1662,14 @@ class ServicioController extends Controller
             ->where('estado', 'disponible')
             ->exists();
 
-        if (! $ipDisponible) {
+        $guard = app(N7PoolIpGuard::class);
+        $guard->reservarSolapadas($poolDestino);
+        $avisoSolape = $guard->mensajeSiOcupada($poolDestino, $validated['ip']);
+        if ($avisoSolape) {
+            return redirect()->back()->withInput()->with('error', $avisoSolape);
+        }
+
+        if (! $ipDisponible || $guard->ipOcupadaEnCompanero($poolDestino, $validated['ip'])) {
             return redirect()->back()->withInput()->with('error', 'La IP seleccionada no está disponible en el pool destino.');
         }
 
@@ -1653,7 +1684,7 @@ class ServicioController extends Controller
         $poolAnterior = $servicio->pool_id;
 
         if ($ipAnterior && $poolAnterior) {
-            PoolIpAsignada::where('pool_id', $poolAnterior)->where('ip', $ipAnterior)->update(['estado' => 'disponible']);
+            app(N7PoolIpGuard::class)->liberar((int) $poolAnterior, (string) $ipAnterior);
         }
 
         PoolIpAsignada::where('pool_id', $validated['pool_id'])
@@ -1909,6 +1940,11 @@ class ServicioController extends Controller
         $mismoPool = (int) $servicio->pool_id === (int) $poolDestino->pool_id;
         $mismaIp = $mismoPool && $ipNueva === trim((string) ($servicio->ip ?? ''));
         if (! $mismaIp) {
+            app(N7PoolIpGuard::class)->reservarSolapadas($poolDestino);
+            $avisoSolape = app(N7PoolIpGuard::class)->mensajeSiOcupada($poolDestino, $ipNueva);
+            if ($avisoSolape) {
+                throw ValidationException::withMessages(['ip' => $avisoSolape]);
+            }
             $ipDisponible = PoolIpAsignada::where('pool_id', $poolDestino->pool_id)
                 ->where('ip', $ipNueva)
                 ->where('estado', 'disponible')
@@ -1933,7 +1969,7 @@ class ServicioController extends Controller
         }
 
         if ($ipAnterior && ! $mismaIp) {
-            PoolIpAsignada::where('pool_id', $poolOldId)->where('ip', $ipAnterior)->update(['estado' => 'disponible']);
+            app(N7PoolIpGuard::class)->liberar($poolOldId, (string) $ipAnterior);
             PoolIpAsignada::where('pool_id', $poolDestino->pool_id)
                 ->where('ip', $ipNueva)
                 ->update(['estado' => 'asignada']);

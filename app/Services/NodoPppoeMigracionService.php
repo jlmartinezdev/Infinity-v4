@@ -223,9 +223,7 @@ class NodoPppoeMigracionService
             &$nuevaIp
         ) {
             if ($ipAnterior && $poolAnterior) {
-                PoolIpAsignada::where('pool_id', $poolAnterior)
-                    ->where('ip', $ipAnterior)
-                    ->update(['estado' => 'disponible']);
+                app(N7PoolIpGuard::class)->liberar((int) $poolAnterior, (string) $ipAnterior);
             }
 
             $nuevaIp = $asignarIpAutomatica
@@ -305,6 +303,11 @@ class NodoPppoeMigracionService
 
     private function primeraIpDisponible(int $poolId, int $excluirServicioId): ?string
     {
+        $pool = RouterIpPool::with('router')->find($poolId);
+        if ($pool) {
+            app(N7PoolIpGuard::class)->reservarSolapadas($pool);
+        }
+
         $candidatas = PoolIpAsignada::where('pool_id', $poolId)
             ->where('estado', 'disponible')
             ->whereRaw("ip NOT LIKE '%.255'")

@@ -18,6 +18,7 @@ use App\Models\Servicio;
 use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
+use App\Services\N7PoolIpGuard;
 use App\Services\PedidoNodoOpcionesService;
 use App\Services\RegistroSenalInstalacionService;
 use Carbon\Carbon;
@@ -1088,7 +1089,10 @@ class PedidoController extends Controller
         );
 
         // Opcional: asignar primera IP disponible del pool (excluir .255),
-        // validando además que no esté en uso por otro servicio.
+        // validando además que no esté en uso por otro servicio ni por el N7 compañero.
+        $pool->loadMissing('router');
+        app(N7PoolIpGuard::class)->reservarSolapadas($pool);
+
         $ipAsignada = PoolIpAsignada::where('pool_id', $pool->pool_id)
             ->where('estado', 'disponible')
             ->whereRaw("ip NOT LIKE '%.255'")
