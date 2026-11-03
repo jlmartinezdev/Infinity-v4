@@ -55,7 +55,7 @@ class ValidadorHechos
             return ['reply' => $fallback, 'modo' => 'n8n_hechos_contradice', 'filtrado' => true];
         }
 
-        if (preg_match('/no (podemos|nos es posible) visualizar.*(nombre|wi-?fi|wifi|ssid)|no vemos el nombre (exacto )?(de )?(su |la )?red/iu', $reply)) {
+        if (preg_match('/no (podemos|nos es posible) visualizar.*(nombre|wi-?fi|wifi|ssid)|no vemos el nombre (exacto )?(de )?(su |la )?red|no tenemos visibilidad de los dispositivos/iu', $reply)) {
             return [
                 'reply' => 'El nombre de la red lo leemos del equipo cuando está en línea. Si no aparece ahora, figura en la etiqueta del router. Escriba NOMBRE WIFI y lo consultamos de nuevo.',
                 'modo' => 'n8n_hechos_ssid',

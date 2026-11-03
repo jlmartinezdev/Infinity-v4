@@ -287,6 +287,7 @@ class SoporteDiagnosticoTest extends TestCase
     {
         $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('que nombre de wifi tengo?'));
         $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('y el nombre del wifi?'));
+        $this->assertTrue(SoporteTexto::pareceConsultaEquipos('que es lo que ves en mi red?'));
         $this->assertTrue(SoporteTexto::pareceConsultaNombreWifi('que no lo ves en el escaneo de red el nombre actual?'));
         $this->assertFalse(SoporteTexto::pareceConsultaNombreWifi('cambiar el nombre del wifi a CasaNueva'));
         $this->assertTrue(SoporteTexto::pareceFalla('me deis la señal de mi servicio'));

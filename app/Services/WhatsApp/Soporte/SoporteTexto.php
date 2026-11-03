@@ -71,7 +71,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n est[aá] conectado|aparatos conectados/u',
+            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n est[aá] conectado|aparatos conectados|qu[eé] (es lo que )?(ves|ve|hay) en (mi |la |su )?(red|wifi)|lo que ves en (mi |la )?red|que ves en (mi |la )?(red|wifi)/u',
             $t
         );
     }

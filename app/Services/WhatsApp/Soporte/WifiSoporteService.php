@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp\Soporte;
 use App\Models\Servicio;
 use App\Services\GenieAcs\GenieAcsService;
 use App\Services\Huawei\HuaweiOnuService;
+use App\Services\Ubnt\UbntAntenaService;
 use Illuminate\Support\Str;
 
 class WifiSoporteService
@@ -12,6 +13,7 @@ class WifiSoporteService
     public function __construct(
         private readonly GenieAcsService $genie,
         private readonly HuaweiOnuService $huawei,
+        private readonly UbntAntenaService $ubnt,
     ) {}
 
     /**
@@ -21,13 +23,10 @@ class WifiSoporteService
      */
     public function ssidsActuales(Servicio $servicio): array
     {
+        $out = [];
         try {
             $resumen = $this->genie->resumen($servicio);
-            if (! ($resumen['success'] ?? false)) {
-                return [];
-            }
-            $lista = is_array($resumen['ssids'] ?? null) ? $resumen['ssids'] : [];
-            $out = [];
+            $lista = ($resumen['success'] ?? false) && is_array($resumen['ssids'] ?? null) ? $resumen['ssids'] : [];
             foreach ($lista as $s) {
                 $s = trim((string) $s);
                 if ($s !== '') {
@@ -37,11 +36,40 @@ class WifiSoporteService
             if ($out === [] && filled($resumen['ssid'] ?? null)) {
                 $out[] = trim((string) $resumen['ssid']);
             }
+        } catch (\Throwable) {
+            $out = [];
+        }
 
-            return array_values(array_unique($out));
+        if ($out === []) {
+            $out = $this->ssidPorAirOs($servicio);
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Antenas con acceso SSH: el SSID está en airOS, no en GenieACS.
+     *
+     * @return list<string>
+     */
+    private function ssidPorAirOs(Servicio $servicio): array
+    {
+        $ip = trim((string) ($servicio->ip ?? ''));
+        if ($ip === '' || ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return [];
+        }
+
+        try {
+            $ap = $this->ubnt->consultarApAirOs($ip);
+            $ssid = trim((string) ($ap['ssid'] ?? ''));
+            if (($ap['success'] ?? false) === true && $ssid !== '') {
+                return [$ssid];
+            }
         } catch (\Throwable) {
             return [];
         }
+
+        return [];
     }
 
     /**
