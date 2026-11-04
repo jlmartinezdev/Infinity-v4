@@ -3,6 +3,7 @@
 namespace Tests\Unit\Support;
 
 use App\Models\PushAviso;
+use App\Models\PushAvisoEntrega;
 use App\Support\PushAvisoPlantilla;
 use Tests\TestCase;
 
@@ -39,6 +40,13 @@ class PushAvisoPlantillaTest extends TestCase
         ]);
 
         $this->assertSame('Por vencer (1 día)', $aviso->etiquetaDestino());
+    }
+
+    public function test_motivo_de_token_vencido_se_lee_en_claro(): void
+    {
+        $texto = PushAvisoEntrega::motivoLegible('UNREGISTERED', 'fallido');
+
+        $this->assertStringContainsString('token', $texto);
     }
 
     public function test_etiqueta_de_saldo_pendiente(): void

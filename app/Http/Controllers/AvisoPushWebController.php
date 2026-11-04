@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PushAviso;
+use App\Models\PushAvisoEntrega;
 use App\Models\User;
 use App\Services\ClienteAvisoPushService;
 use App\Services\ClientePushNotifier;
@@ -20,6 +21,7 @@ class AvisoPushWebController extends Controller
     {
         $historial = PushAviso::query()
             ->with('creador:usuario_id,name')
+            ->withCount('entregas')
             ->latest('id')
             ->paginate(15);
 
@@ -125,6 +127,52 @@ class AvisoPushWebController extends Controller
                 $aviso->total_destinatarios,
                 $detalleOmitidos
             ));
+    }
+
+    public function show(Request $request, PushAviso $aviso): View
+    {
+        $estado = (string) $request->query('estado', '');
+        if (! array_key_exists($estado, PushAvisoEntrega::estados())) {
+            $estado = '';
+        }
+        $q = trim((string) $request->query('q', ''));
+
+        $conteos = $aviso->entregas()
+            ->selectRaw('estado, COUNT(*) as total')
+            ->groupBy('estado')
+            ->pluck('total', 'estado');
+
+        $lista = $aviso->entregas()
+            ->with('cliente:cliente_id,nombre,apellido,cedula')
+            ->when($estado !== '', fn ($query) => $query->where('estado', $estado))
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($inner) use ($q) {
+                    $inner->whereHas('cliente', fn ($cliente) => $cliente->buscarTexto($q));
+                    if (ctype_digit($q)) {
+                        $inner->orWhere('cliente_id', (int) $q);
+                    }
+                });
+            })
+            ->orderByRaw("CASE estado WHEN 'fallido' THEN 0 WHEN 'omitido' THEN 1 ELSE 2 END")
+            ->orderBy('cliente_id')
+            ->paginate(40)
+            ->withQueryString();
+
+        return view('avisos-push.show', [
+            'aviso' => $aviso->load('creador:usuario_id,name'),
+            'lista' => $lista,
+            'conteos' => [
+                'enviado' => (int) ($conteos[PushAvisoEntrega::ENVIADO] ?? 0),
+                'fallido' => (int) ($conteos[PushAvisoEntrega::FALLIDO] ?? 0),
+                'omitido' => (int) ($conteos[PushAvisoEntrega::OMITIDO] ?? 0),
+            ],
+            'estado' => $estado,
+            'q' => $q,
+            'estados' => PushAvisoEntrega::estados(),
+            'tipos' => PushAviso::tipos(),
+            'puedeVerCliente' => auth()->user()?->tienePermiso('clientes.ver') ?? false,
+            'tieneDetalle' => ((int) $conteos->sum()) > 0,
+        ]);
     }
 
     public function reenviar(PushAviso $aviso)

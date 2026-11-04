@@ -22,6 +22,13 @@ use Illuminate\Support\Facades\Log;
  */
 class FcmPushService
 {
+    private ?string $ultimoFallo = null;
+
+    public function ultimoFallo(): ?string
+    {
+        return $this->ultimoFallo;
+    }
+
     public function notifyStaff(string $title, string $body, array $data = []): bool
     {
         $ctx = $this->contextoEnvio();
@@ -50,6 +57,7 @@ class FcmPushService
     {
         $token = trim((string) ($user->push_token ?? ''));
         if ($token === '') {
+            $this->ultimoFallo = 'SIN_TOKEN';
             Log::info('FCM omitido (usuario sin push_token)', [
                 'usuario_id' => $user->usuario_id,
                 'cliente_id' => $user->cliente_id,
@@ -100,8 +108,10 @@ class FcmPushService
      */
     public function notifyToken(string $token, string $title, string $body, array $data = [], ?string $channelOverride = null): bool
     {
+        $this->ultimoFallo = null;
         $ctx = $this->contextoEnvio();
         if ($ctx === null) {
+            $this->ultimoFallo = 'SIN_SERVICIO';
             Log::info('FCM omitido (sin cuenta de servicio HTTP v1)', compact('title', 'body'));
 
             return false;
@@ -298,9 +308,15 @@ class FcmPushService
                 ->post($url, ['message' => $message]);
 
             if (! $response->successful()) {
+                $codigo = data_get($response->json(), 'error.details.0.errorCode')
+                    ?: data_get($response->json(), 'error.status');
+                $this->ultimoFallo = is_string($codigo) && $codigo !== ''
+                    ? mb_substr($codigo, 0, 80)
+                    : 'HTTP_'.$response->status();
                 Log::warning('FCM falló', [
                     'destino' => $destino,
                     'status' => $response->status(),
+                    'motivo' => $this->ultimoFallo,
                     'body' => $response->body(),
                 ]);
 
@@ -315,6 +331,7 @@ class FcmPushService
 
             return true;
         } catch (\Throwable $e) {
+            $this->ultimoFallo = 'ERROR';
             Log::warning('FCM excepción: '.$e->getMessage(), ['destino' => $destino]);
 
             return false;

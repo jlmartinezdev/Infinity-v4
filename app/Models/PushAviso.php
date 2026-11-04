@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PushAviso extends Model
 {
@@ -34,6 +35,11 @@ class PushAviso extends Model
     public function creador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creado_por', 'usuario_id');
+    }
+
+    public function entregas(): HasMany
+    {
+        return $this->hasMany(PushAvisoEntrega::class, 'push_aviso_id');
     }
 
     public static function tipos(): array

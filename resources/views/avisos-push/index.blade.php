@@ -126,7 +126,7 @@
                     @forelse ($historial as $a)
                         <tr class="hover:bg-gray-50/70 dark:hover:bg-gray-700/20">
                             <td class="px-4 py-3">
-                                <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">#{{ $a->id }} · {{ $a->titulo }}</div>
+                                <a href="{{ route('avisos-push.show', $a) }}" class="text-sm font-semibold text-gray-900 hover:text-blue-700 dark:text-gray-100 dark:hover:text-blue-300">#{{ $a->id }} · {{ $a->titulo }}</a>
                                 <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{{ $a->cuerpo }}</div>
                                 <div class="mt-1 text-[11px] uppercase tracking-wide text-gray-400">
                                     {{ $tipos[$a->tipo] ?? $a->tipo }}
@@ -139,14 +139,16 @@
                                 {{ $a->etiquetaDestino() }}
                             </td>
                             <td class="px-4 py-3 text-sm">
-                                <span class="text-emerald-700 dark:text-emerald-300">{{ $a->enviados }} OK</span>
-                                @if($a->fallidos)
-                                    <span class="text-rose-600 dark:text-rose-300"> · {{ $a->fallidos }} fallo</span>
-                                @endif
-                                @if($a->omitidos)
-                                    <span class="text-amber-600 dark:text-amber-300"> · {{ $a->omitidos }} sin token</span>
-                                @endif
-                                <div class="text-xs text-gray-400">de {{ $a->total_destinatarios }}</div>
+                                <a href="{{ route('avisos-push.show', $a) }}" class="block rounded-lg outline-none hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-gray-700/40">
+                                    <span class="text-emerald-700 dark:text-emerald-300">{{ $a->enviados }} entregados</span>
+                                    @if($a->fallidos)
+                                        <span class="text-rose-600 dark:text-rose-300"> · {{ $a->fallidos }} no entregados</span>
+                                    @endif
+                                    @if($a->omitidos)
+                                        <span class="text-amber-600 dark:text-amber-300"> · {{ $a->omitidos }} sin app</span>
+                                    @endif
+                                    <div class="text-xs text-blue-600 dark:text-blue-300">Ver quiénes · de {{ $a->total_destinatarios }}</div>
+                                </a>
                             </td>
                             <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                 {{ $a->created_at?->format('d/m/Y H:i') }}

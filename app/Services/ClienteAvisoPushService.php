@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FacturaInterna;
 use App\Models\PushAviso;
+use App\Models\PushAvisoEntrega;
 use App\Models\Servicio;
 use App\Models\User;
 use App\Support\PushAvisoPlantilla;
@@ -145,6 +146,14 @@ class ClienteAvisoPushService
         $cuentas = $this->mapaCuentas($conTokenIds);
         $enviados = 0;
         $fallidos = 0;
+        $filas = [];
+        $ahora = now();
+
+        if ($destino === 'seleccionados' && isset($sinToken) && $sinToken !== []) {
+            foreach ($sinToken as $clienteId) {
+                $filas[] = $this->filaEntrega($aviso->id, (int) $clienteId, PushAvisoEntrega::OMITIDO, 'SIN_TOKEN', $ahora);
+            }
+        }
 
         foreach ($porCliente as $user) {
             $clienteId = (int) $user->cliente_id;
@@ -174,9 +183,16 @@ class ClienteAvisoPushService
 
             if ($ok) {
                 $enviados++;
+                $filas[] = $this->filaEntrega($aviso->id, $clienteId, PushAvisoEntrega::ENVIADO, null, $ahora);
             } else {
                 $fallidos++;
+                $motivo = $this->fcm->ultimoFallo() ?: 'NO_ENTREGADO';
+                $filas[] = $this->filaEntrega($aviso->id, $clienteId, PushAvisoEntrega::FALLIDO, $motivo, $ahora);
             }
+        }
+
+        foreach (array_chunk($filas, 100) as $lote) {
+            PushAvisoEntrega::query()->insert($lote);
         }
 
         $aviso->update([
@@ -437,6 +453,21 @@ class ClienteAvisoPushService
             'facturas' => (string) (int) ($cuenta['facturas'] ?? 0),
             'vencimiento' => $vencimiento !== '' ? $vencimiento : 'sin fecha',
             'cedula' => trim((string) ($cliente?->cedula ?? '')),
+        ];
+    }
+
+    /**
+     * @return array{push_aviso_id: int, cliente_id: int, estado: string, motivo: ?string, created_at: \Illuminate\Support\Carbon, updated_at: \Illuminate\Support\Carbon}
+     */
+    private function filaEntrega(int $avisoId, int $clienteId, string $estado, ?string $motivo, \Illuminate\Support\Carbon $ahora): array
+    {
+        return [
+            'push_aviso_id' => $avisoId,
+            'cliente_id' => $clienteId,
+            'estado' => $estado,
+            'motivo' => $motivo !== null ? mb_substr($motivo, 0, 180) : null,
+            'created_at' => $ahora,
+            'updated_at' => $ahora,
         ];
     }
 
