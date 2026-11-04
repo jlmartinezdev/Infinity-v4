@@ -9,6 +9,8 @@ use App\Services\ClienteAvisoPushService;
 use App\Services\ClientePushNotifier;
 use App\Support\PushAvisoPlantilla;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class AvisoPushWebController extends Controller
@@ -43,7 +45,14 @@ class AvisoPushWebController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        // «accepted» es una regla implícita: nullable no la saltea si la casilla
+        // no viaja en el POST, y el mensaje quedaba oculto. La confirmación se
+        // controla más abajo, con un aviso visible.
+        if ($request->input('destino') !== 'por_vencer') {
+            $request->merge(['dias' => null]);
+        }
+
+        $validator = Validator::make($request->all(), [
             'titulo' => ['required', 'string', 'max:120'],
             'cuerpo' => ['required', 'string', 'max:500'],
             'tipo' => ['required', 'in:aviso,promocion'],
@@ -54,13 +63,29 @@ class AvisoPushWebController extends Controller
             'cliente_id' => ['nullable', 'integer', 'min:1'],
             'usuario_ids' => ['nullable', 'array'],
             'usuario_ids.*' => ['integer', 'min:1'],
-            'confirmar_masivo' => ['nullable', 'accepted'],
-            'confirmar_todos' => ['nullable', 'accepted'],
         ], [
             'titulo.required' => 'Indicá un título.',
             'cuerpo.required' => 'Indicá el mensaje.',
-            'confirmar_masivo.accepted' => 'Confirmá el envío al grupo.',
+            'tipo.in' => 'Elegí un tipo de aviso.',
+            'destino.in' => 'Elegí un destino válido.',
+            'dias.integer' => 'Los días tienen que ser un número entero.',
+            'dias.min' => 'Los días tienen que ser entre 1 y 30.',
+            'dias.max' => 'Los días tienen que ser entre 1 y 30.',
         ]);
+
+        if ($validator->fails()) {
+            Log::warning('Aviso push rechazado por validación', [
+                'destino' => $request->input('destino'),
+                'campos' => $validator->errors()->keys(),
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors($validator)
+                ->with('error', $validator->errors()->first());
+        }
+
+        $validated = $validator->validated();
 
         $destino = $validated['destino'];
         $masivo = $destino !== 'seleccionados';

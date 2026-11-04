@@ -98,6 +98,14 @@
                 </label>
             </div>
 
+            @if ($errors->any())
+                <div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100">
+                    @foreach ($errors->all() as $error)
+                        <p>{{ $error }}</p>
+                    @endforeach
+                </div>
+            @endif
+
             <div class="flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-700/80">
                 <button type="submit" id="aviso-submit"
                         class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
@@ -408,6 +416,11 @@
     syncDestino();
     renderChips();
 
+    var flash = document.querySelector('[data-app-flash]');
+    if (flash && flash.scrollIntoView) {
+        flash.scrollIntoView({ block: 'center' });
+    }
+
     buscarInput.addEventListener('input', function () {
         clearTimeout(debounce);
         var q = buscarInput.value.trim();
@@ -453,11 +466,13 @@
             alert('Confirmá el envío al grupo.');
             return;
         }
-        e.preventDefault();
+        if (form.dataset.enviando === '1') {
+            e.preventDefault();
+            return;
+        }
+        if (cb) cb.disabled = false;
+        if (diasInput && destino === 'por_vencer') diasInput.disabled = false;
         form.dataset.enviando = '1';
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Enviando…';
-        HTMLFormElement.prototype.submit.call(form);
     });
 })();
 </script>
