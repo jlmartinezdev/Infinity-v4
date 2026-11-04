@@ -364,6 +364,7 @@ Route::post('/whatsapp/rapido/cobro', [WhatsAppWebController::class, 'storeCobro
 Route::middleware(['auth', 'permiso:avisos-push.ver'])->group(function () {
     Route::get('/avisos-push', [AvisoPushWebController::class, 'index'])->name('avisos-push.index');
     Route::get('/avisos-push/buscar', [AvisoPushWebController::class, 'buscar'])->name('avisos-push.buscar');
+    Route::get('/avisos-push/segmento', [AvisoPushWebController::class, 'segmento'])->name('avisos-push.segmento');
 });
 Route::middleware(['auth', 'permiso:avisos-push.editar'])->group(function () {
     Route::post('/avisos-push', [AvisoPushWebController::class, 'store'])->name('avisos-push.store');

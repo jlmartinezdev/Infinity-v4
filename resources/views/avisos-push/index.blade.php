@@ -10,7 +10,8 @@
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Avisos push</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Enviá notificaciones editables a la app del cliente.
+            Enviá un aviso a clientes puntuales o a un grupo (saldo pendiente, vencidas, por vencer, suspendidos o cortados).
+            El título y el mensaje se personalizan con variables.
             <span class="font-medium text-gray-700 dark:text-gray-300">{{ $conPush }}</span> con app / push activo.
         </p>
     </div>
@@ -22,8 +23,8 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div class="sm:col-span-2">
                     <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Título</label>
-                    <input type="text" name="titulo" value="{{ old('titulo') }}" maxlength="120" required
-                           placeholder="Ej. Promoción de febrero"
+                    <input type="text" name="titulo" id="aviso-titulo" value="{{ old('titulo') }}" maxlength="120" required
+                           placeholder="Ej. Recordatorio de pago"
                            class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-900/40 dark:text-gray-100 dark:ring-gray-600">
                     @error('titulo')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                 </div>
@@ -31,9 +32,20 @@
                 <div class="sm:col-span-2">
                     <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Mensaje</label>
                     <textarea id="aviso-cuerpo" name="cuerpo" rows="3" maxlength="500" required
-                              placeholder="Texto que verá el cliente en la notificación…"
+                              placeholder="Ej. Hola [nombre], tu saldo pendiente es Gs. [saldo_pend]. Vence el [vencimiento]."
                               class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-900/40 dark:text-gray-100 dark:ring-gray-600">{{ old('cuerpo') }}</textarea>
                     <p class="mt-1 text-xs text-gray-400"><span id="aviso-cuerpo-len">0</span>/500</p>
+                    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span class="text-xs text-gray-400">Variables</span>
+                        @foreach($variables as $token => $ayuda)
+                            <button type="button"
+                                    class="js-var rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-blue-50 hover:text-blue-800 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-blue-950/40"
+                                    data-token="[{{ $token }}]"
+                                    title="{{ $ayuda }}">[{{ $token }}]</button>
+                        @endforeach
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">Se reemplazan en cada cliente. Hacé clic en el título o en el mensaje y después en la variable.</p>
+                    <p id="aviso-preview" class="mt-1 hidden text-xs text-gray-500 dark:text-gray-400"></p>
                     @error('cuerpo')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                 </div>
 
@@ -47,20 +59,23 @@
                 </div>
 
                 <div>
-                    <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Destino</label>
-                    <div class="flex flex-wrap gap-3 pt-1">
-                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                            <input type="radio" name="destino" value="seleccionados" class="js-destino text-blue-600 focus:ring-blue-500"
-                                   @checked(old('destino', 'seleccionados') === 'seleccionados')>
-                            Seleccionados
-                        </label>
-                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                            <input type="radio" name="destino" value="todos" class="js-destino text-blue-600 focus:ring-blue-500"
-                                   @checked(old('destino') === 'todos')>
-                            Todos con app ({{ $conPush }})
-                        </label>
-                    </div>
+                    <label for="aviso-destino" class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Destino</label>
+                    <select name="destino" id="aviso-destino"
+                            class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-900/40 dark:text-gray-100 dark:ring-gray-600">
+                        @foreach($destinos as $value => $label)
+                            <option value="{{ $value }}" @selected(old('destino', 'seleccionados') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <p id="aviso-destino-ayuda" class="mt-1 text-xs text-gray-400"></p>
                 </div>
+            </div>
+
+            <div id="bloque-dias" class="hidden">
+                <label for="aviso-dias" class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Días hacia adelante</label>
+                <input type="number" name="dias" id="aviso-dias" min="1" max="30" value="{{ old('dias', $diasDefault) }}"
+                       class="w-32 rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-900/40 dark:text-gray-100 dark:ring-gray-600">
+                <p class="mt-1 text-xs text-gray-400">Incluye las facturas impagas que vencen hoy y hasta esa cantidad de días. Las ya vencidas quedan en el grupo «Con factura vencida».</p>
+                @error('dias')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
             </div>
 
             <div id="bloque-seleccionados" class="space-y-2">
@@ -74,11 +89,12 @@
                 <p id="aviso-sin-sel" class="text-xs text-gray-400">Agregá uno o más clientes que tengan la app instalada.</p>
             </div>
 
-            <div id="bloque-todos" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-                <label class="inline-flex items-start gap-2">
-                    <input type="checkbox" name="confirmar_todos" value="1" class="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-                           @checked(old('confirmar_todos'))>
-                    <span>Confirmo enviar este aviso a <strong>todos</strong> los clientes con push activo ({{ $conPush }}).</span>
+            <div id="bloque-masivo" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                <p id="aviso-grupo-vacio" class="hidden">No hay clientes con la app en este grupo.</p>
+                <label id="aviso-confirmar-label" class="inline-flex items-start gap-2">
+                    <input type="checkbox" name="confirmar_masivo" id="aviso-confirmar" value="1" class="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                           @checked(old('confirmar_masivo') || old('confirmar_todos'))>
+                    <span id="aviso-confirmar-txt"></span>
                 </label>
             </div>
 
@@ -163,23 +179,49 @@
 <script>
 (function () {
     var urlBuscar = @json(route('avisos-push.buscar'));
+    var urlSegmento = @json(route('avisos-push.segmento'));
     var oldIds = @json($oldIds);
+    var conteos = @json($conteos);
+    var etiquetas = @json($destinos);
+    var descripciones = @json($descripciones);
+    var muestra = {
+        nombre: 'Juan',
+        apellido: 'Pérez',
+        nombre_completo: 'Juan Pérez',
+        saldo_pend: '150.000',
+        facturas: '2',
+        vencimiento: '15/11/2026',
+        cedula: '1234567'
+    };
     var seleccionados = {};
     oldIds.forEach(function (id) {
         seleccionados[id] = { cliente_id: id, nombre: 'Cliente', apellido: '', cedula: null };
     });
 
     var form = document.getElementById('form-aviso-push');
+    var titulo = document.getElementById('aviso-titulo');
     var cuerpo = document.getElementById('aviso-cuerpo');
     var cuerpoLen = document.getElementById('aviso-cuerpo-len');
+    var preview = document.getElementById('aviso-preview');
     var buscarInput = document.getElementById('aviso-buscar');
     var resultadosEl = document.getElementById('aviso-resultados');
     var chipsEl = document.getElementById('aviso-chips');
     var sinSel = document.getElementById('aviso-sin-sel');
     var bloqueSel = document.getElementById('bloque-seleccionados');
-    var bloqueTodos = document.getElementById('bloque-todos');
+    var bloqueDias = document.getElementById('bloque-dias');
+    var bloqueMasivo = document.getElementById('bloque-masivo');
+    var destinoSel = document.getElementById('aviso-destino');
+    var diasInput = document.getElementById('aviso-dias');
+    var ayudaEl = document.getElementById('aviso-destino-ayuda');
+    var confirmarTxt = document.getElementById('aviso-confirmar-txt');
+    var confirmarLabel = document.getElementById('aviso-confirmar-label');
+    var grupoVacio = document.getElementById('aviso-grupo-vacio');
+    var submitBtn = document.getElementById('aviso-submit');
+    var ultimoCampo = cuerpo;
     var debounce = null;
+    var debounceDias = null;
     var abortCtrl = null;
+    var abortDias = null;
 
     function escapeHtml(s) {
         var d = document.createElement('div');
@@ -188,18 +230,78 @@
     }
 
     function destinoActual() {
-        var el = form.querySelector('input[name="destino"]:checked');
-        return el ? el.value : 'seleccionados';
+        return destinoSel ? destinoSel.value : 'seleccionados';
+    }
+
+    function conteoActual() {
+        var n = conteos[destinoActual()];
+        return n == null ? 0 : parseInt(n, 10) || 0;
+    }
+
+    function pintarOpciones() {
+        Array.prototype.forEach.call(destinoSel.options, function (opt) {
+            var base = etiquetas[opt.value] || opt.value;
+            if (opt.value === 'seleccionados') {
+                opt.textContent = base;
+                return;
+            }
+            var n = conteos[opt.value];
+            opt.textContent = base + ' (' + (n == null ? 0 : n) + ')';
+        });
     }
 
     function syncDestino() {
-        var todos = destinoActual() === 'todos';
-        bloqueSel.classList.toggle('hidden', todos);
-        bloqueTodos.classList.toggle('hidden', !todos);
+        var destino = destinoActual();
+        var masivo = destino !== 'seleccionados';
+        var vacio = masivo && conteoActual() === 0;
+        bloqueSel.classList.toggle('hidden', destino !== 'seleccionados');
+        bloqueDias.classList.toggle('hidden', destino !== 'por_vencer');
+        bloqueMasivo.classList.toggle('hidden', !masivo);
+        grupoVacio.classList.toggle('hidden', !vacio);
+        confirmarLabel.classList.toggle('hidden', vacio);
+        ayudaEl.textContent = descripciones[destino] || '';
+        var etiqueta = etiquetas[destino] || 'ese grupo';
+        confirmarTxt.textContent = 'Confirmo enviar este aviso a ' + conteoActual() + ' clientes con app: «' + etiqueta + '».';
+        if (!submitBtn.dataset.enviando) {
+            submitBtn.disabled = vacio;
+        }
+    }
+
+    function aplicarMuestra(texto) {
+        return String(texto || '').replace(/\[(nombre_completo|saldo_pend|vencimiento|facturas|apellido|nombre|cedula)\]/gi, function (_, clave) {
+            return muestra[String(clave).toLowerCase()] || '';
+        });
+    }
+
+    function syncPreview() {
+        var texto = (cuerpo.value || '').trim();
+        if (texto.indexOf('[') === -1) {
+            preview.classList.add('hidden');
+            preview.textContent = '';
+            return;
+        }
+        preview.textContent = 'Vista previa: ' + aplicarMuestra(texto);
+        preview.classList.remove('hidden');
     }
 
     function syncLen() {
         cuerpoLen.textContent = String((cuerpo.value || '').length);
+        syncPreview();
+    }
+
+    function insertarVariable(token) {
+        var el = ultimoCampo || cuerpo;
+        var start = el.selectionStart == null ? el.value.length : el.selectionStart;
+        var end = el.selectionEnd == null ? el.value.length : el.selectionEnd;
+        var next = el.value.slice(0, start) + token + el.value.slice(end);
+        if (el.maxLength > 0 && next.length > el.maxLength) {
+            return;
+        }
+        el.value = next;
+        var pos = start + token.length;
+        el.focus();
+        if (el.setSelectionRange) el.setSelectionRange(pos, pos);
+        syncLen();
     }
 
     function renderChips() {
@@ -255,11 +357,45 @@
         resultadosEl.classList.remove('hidden');
     }
 
-    document.querySelectorAll('.js-destino').forEach(function (el) {
-        el.addEventListener('change', syncDestino);
+    destinoSel.addEventListener('change', function () {
+        var cb = document.getElementById('aviso-confirmar');
+        if (cb) cb.checked = false;
+        syncDestino();
     });
 
+    titulo.addEventListener('focus', function () { ultimoCampo = titulo; });
+    cuerpo.addEventListener('focus', function () { ultimoCampo = cuerpo; });
+    titulo.addEventListener('input', syncPreview);
     cuerpo.addEventListener('input', syncLen);
+
+    document.querySelectorAll('.js-var').forEach(function (btn) {
+        btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        btn.addEventListener('click', function () {
+            insertarVariable(btn.getAttribute('data-token') || '');
+        });
+    });
+
+    diasInput.addEventListener('input', function () {
+        clearTimeout(debounceDias);
+        debounceDias = setTimeout(function () {
+            var dias = diasInput.value;
+            if (abortDias) abortDias.abort();
+            abortDias = new AbortController();
+            fetch(urlSegmento + '?destino=por_vencer&dias=' + encodeURIComponent(dias), {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                signal: abortDias.signal
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    conteos.por_vencer = data.count || 0;
+                    pintarOpciones();
+                    syncDestino();
+                })
+                .catch(function () {});
+        }, 250);
+    });
+
+    pintarOpciones();
     syncLen();
     syncDestino();
     renderChips();
@@ -292,14 +428,26 @@
     });
 
     form.addEventListener('submit', function (e) {
-        if (destinoActual() === 'seleccionados' && Object.keys(seleccionados).length === 0) {
+        var destino = destinoActual();
+        if (destino === 'seleccionados' && Object.keys(seleccionados).length === 0) {
             e.preventDefault();
             alert('Seleccioná al menos un cliente.');
             return;
         }
-        var btn = document.getElementById('aviso-submit');
-        btn.disabled = true;
-        btn.textContent = 'Enviando…';
+        if (destino !== 'seleccionados' && conteoActual() === 0) {
+            e.preventDefault();
+            alert('No hay clientes con la app en ese grupo.');
+            return;
+        }
+        var cb = document.getElementById('aviso-confirmar');
+        if (destino !== 'seleccionados' && cb && !cb.checked) {
+            e.preventDefault();
+            alert('Confirmá el envío al grupo.');
+            return;
+        }
+        submitBtn.dataset.enviando = '1';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando…';
     });
 })();
 </script>

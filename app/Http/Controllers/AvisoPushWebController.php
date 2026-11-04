@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\PushAviso;
 use App\Models\User;
 use App\Services\ClienteAvisoPushService;
+use App\Services\ClientePushNotifier;
+use App\Support\PushAvisoPlantilla;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -21,10 +23,18 @@ class AvisoPushWebController extends Controller
             ->latest('id')
             ->paginate(15);
 
+        $dias = $this->normalizarDias(old('dias'));
+        $conteos = $this->avisos->conteos($dias);
+
         return view('avisos-push.index', [
             'historial' => $historial,
-            'conPush' => $this->avisos->contarConPush(),
+            'conteos' => $conteos,
+            'conPush' => $conteos['todos'] ?? 0,
             'tipos' => PushAviso::tipos(),
+            'destinos' => PushAviso::destinos(),
+            'descripciones' => PushAviso::descripcionesDestino(),
+            'variables' => PushAvisoPlantilla::variables(),
+            'diasDefault' => $dias,
             'puedeEditar' => auth()->user()?->tienePermiso('avisos-push.editar') ?? false,
         ]);
     }
@@ -35,39 +45,57 @@ class AvisoPushWebController extends Controller
             'titulo' => ['required', 'string', 'max:120'],
             'cuerpo' => ['required', 'string', 'max:500'],
             'tipo' => ['required', 'in:aviso,promocion'],
-            'destino' => ['required', 'in:todos,seleccionados'],
+            'destino' => ['required', 'in:'.implode(',', array_keys(PushAviso::destinos()))],
+            'dias' => ['nullable', 'integer', 'min:1', 'max:30'],
             'cliente_ids' => ['nullable', 'array'],
             'cliente_ids.*' => ['integer', 'min:1'],
             'cliente_id' => ['nullable', 'integer', 'min:1'],
             'usuario_ids' => ['nullable', 'array'],
             'usuario_ids.*' => ['integer', 'min:1'],
+            'confirmar_masivo' => ['nullable', 'accepted'],
             'confirmar_todos' => ['nullable', 'accepted'],
         ], [
             'titulo.required' => 'Indicá un título.',
             'cuerpo.required' => 'Indicá el mensaje.',
-            'confirmar_todos.accepted' => 'Confirmá el envío a todos los clientes con app.',
+            'confirmar_masivo.accepted' => 'Confirmá el envío al grupo.',
         ]);
 
-        if ($validated['destino'] === 'todos' && ! $request->boolean('confirmar_todos')) {
+        $destino = $validated['destino'];
+        $masivo = $destino !== 'seleccionados';
+        $confirmado = $request->boolean('confirmar_masivo') || $request->boolean('confirmar_todos');
+        $dias = $destino === 'por_vencer'
+            ? $this->normalizarDias($validated['dias'] ?? null)
+            : null;
+
+        if ($masivo && ! $confirmado) {
             return back()
                 ->withInput()
-                ->with('error', 'Para enviar a todos, marcá la casilla de confirmación.');
+                ->with('error', 'Para enviar a un grupo, marcá la casilla de confirmación.');
         }
 
         $clienteIds = $this->resolverClienteIds($validated);
-        if ($validated['destino'] === 'seleccionados' && $clienteIds === []) {
+        if ($destino === 'seleccionados' && $clienteIds === []) {
             return back()
                 ->withInput()
                 ->with('error', 'Seleccioná al menos un cliente con app instalada.');
+        }
+
+        if ($masivo && $this->avisos->contarDestino($destino, $dias) === 0) {
+            $etiqueta = PushAviso::destinos()[$destino] ?? $destino;
+
+            return back()
+                ->withInput()
+                ->with('error', 'No hay clientes con la app en «'.$etiqueta.'».');
         }
 
         $aviso = $this->avisos->enviar(
             $validated['titulo'],
             $validated['cuerpo'],
             $validated['tipo'],
-            $validated['destino'],
+            $destino,
             $clienteIds,
-            auth()->user()?->usuario_id
+            auth()->user()?->usuario_id,
+            $dias
         );
 
         $detalleOmitidos = $aviso->omitidos
@@ -143,6 +171,33 @@ class AvisoPushWebController extends Controller
         $q = trim((string) $request->get('q', ''));
 
         return response()->json($this->avisos->buscarConPush($q));
+    }
+
+    public function segmento(Request $request)
+    {
+        $destino = (string) $request->get('destino', '');
+        if (! array_key_exists($destino, PushAviso::destinos()) || $destino === 'seleccionados') {
+            return response()->json(['count' => 0]);
+        }
+
+        $dias = $this->normalizarDias($request->get('dias'));
+
+        return response()->json([
+            'count' => $this->avisos->contarDestino($destino, $dias),
+            'destino' => $destino,
+            'dias' => $dias,
+        ]);
+    }
+
+    private function normalizarDias(mixed $dias): int
+    {
+        if ($dias === null || $dias === '') {
+            $n = ClientePushNotifier::diasAntesVencimiento();
+        } else {
+            $n = (int) $dias;
+        }
+
+        return max(1, min(30, $n));
     }
 
     /**

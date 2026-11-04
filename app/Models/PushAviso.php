@@ -14,6 +14,7 @@ class PushAviso extends Model
         'cuerpo',
         'tipo',
         'destino',
+        'dias',
         'cliente_ids',
         'total_destinatarios',
         'enviados',
@@ -26,6 +27,7 @@ class PushAviso extends Model
     {
         return [
             'cliente_ids' => 'array',
+            'dias' => 'integer',
         ];
     }
 
@@ -42,10 +44,54 @@ class PushAviso extends Model
         ];
     }
 
+    /**
+     * Destinos del panel. Los de grupo se recalculan al enviar y al reenviar.
+     *
+     * @return array<string, string>
+     */
+    public static function destinos(): array
+    {
+        return [
+            'seleccionados' => 'Clientes seleccionados',
+            'todos' => 'Todos con app',
+            'pendiente_pago' => 'Con saldo pendiente',
+            'vencidas' => 'Con factura vencida',
+            'por_vencer' => 'Por vencer',
+            'suspendidos' => 'Servicio suspendido',
+            'cortados' => 'Servicio cortado',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function descripcionesDestino(): array
+    {
+        return [
+            'seleccionados' => 'Elegís uno o más clientes que tengan la app.',
+            'todos' => 'Todos los clientes con la app y push activo.',
+            'pendiente_pago' => 'Quienes tienen facturas pendientes o emitidas con saldo.',
+            'vencidas' => 'Quienes tienen al menos una factura impaga ya vencida.',
+            'por_vencer' => 'Quienes tienen una factura impaga que vence hoy o dentro de los días indicados. No incluye las que ya vencieron.',
+            'suspendidos' => 'Quienes tienen al menos un servicio suspendido.',
+            'cortados' => 'Quienes tienen al menos un servicio cortado.',
+        ];
+    }
+
     public function etiquetaDestino(): string
     {
         if ($this->destino === 'todos') {
             return 'Todos';
+        }
+
+        if ($this->destino !== 'seleccionados') {
+            $label = self::destinos()[$this->destino] ?? (string) $this->destino;
+            if ($this->destino === 'por_vencer') {
+                $n = max(1, (int) ($this->dias ?? 1));
+                $label .= ' ('.$n.' '.($n === 1 ? 'día' : 'días').')';
+            }
+
+            return $label;
         }
 
         $ids = collect($this->cliente_ids ?? [])

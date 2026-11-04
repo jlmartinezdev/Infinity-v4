@@ -9,7 +9,7 @@
             'action' => route('avisos-push.reenviar', $aviso),
             'method' => 'POST',
             'label' => 'Reenviar',
-            'confirm' => '¿Reenviar el aviso #'.$aviso->id.' a los mismos destinatarios?',
+            'confirm' => '¿Reenviar el aviso #'.$aviso->id.'? El texto se mantiene y, si es un grupo, se calcula de nuevo quién entra.',
             'color' => 'blue',
             'icon' => 'refresh',
         ];
@@ -34,7 +34,7 @@
 <div class="flex items-center justify-end gap-0.5">
     @if($puedeEditar)
         <form action="{{ route('avisos-push.reenviar', $aviso) }}" method="POST" class="inline"
-              onsubmit="return confirm('¿Reenviar el aviso #{{ $aviso->id }}?');">
+              onsubmit="return confirm('¿Reenviar el aviso #{{ $aviso->id }}? El texto se mantiene y, si es un grupo, se calcula de nuevo quién entra.');">
             @csrf
             <button type="submit"
                     class="p-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
