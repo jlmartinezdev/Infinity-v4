@@ -7,7 +7,6 @@ use App\Models\Plan;
 use App\Models\WhatsappMensaje;
 use App\Services\PedidoNodoOpcionesService;
 use App\Services\WhatsApp\Soporte\FraseCliente;
-use App\Services\WhatsApp\Soporte\OfertaCierreService;
 use App\Services\WhatsApp\Soporte\SoporteOrquestador;
 use App\Services\WhatsApp\Soporte\SoporteTexto;
 use App\Support\SoporteAdminConfig;
@@ -169,7 +168,7 @@ class WhatsAppAgentService
                     'otros' => $catalogo['otros'] ?? [],
                     'planes_texto' => $catalogo['planes_texto'] ?? '',
                 ],
-                (string) config('whatsapp.agent.fallback_message'),
+                self::mensajeFallback(),
             );
             if ($validado['filtrado']) {
                 $reply = $validado['reply'];
@@ -183,19 +182,12 @@ class WhatsAppAgentService
         if ($error !== null || ($reply === null && ! $escalate)) {
             $error = $error ?: 'n8n_sin_reply';
             if ($enviar) {
-                $reply = (string) config('whatsapp.agent.fallback_message');
+                $reply = self::mensajeFallback();
             }
         }
 
         if ($escalate && ($reply === null || $reply === '')) {
             $reply = (string) config('whatsapp.agent.escalate_message');
-        }
-
-        if (! $escalate && filled($reply) && SoporteTexto::pareceCierre((string) $mensaje->cuerpo)) {
-            $oferta = app(OfertaCierreService::class)->sugerir($this->soporte->cuentaDe($mensaje), false);
-            if ($oferta) {
-                $reply = rtrim($reply)."\n\n".$oferta;
-            }
         }
 
         if (filled($reply)) {
@@ -637,7 +629,7 @@ class WhatsAppAgentService
             return $out;
         };
 
-        $bloques = ['Estos son nuestros planes vigentes (mensual, IVA incluido):'];
+        $bloques = ['Estos son los planes (mensual, IVA incluido):'];
         if ($filtro === 'fibra' || $filtro === 'ambos') {
             $filas = $lineasPlan($fibra);
             if ($filas !== []) {
@@ -915,7 +907,7 @@ class WhatsAppAgentService
     }
 
     /**
-     * Primer contacto del día (la ráfaga de los últimos 3 minutos cuenta como uno).
+     * Primer contacto del día: saluda una sola vez, aunque escriba de nuevo enseguida.
      */
     public function esAperturaDelDia(WhatsappMensaje $mensaje): bool
     {
@@ -925,14 +917,12 @@ class WhatsAppAgentService
 
         $tz = (string) config('app.timezone', 'America/Argentina/Buenos_Aires');
         $inicio = $mensaje->created_at->copy()->timezone($tz)->startOfDay();
-        $corte = $mensaje->created_at->copy()->subMinutes(3);
 
         return ! WhatsappMensaje::query()
             ->where('telefono', $mensaje->telefono)
-            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
-            ->where('id', '<', $mensaje->id)
+            ->where('direccion', WhatsappMensaje::DIRECCION_SALIDA)
             ->where('created_at', '>=', $inicio)
-            ->where('created_at', '<', $corte)
+            ->whereIn('contexto_tipo', [self::CONTEXTO, self::CONTEXTO_TEST, 'manual_panel', 'app_whatsapp'])
             ->exists();
     }
 
@@ -947,26 +937,61 @@ class WhatsAppAgentService
             ? \Carbon\Carbon::parse($ahora)->timezone($tz)
             : now($tz);
         $hora = (int) $ahora->format('G');
+        if ($hora < 6 || $hora >= 19) {
+            return 'Buenas noches.';
+        }
         if ($hora < 12) {
             return 'Buenos días.';
         }
-        if ($hora < 19) {
-            return 'Buenas tardes.';
+
+        return 'Buenas tardes.';
+    }
+
+    /**
+     * El .env de producción puede seguir en voseo: al cliente siempre sale de usted.
+     */
+    public static function mensajeFallback(): string
+    {
+        $texto = trim((string) config('whatsapp.agent.fallback_message'));
+        if ($texto === '') {
+            $texto = 'Recibimos su mensaje. Un asesor le responde en breve por este mismo WhatsApp.';
         }
 
-        return 'Buenas noches.';
+        return preg_replace('/\bte responde(mos)?\b/iu', 'le responde$1', $texto) ?? $texto;
+    }
+
+    public static function textoPideTigoMoney(?string $texto): bool
+    {
+        $t = mb_strtolower(trim((string) $texto));
+
+        return $t !== '' && (bool) preg_match('/tigo\s*money|pagar por tigo|pasar.{0,30}tigo/u', $t);
+    }
+
+    public static function textoUenoNoDisponible(?string $texto): bool
+    {
+        $t = mb_strtolower(trim((string) $texto));
+
+        return $t !== '' && (bool) preg_match(
+            '/ueno.{0,48}(no (est[aá]|anda|funciona)|ca[ií]d|sin servicio)|otro banco|otra cuenta|tienen otro/u',
+            $t
+        );
+    }
+
+    public static function frasePagoTigo(): string
+    {
+        return "Puede pagar por Tigo Money al +595 983 742897.\nCuando realice el pago, envíenos la captura del comprobante por aquí para registrarlo.";
     }
 
     public function conSaludoDeApertura(WhatsappMensaje $mensaje, ?string $reply): ?string
     {
-        $reply = trim((string) $reply);
+        $reply = FraseCliente::recortarSaludoMarca(trim((string) $reply));
         if ($reply === '') {
             return null;
         }
-        if (preg_match('/^(buen[oa]s?\s+(d[ií]as|tardes|noches)|hola\b)/iu', $reply)) {
+        if (! $this->esAperturaDelDia($mensaje)) {
             return $reply;
         }
-        if (! $this->esAperturaDelDia($mensaje)) {
+        if (preg_match('/^(buen[oa]s?\s+(d[ií]as|tardes|noches)|hola\b)/iu', $reply)) {
             return $reply;
         }
 
@@ -1149,6 +1174,9 @@ class WhatsAppAgentService
             return false;
         }
         if (self::textoPareceLinkMapa($t)) {
+            return true;
+        }
+        if (preg_match('/-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+/', $t)) {
             return true;
         }
 

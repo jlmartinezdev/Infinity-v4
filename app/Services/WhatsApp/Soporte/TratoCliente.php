@@ -35,7 +35,7 @@ class TratoCliente
         'matias', 'matías', 'nicolas', 'nicolás', 'sebastian', 'sebastián', 'tomas', 'tomás',
         'gabriel', 'alejandro', 'alexander', 'joshua', 'jonathan', 'kevin', 'brian', 'bryan',
         'cristian', 'christian', 'esteban', 'federico', 'gonzalo', 'hernán', 'hernan',
-        'ignacio', 'javier', 'leonardo', 'mauricio', 'maximiliano', 'oscar', 'rodrigo',
+        'ignacio', 'javier', 'leonardo', 'mauricio', 'maximiliano', 'oscar', 'rodrigo', 'derlis',
         'santiago', 'vicente', 'benjamin', 'benjamín', 'joaquin', 'joaquín',
     ];
 

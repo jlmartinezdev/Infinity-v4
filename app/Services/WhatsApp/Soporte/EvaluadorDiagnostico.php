@@ -31,6 +31,18 @@ class EvaluadorDiagnostico
             return $this->cerrar('comprobante', FraseCliente::comprobante(), true, 'comprobante', null, 'comprobante');
         }
 
+        if (SoporteTexto::pareceYaFunciona($texto) || ($paso !== '' && SoporteTexto::pareceCierre($texto))) {
+            return $this->cerrar('cierre', FraseCliente::YA_FUNCIONA, false, null, null, 'cierre');
+        }
+
+        if (SoporteTexto::pareceTelevision($texto)) {
+            return $this->cerrar('accion', FraseCliente::TV, false, null, null, 'tv');
+        }
+
+        if (SoporteTexto::pareceLuz($texto)) {
+            return $this->cerrar('accion', FraseCliente::LUZ, false, null, null, 'luz');
+        }
+
         if ($incidente && ($paso !== '' || (bool) ($in['parece_falla'] ?? false) || (bool) ($in['parece_impresora'] ?? false))) {
             return $this->cerrar('zona', FraseCliente::zona(), false, null, null, 'zona');
         }
@@ -112,7 +124,11 @@ class EvaluadorDiagnostico
      */
     private function sitio(string $texto, array $medicion): array
     {
-        if (SoporteTexto::pareceNada($texto) || SoporteTexto::sitio($texto) === null) {
+        if (SoporteTexto::pareceNada($texto) || SoporteTexto::pareceSinSenal($texto)) {
+            return $this->cerrar('escalado', FraseCliente::ESCALADO, true, 'sin_explicar', null, 'escalado');
+        }
+
+        if (SoporteTexto::sitio($texto) === null) {
             $equipos = is_array($medicion['equipos'] ?? null) ? $medicion['equipos'] : [];
             if ($equipos !== []) {
                 $nombres = array_map(fn ($e) => (string) ($e['nombre'] ?? 'Equipo'), $equipos);

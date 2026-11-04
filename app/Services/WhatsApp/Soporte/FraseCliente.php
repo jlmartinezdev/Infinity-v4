@@ -21,6 +21,14 @@ class FraseCliente
 
     public const CABLE = 'Revise que el cable que entra al router esté bien enchufado. Cuando lo haga, escribanos por aquí.';
 
+    public const TV = 'Si el inconveniente es el televisor, pruebe el cable HDMI en la entrada 1 y, si no hay imagen, en la entrada 2. Confirme que el televisor esté en esa entrada HDMI.';
+
+    public const LUZ = 'Si no hay luz en el equipo, el servicio vuelve cuando regresa la energía. Cuando tenga luz, escríbanos si sigue sin internet.';
+
+    public const YA_FUNCIONA = 'Nos alegra que ya funcione. Quedamos a las órdenes.';
+
+    public const AGRADECIMIENTO = 'Un placer atenderle. Quedamos a las órdenes.';
+
     public const ACERCATE = 'Pruebe acercarse al router de su casa y vuelva a conectarse al WiFi.';
 
     public const PREGUNTA_SINTOMA = '¿No le anda nada o solo una página?';
@@ -107,12 +115,9 @@ class FraseCliente
     {
         $vocativo = TratoCliente::vocativo($nombre, $apellido);
         $apertura = $vocativo ? "{$vocativo}, recibimos su aviso." : 'Recibimos su aviso.';
-        $visible = self::cedulaVisible($cedula);
-        $registro = $visible ? " Registramos su número de cédula {$visible}." : '';
 
         return $apertura
-            .' De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.'
-            .$registro;
+            .' De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
     }
 
     public static function resuelto(?string $nombre = null, ?string $apellido = null): string
@@ -155,11 +160,16 @@ class FraseCliente
         return "{$pref}su servicio está suspendido. Cuando el pago se acredite, se reactiva solo. Si ya pagó, envíe el comprobante por aquí.";
     }
 
+    public static function wifiPedirClave(): string
+    {
+        return 'Para cambiar la clave del WiFi, escríbanos la contraseña que desea usar (mínimo 8 caracteres, letras y números). Un asesor la carga; desde este chat no la inventamos ni la cambiamos.';
+    }
+
     public static function wifiPendiente(string $clave, ?string $ssid): string
     {
         $red = $ssid ? " La red quedaría como «{$ssid}»." : '';
 
-        return "Anotamos el pedido para cambiar la clave del WiFi.{$red} La clave nueva sería {$clave}. En esta prueba todavía no la cambiamos.";
+        return "Anotamos el pedido para cambiar la clave del WiFi.{$red} La clave quedaría {$clave}. Un asesor la aplica; desde este chat no la cambiamos.";
     }
 
     /**
@@ -241,7 +251,7 @@ class FraseCliente
         }
         if ($pidioVecinos) {
             $lineas[] = 'No listamos redes WiFi de vecinos; lo que sí vemos son los aparatos usando su servicio.';
-            $lineas[] = 'Si no reconoce alguno, escriba CAMBIAR WIFI y le generamos una clave nueva para sacar a quien no deba estar.';
+            $lineas[] = 'Si no reconoce alguno, escriba CAMBIAR WIFI y la contraseña que desea usar.';
         } else {
             $lineas[] = 'Si no reconoce alguno o sospecha que un vecino usa su WiFi, escriba CAMBIAR WIFI.';
         }
@@ -258,7 +268,7 @@ class FraseCliente
         }
 
         return (bool) preg_match(
-            '/venta suave|planes vigentes\s*\(|salida whatsapp|enrutado:|cotice solo|no invente precios|estilo interplus|obligatorio:|historial_texto|instruccion_|·\s*prioridad\s*\d|gancho por conversaci|menosprecie|mensaje_hilo_reciente|planes_prompt|hechos\s*\(solo/u',
+            '/venta suave|planes vigentes\s*\(|salida whatsapp|enrutado:|cotice solo|no invente precios|estilo interplus|obligatorio:|reglas fijas|historial_texto|instruccion_|·\s*prioridad\s*\d|gancho por conversaci|menosprecie|mensaje_hilo_reciente|planes_prompt|hechos\s*\(solo/u',
             $t
         );
     }
@@ -367,7 +377,7 @@ class FraseCliente
         for ($i = 0; $i < 3; $i++) {
             $prev = $out;
             $out = preg_replace(
-                '/^(?:¡?\s*)?(?:hola|buenos?\s+d[ií]as|buen\s+d[ií]a|buenas\s+tardes|qu[eé]\s+tal)[^.!?\n]*[.!?]+\s*/iu',
+                '/^(?:¡?\s*)?(?:muy\s+)?(?:hola|buen[oa]s?\s+(?:d[ií]as|tardes|noches)|buen\s+d[ií]a|qu[eé]\s+tal)[^.!?\n]*[.!?]+\s*/iu',
                 '',
                 $out
             ) ?? $out;

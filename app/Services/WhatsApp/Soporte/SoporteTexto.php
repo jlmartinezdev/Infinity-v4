@@ -192,6 +192,41 @@ class SoporteTexto
         return (bool) preg_match('/^(gracias|muchas gracias|ok|okay|listo|perfecto|dale|buen[ií]simo|genial|nada mas|nada más)\.?$/u', $t);
     }
 
+    public static function pareceTelevision(?string $texto): bool
+    {
+        $t = self::norm($texto);
+
+        return (bool) preg_match('/\b(tv|televisor|televisi[oó]n|hdmi|decodificador)\b|\bdeco\b/u', $t);
+    }
+
+    public static function pareceLuz(?string $texto): bool
+    {
+        $t = self::norm($texto);
+
+        return (bool) preg_match('/\b(sin luz|no hay luz|se cort[oó] la luz|sin energ[ií]a|no hay energ[ií]a)\b/u', $t);
+    }
+
+    /** El cliente dice que el servicio ya volvió. */
+    public static function pareceYaFunciona(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '' || preg_match('/\bno (me |nos )?(funciona|anda)\b/u', $t)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/ya (me |nos )?(funciona|anda|volvi[oó]|hay se[nñ]al|tiene se[nñ]al|est[aá] bien)|volvi[oó] (el |la |mi )?(servicio|internet|tv|se[nñ]al|imagen)|se (solucion[oó]|arreg[oó])/u',
+            $t
+        );
+    }
+
+    public static function pareceSinSenal(?string $texto): bool
+    {
+        $t = self::norm($texto);
+
+        return (bool) preg_match('/no hay se[nñ]al|sin se[nñ]al|ninguna se[nñ]al|no (tiene|tengo) se[nñ]al/u', $t);
+    }
+
     public static function pareceCableListo(?string $texto): bool
     {
         $t = self::norm($texto);

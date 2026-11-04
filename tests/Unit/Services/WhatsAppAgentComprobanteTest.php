@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services;
 
+use App\Services\WhatsApp\Soporte\SoporteTexto;
 use App\Services\WhatsApp\WhatsAppAgentService;
 use Carbon\Carbon;
 use Tests\TestCase;
@@ -144,7 +145,9 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $canned = WhatsAppAgentService::textosCanned();
         $this->assertStringContainsString('ueno bank', $canned['transferencia']);
         $this->assertStringContainsString('619556130', $canned['transferencia']);
-        $this->assertStringContainsString('trafico prioritario', $canned['beneficios']);
+        $this->assertStringContainsString('Tráfico prioritario', $canned['beneficios']);
+        $this->assertStringContainsString('envíenos la captura', $canned['transferencia']);
+        $this->assertStringNotContainsString('me pases', $canned['transferencia']);
         $this->assertStringContainsString('CONDICIONES DEL SERVICIO', $canned['condiciones']);
         $this->assertStringContainsString('comodato', $canned['condiciones']);
     }
@@ -153,9 +156,21 @@ class WhatsAppAgentComprobanteTest extends TestCase
     {
         config(['app.timezone' => 'America/Argentina/Buenos_Aires']);
 
+        $this->assertSame('Buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-04 00:10:00', 'America/Argentina/Buenos_Aires')));
         $this->assertSame('Buenos días.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 10:52:00', 'America/Argentina/Buenos_Aires')));
         $this->assertSame('Buenas tardes.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 15:10:00', 'America/Argentina/Buenos_Aires')));
         $this->assertSame('Buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 21:05:00', 'America/Argentina/Buenos_Aires')));
+
+        config(['whatsapp.agent.fallback_message' => 'Un asesor te responde en breve.']);
+        $this->assertSame('Un asesor le responde en breve.', WhatsAppAgentService::mensajeFallback());
+
+        $this->assertTrue(WhatsAppAgentService::textoUenoNoDisponible('Ueno no está funcionando, tienen otro banco para transferir'));
+        $this->assertTrue(WhatsAppAgentService::textoPideTigoMoney('Me podés pasar para pagar por Tigo Money'));
+        $this->assertStringContainsString('983 742897', WhatsAppAgentService::frasePagoTigo());
+        $this->assertStringNotContainsString('ueno', mb_strtolower(WhatsAppAgentService::frasePagoTigo()));
+        $this->assertTrue(WhatsAppAgentService::textoPareceUbicacion('Ya te envié la ubicación -26.4259, -56.0944'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceInstalacion('Qué planes de fibra tienen'));
+        $this->assertTrue(SoporteTexto::pareceConsultaCatalogo('Qué planes de fibra tienen'));
     }
 
     public function test_cambio_de_plan_cotiza_y_no_aplica(): void

@@ -42,7 +42,8 @@ class WhatsAppAgentPlanesTest extends TestCase
             [['nombre' => 'PLAN ESTANDAR 20 Mbps', 'velocidad' => '20 Mbps', 'precio_texto' => 'Gs. 150.000', 'prioridad' => 2]],
         );
 
-        $this->assertStringContainsString('planes vigentes', mb_strtolower($texto));
+        $this->assertStringContainsString('estos son los planes', mb_strtolower($texto));
+        $this->assertStringNotContainsString('vigentes', mb_strtolower($texto));
         $this->assertStringContainsString('PLAN BASICO FTTH 100 Mbps', $texto);
         $this->assertStringContainsString('Gs. 100.000', $texto);
         $this->assertStringNotContainsString('Venta suave', $texto);

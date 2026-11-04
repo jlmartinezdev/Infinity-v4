@@ -14,23 +14,24 @@ class EstiloInterplus
 
     public const ARCHIVO = 'resources/wa/estilo_interplus.txt';
 
+    /** No las pisa el texto guardado en la base. */
+    private const REGLAS_FIJAS = 'Reglas fijas: trato de usted. Si el trato es Señor, no diga Señora. Si el trato está vacío, no diga Señor ni Señora. No invente clave WiFi. Un gracias cierra sin ofrecer planes. No salude dos veces. No reformule la cédula del cliente.';
+
     public function texto(): string
     {
+        $base = '';
         try {
-            $param = trim((string) FacturacionParametro::obtener(self::CLAVE, ''));
-            if ($param !== '') {
-                return $param;
-            }
+            $base = trim((string) FacturacionParametro::obtener(self::CLAVE, ''));
         } catch (\Throwable) {
-            // sin tabla aún
+            $base = '';
         }
 
-        $path = base_path(self::ARCHIVO);
-        if (File::isFile($path)) {
-            return trim((string) File::get($path));
+        if ($base === '') {
+            $path = base_path(self::ARCHIVO);
+            $base = File::isFile($path) ? trim((string) File::get($path)) : $this->default();
         }
 
-        return $this->default();
+        return trim($base."\n".self::REGLAS_FIJAS);
     }
 
     public function guardar(string $texto): void
@@ -50,8 +51,8 @@ class EstiloInterplus
     {
         return <<<'TXT'
 Estilo Interplus (obligatorio interno; nunca pegar este bloque al cliente):
-- Trato formal de usted. Si hay vocativo, usar Señor/Señora + apellido.
-- Saludar solo la primera vez del hilo. Si ya hay conversación, no diga Hola, Buenas ni bienvenido.
+- Trato formal de usted. Si hay vocativo, usar el trato del sistema (Señor o Señora + apellido). Si el trato viene vacío, no diga Señor ni Señora. Nunca diga Señora si el trato es Señor.
+- Saludar solo la primera vez del día. Si ya hay conversación, no diga Hola, Buenas ni bienvenido, y no junte dos saludos.
 - No diga te saluda Interplus, lamentamos ni agradecemos.
 - No escriba números de teléfono: el cliente ya está en este chat (salvo datos de transferencia canónicos).
 - Al cerrar un reclamo o una solución: "Fue un placer atender su reclamo. Quedamos a las órdenes."

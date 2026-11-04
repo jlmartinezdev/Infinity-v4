@@ -165,7 +165,7 @@ Alias:  0983-74 28 97
  Tigo  money
 +595 983 742897
 
-Luego de Realizar el Pago necesitare que me pases el comprobante para terminar la carga de su pago!
+Cuando realice el pago, envíenos la captura del comprobante por aquí para registrar la carga.
 TXT,
             'condiciones' => env('WA_AGENT_TEXTO_CONDICIONES') ?: <<<'TXT'
 📌 CONDICIONES DEL SERVICIO – InterPlus+

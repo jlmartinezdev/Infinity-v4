@@ -6,8 +6,6 @@ use App\Models\Servicio;
 use App\Services\GenieAcs\GenieAcsService;
 use App\Services\Huawei\HuaweiOnuService;
 use App\Services\Ubnt\UbntAntenaService;
-use Illuminate\Support\Str;
-
 class WifiSoporteService
 {
     public function __construct(
@@ -82,8 +80,16 @@ class WifiSoporteService
      */
     public function preparar(Servicio $servicio, string $texto, bool $aplicar): array
     {
-        $clave = SoporteTexto::claveWifi($texto) ?: Str::password(8, symbols: false);
         $ssid = SoporteTexto::nombreWifi($texto);
+        $clave = SoporteTexto::claveWifi($texto);
+        if ($clave === null || $clave === '') {
+            return [
+                'reply' => FraseCliente::wifiPedirClave(),
+                'aplicado' => false,
+                'clave' => '',
+                'ssid' => $ssid,
+            ];
+        }
 
         if (! $aplicar) {
             return [

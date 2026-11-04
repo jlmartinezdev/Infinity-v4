@@ -48,6 +48,55 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertStringNotContainsString('100', $decision['reply']);
     }
 
+    public function test_televisor_no_repite_el_cable_del_router(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'paso' => 'cable',
+            'texto' => 'Desde ayer no anda mi tv',
+            'medicion' => [
+                'pudo_medir' => true,
+                'lan_speed' => 100,
+                'lan_conectado' => true,
+            ],
+        ]);
+
+        $this->assertSame(FraseCliente::TV, $decision['reply']);
+        $this->assertStringContainsString('HDMI', $decision['reply']);
+        $this->assertStringNotContainsString('router', mb_strtolower($decision['reply']));
+    }
+
+    public function test_ya_funciona_cierra_sin_volver_al_cable(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'paso' => 'cable',
+            'texto' => 'Ya me funciona gracias',
+            'medicion' => ['lan_speed' => 100],
+        ]);
+
+        $this->assertSame('cierre', $decision['tipo']);
+        $this->assertSame(FraseCliente::YA_FUNCIONA, $decision['reply']);
+    }
+
+    public function test_nada_o_sin_senal_pasa_a_tecnico_sin_listar_equipos(): void
+    {
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'paso' => 'sitio',
+            'texto' => 'Nada, no hay señal ninguna',
+            'medicion' => [
+                'pudo_medir' => true,
+                'equipos' => [['nombre' => 'Samsung', 'rssi' => -40]],
+            ],
+        ]);
+
+        $this->assertSame('escalado', $decision['tipo']);
+        $this->assertTrue($decision['escalate']);
+        $this->assertStringNotContainsString('Samsung', $decision['reply']);
+        $this->assertStringNotContainsString('¿No le anda', $decision['reply']);
+    }
+
     public function test_senal_debil_del_celular_pide_acercarse_sin_el_numero(): void
     {
         $decision = (new EvaluadorDiagnostico)->decidir([
@@ -197,11 +246,14 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame('Señora', TratoCliente::resolver('María', 'López')['trato']);
         $this->assertSame('Señora López', TratoCliente::vocativo('María', 'López'));
         $this->assertNull(TratoCliente::generoDe('Alex'));
+        $this->assertSame('Señor', TratoCliente::resolver('Derlis', 'Cabañas')['trato']);
+        $this->assertSame('Señor Cabañas', TratoCliente::vocativo('Derlis', 'Cabañas'));
 
         $texto = FraseCliente::escalado('7156404', 'María', 'López');
         $this->assertStringContainsString('Señora López, recibimos su aviso.', $texto);
         $this->assertStringContainsString('monitoreando su servicio', $texto);
-        $this->assertStringContainsString('7.156.404', $texto);
+        $this->assertStringNotContainsString('7.156.404', $texto);
+        $this->assertStringNotContainsString('cédula', mb_strtolower($texto));
         $this->assertStringNotContainsString('971 714 322', $texto);
         $this->assertStringNotContainsString('agradecemos', mb_strtolower($texto));
         $this->assertStringNotContainsString('Lamentamos', $texto);

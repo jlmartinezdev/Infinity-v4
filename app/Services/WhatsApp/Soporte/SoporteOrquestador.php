@@ -49,6 +49,22 @@ class SoporteOrquestador
         }
         $paso = isset($estadoDialogo['paso']) ? (string) $estadoDialogo['paso'] : '';
 
+        if (SoporteTexto::pareceYaFunciona($texto) || ($paso !== '' && SoporteTexto::pareceCierre($texto))) {
+            foreach ($clavesDialogo as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
+
+            return $this->paquete(
+                FraseCliente::YA_FUNCIONA,
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_cierre',
+                'El cliente indicó que ya funciona',
+                null,
+            );
+        }
+
         $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente(
             (string) $mensaje->telefono,
             $mensaje->id ? (int) $mensaje->id : null,
@@ -114,6 +130,38 @@ class SoporteOrquestador
                 isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
                 'soporte_zona',
                 'Seguimiento de incidente de zona abierto',
+                null,
+            );
+        }
+
+        if (SoporteTexto::pareceTelevision($texto)) {
+            foreach ($clavesDialogo as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
+
+            return $this->paquete(
+                FraseCliente::TV,
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_tv',
+                'Reclamo de televisor: HDMI, sin repetir el cable del router',
+                null,
+            );
+        }
+
+        if (SoporteTexto::pareceLuz($texto)) {
+            foreach ($clavesDialogo as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
+
+            return $this->paquete(
+                FraseCliente::LUZ,
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_luz',
+                'Sin energía: no se pide el cable del router',
                 null,
             );
         }
@@ -492,8 +540,8 @@ class SoporteOrquestador
             'estilo_interplus' => $estilo,
             'incidente_zona_abierto' => $zonaAbierta,
             'hechos' => $hechos,
-            'instruccion_hilo' => 'Lea TODO historial_texto antes de responder. Continúe el mismo hilo: no vuelva a saludar ni diga "te saluda Interplus" si ya hay conversación. No pida cédula/reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analice el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
-            'instruccion_hechos' => 'Solo afirme lo que esté en hechos / planes_prompt / textos canned. Si falta un dato, pregunte o escale. No invente reinicio, cable, canal, óptica, zona ni precios. No diga mediciones (dBm, IP, ping) al cliente. Nunca copie instrucciones internas (Venta suave, Salida WhatsApp, prioridad N) al reply.',
+            'instruccion_hilo' => 'Lea TODO historial_texto antes de responder. Continúe el mismo hilo: no vuelva a saludar ni diga "te saluda Interplus" si ya hay conversación. No junte dos saludos. No pida cédula ni la reformule. No invente clave WiFi. Si el cliente solo dice gracias, cierre sin ofrecer planes. Use el vocativo del sistema: si trato es Señor no diga Señora; si trato está vacío no diga Señor ni Señora. No pida reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analice el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
+            'instruccion_hechos' => 'Solo afirme lo que esté en hechos / planes_prompt / textos canned. Si falta un dato, pregunte o escale. No invente reinicio, cable, canal, óptica, zona, clave WiFi ni precios. No diga mediciones (dBm, IP, ping) al cliente. Nunca copie instrucciones internas (Venta suave, Salida WhatsApp, prioridad N) al reply.',
         ];
     }
 
@@ -509,6 +557,18 @@ class SoporteOrquestador
         $canned = WhatsAppAgentService::textosCanned();
         $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
+
+        if (SoporteTexto::pareceCierre($texto)) {
+            return $this->paquete(
+                FraseCliente::AGRADECIMIENTO,
+                false,
+                null,
+                $clienteId,
+                'canned_cierre',
+                'Cierre corto, sin venta',
+                null,
+            );
+        }
 
         if (SoporteTexto::pareceConsultaTitular($texto)) {
             if (! $cuenta) {
@@ -576,34 +636,6 @@ class SoporteOrquestador
             );
         }
 
-        if (WhatsAppAgentService::textoPareceInstalacion($pedido)) {
-            $ya = app(WhatsAppAgentService::class)->yaEnvioUbicacion((string) $mensaje->telefono);
-
-            return $this->paquete(
-                WhatsAppAgentService::fraseInstalacion($ya),
-                false,
-                null,
-                $clienteId,
-                'canned_instalacion',
-                $ya ? 'Instalación: ubicación ya recibida' : 'Instalación: se pidió ubicación',
-                null,
-            );
-        }
-
-        if (WhatsAppAgentService::textoPareceConsultaCobertura($pedido)) {
-            $ya = app(WhatsAppAgentService::class)->yaEnvioUbicacion((string) $mensaje->telefono);
-
-            return $this->paquete(
-                WhatsAppAgentService::fraseCobertura($ya),
-                false,
-                null,
-                $clienteId,
-                'canned_cobertura',
-                $ya ? 'Cobertura: ubicación ya recibida' : 'Cobertura: se pidió ubicación',
-                null,
-            );
-        }
-
         if (SoporteTexto::pareceConsultaCatalogo($texto)) {
             $catalogo = app(WhatsAppAgentService::class)->catalogoPlanes();
             $filtro = WhatsAppAgentService::filtroCatalogoDesdeTexto($texto);
@@ -622,6 +654,47 @@ class SoporteOrquestador
                 $clienteId,
                 'canned_catalogo',
                 'Catálogo de planes (sin n8n)',
+                null,
+            );
+        }
+
+        $pideUbicacion = WhatsAppAgentService::detectarUbicacion((string) ($mensaje->tipo ?: 'text'), $texto);
+        if (WhatsAppAgentService::textoPareceInstalacion($texto) || (WhatsAppAgentService::textoPareceInstalacion($pedido) && $pideUbicacion)) {
+            $ya = $pideUbicacion || app(WhatsAppAgentService::class)->yaEnvioUbicacion((string) $mensaje->telefono);
+
+            return $this->paquete(
+                WhatsAppAgentService::fraseInstalacion($ya),
+                false,
+                null,
+                $clienteId,
+                'canned_instalacion',
+                $ya ? 'Instalación: ubicación ya recibida' : 'Instalación: se pidió ubicación',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPareceConsultaCobertura($texto) || (WhatsAppAgentService::textoPareceConsultaCobertura($pedido) && $pideUbicacion)) {
+            $ya = $pideUbicacion || app(WhatsAppAgentService::class)->yaEnvioUbicacion((string) $mensaje->telefono);
+
+            return $this->paquete(
+                WhatsAppAgentService::fraseCobertura($ya),
+                false,
+                null,
+                $clienteId,
+                'canned_cobertura',
+                $ya ? 'Cobertura: ubicación ya recibida' : 'Cobertura: se pidió ubicación',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPideTigoMoney($texto) || WhatsAppAgentService::textoUenoNoDisponible($texto)) {
+            return $this->paquete(
+                FraseCliente::filtrar(WhatsAppAgentService::frasePagoTigo(), WhatsAppAgentService::frasePagoTigo()),
+                false,
+                null,
+                $clienteId,
+                'canned_tigo',
+                'Pago por Tigo Money, sin pedir el comprobante antes',
                 null,
             );
         }

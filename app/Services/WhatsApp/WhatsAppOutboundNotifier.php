@@ -127,7 +127,7 @@ class WhatsAppOutboundNotifier
         $nombre = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
         $asunto = $ticket->ticketAsunto?->nombre ?? 'Soporte';
         $texto = sprintf(
-            "Hola %s, tu solicitud #%d (%s) fue resuelta.\nSi necesitás ayuda, respondé este mensaje o contactanos.",
+            "Hola %s, su solicitud #%d (%s) fue resuelta.\nSi necesita ayuda, responda este mensaje o contáctenos.",
             $nombre !== '' ? $nombre : 'cliente',
             $ticket->id,
             $asunto
@@ -197,7 +197,7 @@ class WhatsAppOutboundNotifier
         $vencimiento = $factura?->fecha_vencimiento?->format('d/m/Y') ?? '-';
 
         $texto = sprintf(
-            "Hola %s, te informamos que tu servicio de internet fue suspendido por falta de pago.\nFactura: #%s\nSaldo pendiente: Gs. %s\nVencimiento: %s\n\nRegularizá tu pago para reactivar el servicio. Ante dudas, respondé este mensaje o contactanos.",
+            "Hola %s, le informamos que su servicio de internet fue suspendido por falta de pago.\nFactura: #%s\nSaldo pendiente: Gs. %s\nVencimiento: %s\n\nRegularice su pago para reactivar el servicio. Ante dudas, responda este mensaje o contáctenos.",
             $saludo,
             $facturaRef,
             $saldo,
@@ -510,7 +510,7 @@ class WhatsAppOutboundNotifier
             : ($dias === 0 ? 'vence HOY' : ('vence en '.$dias.' día'.($dias === 1 ? '' : 's')));
 
         $texto = sprintf(
-            "%sAviso TV streaming\nCuenta: %s\nApp: %s\nUsuario: %s\nVencimiento: %s (%s)\nRevisá el panel de Cuentas TV.",
+            "%sAviso TV streaming\nCuenta: %s\nApp: %s\nUsuario: %s\nVencimiento: %s (%s)\nRevise el panel de Cuentas TV.",
             $esPrueba ? "[PRUEBA]\n" : '',
             $cuenta->nombre ?: ('#'.$cuenta->id),
             $app,
@@ -829,7 +829,7 @@ class WhatsAppOutboundNotifier
         $nombreArchivo = 'KuDE-'.preg_replace('/[^\w.\-]+/', '-', $numero).'.pdf';
         $saludo = trim($factura->receptorNombreCompleto());
         $caption = sprintf(
-            'Hola %s, te enviamos la factura electrónica %s. Total: Gs. %s.',
+            'Hola %s, le enviamos la factura electrónica %s. Total: Gs. %s.',
             $saludo !== '' ? mb_strtoupper($saludo, 'UTF-8') : 'cliente',
             $numero,
             number_format((float) $factura->total, 0, ',', '.')
@@ -927,7 +927,7 @@ class WhatsAppOutboundNotifier
         $sufijoBoton = $cobro->urlPublicaSufijo();
 
         $texto = sprintf(
-            "Hola %s, desde interplus confirmamos la recepción de tu pago.\n\nRecibo: %s\nMonto: Gs. %s\nFecha: %s\nForma de pago: %s\nDetalle: %s\n\n¡Gracias por su pago!\n\nDescargar recibo: %s",
+            "Hola %s, desde Interplus confirmamos la recepción de su pago.\n\nRecibo: %s\nMonto: Gs. %s\nFecha: %s\nForma de pago: %s\nDetalle: %s\n\n¡Gracias por su pago!\n\nDescargar recibo: %s",
             $saludo,
             $numeroRecibo,
             $monto,
