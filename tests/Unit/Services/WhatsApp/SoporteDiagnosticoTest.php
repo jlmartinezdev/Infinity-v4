@@ -220,6 +220,15 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertStringContainsString('volvió a conectar', mb_strtolower($propio));
         $this->assertStringContainsString('Señora Benítez', $propio);
 
+        $this->assertTrue(\App\Services\WhatsApp\Soporte\IncidenteZonaService::cierreReciente(
+            \Carbon\Carbon::parse('2026-11-02 11:31:00'),
+            \Carbon\Carbon::parse('2026-11-02 12:00:00'),
+        ));
+        $this->assertFalse(\App\Services\WhatsApp\Soporte\IncidenteZonaService::cierreReciente(
+            \Carbon\Carbon::parse('2026-11-02 11:31:00'),
+            \Carbon\Carbon::parse('2026-11-03 13:50:00'),
+        ));
+
         $ok = FraseCliente::zonaRestablecida('Gloria', 'Benítez');
         $this->assertStringContainsString('Señora Benítez', $ok);
         $this->assertStringContainsString('restablecido', mb_strtolower($ok));

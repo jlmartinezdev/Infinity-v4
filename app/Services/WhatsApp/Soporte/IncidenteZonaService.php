@@ -180,8 +180,33 @@ class IncidenteZonaService
         }
     }
 
+    /** El aviso sale al cerrar. Si el cierre ya tiene horas, no se manda al día siguiente. */
+    public static function cierreReciente(?\DateTimeInterface $cerradoAt, ?\DateTimeInterface $ahora = null, int $horas = 3): bool
+    {
+        if ($cerradoAt === null) {
+            return false;
+        }
+
+        $ahora = $ahora
+            ? \Carbon\Carbon::parse($ahora)
+            : now();
+
+        return \Carbon\Carbon::parse($cerradoAt)->greaterThan($ahora->copy()->subHours(max(1, $horas)));
+    }
+
     public function notificarCierre(int $incidenteId): void
     {
+        $incidente = WaIncidenteZona::query()->find($incidenteId);
+        if (! $incidente || ! self::cierreReciente($incidente->cerrado_at)) {
+            WaZonaAviso::query()
+                ->where('incidente_id', $incidenteId)
+                ->whereNull('notificado_at')
+                ->update(['notificado_at' => now()]);
+            Log::info('[soporte] aviso de zona vencido, no se envía', ['incidente_id' => $incidenteId]);
+
+            return;
+        }
+
         $avisos = WaZonaAviso::query()
             ->where('incidente_id', $incidenteId)
             ->whereNull('notificado_at')
