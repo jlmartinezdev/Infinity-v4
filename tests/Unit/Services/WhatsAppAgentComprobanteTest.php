@@ -2,7 +2,9 @@
 
 namespace Tests\Unit\Services;
 
+use App\Services\WhatsApp\Soporte\FraseCliente;
 use App\Services\WhatsApp\Soporte\SoporteTexto;
+use App\Services\WhatsApp\Soporte\ValidadorHechos;
 use App\Services\WhatsApp\WhatsAppAgentService;
 use Carbon\Carbon;
 use Tests\TestCase;
@@ -143,10 +145,29 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $this->assertFalse(WhatsAppAgentService::textoPareceCondicionesServicio('Hola, quiero wifi'));
 
         $canned = WhatsAppAgentService::textosCanned();
-        $this->assertStringContainsString('ueno bank', $canned['transferencia']);
-        $this->assertStringContainsString('619556130', $canned['transferencia']);
+        $this->assertStringNotContainsString('ueno', mb_strtolower($canned['transferencia']));
+        $this->assertStringContainsString('016-21-0378077', $canned['transferencia']);
+        $this->assertStringContainsString('Banco Familiar', $canned['transferencia']);
+        $this->assertStringContainsString('0-8214902', $canned['transferencia']);
+        $this->assertStringContainsString('0983333696', $canned['transferencia']);
+        $this->assertTrue(WhatsAppAgentService::textoPareceDatosTransferencia('Me podrías decir si puedo pagar por transferencia?'));
+        $this->assertTrue(WhatsAppAgentService::textoPareceDatosTransferencia('Me pasas tu alias para pagar'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceDatosTransferencia('Que pasa si no abonamos hoy el pago es que tenía en mi Ueno bank la plata'));
+        $this->assertTrue(WhatsAppAgentService::textoParecePlazoPago('Que pasa si no abonamos hoy'));
+        $this->assertTrue(SoporteTexto::parecePideClaveWifiActual('ayer me escribiste la contraseña del whafai y me podrías enviar devuelta'));
+        $this->assertTrue(SoporteTexto::pareceConsultaServicio('Quiero saber cuantos debo'));
+
+        $cuentas = (new ValidadorHechos)->validar(
+            'Entidad: ueno bank. N° de cuenta: 619556130. Alias: 0983742897.',
+            [],
+            [],
+            FraseCliente::ESCALADO,
+        );
+        $this->assertSame('n8n_cuenta_vieja', $cuentas['modo']);
+        $this->assertStringContainsString('Banco Nacional de Fomento', $cuentas['reply']);
+        $this->assertStringNotContainsString('ueno', mb_strtolower($cuentas['reply']));
         $this->assertStringContainsString('Tráfico prioritario', $canned['beneficios']);
-        $this->assertStringContainsString('envíenos la captura', $canned['transferencia']);
+        $this->assertStringContainsString('envíenos el comprobante', $canned['transferencia']);
         $this->assertStringNotContainsString('me pases', $canned['transferencia']);
         $this->assertStringContainsString('CONDICIONES DEL SERVICIO', $canned['condiciones']);
         $this->assertStringContainsString('comodato', $canned['condiciones']);

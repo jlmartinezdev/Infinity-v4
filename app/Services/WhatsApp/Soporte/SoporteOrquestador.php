@@ -541,7 +541,7 @@ class SoporteOrquestador
             'incidente_zona_abierto' => $zonaAbierta,
             'hechos' => $hechos,
             'instruccion_hilo' => 'Lea TODO historial_texto antes de responder. Continúe el mismo hilo: no vuelva a saludar ni diga "te saluda Interplus" si ya hay conversación. No junte dos saludos. No pida cédula ni la reformule. No invente clave WiFi. Si el cliente solo dice gracias, cierre sin ofrecer planes. Use el vocativo del sistema: si trato es Señor no diga Señora; si trato está vacío no diga Señor ni Señora. No pida reinicio si el historial ya muestra un reclamo de zona o soporte en curso. Analice el caso completo (últimos mensajes del cliente juntos), no solo la última línea suelta.',
-            'instruccion_hechos' => 'Solo afirme lo que esté en hechos / planes_prompt / textos canned. Si falta un dato, pregunte o escale. No invente reinicio, cable, canal, óptica, zona, clave WiFi ni precios. No diga mediciones (dBm, IP, ping) al cliente. Nunca copie instrucciones internas (Venta suave, Salida WhatsApp, prioridad N) al reply.',
+            'instruccion_hechos' => 'Solo afirme lo que esté en hechos / planes_prompt / textos canned. Si piden cómo pagar o el alias, copie texto_transferencia tal cual y no pida el comprobante antes. No mencione ueno ni invente cuentas. No prometa la contraseña actual del WiFi: no la vemos. Si falta un dato, pregunte o escale. No invente reinicio, cable, canal, óptica, zona, clave WiFi ni precios. No diga mediciones (dBm, IP, ping) al cliente. Nunca copie instrucciones internas (Venta suave, Salida WhatsApp, prioridad N) al reply.',
         ];
     }
 
@@ -557,6 +557,30 @@ class SoporteOrquestador
         $canned = WhatsAppAgentService::textosCanned();
         $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
+
+        if (SoporteTexto::parecePideClaveWifiActual($texto)) {
+            return $this->paquete(
+                FraseCliente::wifiNoVemosClaveActual(),
+                false,
+                null,
+                $clienteId,
+                'canned_wifi_clave',
+                'No vemos la clave actual del WiFi',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoParecePlazoPago($texto) && ! WhatsAppAgentService::textoPareceDatosTransferencia($texto)) {
+            return $this->paquete(
+                FraseCliente::PLAZO_PAGO,
+                false,
+                null,
+                $clienteId,
+                'canned_plazo_pago',
+                'Plazo de pago, sin datos de cuenta',
+                null,
+            );
+        }
 
         if (SoporteTexto::pareceCierre($texto)) {
             return $this->paquete(
@@ -687,7 +711,19 @@ class SoporteOrquestador
             );
         }
 
-        if (WhatsAppAgentService::textoPideTigoMoney($texto) || WhatsAppAgentService::textoUenoNoDisponible($texto)) {
+        if (WhatsAppAgentService::textoUenoNoDisponible($texto)) {
+            return $this->paquete(
+                FraseCliente::filtrar((string) $canned['transferencia'], (string) $canned['transferencia']),
+                false,
+                null,
+                $clienteId,
+                'canned_transferencia',
+                'Ueno no se usa: cuentas vigentes',
+                null,
+            );
+        }
+
+        if (WhatsAppAgentService::textoPideTigoMoney($texto)) {
             return $this->paquete(
                 FraseCliente::filtrar(WhatsAppAgentService::frasePagoTigo(), WhatsAppAgentService::frasePagoTigo()),
                 false,

@@ -1301,9 +1301,23 @@ class WhatsAppAgentService
         if (preg_match('/ya pag|pagu[eé]|te mand[eé].*comprobante|ac[aá] (est[aá] )?el comprobante/u', $t)) {
             return false;
         }
+        if (self::textoParecePlazoPago($t)) {
+            return false;
+        }
 
         return (bool) preg_match(
-            '/datos (de |para )?transf|a qu[eé] cuenta|n[uú]mero de cuenta|\balias\b|ueno bank|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?pago|cuenta (para |de )?(pago|transf|ueno)|c[oó]mo (puedo )?pagar/u',
+            '/datos (de |para )?transf|a qu[eé] cuenta|n[uú]mero de cuenta|\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?pago|cuenta (para |de )?(pago|transf)|c[oó]mo (puedo )?pagar/u',
+            $t
+        );
+    }
+
+    /** Pregunta el plazo, no los datos de la cuenta. */
+    public static function textoParecePlazoPago(?string $texto): bool
+    {
+        $t = mb_strtolower(trim((string) $texto));
+
+        return $t !== '' && (bool) preg_match(
+            '/si no (abon|pag)|no abonamos|no pude pagar|qu[eé] pasa si no|hasta cu[aá]ndo puedo pagar|se (corta|suspende) si no/u',
             $t
         );
     }

@@ -27,6 +27,20 @@ class ValidadorHechos
             return ['reply' => $fallbackVentas, 'modo' => 'n8n_fuga_prompt', 'filtrado' => true];
         }
 
+        if (preg_match('/ueno/iu', $reply) && preg_match('/cuenta|alias/iu', $reply)) {
+            $cuentas = trim((string) (\App\Services\WhatsApp\WhatsAppAgentService::textosCanned()['transferencia'] ?? ''));
+            if ($cuentas !== '') {
+                return ['reply' => $cuentas, 'modo' => 'n8n_cuenta_vieja', 'filtrado' => true];
+            }
+        }
+
+        if (
+            preg_match('/(envi|facilit|confirm|pas)\w*.{0,28}contrase[nñ]a|contrase[nñ]a (actual|de su red|del wifi)/iu', $reply)
+            && ! preg_match('/no (vemos|tenemos|visualiz)|clave nueva/iu', $reply)
+        ) {
+            return ['reply' => FraseCliente::wifiNoVemosClaveActual(), 'modo' => 'n8n_clave_wifi', 'filtrado' => true];
+        }
+
         $causas = is_array($hechos['causas'] ?? null) ? $hechos['causas'] : [];
         $zona = (bool) ($hechos['incidente_zona_abierto'] ?? false);
         $pudoMedir = (bool) ($hechos['pudo_medir'] ?? false);

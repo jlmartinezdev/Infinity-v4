@@ -154,18 +154,19 @@ Todos nuestros planes son buenos y válidos. La diferencia no es “internet sí
 • Soporte técnico: si ocurre un inconveniente, los planes superiores tienen prioridad de atención.
 TXT,
             'transferencia' => env('WA_AGENT_TEXTO_TRANSFERENCIA') ?: <<<'TXT'
-Transferencias a esta cuenta:
-Titular: Jose Luis Martinez Martinez
-CI: 5263934
-Entidad: ueno bank
-N° de cuenta: 619556130
-Moneda: GS
-Alias:  0983-74 28 97
+Puede transferir a estas cuentas. Titular: Jose Luis Martinez Martinez. CI: 5263934.
 
- Tigo  money
-+595 983 742897
+Banco Nacional de Fomento
+Cuenta: 016-21-0378077
+Alias: 0983333696
 
-Cuando realice el pago, envíenos la captura del comprobante por aquí para registrar la carga.
+Banco Familiar
+Cuenta: 0-8214902
+Alias: jose_mart289@live.com
+
+Tigo Money: +595 983 742897
+
+Cuando realice el pago, envíenos el comprobante por aquí.
 TXT,
             'condiciones' => env('WA_AGENT_TEXTO_CONDICIONES') ?: <<<'TXT'
 📌 CONDICIONES DEL SERVICIO – InterPlus+

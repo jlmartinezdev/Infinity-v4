@@ -43,7 +43,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/detalle (de )?(mi |su )?servicio|qu[eé] plan (tengo|tengo contratado|estoy)|mi plan|plan (actual|contratado)|cu[aá]nto (pago|debo|debo pagar)|mi saldo|saldo (pendiente|deuda)|estado (de )?(mi )?(cuenta|servicio)|datos (de )?(mi )?(cuenta|servicio)/u',
+            '/detalle (de )?(mi |su )?servicio|qu[eé] plan (tengo|tengo contratado|estoy)|mi plan|plan (actual|contratado)|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|mi saldo|saldo (pendiente|deuda)|estado (de )?(mi )?(cuenta|servicio)|datos (de )?(mi )?(cuenta|servicio)/u',
             $t
         );
     }
@@ -154,6 +154,20 @@ class SoporteTexto
 
         return (bool) preg_match(
             '/(qu[eé]|cual|cu[aá]l).{0,24}(nombre|ssid).{0,24}(wifi|wi-?fi|red)|(nombre|ssid).{0,20}(del |de la |de )?(wifi|wi-?fi|red)|(wifi|wi-?fi).{0,16}(nombre|ssid)|como se llama.{0,20}(wifi|wi-?fi|red)|nombre actual|(no lo ves|no ves|no se ve|no visualiz).{0,48}(nombre|wifi|ssid|red)/u',
+            $t
+        );
+    }
+
+    /** Pide la clave que ya tiene, no una nueva. */
+    public static function parecePideClaveWifiActual(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '' || self::pareceCambioWifi($t)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/(clave|contrase[nñ]a|password).{0,32}(wifi|wi-?fi|whafai)|(wifi|wi-?fi|whafai).{0,32}(clave|contrase[nñ]a|password)|(envi\w*|pas\w*|mand\w*|facilit\w*|record\w*).{0,36}(clave|contrase[nñ]a).{0,24}(wifi|wi-?fi|whafai|de nuevo|devuelta|otra vez)/u',
             $t
         );
     }

@@ -29,6 +29,8 @@ class FraseCliente
 
     public const AGRADECIMIENTO = 'Un placer atenderle. Quedamos a las órdenes.';
 
+    public const PLAZO_PAGO = 'La fecha de pago es del 1 al 5 de cada mes. Si no se registra en ese plazo, el servicio se suspende y no se descuentan los días suspendidos. Cuando el pago se acredita, vuelve solo.';
+
     public const ACERCATE = 'Pruebe acercarse al router de su casa y vuelva a conectarse al WiFi.';
 
     public const PREGUNTA_SINTOMA = '¿No le anda nada o solo una página?';
@@ -158,6 +160,11 @@ class FraseCliente
         }
 
         return "{$pref}su servicio está suspendido. Cuando el pago se acredite, se reactiva solo. Si ya pagó, envíe el comprobante por aquí.";
+    }
+
+    public static function wifiNoVemosClaveActual(): string
+    {
+        return 'Por privacidad no vemos la contraseña actual del WiFi. Si desea cambiarla, escríbanos la clave nueva (mínimo 8 caracteres, letras y números) y un asesor la carga.';
     }
 
     public static function wifiPedirClave(): string
