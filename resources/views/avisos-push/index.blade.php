@@ -446,8 +446,10 @@
             return;
         }
         submitBtn.dataset.enviando = '1';
-        submitBtn.disabled = true;
         submitBtn.textContent = 'Enviando…';
+        window.setTimeout(function () {
+            submitBtn.disabled = true;
+        }, 0);
     });
 })();
 </script>
