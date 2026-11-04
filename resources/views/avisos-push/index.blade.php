@@ -259,6 +259,12 @@
         bloqueSel.classList.toggle('hidden', destino !== 'seleccionados');
         bloqueDias.classList.toggle('hidden', destino !== 'por_vencer');
         bloqueMasivo.classList.toggle('hidden', !masivo);
+        if (diasInput) {
+            diasInput.disabled = destino !== 'por_vencer';
+        }
+        bloqueSel.querySelectorAll('input, select, textarea').forEach(function (el) {
+            el.disabled = destino !== 'seleccionados';
+        });
         grupoVacio.classList.toggle('hidden', !vacio);
         confirmarLabel.classList.toggle('hidden', vacio);
         ayudaEl.textContent = descripciones[destino] || '';
@@ -447,11 +453,11 @@
             alert('Confirmá el envío al grupo.');
             return;
         }
-        submitBtn.dataset.enviando = '1';
+        e.preventDefault();
+        form.dataset.enviando = '1';
+        submitBtn.disabled = true;
         submitBtn.textContent = 'Enviando…';
-        window.setTimeout(function () {
-            submitBtn.disabled = true;
-        }, 0);
+        HTMLFormElement.prototype.submit.call(form);
     });
 })();
 </script>
