@@ -374,6 +374,9 @@ class FraseCliente
             return $fallback;
         }
 
+        $reply = preg_replace('/\b[Ss]eñora\b/u', 'Sra.', $reply) ?? $reply;
+        $reply = preg_replace('/\b[Ss]eñor\b/u', 'Sr.', $reply) ?? $reply;
+
         return $reply;
     }
 
@@ -383,6 +386,11 @@ class FraseCliente
         $out = trim($reply);
         for ($i = 0; $i < 3; $i++) {
             $prev = $out;
+            $out = preg_replace(
+                '/^(?:¡?\s*)?[\p{L}.\' ]{2,40},\s*(?:muy\s+)?buen[oa]s?\s+(?:d[ií]as|tardes|noches)[^.!?\n]*[.!?]+\s*/iu',
+                '',
+                $out
+            ) ?? $out;
             $out = preg_replace(
                 '/^(?:¡?\s*)?(?:muy\s+)?(?:hola|buen[oa]s?\s+(?:d[ií]as|tardes|noches)|buen\s+d[ií]a|qu[eé]\s+tal)[^.!?\n]*[.!?]+\s*/iu',
                 '',

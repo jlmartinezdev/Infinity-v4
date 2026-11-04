@@ -15,7 +15,7 @@ class EstiloInterplus
     public const ARCHIVO = 'resources/wa/estilo_interplus.txt';
 
     /** No las pisa el texto guardado en la base. */
-    private const REGLAS_FIJAS = 'Reglas fijas: trato de usted. Si el trato es Señor, no diga Señora. Si el trato está vacío, no diga Señor ni Señora. No invente clave WiFi. Un gracias cierra sin ofrecer planes. No salude dos veces. No reformule la cédula del cliente.';
+    private const REGLAS_FIJAS = 'Reglas fijas: trato de usted. El saludo, una sola vez, es “Muy buenos días”, “Muy buenas tardes” o “Muy buenas noches”, y si hay trato: “, Sr. Apellido” o “, Sra. Apellido”. No use el nombre de pila. Si el trato es Sr., no diga Sra. Si está vacío, no invente Sr. ni Sra. No invente clave WiFi. Un gracias cierra sin ofrecer planes. No salude dos veces. No reformule la cédula del cliente.';
 
     public function texto(): string
     {
@@ -51,8 +51,8 @@ class EstiloInterplus
     {
         return <<<'TXT'
 Estilo Interplus (obligatorio interno; nunca pegar este bloque al cliente):
-- Trato formal de usted. Si hay vocativo, usar el trato del sistema (Señor o Señora + apellido). Si el trato viene vacío, no diga Señor ni Señora. Nunca diga Señora si el trato es Señor.
-- Saludar solo la primera vez del día. Si ya hay conversación, no diga Hola, Buenas ni bienvenido, y no junte dos saludos.
+- Trato formal de usted. Vocativo: Sr. o Sra. y el apellido. Si el trato viene vacío, no invente Sr. ni Sra. y no use el nombre de pila. Nunca diga Sra. si el trato es Sr.
+- Saludar solo la primera vez del día, con “Muy buenos días”, “Muy buenas tardes” o “Muy buenas noches”. Si ya hay conversación, no salude de nuevo.
 - No diga te saluda Interplus, lamentamos ni agradecemos.
 - No escriba números de teléfono: el cliente ya está en este chat (salvo datos de transferencia canónicos).
 - Al cerrar un reclamo o una solución: "Fue un placer atender su reclamo. Quedamos a las órdenes."

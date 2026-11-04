@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\WhatsappMensaje;
 use App\Services\PedidoNodoOpcionesService;
 use App\Services\WhatsApp\Soporte\FraseCliente;
+use App\Services\WhatsApp\Soporte\TratoCliente;
 use App\Services\WhatsApp\Soporte\SoporteOrquestador;
 use App\Services\WhatsApp\Soporte\SoporteTexto;
 use App\Support\SoporteAdminConfig;
@@ -938,13 +939,25 @@ class WhatsAppAgentService
             : now($tz);
         $hora = (int) $ahora->format('G');
         if ($hora < 6 || $hora >= 19) {
-            return 'Buenas noches.';
+            return 'Muy buenas noches.';
         }
         if ($hora < 12) {
-            return 'Buenos días.';
+            return 'Muy buenos días.';
         }
 
-        return 'Buenas tardes.';
+        return 'Muy buenas tardes.';
+    }
+
+    /** Apertura del día: “Muy buenos días, Sr. Apellido.” Si no hay trato, solo el saludo. */
+    public static function saludoDeApertura(?\DateTimeInterface $ahora = null, ?string $nombre = null, ?string $apellido = null): string
+    {
+        $base = self::saludoSegunHora($ahora);
+        $vocativo = TratoCliente::vocativo($nombre, $apellido);
+        if ($vocativo === null || ! str_starts_with($vocativo, 'Sr')) {
+            return $base;
+        }
+
+        return rtrim($base, '.').', '.$vocativo.'.';
     }
 
     /**
@@ -985,17 +998,26 @@ class WhatsAppAgentService
     public function conSaludoDeApertura(WhatsappMensaje $mensaje, ?string $reply): ?string
     {
         $reply = FraseCliente::recortarSaludoMarca(trim((string) $reply));
-        if ($reply === '') {
-            return null;
-        }
         if (! $this->esAperturaDelDia($mensaje)) {
-            return $reply;
-        }
-        if (preg_match('/^(buen[oa]s?\s+(d[ií]as|tardes|noches)|hola\b)/iu', $reply)) {
-            return $reply;
+            return $reply === '' ? null : $reply;
         }
 
-        return self::saludoSegunHora($mensaje->created_at)."\n\n".$reply;
+        $nombre = null;
+        $apellido = null;
+        try {
+            $cuenta = $this->soporte->cuentaDe($mensaje);
+            if (is_array($cuenta)) {
+                $crudo = $cuenta['nombre_pila'] ?? $cuenta['nombre'] ?? null;
+                $nombre = is_string($crudo) ? $crudo : null;
+                $apellido = is_string($cuenta['apellido'] ?? null) ? $cuenta['apellido'] : null;
+            }
+        } catch (\Throwable) {
+            $nombre = null;
+        }
+
+        $saludo = self::saludoDeApertura($mensaje->created_at, $nombre, $apellido);
+
+        return $reply === '' ? $saludo : $saludo."\n\n".$reply;
     }
 
     /**

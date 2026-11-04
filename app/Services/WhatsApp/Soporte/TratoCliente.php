@@ -54,8 +54,8 @@ class TratoCliente
         $genero = self::generoDe($nombreCorto);
 
         $trato = match ($genero) {
-            'f' => 'Señora',
-            'm' => 'Señor',
+            'f' => 'Sra.',
+            'm' => 'Sr.',
             default => null,
         };
 
@@ -63,8 +63,6 @@ class TratoCliente
         if ($trato !== null) {
             $cola = $apellidoVisible ?: $nombreCorto;
             $vocativo = $cola ? "{$trato} {$cola}" : $trato;
-        } elseif ($nombreCorto) {
-            $vocativo = $nombreCorto;
         }
 
         return [

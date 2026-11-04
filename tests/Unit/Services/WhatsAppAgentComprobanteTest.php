@@ -177,10 +177,26 @@ class WhatsAppAgentComprobanteTest extends TestCase
     {
         config(['app.timezone' => 'America/Argentina/Buenos_Aires']);
 
-        $this->assertSame('Buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-04 00:10:00', 'America/Argentina/Buenos_Aires')));
-        $this->assertSame('Buenos días.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 10:52:00', 'America/Argentina/Buenos_Aires')));
-        $this->assertSame('Buenas tardes.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 15:10:00', 'America/Argentina/Buenos_Aires')));
-        $this->assertSame('Buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 21:05:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame('Muy buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-04 00:10:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame('Muy buenos días.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 10:52:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame('Muy buenas tardes.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 15:10:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame('Muy buenas noches.', WhatsAppAgentService::saludoSegunHora(Carbon::parse('2026-11-03 21:05:00', 'America/Argentina/Buenos_Aires')));
+        $this->assertSame(
+            'Muy buenos días, Sr. Leiva.',
+            WhatsAppAgentService::saludoDeApertura(Carbon::parse('2026-11-03 10:52:00', 'America/Argentina/Buenos_Aires'), 'Rufino', 'Leiva')
+        );
+        $this->assertSame(
+            'Muy buenas tardes, Sra. López.',
+            WhatsAppAgentService::saludoDeApertura(Carbon::parse('2026-11-03 15:10:00', 'America/Argentina/Buenos_Aires'), 'María', 'López')
+        );
+        $this->assertSame(
+            'Muy buenos días.',
+            WhatsAppAgentService::saludoDeApertura(Carbon::parse('2026-11-03 10:52:00', 'America/Argentina/Buenos_Aires'), 'Alex', 'Gomez')
+        );
+        $this->assertSame(
+            'Para coordinar la instalación.',
+            FraseCliente::recortarSaludoMarca('Hector, muy buenos días. Para coordinar la instalación.')
+        );
 
         config(['whatsapp.agent.fallback_message' => 'Un asesor te responde en breve.']);
         $this->assertSame('Un asesor le responde en breve.', WhatsAppAgentService::mensajeFallback());

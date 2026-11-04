@@ -241,16 +241,17 @@ class SoporteDiagnosticoTest extends TestCase
 
     public function test_trato_por_nombre_y_escalado_formal(): void
     {
-        $this->assertSame('Señor', TratoCliente::resolver('Rufino', 'Leiva Avalos')['trato']);
-        $this->assertSame('Señor Leiva', TratoCliente::vocativo('Rufino', 'Leiva Avalos'));
-        $this->assertSame('Señora', TratoCliente::resolver('María', 'López')['trato']);
-        $this->assertSame('Señora López', TratoCliente::vocativo('María', 'López'));
+        $this->assertSame('Sr.', TratoCliente::resolver('Rufino', 'Leiva Avalos')['trato']);
+        $this->assertSame('Sr. Leiva', TratoCliente::vocativo('Rufino', 'Leiva Avalos'));
+        $this->assertSame('Sra.', TratoCliente::resolver('María', 'López')['trato']);
+        $this->assertSame('Sra. López', TratoCliente::vocativo('María', 'López'));
         $this->assertNull(TratoCliente::generoDe('Alex'));
-        $this->assertSame('Señor', TratoCliente::resolver('Derlis', 'Cabañas')['trato']);
-        $this->assertSame('Señor Cabañas', TratoCliente::vocativo('Derlis', 'Cabañas'));
+        $this->assertNull(TratoCliente::vocativo('Alex', 'Gomez'));
+        $this->assertSame('Sr.', TratoCliente::resolver('Derlis', 'Cabañas')['trato']);
+        $this->assertSame('Sr. Cabañas', TratoCliente::vocativo('Derlis', 'Cabañas'));
 
         $texto = FraseCliente::escalado('7156404', 'María', 'López');
-        $this->assertStringContainsString('Señora López, recibimos su aviso.', $texto);
+        $this->assertStringContainsString('Sra. López, recibimos su aviso.', $texto);
         $this->assertStringContainsString('monitoreando su servicio', $texto);
         $this->assertStringNotContainsString('7.156.404', $texto);
         $this->assertStringNotContainsString('cédula', mb_strtolower($texto));
@@ -259,18 +260,18 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertStringNotContainsString('Lamentamos', $texto);
 
         $cierre = FraseCliente::resuelto('Rufino', 'Leiva');
-        $this->assertStringContainsString('Señor Leiva', $cierre);
+        $this->assertStringContainsString('Sr. Leiva', $cierre);
         $this->assertStringContainsString(FraseCliente::CIERRE, $cierre);
 
         $zona = FraseCliente::zona('Gloria', 'Benítez');
-        $this->assertStringContainsString('Señora Benítez, gracias por avisarnos', $zona);
+        $this->assertStringContainsString('Sra. Benítez, gracias por avisarnos', $zona);
         $this->assertStringContainsString('novedades', mb_strtolower($zona));
         $this->assertStringContainsString('órdenes', $zona);
         $this->assertStringNotContainsString('agradecemos', mb_strtolower($zona));
 
         $propio = FraseCliente::servicioRestablecido('Gloria', 'Benítez');
         $this->assertStringContainsString('volvió a conectar', mb_strtolower($propio));
-        $this->assertStringContainsString('Señora Benítez', $propio);
+        $this->assertStringContainsString('Sra. Benítez', $propio);
 
         $this->assertTrue(\App\Services\WhatsApp\Soporte\IncidenteZonaService::cierreReciente(
             \Carbon\Carbon::parse('2026-11-02 11:31:00'),
@@ -282,7 +283,7 @@ class SoporteDiagnosticoTest extends TestCase
         ));
 
         $ok = FraseCliente::zonaRestablecida('Gloria', 'Benítez');
-        $this->assertStringContainsString('Señora Benítez', $ok);
+        $this->assertStringContainsString('Sra. Benítez', $ok);
         $this->assertStringContainsString('restablecido', mb_strtolower($ok));
         $this->assertStringContainsString(FraseCliente::CIERRE, $ok);
     }
@@ -317,7 +318,7 @@ class SoporteDiagnosticoTest extends TestCase
         $enHorario = FraseCliente::comprobante('Gloria', 'Benítez', true);
         $fuera = FraseCliente::comprobante('Gloria', 'Benítez', false);
         $sinNombre = FraseCliente::comprobante(null, null, false);
-        $this->assertStringContainsString('Señora Benítez, gracias por enviarnos su comprobante', $enHorario);
+        $this->assertStringContainsString('Sra. Benítez, gracias por enviarnos su comprobante', $enHorario);
         $this->assertStringContainsString('en breve', mb_strtolower($enHorario));
         $this->assertStringContainsString('lunes a viernes', mb_strtolower($fuera));
         $this->assertStringStartsWith('Gracias por enviarnos su comprobante', $sinNombre);
