@@ -43,7 +43,21 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/detalle (de )?(mi |su )?servicio|qu[eé] plan (tengo|tengo contratado|estoy)|mi plan|plan (actual|contratado)|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|mi saldo|saldo (pendiente|deuda)|estado (de )?(mi )?(cuenta|servicio)|datos (de )?(mi )?(cuenta|servicio)/u',
+            '/detalle (de )?(mi |su )?servicio|saber de (mi |su )?servicio|qu[eé] plan (tengo|tengo contratado|estoy)|mi plan|plan (actual|contratado)|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|mi saldo|saldo (pendiente|deuda)|estado (de )?(mi )?(cuenta|servicio)|datos (de )?(mi )?(cuenta|servicio)/u',
+            $t
+        );
+    }
+
+    /** Cómo está el servicio ahora: hay que mirarlo, no decir que no hay incidentes. */
+    public static function pareceEstadoServicio(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/qu[eé] tal (est[aá]|anda)|c[oó]mo (est[aá]|anda) (mi |el |su )?(servicio|internet|conexi[oó]n)|mi servicio ahora|revis(ar|a|e|en) (mi |el |su )?servicio|mir(ar|a|e|á) (mi |el |su )?servicio/u',
             $t
         );
     }
@@ -71,7 +85,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n est[aá] conectado|aparatos conectados|qu[eé] (es lo que )?(ves|ve|hay) en (mi |la |su )?(red|wifi)|lo que ves en (mi |la )?red|que ves en (mi |la )?(red|wifi)/u',
+            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|wifi.{0,40}conectad|los conectados|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n(es)? (est[aá]n? )?conectado|aparatos conectados|qu[eé] (es lo que )?(ves|ve|hay) en (mi |la |su )?(red|wifi)|lo que ves en (mi |la )?red|que ves en (mi |la )?(red|wifi)|mir(ar|a|á|e) (mi |el |su )?wifi/u',
             $t
         );
     }

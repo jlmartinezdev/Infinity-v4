@@ -610,6 +610,37 @@ class SoporteOrquestador
             );
         }
 
+        if (SoporteTexto::pareceEstadoServicio($texto)) {
+            if (! $cuenta) {
+                return $this->paquete(FraseCliente::SIN_CUENTA, false, null, null, 'sin_cuenta', null, null);
+            }
+            $servicio = $this->cuentas->servicioDe(isset($cuenta['servicio_id']) ? (int) $cuenta['servicio_id'] : null);
+            $reply = FraseCliente::REVISANDO_SERVICIO;
+            if ($servicio) {
+                try {
+                    $medicion = $this->recolector->medir($servicio, null);
+                } catch (\Throwable) {
+                    $medicion = [];
+                }
+                $causas = is_array($medicion['causas'] ?? null) ? $medicion['causas'] : [];
+                if (($medicion['pudo_medir'] ?? false) === true && ($medicion['sesion_online'] ?? null) === true && $causas === []) {
+                    $reply = FraseCliente::SERVICIO_EN_LINEA;
+                } elseif (($medicion['sesion_online'] ?? null) === false) {
+                    $reply = FraseCliente::SERVICIO_SIN_SESION;
+                }
+            }
+
+            return $this->paquete(
+                $reply,
+                false,
+                null,
+                $clienteId,
+                'canned_estado_servicio',
+                'Estado del servicio mirado desde la red, sin decir que no se puede',
+                null,
+            );
+        }
+
         if (SoporteTexto::pareceConsultaServicio($texto)) {
             if (! $cuenta) {
                 return $this->paquete(FraseCliente::SIN_CUENTA, false, null, null, 'sin_cuenta', null, null);

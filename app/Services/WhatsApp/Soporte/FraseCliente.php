@@ -38,6 +38,12 @@ class FraseCliente
     /** Enlace medido OK: informar análisis real y luego pedir síntoma. */
     public const ENLACE_OK_PREGUNTA = 'Ya revisamos su enlace desde nuestra red y responde bien. ¿No le anda nada o solo una página?';
 
+    public const SERVICIO_EN_LINEA = 'Revisamos su servicio. El enlace está en línea y no vemos un corte en su zona. Si nota lentitud o algo puntual, cuéntenos y lo seguimos desde aquí.';
+
+    public const REVISANDO_SERVICIO = 'Estamos revisando su servicio desde nuestro sistema. En cuanto el equipo responda le confirmamos cómo está. Deje el router encendido y escríbanos si nota algo puntual.';
+
+    public const SERVICIO_SIN_SESION = 'Revisamos su servicio y la sesión no está en línea. Lo seguimos desde aquí. Deje el router encendido y, si puede, díganos si las luces están fijas o parpadeando.';
+
     public const CPE_CAIDO = 'Detectamos que su equipo de casa no responde en este momento. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
 
     public const OPTICA = 'Detectamos un problema en la señal de su fibra. De inmediato estaremos verificando y monitoreando su servicio para poder ayudarle.';
@@ -239,7 +245,7 @@ class FraseCliente
     {
         $cantidad = count($nombres);
         if ($cantidad === 0) {
-            $base = 'Por ahora no vemos equipos conectados en su red desde nuestro sistema.';
+            $base = 'Revisamos su red. Ahora no aparece un equipo asociado.';
             if ($pidioVecinos) {
                 $base .= ' No listamos redes WiFi ajenas; sí podemos cambiarle la clave del WiFi para cortar accesos no deseados.';
             }
@@ -298,7 +304,7 @@ class FraseCliente
         $lineas = ['Detalle de su servicio:'];
         if ($plan !== '') {
             $tech = $antena ? ' (antena)' : ' (fibra)';
-            $precioTxt = $precio !== null ? ' — Gs. '.number_format($precio, 0, ',', '.') : '';
+            $precioTxt = $precio !== null ? ' — valor mensual Gs. '.number_format($precio, 0, ',', '.') : '';
             $lineas[] = '• Plan: '.$plan.$tech.$precioTxt;
         } else {
             $lineas[] = '• Plan: no figura en el sistema; un asesor lo confirma.';
@@ -376,8 +382,30 @@ class FraseCliente
 
         $reply = preg_replace('/\b[Ss]eñora\b/u', 'Sra.', $reply) ?? $reply;
         $reply = preg_replace('/\b[Ss]eñor\b/u', 'Sr.', $reply) ?? $reply;
+        $reply = self::valorEnVezDeCosto($reply);
+        if (self::niegaRevision($reply)) {
+            return self::REVISANDO_SERVICIO;
+        }
 
         return $reply;
+    }
+
+    /** Al cliente se le dice valor, nunca costo. «Sin costo» queda bonificado. */
+    public static function valorEnVezDeCosto(string $reply): string
+    {
+        $reply = preg_replace('/\bsin costo\b/iu', 'bonificado', $reply) ?? $reply;
+        $reply = preg_replace('/\bcostos\b/iu', 'valores', $reply) ?? $reply;
+        $reply = preg_replace('/\bcosto\b/iu', 'valor', $reply) ?? $reply;
+
+        return $reply;
+    }
+
+    public static function niegaRevision(string $reply): bool
+    {
+        return (bool) preg_match(
+            '/no registramos incidentes|no (nos )?es posible (realizar la medici[oó]n|visualizar|ver)|no (podemos|logramos) (medir|ver|visualizar|establecer una comunicaci[oó]n)/iu',
+            $reply
+        );
     }
 
     /** Quita aperturas tipo “Hola, te saluda Interplus / lamentamos…”. */

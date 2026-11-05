@@ -444,6 +444,36 @@ class SoporteDiagnosticoTest extends TestCase
     public function test_detalle_servicio_y_deteccion_intents(): void
     {
         $this->assertTrue(SoporteTexto::pareceConsultaServicio('quiero ver detalle de mi servicio completo'));
+        $this->assertTrue(SoporteTexto::pareceConsultaServicio('quiero saber de mi servicio'));
+        $this->assertTrue(SoporteTexto::pareceEstadoServicio('y que tal esta mi servicio ahora'));
+        $this->assertTrue(SoporteTexto::pareceConsultaEquipos('podes mirar mi wifi y los conectados ahora'));
+        $this->assertSame(
+            'Plan Estándar — valor mensual Gs. 150.000.',
+            FraseCliente::valorEnVezDeCosto('Plan Estándar — costo mensual Gs. 150.000.')
+        );
+        $this->assertSame('Es bonificado.', FraseCliente::valorEnVezDeCosto('Es sin costo.'));
+        $this->assertSame(
+            FraseCliente::REVISANDO_SERVICIO,
+            FraseCliente::filtrar('En este momento no registramos incidentes reportados en su zona.', FraseCliente::ESCALADO)
+        );
+        $this->assertSame(
+            FraseCliente::REVISANDO_SERVICIO,
+            FraseCliente::filtrar('En este momento no es posible realizar la medición de su equipo ni visualizar los dispositivos conectados.', FraseCliente::ESCALADO)
+        );
+        $this->assertStringContainsString('valor mensual', FraseCliente::detalleServicio([
+            'plan_nombre' => 'PLAN ESTANDAR',
+            'plan_precio' => 150000,
+            'estado' => 'activo',
+            'saldo' => 0,
+            'es_antena' => false,
+        ]));
+        $this->assertStringNotContainsString('costo', FraseCliente::detalleServicio([
+            'plan_nombre' => 'PLAN ESTANDAR',
+            'plan_precio' => 150000,
+            'estado' => 'activo',
+            'saldo' => 0,
+            'es_antena' => false,
+        ]));
         $this->assertTrue(SoporteTexto::pareceConsultaCatalogo('qué planes de fibra tienen'));
         $this->assertFalse(SoporteTexto::pareceConsultaCatalogo('cambiar la clave del wifi'));
 

@@ -150,7 +150,7 @@ return [
             'beneficios' => env('WA_AGENT_TEXTO_BENEFICIOS') ?: <<<'TXT'
 Todos nuestros planes son buenos y válidos. La diferencia no es “internet sí o no”, sino la experiencia:
 • Tráfico prioritario en planes superiores: su navegación sale primero cuando hay mucha demanda.
-• Cambios de contraseña WiFi: en planes superiores suelen ir bonificados; en el básico hay uno gratis y luego puede tener costo.
+• Cambios de contraseña WiFi: en planes superiores suelen ir bonificados; en el básico hay uno gratis y luego puede tener un valor.
 • Soporte técnico: si ocurre un inconveniente, los planes superiores tienen prioridad de atención.
 TXT,
             'transferencia' => env('WA_AGENT_TEXTO_TRANSFERENCIA') ?: <<<'TXT'
@@ -192,7 +192,7 @@ Estimado cliente, le recordamos las condiciones de nuestro servicio:
 
 🛠 Soporte Técnico
 • Los reportes se atienden en un plazo estimado de 24 a 72 horas hábiles (según el caso).
-• El cambio de contraseña WiFi es sin costo una vez; posteriores solicitudes tienen costo administrativo.
+• El cambio de contraseña WiFi es bonificado una vez; posteriores solicitudes tienen un valor administrativo.
 
 ❌ Cancelación
 • Para dar de baja el servicio se debe abonar el último mes utilizado.

@@ -23,7 +23,7 @@ return [
 
         'equipos' => 'Los equipos (ONU, antena, router, cables y demás accesorios) se entregan en comodato y son propiedad del PRESTADOR. Cualquier daño, manipulación no autorizada, hurto o pérdida deberá ser abonado por el SUSCRIPTOR según valor de reposición. Al cesar el servicio, el SUSCRIPTOR se obliga a devolver los equipos en buen estado, considerando el desgaste por uso normal.',
 
-        'soporte' => 'Los reportes de falla se atienden en un plazo estimado de 24 a 72 horas hábiles, según el caso y la disponibilidad técnica. El cambio de contraseña Wi‑Fi es sin costo la primera vez; solicitudes posteriores pueden tener costo administrativo.',
+        'soporte' => 'Los reportes de falla se atienden en un plazo estimado de 24 a 72 horas hábiles, según el caso y la disponibilidad técnica. El cambio de contraseña Wi‑Fi es bonificado la primera vez; solicitudes posteriores pueden tener un valor administrativo.',
 
         'aceptacion' => 'El SUSCRIPTOR declara haber leído y aceptado las presentes condiciones. La utilización del servicio implica la aceptación de este contrato. Este documento se firma en dos ejemplares de un mismo tenor, uno para cada parte.',
     ],
