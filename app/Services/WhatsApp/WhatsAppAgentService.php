@@ -1320,7 +1320,7 @@ class WhatsAppAgentService
         if ($t === '') {
             return false;
         }
-        if (preg_match('/ya pag|pagu[eé]|te mand[eé].*comprobante|ac[aá] (est[aá] )?el comprobante/u', $t)) {
+        if (preg_match('/ya (pag|deposit|abon)|pagu[eé]|te mand[eé].*comprobante|ac[aá] (est[aá] )?el comprobante/u', $t)) {
             return false;
         }
         if (self::textoParecePlazoPago($t)) {
@@ -1328,7 +1328,7 @@ class WhatsAppAgentService
         }
 
         return (bool) preg_match(
-            '/datos (de |para )?transf|a qu[eé] cuenta|n[uú]mero de cuenta|\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?pago|cuenta (para |de )?(pago|transf)|c[oó]mo (puedo )?pagar/u',
+            '/datos (de |para )?transf|a q(?:u[eé])? cuenta|n[uú]mero de cuenta|\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?(pago|deposit|abon)|cuenta (para |de )?(pago|transf|abon)|c[oó]mo (puedo )?pagar|dep[oó]sit\w*|para abonar/u',
             $t
         );
     }

@@ -68,6 +68,10 @@ class SoporteOrquestador
         // Cuenta o cuánto abonar: antes de la falla del hilo y del seguimiento de zona.
         $pago = $this->respuestaPago($cuenta, $texto);
         if ($pago !== null) {
+            foreach (array_unique(array_filter($clavesDialogo)) as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
+
             return $pago;
         }
 

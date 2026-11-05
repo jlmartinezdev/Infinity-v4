@@ -156,6 +156,7 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $this->assertTrue(WhatsAppAgentService::textoParecePlazoPago('Que pasa si no abonamos hoy'));
         $this->assertTrue(SoporteTexto::parecePideClaveWifiActual('ayer me escribiste la contraseña del whafai y me podrías enviar devuelta'));
         $this->assertTrue(SoporteTexto::pareceConsultaServicio('Quiero saber cuantos debo'));
+        $this->assertTrue(SoporteTexto::pareceCuantoAbonar('Quiero saber cuantos debo'));
 
         $cuentas = (new ValidadorHechos)->validar(
             'Entidad: ueno bank. N° de cuenta: 619556130. Alias: 0983742897.',
@@ -171,6 +172,58 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $this->assertStringNotContainsString('me pases', $canned['transferencia']);
         $this->assertStringContainsString('CONDICIONES DEL SERVICIO', $canned['condiciones']);
         $this->assertStringContainsString('comodato', $canned['condiciones']);
+    }
+
+    public function test_pide_cuenta_y_cuanto_abonar_sin_prometer_verificar(): void
+    {
+        $frase = 'Buenas noche disculpame a q cuenta depósito ahora para abonar y cuanto tengo q abonar 100mil yo creo';
+
+        $this->assertTrue(WhatsAppAgentService::textoPareceDatosTransferencia($frase));
+        $this->assertTrue(WhatsAppAgentService::textoPareceDatosTransferencia('a q cuenta deposito'));
+        $this->assertTrue(WhatsAppAgentService::textoPareceDatosTransferencia('deposito para abonar'));
+        $this->assertTrue(SoporteTexto::pareceCuantoAbonar($frase));
+        $this->assertTrue(SoporteTexto::pareceCuantoAbonar('cuanto tengo q abonar'));
+        $this->assertTrue(SoporteTexto::pareceConsultaServicio($frase));
+        $this->assertTrue(SoporteTexto::preguntaAjenaAZona($frase));
+        $this->assertFalse(SoporteTexto::esSeguimientoZona(true, $frase));
+        $this->assertTrue(SoporteTexto::esSeguimientoZona(true, 'alguna novedad del corte'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceDatosTransferencia('sigue sin internet'));
+        $this->assertFalse(SoporteTexto::pareceCuantoAbonar('Que pasa si no abonamos hoy'));
+        $this->assertFalse(WhatsAppAgentService::textoPareceDatosTransferencia('cuanto tengo q abonar'));
+
+        $canned = WhatsAppAgentService::textosCanned()['transferencia'];
+        $reply = FraseCliente::filtrar(
+            FraseCliente::saldoYCuentas(['saldo' => 85000], $canned),
+            FraseCliente::saldoYCuentas(['saldo' => 85000], $canned),
+        );
+
+        $this->assertStringContainsString('El valor a abonar es de Gs. 85.000.', $reply);
+        $this->assertStringNotContainsString('100', $reply);
+        $this->assertStringNotContainsString('estamos verificando', mb_strtolower($reply));
+        $this->assertStringNotContainsString('brevedad', mb_strtolower($reply));
+        $this->assertStringNotContainsString('costo', mb_strtolower($reply));
+        $this->assertDoesNotMatchRegularExpression('/buen[oa]s noches|muy buenas/iu', $reply);
+        $this->assertStringContainsString('016-21-0378077', $reply);
+        $this->assertStringContainsString('Banco Nacional de Fomento', $reply);
+        $this->assertStringContainsString('0983333696', $reply);
+        $this->assertStringContainsString('Banco Familiar', $reply);
+        $this->assertStringContainsString('0-8214902', $reply);
+        $this->assertStringContainsString('jose_mart289@live.com', $reply);
+        $this->assertStringContainsString('983 742897', $reply);
+        $this->assertStringContainsString('Jose Luis Martinez Martinez', $reply);
+        $this->assertStringContainsString('5263934', $reply);
+        $this->assertGreaterThan(mb_strpos($reply, '016-21-0378077'), mb_stripos($reply, 'comprobante'));
+        $this->assertStringContainsString('¿Hay alguna otra cosa en la que podamos ayudarle?', $reply);
+
+        $sinCuenta = FraseCliente::saldoYCuentas(null, $canned);
+        $this->assertStringContainsString('cédula', $sinCuenta);
+        $this->assertStringContainsString('016-21-0378077', $sinCuenta);
+        $this->assertStringNotContainsString('85.000', $sinCuenta);
+        $this->assertStringNotContainsString('100', $sinCuenta);
+
+        $alDia = FraseCliente::saldoPendiente(['saldo' => 0]);
+        $this->assertStringContainsString('no registra saldo pendiente', $alDia);
+        $this->assertStringNotContainsString('100', $alDia);
     }
 
     public function test_saludo_segun_la_hora(): void
