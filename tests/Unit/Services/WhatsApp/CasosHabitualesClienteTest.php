@@ -209,6 +209,13 @@ class CasosHabitualesClienteTest extends TestCase
             'corpus acerca planes' => ['Si quiero saber hacerca de los planes', $catalogo],
             'corpus cedula titular' => ['Número de cédula del titular 3454241 Eugenio Osmar Sotelo Cantero', ['cedula' => true]],
 
+            // —— tema nuevo no tapa saldo ——
+            'solo planes' => ['planes', ['catalogo' => true, 'identificador' => false, 'planes_tv' => false]],
+            'los planes' => ['los planes', ['catalogo' => true, 'identificador' => false]],
+            'planes de tv' => ['planes de tv', ['planes_tv' => true, 'catalogo' => false, 'identificador' => false, 'tv' => false]],
+            'planes no es nombre' => ['planes', ['identificador' => false]],
+            'ya sigue insiste' => ['ya?', ['insiste_saldo' => true]],
+
             // —— negativos: no confundir ——
             'hola no falla' => ['hola', ['falla' => false, 'datos_transferencia' => false, 'cuanto_abonar' => false]],
             'ubicacion no pago' => ['ahi te mando ubicacion', ['datos_transferencia' => false]],
@@ -276,6 +283,8 @@ class CasosHabitualesClienteTest extends TestCase
             'vecinos' => SoporteTexto::pideVecinosWifi($texto),
             'ping' => SoporteTexto::pareceConsultaPing($texto),
             'catalogo' => SoporteTexto::pareceConsultaCatalogo($texto),
+            'planes_tv' => SoporteTexto::pareceConsultaPlanesTv($texto),
+            'tema_nuevo' => SoporteTexto::esTemaNuevoFueraDePago($texto),
             'beneficios' => WhatsAppAgentService::textoPareceBeneficiosPlanes($texto),
             'condiciones' => WhatsAppAgentService::textoPareceCondicionesServicio($texto),
             'titular' => SoporteTexto::pareceConsultaTitular($texto),

@@ -393,6 +393,16 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue(SoporteTexto::pareceInsisteSaldo('de que hablamos?'));
         $this->assertTrue(SoporteTexto::pareceInsisteSaldo('como que no'));
         $this->assertFalse(SoporteTexto::pareceConsultaCatalogo('de que hablamos?'));
+        $this->assertTrue(SoporteTexto::pareceConsultaCatalogo('planes'));
+        $this->assertTrue(SoporteTexto::pareceConsultaCatalogo('los planes'));
+        $this->assertFalse(SoporteTexto::pareceConsultaCatalogo('planes de tv'));
+        $this->assertTrue(SoporteTexto::pareceConsultaPlanesTv('planes de tv'));
+        $this->assertFalse(SoporteTexto::pareceTelevision('planes de tv'));
+        $this->assertFalse(SoporteTexto::esSoloIdentificador('planes'));
+        $this->assertFalse(SoporteTexto::esSoloIdentificador('planes de tv'));
+        $this->assertTrue(SoporteTexto::esTemaNuevoFueraDePago('planes'));
+        $this->assertTrue(SoporteTexto::esTemaNuevoFueraDePago('planes de tv'));
+        $this->assertNull(SoporteTexto::nombreEnTexto('planes'));
         $this->assertSame('2620430', SoporteTexto::cedulaEnTexto('cuantos debe 2.620.430 ya? cuantos debe 2.620.430'));
         $filtradoConsulta = FraseCliente::filtrar(
             'Seguimos consultando el valor a abonar correspondiente a la cédula 2.620.430. En breve le informaremos por este medio.',

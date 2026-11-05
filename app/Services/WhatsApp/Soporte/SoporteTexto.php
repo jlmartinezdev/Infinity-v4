@@ -99,8 +99,8 @@ class SoporteTexto
         );
     }
 
-    /** Pedido de catálogo / precios de planes (no beneficios genéricos). */
-    public static function pareceConsultaCatalogo(?string $texto): bool
+    /** Paquetes / planes de TV o streaming: lo analiza n8n con conocimiento, no el catálogo de fibra. */
+    public static function pareceConsultaPlanesTv(?string $texto): bool
     {
         $t = self::norm($texto);
         if ($t === '') {
@@ -108,9 +108,54 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/qu[eé] planes?( hay| tienen| ofrecen)?|planes? (de )?(fibra|antena|disponibles|vigentes)|precios?( de (los )?planes?)?|cu[aá]nto (cuesta|sale|vale|est[aá]).{0,24}(plan|fibra|antena|megas|mb|internet|mes)|cotiz(ar|ame|á)|lista (de )?planes|acerca de los planes|hacerca de los planes|info(rmaci[oó]n)? (del |de |sobre )?(el )?plan|pasame el plan|p[aá]same el plan|quiero el plan/u',
+            '/planes? (de )?(tv|tele|televisi[oó]n|cable|streaming|netflix|flow|directv)|canales|app de tv/u',
             $t
         );
+    }
+
+    /** Pedido de catálogo / precios de planes de internet (no TV ni beneficios genéricos). */
+    public static function pareceConsultaCatalogo(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '' || self::pareceConsultaPlanesTv($texto)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/^(los )?planes?$|qu[eé] planes?( hay| tienen| ofrecen)?|planes? (de )?(fibra|antena|disponibles|vigentes|internet)|precios?( de (los )?planes?)?|cu[aá]nto (cuesta|sale|vale|est[aá]).{0,24}(plan|fibra|antena|megas|mb|internet|mes)|cotiz(ar|ame|á)|lista (de )?planes|acerca de los planes|hacerca de los planes|info(rmaci[oó]n)? (del |de |sobre )?(el )?plan|pasame el plan|p[aá]same el plan|quiero el plan/u',
+            $t
+        );
+    }
+
+    /**
+     * El mensaje actual es otro tema (catálogo, TV, falla, wifi…).
+     * No debe reabrir el hilo de saldo/pago.
+     */
+    public static function esTemaNuevoFueraDePago(?string $texto): bool
+    {
+        if (self::pareceConsultaCatalogo($texto)
+            || self::pareceConsultaPlanesTv($texto)
+            || self::pareceTelevision($texto)
+            || self::pareceConsultaEquipos($texto)
+            || self::pideVecinosWifi($texto)
+            || self::pareceConsultaNombreWifi($texto)
+            || self::pareceCambioWifi($texto)
+            || self::parecePideClaveWifiActual($texto)
+            || self::pareceImpresora($texto)
+            || self::pareceConsultaPing($texto)
+            || self::pareceEstadoServicio($texto)
+            || self::pareceConsultaTitular($texto)
+            || self::pareceLuz($texto)
+            || self::pareceFalla($texto)) {
+            return true;
+        }
+
+        return \App\Services\WhatsApp\WhatsAppAgentService::textoPareceInstalacion($texto)
+            || \App\Services\WhatsApp\WhatsAppAgentService::textoPareceConsultaCobertura($texto)
+            || \App\Services\WhatsApp\WhatsAppAgentService::textoPareceBeneficiosPlanes($texto)
+            || \App\Services\WhatsApp\WhatsAppAgentService::textoPareceCondicionesServicio($texto)
+            || \App\Services\WhatsApp\WhatsAppAgentService::textoPareceBajaServicio($texto)
+            || \App\Services\WhatsApp\WhatsAppAgentService::textoPareceCambioPlan($texto);
     }
 
     /** Pedido de listar equipos/dispositivos de su red (ACS/DHCP). No es escaneo de vecinos. */
@@ -184,6 +229,7 @@ class SoporteTexto
             || self::pareceConsultaServicio($texto)
             || self::pareceEstadoServicio($texto)
             || self::pareceConsultaCatalogo($texto)
+            || self::pareceConsultaPlanesTv($texto)
             || self::pareceConsultaTitular($texto)
             || self::pareceConsultaPing($texto)
             || self::pareceTelevision($texto)
@@ -303,6 +349,10 @@ class SoporteTexto
 
     public static function pareceTelevision(?string $texto): bool
     {
+        // Paquetes de TV → n8n; acá solo reclamo de imagen/HDMI.
+        if (self::pareceConsultaPlanesTv($texto)) {
+            return false;
+        }
         $t = self::norm($texto);
 
         return (bool) preg_match('/\b(tv|televisor|televisi[oó]n|hdmi|decodificador)\b|\bdeco\b/u', $t);
@@ -582,7 +632,17 @@ class SoporteTexto
         if (mb_strlen($n) < 3) {
             return null;
         }
-        if (preg_match('/^(hola|buenas|buenos|gracias|ok|dale|listo|internet|wifi|wi-fi)$/u', $n)) {
+        // Vocabulario de negocio: no es nombre de titular.
+        if (preg_match(
+            '/^(hola|buenas|buenos|gracias|ok|dale|listo|internet|wifi|wi-?fi|planes?|saldo|cuenta|abonar|pagar|debo|debe|transferencia|beneficios?|condiciones?|servicio|catalogo|cat[aá]logo|instalaci[oó]n|cobertura|comprobante|tv|tele|cable)$/u',
+            $n
+        )) {
+            return null;
+        }
+        if (preg_match(
+            '/\b(planes?|internet|wifi|wi-?fi|saldo|cuenta|abonar|pagar|debo|transferencia|beneficios?|condiciones?|servicio)\b/u',
+            $n
+        )) {
             return null;
         }
 
