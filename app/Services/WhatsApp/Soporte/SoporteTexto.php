@@ -15,7 +15,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet|servicio)|se[nñ]al (wifi|wi-?fi)|como (esta|está) (mi |la )?se[nñ]al|estado de (la |mi )?se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde anteayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar|ruteador|router.{0,20}sin (conexi[oó]n|internet)|sin conexi[oó]n a internet|no alza|no levanta|no puedo ver|no entra (a |en )?(tiktok|facebook|youtube|ig|instagram)/u',
+            '/no anda|no (me )?funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet|servicio)|se[nñ]al (wifi|wi-?fi)|como (esta|está) (mi |la )?se[nñ]al|estado de (la |mi )?se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde anteayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar|ruteador|router.{0,20}sin (conexi[oó]n|internet)|sin conexi[oó]n a internet|no alza|no levanta|no puedo ver|no entra (a |en )?(tiktok|facebook|youtube|ig|instagram)|se quemo|se quem[oó]|otra ?vez mi internet|otraves mi internet/u',
             $t
         );
     }
@@ -108,7 +108,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/qu[eé] planes?( hay| tienen| ofrecen)?|planes? (de )?(fibra|antena|disponibles|vigentes)|precios?( de (los )?planes?)?|cu[aá]nto (cuesta|sale|vale).{0,20}(plan|fibra|antena|megas|mb)|cotiz(ar|ame|á)|lista (de )?planes/u',
+            '/qu[eé] planes?( hay| tienen| ofrecen)?|planes? (de )?(fibra|antena|disponibles|vigentes)|precios?( de (los )?planes?)?|cu[aá]nto (cuesta|sale|vale|est[aá]).{0,24}(plan|fibra|antena|megas|mb|internet|mes)|cotiz(ar|ame|á)|lista (de )?planes|acerca de los planes|hacerca de los planes|info(rmaci[oó]n)? (del |de |sobre )?(el )?plan|pasame el plan|p[aá]same el plan|quiero el plan/u',
             $t
         );
     }
@@ -471,7 +471,7 @@ class SoporteTexto
         };
 
         if (preg_match(
-            '/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula(?:\s+n[uú]mero)?|documento)|(?:nro?\.?|n[ºo°]))\s*(?:es\s*|n[uú]mero\s+es\s*)?[:.]?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,8})\b/u',
+            '/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula(?:\s+n[uú]mero)?|documento)|(?:nro?\.?|n[ºo°])|n[uú]mero de c[eé]dula(?:\s+del titular)?)\s*(?:es\s*|n[uú]mero\s+es\s*|del titular\s*)?[:.]?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,8})\b/u',
             $t,
             $m
         )) {

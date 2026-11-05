@@ -201,6 +201,13 @@ class CasosHabitualesClienteTest extends TestCase
             'corpus me interesa internet' => ['Me interesa el Internet', ['instalacion' => true]],
             'corpus para cuando wifi' => ['Para cuando el WiFi', ['instalacion' => true]],
             'corpus pedido wifi' => ['Referente al pedido de wifi', ['instalacion' => true]],
+            'corpus no me funciona' => ['No me funciona mi internet', $falla],
+            'corpus se quemo wifi' => ['Se quemo el WiFi', $falla],
+            'corpus kiero internet' => ['Kiero internet', ['instalacion' => true]],
+            'corpus mandar a poner' => ['Quiero mandar a poner el wifi', ['instalacion' => true]],
+            'corpus cuanto por mes' => ['Cuanto está por mes el internet', $catalogo],
+            'corpus acerca planes' => ['Si quiero saber hacerca de los planes', $catalogo],
+            'corpus cedula titular' => ['Número de cédula del titular 3454241 Eugenio Osmar Sotelo Cantero', ['cedula' => true]],
 
             // —— negativos: no confundir ——
             'hola no falla' => ['hola', ['falla' => false, 'datos_transferencia' => false, 'cuanto_abonar' => false]],

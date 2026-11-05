@@ -1536,7 +1536,7 @@ class WhatsAppAgentService
         }
 
         return (bool) preg_match(
-            '/mandar\s+(a\s+)?(bajar|instalar)|bajar\s+(wifi|wi-?fi|internet|fibra|antena)|instal(ar|en|an)|poner\s+(wifi|internet|fibra|antena)|quiero\s+(wifi|internet)|necesito\s+(wifi|internet)|queremos\s+(el\s+)?(wifi|internet)|me interesa (el |la )?(wifi|internet)|obtener (mi |el )?wifi|para cuando (el )?wifi|pedido de wifi|contratar|nuevo\s+servicio|pasen\s+(a\s+)?instalar|me\s+instal|cablear|tirar\s+(el\s+)?cable|queriendo (el )?servicio/u',
+            '/mandar\s+(a\s+)?(bajar|instalar|poner)|bajar\s+(wifi|wi-?fi|internet|fibra|antena)|instal(ar|en|an)|poner\s+(wifi|internet|fibra|antena)|quiero\s+(wifi|internet|el plan)|kiero\s+(wifi|internet)|necesito\s+(wifi|internet)|queremos\s+(el\s+)?(wifi|internet)|me interesa (el |la )?(wifi|internet)|obtener (mi |el )?wifi|para cuando (el )?wifi|pedido de wifi|colocar el wifi|contratar|nuevo\s+servicio|pasen\s+(a\s+)?instalar|me\s+instal|cablear|tirar\s+(el\s+)?cable|queriendo (el )?servicio|interesado .{0,12}(wifi|internet)|informaci[oó]n sobre .{0,12}wifi/u',
             $t
         );
     }
