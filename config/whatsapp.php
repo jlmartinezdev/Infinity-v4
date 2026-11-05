@@ -80,9 +80,15 @@ return [
     */
     'agent' => [
         'enabled' => (bool) env('WA_AGENT_ENABLED', false),
+        /** n8n | langgraph — langgraph salta el orquestador sticky. */
+        'backend' => env('WA_AGENT_BACKEND', 'n8n'),
         'url' => env('N8N_WA_AGENT_URL', 'http://127.0.0.1:5678/webhook/interplus-wa-agent'),
+        'langgraph_url' => env('WA_AGENT_LANGGRAPH_URL', 'http://127.0.0.1:8091/v1/turn'),
+        /** Si true, sandbox 595000… usa langgraph aunque backend=n8n. */
+        'langgraph_sandbox' => filter_var(env('WA_AGENT_LANGGRAPH_SANDBOX', true), FILTER_VALIDATE_BOOLEAN),
         'secret' => env('N8N_WA_AGENT_SECRET'),
         'timeout_ms' => (int) env('N8N_WA_AGENT_TIMEOUT_MS', 25000),
+        'langgraph_timeout_ms' => (int) env('WA_AGENT_LANGGRAPH_TIMEOUT_MS', 35000),
         'fallback_message' => env(
             'WA_AGENT_FALLBACK_MESSAGE',
             'Recibimos su mensaje. Un asesor le responde en breve por este mismo WhatsApp.'

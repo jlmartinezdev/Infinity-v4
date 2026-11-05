@@ -1,0 +1,17 @@
+[Unit]
+Description=Interplus WhatsApp LangGraph agent
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/infinity-v4/services/wa-langgraph
+EnvironmentFile=-/var/www/infinity-v4/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/var/www/infinity-v4/services/wa-langgraph/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8091
+Restart=on-failure
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

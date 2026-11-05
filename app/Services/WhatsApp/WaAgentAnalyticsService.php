@@ -201,17 +201,40 @@ class WaAgentAnalyticsService
         }
 
         if ($latency > 0 && str_starts_with($modo, 'soporte_') === false) {
-            $this->registrarUsoModelo(
-                'n8n',
-                (string) config('whatsapp.agent.gemini_model', 'n8n'),
-                0,
-                0,
-                1,
-                (float) config('whatsapp.agent.kpi.n8n_usd_por_llamada', 0.002),
-                $mensaje->id ? (int) $mensaje->id : null,
-                $sandbox,
-                ['latency_ms' => $latency],
-            );
+            $backend = (string) ($consulta['backend'] ?? 'n8n');
+            $tokensIn = (int) ($consulta['tokens_in'] ?? 0);
+            $tokensOut = (int) ($consulta['tokens_out'] ?? 0);
+            if ($backend === 'langgraph') {
+                $this->registrarUsoModelo(
+                    'gemini',
+                    (string) config('whatsapp.agent.gemini_model', 'gemini-3.6-flash'),
+                    $tokensIn,
+                    $tokensOut,
+                    1,
+                    null,
+                    $mensaje->id ? (int) $mensaje->id : null,
+                    $sandbox,
+                    [
+                        'latency_ms' => $latency,
+                        'backend' => 'langgraph',
+                        'intent' => $consulta['intent'] ?? null,
+                        'tools_used' => $consulta['tools_used'] ?? [],
+                        'validador_ok' => $consulta['validador_ok'] ?? null,
+                    ],
+                );
+            } else {
+                $this->registrarUsoModelo(
+                    'n8n',
+                    (string) config('whatsapp.agent.gemini_model', 'n8n'),
+                    0,
+                    0,
+                    1,
+                    (float) config('whatsapp.agent.kpi.n8n_usd_por_llamada', 0.002),
+                    $mensaje->id ? (int) $mensaje->id : null,
+                    $sandbox,
+                    ['latency_ms' => $latency],
+                );
+            }
         }
 
         if (! $sandbox && (bool) config('whatsapp.agent.kpi.csat_enabled', true) && $modo === 'soporte_resuelto' && filled($reply)) {

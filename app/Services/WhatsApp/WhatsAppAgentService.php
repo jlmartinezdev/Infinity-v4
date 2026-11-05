@@ -36,8 +36,28 @@ class WhatsAppAgentService
 
     public function isEnabled(): bool
     {
-        return (bool) config('whatsapp.agent.enabled')
-            && filled(config('whatsapp.agent.url'));
+        if (! (bool) config('whatsapp.agent.enabled')) {
+            return false;
+        }
+
+        return $this->backendActivo(false) === 'langgraph'
+            ? filled(config('whatsapp.agent.langgraph_url'))
+            : filled(config('whatsapp.agent.url'));
+    }
+
+    /** n8n | langgraph */
+    public function backendActivo(bool $sandbox = false): string
+    {
+        $backend = strtolower(trim((string) config('whatsapp.agent.backend', 'n8n')));
+        if ($backend === 'langgraph') {
+            return 'langgraph';
+        }
+        if ($sandbox && (bool) config('whatsapp.agent.langgraph_sandbox', true)
+            && filled(config('whatsapp.agent.langgraph_url'))) {
+            return 'langgraph';
+        }
+
+        return 'n8n';
     }
 
     public function debeProcesar(WhatsappMensaje $mensaje): bool
@@ -123,7 +143,7 @@ class WhatsAppAgentService
         $clasificacion = $this->clasificarImagenSiCorresponde($mensaje);
         $this->aplicarVisionAlMensaje($mensaje, $clasificacion);
 
-        // Comprobante: frase formal fija. No dejar que n8n diga "tu comprobante" / "Te saluda".
+        // Comprobante: frase formal fija. No dejar que el LLM diga "tu comprobante" / "Te saluda".
         if ($this->esComprobanteDetectado($mensaje, $clasificacion)) {
             return $this->cerrarConSoporte(
                 $mensaje,
@@ -133,18 +153,24 @@ class WhatsAppAgentService
             );
         }
 
-        $soporte = $this->soporte->intentar($mensaje, $sandbox);
-        if ($soporte !== null) {
-            return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
+        $backend = $this->backendActivo($sandbox);
+        if ($backend !== 'langgraph') {
+            $soporte = $this->soporte->intentar($mensaje, $sandbox);
+            if ($soporte !== null) {
+                return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
+            }
+
+            // Textos canónicos (transferencia / beneficios / condiciones): sin LLM.
+            $canned = $this->soporte->intentarCanned($mensaje);
+            if ($canned !== null) {
+                return $this->cerrarConSoporte($mensaje, $canned, $enviar, $sandbox);
+            }
         }
 
-        // Textos canónicos (transferencia / beneficios / condiciones): sin LLM.
-        $canned = $this->soporte->intentarCanned($mensaje);
-        if ($canned !== null) {
-            return $this->cerrarConSoporte($mensaje, $canned, $enviar, $sandbox);
-        }
-
-        $consulta = $this->consultarN8n($mensaje, $clasificacion);
+        $consulta = $backend === 'langgraph'
+            ? $this->consultarLangGraph($mensaje, $clasificacion, $sandbox)
+            : $this->consultarN8n($mensaje, $clasificacion);
+        $consulta['backend'] = $backend;
         $reply = $consulta['reply'];
         $escalate = $consulta['escalate'];
         $error = $consulta['error'];
@@ -157,6 +183,8 @@ class WhatsAppAgentService
             $error = null;
         }
 
+        $validadorOk = true;
+        $validadorMotivo = null;
         if (filled($reply)) {
             $hechos = is_array($consulta['hechos'] ?? null) ? $consulta['hechos'] : [];
             $catalogo = $this->catalogoPlanes();
@@ -172,6 +200,8 @@ class WhatsAppAgentService
                 self::mensajeFallback(),
             );
             if ($validado['filtrado']) {
+                $validadorOk = false;
+                $validadorMotivo = (string) ($validado['modo'] ?? 'filtrado');
                 $reply = $validado['reply'];
                 $consulta['reply'] = $reply;
                 if ($validado['modo']) {
@@ -179,9 +209,11 @@ class WhatsAppAgentService
                 }
             }
         }
+        $consulta['validador_ok'] = $validadorOk;
+        $consulta['validador_motivo'] = $validadorMotivo;
 
         if ($error !== null || ($reply === null && ! $escalate)) {
-            $error = $error ?: 'n8n_sin_reply';
+            $error = $error ?: ($backend === 'langgraph' ? 'langgraph_sin_reply' : 'n8n_sin_reply');
             if ($enviar) {
                 $reply = self::mensajeFallback();
             }
@@ -496,6 +528,242 @@ class WhatsAppAgentService
         $vacio['modo'] = $modo !== '' ? $modo : null;
 
         return $vacio;
+    }
+
+    /**
+     * LangGraph: mismo contrato de respuesta que n8n; Laravel no corre orquestador sticky.
+     *
+     * @param  array{tipo?: string, ocr?: string, fuente?: string|null, descripcion?: string}|null  $clasificacion
+     * @return array<string, mixed>
+     */
+    public function consultarLangGraph(WhatsappMensaje $mensaje, ?array $clasificacion = null, bool $sandbox = false): array
+    {
+        $url = (string) config('whatsapp.agent.langgraph_url');
+        $secret = (string) config('whatsapp.agent.secret');
+        $timeoutSec = max(1, (int) ceil(((int) config('whatsapp.agent.langgraph_timeout_ms', 35000)) / 1000));
+        $started = microtime(true);
+
+        $vacio = [
+            'reply' => null,
+            'escalate' => false,
+            'cliente_id' => null,
+            'motivo_escalado' => null,
+            'n8n_latency_ms' => 0,
+            'error' => null,
+            'modo' => null,
+            'backend' => 'langgraph',
+            'intent' => null,
+            'confidence' => null,
+            'tools_used' => [],
+            'llm_latency_ms' => null,
+            'tokens_in' => null,
+            'tokens_out' => null,
+            'proceso_activo' => null,
+            'proceso_cancelado' => false,
+            'hechos' => [],
+        ];
+
+        if ($url === '') {
+            $vacio['error'] = 'langgraph_url_vacia';
+
+            return $vacio;
+        }
+
+        // Reusar el armado de payload de n8n (campos compatibles).
+        $base = $this->consultarN8nPayload($mensaje, $clasificacion);
+        $vacio['hechos'] = $base['hechos'] ?? [];
+        $payload = $base['body'];
+        $payload['sandbox'] = $sandbox;
+        $payload['backend'] = 'langgraph';
+        $toolsBase = trim((string) env('WA_AGENT_TOOLS_BASE_URL', ''));
+        if ($toolsBase === '') {
+            $toolsBase = 'http://127.0.0.1/api/v1/wa-agent/tools';
+        }
+        $payload['tools_base_url'] = rtrim($toolsBase, '/');
+
+        try {
+            $response = Http::timeout($timeoutSec)
+                ->connectTimeout(5)
+                ->acceptJson()
+                ->withHeaders(array_filter([
+                    'X-Interplus-Secret' => $secret !== '' ? $secret : null,
+                ]))
+                ->post($url, $payload);
+        } catch (\Throwable $e) {
+            $vacio['n8n_latency_ms'] = (int) round((microtime(true) - $started) * 1000);
+            $vacio['total_latency_ms'] = $vacio['n8n_latency_ms'];
+            $vacio['error'] = 'langgraph_excepcion: '.$e->getMessage();
+
+            return $vacio;
+        }
+
+        $latency = (int) round((microtime(true) - $started) * 1000);
+        $vacio['n8n_latency_ms'] = $latency;
+        $vacio['total_latency_ms'] = $latency;
+
+        if ($response->status() === 401) {
+            $vacio['error'] = 'langgraph_unauthorized';
+
+            return $vacio;
+        }
+
+        if (! $response->successful()) {
+            $vacio['error'] = 'langgraph_http_'.$response->status();
+
+            return $vacio;
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            $vacio['error'] = 'langgraph_json_invalido';
+
+            return $vacio;
+        }
+
+        $reply = isset($json['reply']) ? trim((string) $json['reply']) : '';
+        $vacio['reply'] = $reply !== '' ? mb_substr($reply, 0, 4096) : null;
+        $vacio['escalate'] = filter_var($json['escalate'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $vacio['cliente_id'] = isset($json['cliente_id']) && is_numeric($json['cliente_id'])
+            ? (int) $json['cliente_id']
+            : null;
+        $motivo = isset($json['motivo_escalado']) ? trim((string) $json['motivo_escalado']) : '';
+        $vacio['motivo_escalado'] = $motivo !== '' ? $motivo : null;
+        $modo = isset($json['modo']) ? trim((string) $json['modo']) : '';
+        $vacio['modo'] = $modo !== '' ? $modo : 'langgraph';
+        $intent = isset($json['intent']) ? trim((string) $json['intent']) : '';
+        $vacio['intent'] = $intent !== '' ? $intent : null;
+        $vacio['confidence'] = isset($json['confidence']) && is_numeric($json['confidence'])
+            ? (float) $json['confidence']
+            : null;
+        $vacio['tools_used'] = is_array($json['tools_used'] ?? null) ? $json['tools_used'] : [];
+        $vacio['llm_latency_ms'] = isset($json['llm_latency_ms']) ? (int) $json['llm_latency_ms'] : null;
+        $vacio['tokens_in'] = isset($json['tokens_in']) ? (int) $json['tokens_in'] : null;
+        $vacio['tokens_out'] = isset($json['tokens_out']) ? (int) $json['tokens_out'] : null;
+        $vacio['proceso_activo'] = isset($json['proceso_activo']) ? (string) $json['proceso_activo'] : null;
+        $vacio['proceso_cancelado'] = filter_var($json['proceso_cancelado'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (isset($json['total_latency_ms']) && is_numeric($json['total_latency_ms'])) {
+            $vacio['total_latency_ms'] = (int) $json['total_latency_ms'];
+        }
+        if (is_array($json['hechos'] ?? null)) {
+            $vacio['hechos'] = $json['hechos'];
+        }
+
+        return $vacio;
+    }
+
+    /**
+     * Payload compartido n8n / LangGraph (sin HTTP).
+     *
+     * @param  array{tipo?: string, ocr?: string, fuente?: string|null, descripcion?: string}|null  $clasificacion
+     * @return array{body: array<string, mixed>, hechos: array<string, mixed>}
+     */
+    private function consultarN8nPayload(WhatsappMensaje $mensaje, ?array $clasificacion = null): array
+    {
+        $timestamp = data_get($mensaje->payload, 'timestamp');
+        $timestamp = is_numeric($timestamp) ? (int) $timestamp : (int) ($mensaje->created_at?->timestamp ?? time());
+
+        $hilo = $this->hiloParaTelefono(
+            (string) $mensaje->telefono,
+            $mensaje->id ? (int) $mensaje->id : null,
+        );
+        $catalogo = $this->catalogoPlanes();
+        $clasificacion ??= $this->clasificarImagenSiCorresponde($mensaje);
+        $tipoImagen = (string) ($clasificacion['tipo'] ?? '');
+        $cuerpo = self::captionUtil((string) $mensaje->cuerpo);
+        if ($cuerpo === '' && $mensaje->tipo === 'image') {
+            $cuerpo = match ($tipoImagen) {
+                WhatsAppImagenClasificadorService::TIPO_MAPA => 'Te envié una captura de mapa',
+                WhatsAppImagenClasificadorService::TIPO_COMPROBANTE => 'Te envié un comprobante de transferencia',
+                WhatsAppImagenClasificadorService::TIPO_WIFI_FALLA => 'No me anda el internet. Estoy en WiFi sin conexión a Internet.',
+                WhatsAppImagenClasificadorService::TIPO_ONU => 'No me anda el internet. Le mando foto del equipo.',
+                default => 'Te envié una foto',
+            };
+        }
+        $rafaga = $this->rafagaClienteReciente(
+            (string) $mensaje->telefono,
+            $mensaje->id ? (int) $mensaje->id : null,
+            120,
+        );
+        $cuerpoAnalisis = $rafaga['unido'] !== '' ? $rafaga['unido'] : $cuerpo;
+        $pareceComprobante = self::detectarComprobante(
+            (string) $mensaje->tipo,
+            (string) $mensaje->cuerpo,
+            $hilo['historial'],
+            $tipoImagen,
+        );
+        $pareceMapa = self::detectarUbicacion(
+            (string) $mensaje->tipo,
+            (string) $mensaje->cuerpo,
+            $hilo['historial'],
+            $tipoImagen,
+        );
+        $horarioLaboral = self::horarioLaboral();
+        $pareceDatosTransferencia = self::textoPareceDatosTransferencia($cuerpoAnalisis);
+        $parecePagoTexto = ! $pareceComprobante && ! $pareceMapa && ! $pareceDatosTransferencia && self::textoParecePago($cuerpoAnalisis);
+        $pareceBaja = self::textoPareceBajaServicio($cuerpoAnalisis);
+        $primeraVez = $this->esPrimeraConversacion((string) $mensaje->telefono, $mensaje->id ? (int) $mensaje->id : null);
+        $pareceCedula = self::textoPareceCedula($cuerpo);
+        $pareceBeneficios = self::textoPareceBeneficiosPlanes($cuerpoAnalisis);
+        $pareceCondiciones = self::textoPareceCondicionesServicio($cuerpoAnalisis);
+        $canned = self::textosCanned();
+        $pareceInstalacion = ! $pareceBaja && (
+            self::textoPareceInstalacion($cuerpoAnalisis)
+            || ($primeraVez && self::textoPareceWifi($cuerpoAnalisis))
+        );
+        $nombreCorto = '';
+        try {
+            $cli = $this->whatsapp->findClienteByPhone($mensaje->telefono);
+            if ($cli) {
+                $nombreCorto = self::nombreCortoSaludo((string) ($cli->nombre ?? ''));
+            }
+        } catch (\Throwable) {
+            // lookup opcional
+        }
+
+        $ctxN8n = $this->soporte->contextoParaN8n($mensaje);
+        $hechos = is_array($ctxN8n['hechos'] ?? null) ? $ctxN8n['hechos'] : [];
+
+        $body = [
+            'wa_id' => $mensaje->telefono,
+            'nombre_perfil' => null,
+            'mensaje' => $cuerpo,
+            'mensaje_hilo_reciente' => $cuerpoAnalisis,
+            'message_id' => (string) ($mensaje->wamid ?: 'local-'.$mensaje->id),
+            'mensaje_db_id' => $mensaje->id ? (int) $mensaje->id : null,
+            'timestamp' => $timestamp,
+            'tipo' => (string) ($mensaje->tipo ?: 'text'),
+            'historial' => $hilo['historial'],
+            'historial_texto' => $hilo['historial_texto'],
+            'planes_fibra' => $catalogo['fibra'],
+            'planes_antena' => $catalogo['antena'],
+            'planes_texto' => $catalogo['planes_texto'],
+            'planes_prompt' => $catalogo['planes_prompt'] ?? '',
+            'texto_beneficios' => $canned['beneficios'],
+            'texto_transferencia' => $canned['transferencia'],
+            'texto_condiciones' => $canned['condiciones'],
+            'horario_laboral' => $horarioLaboral,
+            'parece_comprobante' => $pareceComprobante,
+            'parece_pago_texto' => $parecePagoTexto,
+            'parece_datos_transferencia' => $pareceDatosTransferencia,
+            'parece_beneficios' => $pareceBeneficios,
+            'parece_condiciones' => $pareceCondiciones,
+            'parece_mapa' => $pareceMapa,
+            'parece_cedula' => $pareceCedula,
+            'cobertura_aprobada' => $this->telefonoTieneCoberturaAprobada(
+                (string) $mensaje->telefono,
+                $mensaje->id ? (int) $mensaje->id : null,
+                $cuerpoAnalisis,
+                is_array($mensaje->payload) ? $mensaje->payload : [],
+            ),
+            'parece_baja' => $pareceBaja,
+            'parece_instalacion' => $pareceInstalacion,
+            'primera_vez' => $primeraVez && $hilo['historial'] === [],
+            'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
+            'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
+            'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
+        ] + $ctxN8n;
+
+        return ['body' => $body, 'hechos' => $hechos];
     }
 
     /**
@@ -1874,11 +2142,23 @@ class WhatsAppAgentService
             'cliente_id' => $consulta['cliente_id'] ?? $mensaje->cliente_id,
             'motivo_escalado' => $consulta['motivo_escalado'] ?? null,
             'n8n_latency_ms' => $consulta['n8n_latency_ms'] ?? 0,
+            'total_latency_ms' => $consulta['total_latency_ms'] ?? ($consulta['n8n_latency_ms'] ?? 0),
+            'llm_latency_ms' => $consulta['llm_latency_ms'] ?? null,
             'error' => $error,
             'ticket_id' => $ticketId,
             'usada' => false,
             'descartada' => false,
             'modo' => $consulta['modo'] ?? null,
+            'backend' => $consulta['backend'] ?? null,
+            'intent' => $consulta['intent'] ?? null,
+            'confidence' => $consulta['confidence'] ?? null,
+            'tools_used' => is_array($consulta['tools_used'] ?? null) ? $consulta['tools_used'] : [],
+            'tokens_in' => $consulta['tokens_in'] ?? null,
+            'tokens_out' => $consulta['tokens_out'] ?? null,
+            'proceso_activo' => $consulta['proceso_activo'] ?? null,
+            'proceso_cancelado' => (bool) ($consulta['proceso_cancelado'] ?? false),
+            'validador_ok' => array_key_exists('validador_ok', $consulta) ? (bool) $consulta['validador_ok'] : null,
+            'validador_motivo' => $consulta['validador_motivo'] ?? null,
             'resumen_admin' => $consulta['resumen_admin'] ?? null,
             'caso_id' => isset($consulta['caso_id']) ? (int) $consulta['caso_id'] : null,
             'hechos' => is_array($consulta['hechos'] ?? null) ? $consulta['hechos'] : null,

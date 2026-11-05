@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'flota.staff' => \App\Http\Middleware\EnsurePuedeVerFlotaStaff::class,
             'api.staff' => \App\Http\Middleware\EnsureStaffApi::class,
             'api.cliente' => \App\Http\Middleware\EnsureClientePortalApi::class,
+            'wa.agent.secret' => \App\Http\Middleware\VerifyInterplusAgentSecret::class,
         ]);
         // Usuario ya autenticado que visita /login → inicio según permisos
         $middleware->redirectUsersTo(function () {

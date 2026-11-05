@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\StaffVisitaController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\TpagoWebhookController;
+use App\Http\Controllers\Api\V1\WaAgentToolsController;
 use App\Http\Controllers\Api\V1\WhatsAppAgentController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,19 @@ Route::prefix('v1')->group(function () {
     // Confirmación de pagos TPago / Bancard (URL a configurar en el portal TPago)
     Route::match(['get', 'post', 'head'], '/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
     Route::post('/webhooks/zabbix', [\App\Http\Controllers\Api\V1\ZabbixWebhookController::class, 'handle']);
+
+    // Tools del agente LangGraph (auth: X-Interplus-Secret)
+    Route::middleware('wa.agent.secret')->prefix('wa-agent/tools')->group(function () {
+        Route::post('/buscar-cuenta', [WaAgentToolsController::class, 'buscarCuenta']);
+        Route::post('/saldo-y-plan', [WaAgentToolsController::class, 'saldoYPlan']);
+        Route::get('/catalogo-planes', [WaAgentToolsController::class, 'catalogoPlanes']);
+        Route::get('/textos-canned', [WaAgentToolsController::class, 'textosCanned']);
+        Route::post('/diagnosticar', [WaAgentToolsController::class, 'diagnosticar']);
+        Route::post('/zona', [WaAgentToolsController::class, 'zona']);
+        Route::post('/conocimiento', [WaAgentToolsController::class, 'conocimiento']);
+        Route::post('/hilo', [WaAgentToolsController::class, 'hilo']);
+        Route::post('/crear-ticket', [WaAgentToolsController::class, 'crearTicket']);
+    });
 
     // Play Integrity — nonce de un solo uso (sin Bearer)
     Route::get('/staff/integrity/nonce', [StaffAppController::class, 'integrityNonce']);
