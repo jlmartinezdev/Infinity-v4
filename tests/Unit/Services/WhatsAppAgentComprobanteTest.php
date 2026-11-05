@@ -217,6 +217,7 @@ class WhatsAppAgentComprobanteTest extends TestCase
 
         $sinCuenta = FraseCliente::saldoYCuentas(null, $canned);
         $this->assertStringContainsString('cédula', $sinCuenta);
+        $this->assertStringContainsString('celular', $sinCuenta);
         $this->assertStringContainsString('016-21-0378077', $sinCuenta);
         $this->assertStringNotContainsString('85.000', $sinCuenta);
         $this->assertStringNotContainsString('100', $sinCuenta);

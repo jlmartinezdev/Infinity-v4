@@ -306,7 +306,7 @@ class FraseCliente
     public static function saldoPendiente(?array $cuenta): string
     {
         if ($cuenta === null) {
-            return 'Para indicarle el saldo, escriba su cédula, su WhatsApp registrado o su nombre completo tal como figura en la factura.';
+            return 'Para indicarle el saldo, escriba su cédula, su número de celular o WhatsApp registrado, o su nombre completo tal como figura en la factura.';
         }
         $saldo = isset($cuenta['saldo']) ? (float) $cuenta['saldo'] : 0.0;
         if ($saldo > 0) {

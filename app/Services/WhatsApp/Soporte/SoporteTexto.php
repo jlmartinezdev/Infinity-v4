@@ -412,6 +412,18 @@ class SoporteTexto
             return null;
         }
 
+        $t = self::norm($raw);
+        if (preg_match(
+            '/(?:(?:mi\s+)?(?:celular|whats?app|tel[eé]fono|n[uú]mero|numero)|(?:cel|wa))\s*(?:es\s*|registrado\s*)?[:.]?\s*([\d\s+().-]{8,20})/u',
+            $t,
+            $m
+        )) {
+            $norm = self::normalizarTelefonoPy(preg_replace('/\D+/', '', $m[1]) ?? '');
+            if ($norm) {
+                return $norm;
+            }
+        }
+
         $solo = preg_replace('/[\s().+-]+/', '', $raw) ?? '';
         if (preg_match('/^\d{9,14}$/', $solo)) {
             return self::normalizarTelefonoPy($solo);
@@ -484,7 +496,13 @@ class SoporteTexto
         if ($raw === '') {
             return false;
         }
-        if (self::telefonoEnTexto($raw) && preg_match('/^[\d\s+().-]{8,20}$/', $raw)) {
+        if (self::telefonoEnTexto($raw) && (
+            preg_match('/^[\d\s+().-]{8,20}$/', $raw)
+            || preg_match(
+                '/^(?:(?:mi\s+)?(?:celular|whats?app|tel[eé]fono|n[uú]mero|numero)|(?:cel|wa))\s*(?:es\s*|registrado\s*)?[:.]?\s*[\d\s+().-]{8,20}$/iu',
+                $raw
+            )
+        )) {
             return true;
         }
         if (self::cedulaEnTexto($raw) && preg_match(

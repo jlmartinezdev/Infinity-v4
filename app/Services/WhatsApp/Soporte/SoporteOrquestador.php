@@ -79,7 +79,7 @@ class SoporteOrquestador
             $texto,
             $paso,
             $textoHilo,
-            $this->agentePidioCedulaParaSaldo((string) $mensaje->telefono),
+            $this->agentePidioIdentificacionPago((string) $mensaje->telefono),
         );
         if ($pago !== null) {
             $pasoPago = isset($pago['guardar_paso']) ? (string) $pago['guardar_paso'] : '';
@@ -640,7 +640,7 @@ class SoporteOrquestador
             $texto,
             $pasoCanned,
             $hiloCanned,
-            $this->agentePidioCedulaParaSaldo((string) $mensaje->telefono),
+            $this->agentePidioIdentificacionPago((string) $mensaje->telefono),
         );
         if ($pago !== null) {
             $pasoPago = isset($pago['guardar_paso']) ? (string) $pago['guardar_paso'] : '';
@@ -1178,8 +1178,8 @@ class SoporteOrquestador
         };
     }
 
-    /** El último mensaje del agente pidió cédula para el saldo. */
-    private function agentePidioCedulaParaSaldo(string $telefono): bool
+    /** El último mensaje del agente pidió cédula, celular o WhatsApp para el saldo. */
+    private function agentePidioIdentificacionPago(string $telefono): bool
     {
         $tel = preg_replace('/\D+/', '', $telefono) ?: '';
         if ($tel === '') {
@@ -1195,7 +1195,7 @@ class SoporteOrquestador
             return false;
         }
 
-        return (bool) preg_match('/c[eé]dula/iu', $cuerpo)
+        return (bool) preg_match('/c[eé]dula|whats?app|celular|tel[eé]fono/iu', $cuerpo)
             && (bool) preg_match('/saldo|abonar|valor a abonar|factura/iu', $cuerpo);
     }
 
@@ -1239,7 +1239,7 @@ class SoporteOrquestador
                     null,
                     $clienteId,
                     'canned_transferencia',
-                    'Cédula recibida: saldo de la cuenta y datos de transferencia',
+                    'Identificación recibida: saldo de la cuenta y datos de transferencia',
                     null,
                 );
             }
@@ -1250,7 +1250,7 @@ class SoporteOrquestador
                 null,
                 null,
                 'sin_cuenta',
-                'Cédula o número no encontrados para el saldo',
+                'Cédula o celular no encontrados para el saldo',
                 null,
             );
         }

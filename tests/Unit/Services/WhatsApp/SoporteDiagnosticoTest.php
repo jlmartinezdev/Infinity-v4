@@ -381,10 +381,16 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('mi cedula es 4194002'));
         $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('mi cédula es 4194002'));
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('595 986 504437'));
+        $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('0986504437'));
+        $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('mi celular es 0986504437'));
+        $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('mi whatsapp es 595986504437'));
+        $this->assertSame('5491125474032', SoporteTexto::telefonoEnTexto('+549112547-4032'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('soy Rufino Leiva Avalos no anda el wifi'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos no anda el wifi'));
         $this->assertTrue(SoporteTexto::esSoloIdentificador('595 986 504437'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('mi celular es 0986504437'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('mi whatsapp es 595986504437'));
         $this->assertTrue(SoporteTexto::esSoloIdentificador('nr 4765661'));
         $this->assertTrue(SoporteTexto::esSoloIdentificador('4194002'));
         $this->assertTrue(SoporteTexto::esSoloIdentificador('mi cedula es 4194002'));
