@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/infinity-v4/services/wa-langgraph
-EnvironmentFile=-/var/www/infinity-v4/.env
+WorkingDirectory=/home/infinity/infinity-v4/services/wa-langgraph
+EnvironmentFile=-/home/infinity/infinity-v4/.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/var/www/infinity-v4/services/wa-langgraph/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8091
+Environment=WA_AGENT_TOOLS_BASE_URL=http://127.0.0.1/api/v1/wa-agent/tools
+ExecStart=/home/infinity/infinity-v4/services/wa-langgraph/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8091
 Restart=on-failure
 RestartSec=3
 User=www-data

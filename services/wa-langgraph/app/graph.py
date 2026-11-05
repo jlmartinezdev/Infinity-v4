@@ -31,7 +31,7 @@ class AgentState(TypedDict, total=False):
     cliente_id: int | None
     tool_facts: dict[str, Any]
     tools_used: list[dict[str, Any]]
-    reply: str
+    answer: str
     escalate: bool
     motivo_escalado: str | None
     modo: str
@@ -155,10 +155,10 @@ def build_graph():
             "tools_used": tools.used,
         }
 
-    def reply_node(state: AgentState) -> dict[str, Any]:
+    def compose(state: AgentState) -> dict[str, Any]:
         if state.get("needs_human") or str(state.get("intent")) == "handoff":
             return {
-                "reply": (
+                "answer": (
                     "Voy a derivar su consulta con un asesor de Interplus para ayudarle mejor. "
                     "¿Desea agregar algún detalle mientras tanto?"
                 ),
@@ -174,7 +174,7 @@ def build_graph():
         for key in ("transferencia", "beneficios", "condiciones"):
             if key in canned and canned[key]:
                 return {
-                    "reply": str(canned[key]),
+                    "answer": str(canned[key]),
                     "escalate": False,
                     "motivo_escalado": None,
                     "modo": f"langgraph_canned_{key}",
@@ -183,7 +183,7 @@ def build_graph():
         cat = facts.get("catalogo") or {}
         if intent == "catalogo_internet" and cat.get("planes_texto"):
             return {
-                "reply": str(cat["planes_texto"]),
+                "answer": str(cat["planes_texto"]),
                 "escalate": False,
                 "motivo_escalado": None,
                 "modo": "langgraph_catalogo",
@@ -192,7 +192,7 @@ def build_graph():
         decision = (facts.get("diagnostico") or {}).get("decision") or {}
         if decision.get("reply"):
             return {
-                "reply": str(decision["reply"]),
+                "answer": str(decision["reply"]),
                 "escalate": bool(decision.get("escalate")),
                 "motivo_escalado": decision.get("motivo"),
                 "modo": "langgraph_diagnostico",
@@ -216,7 +216,7 @@ def build_graph():
                 "con su servicio de internet."
             )
         return {
-            "reply": text,
+            "answer": text,
             "escalate": False,
             "motivo_escalado": None,
             "modo": "langgraph",
@@ -227,11 +227,11 @@ def build_graph():
 
     g.add_node("classify", classify)
     g.add_node("act", act)
-    g.add_node("reply", reply_node)
+    g.add_node("compose", compose)
     g.set_entry_point("classify")
     g.add_edge("classify", "act")
-    g.add_edge("act", "reply")
-    g.add_edge("reply", END)
+    g.add_edge("act", "compose")
+    g.add_edge("compose", END)
     return g.compile(checkpointer=_MEMORY)
 
 
@@ -283,7 +283,7 @@ def run_turn(payload: dict[str, Any]) -> dict[str, Any]:
     total_ms = int((time.perf_counter() - started) * 1000)
 
     return {
-        "reply": result.get("reply"),
+        "reply": result.get("answer"),
         "escalate": bool(result.get("escalate")),
         "cliente_id": result.get("cliente_id"),
         "motivo_escalado": result.get("motivo_escalado"),

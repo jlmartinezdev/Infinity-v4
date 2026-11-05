@@ -98,9 +98,24 @@ class WhatsAppReplayLanggraphCommand extends Command
                 continue;
             }
 
+            if (! $resp->successful()) {
+                $fallos[] = [
+                    'texto' => mb_substr($texto, 0, 160),
+                    'error' => 'http_'.$resp->status(),
+                    'detail' => mb_substr((string) ($json['detail'] ?? $resp->body()), 0, 220),
+                ];
+                continue;
+            }
+
             $reply = trim((string) ($json['reply'] ?? ''));
             if ($reply !== '') {
                 $okReply++;
+            } else {
+                $fallos[] = [
+                    'texto' => mb_substr($texto, 0, 160),
+                    'error' => 'sin_reply',
+                    'intent' => $json['intent'] ?? null,
+                ];
             }
 
             $pideId = (bool) preg_match('/c[eé]dula|whatsapp registrado|nombre completo/iu', $reply);

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# Producción Interplus: /home/infinity/infinity-v4
 APP="$ROOT/services/wa-langgraph"
 cd "$APP"
 python3 -m venv .venv
