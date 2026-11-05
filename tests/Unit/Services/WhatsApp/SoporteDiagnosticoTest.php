@@ -387,6 +387,16 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue(SoporteTexto::esSoloIdentificador('y el de mi mama 2.620.430'));
         $this->assertTrue(SoporteTexto::pareceCuantoAbonar('cuantos es su cuenta'));
         $this->assertTrue(SoporteTexto::pareceCuantoAbonar('cuantos debe 2.620.430'));
+        $this->assertTrue(SoporteTexto::pareceInsisteSaldo('ya?'));
+        $this->assertTrue(SoporteTexto::pareceInsisteSaldo('ya esta?'));
+        $this->assertTrue(SoporteTexto::pareceInsisteSaldo('de que estabamos hablando?'));
+        $this->assertSame('2620430', SoporteTexto::cedulaEnTexto('cuantos debe 2.620.430 ya? cuantos debe 2.620.430'));
+        $filtradoConsulta = FraseCliente::filtrar(
+            'Seguimos consultando el valor a abonar correspondiente a la cédula 2.620.430. En breve le informaremos por este medio.',
+            FraseCliente::saldoPendiente(['saldo' => 50000])
+        );
+        $this->assertStringNotContainsString('consultando', mb_strtolower($filtradoConsulta));
+        $this->assertStringContainsString('50.000', $filtradoConsulta);
         $this->assertStringNotContainsString(
             'consultando',
             mb_strtolower(FraseCliente::filtrar(

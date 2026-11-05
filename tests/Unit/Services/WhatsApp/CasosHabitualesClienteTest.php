@@ -88,6 +88,9 @@ class CasosHabitualesClienteTest extends TestCase
             'cedula de la mama' => ['y el de mi mama 2.620.430', $idCedula],
             'cuantos debe con cedula' => ['cuantos debe 2.620.430', ['cuanto_abonar' => true, 'cedula' => true, 'identificador' => false]],
             'cuantos es su cuenta' => ['cuantos es su cuenta', $soloSaldo],
+            'ya insiste saldo' => ['ya?', ['insiste_saldo' => true, 'falla' => false]],
+            'ya esta insiste' => ['ya esta?', ['insiste_saldo' => true]],
+            'de que hablabamos' => ['de que estabamos hablando?', ['insiste_saldo' => true]],
             'ci numero' => ['ci 4765661', $idCedula],
             'nro cedula' => ['nro 4765661', $idCedula],
             'celular local' => ['0986504437', $idCel],
@@ -234,6 +237,7 @@ class CasosHabitualesClienteTest extends TestCase
         return [
             'datos_transferencia' => WhatsAppAgentService::textoPareceDatosTransferencia($texto),
             'cuanto_abonar' => SoporteTexto::pareceCuantoAbonar($texto),
+            'insiste_saldo' => SoporteTexto::pareceInsisteSaldo($texto),
             'falla' => SoporteTexto::pareceFalla($texto),
             'zona' => SoporteTexto::pareceSeguimientoZona($texto) || (SoporteTexto::pareceFalla($texto) && SoporteTexto::esSeguimientoZona(true, $texto)),
             'seguimiento_zona' => SoporteTexto::esSeguimientoZona(true, $texto),

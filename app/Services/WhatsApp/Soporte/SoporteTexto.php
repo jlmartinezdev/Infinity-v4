@@ -34,6 +34,23 @@ class SoporteTexto
         );
     }
 
+    /**
+     * El cliente insiste o pide contexto del saldo ya pedido (usa el hilo / cédula anterior).
+     * Ej.: "ya?", "ya esta?", "de que estabamos hablando?"
+     */
+    public static function pareceInsisteSaldo(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/^(ya|ya\?|ya est[aá]\??|listo\?|y ahora\??|ahora\??|de que est[aá]bamos hablando\??|de qu[eé] habl[aá]bamos\??|segu[ií]s\??|todav[ií]a\??)\.?$/u',
+            $t
+        );
+    }
+
     /** Cuánto hay que abonar. Ortografía corta: "cuanto tengo q abonar". No es el plazo ni un monto adivinado. */
     public static function pareceCuantoAbonar(?string $texto): bool
     {
