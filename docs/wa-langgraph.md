@@ -34,10 +34,10 @@ Auth: `X-Interplus-Secret`. Prefijo `/api/v1/wa-agent/tools/`:
 ## Servicio Python
 
 ```bash
-cd /var/www/infinity-v4/services/wa-langgraph
+cd /home/infinity/infinity-v4/services/wa-langgraph
+# o: bash install-on-vm.sh
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-# systemd
 sudo cp systemd/wa-langgraph.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now wa-langgraph
