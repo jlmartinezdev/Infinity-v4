@@ -4,11 +4,15 @@
     $tabs = [
         'estado' => ['label' => 'Estado', 'route' => 'whatsapp.index'],
         'mensajes' => ['label' => 'Mensajes', 'route' => 'whatsapp.mensajes'],
-        'test-n8n' => ['label' => 'Test n8n', 'route' => 'whatsapp.test-n8n'],
+    ];
+    if (\Illuminate\Support\Facades\Route::has('whatsapp.test-n8n')) {
+        $tabs['test-n8n'] = ['label' => 'Test n8n', 'route' => 'whatsapp.test-n8n'];
+    }
+    $tabs += [
         'kpi' => ['label' => 'KPI', 'route' => 'whatsapp.kpi'],
         'accesos' => ['label' => 'Sin acceso', 'route' => 'whatsapp.accesos'],
         'disco' => ['label' => 'Disco', 'route' => 'sistema.disco'],
-        'casos' => ['label' => 'Plantillas', 'route' => 'whatsapp.casos.index'],
+        'casos' => ['label' => 'Casos', 'route' => 'whatsapp.casos.index'],
         'contactos' => ['label' => 'Contactos', 'route' => 'whatsapp.contactos'],
         'asuntos' => ['label' => 'Asuntos', 'route' => 'whatsapp.asuntos.index'],
         'enviar' => ['label' => 'Enviar', 'route' => 'whatsapp.enviar'],

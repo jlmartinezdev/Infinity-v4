@@ -53,9 +53,14 @@ class WhatsAppExtraerEstiloCasosCommand extends Command
         $creados = 0;
         $actualizados = 0;
         foreach (array_slice($candidatos, 0, 80) as $item) {
+            $texto = EstiloInterplus::reescribirCaso($item['texto']);
+            if ($texto === null) {
+                continue;
+            }
+            $item['texto'] = $texto;
             $etiqueta = $this->etiqueta($item['texto']);
-            $titulo = mb_substr($item['texto'], 0, 60);
-            $palabras = $this->palabras($item['texto'], $etiqueta);
+            $titulo = EstiloInterplus::tituloCorto($item['texto']);
+            $palabras = EstiloInterplus::palabrasDeEtiqueta($etiqueta);
             if ($dry) {
                 $this->line("[{$etiqueta}] ({$item['n']}) {$item['texto']}");
                 continue;
@@ -132,27 +137,5 @@ class WhatsAppExtraerEstiloCasosCommand extends Command
         }
 
         return 'general';
-    }
-
-    private function palabras(string $texto, string $etiqueta): string
-    {
-        $base = match ($etiqueta) {
-            'cobranza' => 'pago,saldo,suspendido,comprobante',
-            'cobertura' => 'cobertura,ubicacion,mapa,instalar',
-            'cierre' => 'gracias,listo,perfecto,resuelto',
-            'saludo' => 'hola,buenas,buen dia',
-            'soporte' => 'wifi,internet,no anda,lento,router',
-            default => '',
-        };
-        $tokens = preg_split('/\s+/u', mb_strtolower($texto)) ?: [];
-        $extra = [];
-        foreach ($tokens as $tok) {
-            $tok = trim($tok, '.,;:¡!¿?"\'');
-            if (mb_strlen($tok) >= 5 && count($extra) < 4) {
-                $extra[] = $tok;
-            }
-        }
-
-        return trim($base.','.implode(',', $extra), ',');
     }
 }
