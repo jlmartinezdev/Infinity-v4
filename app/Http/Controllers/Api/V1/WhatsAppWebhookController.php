@@ -362,8 +362,7 @@ class WhatsAppWebhookController extends ApiController
     {
         $secret = (string) config('whatsapp.app_secret');
         if ($secret === '') {
-            // Sin secret en .env no validamos (útil en desarrollo local); en prod configurarlo.
-            return true;
+            return false;
         }
 
         $header = (string) $request->header('X-Hub-Signature-256', '');

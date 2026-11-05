@@ -27806,12 +27806,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "opacity-75",
     fill: "currentColor",
     d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ingresando... ", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_15, "Ingresar"))], 8 /* PROPS */, _hoisted_12), _cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
-    class: "text-xs text-gray-500 dark:text-gray-400 text-center mt-2"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" ¿No tienes acceso? "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
-    href: "/register",
-    class: "text-blue-600 dark:text-blue-400 hover:underline"
-  }, "Solicitar registro")], -1 /* CACHED */))], 32 /* NEED_HYDRATION */)])]);
+  })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ingresando... ", -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_15, "Ingresar"))], 8 /* PROPS */, _hoisted_12)], 32 /* NEED_HYDRATION */)])]);
 }
 
 /***/ },

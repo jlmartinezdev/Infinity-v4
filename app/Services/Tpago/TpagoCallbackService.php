@@ -13,8 +13,11 @@ use Throwable;
 
 class TpagoCallbackService
 {
+    public const MAX_VERIFICACIONES = 12;
+
     public function __construct(
         private readonly FacturacionService $facturacion,
+        private readonly TpagoPagoVerificador $verificador,
     ) {}
 
     /**
@@ -64,6 +67,7 @@ class TpagoCallbackService
             ];
         }
 
+        $intentosPrevios = (int) data_get($link->callback_payload, '_verify.attempts', 0);
         $this->aplicarCallback($link, $payload, $campos);
 
         $approved = $responseCode === '00'
@@ -92,6 +96,31 @@ class TpagoCallbackService
                 'cobro_id' => $link->cobro_id,
                 'message' => 'Cobro ya registrado (idempotente).',
             ];
+        }
+
+        $consulta = $this->verificador->consultar((string) ($link->link_alias ?: $alias), (int) $link->amount);
+        if ($consulta['estado'] !== 'confirmado') {
+            $this->dejarPendienteVerificacion($link, $payload, $campos, $consulta, $intentosPrevios);
+
+            return [
+                'handled' => true,
+                'link_id' => $link->id,
+                'cobro_id' => null,
+                'message' => 'Pago no confirmado en TPago; no se registra cobro.',
+            ];
+        }
+
+        $amount = $consulta['monto'];
+        if ($consulta['ticket'] !== '') {
+            $ticket = $consulta['ticket'];
+            $campos['ticket_number'] = $consulta['ticket'];
+        }
+        if ($consulta['authorization_code'] !== '') {
+            $authCode = $consulta['authorization_code'];
+            $campos['authorization_code'] = $consulta['authorization_code'];
+        }
+        if ($consulta['response_code'] !== '') {
+            $campos['response_code'] = $consulta['response_code'];
         }
 
         $creado = false;
@@ -179,6 +208,68 @@ class TpagoCallbackService
             'cobro_id' => $cobroId,
             'message' => 'Pago confirmado y cobro registrado.',
         ];
+    }
+
+    /**
+     * Reintenta links cuyo callback llegó antes de que TPago liste el pago,
+     * o cuando la API no respondió. No llama a Bancard.
+     */
+    public function reintentarPendientes(): int
+    {
+        $links = TpagoPaymentLink::query()
+            ->whereNull('cobro_id')
+            ->where('status', 'pending_verify')
+            ->where('updated_at', '<=', now()->subMinutes(2))
+            ->orderBy('id')
+            ->limit(30)
+            ->get();
+
+        $revisados = 0;
+        foreach ($links as $link) {
+            $intentos = (int) data_get($link->callback_payload, '_verify.attempts', 0);
+            if ($intentos >= self::MAX_VERIFICACIONES) {
+                continue;
+            }
+
+            $payload = $link->callback_payload;
+            if (! is_array($payload)) {
+                continue;
+            }
+
+            unset($payload['_verify']);
+            $this->handle($payload);
+            $revisados++;
+        }
+
+        return $revisados;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array{alias: string, response_code: string, amount: int, ticket_number: string, authorization_code: string, status: string}  $campos
+     * @param  array{estado: string, monto: int, ticket: string, authorization_code: string, response_code: string, motivo: string}  $consulta
+     */
+    private function dejarPendienteVerificacion(TpagoPaymentLink $link, array $payload, array $campos, array $consulta, int $intentosPrevios): void
+    {
+        $intentos = $intentosPrevios + 1;
+        $payload['_verify'] = [
+            'attempts' => $intentos,
+            'estado' => $consulta['estado'],
+            'motivo' => $consulta['motivo'],
+            'at' => now()->toIso8601String(),
+        ];
+
+        $this->aplicarCallback($link, $payload, $campos);
+        $link->status = 'pending_verify';
+        $link->save();
+
+        Log::warning('[TPago callback] cobro no registrado: pago sin confirmación de la API', [
+            'link_id' => $link->id,
+            'link_alias' => $link->link_alias,
+            'estado' => $consulta['estado'],
+            'motivo' => $consulta['motivo'],
+            'intentos' => $intentos,
+        ]);
     }
 
     /**

@@ -294,11 +294,19 @@ class ClientePortalUserService
     }
 
     /**
-     * Genera contraseña portal: PLUS + 4 dígitos (ej. PLUS5685).
+     * Clave inicial del portal. Las claves PLUS de 4 dígitos ya entregadas siguen valiendo;
+     * las nuevas salen más largas para que no se puedan adivinar.
      */
     public function generarClavePlus(): string
     {
-        return 'PLUS'.str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $extra = '';
+        $max = strlen($alfabeto) - 1;
+        for ($i = 0; $i < 8; $i++) {
+            $extra .= $alfabeto[random_int(0, $max)];
+        }
+
+        return 'PLUS'.$extra;
     }
 
     /**

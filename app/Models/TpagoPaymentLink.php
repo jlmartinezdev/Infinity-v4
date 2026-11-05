@@ -67,6 +67,7 @@ class TpagoPaymentLink extends Model
         return [
             'creating' => 'Creando',
             'pending' => 'Pendiente',
+            'pending_verify' => 'Pendiente de verificación',
             'confirmed' => 'Confirmado',
             'paid' => 'Pagado',
             'approved' => 'Aprobado',
@@ -97,7 +98,7 @@ class TpagoPaymentLink extends Model
         if ($this->status === 'pending' && $this->expires_at && $this->expires_at->isPast()) {
             return 'gray';
         }
-        if (in_array($this->status, ['pending', 'creating'], true)) {
+        if (in_array($this->status, ['pending', 'creating', 'pending_verify'], true)) {
             return 'amber';
         }
 

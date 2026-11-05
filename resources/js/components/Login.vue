@@ -82,10 +82,6 @@
           </span>
           <span v-else>Ingresar</span>
         </button>
-
-        <div class="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
-          ¿No tienes acceso? <a href="/register" class="text-blue-600 dark:text-blue-400 hover:underline">Solicitar registro</a>
-        </div>
       </form>
     </div>
   </div>

@@ -67,15 +67,27 @@ class AuthController extends ApiController
             return $this->fail($integrityError, 401);
         }
 
+        $limiter = app(\App\Services\Auth\LoginIntentoLimiter::class);
+        $cuenta = (string) $validated['usuario'];
+        if ($limiter->bloqueado($cuenta)) {
+            return $this->fail($limiter->mensaje($cuenta), 429);
+        }
+
         $user = $tipo === 'cliente'
             ? $this->portal->autenticarPorDocumento($validated['usuario'], $validated['password'])
             : $this->autenticarStaff($validated['usuario'], $validated['password']);
 
         if (! $user) {
+            $limiter->registrarFallo($cuenta);
+            if ($limiter->bloqueado($cuenta)) {
+                return $this->fail($limiter->mensaje($cuenta), 429);
+            }
             throw ValidationException::withMessages([
                 'usuario' => ['Credenciales incorrectas o cuenta no disponible.'],
             ]);
         }
+
+        $limiter->limpiar($cuenta);
 
         if ($user->estado !== 'activo') {
             throw ValidationException::withMessages([

@@ -46,7 +46,6 @@ class SolicitudAccesoController extends ApiController
             if ($esOtp) {
                 \Illuminate\Support\Facades\Log::info('[solicitud-alta] OTP rechazado', [
                     'whatsapp' => $validated['whatsapp'] ?? null,
-                    'codigo_otp' => $validated['codigo_otp'] ?? null,
                 ]);
             }
 
