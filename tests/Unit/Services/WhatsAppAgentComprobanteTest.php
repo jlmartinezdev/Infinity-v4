@@ -224,6 +224,18 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $alDia = FraseCliente::saldoPendiente(['saldo' => 0]);
         $this->assertStringContainsString('no registra saldo pendiente', $alDia);
         $this->assertStringNotContainsString('100', $alDia);
+
+        // Tras pedir la cédula, el cliente la manda: hay que resolver el saldo, no “verificar a la brevedad”.
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('4194002'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('mi cedula es 4194002'));
+        $conCedula = FraseCliente::filtrar(
+            FraseCliente::saldoYCuentas(['saldo' => 120000], $canned),
+            FraseCliente::saldoYCuentas(['saldo' => 120000], $canned),
+        );
+        $this->assertStringContainsString('El valor a abonar es de Gs. 120.000.', $conCedula);
+        $this->assertStringContainsString('016-21-0378077', $conCedula);
+        $this->assertStringNotContainsString('estamos verificando', mb_strtolower($conCedula));
+        $this->assertStringNotContainsString('brevedad', mb_strtolower($conCedula));
     }
 
     public function test_saludo_segun_la_hora(): void

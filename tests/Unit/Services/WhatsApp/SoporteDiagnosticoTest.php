@@ -377,12 +377,18 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('soy 4765661 Por que no anda la señal de wifi'));
         $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('nr 4765661'));
         $this->assertSame('4765661', SoporteTexto::cedulaEnTexto('nro 4765661'));
+        $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('4194002'));
+        $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('mi cedula es 4194002'));
+        $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('mi cédula es 4194002'));
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('595 986 504437'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('soy Rufino Leiva Avalos no anda el wifi'));
         $this->assertSame('rufino leiva avalos', SoporteTexto::nombreEnTexto('Rufino Leiva Avalos no anda el wifi'));
         $this->assertTrue(SoporteTexto::esSoloIdentificador('595 986 504437'));
         $this->assertTrue(SoporteTexto::esSoloIdentificador('nr 4765661'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('4194002'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('mi cedula es 4194002'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('mi cédula es 4194002'));
         $this->assertSame(
             FraseCliente::ESCALADO,
             FraseCliente::filtrar(

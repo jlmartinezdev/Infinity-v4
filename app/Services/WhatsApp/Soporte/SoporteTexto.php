@@ -432,7 +432,7 @@ class SoporteTexto
             return null;
         }
 
-        if (preg_match('/(?:soy|ci|c[eé]dula|documento|nro?\.?|n[ºo°])\s*[:.]?\s*(\d{5,8})\b/u', $t, $m)) {
+        if (preg_match('/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))\s*(?:es\s*)?[:.]?\s*(\d{5,8})\b/u', $t, $m)) {
             return ltrim($m[1], '0') ?: $m[1];
         }
 
@@ -487,7 +487,10 @@ class SoporteTexto
         if (self::telefonoEnTexto($raw) && preg_match('/^[\d\s+().-]{8,20}$/', $raw)) {
             return true;
         }
-        if (self::cedulaEnTexto($raw) && preg_match('/^(?:soy|ci|c[eé]dula|documento|nro?\.?|n[ºo°])?\s*[:.]?\s*\d{5,8}$/iu', $raw)) {
+        if (self::cedulaEnTexto($raw) && preg_match(
+            '/^(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))?\s*(?:es\s*)?[:.]?\s*\d{5,8}$/iu',
+            $raw
+        )) {
             return true;
         }
         $nombre = self::nombreEnTexto($raw);
