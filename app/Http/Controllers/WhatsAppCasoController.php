@@ -47,7 +47,7 @@ class WhatsAppCasoController extends Controller
         ]);
         $estilo->guardar($data['estilo']);
 
-        return back()->with('success', 'Estilo Interplus actualizado. El próximo mensaje a n8n ya lo usa.');
+        return back()->with('success', 'Estilo Interplus actualizado. El próximo mensaje del agente ya lo usa.');
     }
 
     /**
