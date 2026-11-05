@@ -27,12 +27,15 @@
     <pre id="wa-resumen-admin" class="mx-auto mt-3 hidden max-h-48 max-w-3xl overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"></pre>
 </div>
 
+@php
+    $waTestConfig = [
+        'telInicial' => $telInicial,
+        'backend' => $backend ?? 'langgraph',
+        'urls' => $urls,
+    ];
+@endphp
 <script>
-window.__WHATSAPP_TEST_N8N_CONFIG__ = @json([
-    'telInicial' => $telInicial,
-    'backend' => $backend ?? 'langgraph',
-    'urls' => $urls,
-]);
+window.__WHATSAPP_TEST_N8N_CONFIG__ = @json($waTestConfig);
 </script>
 
 @push('scripts')
