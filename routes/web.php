@@ -306,14 +306,13 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
     Route::get('/whatsapp/accesos', [CpeAccesoController::class, 'index'])->name('whatsapp.accesos');
     Route::get('/whatsapp/mensajes', [WhatsAppWebController::class, 'mensajes'])->name('whatsapp.mensajes');
-    if (! app()->environment('production')) {
-        Route::get('/whatsapp/test-n8n', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-n8n');
-        Route::get('/whatsapp/test-agente', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-agente');
-        Route::get('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nHilo'])->name('whatsapp.test-n8n.hilo');
-        Route::post('/whatsapp/test-n8n/mensaje', [WhatsAppWebController::class, 'testN8nMensaje'])->name('whatsapp.test-n8n.mensaje');
-        Route::post('/whatsapp/test-n8n/ubicacion-aprobada', [WhatsAppWebController::class, 'testN8nUbicacionAprobada'])->name('whatsapp.test-n8n.ubicacion-aprobada');
-        Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
-    }
+    // Playground sandbox (595000…): no envía a Meta. Disponible también en producción para entrenar.
+    Route::get('/whatsapp/test-n8n', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-n8n');
+    Route::get('/whatsapp/test-agente', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-agente');
+    Route::get('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nHilo'])->name('whatsapp.test-n8n.hilo');
+    Route::post('/whatsapp/test-n8n/mensaje', [WhatsAppWebController::class, 'testN8nMensaje'])->name('whatsapp.test-n8n.mensaje');
+    Route::post('/whatsapp/test-n8n/ubicacion-aprobada', [WhatsAppWebController::class, 'testN8nUbicacionAprobada'])->name('whatsapp.test-n8n.ubicacion-aprobada');
+    Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
     Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
     Route::get('/whatsapp/hilo', [WhatsAppWebController::class, 'hiloJson'])->name('whatsapp.hilo');
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
