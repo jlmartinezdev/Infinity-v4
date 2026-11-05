@@ -30,10 +30,9 @@ class SoporteOrquestador
     {
         $telefono = $this->telefonoCuenta($mensaje);
         $texto = trim((string) $mensaje->cuerpo);
-        $cuenta = $this->cuentas->buscar($telefono);
-        if (! $cuenta) {
-            $cuenta = $this->cuentas->buscarEnTexto($texto);
-        }
+        // Si el mensaje trae cédula/celular (ej. el de la mamá), esa cuenta manda sobre el WhatsApp del chat.
+        $cuentaTexto = $this->cuentas->buscarEnTexto($texto);
+        $cuenta = $cuentaTexto ?: $this->cuentas->buscar($telefono);
         $claveDialogo = $telefono !== '' ? $telefono : (string) ($cuenta['whatsapp'] ?? $mensaje->telefono);
         $clavesDialogo = array_values(array_unique(array_filter([
             $claveDialogo,
@@ -619,10 +618,8 @@ class SoporteOrquestador
         $texto = trim((string) $mensaje->cuerpo);
         $canned = WhatsAppAgentService::textosCanned();
         $telefono = $this->telefonoCuenta($mensaje);
-        $cuenta = $this->cuentas->buscar($telefono);
-        if (! $cuenta) {
-            $cuenta = $this->cuentas->buscarEnTexto($texto);
-        }
+        $cuentaTexto = $this->cuentas->buscarEnTexto($texto);
+        $cuenta = $cuentaTexto ?: $this->cuentas->buscar($telefono);
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
         $pasoCanned = (string) ($this->dialogo->leer($telefono)['paso'] ?? '');
         if ($pasoCanned === '' && (string) $mensaje->telefono !== $telefono) {
@@ -1220,18 +1217,22 @@ class SoporteOrquestador
         $pideCuentas = WhatsAppAgentService::textoPareceDatosTransferencia($texto);
         $pideSaldo = SoporteTexto::pareceCuantoAbonar($texto);
         $esId = SoporteTexto::esSoloIdentificador($texto);
+        $traeCedula = SoporteTexto::cedulaEnTexto($texto) !== null
+            || SoporteTexto::telefonoEnTexto($texto) !== null;
         $hiloPidePago = $textoHilo !== '' && (
             SoporteTexto::pareceCuantoAbonar($textoHilo)
             || WhatsAppAgentService::textoPareceDatosTransferencia($textoHilo)
         );
         $sigueIdentificando = $paso === 'identificar_pago'
             || $agentePidioId
-            || ($esId && $hiloPidePago);
+            || ($esId && $hiloPidePago)
+            || ($traeCedula && ($pideSaldo || $hiloPidePago || $agentePidioId));
 
         $transferencia = trim((string) (WhatsAppAgentService::textosCanned()['transferencia'] ?? ''));
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
 
-        if ($esId && $sigueIdentificando) {
+        // Cédula/celular (sola o con “cuánto debe”): resolver el saldo ya, sin n8n.
+        if ($sigueIdentificando && ($esId || $traeCedula)) {
             if ($cuenta) {
                 return $this->paquete(
                     FraseCliente::filtrar(

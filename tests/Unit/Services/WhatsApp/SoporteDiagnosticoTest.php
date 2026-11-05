@@ -380,6 +380,20 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('4194002'));
         $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('mi cedula es 4194002'));
         $this->assertSame('4194002', SoporteTexto::cedulaEnTexto('mi cédula es 4194002'));
+        $this->assertSame('2620430', SoporteTexto::cedulaEnTexto('2.620.430'));
+        $this->assertSame('2620430', SoporteTexto::cedulaEnTexto('y el de mi mama 2.620.430'));
+        $this->assertSame('2620430', SoporteTexto::cedulaEnTexto('cuantos debe 2.620.430'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('2.620.430'));
+        $this->assertTrue(SoporteTexto::esSoloIdentificador('y el de mi mama 2.620.430'));
+        $this->assertTrue(SoporteTexto::pareceCuantoAbonar('cuantos es su cuenta'));
+        $this->assertTrue(SoporteTexto::pareceCuantoAbonar('cuantos debe 2.620.430'));
+        $this->assertStringNotContainsString(
+            'consultando',
+            mb_strtolower(FraseCliente::filtrar(
+                'Estamos consultando el valor a abonar correspondiente a la cédula 2.620.430. En breve le informaremos.',
+                FraseCliente::saldoPendiente(['saldo' => 50000])
+            ))
+        );
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('595 986 504437'));
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('0986504437'));
         $this->assertSame('595986504437', SoporteTexto::telefonoEnTexto('mi celular es 0986504437'));

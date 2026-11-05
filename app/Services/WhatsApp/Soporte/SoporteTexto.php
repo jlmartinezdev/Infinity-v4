@@ -46,7 +46,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/cu[aá]nto (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago)\b|cu[aá]nto.{0,24}\babonar\b|necesito abonar|abonar cu[aá]nto|cu[aá]nto es\b|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|\bmi saldo\b|saldo pendiente/u',
+            '/cu[aá]ntos? (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago|debe|debo)\b|cu[aá]nto.{0,24}\babonar\b|necesito abonar|abonar cu[aá]nto|cu[aá]ntos? es\b|cu[aá]ntos? es (su |la )?cuenta|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debe|debo pagar|hay que pagar)|lo que debe|lo que debo|\bmi saldo\b|saldo pendiente/u',
             $t
         );
     }
@@ -444,12 +444,38 @@ class SoporteTexto
             return null;
         }
 
-        if (preg_match('/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))\s*(?:es\s*)?[:.]?\s*(\d{5,8})\b/u', $t, $m)) {
-            return ltrim($m[1], '0') ?: $m[1];
+        $limpiar = static function (string $bruto): ?string {
+            $digitos = preg_replace('/\D+/', '', $bruto) ?? '';
+            if (strlen($digitos) < 5 || strlen($digitos) > 8) {
+                return null;
+            }
+
+            return ltrim($digitos, '0') ?: $digitos;
+        };
+
+        if (preg_match(
+            '/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))\s*(?:es\s*)?[:.]?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,8})\b/u',
+            $t,
+            $m
+        )) {
+            $out = $limpiar($m[1]);
+            if ($out) {
+                return $out;
+            }
+        }
+
+        // "el de mi mamá 2.620.430" / "cuantos debe 2.620.430"
+        if (preg_match('/(\d{1,3}(?:[.\s]\d{3}){1,2}|\d{5,8})\b/u', $t, $m)) {
+            $out = $limpiar($m[1]);
+            if ($out && (preg_match('/^\d{1,3}(?:[.\s]\d{3})+$/u', trim($t))
+                || preg_match('/(?:mam[aá]|pap[aá]|papa|esposa|esposo|hijo|hija|hermano|hermana|se[nñ]or[a]?|titular|debe|debo|cedula|c[eé]dula|ci)\b/u', $t)
+                || preg_match('/^\d{5,8}$/', $t))) {
+                return $out;
+            }
         }
 
         if (preg_match('/^\d{5,8}$/', $t)) {
-            return ltrim($t, '0') ?: $t;
+            return $limpiar($t);
         }
 
         return null;
@@ -505,10 +531,14 @@ class SoporteTexto
         )) {
             return true;
         }
-        if (self::cedulaEnTexto($raw) && preg_match(
-            '/^(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))?\s*(?:es\s*)?[:.]?\s*\d{5,8}$/iu',
+        $cedula = self::cedulaEnTexto($raw);
+        if ($cedula !== null && preg_match(
+            '/^(?:y\s+)?(?:el de (?:mi\s+)?)?(?:mam[aá]|pap[aá]|papa|esposa|esposo|hijo|hija|hermano|hermana|se[nñ]or[a]?)?\s*(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))?\s*(?:es\s*)?[:.]?\s*[\d.\s]{5,14}$/iu',
             $raw
         )) {
+            return true;
+        }
+        if ($cedula !== null && preg_match('/^[\d.\s]{5,14}$/u', $raw)) {
             return true;
         }
         $nombre = self::nombreEnTexto($raw);
