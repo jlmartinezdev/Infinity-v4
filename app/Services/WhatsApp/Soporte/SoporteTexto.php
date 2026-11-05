@@ -15,7 +15,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet|servicio)|se[nñ]al (wifi|wi-?fi)|como (esta|está) (mi |la )?se[nñ]al|estado de (la |mi )?se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar/u',
+            '/no anda|no funciona|sin internet|sin servicio|se corta|se corto|se cort[oó]|muy lento|esta lento|est[aá] lento|lento|no carga|no abre|no navega|sin se[nñ]al|se[nñ]al (de |del )?(mi )?(wifi|wi-?fi|internet|servicio)|se[nñ]al (wifi|wi-?fi)|como (esta|está) (mi |la )?se[nñ]al|estado de (la |mi )?se[nñ]al|no tengo (internet|wifi|wi-?fi)|no hay (internet|wifi|wi-?fi)|se ca[yi][oó]|p[aá]gina|pagina|no me anda|anda mal|intermitente|no da m[aá]s se[nñ]al|reclamo por (el )?internet|desde ayer|desde anteayer|desde (la )?tarde|estamos sin|qued[oó] sin|dej[oó] de funcionar|ruteador|router.{0,20}sin (conexi[oó]n|internet)|sin conexi[oó]n a internet|no alza|no levanta|no puedo ver|no entra (a |en )?(tiktok|facebook|youtube|ig|instagram)/u',
             $t
         );
     }
@@ -63,7 +63,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/cu[aá]ntos? (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago|debe|debo)\b|cu[aá]nto.{0,24}\babonar\b|necesito abonar|abonar cu[aá]nto|cu[aá]ntos? es\b|cu[aá]ntos? es (su |la )?cuenta|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debe|debo pagar|hay que pagar)|lo que debe|lo que debo|\bmi saldo\b|saldo pendiente/u',
+            '/cu[aá]ntos? (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago|debe|debo)\b|cu[aá]nto.{0,24}\babonar\b|necesito abonar|abonar cu[aá]nto|cu[aá]ntos? es\b|cu[aá]ntos? es (su |la )?cuenta|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debe|debo pagar|hay que pagar)|lo que debe|lo que debo|\bmi saldo\b|saldo pendiente|se puede abonar|voy a? abonar|debo abonar|quiero pagar|c[oó]mo (puedo |tengo que )?(pagar|abonar)|pagar (mi |el |la |por (el |mi |la )?)?(wifi|cuota|internet)|abonar ya|volver a abonar/u',
             $t
         );
     }
@@ -471,10 +471,16 @@ class SoporteTexto
         };
 
         if (preg_match(
-            '/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))\s*(?:es\s*)?[:.]?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,8})\b/u',
+            '/(?:(?:mi\s+)?(?:soy|ci|c[eé]dula(?:\s+n[uú]mero)?|documento)|(?:nro?\.?|n[ºo°]))\s*(?:es\s*|n[uú]mero\s+es\s*)?[:.]?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,8})\b/u',
             $t,
             $m
         )) {
+            $out = $limpiar($m[1]);
+            if ($out) {
+                return $out;
+            }
+        }
+        if (preg_match('/documento\s+(\d{1,3}(?:[.\s]\d{3})+|\d{5,8})\b/u', $t, $m)) {
             $out = $limpiar($m[1]);
             if ($out) {
                 return $out;
@@ -550,7 +556,7 @@ class SoporteTexto
         }
         $cedula = self::cedulaEnTexto($raw);
         if ($cedula !== null && preg_match(
-            '/^(?:y\s+)?(?:el de (?:mi\s+)?)?(?:mam[aá]|pap[aá]|papa|esposa|esposo|hijo|hija|hermano|hermana|se[nñ]or[a]?)?\s*(?:(?:mi\s+)?(?:soy|ci|c[eé]dula|documento)|(?:nro?\.?|n[ºo°]))?\s*(?:es\s*)?[:.]?\s*[\d.\s]{5,14}$/iu',
+            '/^(?:y\s+)?(?:el de (?:mi\s+)?)?(?:mam[aá]|pap[aá]|papa|esposa|esposo|hijo|hija|hermano|hermana|se[nñ]or[a]?)?\s*(?:(?:mi\s+)?(?:soy|ci|c[eé]dula(?:\s+n[uú]mero)?|documento)|(?:nro?\.?|n[ºo°]))?\s*(?:es\s*|n[uú]mero\s+es\s*)?[:.]?\s*[\d.\s]{5,14}$/iu',
             $raw
         )) {
             return true;

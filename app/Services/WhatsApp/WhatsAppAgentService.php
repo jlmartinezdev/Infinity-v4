@@ -1328,7 +1328,7 @@ class WhatsAppAgentService
         }
 
         return (bool) preg_match(
-            '/datos (de |para )?transf|a q(?:u[eé])? cuenta|n[uú]mero de cuenta|\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?(pago|deposit|abon)|cuenta (para |de )?(pago|transf|abon)|c[oó]mo (puedo )?pagar|dep[oó]sit\w*|para abonar/u',
+            '/datos (de |para )?transf|a q(?:u[eé])? cuenta|n[uú]mero(?:s)? de cuenta|nro\.?\s*de cuenta|\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?(pago|deposit|abon)|cuenta (para |de )?(pago|transf|tran[s]?f|abon|pagar)|pas(ame|á|a|ar)? (una |la )?cuenta|tran[s]?ferir|c[oó]mo (puedo )?pagar|dep[oó]sit\w*|para abonar|a que nro/u',
             $t
         );
     }
@@ -1536,7 +1536,7 @@ class WhatsAppAgentService
         }
 
         return (bool) preg_match(
-            '/mandar\s+(a\s+)?(bajar|instalar)|bajar\s+(wifi|wi-?fi|internet|fibra|antena)|instal(ar|en|an)|poner\s+(wifi|internet|fibra|antena)|quiero\s+(wifi|internet)|necesito\s+(wifi|internet)|contratar|nuevo\s+servicio|pasen\s+(a\s+)?instalar|me\s+instal|cablear|tirar\s+(el\s+)?cable/u',
+            '/mandar\s+(a\s+)?(bajar|instalar)|bajar\s+(wifi|wi-?fi|internet|fibra|antena)|instal(ar|en|an)|poner\s+(wifi|internet|fibra|antena)|quiero\s+(wifi|internet)|necesito\s+(wifi|internet)|queremos\s+(el\s+)?(wifi|internet)|me interesa (el |la )?(wifi|internet)|obtener (mi |el )?wifi|para cuando (el )?wifi|pedido de wifi|contratar|nuevo\s+servicio|pasen\s+(a\s+)?instalar|me\s+instal|cablear|tirar\s+(el\s+)?cable|queriendo (el )?servicio/u',
             $t
         );
     }

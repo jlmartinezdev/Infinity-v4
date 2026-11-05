@@ -184,6 +184,24 @@ class CasosHabitualesClienteTest extends TestCase
             'bnf o familiar' => ['me das bnf o banco familiar', ['datos_transferencia' => false]], // no alcanza solo el banco
             '100 mil no es saldo solo' => ['100mil yo creo', ['cuanto_abonar' => false, 'datos_transferencia' => false]],
 
+            // —— corpus real (5 meses) ——
+            'corpus se puede abonar' => ['Queria saber si se puede abonar ya', $soloSaldo],
+            'corpus cedula numero' => ['Mi cédula numero es 6960028', $idCedula],
+            'corpus documento puntos' => ['mi documento 4.061.491', $idCedula],
+            'corpus ruteador' => ['Desde anteayer el ruteador estuvo sin conexión a internet', $falla],
+            'corpus no alza' => ['el de mi casa no alza más el Internet', $falla],
+            'corpus quiero pagar wifi' => ['Quiero pagar mi wifi', $soloSaldo],
+            'corpus como pagar cuota' => ['Hola buenas tardes como tengo que pagar la cuota de del Wifi', $soloSaldo],
+            'corpus como abonar dias' => ['Quisiera saber como puedo abonar por los días que estamos utilizando el servicio del wifi', ['cuanto_abonar' => true]],
+            'corpus cuenta tranferir' => ['Me podrias pasar una cuenta para tranferir', $soloCuentas],
+            'corpus nro cuenta pagar' => ['Buenas tardes a que nro. De cuenta puedo pagar por mi wifi porfavor.', ['datos_transferencia' => true]],
+            'corpus debo abonar instalacion' => ['Debo abonar ya antes de la instalación?', ['cuanto_abonar' => true]],
+            'corpus volver a abonar' => ['yo tengo q volver a abonar el 16 de este mes', ['cuanto_abonar' => true]],
+            'corpus queremos wifi' => ['Queremos el wifi', ['instalacion' => true]],
+            'corpus me interesa internet' => ['Me interesa el Internet', ['instalacion' => true]],
+            'corpus para cuando wifi' => ['Para cuando el WiFi', ['instalacion' => true]],
+            'corpus pedido wifi' => ['Referente al pedido de wifi', ['instalacion' => true]],
+
             // —— negativos: no confundir ——
             'hola no falla' => ['hola', ['falla' => false, 'datos_transferencia' => false, 'cuanto_abonar' => false]],
             'ubicacion no pago' => ['ahi te mando ubicacion', ['datos_transferencia' => false]],
