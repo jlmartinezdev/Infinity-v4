@@ -915,6 +915,9 @@ class SoporteOrquestador
     {
         return WhatsAppAgentService::textoParecePago($texto)
             || WhatsAppAgentService::textoPareceDatosTransferencia($texto)
+            || SoporteTexto::pareceCuantoAbonar($texto)
+            || SoporteTexto::pareceConsultaServicio($texto)
+            || SoporteTexto::esSoloIdentificador($texto)
             || WhatsAppAgentService::textoPareceBeneficiosPlanes($texto)
             || WhatsAppAgentService::textoPareceCondicionesServicio($texto)
             || WhatsAppAgentService::textoParecePlazoPago($texto)

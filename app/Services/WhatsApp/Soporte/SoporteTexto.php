@@ -46,7 +46,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/cu[aá]nto (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago)\b|cu[aá]nto.{0,24}\babonar\b|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|\bmi saldo\b|saldo pendiente/u',
+            '/cu[aá]nto (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago)\b|cu[aá]nto.{0,24}\babonar\b|necesito abonar|abonar cu[aá]nto|cu[aá]nto es\b|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|\bmi saldo\b|saldo pendiente/u',
             $t
         );
     }
