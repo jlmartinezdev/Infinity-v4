@@ -43,7 +43,8 @@ class EvaluadorDiagnostico
             return $this->cerrar('accion', FraseCliente::LUZ, false, null, null, 'luz');
         }
 
-        if ($incidente && ($paso !== '' || (bool) ($in['parece_falla'] ?? false) || (bool) ($in['parece_impresora'] ?? false))) {
+        // Una pregunta distinta (saldo, ping, equipos, impresora) no se convierte en el texto de zona.
+        if ($incidente && empty($in['pregunta_ajena']) && ($paso !== '' || (bool) ($in['parece_falla'] ?? false))) {
             return $this->cerrar('zona', FraseCliente::zona(), false, null, null, 'zona');
         }
 

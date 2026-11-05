@@ -65,13 +65,19 @@ class SoporteOrquestador
             );
         }
 
+        // Cuenta o cuánto abonar: antes de la falla del hilo y del seguimiento de zona.
+        $pago = $this->respuestaPago($cuenta, $texto);
+        if ($pago !== null) {
+            return $pago;
+        }
+
         $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente(
             (string) $mensaje->telefono,
             $mensaje->id ? (int) $mensaje->id : null,
             120,
         );
         $textoHilo = $rafaga['unido'] !== '' ? $rafaga['unido'] : $texto;
-        $parecePago = WhatsAppAgentService::textoParecePago($textoHilo);
+        $parecePago = WhatsAppAgentService::textoParecePago($texto);
         $tipoImagen = (string) data_get($mensaje->payload, 'wa_vision.tipo', '');
         $pareceComprobante = WhatsAppAgentService::detectarComprobante(
             (string) ($mensaje->tipo ?: 'text'),
@@ -79,13 +85,17 @@ class SoporteOrquestador
             [],
             $tipoImagen !== '' ? $tipoImagen : null,
         );
-        $pareceFalla = SoporteTexto::pareceFalla($textoHilo) && ! WhatsAppAgentService::textoPareceInstalacion($textoHilo);
-        // Intenciones de acción: solo el mensaje actual (el hilo unido trababa el cambio de WiFi).
+        // Intenciones: solo el mensaje actual. El hilo unido dejaba el corte de zona tapando saldo, ping y WiFi.
+        $ajena = SoporteTexto::preguntaAjenaAZona($texto) || $this->preguntaDeCuenta($texto);
+        $fallaActual = SoporteTexto::pareceFalla($texto) && ! WhatsAppAgentService::textoPareceInstalacion($texto);
+        $pareceFalla = $fallaActual
+            || (! $ajena && SoporteTexto::pareceFalla($textoHilo) && ! WhatsAppAgentService::textoPareceInstalacion($textoHilo));
         $pareceWifi = SoporteTexto::pareceCambioWifi($texto);
         $pareceNombreWifi = SoporteTexto::pareceConsultaNombreWifi($texto);
         $pareceImpresora = SoporteTexto::pareceImpresora($texto);
         $pareceEquipos = SoporteTexto::pareceConsultaEquipos($texto);
         $pideVecinos = SoporteTexto::pideVecinosWifi($texto);
+        $parecePing = SoporteTexto::pareceConsultaPing($texto);
         if ($pareceEquipos || $pideVecinos || $pareceNombreWifi) {
             $pareceFalla = true; // entra a soporte; no mandar a n8n a inventar
         }
@@ -111,11 +121,18 @@ class SoporteOrquestador
         $zonaAbierta = ($cuenta && $this->incidentes->hayAbierto($cuenta['router_id'] ?? null))
             || $this->incidentes->telefonoConAvisoAbierto((string) $mensaje->telefono)
             || $this->incidentes->telefonoConAvisoAbierto($telefono);
-        $seguimientoZona = $zonaAbierta && (
-            SoporteTexto::pareceSeguimientoZona($texto)
-            || SoporteTexto::pareceFalla($textoHilo)
-            || SoporteTexto::pareceCierre($texto)
-        );
+        $seguimientoZona = SoporteTexto::esSeguimientoZona($zonaAbierta, $texto) && ! $this->preguntaDeCuenta($texto);
+
+        // Saldo, plan, pago u otra consulta de cuenta: la responde el canned, aunque haya zona abierta.
+        $accionDeRed = $pareceWifi || $pareceNombreWifi || $pareceImpresora || $pareceEquipos || $pideVecinos || $parecePing
+            || SoporteTexto::pareceTelevision($texto) || SoporteTexto::pareceLuz($texto);
+        if ($ajena && ! $accionDeRed && ! $pareceComprobante) {
+            foreach (array_unique(array_filter($clavesDialogo)) as $clave) {
+                $this->dialogo->olvidar($clave);
+            }
+
+            return null;
+        }
 
         // Ya hay corte de zona: no mandar a n8n a reiniciar el router ni a saludar de nuevo.
         if ($seguimientoZona && $cuenta) {
@@ -195,6 +212,7 @@ class SoporteOrquestador
         $necesitaMedir = $pareceFalla
             || $pareceImpresora
             || $pareceEquipos
+            || $parecePing
             || $paso === 'cable'
             || $paso === 'equipo'
             || ($paso === 'sitio' && SoporteTexto::sitio($texto));
@@ -268,7 +286,34 @@ class SoporteOrquestador
             );
         }
 
-        // Listar equipos reales (ACS/DHCP) y ofrecer cambio de clave si sospecha vecinos.
+        if ($parecePing && $cuenta && ! $suspendido && ! $pareceWifi && ! $pareceEquipos && ! $pideVecinos) {
+            if ($servicio && $medicion === []) {
+                try {
+                    $medicion = $this->recolector->medir($servicio, null);
+                } catch (\Throwable) {
+                    $medicion = [];
+                }
+            }
+
+            return $this->paquete(
+                FraseCliente::pingVisto($medicion),
+                false,
+                null,
+                isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
+                'soporte_ping',
+                'Ping pedido por el cliente, sin repetir el corte de zona',
+                [
+                    'tipo' => 'ping',
+                    'motivo' => 'consulta_ping',
+                    'medicion' => $medicion,
+                    'servicio_id' => $cuenta['servicio_id'] ?? null,
+                    'cliente_id' => $cuenta['cliente_id'] ?? null,
+                    'asignado_id' => SoporteAdminConfig::usuarioId(),
+                ],
+            );
+        }
+
+        // Listar equipos reales (ACS/DHCP). No ofrece cambio de clave si no lo pidió.
         if (($pareceEquipos || $pideVecinos) && $servicio && ! $suspendido && ! $pareceWifi) {
             if ($medicion === []) {
                 $medicion = $this->recolector->medir($servicio, null);
@@ -289,11 +334,7 @@ class SoporteOrquestador
                 : '';
             if ($sinAccesoEquipos !== '') {
                 $out = $this->paquete(
-                    FraseCliente::escalado(
-                        $cuenta['cedula'] ?? null,
-                        is_string($cuenta['nombre_pila'] ?? null) ? $cuenta['nombre_pila'] : (is_string($cuenta['nombre'] ?? null) ? $cuenta['nombre'] : null),
-                        is_string($cuenta['apellido'] ?? null) ? $cuenta['apellido'] : null,
-                    ),
+                    FraseCliente::redEnRevision(),
                     true,
                     'sin_acceso_cpe',
                     isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null,
@@ -355,6 +396,7 @@ class SoporteOrquestador
             'texto' => $texto,
             'paso' => $paso,
             'incidente' => $this->incidentes->hayAbierto($cuenta['router_id'] ?? null),
+            'pregunta_ajena' => $ajena,
             'medicion' => $medicion,
         ]);
 
@@ -556,7 +598,15 @@ class SoporteOrquestador
         $texto = trim((string) $mensaje->cuerpo);
         $canned = WhatsAppAgentService::textosCanned();
         $cuenta = $this->cuentas->buscar($this->telefonoCuenta($mensaje));
+        if (! $cuenta) {
+            $cuenta = $this->cuentas->buscarEnTexto($texto);
+        }
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
+
+        $pago = $this->respuestaPago($cuenta, $texto);
+        if ($pago !== null) {
+            return $pago;
+        }
 
         if (SoporteTexto::parecePideClaveWifiActual($texto)) {
             return $this->paquete(
@@ -801,6 +851,22 @@ class SoporteOrquestador
         }
 
         return null;
+    }
+
+    /** Consulta de cuenta o catálogo. No es el corte de zona. */
+    private function preguntaDeCuenta(string $texto): bool
+    {
+        return WhatsAppAgentService::textoParecePago($texto)
+            || WhatsAppAgentService::textoPareceDatosTransferencia($texto)
+            || WhatsAppAgentService::textoPareceBeneficiosPlanes($texto)
+            || WhatsAppAgentService::textoPareceCondicionesServicio($texto)
+            || WhatsAppAgentService::textoParecePlazoPago($texto)
+            || WhatsAppAgentService::textoPareceBajaServicio($texto)
+            || WhatsAppAgentService::textoPareceCambioPlan($texto)
+            || WhatsAppAgentService::textoPareceInstalacion($texto)
+            || WhatsAppAgentService::textoPareceConsultaCobertura($texto)
+            || WhatsAppAgentService::textoPideTigoMoney($texto)
+            || WhatsAppAgentService::textoUenoNoDisponible($texto);
     }
 
     /**
@@ -1053,6 +1119,53 @@ class SoporteOrquestador
             'escalado' => FraseCliente::escalado($cedula, $nombre, $apellido),
             default => FraseCliente::escalado($cedula, $nombre, $apellido),
         };
+    }
+
+    /**
+     * Dónde depositar y/o cuánto abonar, con el saldo de la cuenta y el texto de transferencia.
+     * Sale antes de que un hilo con falla o una zona abierta se queden con el mensaje.
+     *
+     * @param  array<string, mixed>|null  $cuenta
+     * @return array<string, mixed>|null
+     */
+    private function respuestaPago(?array $cuenta, string $texto): ?array
+    {
+        $pideCuentas = WhatsAppAgentService::textoPareceDatosTransferencia($texto);
+        $pideSaldo = SoporteTexto::pareceCuantoAbonar($texto);
+        if (! $pideCuentas && ! $pideSaldo) {
+            return null;
+        }
+
+        $transferencia = trim((string) (WhatsAppAgentService::textosCanned()['transferencia'] ?? ''));
+        $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
+
+        if ($pideCuentas && $pideSaldo) {
+            $reply = FraseCliente::saldoYCuentas($cuenta, $transferencia);
+            $modo = 'canned_transferencia';
+            $resumen = 'Saldo de la cuenta y datos de transferencia';
+        } elseif ($pideCuentas) {
+            $reply = $transferencia;
+            $modo = 'canned_transferencia';
+            $resumen = 'Texto canónico de transferencia (sin n8n)';
+        } elseif ($cuenta) {
+            $reply = FraseCliente::saldoPendiente($cuenta);
+            $modo = 'canned_servicio';
+            $resumen = 'Saldo desde la cuenta (sin n8n)';
+        } else {
+            $reply = FraseCliente::saldoYCuentas(null, $transferencia);
+            $modo = 'canned_transferencia';
+            $resumen = 'Sin cuenta: se pidió identificación y se pasaron las cuentas';
+        }
+
+        return $this->paquete(
+            FraseCliente::filtrar($reply, $reply),
+            false,
+            null,
+            $clienteId,
+            $modo,
+            $resumen,
+            null,
+        );
     }
 
     /**

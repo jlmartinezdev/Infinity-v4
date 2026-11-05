@@ -240,6 +240,28 @@ class FraseCliente
         return implode("\n", $lineas);
     }
 
+    /** Responde el ping que pidió. No habla del corte de zona ni de milisegundos. */
+    public static function pingVisto(array $medicion): string
+    {
+        $cierre = '¿Hay alguna otra cosa en la que le podamos ayudar, o alguna duda?';
+        $pudo = ($medicion['pudo_medir'] ?? false) === true;
+        $cpe = $medicion['ping_cpe_ok'] ?? null;
+        if ($pudo && $cpe === true) {
+            return 'Revisamos el ping a su equipo y responde. '.$cierre;
+        }
+        if ($pudo && $cpe === false) {
+            return 'Revisamos el ping a su equipo y en este momento no responde. Lo seguimos desde aquí. '.$cierre;
+        }
+
+        return 'Estamos revisando el ping a su equipo. En cuanto responda le confirmamos. '.$cierre;
+    }
+
+    /** El equipo no contestó: no se inventa una lista vacía. */
+    public static function redEnRevision(): string
+    {
+        return 'Estamos revisando su red desde nuestro sistema. En cuanto el equipo responda le decimos qué figura conectado. ¿Hay alguna otra cosa en la que le podamos ayudar, o alguna duda?';
+    }
+
     /** Lista lo que se ve en su red. No habla de redes ajenas ni ofrece cambiar la clave si no lo pidió. */
     public static function listaEquiposVista(array $nombres, bool $pidioVecinos = false): string
     {
@@ -274,6 +296,44 @@ class FraseCliente
             '/venta suave|planes vigentes\s*\(|salida whatsapp|enrutado:|cotice solo|no invente precios|estilo interplus|obligatorio:|reglas fijas|historial_texto|instruccion_|·\s*prioridad\s*\d|gancho por conversaci|menosprecie|mensaje_hilo_reciente|planes_prompt|hechos\s*\(solo/u',
             $t
         );
+    }
+
+    /**
+     * Valor real a abonar. No repite un monto que el cliente haya adivinado.
+     *
+     * @param  array<string, mixed>|null  $cuenta
+     */
+    public static function saldoPendiente(?array $cuenta): string
+    {
+        if ($cuenta === null) {
+            return 'Para indicarle el saldo, escriba su cédula, su WhatsApp registrado o su nombre completo tal como figura en la factura.';
+        }
+        $saldo = isset($cuenta['saldo']) ? (float) $cuenta['saldo'] : 0.0;
+        if ($saldo > 0) {
+            $monto = number_format((int) round($saldo), 0, ',', '.');
+
+            return 'El valor a abonar es de Gs. '.$monto.'.';
+        }
+
+        return 'La cuenta no registra saldo pendiente.';
+    }
+
+    /**
+     * Saldo de la cuenta (o pedido de identificación) y texto de transferencia, en ese orden.
+     * Sin saludo: el sistema agrega uno solo.
+     *
+     * @param  array<string, mixed>|null  $cuenta
+     */
+    public static function saldoYCuentas(?array $cuenta, string $transferencia): string
+    {
+        $partes = [self::saldoPendiente($cuenta)];
+        $transferencia = trim($transferencia);
+        if ($transferencia !== '') {
+            $partes[] = $transferencia;
+        }
+        $partes[] = '¿Hay alguna otra cosa en la que podamos ayudarle?';
+
+        return implode("\n\n", $partes);
     }
 
     /**

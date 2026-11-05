@@ -494,4 +494,34 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertStringContainsString('sin deuda', mb_strtolower($detalle));
         $this->assertStringNotContainsString('Venta suave', $detalle);
     }
+
+    public function test_zona_abierta_no_tapa_otra_pregunta(): void
+    {
+        $this->assertTrue(SoporteTexto::pareceConsultaEquipos('y que es lo que ves de mi red'));
+        $this->assertTrue(SoporteTexto::pareceConsultaPing('el ping no anda?'));
+        $this->assertTrue(SoporteTexto::pareceConsultaServicio('cuantos debo?'));
+
+        $this->assertFalse(SoporteTexto::esSeguimientoZona(true, 'cuantos debo?'));
+        $this->assertFalse(SoporteTexto::esSeguimientoZona(true, 'podes mirar mi wifi y los conectados ahora'));
+        $this->assertFalse(SoporteTexto::esSeguimientoZona(true, 'el ping no anda?'));
+        $this->assertFalse(SoporteTexto::esSeguimientoZona(true, 'y que es lo que ves de mi red'));
+        $this->assertTrue(SoporteTexto::esSeguimientoZona(true, 'sigue sin internet'));
+        $this->assertFalse(SoporteTexto::esSeguimientoZona(false, 'sigue sin internet'));
+
+        $ping = FraseCliente::pingVisto(['pudo_medir' => true, 'ping_cpe_ok' => false]);
+        $this->assertStringContainsString('no responde', $ping);
+        $this->assertStringContainsString('alguna duda', $ping);
+        $this->assertStringNotContainsString('zona', mb_strtolower($ping));
+        $this->assertStringNotContainsString('CAMBIAR WIFI', FraseCliente::redEnRevision());
+
+        $decision = (new EvaluadorDiagnostico)->decidir([
+            'estado' => 'activo',
+            'parece_falla' => true,
+            'incidente' => true,
+            'pregunta_ajena' => true,
+            'texto' => 'el ping no anda?',
+            'medicion' => ['pudo_medir' => true, 'ping_cpe_ok' => false],
+        ]);
+        $this->assertNotSame('zona', $decision['tipo']);
+    }
 }

@@ -34,12 +34,32 @@ class SoporteTexto
         );
     }
 
+    /** Cuánto hay que abonar. Ortografía corta: "cuanto tengo q abonar". No es el plazo ni un monto adivinado. */
+    public static function pareceCuantoAbonar(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+        if (preg_match('/si no (abon|pag)|no abonamos|no pude pagar|qu[eé] pasa si no|hasta cu[aá]ndo puedo pagar|se (corta|suspende) si no/u', $t)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/cu[aá]nto (tengo |hay )?(q |que )?(abonar|abon[eé]|pagar|pago)\b|cu[aá]nto.{0,24}\babonar\b|tengo q abonar|tengo que abonar|cu[aá]ntos? debo|cu[aá]nto (pago|debo|debo pagar|hay que pagar)|lo que debo|\bmi saldo\b|saldo pendiente/u',
+            $t
+        );
+    }
+
     /** Consulta del plan/saldo/estado de la cuenta del cliente. */
     public static function pareceConsultaServicio(?string $texto): bool
     {
         $t = self::norm($texto);
         if ($t === '') {
             return false;
+        }
+        if (self::pareceCuantoAbonar($texto)) {
+            return true;
         }
 
         return (bool) preg_match(
@@ -85,7 +105,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|wifi.{0,40}conectad|los conectados|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n(es)? (est[aá]n? )?conectado|aparatos conectados|qu[eé] (es lo que )?(ves|ve|hay) en (mi |la |su )?(red|wifi)|lo que ves en (mi |la )?red|que ves en (mi |la )?(red|wifi)|mir(ar|a|á|e) (mi |el |su )?wifi/u',
+            '/list(ar|ame|á|a)?\s+(los\s+)?equipos|qu[eé] equipos (ves|ve|hay|tengo)|equipos (conectados|que ves|de la red)|dispositivos (conectados|en (el |la )?(wifi|red|router))|wifi.{0,40}conectad|los conectados|hay alg[uú]n vecino|redes? de vecinos?|vecinos?\s+(en\s+)?(el\s+)?wifi|qui[eé]n(es)? (est[aá]n? )?conectado|aparatos conectados|qu[eé] (es lo que )?(ves|ve|hay) (en|de) (mi |la |su )?(red|wifi)|lo que ves (en|de) (mi |la )?red|que ves (en|de) (mi |la )?(red|wifi)|mir(ar|a|á|e) (mi |el |su )?wifi/u',
             $t
         );
     }
@@ -120,6 +140,50 @@ class SoporteTexto
             $t
         ) || (bool) preg_match('/^(si|sí)[,.]?\s+(cambiar|cambie|cambiá)/u', $t)
             || (bool) preg_match('/cambi(ar|e|á|ame)\s+(la\s+|el\s+)?(clave|wifi|contrase|ssid)/u', $t);
+    }
+
+    /** Pregunta por el ping, no por el corte de zona. */
+    public static function pareceConsultaPing(?string $texto): bool
+    {
+        $t = self::norm($texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match('/\bping\b/u', $t);
+    }
+
+    /**
+     * La pregunta de ahora es otra cosa (saldo, equipos, ping, plan).
+     * Un incidente de zona abierto no debe taparla.
+     */
+    public static function preguntaAjenaAZona(?string $texto): bool
+    {
+        return self::pareceConsultaEquipos($texto)
+            || self::pideVecinosWifi($texto)
+            || self::pareceConsultaNombreWifi($texto)
+            || self::pareceCambioWifi($texto)
+            || self::pareceImpresora($texto)
+            || self::pareceConsultaServicio($texto)
+            || self::pareceEstadoServicio($texto)
+            || self::pareceConsultaCatalogo($texto)
+            || self::pareceConsultaTitular($texto)
+            || self::pareceConsultaPing($texto)
+            || self::pareceTelevision($texto)
+            || self::pareceLuz($texto)
+            || self::parecePideClaveWifiActual($texto);
+    }
+
+    /** El mensaje actual sigue el corte de zona. No usa mensajes anteriores. */
+    public static function esSeguimientoZona(bool $zonaAbierta, ?string $texto): bool
+    {
+        if (! $zonaAbierta || self::preguntaAjenaAZona($texto)) {
+            return false;
+        }
+
+        return self::pareceSeguimientoZona($texto)
+            || self::pareceFalla($texto)
+            || self::pareceCierre($texto);
     }
 
     /** Seguimiento de un reclamo/zona ya avisado (no abrir diagnóstico de cero). */
