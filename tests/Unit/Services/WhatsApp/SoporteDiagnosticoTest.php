@@ -337,13 +337,17 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue(SoporteTexto::pideVecinosWifi('si hay algun vecino'));
     }
 
-    public function test_lista_equipos_vista_sin_dbm_y_aclara_vecinos(): void
+    public function test_lista_equipos_vista_sin_dbm_y_sin_asumir_clave(): void
     {
         $texto = FraseCliente::listaEquiposVista(['Samsung', 'Notebook'], true);
         $this->assertStringContainsString('2 equipos', $texto);
         $this->assertStringContainsString('1. Samsung', $texto);
-        $this->assertStringContainsString('CAMBIAR WIFI', $texto);
-        $this->assertStringContainsString('vecinos', mb_strtolower($texto));
+        $this->assertStringContainsString('alguna duda', $texto);
+        $this->assertStringNotContainsString('CAMBIAR WIFI', $texto);
+        $this->assertStringNotContainsString('redes WiFi', $texto);
+        $vacio = FraseCliente::listaEquiposVista([]);
+        $this->assertStringNotContainsString('ajenas', $vacio);
+        $this->assertStringContainsString('alguna duda', $vacio);
         $this->assertStringNotContainsString('dBm', $texto);
         $this->assertTrue(SoporteTexto::pareceConfirmaCambioWifi('cambiar wifi'));
         $this->assertTrue(SoporteTexto::pideVecinosWifi('creo que un vecino está enganchado al wifi'));

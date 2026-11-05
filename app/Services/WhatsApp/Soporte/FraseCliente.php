@@ -240,18 +240,13 @@ class FraseCliente
         return implode("\n", $lineas);
     }
 
-    /** Lista equipos vistos en su red (sin dBm). Ofrece cambio de clave si sospecha vecinos. */
+    /** Lista lo que se ve en su red. No habla de redes ajenas ni ofrece cambiar la clave si no lo pidió. */
     public static function listaEquiposVista(array $nombres, bool $pidioVecinos = false): string
     {
+        $cierre = '¿Hay alguna otra cosa en la que le podamos ayudar, o alguna duda?';
         $cantidad = count($nombres);
         if ($cantidad === 0) {
-            $base = 'Revisamos su red. Ahora no aparece un equipo asociado.';
-            if ($pidioVecinos) {
-                $base .= ' No listamos redes WiFi ajenas; sí podemos cambiarle la clave del WiFi para cortar accesos no deseados.';
-            }
-
-            return $base.' Si está cerca del router, pruebe conectar su celular y escribanos de nuevo'
-                .($pidioVecinos ? ', o escriba CAMBIAR WIFI.' : '.');
+            return 'Revisamos su red. Ahora no aparece un equipo asociado. Si está cerca del router, conecte su celular y escríbanos de nuevo. '.$cierre;
         }
 
         $lineas = [
@@ -262,12 +257,7 @@ class FraseCliente
         foreach (array_values($nombres) as $i => $nombre) {
             $lineas[] = ($i + 1).'. '.$nombre;
         }
-        if ($pidioVecinos) {
-            $lineas[] = 'No listamos redes WiFi de vecinos; lo que sí vemos son los aparatos usando su servicio.';
-            $lineas[] = 'Si no reconoce alguno, escriba CAMBIAR WIFI y la contraseña que desea usar.';
-        } else {
-            $lineas[] = 'Si no reconoce alguno o sospecha que un vecino usa su WiFi, escriba CAMBIAR WIFI.';
-        }
+        $lineas[] = $cierre;
 
         return implode("\n", $lineas);
     }

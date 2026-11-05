@@ -312,7 +312,7 @@ class SoporteOrquestador
 
                 return $out;
             }
-            $replyEquipos = FraseCliente::listaEquiposVista($nombres, $pideVecinos || $pareceEquipos);
+            $replyEquipos = FraseCliente::listaEquiposVista($nombres);
             foreach (array_unique(array_filter($clavesDialogo)) as $clave) {
                 $this->dialogo->guardar($clave, [
                     'paso' => 'wifi_sospecha',
