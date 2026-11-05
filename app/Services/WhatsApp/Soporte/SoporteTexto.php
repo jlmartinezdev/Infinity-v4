@@ -46,7 +46,7 @@ class SoporteTexto
         }
 
         return (bool) preg_match(
-            '/^(ya|ya\?|ya est[aá]\??|listo\?|y ahora\??|ahora\??|de que est[aá]bamos hablando\??|de qu[eé] habl[aá]bamos\??|segu[ií]s\??|todav[ií]a\??)\.?$/u',
+            '/^(ya|ya\?|ya est[aá]\??|listo\?|y ahora\??|ahora\??|de que est[aá]bamos hablando\??|de qu[eé] habl[aá]bamos\??|de que hablamos\??|de qu[eé] hablamos\??|como que no\??|c[oó]mo que no\??|como no\??|si hay\??|existe\??|busc[aá]\??|segu[ií]s\??|todav[ií]a\??)\.?$/u',
             $t
         );
     }

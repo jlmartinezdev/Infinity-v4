@@ -68,18 +68,22 @@ class SoporteOrquestador
         $rafaga = app(WhatsAppAgentService::class)->rafagaClienteReciente(
             (string) $mensaje->telefono,
             $mensaje->id ? (int) $mensaje->id : null,
-            300,
+            1800,
         );
         $textoHilo = $rafaga['unido'] !== '' ? $rafaga['unido'] : $texto;
 
-        // "ya?" / "de qué hablábamos?": reusa la cédula del hilo o del diálogo.
-        if (! $cuentaTexto && (SoporteTexto::pareceInsisteSaldo($texto) || $paso === 'identificar_pago' || $paso === 'saldo_pendiente')) {
-            $cuentaHilo = $this->cuentas->buscarEnTexto($textoHilo);
-            if ($cuentaHilo) {
-                $cuenta = $cuentaHilo;
-            } elseif ($cedulaPendiente !== '') {
-                $cuenta = $this->cuentas->buscarEnTexto($cedulaPendiente) ?: $cuenta;
-            }
+        // "ya?" / "de qué hablábamos?": reusa la cédula del hilo, del diálogo o de mensajes recientes.
+        if (! $cuentaTexto && (
+            SoporteTexto::pareceInsisteSaldo($texto)
+            || $paso === 'identificar_pago'
+            || $paso === 'saldo_pendiente'
+            || $paso === 'saldo_informado'
+        )) {
+            $cuenta = $this->cuentaDesdeHiloPago(
+                (string) $mensaje->telefono,
+                $textoHilo,
+                $cedulaPendiente,
+            ) ?: $cuenta;
         }
 
         // Cuenta o cuánto abonar: antes de la falla del hilo y del seguimiento de zona.
@@ -642,13 +646,20 @@ class SoporteOrquestador
         $rafagaCanned = app(WhatsAppAgentService::class)->rafagaClienteReciente(
             (string) $mensaje->telefono,
             $mensaje->id ? (int) $mensaje->id : null,
-            300,
+            1800,
         );
         $hiloCanned = $rafagaCanned['unido'] !== '' ? $rafagaCanned['unido'] : $texto;
-        if (! $cuentaTexto && (SoporteTexto::pareceInsisteSaldo($texto) || $pasoCanned === 'identificar_pago' || $pasoCanned === 'saldo_pendiente')) {
-            $cuenta = $this->cuentas->buscarEnTexto($hiloCanned)
-                ?: ($cedulaPendienteCanned !== '' ? $this->cuentas->buscarEnTexto($cedulaPendienteCanned) : null)
-                ?: $cuenta;
+        if (! $cuentaTexto && (
+            SoporteTexto::pareceInsisteSaldo($texto)
+            || $pasoCanned === 'identificar_pago'
+            || $pasoCanned === 'saldo_pendiente'
+            || $pasoCanned === 'saldo_informado'
+        )) {
+            $cuenta = $this->cuentaDesdeHiloPago(
+                (string) $mensaje->telefono,
+                $hiloCanned,
+                $cedulaPendienteCanned,
+            ) ?: $cuenta;
         }
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
 
@@ -935,6 +946,7 @@ class SoporteOrquestador
         return WhatsAppAgentService::textoParecePago($texto)
             || WhatsAppAgentService::textoPareceDatosTransferencia($texto)
             || SoporteTexto::pareceCuantoAbonar($texto)
+            || SoporteTexto::pareceInsisteSaldo($texto)
             || SoporteTexto::pareceConsultaServicio($texto)
             || SoporteTexto::esSoloIdentificador($texto)
             || WhatsAppAgentService::textoPareceBeneficiosPlanes($texto)
@@ -1200,6 +1212,50 @@ class SoporteOrquestador
         };
     }
 
+    /**
+     * Cuenta a partir del hilo de pago, cédula guardada o mensajes recientes (hasta 2 h).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function cuentaDesdeHiloPago(string $telefono, string $textoHilo, string $cedulaPendiente): ?array
+    {
+        $cuenta = $this->cuentas->buscarEnTexto($textoHilo);
+        if ($cuenta) {
+            return $cuenta;
+        }
+        if ($cedulaPendiente !== '') {
+            $cuenta = $this->cuentas->buscarEnTexto($cedulaPendiente);
+            if ($cuenta) {
+                return $cuenta;
+            }
+        }
+
+        $tel = preg_replace('/\D+/', '', $telefono) ?: '';
+        if ($tel === '') {
+            return null;
+        }
+
+        $cuerpos = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->where('created_at', '>=', now()->subHours(2))
+            ->orderByDesc('id')
+            ->limit(50)
+            ->pluck('cuerpo');
+
+        foreach ($cuerpos as $cuerpo) {
+            $cedula = SoporteTexto::cedulaEnTexto((string) $cuerpo);
+            if (! $cedula) {
+                continue;
+            }
+            $cuenta = $this->cuentas->buscarEnTexto($cedula);
+            if ($cuenta) {
+                return $cuenta;
+            }
+        }
+
+        return null;
+    }
+
     /** El último mensaje del agente pidió cédula, celular o WhatsApp para el saldo. */
     private function agentePidioIdentificacionPago(string $telefono): bool
     {
@@ -1250,16 +1306,26 @@ class SoporteOrquestador
         );
         $sigueIdentificando = $paso === 'identificar_pago'
             || $paso === 'saldo_pendiente'
+            || $paso === 'saldo_informado'
             || $agentePidioId
             || ($esId && $hiloPidePago)
             || ($traeCedula && ($pideSaldo || $hiloPidePago || $agentePidioId))
-            || ($insiste && ($hiloPidePago || $paso === 'identificar_pago' || $paso === 'saldo_pendiente' || $cedulaHilo !== null));
+            || ($insiste && (
+                $hiloPidePago
+                || $paso === 'identificar_pago'
+                || $paso === 'saldo_pendiente'
+                || $paso === 'saldo_informado'
+                || $cedulaHilo !== null
+                || $cuenta !== null
+            ));
 
         $transferencia = trim((string) (WhatsAppAgentService::textosCanned()['transferencia'] ?? ''));
         $clienteId = isset($cuenta['cliente_id']) ? (int) $cuenta['cliente_id'] : null;
-        $cedulaParaGuardar = $cedulaMsg ?: $cedulaHilo;
+        $cedulaParaGuardar = $cedulaMsg
+            ?: $cedulaHilo
+            ?: (isset($cuenta['cedula']) ? preg_replace('/\D+/', '', (string) $cuenta['cedula']) : null);
 
-        // Cédula/celular, o “ya?” sobre un saldo pedido en el hilo: resolver ya, sin n8n.
+        // Cédula/celular, o “ya?” / “de qué hablamos?” sobre un saldo pedido: resolver ya, sin n8n.
         if ($sigueIdentificando && ($esId || $traeCedula || $insiste)) {
             if ($cuenta) {
                 $out = $this->paquete(
@@ -1276,6 +1342,11 @@ class SoporteOrquestador
                         : 'Identificación recibida: saldo de la cuenta y datos de transferencia',
                     null,
                 );
+                // Deja la cédula en memoria por si pregunta “de qué hablamos?”.
+                $out['guardar_paso'] = 'saldo_informado';
+                if ($cedulaParaGuardar) {
+                    $out['cedula_pendiente'] = $cedulaParaGuardar;
+                }
 
                 return $out;
             }
@@ -1309,8 +1380,8 @@ class SoporteOrquestador
             if (! $cuenta) {
                 $guardarPaso = 'identificar_pago';
                 $resumen = 'Sin cuenta: se pidió identificación y se pasaron las cuentas';
-            } elseif ($cedulaParaGuardar) {
-                $guardarPaso = 'saldo_pendiente';
+            } else {
+                $guardarPaso = 'saldo_informado';
             }
         } elseif ($pideCuentas) {
             $reply = $transferencia;
@@ -1320,9 +1391,7 @@ class SoporteOrquestador
             $reply = FraseCliente::saldoPendiente($cuenta);
             $modo = 'canned_servicio';
             $resumen = 'Saldo desde la cuenta (sin n8n)';
-            if ($cedulaParaGuardar) {
-                $guardarPaso = 'saldo_pendiente';
-            }
+            $guardarPaso = 'saldo_informado';
         } else {
             $reply = FraseCliente::saldoYCuentas(null, $transferencia);
             $modo = 'canned_transferencia';

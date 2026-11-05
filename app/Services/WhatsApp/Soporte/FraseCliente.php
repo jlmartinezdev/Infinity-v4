@@ -436,7 +436,10 @@ class FraseCliente
         if (self::niegaRevision($reply)) {
             return self::REVISANDO_SERVICIO;
         }
-        if (preg_match('/(estamos|seguimos) (verificando|consultando).{0,100}(saldo|valor|abonar|c[eé]dula)|en breve le inform|a la brevedad/iu', $reply)) {
+        if (preg_match(
+            '/(estamos|seguimos) (verificando|consultando).{0,100}(saldo|valor|abonar|c[eé]dula)|en breve le inform|a la brevedad|no logramos ubicar.{0,40}c[eé]dula|no (encontramos|logramos).{0,40}(c[eé]dula|servicio asociado)/iu',
+            $reply
+        )) {
             return $fallback;
         }
 

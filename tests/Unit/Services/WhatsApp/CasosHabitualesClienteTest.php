@@ -91,6 +91,8 @@ class CasosHabitualesClienteTest extends TestCase
             'ya insiste saldo' => ['ya?', ['insiste_saldo' => true, 'falla' => false]],
             'ya esta insiste' => ['ya esta?', ['insiste_saldo' => true]],
             'de que hablabamos' => ['de que estabamos hablando?', ['insiste_saldo' => true]],
+            'de que hablamos' => ['de que hablamos?', ['insiste_saldo' => true, 'catalogo' => false]],
+            'como que no' => ['como que no', ['insiste_saldo' => true, 'catalogo' => false]],
             'ci numero' => ['ci 4765661', $idCedula],
             'nro cedula' => ['nro 4765661', $idCedula],
             'celular local' => ['0986504437', $idCel],

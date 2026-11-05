@@ -390,6 +390,9 @@ class SoporteDiagnosticoTest extends TestCase
         $this->assertTrue(SoporteTexto::pareceInsisteSaldo('ya?'));
         $this->assertTrue(SoporteTexto::pareceInsisteSaldo('ya esta?'));
         $this->assertTrue(SoporteTexto::pareceInsisteSaldo('de que estabamos hablando?'));
+        $this->assertTrue(SoporteTexto::pareceInsisteSaldo('de que hablamos?'));
+        $this->assertTrue(SoporteTexto::pareceInsisteSaldo('como que no'));
+        $this->assertFalse(SoporteTexto::pareceConsultaCatalogo('de que hablamos?'));
         $this->assertSame('2620430', SoporteTexto::cedulaEnTexto('cuantos debe 2.620.430 ya? cuantos debe 2.620.430'));
         $filtradoConsulta = FraseCliente::filtrar(
             'Seguimos consultando el valor a abonar correspondiente a la cédula 2.620.430. En breve le informaremos por este medio.',
