@@ -14,7 +14,7 @@ class WhatsAppCasoController extends Controller
     {
         return view('whatsapp.casos', [
             'casos' => WaCaso::query()->orderByDesc('usos_exitosos')->orderByDesc('id')->get(),
-            'estilo' => $estilo->texto(),
+            'estilo' => $estilo->base(),
         ]);
     }
 

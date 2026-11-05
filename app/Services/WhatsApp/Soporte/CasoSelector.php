@@ -92,7 +92,10 @@ class CasoSelector
         if (preg_match('/^(muy )?(buenos? d[ií]as|buenas tardes|hola)[!¡.]*$/u', $t)) {
             return true;
         }
-        if (preg_match('/titular:|n[°º]\s*de cuenta|ueno bank|banco familiar|banco nacional de fomento/u', $t)) {
+        if (preg_match('/titular:|banco familiar|banco nacional de fomento/u', $t)) {
+            return true;
+        }
+        if (EstiloInterplus::textoProhibido($t)) {
             return true;
         }
 

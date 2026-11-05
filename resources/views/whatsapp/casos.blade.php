@@ -1,11 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'WhatsApp - Plantillas')
+@section('title', 'WhatsApp - Casos')
 
 @section('content')
+@php
+    $etiquetas = ['saludo', 'cierre', 'cobertura', 'cobranza', 'soporte', 'general'];
+    $campo = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900';
+    $activos = $casos->where('activo', true);
+    $inactivos = $casos->where('activo', false);
+@endphp
 <div class="mx-auto max-w-4xl">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">WhatsApp</h1>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Plantillas de texto que el soporte puede usar. Sin decibeles, IP ni velocidades: eso queda para el técnico.</p>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Frases que el agente puede usar. El trato es de usted, con Sr. o Sra.</p>
 
     @include('whatsapp._tabs', ['waTab' => 'casos'])
 
@@ -17,19 +23,36 @@
         @csrf
         @method('PUT')
         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Estilo Interplus</h2>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se inyecta en cada consulta a n8n. Sin mediciones técnicas ni teléfonos.</p>
-        <textarea name="estilo" required rows="8" class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">{{ old('estilo', $estilo ?? '') }}</textarea>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Así habla el agente. Las cuentas de pago no se editan acá: salen del texto fijo de transferencia.</p>
+        <label class="mt-3 block text-xs font-medium text-gray-600 dark:text-gray-300" for="estilo">Texto de estilo</label>
+        <textarea id="estilo" name="estilo" required rows="10" class="{{ $campo }} mt-1">{{ old('estilo', $estilo ?? '') }}</textarea>
         <button class="mt-3 w-fit rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">Guardar estilo</button>
     </form>
 
-    <form method="POST" action="{{ route('whatsapp.casos.store') }}" class="mb-6 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+    <form method="POST" action="{{ route('whatsapp.casos.store') }}" class="mb-8 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         @csrf
         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Nuevo caso</h2>
         <div class="mt-3 grid gap-3">
-            <input name="titulo" required placeholder="Título" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
-            <input name="etiqueta" placeholder="Etiqueta: cobranza, cable, sitio, senal, zona" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
-            <input name="palabras" placeholder="Palabras, separadas por coma" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
-            <textarea name="texto" required rows="3" placeholder="Qué decirle al cliente, en simple" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900"></textarea>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300" for="nuevo-texto">Frase al cliente</label>
+                <textarea id="nuevo-texto" name="texto" required rows="4" placeholder="Qué decirle al cliente, en usted" class="{{ $campo }}"></textarea>
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300" for="nuevo-titulo">Título</label>
+                <input id="nuevo-titulo" name="titulo" required maxlength="120" placeholder="Nombre corto del caso" class="{{ $campo }}">
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300" for="nuevo-etiqueta">Etiqueta</label>
+                <select id="nuevo-etiqueta" name="etiqueta" class="{{ $campo }}">
+                    @foreach($etiquetas as $opcion)
+                        <option value="{{ $opcion }}">{{ $opcion }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300" for="nuevo-palabras">Palabras</label>
+                <input id="nuevo-palabras" name="palabras" placeholder="pago, saldo, comprobante" class="{{ $campo }}">
+            </div>
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input type="checkbox" name="activo" value="1" checked> Activo
             </label>
@@ -37,33 +60,23 @@
         </div>
     </form>
 
-    <div class="space-y-3">
-        @forelse($casos as $caso)
-            <form method="POST" action="{{ route('whatsapp.casos.update', $caso) }}" class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                @csrf
-                @method('PUT')
-                <div class="grid gap-2">
-                    <input name="titulo" value="{{ $caso->titulo }}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
-                    <input name="etiqueta" value="{{ $caso->etiqueta }}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
-                    <input name="palabras" value="{{ $caso->palabras }}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
-                    <textarea name="texto" rows="3" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">{{ $caso->texto }}</textarea>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="activo" value="1" @checked($caso->activo)> Activo
-                    </label>
-                    <p class="text-xs text-gray-500">Usos OK: {{ (int) ($caso->usos_exitosos ?? 0) }} · Descartes: {{ (int) ($caso->usos_descartes ?? 0) }}</p>
-                    <div class="flex gap-2">
-                        <button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white">Actualizar</button>
-                    </div>
-                </div>
-            </form>
-            <form method="POST" action="{{ route('whatsapp.casos.destroy', $caso) }}" class="-mt-2 mb-2">
-                @csrf
-                @method('DELETE')
-                <button class="text-xs text-rose-600">Eliminar</button>
-            </form>
+    <div class="space-y-4">
+        @forelse($activos as $caso)
+            @include('whatsapp._caso', ['caso' => $caso, 'etiquetas' => $etiquetas, 'campo' => $campo])
         @empty
-            <p class="text-sm text-gray-500">Todavía no hay casos.</p>
+            <p class="text-sm text-gray-500">No hay casos activos.</p>
         @endforelse
     </div>
+
+    @if($inactivos->isNotEmpty())
+        <details class="mt-8 rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+            <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200">Inactivos ({{ $inactivos->count() }})</summary>
+            <div class="space-y-4 border-t border-gray-200 p-4 dark:border-gray-700">
+                @foreach($inactivos as $caso)
+                    @include('whatsapp._caso', ['caso' => $caso, 'etiquetas' => $etiquetas, 'campo' => $campo])
+                @endforeach
+            </div>
+        </details>
+    @endif
 </div>
 @endsection

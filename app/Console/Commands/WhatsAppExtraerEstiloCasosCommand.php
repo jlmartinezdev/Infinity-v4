@@ -15,9 +15,9 @@ class WhatsAppExtraerEstiloCasosCommand extends Command
                             {--min=3 : Repeticiones mínimas para crear un caso}
                             {--dry-run : Solo muestra, no guarda}';
 
-    protected $description = 'Extrae estilo y casos Interplus desde respuestas humanas de WhatsApp';
+    protected $description = 'Crea casos Interplus desde respuestas humanas de WhatsApp, sin cuentas ni voseo';
 
-    public function handle(EstiloInterplus $estilo): int
+    public function handle(): int
     {
         $limite = max(100, (int) $this->option('limite'));
         $min = max(2, (int) $this->option('min'));
@@ -36,7 +36,7 @@ class WhatsAppExtraerEstiloCasosCommand extends Command
         $conteo = [];
         foreach ($filas as $fila) {
             $texto = $this->normalizar((string) $fila->cuerpo);
-            if ($texto === null) {
+            if ($texto === null || EstiloInterplus::textoProhibido($texto)) {
                 continue;
             }
             $clave = mb_strtolower($texto);
@@ -83,19 +83,10 @@ class WhatsAppExtraerEstiloCasosCommand extends Command
             }
         }
 
-        $bloqueEstilo = $estilo->default()."\n\nEjemplos frecuentes del historial Interplus:\n";
-        foreach (array_slice($candidatos, 0, 12) as $item) {
-            $bloqueEstilo .= '- '.$item['texto']."\n";
-        }
-
-        if (! $dry) {
-            $estilo->guardar(trim($bloqueEstilo));
-        }
-
         $this->table(['metric', 'valor'], [
             ['creados', (string) $creados],
             ['actualizados', (string) $actualizados],
-            ['estilo', $dry ? 'dry-run' : 'guardado'],
+            ['estilo', 'sin cambios'],
             ['wa_casos', (string) WaCaso::query()->count()],
         ]);
 

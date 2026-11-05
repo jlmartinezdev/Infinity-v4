@@ -17,26 +17,68 @@ class EstiloInterplus
     /** No las pisa el texto guardado en la base. */
     private const REGLAS_FIJAS = 'Reglas fijas: trato de usted. El saludo, una sola vez, es “Muy buenos días”, “Muy buenas tardes” o “Muy buenas noches”, y si hay trato: “, Sr. Apellido” o “, Sra. Apellido”. No use el nombre de pila. Si el trato es Sr., no diga Sra. Si está vacío, no invente Sr. ni Sra. No invente clave WiFi. Un gracias cierra sin ofrecer planes. No salude dos veces. No reformule la cédula del cliente.';
 
+    /** Cuentas, Ueno y voseo no entran al prompt ni a un caso. */
+    public static function textoProhibido(?string $texto): bool
+    {
+        $t = trim((string) $texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\bueno\b|n[°º]\.?\s*de cuenta|n[uú]mero de cuenta|\bme pases\b|\bpuedes\b/iu',
+            $t
+        );
+    }
+
+    public static function sanear(string $texto): string
+    {
+        $lineas = preg_split('/\R/u', $texto) ?: [];
+        $out = [];
+        foreach ($lineas as $linea) {
+            if (self::textoProhibido($linea)) {
+                continue;
+            }
+            $out[] = $linea;
+        }
+
+        return trim(implode("\n", $out));
+    }
+
+    /** Texto editable, sin las reglas fijas que se agregan al enviar a n8n. */
+    public function base(): string
+    {
+        $guardado = '';
+        try {
+            $guardado = trim((string) FacturacionParametro::obtener(self::CLAVE, ''));
+        } catch (\Throwable) {
+            $guardado = '';
+        }
+
+        if ($guardado !== '' && ! self::textoProhibido($guardado)) {
+            return self::sanear($guardado);
+        }
+
+        $path = base_path(self::ARCHIVO);
+        $archivo = File::isFile($path) ? trim((string) File::get($path)) : '';
+        if ($archivo !== '' && ! self::textoProhibido($archivo)) {
+            return self::sanear($archivo);
+        }
+
+        return $this->default();
+    }
+
     public function texto(): string
     {
-        $base = '';
-        try {
-            $base = trim((string) FacturacionParametro::obtener(self::CLAVE, ''));
-        } catch (\Throwable) {
-            $base = '';
-        }
-
-        if ($base === '') {
-            $path = base_path(self::ARCHIVO);
-            $base = File::isFile($path) ? trim((string) File::get($path)) : $this->default();
-        }
-
-        return trim($base."\n".self::REGLAS_FIJAS);
+        return trim($this->base()."\n".self::REGLAS_FIJAS);
     }
 
     public function guardar(string $texto): void
     {
-        $texto = trim($texto);
+        $texto = self::sanear($texto);
+        if ($texto === '') {
+            $texto = $this->default();
+        }
         FacturacionParametro::establecer(
             self::CLAVE,
             $texto,
