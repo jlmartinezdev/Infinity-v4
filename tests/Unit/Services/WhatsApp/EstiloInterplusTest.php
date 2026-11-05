@@ -35,6 +35,11 @@ class EstiloInterplusTest extends TestCase
         $this->assertLessThanOrEqual(42, mb_strlen($titulo));
         $this->assertStringEndsNotWith('dom', $titulo);
         $this->assertSame('En breve le confirmamos', EstiloInterplus::tituloCorto('En breve le confirmamos!'));
+        $this->assertStringEndsNotWith(',', $titulo);
+        $this->assertSame(
+            'El primer mes se abona el proporcional de los días utilizados desde la instalación. A partir del siguiente mes ya sería la totalidad de acuerdo al plan que tiene.',
+            EstiloInterplus::reescribirCaso('El primer mes se abona el proporcional de los días utilizado desde la instalación. A partir del siguiente mes ya sería la totalidad de acuerdo al plan que tienes!.')
+        );
     }
 
     public function test_el_estilo_limpio_no_esta_prohibido(): void

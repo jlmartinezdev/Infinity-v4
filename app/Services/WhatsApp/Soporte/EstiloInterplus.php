@@ -60,11 +60,12 @@ class EstiloInterplus
                 break;
             }
         }
+        $texto = self::pulir($texto);
         if (self::debeApagarse($texto)) {
             return null;
         }
 
-        return self::pulir($texto);
+        return $texto;
     }
 
     public static function debeApagarse(string $texto): bool
@@ -107,6 +108,10 @@ class EstiloInterplus
         $palabras = preg_split('/\s+/u', $t) ?: [];
         $out = '';
         foreach ($palabras as $palabra) {
+            $palabra = trim($palabra, '.,;:');
+            if ($palabra === '') {
+                continue;
+            }
             $siguiente = trim($out.' '.$palabra);
             if (mb_strlen($siguiente) > 42) {
                 break;
