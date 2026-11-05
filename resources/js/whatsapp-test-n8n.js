@@ -12,6 +12,7 @@ if (el) {
     render() {
       return h(WhatsAppTestN8n, {
         telInicial: cfg.telInicial || '595000000001',
+        backend: cfg.backend || 'langgraph',
         urls: cfg.urls || {},
       });
     },

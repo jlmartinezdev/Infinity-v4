@@ -5,8 +5,10 @@
         'estado' => ['label' => 'Estado', 'route' => 'whatsapp.index'],
         'mensajes' => ['label' => 'Mensajes', 'route' => 'whatsapp.mensajes'],
     ];
-    if (\Illuminate\Support\Facades\Route::has('whatsapp.test-n8n')) {
-        $tabs['test-n8n'] = ['label' => 'Test n8n', 'route' => 'whatsapp.test-n8n'];
+    if (\Illuminate\Support\Facades\Route::has('whatsapp.test-agente')) {
+        $tabs['test-n8n'] = ['label' => 'Test agente', 'route' => 'whatsapp.test-agente'];
+    } elseif (\Illuminate\Support\Facades\Route::has('whatsapp.test-n8n')) {
+        $tabs['test-n8n'] = ['label' => 'Test agente', 'route' => 'whatsapp.test-n8n'];
     }
     $tabs += [
         'kpi' => ['label' => 'KPI', 'route' => 'whatsapp.kpi'],

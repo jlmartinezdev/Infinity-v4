@@ -192,12 +192,13 @@ class WhatsAppWebController extends Controller
         ]);
     }
 
-    public function testN8n(Request $request): View
+    public function testN8n(Request $request, WhatsAppAgentService $agent): View
     {
         $tel = WhatsAppAgentService::telefonoSandbox($request->get('tel'));
 
         return view('whatsapp.test-n8n', [
             'telInicial' => $tel,
+            'backend' => $agent->backendActivo(true),
             'urls' => [
                 'hilo' => route('whatsapp.test-n8n.hilo'),
                 'mensaje' => route('whatsapp.test-n8n.mensaje'),

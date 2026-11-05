@@ -98,9 +98,6 @@ Route::post('/login/dispositivo', [AuthController::class, 'loginDispositivo'])
     ->middleware('throttle:20,1')
     ->name('login.dispositivo');
 
-Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
-Route::post('/register', [AuthController::class, 'register']);
-
 // Recibo PDF público (enlace WhatsApp — token HMAC, sin login)
 // Acepta también el bug de plantilla Meta: /recibo/{{1}}{id}/{token}
 Route::get('/recibo/{cobro}/{token}', [CobroController::class, 'reciboPdfPublico'])
@@ -273,45 +270,50 @@ Route::middleware(['auth', 'permiso:solicitudes-acceso.editar'])->group(function
 
 // WhatsApp Cloud API (panel)
 Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
-    Route::get('/tmp/wa-agent', function () {
-        return view('tmp.wa-agent');
-    })->name('tmp.wa-agent');
-    Route::post('/tmp/wa-agent', function (\Illuminate\Http\Request $request) {
-        $validated = $request->validate([
-            'wa_id' => ['required', 'string', 'max:32'],
-            'mensaje' => ['required', 'string', 'max:2000'],
-            'nombre' => ['nullable', 'string', 'max:80'],
-            'enviar' => ['nullable'],
-        ]);
+    if (! app()->environment('production')) {
+        Route::get('/tmp/wa-agent', function () {
+            return view('tmp.wa-agent');
+        })->name('tmp.wa-agent');
+        Route::post('/tmp/wa-agent', function (\Illuminate\Http\Request $request) {
+            $validated = $request->validate([
+                'wa_id' => ['required', 'string', 'max:32'],
+                'mensaje' => ['required', 'string', 'max:2000'],
+                'nombre' => ['nullable', 'string', 'max:80'],
+                'enviar' => ['nullable'],
+            ]);
 
-        $lookup = app(\App\Services\WhatsApp\ClientePorTelefonoService::class)->buscar($validated['wa_id']);
-        $mensaje = \App\Models\WhatsappMensaje::query()->create([
-            'direccion' => \App\Models\WhatsappMensaje::DIRECCION_ENTRADA,
-            'telefono' => $validated['wa_id'],
-            'contacto_nombre' => $validated['nombre'] ?? null,
-            'tipo' => 'text',
-            'cuerpo' => $validated['mensaje'],
-            'wamid' => 'test-html-'.now()->timestamp,
-            'estado' => \App\Models\WhatsappMensaje::ESTADO_RECIBIDO,
-            'cliente_id' => ($lookup['encontrado'] ?? false) ? ($lookup['cliente_id'] ?? null) : null,
-            'payload' => ['timestamp' => time(), 'origen' => 'tmp-html'],
-        ]);
+            $lookup = app(\App\Services\WhatsApp\ClientePorTelefonoService::class)->buscar($validated['wa_id']);
+            $mensaje = \App\Models\WhatsappMensaje::query()->create([
+                'direccion' => \App\Models\WhatsappMensaje::DIRECCION_ENTRADA,
+                'telefono' => $validated['wa_id'],
+                'contacto_nombre' => $validated['nombre'] ?? null,
+                'tipo' => 'text',
+                'cuerpo' => $validated['mensaje'],
+                'wamid' => 'test-html-'.now()->timestamp,
+                'estado' => \App\Models\WhatsappMensaje::ESTADO_RECIBIDO,
+                'cliente_id' => ($lookup['encontrado'] ?? false) ? ($lookup['cliente_id'] ?? null) : null,
+                'payload' => ['timestamp' => time(), 'origen' => 'tmp-html'],
+            ]);
 
-        $resultado = app(\App\Services\WhatsApp\WhatsAppAgentService::class)
-            ->procesar($mensaje, $request->boolean('enviar'));
-        $resultado['lookup'] = $lookup;
+            $resultado = app(\App\Services\WhatsApp\WhatsAppAgentService::class)
+                ->procesar($mensaje, $request->boolean('enviar'));
+            $resultado['lookup'] = $lookup;
 
-        return back()->with('resultado', $resultado)->withInput();
-    })->name('tmp.wa-agent.run');
+            return back()->with('resultado', $resultado)->withInput();
+        })->name('tmp.wa-agent.run');
+    }
 
     Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
     Route::get('/whatsapp/accesos', [CpeAccesoController::class, 'index'])->name('whatsapp.accesos');
     Route::get('/whatsapp/mensajes', [WhatsAppWebController::class, 'mensajes'])->name('whatsapp.mensajes');
-    Route::get('/whatsapp/test-n8n', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-n8n');
-    Route::get('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nHilo'])->name('whatsapp.test-n8n.hilo');
-    Route::post('/whatsapp/test-n8n/mensaje', [WhatsAppWebController::class, 'testN8nMensaje'])->name('whatsapp.test-n8n.mensaje');
-    Route::post('/whatsapp/test-n8n/ubicacion-aprobada', [WhatsAppWebController::class, 'testN8nUbicacionAprobada'])->name('whatsapp.test-n8n.ubicacion-aprobada');
-    Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
+    if (! app()->environment('production')) {
+        Route::get('/whatsapp/test-n8n', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-n8n');
+        Route::get('/whatsapp/test-agente', [WhatsAppWebController::class, 'testN8n'])->name('whatsapp.test-agente');
+        Route::get('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nHilo'])->name('whatsapp.test-n8n.hilo');
+        Route::post('/whatsapp/test-n8n/mensaje', [WhatsAppWebController::class, 'testN8nMensaje'])->name('whatsapp.test-n8n.mensaje');
+        Route::post('/whatsapp/test-n8n/ubicacion-aprobada', [WhatsAppWebController::class, 'testN8nUbicacionAprobada'])->name('whatsapp.test-n8n.ubicacion-aprobada');
+        Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
+    }
     Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
     Route::get('/whatsapp/hilo', [WhatsAppWebController::class, 'hiloJson'])->name('whatsapp.hilo');
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');

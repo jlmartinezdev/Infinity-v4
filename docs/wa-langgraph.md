@@ -2,6 +2,15 @@
 
 Cerebro conversacional del agente WA: **LangGraph + Gemini** (`gemini-3.6-flash`, misma key que n8n/visión). Laravel es gateway Meta, tools de hechos y `ValidadorHechos`.
 
+## Dónde se prueba (UI)
+
+LangGraph **no tiene canvas** como n8n. La interfaz de chat es el playground de Laravel:
+
+- `/whatsapp/test-agente` (alias `/whatsapp/test-n8n`)
+- Tab **Test agente** en WhatsApp del panel
+
+API del grafo (solo localhost en la VM): `http://127.0.0.1:8091/health` y `POST /v1/turn`.
+
 ## Flujo
 
 1. Meta → Laravel webhook → `WhatsAppAgentService::procesar`

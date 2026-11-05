@@ -108,10 +108,12 @@
         </div>
 
         <div v-if="ultimo.error" class="wa-warn border-t px-4 py-2 text-xs">
-          n8n: {{ ultimo.error }}
+          agente: {{ ultimo.error }}
         </div>
-        <div v-else-if="ultimo.modo || ultimo.n8n_latency_ms" class="wa-muted border-t px-4 py-1.5 text-[11px]">
-          <template v-if="ultimo.n8n_latency_ms">{{ ultimo.n8n_latency_ms }} ms</template>
+        <div v-else-if="ultimo.modo || ultimo.n8n_latency_ms || ultimo.backend || backend" class="wa-muted border-t px-4 py-1.5 text-[11px]">
+          <template v-if="ultimo.backend || backend">{{ ultimo.backend || backend }}</template>
+          <template v-if="ultimo.intent"> · {{ ultimo.intent }}</template>
+          <template v-if="ultimo.n8n_latency_ms"> · {{ ultimo.n8n_latency_ms }} ms</template>
           <template v-if="ultimo.modo"> · {{ ultimo.modo }}</template>
           <template v-if="ultimo.escalate"> · escala {{ ultimo.motivo_escalado || '' }}</template>
           <template v-if="flagsLabel"> · {{ flagsLabel }}</template>
@@ -191,6 +193,7 @@ export default {
   name: 'WhatsAppTestN8n',
   props: {
     telInicial: { type: String, default: '595000000001' },
+    backend: { type: String, default: 'langgraph' },
     urls: { type: Object, default: () => ({}) },
   },
   data() {
@@ -302,7 +305,7 @@ export default {
         if (data.error) this.mostrarToast(data.error, false);
         else this.mostrarToast('Cobertura aprobada: el agente sigue con los planes');
       } catch (e) {
-        const msg = e.response?.data?.error || e.response?.data?.message || e.message || 'Error al llamar n8n';
+        const msg = e.response?.data?.error || e.response?.data?.message || e.message || 'Error al llamar al agente';
         this.mostrarToast(msg, false);
       } finally {
         this.enviando = false;
@@ -369,7 +372,7 @@ export default {
         this.aplicarPayload(data);
         if (data.error) this.mostrarToast(data.error, false);
       } catch (e) {
-        const msg = e.response?.data?.error || e.response?.data?.message || e.message || 'Error al llamar n8n';
+        const msg = e.response?.data?.error || e.response?.data?.message || e.message || 'Error al llamar al agente';
         this.mostrarToast(msg, false);
       } finally {
         this.enviando = false;

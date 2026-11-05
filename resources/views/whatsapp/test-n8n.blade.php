@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'WhatsApp - Test n8n')
+@section('title', 'WhatsApp - Test agente')
 
 @section('content')
 @include('partials.whatsapp-chat-theme')
@@ -8,7 +8,12 @@
     <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">WhatsApp</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Playground del agente n8n: no sale a WhatsApp real</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Playground del agente (LangGraph + Gemini): no sale a WhatsApp real
+                @if(!empty($backend))
+                    · backend <span class="font-mono text-emerald-700 dark:text-emerald-400">{{ $backend }}</span>
+                @endif
+            </p>
         </div>
     </div>
 
@@ -16,7 +21,7 @@
 
     <div id="whatsapp-test-n8n-app" class="mt-3">
         <div class="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-xl dark:border-[#2a3942] dark:bg-[#111b21] dark:text-[#8696a0]">
-            Cargando test n8n...
+            Cargando test del agente...
         </div>
     </div>
     <pre id="wa-resumen-admin" class="mx-auto mt-3 hidden max-h-48 max-w-3xl overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"></pre>
@@ -25,6 +30,7 @@
 <script>
 window.__WHATSAPP_TEST_N8N_CONFIG__ = @json([
     'telInicial' => $telInicial,
+    'backend' => $backend ?? 'langgraph',
     'urls' => $urls,
 ]);
 </script>
