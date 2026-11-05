@@ -23,7 +23,7 @@
         @csrf
         @method('PUT')
         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Estilo Interplus</h2>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Así habla el agente. Las cuentas de pago no se editan acá: salen del texto fijo de transferencia.</p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Así habla el agente. Las cuentas de pago no se editan acá: salen del texto fijo de transferencia. n8n recibe este estilo en cada mensaje. Un caso entra solo si alguna de sus palabras está en el mensaje del cliente, y nunca más de tres.</p>
         <label class="mt-3 block text-xs font-medium text-gray-600 dark:text-gray-300" for="estilo">Texto de estilo</label>
         <textarea id="estilo" name="estilo" required rows="10" class="{{ $campo }} mt-1">{{ old('estilo', $estilo ?? '') }}</textarea>
         <button class="mt-3 w-fit rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">Guardar estilo</button>
