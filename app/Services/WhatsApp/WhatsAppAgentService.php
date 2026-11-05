@@ -165,6 +165,26 @@ class WhatsAppAgentService
             if ($canned !== null) {
                 return $this->cerrarConSoporte($mensaje, $canned, $enviar, $sandbox);
             }
+        } else {
+            // Cobertura/cupo: no dejar que el LLM lo confunda con transferencia bancaria.
+            $cuerpoCob = self::captionUtil((string) $mensaje->cuerpo);
+            if (
+                self::textoPareceConsultaCobertura($cuerpoCob)
+                && ! self::textoPareceDatosTransferencia($cuerpoCob)
+            ) {
+                return $this->cerrarConSoporte($mensaje, [
+                    'reply' => 'Con gusto verificamos si hay cuenta disponible en su zona. '
+                        .'Indíquenos el barrio y la ciudad, o envíenos su ubicación por WhatsApp '
+                        .'(clip → Ubicación) para confirmar cobertura.',
+                    'escalate' => false,
+                    'cliente_id' => $mensaje->cliente_id,
+                    'motivo_escalado' => null,
+                    'error' => null,
+                    'modo' => 'langgraph_cobertura',
+                    'resumen_admin' => 'Cobertura: pedir ubicación',
+                    'diagnostico' => null,
+                ], $enviar, $sandbox);
+            }
         }
 
         $consulta = $backend === 'langgraph'
@@ -204,8 +224,15 @@ class WhatsAppAgentService
                 $validadorMotivo = (string) ($validado['modo'] ?? 'filtrado');
                 $reply = $validado['reply'];
                 $consulta['reply'] = $reply;
-                if ($validado['modo']) {
-                    $consulta['modo'] = $validado['modo'];
+                $modoPrev = is_string($consulta['modo'] ?? null) ? (string) $consulta['modo'] : '';
+                $modoVal = is_string($validado['modo'] ?? null) ? (string) $validado['modo'] : '';
+                // Filtro suave (saludo/tono): no pisar el modo langgraph si la respuesta sigue útil.
+                $filtroSuave = $modoVal === 'n8n_filtrado'
+                    && str_starts_with($modoPrev, 'langgraph')
+                    && filled($reply)
+                    && trim((string) $reply) !== self::mensajeFallback();
+                if ($modoVal !== '' && ! $filtroSuave) {
+                    $consulta['modo'] = $modoVal;
                 }
             }
         }
@@ -1595,6 +1622,11 @@ class WhatsAppAgentService
             return false;
         }
 
+        // "cuenta disponible" = cobertura/cupo de instalación, no datos bancarios.
+        if (preg_match('/cuenta disponible|hay (cuenta|cupo)|tienen (lugar|cupo)|hay lugar|cupo (para |de )?instal/u', $t)) {
+            return false;
+        }
+
         return (bool) preg_match(
             '/datos (de |para )?transf|a q(?:u[eé])? cuenta|n[uú]mero(?:s)? de cuenta|nro\.?\s*de cuenta|\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|d[oó]nde (te )?(pago|deposit|abon)|cuenta (para |de )?(pago|transf|tran[s]?f|abon|pagar)|pas(ame|á|a|ar)? (una |la )?cuenta|tran[s]?ferir|c[oó]mo (puedo )?pagar|dep[oó]sit\w*|para abonar|a que nro/u',
             $t
@@ -1682,7 +1714,7 @@ class WhatsAppAgentService
         }
 
         return (bool) preg_match(
-            '/\bcobertura\b|llega(n)?\s+(la\s+|el\s+)?(fibra|internet|antena)|tienen\s+(servicio|fibra|internet)\s+en/u',
+            '/\bcobertura\b|cuenta disponible|hay (cuenta|cupo)|tienen (lugar|cupo)|hay lugar|cupo (para |de )?instal|llega(n)?\s+(la\s+|el\s+)?(fibra|internet|antena)|tienen\s+(servicio|fibra|internet)\s+en/u',
             $t
         );
     }

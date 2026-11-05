@@ -163,12 +163,12 @@ TXT,
 Puede transferir a estas cuentas. Titular: Jose Luis Martinez Martinez. CI: 5263934.
 
 Banco Nacional de Fomento
-Cuenta: 016-21-0378077
+Cuenta: 016-00-01628696
 Alias: 0983333696
 
 Banco Familiar
 Cuenta: 0-8214902
-Alias: jose_mart289@live.com
+Alias: 5263934
 
 Tigo Money: +595 983 742897
 

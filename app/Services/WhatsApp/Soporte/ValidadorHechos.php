@@ -23,12 +23,31 @@ class ValidadorHechos
             return ['reply' => $fallback, 'modo' => 'n8n_sin_reply', 'filtrado' => true];
         }
 
+        // Textos canónicos (cuenta bancaria / beneficios / condiciones): no filtrar.
+        $canned = \App\Services\WhatsApp\WhatsAppAgentService::textosCanned();
+        foreach (['transferencia', 'beneficios', 'condiciones'] as $clave) {
+            $fijo = trim((string) ($canned[$clave] ?? ''));
+            if ($fijo !== '' && $reply === $fijo) {
+                return ['reply' => $reply, 'modo' => null, 'filtrado' => false];
+            }
+        }
+        $pagoTigo = trim(\App\Services\WhatsApp\WhatsAppAgentService::frasePagoTigo());
+        if ($pagoTigo !== '' && $reply === $pagoTigo) {
+            return ['reply' => $reply, 'modo' => null, 'filtrado' => false];
+        }
+
         if (FraseCliente::pareceFugaLineamiento($reply)) {
             return ['reply' => $fallbackVentas, 'modo' => 'n8n_fuga_prompt', 'filtrado' => true];
         }
 
-        if (preg_match('/ueno/iu', $reply) && preg_match('/cuenta|alias/iu', $reply)) {
-            $cuentas = trim((string) (\App\Services\WhatsApp\WhatsAppAgentService::textosCanned()['transferencia'] ?? ''));
+        // Solo reemplazar si parece datos bancarios viejos de Ueno (con números), no frases de cobertura.
+        if (
+            preg_match('/ueno/iu', $reply)
+            && preg_match('/\b(cuenta|alias)\b/iu', $reply)
+            && preg_match('/\d{5,}/', $reply)
+            && ! preg_match('/cuenta disponible|cobertura|ubicaci[oó]n|barrio/iu', $reply)
+        ) {
+            $cuentas = trim((string) ($canned['transferencia'] ?? ''));
             if ($cuentas !== '') {
                 return ['reply' => $cuentas, 'modo' => 'n8n_cuenta_vieja', 'filtrado' => true];
             }

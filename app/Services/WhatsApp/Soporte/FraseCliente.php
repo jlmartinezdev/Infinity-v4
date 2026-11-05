@@ -412,7 +412,13 @@ class FraseCliente
         if (preg_match('/\bping\b|\bms\b/i', $reply)) {
             return $fallback;
         }
-        if (preg_match('/\+?595[\s.-]*9\d{2}[\s.-]*\d{3}[\s.-]*\d{3}|\b971[\s.-]*714[\s.-]*322\b/u', $reply)) {
+        // Bloquear números de contacto inventados; permitir Tigo Money oficial del canned.
+        $sinTigoOficial = preg_replace(
+            '/Tigo\s*Money\s*:\s*\+?595[\s.-]*983[\s.-]*742[\s.-]*897|\+?595[\s.-]*983[\s.-]*742[\s.-]*897/iu',
+            '',
+            $reply
+        ) ?? $reply;
+        if (preg_match('/\+?595[\s.-]*9\d{2}[\s.-]*\d{3}[\s.-]*\d{3}|\b971[\s.-]*714[\s.-]*322\b/u', $sinTigoOficial)) {
             return $fallback;
         }
         if (preg_match('/comunicarte al|atenci[oó]n directa/iu', $reply)) {
@@ -511,9 +517,13 @@ class FraseCliente
             }
         }
 
-        // Si aún queda la marca en la primera línea, descartar esa línea.
+        // Si la primera línea es solo saludo de marca y hay más contenido, descartarla.
+        // Nunca vaciar un mensaje de una sola línea solo por mencionar Interplus.
         $lineas = preg_split('/\R+/', $out) ?: [];
-        if ($lineas !== [] && preg_match('/interplus|te saluda|lamentamos/iu', $lineas[0] ?? '')) {
+        if (
+            count($lineas) > 1
+            && preg_match('/interplus|te saluda|lamentamos/iu', $lineas[0] ?? '')
+        ) {
             array_shift($lineas);
             $out = trim(implode("\n", $lineas));
         }

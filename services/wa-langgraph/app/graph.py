@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Any, TypedDict
 
@@ -13,6 +14,22 @@ from .prompts import CLASSIFY_SYSTEM, REPLY_SYSTEM
 from .tools_client import ToolsClient, default_tools_base
 
 _MEMORY = MemorySaver()
+
+_COBERTURA_RE = re.compile(
+    r"cuenta disponible|hay (cuenta|cupo)|tienen (lugar|cupo)|hay lugar|"
+    r"cupo (para |de )?instal|\bcobertura\b|llega(n)? (la |el )?(fibra|internet|antena)",
+    re.I,
+)
+_TRANSFERENCIA_RE = re.compile(
+    r"datos (de |para )?transf|a qu[eé] cuenta|n[uú]mero(s)? de cuenta|"
+    r"\balias\b|pagar por transferencia|c[oó]mo (hago |te )?(la )?transf|"
+    r"cuenta (para |de )?(pago|transf)|pas(ame|á|a) (una |la )?cuenta|tigo money",
+    re.I,
+)
+_SALUDO_RE = re.compile(
+    r"^(hola|buen[oa]s?\s+(d[ií]as|tardes|noches)|buen d[ií]a|hey|ola)\b[\s!.?]*$",
+    re.I,
+)
 
 
 class AgentState(TypedDict, total=False):
@@ -73,10 +90,42 @@ def build_graph():
             f"parece_condiciones:{payload.get('parece_condiciones')}, "
             f"parece_instalacion:{payload.get('parece_instalacion')}}}"
         )
-        data = gemini.generate_json(CLASSIFY_SYSTEM, user)
-        intent = str(data.get("intent") or "otro")
-        tema_nuevo = bool(data.get("tema_nuevo"))
-        continue_process = bool(data.get("continue_process"))
+        msg_low = str(state.get("mensaje") or "").lower().strip()
+        # Heurísticas locales ANTES del LLM (rápido y evita confusiones).
+        forced = None
+        if _SALUDO_RE.match(msg_low):
+            forced = "saludo"
+        elif _COBERTURA_RE.search(msg_low) and not _TRANSFERENCIA_RE.search(msg_low):
+            forced = "cobertura"
+        elif bool(payload.get("parece_datos_transferencia")) or (
+            _TRANSFERENCIA_RE.search(msg_low) and not _COBERTURA_RE.search(msg_low)
+        ):
+            forced = "transferencia"
+        elif bool(payload.get("parece_beneficios")):
+            forced = "beneficios"
+        elif bool(payload.get("parece_condiciones")):
+            forced = "condiciones"
+
+        if forced:
+            intent = forced
+            tema_nuevo = True
+            continue_process = False
+            tokens_in = int(state.get("tokens_in") or 0)
+            tokens_out = int(state.get("tokens_out") or 0)
+            llm_ms = int(state.get("llm_latency_ms") or 0)
+            needs_human = False
+            confidence = 0.95
+        else:
+            data = gemini.generate_json(CLASSIFY_SYSTEM, user)
+            intent = str(data.get("intent") or "otro")
+            tema_nuevo = bool(data.get("tema_nuevo"))
+            continue_process = bool(data.get("continue_process"))
+            needs_human = bool(data.get("needs_human"))
+            confidence = float(data.get("confidence") or 0.5)
+            tokens_in = int(state.get("tokens_in") or 0) + gemini.tokens_in
+            tokens_out = int(state.get("tokens_out") or 0) + gemini.tokens_out
+            llm_ms = int(state.get("llm_latency_ms") or 0) + gemini.latency_ms
+
         proceso_cancelado = False
         if tema_nuevo and proceso not in {"", "none"} and not continue_process:
             proceso = "none"
@@ -91,15 +140,15 @@ def build_graph():
 
         return {
             "intent": intent,
-            "confidence": float(data.get("confidence") or 0.5),
-            "needs_human": bool(data.get("needs_human")),
+            "confidence": confidence,
+            "needs_human": needs_human,
             "continue_process": continue_process,
             "tema_nuevo": tema_nuevo,
             "proceso": proceso,
             "proceso_cancelado": proceso_cancelado,
-            "tokens_in": int(state.get("tokens_in") or 0) + gemini.tokens_in,
-            "tokens_out": int(state.get("tokens_out") or 0) + gemini.tokens_out,
-            "llm_latency_ms": int(state.get("llm_latency_ms") or 0) + gemini.latency_ms,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "llm_latency_ms": llm_ms,
         }
 
     def act(state: AgentState) -> dict[str, Any]:
@@ -114,6 +163,9 @@ def build_graph():
 
         if intent in {"saludo", "meta"}:
             facts["nota"] = "sin_tools"
+        elif intent == "cobertura":
+            facts["nota"] = "pedir_ubicacion_cobertura"
+            facts["conocimiento"] = tools.conocimiento(mensaje, "cobertura")
         elif intent == "catalogo_internet":
             facts["catalogo"] = tools.catalogo_planes()
         elif intent in {"transferencia", "beneficios", "condiciones"}:
@@ -180,6 +232,18 @@ def build_graph():
                     "modo": f"langgraph_canned_{key}",
                 }
 
+        if intent == "cobertura" and facts.get("nota") == "pedir_ubicacion_cobertura":
+            return {
+                "answer": (
+                    "Con gusto verificamos si hay cuenta disponible en su zona. "
+                    "Indíquenos el barrio y la ciudad, o envíenos su ubicación por WhatsApp "
+                    "(clip → Ubicación) para confirmar cobertura."
+                ),
+                "escalate": False,
+                "motivo_escalado": None,
+                "modo": "langgraph_cobertura",
+            }
+
         cat = facts.get("catalogo") or {}
         if intent == "catalogo_internet" and cat.get("planes_texto"):
             return {
@@ -187,6 +251,17 @@ def build_graph():
                 "escalate": False,
                 "motivo_escalado": None,
                 "modo": "langgraph_catalogo",
+            }
+
+        if intent == "saludo":
+            return {
+                "answer": (
+                    "Le damos la bienvenida a Interplus. "
+                    "¿En qué le podemos ayudar el día de hoy?"
+                ),
+                "escalate": False,
+                "motivo_escalado": None,
+                "modo": "langgraph_saludo",
             }
 
         decision = (facts.get("diagnostico") or {}).get("decision") or {}
