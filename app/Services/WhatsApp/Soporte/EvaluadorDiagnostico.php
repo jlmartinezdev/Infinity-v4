@@ -22,9 +22,17 @@ class EvaluadorDiagnostico
         $paso = isset($in['paso']) ? (string) $in['paso'] : '';
         $incidente = (bool) ($in['incidente'] ?? false);
         $medicion = is_array($in['medicion'] ?? null) ? $in['medicion'] : [];
+        $saldo = (float) ($in['saldo'] ?? 0);
+        $diasMora = (int) ($in['dias_mora'] ?? 0);
 
-        if (in_array($estado, ['suspendido', 'cortado'], true) && ! $pago && ! $comprobante) {
-            return $this->cerrar('cobranza', FraseCliente::cobranza((float) ($in['saldo'] ?? 0)), false, null, null, 'cobranza');
+        // 1) Cobranza / mora vencida antes de tocar la red.
+        if (! $pago && ! $comprobante) {
+            if (in_array($estado, ['suspendido', 'cortado'], true)) {
+                return $this->cerrar('cobranza', FraseCliente::cobranza($saldo), false, null, null, 'cobranza');
+            }
+            if ($saldo > 0 && $diasMora > 0) {
+                return $this->cerrar('cobranza', FraseCliente::cobranza($saldo), false, null, null, 'cobranza');
+            }
         }
 
         if ($comprobante) {
@@ -43,7 +51,7 @@ class EvaluadorDiagnostico
             return $this->cerrar('accion', FraseCliente::LUZ, false, null, null, 'luz');
         }
 
-        // Una pregunta distinta (saldo, ping, equipos, impresora) no se convierte en el texto de zona.
+        // 2) Corte general (MikroTik / zona) antes de medir solo al cliente.
         if ($incidente && empty($in['pregunta_ajena']) && ($paso !== '' || (bool) ($in['parece_falla'] ?? false))) {
             return $this->cerrar('zona', FraseCliente::zona(), false, null, null, 'zona');
         }

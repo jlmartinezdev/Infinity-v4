@@ -15,6 +15,7 @@
         'accesos' => ['label' => 'Sin acceso', 'route' => 'whatsapp.accesos'],
         'disco' => ['label' => 'Disco', 'route' => 'sistema.disco'],
         'casos' => ['label' => 'Casos', 'route' => 'whatsapp.casos.index'],
+        'memoria' => ['label' => 'Memoria', 'route' => 'whatsapp.memoria.index'],
         'contactos' => ['label' => 'Contactos', 'route' => 'whatsapp.contactos'],
         'asuntos' => ['label' => 'Asuntos', 'route' => 'whatsapp.asuntos.index'],
         'enviar' => ['label' => 'Enviar', 'route' => 'whatsapp.enviar'],

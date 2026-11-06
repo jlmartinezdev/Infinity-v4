@@ -32,11 +32,11 @@ class GeminiClient:
             "contents": [{"role": "user", "parts": [{"text": user}]}],
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": 1024,
+                "maxOutputTokens": 1536,
             },
         }
         started = time.perf_counter()
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=45.0) as client:
             resp = client.post(url, json=body)
         self.latency_ms += int((time.perf_counter() - started) * 1000)
         if resp.status_code >= 400:

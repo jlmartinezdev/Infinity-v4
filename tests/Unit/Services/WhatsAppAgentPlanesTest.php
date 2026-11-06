@@ -42,7 +42,8 @@ class WhatsAppAgentPlanesTest extends TestCase
             [['nombre' => 'PLAN ESTANDAR 20 Mbps', 'velocidad' => '20 Mbps', 'precio_texto' => 'Gs. 150.000', 'prioridad' => 2]],
         );
 
-        $this->assertStringContainsString('estos son los planes', mb_strtolower($texto));
+        $this->assertStringContainsString('estos son los planes mensuales', mb_strtolower($texto));
+        $this->assertStringNotContainsString('iva incluido', mb_strtolower($texto));
         $this->assertStringNotContainsString('vigentes', mb_strtolower($texto));
         $this->assertStringContainsString('PLAN BASICO FTTH 100 Mbps', $texto);
         $this->assertStringContainsString('Gs. 100.000', $texto);
@@ -50,6 +51,25 @@ class WhatsAppAgentPlanesTest extends TestCase
         $this->assertStringNotContainsString('Salida WhatsApp', $texto);
         $this->assertStringNotContainsString('Cotice SOLO', $texto);
         $this->assertStringNotContainsString('prioridad', mb_strtolower($texto));
+    }
+
+    public function test_plan_dedicado_es_a_medida(): void
+    {
+        $this->assertTrue(WhatsAppAgentService::planEsAMedida('Dedicado 150 Mbps'));
+        $this->assertTrue(WhatsAppAgentService::planEsAMedida('PLAN DEDICADO', '150 Mbps'));
+        $this->assertFalse(WhatsAppAgentService::planEsAMedida('PLAN PREMIUM 30 Mbps'));
+    }
+
+    public function test_planes_para_prompt_sin_iva_incluido(): void
+    {
+        $texto = WhatsAppAgentService::planesParaPrompt(
+            [['nombre' => 'PLAN BASICO FTTH 100 Mbps', 'velocidad' => '100Mbps', 'precio_texto' => 'Gs. 100.000']],
+            [],
+        );
+        $this->assertStringNotContainsString('IVA incluido', $texto);
+        $this->assertStringContainsString('No mencione “IVA incluido”', $texto);
+        $this->assertStringContainsString('Embudo Premium', $texto);
+        $this->assertStringContainsString('recomendación Premium', $texto);
     }
 
     public function test_filtro_catalogo_fibra_o_antena(): void

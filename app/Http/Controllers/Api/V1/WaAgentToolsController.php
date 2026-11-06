@@ -111,6 +111,7 @@ class WaAgentToolsController extends ApiController
         CuentaWhatsappService $cuentas,
         RecolectorDiagnostico $recolector,
         EvaluadorDiagnostico $evaluador,
+        IncidenteZonaService $zona,
     ): JsonResponse {
         $sandbox = filter_var($request->input('sandbox', false), FILTER_VALIDATE_BOOLEAN);
         $telefono = trim((string) $request->input('telefono', ''));
@@ -139,11 +140,91 @@ class WaAgentToolsController extends ApiController
             ]);
         }
 
+        $routerId = isset($cuenta['router_id']) ? (int) $cuenta['router_id'] : null;
+        $incidenteZona = $zona->hayAbierto($routerId)
+            || $zona->telefonoConAvisoAbierto($telefono !== '' ? $telefono : ($cuenta['whatsapp'] ?? null));
+
+        // Mora / suspensión: no hace falta medir MikroTik.
+        $estado = (string) ($cuenta['estado'] ?? '');
+        $saldo = (float) ($cuenta['saldo'] ?? 0);
+        $diasMora = (int) ($cuenta['dias_mora'] ?? 0);
+        if (in_array($estado, ['suspendido', 'cortado'], true) || ($saldo > 0 && $diasMora > 0)) {
+            $decision = $evaluador->decidir([
+                'estado' => $estado,
+                'saldo' => $saldo,
+                'dias_mora' => $diasMora,
+                'parece_pago' => false,
+                'parece_comprobante' => false,
+                'parece_falla' => true,
+                'texto' => $texto,
+                'paso' => '',
+                'incidente' => $incidenteZona,
+                'medicion' => [],
+            ]);
+
+            return $this->ok([
+                'ok' => true,
+                'motivo' => null,
+                'cliente_id' => $cuenta['cliente_id'] ?? null,
+                'sector' => 'tecnico',
+                'paso_embudo' => 'cobranza',
+                'incidente_zona_abierto' => $incidenteZona,
+                'cuenta' => [
+                    'estado' => $estado,
+                    'saldo' => $saldo,
+                    'dias_mora' => $diasMora,
+                ],
+                'medicion' => null,
+                'decision' => [
+                    'tipo' => $decision['tipo'] ?? null,
+                    'reply' => $decision['reply'] ?? null,
+                    'escalate' => (bool) ($decision['escalate'] ?? false),
+                    'motivo' => $decision['motivo'] ?? null,
+                    'etiqueta' => $decision['etiqueta'] ?? null,
+                ],
+            ]);
+        }
+
+        if ($incidenteZona) {
+            $decision = $evaluador->decidir([
+                'estado' => $estado,
+                'saldo' => $saldo,
+                'dias_mora' => $diasMora,
+                'parece_pago' => false,
+                'parece_comprobante' => false,
+                'parece_falla' => true,
+                'texto' => $texto,
+                'paso' => 'zona',
+                'incidente' => true,
+                'medicion' => [],
+            ]);
+
+            return $this->ok([
+                'ok' => true,
+                'motivo' => null,
+                'cliente_id' => $cuenta['cliente_id'] ?? null,
+                'sector' => 'tecnico',
+                'paso_embudo' => 'zona',
+                'incidente_zona_abierto' => true,
+                'medicion' => null,
+                'decision' => [
+                    'tipo' => $decision['tipo'] ?? null,
+                    'reply' => $decision['reply'] ?? null,
+                    'escalate' => (bool) ($decision['escalate'] ?? false),
+                    'motivo' => $decision['motivo'] ?? null,
+                    'etiqueta' => $decision['etiqueta'] ?? null,
+                ],
+            ]);
+        }
+
         if ($sandbox) {
             return $this->ok([
                 'ok' => true,
                 'motivo' => 'sandbox_dry_run',
                 'cliente_id' => $cuenta['cliente_id'] ?? null,
+                'sector' => 'tecnico',
+                'paso_embudo' => 'sandbox',
+                'incidente_zona_abierto' => false,
                 'medicion' => [
                     'pudo_medir' => false,
                     'sandbox' => true,
@@ -158,8 +239,9 @@ class WaAgentToolsController extends ApiController
 
         $medicion = $recolector->medir($servicio, $sitio);
         $decision = $evaluador->decidir([
-            'estado' => $cuenta['estado'] ?? null,
-            'saldo' => $cuenta['saldo'] ?? 0,
+            'estado' => $estado,
+            'saldo' => $saldo,
+            'dias_mora' => $diasMora,
             'parece_pago' => false,
             'parece_comprobante' => false,
             'parece_falla' => true,
@@ -173,6 +255,9 @@ class WaAgentToolsController extends ApiController
             'ok' => true,
             'motivo' => null,
             'cliente_id' => $cuenta['cliente_id'] ?? null,
+            'sector' => 'tecnico',
+            'paso_embudo' => 'enlace',
+            'incidente_zona_abierto' => false,
             'medicion' => [
                 'pudo_medir' => (bool) ($medicion['pudo_medir'] ?? false),
                 'sesion_online' => $medicion['sesion_online'] ?? null,

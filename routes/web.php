@@ -86,6 +86,7 @@ use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\WhatsAppAsuntoController;
 use App\Http\Controllers\WhatsAppCasoController;
+use App\Http\Controllers\WhatsAppMemoriaController;
 use App\Http\Controllers\WhatsAppKpiController;
 use App\Http\Controllers\WhatsAppWebController;
 use App\Http\Controllers\WispHubImportController;
@@ -321,6 +322,7 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::get('/whatsapp/kpi', [WhatsAppKpiController::class, 'index'])->name('whatsapp.kpi');
     Route::get('/whatsapp/kpi/export', [WhatsAppKpiController::class, 'export'])->name('whatsapp.kpi.export');
     Route::get('/whatsapp/casos', [WhatsAppCasoController::class, 'index'])->name('whatsapp.casos.index');
+    Route::get('/whatsapp/memoria', [WhatsAppMemoriaController::class, 'index'])->name('whatsapp.memoria.index');
     Route::get('/whatsapp/soporte/impresoras/{reserva}/bat', [WhatsAppWebController::class, 'impresoraBat'])->name('whatsapp.impresora.bat');
     Route::get('/whatsapp/asuntos-json', [WhatsAppWebController::class, 'asuntosJson'])->name('whatsapp.asuntos.json');
     Route::get('/whatsapp/rapido/meta', [WhatsAppWebController::class, 'rapidoMeta'])->name('whatsapp.rapido.meta');
@@ -347,6 +349,13 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::put('/whatsapp/casos/{caso}', [WhatsAppCasoController::class, 'update'])->name('whatsapp.casos.update');
     Route::delete('/whatsapp/casos/{caso}', [WhatsAppCasoController::class, 'destroy'])->name('whatsapp.casos.destroy');
     Route::put('/whatsapp/estilo', [WhatsAppCasoController::class, 'guardarEstilo'])->name('whatsapp.estilo.update');
+    Route::put('/whatsapp/memoria/estilo', [WhatsAppMemoriaController::class, 'guardarEstilo'])->name('whatsapp.memoria.estilo');
+    Route::put('/whatsapp/memoria/canned', [WhatsAppMemoriaController::class, 'guardarCanned'])->name('whatsapp.memoria.canned');
+    Route::post('/whatsapp/memoria', [WhatsAppMemoriaController::class, 'store'])->name('whatsapp.memoria.store');
+    Route::post('/whatsapp/memoria/importar', [WhatsAppMemoriaController::class, 'importar'])->name('whatsapp.memoria.importar');
+    Route::put('/whatsapp/memoria/{memoria}', [WhatsAppMemoriaController::class, 'update'])->name('whatsapp.memoria.update');
+    Route::delete('/whatsapp/memoria/{memoria}', [WhatsAppMemoriaController::class, 'destroy'])->name('whatsapp.memoria.destroy');
+    Route::post('/whatsapp/memoria/{memoria}/mejorar', [WhatsAppMemoriaController::class, 'mejorar'])->name('whatsapp.memoria.mejorar');
 });
 Route::post('/whatsapp/rapido/ticket', [WhatsAppWebController::class, 'storeTicketRapido'])
     ->name('whatsapp.rapido.ticket')

@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp\Soporte;
 use App\Models\Novedad;
 use App\Models\PlanUpsell;
 use App\Models\WaOfertaEnvio;
+use Illuminate\Support\Collection;
 
 class OfertaCierreService
 {
@@ -40,15 +41,19 @@ class OfertaCierreService
         }
 
         $precio = (float) ($cuenta['plan_precio'] ?? 0);
-        $upsell = PlanUpsell::publicados()
+        $planActual = mb_strtolower(trim((string) ($cuenta['plan_nombre'] ?? $cuenta['plan'] ?? '')));
+        $candidatos = PlanUpsell::publicados()
             ->with('plan')
             ->orderBy('orden')
             ->get()
-            ->first(function (PlanUpsell $item) use ($precio) {
+            ->filter(function (PlanUpsell $item) use ($precio) {
                 return $item->plan
                     && ($item->plan->estado ?? '') === 'activo'
                     && (float) $item->plan->precio > $precio;
-            });
+            })
+            ->values();
+
+        $upsell = $this->elegirUpsellPremium($candidatos, $planActual);
 
         if ($upsell && $upsell->plan) {
             $this->registrar($telefono, 'plan:'.$upsell->plan_id, [
@@ -75,19 +80,57 @@ class OfertaCierreService
         return null;
     }
 
+    /**
+     * Prefiere Premium del mismo “mundo” (fibra/antena) si se puede inferir; si no, cualquier Premium; si no, el primero.
+     *
+     * @param  Collection<int, PlanUpsell>  $candidatos
+     */
+    private function elegirUpsellPremium(Collection $candidatos, string $planActualLower): ?PlanUpsell
+    {
+        if ($candidatos->isEmpty()) {
+            return null;
+        }
+
+        $quiereFibra = (bool) preg_match('/ftth|fibra|gpon/u', $planActualLower);
+        $quiereAntena = (bool) preg_match('/antena|wireless|radio/u', $planActualLower);
+
+        $mismoGrupo = $candidatos->filter(function (PlanUpsell $item) use ($quiereFibra, $quiereAntena) {
+            if (! $quiereFibra && ! $quiereAntena) {
+                return true;
+            }
+            $n = mb_strtolower((string) ($item->plan?->nombre ?? ''));
+
+            if ($quiereFibra) {
+                return (bool) preg_match('/ftth|fibra|gpon/u', $n);
+            }
+
+            return (bool) preg_match('/\b\d+\s*mbps\b/u', $n) && ! preg_match('/ftth|fibra|gpon/u', $n)
+                || (bool) preg_match('/antena|wireless/u', $n);
+        });
+
+        $pool = $mismoGrupo->isNotEmpty() ? $mismoGrupo : $candidatos;
+
+        $premium = $pool->first(function (PlanUpsell $item) {
+            $n = mb_strtolower((string) ($item->plan?->nombre ?? ''));
+
+            return str_contains($n, 'premium') || (bool) $item->es_superior;
+        });
+
+        return $premium ?? $pool->first();
+    }
+
     private function fraseUpsellSuave(PlanUpsell $upsell): string
     {
-        $nombre = trim((string) ($upsell->plan?->nombre ?? 'un plan con más prioridad'));
+        $nombre = trim((string) ($upsell->plan?->nombre ?? 'el plan Premium'));
         $beneficio = trim((string) ($upsell->beneficios ?? ''));
-        // Una sola idea: prioridad / tranquilidad; el plan actual sigue siendo válido.
         if ($beneficio !== '') {
             $beneficio = preg_replace('/\s+/u', ' ', $beneficio) ?: $beneficio;
             $beneficio = mb_substr($beneficio, 0, 140);
 
-            return 'Su plan actual está bien. Si alguna vez quiere más tranquilidad ante un reclamo, el '.$nombre.' incluye '.$beneficio.'. Cuando quiera, le detallo.';
+            return 'Su plan actual está bien. Si busca más prioridad ante un inconveniente, el '.$nombre.' incluye '.$beneficio.'. ¿Le detallo la diferencia?';
         }
 
-        return 'Su plan actual está bien. Si alguna vez quiere más prioridad de atención cuando hay un inconveniente, el '.$nombre.' lo contempla. Cuando quiera, le cuento.';
+        return 'Su plan actual está bien. Si busca más prioridad de atención cuando hay un inconveniente, el '.$nombre.' lo contempla. ¿Le detallo la diferencia?';
     }
 
     /**

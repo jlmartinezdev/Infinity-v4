@@ -70,9 +70,9 @@ return [
     |--------------------------------------------------------------------------
     | Agente IA (plugin N8N) — no reemplaza el webhook Meta
     |--------------------------------------------------------------------------
-    | Si enabled: mensajes de texto entrantes se reenvían a N8N.
-        | El job no envía solo: el borrador queda en revisión en el panel.
-    | auto_send se ignora. Solo sale si un humano pide el envío.
+    | Si enabled: mensajes entrantes van al backend (langgraph/n8n).
+    | auto_send queda en false: el job genera borrador en el panel; solo sale
+    | a WhatsApp cuando un humano confirma el envío.
     |
     | n8n Interplus corre en la VM infinity (LAN 10.200.1.4:5678). Desde esta PC
     | se alcanza por proxy user-space 127.0.0.1:5678 → 10.200.1.4:5678.
@@ -102,12 +102,12 @@ return [
         /** Enviar el reply de N8N aunque escalate=true (además de crear ticket). */
         'enviar_reply_en_escalado' => (bool) env('WA_AGENT_ENVIAR_REPLY_ESCALADO', true),
         /**
-         * El automático no envía. El borrador queda en el panel hasta que una persona lo mande.
-         * La clave se conserva por compatibilidad y no dispara el envío.
+         * Hardcoded false: el borrador queda en el panel hasta que una persona lo mande.
+         * No se lee de env para evitar envíos accidentales a Meta.
          */
         'auto_send' => false,
         /** Segundos de espera para juntar varios WhatsApp del cliente en una sola respuesta. */
-        'rafaga_espera' => (int) env('WA_AGENT_RAFAGA_ESPERA', 12),
+        'rafaga_espera' => (int) env('WA_AGENT_RAFAGA_ESPERA', 5),
         /** Crear ticket si escalate=true. En entrenamiento conviene false. */
         'auto_ticket' => (bool) env('WA_AGENT_AUTO_TICKET', false),
         /** WhatsApp al administrador con el resumen técnico. Apagado en prueba. */
@@ -155,9 +155,10 @@ return [
         'canned' => [
             'beneficios' => env('WA_AGENT_TEXTO_BENEFICIOS') ?: <<<'TXT'
 Todos nuestros planes son buenos y válidos. La diferencia no es “internet sí o no”, sino la experiencia:
-• Tráfico prioritario en planes superiores: su navegación sale primero cuando hay mucha demanda.
-• Cambios de contraseña WiFi: en planes superiores suelen ir bonificados; en el básico hay uno gratis y luego puede tener un valor.
-• Soporte técnico: si ocurre un inconveniente, los planes superiores tienen prioridad de atención.
+• Básico: cubre lo esencial del hogar.
+• Estándar: más capacidad para varios dispositivos.
+• Premium: concentra tráfico prioritario y prioridad de atención en soporte si hay un inconveniente; en cambios de WiFi los planes superiores suelen ir bonificados (en el básico hay uno gratis y luego puede tener un valor).
+Si busca más tranquilidad ante reclamos y demanda de red, el Premium es la opción que recomendamos.
 TXT,
             'transferencia' => env('WA_AGENT_TEXTO_TRANSFERENCIA') ?: <<<'TXT'
 Puede transferir a estas cuentas. Titular: Jose Luis Martinez Martinez. CI: 5263934.

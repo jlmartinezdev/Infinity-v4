@@ -479,6 +479,10 @@
             >
               <p class="font-semibold">Sugerencia IA — no enviada. Revisá y mandá cuando esté bien.</p>
               <p v-if="sugerenciaIa.escalate" class="mt-0.5">La IA sugiere derivar a un asesor{{ sugerenciaIa.motivo_escalado ? ' (' + sugerenciaIa.motivo_escalado + ')' : '' }}.</p>
+              <p
+                v-if="sugerenciaIa.reply"
+                class="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-md bg-white/70 px-2 py-1.5 text-[12px] leading-snug text-emerald-950"
+              >{{ sugerenciaIa.reply }}</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -492,6 +496,14 @@
                   @click="descartarSugerencia"
                 >Descartar</button>
               </div>
+            </div>
+            <div
+              v-else-if="esperandoSugerenciaIa && puedeEditar"
+              class="relative z-10 border-t px-3 py-2 text-xs"
+              style="background: #f0fdf4; color: #166534;"
+            >
+              <p class="font-semibold">Generando sugerencia…</p>
+              <p class="mt-0.5 opacity-80">El borrador aparece acá en unos segundos. No hace falta refrescar.</p>
             </div>
             <form class="wa-composer relative z-10 border-t px-3 py-2.5" @submit.prevent="enviarTexto">
               <div
@@ -1136,6 +1148,7 @@ export default {
       textoDesdeIa: false,
       toast: null,
       pollTimer: null,
+      pollIntervalMs: 8000,
       buscarTimer: null,
       stickBottom: true,
       pageLimit: 250,
@@ -1209,7 +1222,7 @@ export default {
     this.cargarAsuntos();
     this.cargarConversaciones(true);
     if (this.telActivo) this.cargarHilo(this.telActivo, false);
-    this.pollTimer = setInterval(() => this.poll(), 8000);
+    this.reiniciarPoll(8000);
 
     this._onPedidoCreated = (ev) => {
       this.modalPedido = false;
@@ -1259,8 +1272,35 @@ export default {
     puedeEnviarSugerencia() {
       return !!(this.sugerenciaIa?.reply && (this.texto || '').trim() && !this.hiloMeta.fuera_ventana && !this.enviando);
     },
+    /** Último mensaje del cliente sin sugerencia aún → estamos esperando el borrador. */
+    esperandoSugerenciaIa() {
+      if (!this.puedeEditar || !this.configured || this.hiloMeta?.fuera_ventana) return false;
+      if (this.sugerenciaIa?.reply) return false;
+      const msgs = this.mensajes || [];
+      if (!msgs.length) return false;
+      const last = msgs[msgs.length - 1];
+      if (!last || last.direccion !== 'entrada') return false;
+      // Evitar spinner eterno en mensajes viejos (>3 min).
+      if (last.created_at) {
+        const t = Date.parse(last.created_at);
+        if (Number.isFinite(t) && Date.now() - t > 180000) return false;
+      }
+      return true;
+    },
+  },
+  watch: {
+    esperandoSugerenciaIa(val) {
+      this.reiniciarPoll(val ? 3000 : 8000);
+    },
   },
   methods: {
+    reiniciarPoll(ms) {
+      const next = Math.max(2000, Number(ms) || 8000);
+      if (this.pollTimer && this.pollIntervalMs === next) return;
+      this.pollIntervalMs = next;
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.pollTimer = setInterval(() => this.poll(), next);
+    },
     formatoTelefono(raw) {
       return formatoTelefonoPy(raw);
     },

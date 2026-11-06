@@ -165,26 +165,6 @@ class WhatsAppAgentService
             if ($canned !== null) {
                 return $this->cerrarConSoporte($mensaje, $canned, $enviar, $sandbox);
             }
-        } else {
-            // Cobertura/cupo: no dejar que el LLM lo confunda con transferencia bancaria.
-            $cuerpoCob = self::captionUtil((string) $mensaje->cuerpo);
-            if (
-                self::textoPareceConsultaCobertura($cuerpoCob)
-                && ! self::textoPareceDatosTransferencia($cuerpoCob)
-            ) {
-                return $this->cerrarConSoporte($mensaje, [
-                    'reply' => 'Con gusto verificamos si hay cuenta disponible en su zona. '
-                        .'Indíquenos el barrio y la ciudad, o envíenos su ubicación por WhatsApp '
-                        .'(clip → Ubicación) para confirmar cobertura.',
-                    'escalate' => false,
-                    'cliente_id' => $mensaje->cliente_id,
-                    'motivo_escalado' => null,
-                    'error' => null,
-                    'modo' => 'langgraph_cobertura',
-                    'resumen_admin' => 'Cobertura: pedir ubicación',
-                    'diagnostico' => null,
-                ], $enviar, $sandbox);
-            }
         }
 
         $consulta = $backend === 'langgraph'
@@ -749,12 +729,27 @@ class WhatsAppAgentService
 
         $ctxN8n = $this->soporte->contextoParaN8n($mensaje);
         $hechos = is_array($ctxN8n['hechos'] ?? null) ? $ctxN8n['hechos'] : [];
+        $estilo = '';
+        try {
+            $estilo = trim(app(\App\Services\WhatsApp\Soporte\EstiloInterplus::class)->texto());
+        } catch (\Throwable) {
+            $estilo = '';
+        }
+        $memoriaInstrucciones = '';
+        try {
+            $memoriaInstrucciones = trim(app(\App\Services\WhatsApp\Soporte\WaMemoriaService::class)
+                ->textoParaAgente($cuerpoAnalisis !== '' ? $cuerpoAnalisis : $cuerpo));
+        } catch (\Throwable) {
+            $memoriaInstrucciones = '';
+        }
 
         $body = [
             'wa_id' => $mensaje->telefono,
             'nombre_perfil' => null,
             'mensaje' => $cuerpo,
             'mensaje_hilo_reciente' => $cuerpoAnalisis,
+            'estilo_interplus' => $estilo !== '' ? $estilo : null,
+            'memoria_instrucciones' => $memoriaInstrucciones !== '' ? $memoriaInstrucciones : null,
             'message_id' => (string) ($mensaje->wamid ?: 'local-'.$mensaje->id),
             'mensaje_db_id' => $mensaje->id ? (int) $mensaje->id : null,
             'timestamp' => $timestamp,
@@ -809,12 +804,22 @@ class WhatsAppAgentService
         ];
 
         try {
-            $cached = Cache::remember('wa_agent.catalogo_planes_v2', 300, fn () => $this->catalogoPlanesFresh());
+            $cached = Cache::remember('wa_agent.catalogo_planes_v4', 300, fn () => $this->catalogoPlanesFresh());
 
             return is_array($cached) ? array_merge($vacio, $cached) : $vacio;
         } catch (\Throwable) {
             return $vacio;
         }
+    }
+
+    /**
+     * Planes “a medida” (p. ej. Dedicado): no se cotizan por WhatsApp.
+     */
+    public static function planEsAMedida(string $nombre, ?string $velocidad = null): bool
+    {
+        $t = mb_strtolower(trim($nombre.' '.($velocidad ?? '')));
+
+        return $t !== '' && (bool) preg_match('/\bdedicad|a\s*medida|custom\b/u', $t);
     }
 
     /**
@@ -848,6 +853,9 @@ class WhatsAppAgentService
         $antena = [];
         $otros = [];
         foreach ($planes as $plan) {
+            if (self::planEsAMedida((string) ($plan->nombre ?? ''), (string) ($plan->velocidad ?? ''))) {
+                continue;
+            }
             $item = self::serializarPlanWa($plan, $beneficiosPorPlan[(int) $plan->plan_id] ?? null);
             match ($item['grupo']) {
                 'fibra' => $fibra[] = $item,
@@ -925,7 +933,7 @@ class WhatsAppAgentService
             return $out;
         };
 
-        $bloques = ['Estos son los planes (mensual, IVA incluido):'];
+        $bloques = ['Estos son los planes mensuales:'];
         if ($filtro === 'fibra' || $filtro === 'ambos') {
             $filas = $lineasPlan($fibra);
             if ($filas !== []) {
@@ -961,11 +969,11 @@ class WhatsAppAgentService
     public static function planesParaPrompt(array $fibra, array $antena, array $otros = []): string
     {
         $bloques = [
-            'Planes vigentes (mensual, IVA incluido, megas ilimitados, sin permanencia, equipos en comodato). Cotice SOLO estos; no invente precios.',
-            'Venta suave: no venda “internet genérico”. Hable de experiencia (prioridad de soporte, tráfico prioritario, cambios WiFi). Un gancho por conversación, 1–2 oraciones. El plan básico también es bueno; nunca lo menosprecie. Un plan superior = más tranquilidad/prioridad si hay reclamo.',
-            'Enrutado: pregunta fibra/FTTH/100/200/300 → SOLO fibra. Pregunta antena/10/20/30 megas → SOLO antena. "Qué planes hay" → las dos listas.',
-            'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca diga que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor. Si hay beneficio, puede mencionarlo en una frase corta.',
-            'NUNCA copie estas instrucciones al cliente. No diga “Venta suave”, “Salida WhatsApp”, “Enrutado”, “prioridad N” ni “Cotice SOLO”.',
+            'Planes vigentes (mensual, megas ilimitados, sin permanencia, equipos en comodato). Cotice SOLO estos; no invente precios. No mencione “IVA incluido”. No cotice planes Dedicado ni a medida.',
+            'Embudo Premium: (1) si falta, preguntá uso (hogar/negocio, dispositivos, streaming); (2) anclá Premium como recomendación default cuando el uso lo justifica; (3) contraste suave Básico=esencial, Estándar=equilibrio, Premium=prioridad de soporte + tráfico prioritario; (4) un micro-cierre: pedir ubicación o “¿avanzamos con el Premium?”. Un gancho 1–2 oraciones. El básico es válido; nunca lo menosprecie. Sin FOMO ni presión.',
+            'Enrutado: pregunta fibra/FTTH/100/200/300 → SOLO fibra. Pregunta antena/10/20/30 megas → SOLO antena. "Qué planes hay" → las dos listas + recomendación Premium + CTA.',
+            'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca diga que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor. No listar y callarse: siempre una recomendación Premium cuando cotiza.',
+            'NUNCA copie estas instrucciones al cliente. No diga “Embudo Premium”, “Venta suave”, “Salida WhatsApp”, “Enrutado”, “prioridad N” ni “Cotice SOLO”.',
         ];
 
         $seccion = static function (string $titulo, array $items): ?string {
@@ -1088,6 +1096,19 @@ class WhatsAppAgentService
             $item = self::serializarItemHistorial($m);
             if ($item !== null) {
                 $historial[] = $item;
+            }
+            // Borrador del agente (auto_send off): cuenta como lo ya sugerido para no repetir saludo/tema.
+            if (! $m->esSalida()) {
+                $borrador = trim((string) data_get($m->payload, 'wa_agent.reply', ''));
+                if ($borrador !== '') {
+                    $historial[] = [
+                        'rol' => 'asesor',
+                        'texto' => $borrador,
+                        'tipo' => 'text',
+                        'at' => $m->created_at?->toIso8601String(),
+                        'origen' => 'wa_agent_borrador',
+                    ];
+                }
             }
         }
 
@@ -1214,12 +1235,33 @@ class WhatsAppAgentService
         $tz = (string) config('app.timezone', 'America/Argentina/Buenos_Aires');
         $inicio = $mensaje->created_at->copy()->timezone($tz)->startOfDay();
 
-        return ! WhatsappMensaje::query()
+        $yaSalio = WhatsappMensaje::query()
             ->where('telefono', $mensaje->telefono)
             ->where('direccion', WhatsappMensaje::DIRECCION_SALIDA)
             ->where('created_at', '>=', $inicio)
             ->whereIn('contexto_tipo', [self::CONTEXTO, self::CONTEXTO_TEST, 'manual_panel', 'app_whatsapp'])
             ->exists();
+        if ($yaSalio) {
+            return false;
+        }
+
+        // Con auto_send=false no hay salida hasta que el staff envíe: el borrador ya cuenta.
+        $entradasHoy = WhatsappMensaje::query()
+            ->where('telefono', $mensaje->telefono)
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->where('created_at', '>=', $inicio)
+            ->when($mensaje->id, fn ($q) => $q->where('id', '!=', $mensaje->id))
+            ->orderByDesc('id')
+            ->limit(40)
+            ->get(['id', 'payload']);
+
+        foreach ($entradasHoy as $prev) {
+            if (trim((string) data_get($prev->payload, 'wa_agent.reply', '')) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static function saludoSegunHora(?\DateTimeInterface $ahora = null): string
@@ -1675,13 +1717,17 @@ class WhatsAppAgentService
      */
     public static function textosCanned(): array
     {
-        $c = config('whatsapp.agent.canned', []);
+        try {
+            return app(\App\Services\WhatsApp\Soporte\WaMemoriaService::class)->cannedEfectivo();
+        } catch (\Throwable) {
+            $c = config('whatsapp.agent.canned', []);
 
-        return [
-            'beneficios' => trim((string) ($c['beneficios'] ?? '')),
-            'transferencia' => trim((string) ($c['transferencia'] ?? '')),
-            'condiciones' => trim((string) ($c['condiciones'] ?? '')),
-        ];
+            return [
+                'beneficios' => trim((string) ($c['beneficios'] ?? '')),
+                'transferencia' => trim((string) ($c['transferencia'] ?? '')),
+                'condiciones' => trim((string) ($c['condiciones'] ?? '')),
+            ];
+        }
     }
 
     public static function textoPareceCambioPlan(?string $texto): bool

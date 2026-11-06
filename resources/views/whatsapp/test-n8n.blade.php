@@ -19,6 +19,13 @@
 
     @include('whatsapp._tabs', ['waTab' => 'test-n8n'])
 
+    <p class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">
+        Configuración a mano (cuentas, instrucciones, docs):
+        <a href="{{ route('whatsapp.memoria.index') }}" class="font-semibold underline">Memoria del agente</a>
+        · ejemplos cortos en
+        <a href="{{ route('whatsapp.casos.index') }}" class="font-semibold underline">Casos</a>.
+    </p>
+
     <div id="whatsapp-test-n8n-app" class="mt-3">
         <div class="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-xl dark:border-[#2a3942] dark:bg-[#111b21] dark:text-[#8696a0]">
             Cargando test del agente...
