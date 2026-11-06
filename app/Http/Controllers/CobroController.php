@@ -52,18 +52,10 @@ class CobroController extends Controller
         $this->applyCobrosListFilters($request, $statsQuery, $user, $esAdmin);
         $cobrosHoy = (float) (clone $statsQuery)->whereDate('fecha_pago', $hoy)->sum('monto');
 
-        // Mismo criterio que el enlace del cartel y que el total verde al abrirlo:
-        // cobros del 20 del mes anterior al fin de mes, de facturas creadas el mes anterior.
+        // Mismo criterio que el enlace del cartel, el total verde y el dashboard.
         $mesQuery = Cobro::query();
         $this->applyCobrosDimensionFilters($request, $mesQuery, $user, $esAdmin);
-        $mesQuery->whereDate('fecha_pago', '>=', $rangosVentanaMes['desdeVentana']->toDateString());
-        $mesQuery->whereDate('fecha_pago', '<=', $rangosVentanaMes['hastaVentana']->toDateString());
-        $fd = $rangosVentanaMes['facturaDesde']->toDateString();
-        $fh = $rangosVentanaMes['facturaHasta']->toDateString();
-        $mesQuery->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
-            $q->whereDate('factura_internas.created_at', '>=', $fd)
-                ->whereDate('factura_internas.created_at', '<=', $fh);
-        });
+        CobrosMesVentana::aplicarFiltroRecibosCiclo($mesQuery, $mesReferenciaCobros);
         $cobrosMes = (float) $mesQuery->sum('monto');
 
         $pendienteMes = CobrosMesVentana::totalesPendientePorVencimiento($mesReferenciaCobros);

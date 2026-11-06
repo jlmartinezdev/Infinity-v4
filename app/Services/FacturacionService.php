@@ -1949,7 +1949,9 @@ class FacturacionService
             $facturaIds = [$cobro->factura_interna_id];
         }
 
-        DB::transaction(function () use ($cobro, $facturaIds, $clienteId, $montoSaldoFavor, $facturaReferenciaId) {
+        $fechaPagoCobro = Carbon::parse($cobro->fecha_pago);
+
+        DB::transaction(function () use ($cobro, $facturaIds, $clienteId, $montoSaldoFavor, $facturaReferenciaId, $fechaPagoCobro) {
             app(CobrosResumenService::class)->aplicarImpactoCobro($cobro, -1);
 
             if ($montoSaldoFavor > 0.009) {
@@ -1961,6 +1963,7 @@ class FacturacionService
             }
 
             $cobro->delete();
+            app(CobrosResumenService::class)->sincronizarCobradoPorFechaPago($fechaPagoCobro);
 
             foreach ($facturaIds as $fid) {
                 $factura = FacturaInterna::find($fid);

@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\DB;
 class CobrosResumenService
 {
     /**
-     * Ajusta cobros_resumen al registrar o eliminar un cobro (incremental).
-     * Solo modifica total_cobrado, pago_adelantado, pago_atrasado y total_pendiente del ciclo.
-     * No recalcula total_facturado (eso va por aplicarImpactoFactura / rebuild manual).
+     * Ajusta pendiente, adelantado y atrasado al registrar o eliminar un cobro.
+     * El total cobrado del ciclo se vuelve a sumar desde los recibos.
+     * No recalcula total_facturado.
      */
     public function aplicarImpactoCobro(Cobro $cobro, int $signo = 1): void
     {
@@ -24,6 +24,39 @@ class CobrosResumenService
         foreach ($desglose as $mesClave => $montos) {
             $this->ajustarMesPorCobro($mesClave, $montos, $multiplicador);
         }
+
+        if ($multiplicador > 0 && $cobro->fecha_pago) {
+            $this->sincronizarCobradoPorFechaPago(Carbon::parse($cobro->fecha_pago));
+        }
+    }
+
+    /**
+     * Deja total_cobrado igual a la suma de recibos del ciclo para cada mes que incluye esta fecha de pago.
+     */
+    public function sincronizarCobradoPorFechaPago(Carbon $fechaPago): void
+    {
+        foreach (CobrosMesVentana::mesesVentanaDeFechaPago($fechaPago) as $mes) {
+            $this->escribirTotalCobrado(Carbon::parse($mes));
+        }
+    }
+
+    public function escribirTotalCobrado(Carbon $mesReferencia): void
+    {
+        $mes = $mesReferencia->copy()->startOfMonth();
+        $mesClave = $mes->toDateString();
+        $total = CobrosMesVentana::sumMontoRecibosCiclo($mes);
+
+        $resumen = CobroResumen::query()->firstOrCreate(
+            ['mes' => $mesClave],
+            [
+                'total_facturado' => 0,
+                'total_pendiente' => 0,
+                'total_cobrado' => 0,
+                'pago_adelantado' => 0,
+                'pago_atrasado' => 0,
+            ]
+        );
+        $resumen->update(['total_cobrado' => $total]);
     }
 
     /**
@@ -201,7 +234,7 @@ class CobrosResumenService
         }
 
         return [
-            'total_cobrado' => round($totalCobrado, 2),
+            'total_cobrado' => CobrosMesVentana::sumMontoRecibosCiclo($mes),
             'pago_adelantado' => round($pagoAdelantado, 2),
             'pago_atrasado' => round($pagoAtrasado, 2),
         ];
@@ -233,9 +266,6 @@ class CobrosResumenService
         );
 
         if ($multiplicador > 0) {
-            if ($totalCobrado > 0) {
-                $resumen->increment('total_cobrado', $totalCobrado);
-            }
             if ($reduccionPendiente > 0) {
                 $resumen->decrement('total_pendiente', $reduccionPendiente);
             }
@@ -246,9 +276,6 @@ class CobrosResumenService
                 $resumen->increment('pago_atrasado', $pagoAtrasado);
             }
         } else {
-            if ($totalCobrado > 0) {
-                $resumen->decrement('total_cobrado', $totalCobrado);
-            }
             if ($reduccionPendiente > 0) {
                 $resumen->increment('total_pendiente', $reduccionPendiente);
             }

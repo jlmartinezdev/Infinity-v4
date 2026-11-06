@@ -49,6 +49,62 @@ final class CobrosMesVentana
     }
 
     /**
+     * Recibos del ciclo: fecha de pago en la ventana y al menos una factura creada el mes anterior.
+     * Es el mismo criterio del listado de Cobros al abrir «Cobros del mes» y del PDF resumen.
+     *
+     * @param  Builder<Cobro>|QueryBuilder  $query
+     */
+    public static function aplicarFiltroRecibosCiclo($query, Carbon $mesReferencia, string $table = 'cobros'): void
+    {
+        $rangos = self::rangosParaMesReferencia($mesReferencia);
+        $fd = $rangos['facturaDesde']->toDateString();
+        $fh = $rangos['facturaHasta']->toDateString();
+
+        $query->whereDate("{$table}.fecha_pago", '>=', $rangos['desdeVentana']->toDateString());
+        $query->whereDate("{$table}.fecha_pago", '<=', $rangos['hastaVentana']->toDateString());
+        $query->whereExists(function ($sub) use ($table, $fd, $fh) {
+            $sub->selectRaw('1')
+                ->from('cobro_factura_interna as cfi_ciclo')
+                ->join('factura_internas as fi_ciclo', 'fi_ciclo.id', '=', 'cfi_ciclo.factura_interna_id')
+                ->whereColumn('cfi_ciclo.cobro_id', "{$table}.id")
+                ->whereDate('fi_ciclo.created_at', '>=', $fd)
+                ->whereDate('fi_ciclo.created_at', '<=', $fh);
+        });
+    }
+
+    public static function sumMontoRecibosCiclo(Carbon $mesReferencia): float
+    {
+        $q = DB::table('cobros');
+        self::aplicarFiltroRecibosCiclo($q, $mesReferencia);
+
+        return round((float) $q->sum('monto'), 2);
+    }
+
+    /**
+     * Meses de resumen cuya ventana de cobro incluye esta fecha de pago.
+     *
+     * @return list<string> Fechas Y-m-01
+     */
+    public static function mesesVentanaDeFechaPago(Carbon $fechaPago): array
+    {
+        $dia = $fechaPago->copy()->startOfDay();
+        $base = $dia->copy()->startOfMonth();
+        $meses = [];
+
+        foreach ([-1, 0, 1] as $offset) {
+            $mes = $base->copy()->addMonthsNoOverflow($offset)->startOfMonth();
+            $rangos = self::rangosParaMesReferencia($mes);
+            $desde = $rangos['desdeVentana']->copy()->startOfDay();
+            $hasta = $rangos['hastaVentana']->copy()->startOfDay();
+            if ($dia->between($desde, $hasta)) {
+                $meses[] = $mes->toDateString();
+            }
+        }
+
+        return array_values(array_unique($meses));
+    }
+
+    /**
      * @param  array{desdeVentana: Carbon, hastaVentana: Carbon, facturaDesde: Carbon, facturaHasta: Carbon}  $rangos
      * @return array{desde: string, hasta: string, factura_desde: string, factura_hasta: string}
      */
