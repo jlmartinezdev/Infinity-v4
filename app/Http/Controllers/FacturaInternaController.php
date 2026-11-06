@@ -1760,6 +1760,7 @@ class FacturaInternaController extends Controller
         $factura_interna->delete();
 
         $facturacionService->revisarEstadoPagoServiciosTrasEliminarFacturaInterna($clienteId, $servicioIds);
+        $facturacionService->refrescarResumenMesDeFactura($factura_interna);
 
         if ($request->ajax()) {
             return response()->json(['message' => 'Factura interna eliminada.']);

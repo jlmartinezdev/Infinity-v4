@@ -169,6 +169,19 @@ class FacturacionService
     }
 
     /**
+     * Vuelve a calcular facturado y pendiente del ciclo de esta factura.
+     * Sirve al emitir una nota de crédito y al eliminar la factura.
+     */
+    public function refrescarResumenMesDeFactura(FacturaInterna $factura): void
+    {
+        if (! $factura->created_at) {
+            return;
+        }
+
+        $this->sincronizarResumenPorFactura($factura);
+    }
+
+    /**
      * Genera una factura interna (mensual) para un cliente a partir de sus servicios activos.
      * Un detalle por cada servicio con el precio del plan.
      *
@@ -2547,6 +2560,8 @@ class FacturacionService
                 ]);
                 $this->actualizarEstadoPagoServiciosDeFacturaInterna($factura->id, 'pagado');
             }
+
+            $this->refrescarResumenMesDeFactura($factura);
 
             return $nota;
         });

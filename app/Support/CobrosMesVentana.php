@@ -473,16 +473,23 @@ final class CobrosMesVentana
     {
         $q = DB::table('factura_internas');
         self::aplicarFiltroFacturasCicloMesReferencia($q, $mesReferencia);
+        $total = (float) ($q->sum('factura_internas.total') ?? 0);
 
-        return (float) ($q->sum('total') ?? 0);
+        $notas = DB::table('factura_interna_notas_credito')
+            ->join('factura_internas', 'factura_internas.id', '=', 'factura_interna_notas_credito.factura_interna_id');
+        self::aplicarFiltroFacturasCicloMesReferencia($notas, $mesReferencia);
+        $totalNotas = (float) ($notas->sum('factura_interna_notas_credito.monto') ?? 0);
+
+        return round($total - $totalNotas, 2);
     }
 
     public static function calcularTotalPendienteMesReferencia(Carbon $mesReferencia): float
     {
+        $saldo = FacturaInterna::sqlSaldoPendienteExpr();
         $q = DB::table('factura_internas')
-            ->selectRaw('SUM(total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)) as total_pendiente')
+            ->selectRaw("SUM({$saldo}) as total_pendiente")
             ->whereIn('estado', ['pendiente', 'emitida'])
-            ->whereRaw('total > COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0)');
+            ->whereRaw("{$saldo} > 0");
 
         self::aplicarFiltroFacturasCicloMesReferencia($q, $mesReferencia);
 
@@ -498,7 +505,7 @@ final class CobrosMesVentana
     public static function totalesPendientePorVencimiento(?Carbon $mesReferencia = null, ?Carbon $hoy = null): array
     {
         $hoyStr = ($hoy ?? now())->toDateString();
-        $saldo = '(factura_internas.total - COALESCE((SELECT SUM(monto) FROM cobro_factura_interna WHERE factura_interna_id = factura_internas.id), 0))';
+        $saldo = FacturaInterna::sqlSaldoPendienteExpr();
 
         $q = DB::table('factura_internas')
             ->selectRaw("
