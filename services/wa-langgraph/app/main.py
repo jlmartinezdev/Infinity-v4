@@ -25,6 +25,8 @@ class TurnRequest(BaseModel):
 
 
 class TurnResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     reply: str | None = None
     escalate: bool = False
     cliente_id: int | None = None
@@ -34,7 +36,9 @@ class TurnResponse(BaseModel):
     confidence: float | None = None
     tools_used: list[dict[str, Any]] = Field(default_factory=list)
     proceso_activo: str | None = None
+    proceso_pila: list[str] = Field(default_factory=list)
     proceso_cancelado: bool = False
+    sector: str | None = None
     hechos: dict[str, Any] = Field(default_factory=dict)
     total_latency_ms: int | None = None
     llm_latency_ms: int | None = None

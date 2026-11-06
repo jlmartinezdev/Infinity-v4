@@ -45,12 +45,24 @@ class GeminiClient:
         usage = data.get("usageMetadata") or {}
         self.tokens_in += int(usage.get("promptTokenCount") or 0)
         self.tokens_out += int(usage.get("candidatesTokenCount") or usage.get("totalTokenCount") or 0)
-        parts = (
-            ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts")
-            or []
-        )
-        texts = [str(p.get("text") or "") for p in parts if isinstance(p, dict)]
-        return "\n".join(t for t in texts if t).strip()
+        candidates = data.get("candidates") or []
+        cand0 = candidates[0] if candidates else {}
+        parts = ((cand0.get("content") or {}).get("parts") or [])
+        texts = []
+        for p in parts:
+            if not isinstance(p, dict):
+                continue
+            # Modelos con "thought" pueden devolver partes no visibles al cliente.
+            if p.get("thought") is True:
+                continue
+            t = str(p.get("text") or "").strip()
+            if t:
+                texts.append(t)
+        out = "\n".join(texts).strip()
+        if not out:
+            finish = str(cand0.get("finishReason") or data.get("promptFeedback") or "empty")
+            raise RuntimeError(f"gemini_empty_response:{finish}:{resp.text[:200]}")
+        return out
 
     def generate_json(self, system: str, user: str) -> dict[str, Any]:
         raw = self.generate(system, user, temperature=0.0)

@@ -223,21 +223,26 @@ def build_graph():
         msg_low = mensaje.lower().strip()
         forced = _force_intent(msg_low, payload, historial)
 
-        # Clasificación: hint local + siempre Gemini si no es transferencia/saludo puro
-        # (más razonamiento). Transferencia se fuerza por seguridad de números.
+        # Clasificación: hint local + Gemini. Si Gemini cae (402/créditos), no tumbar el turno.
+        tokens_in = int(state.get("tokens_in") or 0)
+        tokens_out = int(state.get("tokens_out") or 0)
+        llm_ms = int(state.get("llm_latency_ms") or 0)
         if forced == "transferencia":
             intent = "transferencia"
             tema_nuevo = True
             continue_process = False
-            tokens_in = int(state.get("tokens_in") or 0)
-            tokens_out = int(state.get("tokens_out") or 0)
-            llm_ms = int(state.get("llm_latency_ms") or 0)
             needs_human = False
             confidence = 0.98
         else:
-            data = gemini.generate_json(CLASSIFY_SYSTEM, user)
+            data: dict[str, Any] = {}
+            try:
+                data = gemini.generate_json(CLASSIFY_SYSTEM, user)
+                tokens_in += gemini.tokens_in
+                tokens_out += gemini.tokens_out
+                llm_ms += gemini.latency_ms
+            except Exception:  # noqa: BLE001
+                data = {}
             intent = str(data.get("intent") or forced or "otro")
-            # Si el hint es más específico que “otro”, preferirlo.
             if forced and intent in {"otro", "saludo"} and forced not in {"saludo"}:
                 intent = forced
             if forced == "meta" and _SALUDO_RE.match(msg_low):
@@ -248,13 +253,12 @@ def build_graph():
                 intent = "comprobante_aviso"
             if forced == "falla":
                 intent = "falla"
-            tema_nuevo = bool(data.get("tema_nuevo", True))
+            if forced == "saludo":
+                intent = "saludo"
+            tema_nuevo = bool(data.get("tema_nuevo", True if forced else True))
             continue_process = bool(data.get("continue_process"))
             needs_human = bool(data.get("needs_human"))
-            confidence = float(data.get("confidence") or 0.6)
-            tokens_in = int(state.get("tokens_in") or 0) + gemini.tokens_in
-            tokens_out = int(state.get("tokens_out") or 0) + gemini.tokens_out
-            llm_ms = int(state.get("llm_latency_ms") or 0) + gemini.latency_ms
+            confidence = float(data.get("confidence") or (0.9 if forced else 0.55))
             if forced and intent == "otro":
                 intent = forced
 
@@ -426,10 +430,66 @@ def build_graph():
             f"hechos_tools={json.dumps(facts, ensure_ascii=False)[:5000]}\n"
             f"estilo={estilo[:1800]}"
         )
-        # Un poco más de temperatura: menos fórmulas calcadas, más ajuste al hilo.
-        text = gemini.generate(REPLY_SYSTEM, user, temperature=0.45)
+        text = ""
+        gemini_ok = True
+        gemini_err = None
+        try:
+            text = gemini.generate(REPLY_SYSTEM, user, temperature=0.45)
+        except Exception as exc:  # noqa: BLE001
+            # Reintento corto si la 1ª falla (402, empty, timeout puntual).
+            try:
+                text = gemini.generate(
+                    REPLY_SYSTEM,
+                    (
+                        f"intent={intent}\nmensaje_cliente={mensaje}\n"
+                        f"historial_reciente={historial[:800]}\n"
+                        f"hechos_tools={json.dumps(facts, ensure_ascii=False)[:2000]}\n"
+                        "Redacte 1–3 oraciones útiles en español de usted. Sin placeholders."
+                    ),
+                    temperature=0.3,
+                )
+            except Exception as exc2:  # noqa: BLE001
+                gemini_ok = False
+                gemini_err = f"{type(exc).__name__}/{type(exc2).__name__}: {exc2}"[:300]
+                text = ""
+
+        # Fallbacks sin Gemini: hechos/canned antes que silencio.
         if not text:
-            text = "¿En qué le podemos ayudar?"
+            if intent == "transferencia":
+                text = str((facts.get("canned") or {}).get("transferencia") or "")
+            elif intent in {"beneficios", "condiciones"} and texto_oficial:
+                text = str(texto_oficial)
+            elif intent == "falla" and decision.get("reply"):
+                text = str(decision.get("reply") or "")
+            elif intent == "catalogo_internet" and planes:
+                text = str(planes)[:1500]
+            elif intent in {"saludo", "meta"}:
+                text = "¿En qué le podemos ayudar?"
+            elif intent == "comprobante_aviso":
+                text = "Gracias. Cuando tenga la captura del comprobante, envíenosla por aquí para registrarlo."
+            elif intent.startswith("cobertura"):
+                text = (
+                    "Con gusto verificamos cobertura. Indíquenos barrio y ciudad, "
+                    "o envíenos su ubicación por WhatsApp."
+                )
+            elif intent in {"saldo", "plan_cuenta", "identificacion", "pago"}:
+                text = (
+                    "Para consultar su cuenta, indíquenos el número de cédula "
+                    "o el nombre del titular del servicio."
+                )
+            elif intent == "zona":
+                text = (
+                    "Vamos a revisar si hay alguna afectación en su zona. "
+                    "¿Nos confirma barrio y ciudad del servicio?"
+                )
+            else:
+                # Nunca devolver un “un momento” vacío: pedir el dato útil.
+                text = (
+                    "¿Me confirma en qué podemos ayudarle "
+                    "(internet, plan, pago, cobertura u otro tema)?"
+                )
+            if gemini_err:
+                print(f"[wa-langgraph] compose gemini_fail intent={intent} err={gemini_err}", flush=True)
 
         escalate = bool(state.get("needs_human") or facts.get("needs_human_sugerido") or intent == "handoff")
         motivo = None
@@ -437,7 +497,9 @@ def build_graph():
             motivo = "needs_human" if intent == "handoff" else (str(state.get("motivo_escalado") or intent))
 
         modo = "langgraph"
-        if intent.startswith("cobertura"):
+        if not gemini_ok:
+            modo = "langgraph_fallback"
+        elif intent.startswith("cobertura"):
             modo = "langgraph_cobertura"
         elif intent == "saludo":
             modo = "langgraph_saludo"
@@ -457,9 +519,9 @@ def build_graph():
             "escalate": escalate,
             "motivo_escalado": motivo,
             "modo": modo,
-            "tokens_in": int(state.get("tokens_in") or 0) + gemini.tokens_in,
-            "tokens_out": int(state.get("tokens_out") or 0) + gemini.tokens_out,
-            "llm_latency_ms": int(state.get("llm_latency_ms") or 0) + gemini.latency_ms,
+            "tokens_in": int(state.get("tokens_in") or 0) + (gemini.tokens_in if gemini_ok else 0),
+            "tokens_out": int(state.get("tokens_out") or 0) + (gemini.tokens_out if gemini_ok else 0),
+            "llm_latency_ms": int(state.get("llm_latency_ms") or 0) + (gemini.latency_ms if gemini_ok else 0),
         }
 
     g.add_node("classify", classify)
