@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Cobro;
-use App\Models\CobroResumen;
 use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\User;
@@ -53,27 +52,19 @@ class CobroController extends Controller
         $this->applyCobrosListFilters($request, $statsQuery, $user, $esAdmin);
         $cobrosHoy = (float) (clone $statsQuery)->whereDate('fecha_pago', $hoy)->sum('monto');
 
-        // Admin con "Todos" los usuarios: total del ciclo desde cobros_resumen (mismo criterio que el dashboard).
-        // Con usuario concreto o usuario no admin: suma en vivo desde cobros.
-        $usarResumenCobrosMes = $esAdmin && ! $request->filled('usuario_id');
-
-        if ($usarResumenCobrosMes) {
-            $cobrosMes = CobroResumen::totalCobradoParaMes($mesReferenciaCobros);
-        } else {
-            $mesQuery = Cobro::query();
-            $this->applyCobrosDimensionFilters($request, $mesQuery, $user, $esAdmin);
-            $mesQuery->whereBetween('fecha_pago', [$rangosVentanaMes['desdeVentana'], $rangosVentanaMes['hastaVentana']]);
-            CobrosMesVentana::aplicarFiltroAtribucionMesReferencia($mesQuery, $mesReferenciaCobros);
-            if ($request->filled('factura_desde') && $request->filled('factura_hasta')) {
-                $fd = $request->factura_desde;
-                $fh = $request->factura_hasta;
-                $mesQuery->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
-                    $q->whereDate('factura_internas.created_at', '>=', $fd)
-                        ->whereDate('factura_internas.created_at', '<=', $fh);
-                });
-            }
-            $cobrosMes = (float) $mesQuery->sum('cobros.monto');
-        }
+        // Mismo criterio que el enlace del cartel y que el total verde al abrirlo:
+        // cobros del 20 del mes anterior al fin de mes, de facturas creadas el mes anterior.
+        $mesQuery = Cobro::query();
+        $this->applyCobrosDimensionFilters($request, $mesQuery, $user, $esAdmin);
+        $mesQuery->whereDate('fecha_pago', '>=', $rangosVentanaMes['desdeVentana']->toDateString());
+        $mesQuery->whereDate('fecha_pago', '<=', $rangosVentanaMes['hastaVentana']->toDateString());
+        $fd = $rangosVentanaMes['facturaDesde']->toDateString();
+        $fh = $rangosVentanaMes['facturaHasta']->toDateString();
+        $mesQuery->whereHas('facturaInternas', function ($q) use ($fd, $fh) {
+            $q->whereDate('factura_internas.created_at', '>=', $fd)
+                ->whereDate('factura_internas.created_at', '<=', $fh);
+        });
+        $cobrosMes = (float) $mesQuery->sum('monto');
 
         $pendienteMes = CobrosMesVentana::totalesPendientePorVencimiento($mesReferenciaCobros);
         $pendienteTotal = CobrosMesVentana::totalesPendientePorVencimiento();
@@ -97,8 +88,7 @@ class CobroController extends Controller
             'totalPendientePorVencer',
             'esAdmin',
             'usuariosConCobros',
-            'formasPago',
-            'usarResumenCobrosMes'
+            'formasPago'
         ));
     }
 
