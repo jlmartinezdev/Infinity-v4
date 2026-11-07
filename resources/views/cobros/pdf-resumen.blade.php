@@ -24,6 +24,9 @@
         @if($desde || $hasta)
         <p class="filtros">Período: {{ $desde ? \Carbon\Carbon::parse($desde)->format('d/m/Y') : '—' }} al {{ $hasta ? \Carbon\Carbon::parse($hasta)->format('d/m/Y') : '—' }}</p>
         @endif
+        @if(request()->filled('monto_desde') || request()->filled('monto_hasta'))
+        <p class="filtros">Monto: {{ request('monto_desde') ?: '—' }} a {{ request('monto_hasta') ?: '—' }}</p>
+        @endif
     </div>
 
     <table>

@@ -4,6 +4,12 @@
 @endphp
 
 <div class="space-y-3" id="permisos-granular">
+    <div class="sticky top-0 z-10 bg-white pb-2 dark:bg-gray-800">
+        <input type="search"
+               id="permisos-buscar"
+               placeholder="Buscar permiso: WhatsApp, cobros, tickets…"
+               class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+    </div>
     @foreach($arbolPermisos as $grupoIdx => $grupo)
         <details class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900/40" open>
             <summary class="cursor-pointer select-none px-4 py-3 font-semibold text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2">
@@ -53,3 +59,32 @@
         </details>
     @endforeach
 </div>
+<script>
+(function () {
+    const input = document.getElementById('permisos-buscar');
+    const raiz = document.getElementById('permisos-granular');
+    if (!input || !raiz) return;
+    const normalizar = function (texto) {
+        return (texto || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/(.)\1+/g, '$1');
+    };
+    input.addEventListener('input', function () {
+        const consulta = normalizar(input.value.trim());
+        raiz.querySelectorAll('details').forEach(function (grupo) {
+            const titulo = normalizar(grupo.querySelector('summary span')?.textContent || '');
+            let visible = false;
+            grupo.querySelectorAll('[data-item]').forEach(function (item) {
+                const texto = normalizar(item.querySelector('span')?.textContent || '');
+                const coincide = consulta === '' || titulo.includes(consulta) || texto.includes(consulta);
+                item.classList.toggle('hidden', !coincide);
+                if (coincide) visible = true;
+            });
+            grupo.classList.toggle('hidden', !visible);
+            if (visible && consulta !== '') grupo.open = true;
+        });
+    });
+})();
+</script>

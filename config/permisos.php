@@ -270,6 +270,12 @@ return [
             ],
         ],
         [
+            'label' => 'Finanzas',
+            'items' => [
+                ['label' => 'Finanzas', 'base' => 'finanzas', 'acciones' => ['ver', 'crear', 'editar']],
+            ],
+        ],
+        [
             'label' => 'Facturación',
             'items' => [
                 ['label' => 'Dashboard', 'base' => 'facturacion-dashboard', 'acciones' => ['ver']],

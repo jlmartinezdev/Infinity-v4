@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Models\Cliente;
+use App\Models\Cobro;
 use App\Models\HotspotPerfil;
 use App\Models\Servicio;
 use App\Models\ServicioHotspot;
 use App\Models\Ticket;
 use App\Observers\ClienteObserver;
+use App\Observers\CobroFinanzasObserver;
 use App\Observers\HotspotPerfilObserver;
 use App\Observers\ServicioHotspotObserver;
 use App\Observers\ServicioRadiusObserver;
@@ -41,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Ticket::observe(TicketObserver::class);
+        Cobro::observe(CobroFinanzasObserver::class);
         Cliente::observe(ClienteObserver::class);
         ServicioHotspot::observe(ServicioHotspotObserver::class);
         Servicio::observe(ServicioRadiusObserver::class);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccesoRapidoController;
+use App\Http\Controllers\AnalisisCobranzasController;
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\ApWirelessCaidaAvisoController;
 use App\Http\Controllers\AuditoriaController;
@@ -16,12 +17,16 @@ use App\Http\Controllers\CobroRendicionController;
 use App\Http\Controllers\CompraController;
 use App\Http\Controllers\CotizacionDolarController;
 use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\ConfiguracionFinanzasController;
 use App\Http\Controllers\CpeAccesoController;
 use App\Http\Controllers\DiscoController;
 use App\Http\Controllers\CorteServicioController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\EstadoPedidoController;
 use App\Http\Controllers\FacturacionDashboardController;
+use App\Http\Controllers\FinanzasDashboardController;
+use App\Http\Controllers\FinanzasLibroController;
+use App\Http\Controllers\FinanzasOperacionController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FacturaInternaController;
 use App\Http\Controllers\FacturaInternaNotaCreditoController;
@@ -178,6 +183,8 @@ Route::middleware(['auth', 'permiso:configuracion.ver'])->group(function () {
     Route::post('/configuracion/ajustes', [ConfiguracionController::class, 'storeAjustes'])->name('configuracion.ajustes.store');
     Route::get('/configuracion/facturacion', [ConfiguracionController::class, 'facturacion'])->name('configuracion.facturacion');
     Route::post('/configuracion/facturacion', [ConfiguracionController::class, 'storeFacturacion'])->name('configuracion.facturacion.store');
+    Route::get('/configuracion/finanzas', [ConfiguracionFinanzasController::class, 'edit'])->name('configuracion.finanzas');
+    Route::post('/configuracion/finanzas', [ConfiguracionFinanzasController::class, 'update'])->name('configuracion.finanzas.store');
     Route::get('/configuracion/sifen', [SifenConfiguracionController::class, 'edit'])->name('configuracion.sifen');
     Route::post('/configuracion/sifen', [SifenConfiguracionController::class, 'update'])->name('configuracion.sifen.store');
     Route::get('/configuracion/sifen/prueba', [SifenPruebaController::class, 'index'])->name('configuracion.sifen.prueba');
@@ -576,6 +583,42 @@ Route::middleware(['auth', 'permiso:facturas.ver'])->group(function () {
 Route::get('/facturacion/dashboard', [FacturacionDashboardController::class, 'index'])
     ->name('facturacion.dashboard')
     ->middleware(['auth', 'permiso:facturacion.ver']);
+Route::get('/facturacion/analisis-cobranzas', [AnalisisCobranzasController::class, 'index'])
+    ->name('facturacion.analisis-cobranzas')
+    ->middleware(['auth', 'permiso:facturacion.ver']);
+Route::get('/facturacion/analisis-cobranzas/excel', [AnalisisCobranzasController::class, 'excel'])
+    ->name('facturacion.analisis-cobranzas.excel')
+    ->middleware(['auth', 'permiso:facturacion.ver']);
+Route::middleware(['auth', 'permiso:finanzas.ver'])->group(function () {
+    Route::get('/finanzas', [FinanzasDashboardController::class, 'index'])->name('finanzas.dashboard');
+    Route::get('/finanzas/libro', [FinanzasLibroController::class, 'index'])->name('finanzas.libro');
+    Route::get('/finanzas/libro/excel', [FinanzasLibroController::class, 'excel'])->name('finanzas.libro.excel');
+    Route::get('/finanzas/cobros-del-mes', [FinanzasDashboardController::class, 'cobrosMes'])->name('finanzas.cobros-mes');
+    Route::get('/finanzas/transferencias', [FinanzasOperacionController::class, 'transferencias'])->name('finanzas.transferencias');
+    Route::get('/finanzas/egresos', [FinanzasOperacionController::class, 'egresos'])->name('finanzas.egresos');
+    Route::get('/finanzas/egresos/{egreso}/archivo/{tipo}', [FinanzasOperacionController::class, 'archivo'])
+        ->whereIn('tipo', ['documento', 'factura'])
+        ->name('finanzas.egresos.archivo');
+    Route::get('/finanzas/retiros', [FinanzasOperacionController::class, 'retiros'])->name('finanzas.retiros');
+    Route::get('/finanzas/liquidaciones', [FinanzasOperacionController::class, 'liquidaciones'])->name('finanzas.liquidaciones');
+    Route::get('/finanzas/conciliacion', [FinanzasOperacionController::class, 'conciliacion'])->name('finanzas.conciliacion');
+    Route::get('/finanzas/cierres', [FinanzasOperacionController::class, 'cierres'])->name('finanzas.cierres');
+    Route::get('/finanzas/cuentas', [FinanzasOperacionController::class, 'cuentas'])->name('finanzas.cuentas');
+});
+Route::middleware(['auth', 'permiso:finanzas.crear'])->group(function () {
+    Route::post('/finanzas/cobros-del-mes', [FinanzasDashboardController::class, 'cargarCobrosMes'])->name('finanzas.cobros-mes.store');
+    Route::post('/finanzas/transferencias', [FinanzasOperacionController::class, 'guardarTransferencia'])->name('finanzas.transferencias.store');
+    Route::post('/finanzas/egresos', [FinanzasOperacionController::class, 'guardarEgreso'])->name('finanzas.egresos.store');
+    Route::post('/finanzas/egresos/plantillas', [FinanzasOperacionController::class, 'crearPlantilla'])->name('finanzas.egresos.plantillas.store');
+    Route::post('/finanzas/egresos/plantillas/{plantilla}', [FinanzasOperacionController::class, 'guardarPlantilla'])->name('finanzas.egresos.plantilla');
+    Route::post('/finanzas/retiros', [FinanzasOperacionController::class, 'guardarRetiro'])->name('finanzas.retiros.store');
+    Route::post('/finanzas/liquidaciones', [FinanzasOperacionController::class, 'guardarLiquidacion'])->name('finanzas.liquidaciones.store');
+    Route::post('/finanzas/cuentas', [FinanzasOperacionController::class, 'guardarCuenta'])->name('finanzas.cuentas.store');
+});
+Route::middleware(['auth', 'permiso:finanzas.editar'])->group(function () {
+    Route::post('/finanzas/conciliacion', [FinanzasOperacionController::class, 'guardarConciliacion'])->name('finanzas.conciliacion.store');
+    Route::post('/finanzas/cierres', [FinanzasOperacionController::class, 'guardarCierre'])->name('finanzas.cierres.store');
+});
 Route::get('/facturacion/cobros-saldo-favor', [FacturacionDashboardController::class, 'cobrosSaldoFavor'])
     ->name('facturacion.cobros-saldo-favor')
     ->middleware(['auth', 'permiso:facturacion.ver']);

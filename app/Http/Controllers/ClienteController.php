@@ -1212,7 +1212,10 @@ class ClienteController extends Controller
         DB::transaction(function () use ($cliente) {
             $clienteId = $cliente->cliente_id;
 
-            // 1. Cobros
+            // 1. Cobros. El reverso del libro queda en la misma transacción.
+            foreach ($cliente->cobros()->get() as $cobro) {
+                app(\App\Services\Finanzas\FinanzasCobroPuente::class)->revertirPorAnulacion($cobro);
+            }
             $cliente->cobros()->delete();
 
             // 2. Facturas internas (los detalles se eliminan por cascade en la BD)

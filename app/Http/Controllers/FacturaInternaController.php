@@ -1755,7 +1755,12 @@ class FacturaInternaController extends Controller
         $clienteId = $factura_interna->cliente_id;
         $servicioIds = $factura_interna->detalles()->whereNotNull('servicio_id')->pluck('servicio_id')->unique()->values()->all();
 
-        $factura_interna->cobros()->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($factura_interna) {
+            foreach ($factura_interna->cobros()->get() as $cobro) {
+                app(\App\Services\Finanzas\FinanzasCobroPuente::class)->revertirPorAnulacion($cobro);
+            }
+            $factura_interna->cobros()->delete();
+        });
         $factura_interna->detalles()->delete();
         $factura_interna->delete();
 

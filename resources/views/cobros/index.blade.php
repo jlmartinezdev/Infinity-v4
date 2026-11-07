@@ -38,6 +38,8 @@
             'cliente_id' => request('cliente_id'),
             'forma_pago' => request('forma_pago'),
             'numero_recibo' => request('numero_recibo'),
+            'monto_desde' => request('monto_desde'),
+            'monto_hasta' => request('monto_hasta'),
         ]);
     @endphp
     <div class="grid grid-cols-1 {{ $esAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-2' }} gap-4 mb-6">
@@ -151,6 +153,14 @@
                 <div class="sm:w-40">
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Nº Recibo</label>
                     <input type="text" name="numero_recibo" value="{{ request('numero_recibo') }}" placeholder="001-001-0..." class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div class="sm:w-36">
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Monto desde</label>
+                    <input type="text" inputmode="decimal" name="monto_desde" value="{{ request('monto_desde') }}" placeholder="150.000" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div class="sm:w-36">
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Monto hasta</label>
+                    <input type="text" inputmode="decimal" name="monto_hasta" value="{{ request('monto_hasta') }}" placeholder="150.000" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
                 </div>
                 @if(request()->filled('factura_desde') && request()->filled('factura_hasta'))
                     <input type="hidden" name="factura_desde" value="{{ request('factura_desde') }}">

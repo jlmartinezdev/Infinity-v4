@@ -632,6 +632,38 @@ class CobroController extends Controller
                 $query->where('forma_pago', $request->forma_pago);
             }
         }
+        $montoDesde = $this->montoFiltro($request->input('monto_desde'));
+        $montoHasta = $this->montoFiltro($request->input('monto_hasta'));
+        if ($montoDesde !== null) {
+            $query->where('monto', '>=', $montoDesde);
+        }
+        if ($montoHasta !== null) {
+            $query->where('monto', '<=', $montoHasta);
+        }
+    }
+
+    /**
+     * Acepta 150000, 150.000 y 150000,50. Devuelve null si el texto no es un monto.
+     */
+    protected function montoFiltro(mixed $raw): ?float
+    {
+        if ($raw === null) {
+            return null;
+        }
+        $texto = preg_replace('/\s+/', '', trim((string) $raw)) ?? '';
+        if ($texto === '') {
+            return null;
+        }
+        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/', $texto)) {
+            $texto = str_replace('.', '', $texto);
+            $texto = str_replace(',', '.', $texto);
+        } elseif (preg_match('/^\d+(,\d{1,2})$/', $texto)) {
+            $texto = str_replace(',', '.', $texto);
+        } elseif (! preg_match('/^\d+(\.\d{1,2})?$/', $texto)) {
+            return null;
+        }
+
+        return round((float) $texto, 2);
     }
 
     /**

@@ -1,0 +1,9 @@
+<?php
+
+namespace App\Services\Finanzas;
+
+use RuntimeException;
+
+class PeriodoCerradoException extends RuntimeException
+{
+}
