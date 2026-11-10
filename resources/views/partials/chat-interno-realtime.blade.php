@@ -24,9 +24,9 @@ window.InfinityChat = {
     atenderUrl: @json(url('/chat/mensajes')),
     chatUrl: @json(route('chat.index')),
     key: @json($reverb['key'] ?? null),
-    host: @json($opciones['host'] ?: 'localhost'),
-    port: {{ (int) ($opciones['port'] ?? 8080) }},
-    scheme: @json($opciones['scheme'] ?? 'http'),
+    host: @json(env('REVERB_CLIENT_HOST') ?: null),
+    port: {{ (int) env('REVERB_CLIENT_PORT', 0) }},
+    scheme: @json(env('REVERB_CLIENT_SCHEME') ?: null),
 };
 </script>
 <script src="{{ asset(mix('js/chat-echo.js')) }}"></script>

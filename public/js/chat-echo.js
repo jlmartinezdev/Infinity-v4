@@ -1,5 +1,5292 @@
-(()=>{var Bs=Object.create;var mt=Object.defineProperty;var Ws=Object.getOwnPropertyDescriptor;var Js=Object.getOwnPropertyNames;var Xs=Object.getPrototypeOf,Qs=Object.prototype.hasOwnProperty;var Gs=(s,r)=>()=>{try{return r||s((r={exports:{}}).exports,r),r.exports}catch(a){throw r=0,a}};var Ks=(s,r,a,c)=>{if(r&&typeof r=="object"||typeof r=="function")for(let d of Js(r))!Qs.call(s,d)&&d!==a&&mt(s,d,{get:()=>r[d],enumerable:!(c=Ws(r,d))||c.enumerable});return s};var Vs=(s,r,a)=>(a=s!=null?Bs(Xs(s)):{},Ks(r||!s||!s.__esModule?mt(a,"default",{value:s,enumerable:!0}):a,s));var At=Gs((Te,$e)=>{(function(r,a){typeof Te=="object"&&typeof $e=="object"?$e.exports=a():typeof define=="function"&&define.amd?define([],a):typeof Te=="object"?Te.Pusher=a():r.Pusher=a()})(self,()=>(()=>{var s={594(d,p){"use strict";var g=this&&this.__extends||(function(){var v=function(u,f){return v=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(y,I){y.__proto__=I}||function(y,I){for(var U in I)I.hasOwnProperty(U)&&(y[U]=I[U])},v(u,f)};return function(u,f){v(u,f);function y(){this.constructor=u}u.prototype=f===null?Object.create(f):(y.prototype=f.prototype,new y)}})();Object.defineProperty(p,"__esModule",{value:!0});var C=256,R=(function(){function v(u){u===void 0&&(u="="),this._paddingCharacter=u}return v.prototype.encodedLength=function(u){return this._paddingCharacter?(u+2)/3*4|0:(u*8+5)/6|0},v.prototype.encode=function(u){for(var f="",y=0;y<u.length-2;y+=3){var I=u[y]<<16|u[y+1]<<8|u[y+2];f+=this._encodeByte(I>>>18&63),f+=this._encodeByte(I>>>12&63),f+=this._encodeByte(I>>>6&63),f+=this._encodeByte(I>>>0&63)}var U=u.length-y;if(U>0){var I=u[y]<<16|(U===2?u[y+1]<<8:0);f+=this._encodeByte(I>>>18&63),f+=this._encodeByte(I>>>12&63),U===2?f+=this._encodeByte(I>>>6&63):f+=this._paddingCharacter||"",f+=this._paddingCharacter||""}return f},v.prototype.maxDecodedLength=function(u){return this._paddingCharacter?u/4*3|0:(u*6+7)/8|0},v.prototype.decodedLength=function(u){return this.maxDecodedLength(u.length-this._getPaddingLength(u))},v.prototype.decode=function(u){if(u.length===0)return new Uint8Array(0);for(var f=this._getPaddingLength(u),y=u.length-f,I=new Uint8Array(this.maxDecodedLength(y)),U=0,D=0,$=0,X=0,F=0,z=0,Q=0;D<y-4;D+=4)X=this._decodeChar(u.charCodeAt(D+0)),F=this._decodeChar(u.charCodeAt(D+1)),z=this._decodeChar(u.charCodeAt(D+2)),Q=this._decodeChar(u.charCodeAt(D+3)),I[U++]=X<<2|F>>>4,I[U++]=F<<4|z>>>2,I[U++]=z<<6|Q,$|=X&C,$|=F&C,$|=z&C,$|=Q&C;if(D<y-1&&(X=this._decodeChar(u.charCodeAt(D)),F=this._decodeChar(u.charCodeAt(D+1)),I[U++]=X<<2|F>>>4,$|=X&C,$|=F&C),D<y-2&&(z=this._decodeChar(u.charCodeAt(D+2)),I[U++]=F<<4|z>>>2,$|=z&C),D<y-3&&(Q=this._decodeChar(u.charCodeAt(D+3)),I[U++]=z<<6|Q,$|=Q&C),$!==0)throw new Error("Base64Coder: incorrect characters for decoding");return I},v.prototype._encodeByte=function(u){var f=u;return f+=65,f+=25-u>>>8&6,f+=51-u>>>8&-75,f+=61-u>>>8&-15,f+=62-u>>>8&3,String.fromCharCode(f)},v.prototype._decodeChar=function(u){var f=C;return f+=(42-u&u-44)>>>8&-C+u-43+62,f+=(46-u&u-48)>>>8&-C+u-47+63,f+=(47-u&u-58)>>>8&-C+u-48+52,f+=(64-u&u-91)>>>8&-C+u-65+0,f+=(96-u&u-123)>>>8&-C+u-97+26,f},v.prototype._getPaddingLength=function(u){var f=0;if(this._paddingCharacter){for(var y=u.length-1;y>=0&&u[y]===this._paddingCharacter;y--)f++;if(u.length<4||f>2)throw new Error("Base64Coder: incorrect padding")}return f},v})();p.Coder=R;var _=new R;function m(v){return _.encode(v)}p.encode=m;function L(v){return _.decode(v)}p.decode=L;var P=(function(v){g(u,v);function u(){return v!==null&&v.apply(this,arguments)||this}return u.prototype._encodeByte=function(f){var y=f;return y+=65,y+=25-f>>>8&6,y+=51-f>>>8&-75,y+=61-f>>>8&-13,y+=62-f>>>8&49,String.fromCharCode(y)},u.prototype._decodeChar=function(f){var y=C;return y+=(44-f&f-46)>>>8&-C+f-45+62,y+=(94-f&f-96)>>>8&-C+f-95+63,y+=(47-f&f-58)>>>8&-C+f-48+52,y+=(64-f&f-91)>>>8&-C+f-65+0,y+=(96-f&f-123)>>>8&-C+f-97+26,y},u})(R);p.URLSafeCoder=P;var x=new P;function k(v){return x.encode(v)}p.encodeURLSafe=k;function T(v){return x.decode(v)}p.decodeURLSafe=T,p.encodedLength=function(v){return _.encodedLength(v)},p.maxDecodedLength=function(v){return _.maxDecodedLength(v)},p.decodedLength=function(v){return _.decodedLength(v)}},978(d,p){"use strict";var g;g={value:!0};var C="utf8: invalid string",R="utf8: invalid source encoding";function _(P){for(var x=new Uint8Array(m(P)),k=0,T=0;T<P.length;T++){var v=P.charCodeAt(T);v<128?x[k++]=v:v<2048?(x[k++]=192|v>>6,x[k++]=128|v&63):v<55296?(x[k++]=224|v>>12,x[k++]=128|v>>6&63,x[k++]=128|v&63):(T++,v=(v&1023)<<10,v|=P.charCodeAt(T)&1023,v+=65536,x[k++]=240|v>>18,x[k++]=128|v>>12&63,x[k++]=128|v>>6&63,x[k++]=128|v&63)}return x}g=_;function m(P){for(var x=0,k=0;k<P.length;k++){var T=P.charCodeAt(k);if(T<128)x+=1;else if(T<2048)x+=2;else if(T<55296)x+=3;else if(T<=57343){if(k>=P.length-1)throw new Error(C);k++,x+=4}else throw new Error(C)}return x}g=m;function L(P){for(var x=[],k=0;k<P.length;k++){var T=P[k];if(T&128){var v=void 0;if(T<224){if(k>=P.length)throw new Error(R);var u=P[++k];if((u&192)!==128)throw new Error(R);T=(T&31)<<6|u&63,v=128}else if(T<240){if(k>=P.length-1)throw new Error(R);var u=P[++k],f=P[++k];if((u&192)!==128||(f&192)!==128)throw new Error(R);T=(T&15)<<12|(u&63)<<6|f&63,v=2048}else if(T<248){if(k>=P.length-2)throw new Error(R);var u=P[++k],f=P[++k],y=P[++k];if((u&192)!==128||(f&192)!==128||(y&192)!==128)throw new Error(R);T=(T&15)<<18|(u&63)<<12|(f&63)<<6|y&63,v=65536}else throw new Error(R);if(T<v||T>=55296&&T<=57343)throw new Error(R);if(T>=65536){if(T>1114111)throw new Error(R);T-=65536,x.push(String.fromCharCode(55296|T>>10)),T=56320|T&1023}}x.push(String.fromCharCode(T))}return x.join("")}p.D4=L},721(d,p,g){d.exports=g(207).default},207(d,p,g){"use strict";g.d(p,{default:()=>pe});class C{constructor(e,t){this.lastId=0,this.prefix=e,this.name=t}create(e){this.lastId++;var t=this.lastId,i=this.prefix+t,o=this.name+"["+t+"]",h=!1,l=function(){h||(e.apply(null,arguments),h=!0)};return this[t]=l,{number:t,id:i,name:o,callback:l}}remove(e){delete this[e.number]}}var R=new C("_pusher_script_","Pusher.ScriptReceivers"),_={VERSION:"8.6.0",PROTOCOL:7,wsPort:80,wssPort:443,wsPath:"",httpHost:"sockjs.pusher.com",httpPort:80,httpsPort:443,httpPath:"/pusher",stats_host:"stats.pusher.com",authEndpoint:"/pusher/auth",authTransport:"ajax",activityTimeout:12e4,pongTimeout:3e4,unavailableTimeout:1e4,userAuthentication:{endpoint:"/pusher/user-auth",transport:"ajax"},channelAuthorization:{endpoint:"/pusher/auth",transport:"ajax"},cdn_http:"http://js.pusher.com",cdn_https:"https://js.pusher.com",dependency_suffix:""};let m=_;class L{constructor(e){this.options=e,this.receivers=e.receivers||R,this.loading={}}load(e,t,i){var o=this;if(o.loading[e]&&o.loading[e].length>0)o.loading[e].push(i);else{o.loading[e]=[i];var h=S.createScriptRequest(o.getPath(e,t)),l=o.receivers.create(function(b){if(o.receivers.remove(l),o.loading[e]){var w=o.loading[e];delete o.loading[e];for(var E=function(j){j||h.cleanup()},A=0;A<w.length;A++)w[A](b,E)}});h.send(l)}}getRoot(e){var t,i=S.getDocument().location.protocol;return e&&e.useTLS||i==="https:"?t=this.options.cdn_https:t=this.options.cdn_http,t.replace(/\/*$/,"")+"/"+this.options.version}getPath(e,t){return this.getRoot(t)+"/"+e+this.options.suffix+".js"}}var P=new C("_pusher_dependencies","Pusher.DependenciesReceivers"),x=new L({cdn_http:m.cdn_http,cdn_https:m.cdn_https,version:m.VERSION,suffix:m.dependency_suffix,receivers:P});let k={baseUrl:"https://pusher.com",urls:{authenticationEndpoint:{path:"/docs/channels/server_api/authenticating_users"},authorizationEndpoint:{path:"/docs/channels/server_api/authorizing-users/"},javascriptQuickStart:{path:"/docs/javascript_quick_start"},triggeringClientEvents:{path:"/docs/client_api_guide/client_events#trigger-events"},encryptedChannelSupport:{fullUrl:"https://github.com/pusher/pusher-js/tree/cc491015371a4bde5743d1c87a0fbac0feb53195#encrypted-channel-support"}}},v={buildLogSuffix:function(n){let e="See:",t=k.urls[n];if(!t)return"";let i;return t.fullUrl?i=t.fullUrl:t.path&&(i=k.baseUrl+t.path),i?`${e} ${i}`:""}};var u;(function(n){n.UserAuthentication="user-authentication",n.ChannelAuthorization="channel-authorization"})(u||(u={}));class f extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class y extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class I extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class U extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class D extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class $ extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class X extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class F extends Error{constructor(e){super(e),Object.setPrototypeOf(this,new.target.prototype)}}class z extends Error{constructor(e,t){super(t),this.status=e,Object.setPrototypeOf(this,new.target.prototype)}}let It=function(n,e,t,i,o){let h=S.createXHR();h.open("POST",t.endpoint,!0),h.setRequestHeader("Content-Type","application/x-www-form-urlencoded");for(var l in t.headers)h.setRequestHeader(l,t.headers[l]);if(t.headersProvider!=null){let b=t.headersProvider();for(var l in b)h.setRequestHeader(l,b[l])}return h.onreadystatechange=function(){if(h.readyState===4)if(h.status===200){let b,w=!1;try{b=JSON.parse(h.responseText),w=!0}catch{o(new z(200,`JSON returned from ${i.toString()} endpoint was invalid, yet status code was 200. Data was: ${h.responseText}`),null)}w&&o(null,b)}else{let b="";switch(i){case u.UserAuthentication:b=v.buildLogSuffix("authenticationEndpoint");break;case u.ChannelAuthorization:b=`Clients must be authorized to join private or presence channels. ${v.buildLogSuffix("authorizationEndpoint")}`;break}o(new z(h.status,`Unable to retrieve auth string from ${i.toString()} endpoint - received status: ${h.status} from ${t.endpoint}. ${b}`),null)}},h.send(e),h};function Ot(n){return qt(Mt(n))}for(var ne=String.fromCharCode,ee="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",jt={},he=0,Nt=ee.length;he<Nt;he++)jt[ee.charAt(he)]=he;var Ut=function(n){var e=n.charCodeAt(0);return e<128?n:e<2048?ne(192|e>>>6)+ne(128|e&63):ne(224|e>>>12&15)+ne(128|e>>>6&63)+ne(128|e&63)},Mt=function(n){return n.replace(/[^\x00-\x7F]/g,Ut)},Dt=function(n){var e=[0,2,1][n.length%3],t=n.charCodeAt(0)<<16|(n.length>1?n.charCodeAt(1):0)<<8|(n.length>2?n.charCodeAt(2):0),i=[ee.charAt(t>>>18),ee.charAt(t>>>12&63),e>=2?"=":ee.charAt(t>>>6&63),e>=1?"=":ee.charAt(t&63)];return i.join("")},qt=typeof window<"u"&&window.btoa||function(n){return n.replace(/[\s\S]{1,3}/g,Dt)};class Ht{constructor(e,t,i,o){this.clear=t,this.timer=e(()=>{this.timer&&(this.timer=o(this.timer))},i)}isRunning(){return this.timer!==null}ensureAborted(){this.timer&&(this.clear(this.timer),this.timer=null)}}let Fe=Ht;function zt(n){window.clearTimeout(n)}function $t(n){window.clearInterval(n)}class G extends Fe{constructor(e,t){super(setTimeout,zt,e,function(i){return t(),null})}}class Ft extends Fe{constructor(e,t){super(setInterval,$t,e,function(i){return t(),i})}}var Bt={now(){return Date.now?Date.now():new Date().valueOf()},defer(n){return new G(0,n)},method(n,...e){var t=Array.prototype.slice.call(arguments,1);return function(i){return i[n].apply(i,t.concat(arguments))}}};let M=Bt;function H(n,...e){for(var t=0;t<e.length;t++){var i=e[t];for(var o in i)o==="__proto__"||o==="constructor"||o==="prototype"||(i[o]&&i[o].constructor&&i[o].constructor===Object?n[o]=H(n[o]||{},i[o]):n[o]=i[o])}return n}function Wt(){for(var n=["Pusher"],e=0;e<arguments.length;e++)typeof arguments[e]=="string"?n.push(arguments[e]):n.push(ce(arguments[e]));return n.join(" : ")}function Be(n,e){var t=Array.prototype.indexOf;if(n===null)return-1;if(t&&n.indexOf===t)return n.indexOf(e);for(var i=0,o=n.length;i<o;i++)if(n[i]===e)return i;return-1}function B(n,e){for(var t in n)Object.prototype.hasOwnProperty.call(n,t)&&e(n[t],t,n)}function We(n){var e=[];return B(n,function(t,i){e.push(i)}),e}function Jt(n){var e=[];return B(n,function(t){e.push(t)}),e}function se(n,e,t){for(var i=0;i<n.length;i++)e.call(t||window,n[i],i,n)}function Je(n,e){for(var t=[],i=0;i<n.length;i++)t.push(e(n[i],i,n,t));return t}function Xt(n,e){var t={};return B(n,function(i,o){t[o]=e(i)}),t}function Xe(n,e){e=e||function(o){return!!o};for(var t=[],i=0;i<n.length;i++)e(n[i],i,n,t)&&t.push(n[i]);return t}function Qe(n,e){var t={};return B(n,function(i,o){(e&&e(i,o,n,t)||i)&&(t[o]=i)}),t}function Qt(n){var e=[];return B(n,function(t,i){e.push([i,t])}),e}function Ge(n,e){for(var t=0;t<n.length;t++)if(e(n[t],t,n))return!0;return!1}function Gt(n,e){for(var t=0;t<n.length;t++)if(!e(n[t],t,n))return!1;return!0}function Kt(n){return Xt(n,function(e){return e===null?"":(typeof e=="object"&&(e=ce(e)),encodeURIComponent(Ot(e.toString())))})}function Vt(n){var e=Qe(n,function(i){return i!==void 0}),t=Je(Qt(Kt(e)),M.method("join","=")).join("&");return t}function Yt(n){var e=[],t=[];return(function i(o,h){var l,b,w;switch(typeof o){case"object":if(!o)return null;for(l=0;l<e.length;l+=1)if(e[l]===o)return{$ref:t[l]};if(e.push(o),t.push(h),Object.prototype.toString.apply(o)==="[object Array]")for(w=[],l=0;l<o.length;l+=1)w[l]=i(o[l],h+"["+l+"]");else{w={};for(b in o)Object.prototype.hasOwnProperty.call(o,b)&&(w[b]=i(o[b],h+"["+JSON.stringify(b)+"]"))}return w;case"number":case"string":case"boolean":return o}})(n,"$")}function ce(n){try{return JSON.stringify(n)}catch{return JSON.stringify(Yt(n))}}class Zt{constructor(){this.globalLog=e=>{window.console&&window.console.log&&window.console.log(e)}}debug(...e){this.log(this.globalLog,e)}warn(...e){this.log(this.globalLogWarn,e)}error(...e){this.log(this.globalLogError,e)}globalLogWarn(e){window.console&&window.console.warn?window.console.warn(e):this.globalLog(e)}globalLogError(e){window.console&&window.console.error?window.console.error(e):this.globalLogWarn(e)}log(e,...t){var i=Wt.apply(this,arguments);pe.log?pe.log(i):pe.logToConsole&&e.bind(this)(i)}}let O=new Zt;var en=function(n,e,t,i,o){(t.headers!==void 0||t.headersProvider!=null)&&O.warn(`To send headers with the ${i.toString()} request, you must use AJAX, rather than JSONP.`);var h=n.nextAuthCallbackID.toString();n.nextAuthCallbackID++;var l=n.getDocument(),b=l.createElement("script");n.auth_callbacks[h]=function(A){o(null,A)};var w="Pusher.auth_callbacks['"+h+"']";b.src=t.endpoint+"?callback="+encodeURIComponent(w)+"&"+e;var E=l.getElementsByTagName("head")[0]||l.documentElement;E.insertBefore(b,E.firstChild)};let tn=en;class nn{constructor(e){this.src=e}send(e){var t=this,i="Error loading "+t.src;t.script=document.createElement("script"),t.script.id=e.id,t.script.src=t.src,t.script.type="text/javascript",t.script.charset="UTF-8",t.script.addEventListener?(t.script.onerror=function(){e.callback(i)},t.script.onload=function(){e.callback(null)}):t.script.onreadystatechange=function(){(t.script.readyState==="loaded"||t.script.readyState==="complete")&&e.callback(null)},t.script.async===void 0&&document.attachEvent&&/opera/i.test(navigator.userAgent)?(t.errorScript=document.createElement("script"),t.errorScript.id=e.id+"_error",t.errorScript.text=e.name+"('"+i+"');",t.script.async=t.errorScript.async=!1):t.script.async=!0;var o=document.getElementsByTagName("head")[0];o.insertBefore(t.script,o.firstChild),t.errorScript&&o.insertBefore(t.errorScript,t.script.nextSibling)}cleanup(){this.script&&(this.script.onload=this.script.onerror=null,this.script.onreadystatechange=null),this.script&&this.script.parentNode&&this.script.parentNode.removeChild(this.script),this.errorScript&&this.errorScript.parentNode&&this.errorScript.parentNode.removeChild(this.errorScript),this.script=null,this.errorScript=null}}class sn{constructor(e,t){this.url=e,this.data=t}send(e){if(!this.request){var t=Vt(this.data),i=this.url+"/"+e.number+"?"+t;this.request=S.createScriptRequest(i),this.request.send(e)}}cleanup(){this.request&&this.request.cleanup()}}var rn=function(n,e){return function(t,i){var o="http"+(e?"s":"")+"://",h=o+(n.host||n.options.host)+n.options.path,l=S.createJSONPRequest(h,t),b=S.ScriptReceivers.create(function(w,E){R.remove(b),l.cleanup(),E&&E.host&&(n.host=E.host),i&&i(w,E)});l.send(b)}},on={name:"jsonp",getAgent:rn};let an=on;function Ee(n,e,t){var i=n+(e.useTLS?"s":""),o=e.useTLS?e.hostTLS:e.hostNonTLS;return i+"://"+o+t}function xe(n,e){var t="/app/"+n,i="?protocol="+m.PROTOCOL+"&client=js&version="+m.VERSION+(e?"&"+e:"");return t+i}var hn={getInitial:function(n,e){var t=(e.httpPath||"")+xe(n,"flash=false");return Ee("ws",e,t)}},cn={getInitial:function(n,e){var t=(e.httpPath||"/pusher")+xe(n);return Ee("http",e,t)}},un={getInitial:function(n,e){return Ee("http",e,e.httpPath||"/pusher")},getPath:function(n,e){return xe(n)}};class ln{constructor(){this._callbacks={}}get(e){return this._callbacks[Pe(e)]}add(e,t,i){var o=Pe(e);this._callbacks[o]=this._callbacks[o]||[],this._callbacks[o].push({fn:t,context:i})}remove(e,t,i){if(!e&&!t&&!i){this._callbacks={};return}var o=e?[Pe(e)]:We(this._callbacks);t||i?this.removeCallback(o,t,i):this.removeAllCallbacks(o)}removeCallback(e,t,i){se(e,function(o){this._callbacks[o]=Xe(this._callbacks[o]||[],function(h){return t&&t!==h.fn||i&&i!==h.context}),this._callbacks[o].length===0&&delete this._callbacks[o]},this)}removeAllCallbacks(e){se(e,function(t){delete this._callbacks[t]},this)}}function Pe(n){return"_"+n}class W{constructor(e){this.callbacks=new ln,this.global_callbacks=[],this.failThrough=e}bind(e,t,i){return this.callbacks.add(e,t,i),this}bind_global(e){return this.global_callbacks.push(e),this}unbind(e,t,i){return this.callbacks.remove(e,t,i),this}unbind_global(e){return e?(this.global_callbacks=Xe(this.global_callbacks||[],t=>t!==e),this):(this.global_callbacks=[],this)}unbind_all(){return this.unbind(),this.unbind_global(),this}emit(e,t,i){for(var o=0;o<this.global_callbacks.length;o++)this.global_callbacks[o](e,t);var h=this.callbacks.get(e),l=[];if(i?l.push(t,i):t&&l.push(t),h&&h.length>0)for(var o=0;o<h.length;o++)h[o].fn.apply(h[o].context||window,l);else this.failThrough&&this.failThrough(e,t);return this}}class dn extends W{constructor(e,t,i,o,h){super(),this.initialize=S.transportConnectionInitializer,this.hooks=e,this.name=t,this.priority=i,this.key=o,this.options=h,this.state="new",this.timeline=h.timeline,this.activityTimeout=h.activityTimeout,this.id=this.timeline.generateUniqueID()}handlesActivityChecks(){return!!this.hooks.handlesActivityChecks}supportsPing(){return!!this.hooks.supportsPing}connect(){if(this.socket||this.state!=="initialized")return!1;var e=this.hooks.urls.getInitial(this.key,this.options);try{this.socket=this.hooks.getSocket(e,this.options)}catch(t){return M.defer(()=>{this.onError(t),this.changeState("closed")}),!1}return this.bindListeners(),O.debug("Connecting",{transport:this.name,url:e}),this.changeState("connecting"),!0}close(){return this.socket?(this.socket.close(),!0):!1}send(e){return this.state==="open"?(M.defer(()=>{this.socket&&this.socket.send(e)}),!0):!1}ping(){this.state==="open"&&this.supportsPing()&&this.socket.ping()}onOpen(){this.hooks.beforeOpen&&this.hooks.beforeOpen(this.socket,this.hooks.urls.getPath(this.key,this.options)),this.changeState("open"),this.socket.onopen=void 0}onError(e){this.emit("error",{type:"WebSocketError",error:e}),this.timeline.error(this.buildTimelineMessage({error:e.toString()}))}onClose(e){e?this.changeState("closed",{code:e.code,reason:e.reason,wasClean:e.wasClean}):this.changeState("closed"),this.unbindListeners(),this.socket=void 0}onMessage(e){this.emit("message",e)}onActivity(){this.emit("activity")}bindListeners(){this.socket.onopen=()=>{this.onOpen()},this.socket.onerror=e=>{this.onError(e)},this.socket.onclose=e=>{this.onClose(e)},this.socket.onmessage=e=>{this.onMessage(e)},this.supportsPing()&&(this.socket.onactivity=()=>{this.onActivity()})}unbindListeners(){this.socket&&(this.socket.onopen=void 0,this.socket.onerror=void 0,this.socket.onclose=void 0,this.socket.onmessage=void 0,this.supportsPing()&&(this.socket.onactivity=void 0))}changeState(e,t){this.state=e,this.timeline.info(this.buildTimelineMessage({state:e,params:t})),this.emit(e,t)}buildTimelineMessage(e){return H({cid:this.id},e)}}class te{constructor(e){this.hooks=e}isSupported(e){return this.hooks.isSupported(e)}createConnection(e,t,i,o){return new dn(this.hooks,e,t,i,o)}}var pn=new te({urls:hn,handlesActivityChecks:!1,supportsPing:!1,isInitialized:function(){return!!S.getWebSocketAPI()},isSupported:function(){return!!S.getWebSocketAPI()},getSocket:function(n){return S.createWebSocket(n)}}),Ke={urls:cn,handlesActivityChecks:!1,supportsPing:!0,isInitialized:function(){return!0}},Ve=H({getSocket:function(n){return S.HTTPFactory.createStreamingSocket(n)}},Ke),Ye=H({getSocket:function(n){return S.HTTPFactory.createPollingSocket(n)}},Ke),Ze={isSupported:function(){return S.isXHRSupported()}},fn=new te(H({},Ve,Ze)),gn=new te(H({},Ye,Ze)),vn={ws:pn,xhr_streaming:fn,xhr_polling:gn};let ue=vn;var bn=new te({file:"sockjs",urls:un,handlesActivityChecks:!0,supportsPing:!1,isSupported:function(){return!0},isInitialized:function(){return window.SockJS!==void 0},getSocket:function(n,e){return new window.SockJS(n,null,{js_path:x.getPath("sockjs",{useTLS:e.useTLS}),ignore_null_origin:e.ignoreNullOrigin})},beforeOpen:function(n,e){n.send(JSON.stringify({path:e}))}}),et={isSupported:function(n){var e=S.isXDRSupported(n.useTLS);return e}},mn=new te(H({},Ve,et)),yn=new te(H({},Ye,et));ue.xdr_streaming=mn,ue.xdr_polling=yn,ue.sockjs=bn;let wn=ue;class Sn extends W{constructor(){super();var e=this;typeof window<"u"&&window.addEventListener!==void 0&&(window.addEventListener("online",function(){e.emit("online")},!1),window.addEventListener("offline",function(){e.emit("offline")},!1))}isOnline(){return window.navigator.onLine===void 0?!0:window.navigator.onLine}}var _n=new Sn;class Cn{constructor(e,t,i){this.manager=e,this.transport=t,this.minPingDelay=i.minPingDelay,this.maxPingDelay=i.maxPingDelay,this.pingDelay=void 0}createConnection(e,t,i,o){o=H({},o,{activityTimeout:this.pingDelay});var h=this.transport.createConnection(e,t,i,o),l=null,b=function(){h.unbind("open",b),h.bind("closed",w),l=M.now()},w=E=>{if(h.unbind("closed",w),E.code===1002||E.code===1003)this.manager.reportDeath();else if(!E.wasClean&&l){var A=M.now()-l;A<2*this.maxPingDelay&&(this.manager.reportDeath(),this.pingDelay=Math.max(A/2,this.minPingDelay))}};return h.bind("open",b),h}isSupported(e){return this.manager.isAlive()&&this.transport.isSupported(e)}}let tt={decodeMessage:function(n){try{var e=JSON.parse(n.data),t=e.data;if(typeof t=="string")try{t=JSON.parse(e.data)}catch{}var i={event:e.event,channel:e.channel,data:t};return e.user_id&&(i.user_id=e.user_id),i}catch(o){throw{type:"MessageParseError",error:o,data:n.data}}},encodeMessage:function(n){return JSON.stringify(n)},processHandshake:function(n){var e=tt.decodeMessage(n);if(e.event==="pusher:connection_established"){if(!e.data.activity_timeout)throw"No activity timeout specified in handshake";return{action:"connected",id:e.data.socket_id,activityTimeout:e.data.activity_timeout*1e3}}else{if(e.event==="pusher:error")return{action:this.getCloseAction(e.data),error:this.getCloseError(e.data)};throw"Invalid handshake"}},getCloseAction:function(n){return n.code<4e3?n.code>=1002&&n.code<=1004?"backoff":null:n.code===4e3?"tls_only":n.code<4100?"refused":n.code<4200?"backoff":n.code<4300?"retry":"refused"},getCloseError:function(n){return n.code!==1e3&&n.code!==1001?{type:"PusherError",data:{code:n.code,message:n.reason||n.message}}:null}},K=tt;class kn extends W{constructor(e,t){super(),this.id=e,this.transport=t,this.activityTimeout=t.activityTimeout,this.bindListeners()}handlesActivityChecks(){return this.transport.handlesActivityChecks()}send(e){return this.transport.send(e)}send_event(e,t,i){var o={event:e,data:t};return i&&(o.channel=i),O.debug("Event sent",o),this.send(K.encodeMessage(o))}ping(){this.transport.supportsPing()?this.transport.ping():this.send_event("pusher:ping",{})}close(){this.transport.close()}bindListeners(){var e={message:i=>{var o;try{o=K.decodeMessage(i)}catch(h){this.emit("error",{type:"MessageParseError",error:h,data:i.data})}if(o!==void 0){switch(O.debug("Event recd",o),o.event){case"pusher:error":this.emit("error",{type:"PusherError",data:o.data});break;case"pusher:ping":this.emit("ping");break;case"pusher:pong":this.emit("pong");break}this.emit("message",o)}},activity:()=>{this.emit("activity")},error:i=>{this.emit("error",i)},closed:i=>{t(),i&&i.code&&this.handleCloseEvent(i),this.transport=null,this.emit("closed")}},t=()=>{B(e,(i,o)=>{this.transport.unbind(o,i)})};B(e,(i,o)=>{this.transport.bind(o,i)})}handleCloseEvent(e){var t=K.getCloseAction(e),i=K.getCloseError(e);i&&this.emit("error",i),t&&this.emit(t,{action:t,error:i})}}class Tn{constructor(e,t){this.transport=e,this.callback=t,this.bindListeners()}close(){this.unbindListeners(),this.transport.close()}bindListeners(){this.onMessage=e=>{this.unbindListeners();var t;try{t=K.processHandshake(e)}catch(i){this.finish("error",{error:i}),this.transport.close();return}t.action==="connected"?this.finish("connected",{connection:new kn(t.id,this.transport),activityTimeout:t.activityTimeout}):(this.finish(t.action,{error:t.error}),this.transport.close())},this.onClosed=e=>{this.unbindListeners();var t=K.getCloseAction(e)||"backoff",i=K.getCloseError(e);this.finish(t,{error:i})},this.transport.bind("message",this.onMessage),this.transport.bind("closed",this.onClosed)}unbindListeners(){this.transport.unbind("message",this.onMessage),this.transport.unbind("closed",this.onClosed)}finish(e,t){this.callback(H({transport:this.transport,action:e},t))}}class En{constructor(e,t){this.timeline=e,this.options=t||{}}send(e,t){this.timeline.isEmpty()||this.timeline.send(S.TimelineTransport.getAgent(this,e),t)}}class Le extends W{constructor(e,t){super(function(i,o){O.debug("No callbacks on "+e+" for "+i)}),this.name=e,this.pusher=t,this.subscribed=!1,this.subscriptionPending=!1,this.subscriptionCancelled=!1}authorize(e,t){return t(null,{auth:""})}trigger(e,t){if(e.indexOf("client-")!==0)throw new f("Event '"+e+"' does not start with 'client-'");if(!this.subscribed){var i=v.buildLogSuffix("triggeringClientEvents");O.warn(`Client event triggered before channel 'subscription_succeeded' event . ${i}`)}return this.pusher.send_event(e,t,this.name)}disconnect(){this.subscribed=!1,this.subscriptionPending=!1}handleEvent(e){var t=e.event,i=e.data;if(t==="pusher_internal:subscription_succeeded")this.handleSubscriptionSucceededEvent(e);else if(t==="pusher_internal:subscription_count")this.handleSubscriptionCountEvent(e);else if(t.indexOf("pusher_internal:")!==0){var o={};this.emit(t,i,o)}}handleSubscriptionSucceededEvent(e){this.subscriptionPending=!1,this.subscribed=!0,this.subscriptionCancelled?this.pusher.unsubscribe(this.name):this.emit("pusher:subscription_succeeded",e.data)}handleSubscriptionCountEvent(e){e.data.subscription_count&&(this.subscriptionCount=e.data.subscription_count),this.emit("pusher:subscription_count",e.data)}subscribe(){this.subscribed||(this.subscriptionPending=!0,this.subscriptionCancelled=!1,this.authorize(this.pusher.connection.socket_id,(e,t)=>{e?(this.subscriptionPending=!1,O.error(e.toString()),this.emit("pusher:subscription_error",Object.assign({},{type:"AuthError",error:e.message},e instanceof z?{status:e.status}:{}))):this.pusher.send_event("pusher:subscribe",{auth:t.auth,channel_data:t.channel_data,channel:this.name})}))}unsubscribe(){this.subscribed=!1,this.pusher.send_event("pusher:unsubscribe",{channel:this.name})}cancelSubscription(){this.subscriptionCancelled=!0}reinstateSubscription(){this.subscriptionCancelled=!1}}class Ae extends Le{authorize(e,t){return this.pusher.config.channelAuthorizer({channelName:this.name,socketId:e},t)}}class xn{constructor(){this.reset()}get(e){return Object.prototype.hasOwnProperty.call(this.members,e)?{id:e,info:this.members[e]}:null}each(e){B(this.members,(t,i)=>{e(this.get(i))})}setMyID(e){this.myID=e}onSubscription(e){this.members=e.presence.hash,this.count=e.presence.count,this.me=this.get(this.myID)}addMember(e){return this.get(e.user_id)===null&&this.count++,this.members[e.user_id]=e.user_info,this.get(e.user_id)}removeMember(e){var t=this.get(e.user_id);return t&&(delete this.members[e.user_id],this.count--),t}reset(){this.members={},this.count=0,this.myID=null,this.me=null}}var Pn=function(n,e,t,i){function o(h){return h instanceof t?h:new t(function(l){l(h)})}return new(t||(t=Promise))(function(h,l){function b(A){try{E(i.next(A))}catch(j){l(j)}}function w(A){try{E(i.throw(A))}catch(j){l(j)}}function E(A){A.done?h(A.value):o(A.value).then(b,w)}E((i=i.apply(n,e||[])).next())})};class Ln extends Ae{constructor(e,t){super(e,t),this.members=new xn}authorize(e,t){super.authorize(e,(i,o)=>Pn(this,void 0,void 0,function*(){if(!i)if(o=o,o.channel_data!=null){var h=JSON.parse(o.channel_data);this.members.setMyID(h.user_id)}else if(yield this.pusher.user.signinDonePromise,this.pusher.user.user_data!=null)this.members.setMyID(this.pusher.user.user_data.id);else{let l=v.buildLogSuffix("authorizationEndpoint");O.error(`Invalid auth response for channel '${this.name}', expected 'channel_data' field. ${l}, or the user should be signed in.`),t("Invalid auth response");return}t(i,o)}))}handleEvent(e){var t=e.event;if(t.indexOf("pusher_internal:")===0)this.handleInternalEvent(e);else{var i=e.data,o={};e.user_id&&(o.user_id=e.user_id),this.emit(t,i,o)}}handleInternalEvent(e){var t=e.event,i=e.data;switch(t){case"pusher_internal:subscription_succeeded":this.handleSubscriptionSucceededEvent(e);break;case"pusher_internal:subscription_count":this.handleSubscriptionCountEvent(e);break;case"pusher_internal:member_added":var o=this.members.addMember(i);this.emit("pusher:member_added",o);break;case"pusher_internal:member_removed":var h=this.members.removeMember(i);h&&this.emit("pusher:member_removed",h);break}}handleSubscriptionSucceededEvent(e){this.subscriptionPending=!1,this.subscribed=!0,this.subscriptionCancelled?this.pusher.unsubscribe(this.name):(this.members.onSubscription(e.data),this.emit("pusher:subscription_succeeded",this.members))}disconnect(){this.members.reset(),super.disconnect()}}var An=g(978),Re=g(594);class Rn extends Ae{constructor(e,t,i){super(e,t),this.key=null,this.nacl=i}authorize(e,t){super.authorize(e,(i,o)=>{if(i){t(i,o);return}let h=o.shared_secret;if(!h){t(new Error(`No shared_secret key in auth payload for encrypted channel: ${this.name}`),null);return}this.key=(0,Re.decode)(h),delete o.shared_secret,t(null,o)})}trigger(e,t){throw new $("Client events are not currently supported for encrypted channels")}handleEvent(e){var t=e.event,i=e.data;if(t.indexOf("pusher_internal:")===0||t.indexOf("pusher:")===0){super.handleEvent(e);return}this.handleEncryptedEvent(t,i)}handleEncryptedEvent(e,t){if(!this.key){O.debug("Received encrypted event before key has been retrieved from the authEndpoint");return}if(!t.ciphertext||!t.nonce){O.error("Unexpected format for encrypted event, expected object with `ciphertext` and `nonce` fields, got: "+t);return}let i=(0,Re.decode)(t.ciphertext);if(i.length<this.nacl.secretbox.overheadLength){O.error(`Expected encrypted event ciphertext length to be ${this.nacl.secretbox.overheadLength}, got: ${i.length}`);return}let o=(0,Re.decode)(t.nonce);if(o.length<this.nacl.secretbox.nonceLength){O.error(`Expected encrypted event nonce length to be ${this.nacl.secretbox.nonceLength}, got: ${o.length}`);return}let h=this.nacl.secretbox.open(i,o,this.key);if(h===null){O.debug("Failed to decrypt an event, probably because it was encrypted with a different key. Fetching a new key from the authEndpoint..."),this.authorize(this.pusher.connection.socket_id,(l,b)=>{if(l){O.error(`Failed to make a request to the authEndpoint: ${b}. Unable to fetch new key, so dropping encrypted event`);return}if(h=this.nacl.secretbox.open(i,o,this.key),h===null){O.error("Failed to decrypt event with new key. Dropping encrypted event");return}this.emit(e,this.getDataToEmit(h))});return}this.emit(e,this.getDataToEmit(h))}getDataToEmit(e){let t=(0,An.D4)(e);try{return JSON.parse(t)}catch{return t}}}class In extends W{constructor(e,t){super(),this.state="initialized",this.connection=null,this.key=e,this.options=t,this.timeline=this.options.timeline,this.usingTLS=this.options.useTLS,this.errorCallbacks=this.buildErrorCallbacks(),this.connectionCallbacks=this.buildConnectionCallbacks(this.errorCallbacks),this.handshakeCallbacks=this.buildHandshakeCallbacks(this.errorCallbacks);var i=S.getNetwork();i.bind("online",()=>{this.timeline.info({netinfo:"online"}),(this.state==="connecting"||this.state==="unavailable")&&this.retryIn(0)}),i.bind("offline",()=>{this.timeline.info({netinfo:"offline"}),this.connection&&this.sendActivityCheck()}),this.updateStrategy()}switchCluster(e){this.key=e,this.updateStrategy(),this.retryIn(0)}connect(){if(!(this.connection||this.runner)){if(!this.strategy.isSupported()){this.updateState("failed");return}this.updateState("connecting"),this.startConnecting(),this.setUnavailableTimer()}}send(e){return this.connection?this.connection.send(e):!1}send_event(e,t,i){return this.connection?this.connection.send_event(e,t,i):!1}disconnect(){this.disconnectInternally(),this.updateState("disconnected")}isUsingTLS(){return this.usingTLS}startConnecting(){var e=(t,i)=>{t?this.runner=this.strategy.connect(0,e):i.action==="error"?(this.emit("error",{type:"HandshakeError",error:i.error}),this.timeline.error({handshakeError:i.error})):(this.abortConnecting(),this.handshakeCallbacks[i.action](i))};this.runner=this.strategy.connect(0,e)}abortConnecting(){this.runner&&(this.runner.abort(),this.runner=null)}disconnectInternally(){if(this.abortConnecting(),this.clearRetryTimer(),this.clearUnavailableTimer(),this.connection){var e=this.abandonConnection();e.close()}}updateStrategy(){this.strategy=this.options.getStrategy({key:this.key,timeline:this.timeline,useTLS:this.usingTLS})}retryIn(e){this.timeline.info({action:"retry",delay:e}),e>0&&this.emit("connecting_in",Math.round(e/1e3)),this.retryTimer=new G(e||0,()=>{this.disconnectInternally(),this.connect()})}clearRetryTimer(){this.retryTimer&&(this.retryTimer.ensureAborted(),this.retryTimer=null)}setUnavailableTimer(){this.unavailableTimer=new G(this.options.unavailableTimeout,()=>{this.updateState("unavailable")})}clearUnavailableTimer(){this.unavailableTimer&&this.unavailableTimer.ensureAborted()}sendActivityCheck(){this.stopActivityCheck(),this.connection.ping(),this.activityTimer=new G(this.options.pongTimeout,()=>{this.timeline.error({pong_timed_out:this.options.pongTimeout}),this.retryIn(0)})}resetActivityCheck(){this.stopActivityCheck(),this.connection&&!this.connection.handlesActivityChecks()&&(this.activityTimer=new G(this.activityTimeout,()=>{this.sendActivityCheck()}))}stopActivityCheck(){this.activityTimer&&this.activityTimer.ensureAborted()}buildConnectionCallbacks(e){return H({},e,{message:t=>{this.resetActivityCheck(),this.emit("message",t)},ping:()=>{this.send_event("pusher:pong",{})},activity:()=>{this.resetActivityCheck()},error:t=>{this.emit("error",t)},closed:()=>{this.abandonConnection(),this.shouldRetry()&&this.retryIn(1e3)}})}buildHandshakeCallbacks(e){return H({},e,{connected:t=>{this.activityTimeout=Math.min(this.options.activityTimeout,t.activityTimeout,t.connection.activityTimeout||1/0),this.clearUnavailableTimer(),this.setConnection(t.connection),this.socket_id=this.connection.id,this.updateState("connected",{socket_id:this.socket_id})}})}buildErrorCallbacks(){let e=t=>i=>{i.error&&this.emit("error",{type:"WebSocketError",error:i.error}),t(i)};return{tls_only:e(()=>{this.usingTLS=!0,this.updateStrategy(),this.retryIn(0)}),refused:e(()=>{this.disconnect()}),backoff:e(()=>{this.retryIn(1e3)}),retry:e(()=>{this.retryIn(0)})}}setConnection(e){this.connection=e;for(var t in this.connectionCallbacks)this.connection.bind(t,this.connectionCallbacks[t]);this.resetActivityCheck()}abandonConnection(){if(this.connection){this.stopActivityCheck();for(var e in this.connectionCallbacks)this.connection.unbind(e,this.connectionCallbacks[e]);var t=this.connection;return this.connection=null,t}}updateState(e,t){var i=this.state;if(this.state=e,i!==e){var o=e;o==="connected"&&(o+=" with new socket ID "+t.socket_id),O.debug("State changed",i+" -> "+o),this.timeline.info({state:e,params:t}),this.emit("state_change",{previous:i,current:e}),this.emit(e,t)}}shouldRetry(){return this.state==="connecting"||this.state==="connected"}}class On{constructor(){this.channels={}}add(e,t){return this.channels[e]||(this.channels[e]=jn(e,t)),this.channels[e]}all(){return Jt(this.channels)}find(e){return this.channels[e]}remove(e){var t=this.channels[e];return delete this.channels[e],t}disconnect(){B(this.channels,function(e){e.disconnect()})}}function jn(n,e){if(n.indexOf("private-encrypted-")===0){if(e.config.nacl)return J.createEncryptedChannel(n,e,e.config.nacl);let t="Tried to subscribe to a private-encrypted- channel but no nacl implementation available",i=v.buildLogSuffix("encryptedChannelSupport");throw new $(`${t}. ${i}`)}else{if(n.indexOf("private-")===0)return J.createPrivateChannel(n,e);if(n.indexOf("presence-")===0)return J.createPresenceChannel(n,e);if(n.indexOf("#")===0)throw new y('Cannot create a channel with name "'+n+'".');return J.createChannel(n,e)}}var Nn={createChannels(){return new On},createConnectionManager(n,e){return new In(n,e)},createChannel(n,e){return new Le(n,e)},createPrivateChannel(n,e){return new Ae(n,e)},createPresenceChannel(n,e){return new Ln(n,e)},createEncryptedChannel(n,e,t){return new Rn(n,e,t)},createTimelineSender(n,e){return new En(n,e)},createHandshake(n,e){return new Tn(n,e)},createAssistantToTheTransportManager(n,e,t){return new Cn(n,e,t)}};let J=Nn;class nt{constructor(e){this.options=e||{},this.livesLeft=this.options.lives||1/0}getAssistant(e){return J.createAssistantToTheTransportManager(this,e,{minPingDelay:this.options.minPingDelay,maxPingDelay:this.options.maxPingDelay})}isAlive(){return this.livesLeft>0}reportDeath(){this.livesLeft-=1}}class V{constructor(e,t){this.strategies=e,this.loop=!!t.loop,this.failFast=!!t.failFast,this.timeout=t.timeout,this.timeoutLimit=t.timeoutLimit}isSupported(){return Ge(this.strategies,M.method("isSupported"))}connect(e,t){var i=this.strategies,o=0,h=this.timeout,l=null,b=(w,E)=>{E?t(null,E):(o=o+1,this.loop&&(o=o%i.length),o<i.length?(h&&(h=h*2,this.timeoutLimit&&(h=Math.min(h,this.timeoutLimit))),l=this.tryStrategy(i[o],e,{timeout:h,failFast:this.failFast},b)):t(!0))};return l=this.tryStrategy(i[o],e,{timeout:h,failFast:this.failFast},b),{abort:function(){l.abort()},forceMinPriority:function(w){e=w,l&&l.forceMinPriority(w)}}}tryStrategy(e,t,i,o){var h=null,l=null;return i.timeout>0&&(h=new G(i.timeout,function(){l.abort(),o(!0)})),l=e.connect(t,function(b,w){b&&h&&h.isRunning()&&!i.failFast||(h&&h.ensureAborted(),o(b,w))}),{abort:function(){h&&h.ensureAborted(),l.abort()},forceMinPriority:function(b){l.forceMinPriority(b)}}}}class Ie{constructor(e){this.strategies=e}isSupported(){return Ge(this.strategies,M.method("isSupported"))}connect(e,t){return Un(this.strategies,e,function(i,o){return function(h,l){if(o[i].error=h,h){Mn(o)&&t(!0);return}se(o,function(b){b.forceMinPriority(l.transport.priority)}),t(null,l)}})}}function Un(n,e,t){var i=Je(n,function(o,h,l,b){return o.connect(e,t(h,b))});return{abort:function(){se(i,Dn)},forceMinPriority:function(o){se(i,function(h){h.forceMinPriority(o)})}}}function Mn(n){return Gt(n,function(e){return!!e.error})}function Dn(n){!n.error&&!n.aborted&&(n.abort(),n.aborted=!0)}class qn{constructor(e,t,i){this.strategy=e,this.transports=t,this.ttl=i.ttl||18e5,this.usingTLS=i.useTLS,this.timeline=i.timeline}isSupported(){return this.strategy.isSupported()}connect(e,t){var i=this.usingTLS,o=Hn(i),h=o&&o.cacheSkipCount?o.cacheSkipCount:0,l=[this.strategy];if(o&&o.timestamp+this.ttl>=M.now()){var b=this.transports[o.transport];b&&(["ws","wss"].includes(o.transport)||h>3?(this.timeline.info({cached:!0,transport:o.transport,latency:o.latency}),l.push(new V([b],{timeout:o.latency*2+1e3,failFast:!0}))):h++)}var w=M.now(),E=l.pop().connect(e,function A(j,fe){j?(st(i),l.length>0?(w=M.now(),E=l.pop().connect(e,A)):t(j)):(zn(i,fe.transport.name,M.now()-w,h),t(null,fe))});return{abort:function(){E.abort()},forceMinPriority:function(A){e=A,E&&E.forceMinPriority(A)}}}}function Oe(n){return"pusherTransport"+(n?"TLS":"NonTLS")}function Hn(n){var e=S.getLocalStorage();if(e)try{var t=e[Oe(n)];if(t)return JSON.parse(t)}catch{st(n)}return null}function zn(n,e,t,i){var o=S.getLocalStorage();if(o)try{o[Oe(n)]=ce({timestamp:M.now(),transport:e,latency:t,cacheSkipCount:i})}catch{}}function st(n){var e=S.getLocalStorage();if(e)try{delete e[Oe(n)]}catch{}}class le{constructor(e,{delay:t}){this.strategy=e,this.options={delay:t}}isSupported(){return this.strategy.isSupported()}connect(e,t){var i=this.strategy,o,h=new G(this.options.delay,function(){o=i.connect(e,t)});return{abort:function(){h.ensureAborted(),o&&o.abort()},forceMinPriority:function(l){e=l,o&&o.forceMinPriority(l)}}}}class ie{constructor(e,t,i){this.test=e,this.trueBranch=t,this.falseBranch=i}isSupported(){var e=this.test()?this.trueBranch:this.falseBranch;return e.isSupported()}connect(e,t){var i=this.test()?this.trueBranch:this.falseBranch;return i.connect(e,t)}}class $n{constructor(e){this.strategy=e}isSupported(){return this.strategy.isSupported()}connect(e,t){var i=this.strategy.connect(e,function(o,h){h&&i.abort(),t(o,h)});return i}}function re(n){return function(){return n.isSupported()}}var Fn=function(n,e,t){var i={};function o(vt,Hs,zs,$s,Fs){var bt=t(n,vt,Hs,zs,$s,Fs);return i[vt]=bt,bt}var h=Object.assign({},e,{hostNonTLS:n.wsHost+":"+n.wsPort,hostTLS:n.wsHost+":"+n.wssPort,httpPath:n.wsPath}),l=Object.assign({},h,{useTLS:!0}),b=Object.assign({},e,{hostNonTLS:n.httpHost+":"+n.httpPort,hostTLS:n.httpHost+":"+n.httpsPort,httpPath:n.httpPath}),w={loop:!0,timeout:15e3,timeoutLimit:6e4},E=new nt({minPingDelay:1e4,maxPingDelay:n.activityTimeout}),A=new nt({lives:2,minPingDelay:1e4,maxPingDelay:n.activityTimeout}),j=o("ws","ws",3,h,E),fe=o("wss","ws",3,l,E),Ns=o("sockjs","sockjs",1,b),ut=o("xhr_streaming","xhr_streaming",1,b,A),Us=o("xdr_streaming","xdr_streaming",1,b,A),lt=o("xhr_polling","xhr_polling",1,b),Ms=o("xdr_polling","xdr_polling",1,b),dt=new V([j],w),Ds=new V([fe],w),qs=new V([Ns],w),pt=new V([new ie(re(ut),ut,Us)],w),ft=new V([new ie(re(lt),lt,Ms)],w),gt=new V([new ie(re(pt),new Ie([pt,new le(ft,{delay:4e3})]),ft)],w),Ue=new ie(re(gt),gt,qs),Me;return e.useTLS?Me=new Ie([dt,new le(Ue,{delay:2e3})]):Me=new Ie([dt,new le(Ds,{delay:2e3}),new le(Ue,{delay:5e3})]),new qn(new $n(new ie(re(j),Me,Ue)),i,{ttl:18e5,timeline:e.timeline,useTLS:e.useTLS})};let Bn=Fn;function Wn(){var n=this;n.timeline.info(n.buildTimelineMessage({transport:n.name+(n.options.useTLS?"s":"")})),n.hooks.isInitialized()?n.changeState("initialized"):n.hooks.file?(n.changeState("initializing"),x.load(n.hooks.file,{useTLS:n.options.useTLS},function(e,t){n.hooks.isInitialized()?(n.changeState("initialized"),t(!0)):(e&&n.onError(e),n.onClose(),t(!1))})):n.onClose()}var Jn={getRequest:function(n){var e=new window.XDomainRequest;return e.ontimeout=function(){n.emit("error",new I),n.close()},e.onerror=function(t){n.emit("error",t),n.close()},e.onprogress=function(){e.responseText&&e.responseText.length>0&&n.onChunk(200,e.responseText)},e.onload=function(){e.responseText&&e.responseText.length>0&&n.onChunk(200,e.responseText),n.emit("finished",200),n.close()},e},abortRequest:function(n){n.ontimeout=n.onerror=n.onprogress=n.onload=null,n.abort()}};let Xn=Jn,Qn=256*1024;class Gn extends W{constructor(e,t,i){super(),this.hooks=e,this.method=t,this.url=i}start(e){this.position=0,this.xhr=this.hooks.getRequest(this),this.unloader=()=>{this.close()},S.addUnloadListener(this.unloader),this.xhr.open(this.method,this.url,!0),this.xhr.setRequestHeader&&this.xhr.setRequestHeader("Content-Type","application/json"),this.xhr.send(e)}close(){this.unloader&&(S.removeUnloadListener(this.unloader),this.unloader=null),this.xhr&&(this.hooks.abortRequest(this.xhr),this.xhr=null)}onChunk(e,t){for(;;){var i=this.advanceBuffer(t);if(i)this.emit("chunk",{status:e,data:i});else break}this.isBufferTooLong(t)&&this.emit("buffer_too_long")}advanceBuffer(e){var t=e.slice(this.position),i=t.indexOf(`
-`);return i!==-1?(this.position+=i+1,t.slice(0,i)):null}isBufferTooLong(e){return this.position===e.length&&e.length>Qn}}var je;(function(n){n[n.CONNECTING=0]="CONNECTING",n[n.OPEN=1]="OPEN",n[n.CLOSED=3]="CLOSED"})(je||(je={}));let Y=je;var Kn=1;class Vn{constructor(e,t){this.hooks=e,this.session=rt(1e3)+"/"+ts(8),this.location=Yn(t),this.readyState=Y.CONNECTING,this.openStream()}send(e){return this.sendRaw(JSON.stringify([e]))}ping(){this.hooks.sendHeartbeat(this)}close(e,t){this.onClose(e,t,!0)}sendRaw(e){if(this.readyState===Y.OPEN)try{return S.createSocketRequest("POST",it(Zn(this.location,this.session))).start(e),!0}catch{return!1}else return!1}reconnect(){this.closeStream(),this.openStream()}onClose(e,t,i){this.closeStream(),this.readyState=Y.CLOSED,this.onclose&&this.onclose({code:e,reason:t,wasClean:i})}onChunk(e){if(e.status===200){this.readyState===Y.OPEN&&this.onActivity();var t,i=e.data.slice(0,1);switch(i){case"o":t=JSON.parse(e.data.slice(1)||"{}"),this.onOpen(t);break;case"a":t=JSON.parse(e.data.slice(1)||"[]");for(var o=0;o<t.length;o++)this.onEvent(t[o]);break;case"m":t=JSON.parse(e.data.slice(1)||"null"),this.onEvent(t);break;case"h":this.hooks.onHeartbeat(this);break;case"c":t=JSON.parse(e.data.slice(1)||"[]"),this.onClose(t[0],t[1],!0);break}}}onOpen(e){this.readyState===Y.CONNECTING?(e&&e.hostname&&(this.location.base=es(this.location.base,e.hostname)),this.readyState=Y.OPEN,this.onopen&&this.onopen()):this.onClose(1006,"Server lost session",!0)}onEvent(e){this.readyState===Y.OPEN&&this.onmessage&&this.onmessage({data:e})}onActivity(){this.onactivity&&this.onactivity()}onError(e){this.onerror&&this.onerror(e)}openStream(){this.stream=S.createSocketRequest("POST",it(this.hooks.getReceiveURL(this.location,this.session))),this.stream.bind("chunk",e=>{this.onChunk(e)}),this.stream.bind("finished",e=>{this.hooks.onFinished(this,e)}),this.stream.bind("buffer_too_long",()=>{this.reconnect()});try{this.stream.start()}catch(e){M.defer(()=>{this.onError(e),this.onClose(1006,"Could not start streaming",!1)})}}closeStream(){this.stream&&(this.stream.unbind_all(),this.stream.close(),this.stream=null)}}function Yn(n){var e=/([^\?]*)\/*(\??.*)/.exec(n);return{base:e[1],queryString:e[2]}}function Zn(n,e){return n.base+"/"+e+"/xhr_send"}function it(n){var e=n.indexOf("?")===-1?"?":"&";return n+e+"t="+ +new Date+"&n="+Kn++}function es(n,e){var t=/(https?:\/\/)([^\/:]+)((\/|:)?.*)/.exec(n);return t[1]+e+t[3]}function rt(n){return S.randomInt(n)}function ts(n){for(var e=[],t=0;t<n;t++)e.push(rt(32).toString(32));return e.join("")}let ns=Vn;var ss={getReceiveURL:function(n,e){return n.base+"/"+e+"/xhr_streaming"+n.queryString},onHeartbeat:function(n){n.sendRaw("[]")},sendHeartbeat:function(n){n.sendRaw("[]")},onFinished:function(n,e){n.onClose(1006,"Connection interrupted ("+e+")",!1)}};let is=ss;var rs={getReceiveURL:function(n,e){return n.base+"/"+e+"/xhr"+n.queryString},onHeartbeat:function(){},sendHeartbeat:function(n){n.sendRaw("[]")},onFinished:function(n,e){e===200?n.reconnect():n.onClose(1006,"Connection interrupted ("+e+")",!1)}};let os=rs;var as={getRequest:function(n){var e=S.getXHRAPI(),t=new e;return t.onreadystatechange=t.onprogress=function(){switch(t.readyState){case 3:t.responseText&&t.responseText.length>0&&n.onChunk(t.status,t.responseText);break;case 4:t.responseText&&t.responseText.length>0&&n.onChunk(t.status,t.responseText),n.emit("finished",t.status),n.close();break}},t},abortRequest:function(n){n.onreadystatechange=null,n.abort()}};let hs=as;var cs={createStreamingSocket(n){return this.createSocket(is,n)},createPollingSocket(n){return this.createSocket(os,n)},createSocket(n,e){return new ns(n,e)},createXHR(n,e){return this.createRequest(hs,n,e)},createRequest(n,e,t){return new Gn(n,e,t)}};let ot=cs;ot.createXDR=function(n,e){return this.createRequest(Xn,n,e)};var us={nextAuthCallbackID:1,auth_callbacks:{},ScriptReceivers:R,DependenciesReceivers:P,getDefaultStrategy:Bn,Transports:wn,transportConnectionInitializer:Wn,HTTPFactory:ot,TimelineTransport:an,getXHRAPI(){return window.XMLHttpRequest},getWebSocketAPI(){return window.WebSocket||window.MozWebSocket},setup(n){if(typeof window<"u"){window.Pusher=n;var e=()=>{this.onDocumentBody(n.ready)};window.JSON?e():x.load("json2",{},e)}},getDocument(){return document},getProtocol(){return this.getDocument().location.protocol},getAuthorizers(){return{ajax:It,jsonp:tn}},onDocumentBody(n){document.body?n():setTimeout(()=>{this.onDocumentBody(n)},0)},createJSONPRequest(n,e){return new sn(n,e)},createScriptRequest(n){return new nn(n)},getLocalStorage(){try{return window.localStorage}catch{return}},createXHR(){return this.getXHRAPI()?this.createXMLHttpRequest():this.createMicrosoftXHR()},createXMLHttpRequest(){var n=this.getXHRAPI();return new n},createMicrosoftXHR(){return new ActiveXObject("Microsoft.XMLHTTP")},getNetwork(){return _n},createWebSocket(n){var e=this.getWebSocketAPI();return new e(n)},createSocketRequest(n,e){if(this.isXHRSupported())return this.HTTPFactory.createXHR(n,e);if(this.isXDRSupported(e.indexOf("https:")===0))return this.HTTPFactory.createXDR(n,e);throw"Cross-origin HTTP requests are not supported"},isXHRSupported(){var n=this.getXHRAPI();return!!n&&new n().withCredentials!==void 0},isXDRSupported(n){var e=n?"https:":"http:",t=this.getProtocol();return!!window.XDomainRequest&&t===e},addUnloadListener(n){window.addEventListener!==void 0?window.addEventListener("pagehide",n,!1):window.attachEvent!==void 0&&window.attachEvent("onunload",n)},removeUnloadListener(n){window.addEventListener!==void 0?window.removeEventListener("pagehide",n,!1):window.detachEvent!==void 0&&window.detachEvent("onunload",n)},randomInt(n){let e=window.crypto||window.msCrypto,t=Math.floor(Math.pow(2,32)/n)*n,i;do i=e.getRandomValues(new Uint32Array(1))[0];while(i>=t);return i%n}};let S=us;var Ne;(function(n){n[n.ERROR=3]="ERROR",n[n.INFO=6]="INFO",n[n.DEBUG=7]="DEBUG"})(Ne||(Ne={}));let de=Ne;class ls{constructor(e,t,i){this.key=e,this.session=t,this.events=[],this.options=i||{},this.sent=0,this.uniqueID=0}log(e,t){e<=this.options.level&&(this.events.push(H({},t,{timestamp:M.now()})),this.options.limit&&this.events.length>this.options.limit&&this.events.shift())}error(e){this.log(de.ERROR,e)}info(e){this.log(de.INFO,e)}debug(e){this.log(de.DEBUG,e)}isEmpty(){return this.events.length===0}send(e,t){var i=H({session:this.session,bundle:this.sent+1,key:this.key,lib:"js",version:this.options.version,cluster:this.options.cluster,features:this.options.features,timeline:this.events},this.options.params);return this.events=[],e(i,(o,h)=>{o||this.sent++,t&&t(o,h)}),!0}generateUniqueID(){return this.uniqueID++,this.uniqueID}}class ds{constructor(e,t,i,o){this.name=e,this.priority=t,this.transport=i,this.options=o||{}}isSupported(){return this.transport.isSupported({useTLS:this.options.useTLS})}connect(e,t){if(this.isSupported()){if(this.priority<e)return at(new U,t)}else return at(new F,t);var i=!1,o=this.transport.createConnection(this.name,this.priority,this.options.key,this.options),h=null,l=function(){o.unbind("initialized",l),o.connect()},b=function(){h=J.createHandshake(o,function(j){i=!0,A(),t(null,j)})},w=function(j){A(),t(j)},E=function(){A();var j;j=ce(o),t(new D(j))},A=function(){o.unbind("initialized",l),o.unbind("open",b),o.unbind("error",w),o.unbind("closed",E)};return o.bind("initialized",l),o.bind("open",b),o.bind("error",w),o.bind("closed",E),o.initialize(),{abort:()=>{i||(A(),h?h.close():o.close())},forceMinPriority:j=>{i||this.priority<j&&(h?h.close():o.close())}}}}function at(n,e){return M.defer(function(){e(n)}),{abort:function(){},forceMinPriority:function(){}}}let{Transports:ps}=S;var fs=function(n,e,t,i,o,h){var l=ps[t];if(!l)throw new X(t);var b=(!n.enabledTransports||Be(n.enabledTransports,e)!==-1)&&(!n.disabledTransports||Be(n.disabledTransports,e)===-1),w;return b?(o=Object.assign({ignoreNullOrigin:n.ignoreNullOrigin},o),w=new ds(e,i,h?h.getAssistant(l):l,o)):w=gs,w},gs={isSupported:function(){return!1},connect:function(n,e){var t=M.defer(function(){e(new F)});return{abort:function(){t.ensureAborted()},forceMinPriority:function(){}}}};function vs(n){if(n==null)throw"You must pass an options object";if(n.cluster==null)throw"Options object must provide a cluster";"disableStats"in n&&O.warn("The disableStats option is deprecated in favor of enableStats")}let bs=(n,e)=>{var t="socket_id="+encodeURIComponent(n.socketId);for(var i in e.params)t+="&"+encodeURIComponent(i)+"="+encodeURIComponent(e.params[i]);if(e.paramsProvider!=null){let o=e.paramsProvider();for(var i in o)t+="&"+encodeURIComponent(i)+"="+encodeURIComponent(o[i])}return t},ms=n=>{if(typeof S.getAuthorizers()[n.transport]>"u")throw`'${n.transport}' is not a recognized auth transport`;return(e,t)=>{let i=bs(e,n);S.getAuthorizers()[n.transport](S,i,n,u.UserAuthentication,t)}},ys=(n,e)=>{var t="socket_id="+encodeURIComponent(n.socketId);t+="&channel_name="+encodeURIComponent(n.channelName);for(var i in e.params)t+="&"+encodeURIComponent(i)+"="+encodeURIComponent(e.params[i]);if(e.paramsProvider!=null){let o=e.paramsProvider();for(var i in o)t+="&"+encodeURIComponent(i)+"="+encodeURIComponent(o[i])}return t},ws=n=>{if(typeof S.getAuthorizers()[n.transport]>"u")throw`'${n.transport}' is not a recognized auth transport`;return(e,t)=>{let i=ys(e,n);S.getAuthorizers()[n.transport](S,i,n,u.ChannelAuthorization,t)}},Ss=(n,e,t)=>{let i={authTransport:e.transport,authEndpoint:e.endpoint,auth:{params:e.params,headers:e.headers}};return(o,h)=>{let l=n.channel(o.channelName);t(l,i).authorize(o.socketId,h)}};function ht(n,e){let t={activityTimeout:n.activityTimeout||m.activityTimeout,cluster:n.cluster,httpPath:n.httpPath||m.httpPath,httpPort:n.httpPort||m.httpPort,httpsPort:n.httpsPort||m.httpsPort,pongTimeout:n.pongTimeout||m.pongTimeout,statsHost:n.statsHost||m.stats_host,unavailableTimeout:n.unavailableTimeout||m.unavailableTimeout,wsPath:n.wsPath||m.wsPath,wsPort:n.wsPort||m.wsPort,wssPort:n.wssPort||m.wssPort,enableStats:Es(n),httpHost:_s(n),useTLS:Ts(n),wsHost:Cs(n),userAuthenticator:xs(n),channelAuthorizer:Ls(n,e)};return"disabledTransports"in n&&(t.disabledTransports=n.disabledTransports),"enabledTransports"in n&&(t.enabledTransports=n.enabledTransports),"ignoreNullOrigin"in n&&(t.ignoreNullOrigin=n.ignoreNullOrigin),"timelineParams"in n&&(t.timelineParams=n.timelineParams),"nacl"in n&&(t.nacl=n.nacl),t}function _s(n){return n.httpHost?n.httpHost:n.cluster?`sockjs-${n.cluster}.pusher.com`:m.httpHost}function Cs(n){return n.wsHost?n.wsHost:ks(n.cluster)}function ks(n){return`ws-${n}.pusher.com`}function Ts(n){return S.getProtocol()==="https:"?!0:n.forceTLS!==!1}function Es(n){return"enableStats"in n?n.enableStats:"disableStats"in n?!n.disableStats:!1}let ct=n=>"customHandler"in n&&n.customHandler!=null;function xs(n){let e=Object.assign(Object.assign({},m.userAuthentication),n.userAuthentication);return ct(e)?e.customHandler:ms(e)}function Ps(n,e){let t;return"channelAuthorization"in n?t=Object.assign(Object.assign({},m.channelAuthorization),n.channelAuthorization):(t={transport:n.authTransport||m.authTransport,endpoint:n.authEndpoint||m.authEndpoint},"auth"in n&&("params"in n.auth&&(t.params=n.auth.params),"headers"in n.auth&&(t.headers=n.auth.headers)),"authorizer"in n&&(t.customHandler=Ss(e,t,n.authorizer))),t}function Ls(n,e){let t=Ps(n,e);return ct(t)?t.customHandler:ws(t)}class As extends W{constructor(e){super(function(t,i){O.debug(`No callbacks on watchlist events for ${t}`)}),this.pusher=e,this.bindWatchlistInternalEvent()}handleEvent(e){e.data.events.forEach(t=>{this.emit(t.name,t)})}bindWatchlistInternalEvent(){this.pusher.connection.bind("message",e=>{var t=e.event;t==="pusher_internal:watchlist_events"&&this.handleEvent(e)})}}function Rs(){let n,e;return{promise:new Promise((i,o)=>{n=i,e=o}),resolve:n,reject:e}}let Is=Rs;class Os extends W{constructor(e){super(function(t,i){O.debug("No callbacks on user for "+t)}),this.signin_requested=!1,this.user_data=null,this.serverToUserChannel=null,this.signinDonePromise=null,this._signinDoneResolve=null,this._onAuthorize=(t,i)=>{if(t){O.warn(`Error during signin: ${t}`),this.emit("pusher:signin_error",Object.assign({},{type:"AuthError",error:t.message},t instanceof z?{status:t.status}:{})),this._cleanup();return}this.pusher.send_event("pusher:signin",{auth:i.auth,user_data:i.user_data})},this.pusher=e,this.pusher.connection.bind("state_change",({previous:t,current:i})=>{t!=="connected"&&i==="connected"&&this._signin(),t==="connected"&&i!=="connected"&&(this._cleanup(),this._newSigninPromiseIfNeeded())}),this.watchlist=new As(e),this.pusher.connection.bind("message",t=>{var i=t.event;i==="pusher:signin_success"&&this._onSigninSuccess(t.data),this.serverToUserChannel&&this.serverToUserChannel.name===t.channel&&this.serverToUserChannel.handleEvent(t)})}signin(){this.signin_requested||(this.signin_requested=!0,this._signin())}_signin(){this.signin_requested&&(this._newSigninPromiseIfNeeded(),this.pusher.connection.state==="connected"&&this.pusher.config.userAuthenticator({socketId:this.pusher.connection.socket_id},this._onAuthorize))}_onSigninSuccess(e){try{this.user_data=JSON.parse(e.user_data)}catch{O.error(`Failed parsing user data after signin: ${e.user_data}`),this._cleanup();return}if(typeof this.user_data.id!="string"||this.user_data.id===""){O.error(`user_data doesn't contain an id. user_data: ${this.user_data}`),this._cleanup();return}this._signinDoneResolve(),this._subscribeChannels()}_subscribeChannels(){let e=t=>{t.subscriptionPending&&t.subscriptionCancelled?t.reinstateSubscription():!t.subscriptionPending&&this.pusher.connection.state==="connected"&&t.subscribe()};this.serverToUserChannel=new Le(`#server-to-user-${this.user_data.id}`,this.pusher),this.serverToUserChannel.bind_global((t,i)=>{t.indexOf("pusher_internal:")===0||t.indexOf("pusher:")===0||this.emit(t,i)}),e(this.serverToUserChannel)}_cleanup(){this.user_data=null,this.serverToUserChannel&&(this.serverToUserChannel.unbind_all(),this.serverToUserChannel.disconnect(),this.serverToUserChannel=null),this.signin_requested&&this._signinDoneResolve()}_newSigninPromiseIfNeeded(){if(!this.signin_requested||this.signinDonePromise&&!this.signinDonePromise.done)return;let{promise:e,resolve:t,reject:i}=Is();e.done=!1;let o=()=>{e.done=!0};e.then(o).catch(o),this.signinDonePromise=e,this._signinDoneResolve=t}}class N{static ready(){N.isReady=!0;for(var e=0,t=N.instances.length;e<t;e++)N.instances[e].connect()}static getClientFeatures(){return We(Qe({ws:S.Transports.ws},function(e){return e.isSupported({})}))}constructor(e,t){js(e),vs(t),this.key=e,this.options=t,this.config=ht(this.options,this),this.channels=J.createChannels(),this.global_emitter=new W,this.sessionID=S.randomInt(1e9),this.timeline=new ls(this.key,this.sessionID,{cluster:this.config.cluster,features:N.getClientFeatures(),params:this.config.timelineParams||{},limit:50,level:de.INFO,version:m.VERSION}),this.config.enableStats&&(this.timelineSender=J.createTimelineSender(this.timeline,{host:this.config.statsHost,path:"/timeline/v2/"+S.TimelineTransport.name}));var i=o=>S.getDefaultStrategy(this.config,o,fs);this.connection=J.createConnectionManager(this.key,{getStrategy:i,timeline:this.timeline,activityTimeout:this.config.activityTimeout,pongTimeout:this.config.pongTimeout,unavailableTimeout:this.config.unavailableTimeout,useTLS:!!this.config.useTLS}),this.connection.bind("connected",()=>{this.subscribeAll(),this.timelineSender&&this.timelineSender.send(this.connection.isUsingTLS())}),this.connection.bind("message",o=>{var h=o.event,l=h.indexOf("pusher_internal:")===0;if(o.channel){var b=this.channel(o.channel);b&&b.handleEvent(o)}l||this.global_emitter.emit(o.event,o.data)}),this.connection.bind("connecting",()=>{this.channels.disconnect()}),this.connection.bind("disconnected",()=>{this.channels.disconnect()}),this.connection.bind("error",o=>{O.warn(o)}),N.instances.push(this),this.timeline.info({instances:N.instances.length}),this.user=new Os(this),N.isReady&&this.connect()}switchCluster(e){let{appKey:t,cluster:i}=e;this.key=t,this.options=Object.assign(Object.assign({},this.options),{cluster:i}),this.config=ht(this.options,this),this.connection.switchCluster(this.key)}channel(e){return this.channels.find(e)}allChannels(){return this.channels.all()}connect(){if(this.connection.connect(),this.timelineSender&&!this.timelineSenderTimer){var e=this.connection.isUsingTLS(),t=this.timelineSender;this.timelineSenderTimer=new Ft(6e4,function(){t.send(e)})}}disconnect(){this.connection.disconnect(),this.timelineSenderTimer&&(this.timelineSenderTimer.ensureAborted(),this.timelineSenderTimer=null)}bind(e,t,i){return this.global_emitter.bind(e,t,i),this}unbind(e,t,i){return this.global_emitter.unbind(e,t,i),this}bind_global(e){return this.global_emitter.bind_global(e),this}unbind_global(e){return this.global_emitter.unbind_global(e),this}unbind_all(e){return this.global_emitter.unbind_all(),this}subscribeAll(){var e;for(e in this.channels.channels)this.channels.channels.hasOwnProperty(e)&&this.subscribe(e)}subscribe(e){var t=this.channels.add(e,this);return t.subscriptionPending&&t.subscriptionCancelled?t.reinstateSubscription():!t.subscriptionPending&&this.connection.state==="connected"&&t.subscribe(),t}unsubscribe(e){var t=this.channels.find(e);t&&t.subscriptionPending?t.cancelSubscription():(t=this.channels.remove(e),t&&t.subscribed&&t.unsubscribe())}send_event(e,t,i){return this.connection.send_event(e,t,i)}shouldUseTLS(){return this.config.useTLS}signin(){this.user.signin()}}N.instances=[],N.isReady=!1,N.logToConsole=!1,N.Runtime=S,N.ScriptReceivers=S.ScriptReceivers,N.DependenciesReceivers=S.DependenciesReceivers,N.auth_callbacks=S.auth_callbacks;let pe=N;function js(n){if(n==null)throw"You must pass your app key when you instantiate Pusher."}S.setup(N)}},r={};function a(d){var p=r[d];if(p!==void 0)return p.exports;var g=r[d]={exports:{}};return s[d].call(g.exports,g,g.exports,a),g.exports}a.d=(d,p)=>{for(var g in p)a.o(p,g)&&!a.o(d,g)&&Object.defineProperty(d,g,{enumerable:!0,get:p[g]})},a.o=(d,p)=>Object.prototype.hasOwnProperty.call(d,p);var c=a(721);return c})())});var Ce=class{constructor(){this.notificationCreatedEvent=".Illuminate\\Notifications\\Events\\BroadcastNotificationCreated"}listenForWhisper(s,r){return this.listen(".client-"+s,r)}notification(s){return this.listen(this.notificationCreatedEvent,s)}stopListeningForNotification(s){return this.stopListening(this.notificationCreatedEvent,s)}stopListeningForWhisper(s,r){return this.stopListening(".client-"+s,r)}},qe=class{constructor(s){this.namespace=s}format(s){return[".","\\"].includes(s.charAt(0))?s.substring(1):(this.namespace&&(s=this.namespace+"."+s),s.replace(/\./g,"\\"))}setNamespace(s){this.namespace=s}};function Ys(s){try{return Reflect.construct(String,[],s),!0}catch{return!1}}var Ct=class extends Ce{constructor(s,r,a){super(),this.listeners=new Map,this.subscribedCallbacks=[],this.errorCallbacks=[],this.name=s,this.options=r,this.whisperer=a,this.eventFormatter=new qe(this.options.namespace)}listen(s,r){let a=this.eventFormatter.format(s);return this.listeners.set(a,[...this.listeners.get(a)??[],r]),this}stopListening(s,r){let a=this.eventFormatter.format(s);if(!r)this.listeners.delete(a);else{let c=(this.listeners.get(a)??[]).filter(d=>d!==r);c.length===0?this.listeners.delete(a):this.listeners.set(a,c)}return this}subscribed(s){return this.subscribedCallbacks.push(s),this}error(s){return this.errorCallbacks.push(s),this}whisper(s,r){throw Error("Public Mercure channels do not support whisper(): use a private or presence channel, whose members are granted a whisper topic.")}listenForWhisper(s,r){return console.warn(`listenForWhisper("${s}"): public Mercure channels cannot receive whispers, so this listener will never fire.`),super.listenForWhisper(s,r)}dispatch(s,r){(this.listeners.get(s)??[]).forEach(a=>a(r))}notifySubscribed(){this.subscribedCallbacks.forEach(s=>s())}notifyError(s){this.errorCallbacks.forEach(r=>r(s))}},He=class extends Ct{whisper(s,r){if(!this.whisperer)throw Error(`whisper("${s}"): this channel was constructed without a connector to publish through.`);return this.whisperer.whisper(this.name,s,r),this}listenForWhisper(s,r){return this.whisperer?.listenForWhispers(this.name),this.listen(".client-"+s,r)}},Zs=class extends He{},oe=class extends He{constructor(...s){super(...s),this.hereCallbacks=[],this.joiningCallbacks=[],this.leavingCallbacks=[],this.members=new Map,this.memberCounts=new Map,this.seeded=!1}here(s){return this.hereCallbacks.push(s),this.seeded&&this.invoke(s,this.uniqueMembers()),this}joining(s){return this.joiningCallbacks.push(s),this}leaving(s){return this.leavingCallbacks.push(s),this}setInitialMembers(s){this.members=new Map(s.map(([r,a])=>[r,yt(a)])),this.memberCounts=new Map;for(let r of this.members.values())this.memberCounts.set(r.key,(this.memberCounts.get(r.key)??0)+1);this.seeded=!0,this.hereCallbacks.forEach(r=>this.invoke(r,this.uniqueMembers()))}applySubscriptionEvent(s,r,a){if(r){if(this.members.has(s))return;let c=yt(a??{}),d=(this.memberCounts.get(c.key)??0)+1;this.members.set(s,c),this.memberCounts.set(c.key,d),d===1&&this.joiningCallbacks.forEach(p=>this.invoke(p,c.info))}else{let c=this.members.get(s);if(!c)return;let d=(this.memberCounts.get(c.key)??1)-1;this.members.delete(s),d<=0?(this.memberCounts.delete(c.key),this.leavingCallbacks.forEach(p=>this.invoke(p,c.info))):this.memberCounts.set(c.key,d)}}uniqueMembers(){let s=new Set,r=[];for(let a of this.members.values())s.has(a.key)||(s.add(a.key),r.push(a.info));return r}invoke(s,r){try{s(r)}catch(a){console.error(`A "${this.name}" presence callback threw:`,a)}}};function yt(s){if(typeof s=="object"&&s&&"user_id"in s&&typeof s.user_id=="string"){let r=s;return{key:"user:"+r.user_id,info:r.user_info}}return{key:"payload:"+(JSON.stringify(s)??"undefined"),info:s}}var ze=class extends Ce{constructor(s,r,a){super(),this.name=r,this.pusher=s,this.options=a,this.eventFormatter=new qe(this.options.namespace),this.subscribe()}subscribe(){this.subscription=this.pusher.subscribe(this.name)}unsubscribe(){this.pusher.unsubscribe(this.name)}listen(s,r){return this.on(this.eventFormatter.format(s),r),this}listenToAll(s){return this.subscription.bind_global((r,a)=>{if(r.startsWith("pusher:"))return;let c=String(this.options.namespace??"").replace(/\./g,"\\");s(r.startsWith(c)?r.substring(c.length+1):"."+r,a)}),this}stopListening(s,r){return r?this.subscription.unbind(this.eventFormatter.format(s),r):this.subscription.unbind(this.eventFormatter.format(s)),this}stopListeningToAll(s){return s?this.subscription.unbind_global(s):this.subscription.unbind_global(),this}subscribed(s){return this.on("pusher:subscription_succeeded",()=>{s()}),this}error(s){return this.on("pusher:subscription_error",r=>{s(r)}),this}on(s,r){return this.subscription.bind(s,r),this}},kt=class extends ze{whisper(s,r){return this.pusher.channels.channels[this.name].trigger(`client-${s}`,r),this}},ei=class extends ze{whisper(s,r){return this.pusher.channels.channels[this.name].trigger(`client-${s}`,r),this}},ti=class extends kt{here(s){return this.on("pusher:subscription_succeeded",r=>{s(Object.keys(r.members).map(a=>r.members[a]))}),this}joining(s){return this.on("pusher:member_added",r=>{s(r.info)}),this}whisper(s,r){return this.pusher.channels.channels[this.name].trigger(`client-${s}`,r),this}leaving(s){return this.on("pusher:member_removed",r=>{s(r.info)}),this}},Tt=class extends Ce{constructor(s,r,a){super(),this.events={},this.listeners={},this.name=r,this.socket=s,this.options=a,this.eventFormatter=new qe(this.options.namespace),this.subscribe()}subscribe(){this.socket.emit("subscribe",{channel:this.name,auth:this.options.auth||{}})}unsubscribe(){this.unbind(),this.socket.emit("unsubscribe",{channel:this.name,auth:this.options.auth||{}})}listen(s,r){return this.on(this.eventFormatter.format(s),r),this}stopListening(s,r){return this.unbindEvent(this.eventFormatter.format(s),r),this}subscribed(s){return this.on("connect",r=>{s(r)}),this}error(s){return this}on(s,r){return this.listeners[s]=this.listeners[s]||[],this.events[s]||(this.events[s]=(a,c)=>{this.name===a&&this.listeners[s]&&this.listeners[s].forEach(d=>d(c))},this.socket.on(s,this.events[s])),this.listeners[s].push(r),this}unbind(){Object.keys(this.events).forEach(s=>{this.unbindEvent(s)})}unbindEvent(s,r){this.listeners[s]=this.listeners[s]||[],r&&(this.listeners[s]=this.listeners[s].filter(a=>a!==r)),r&&this.listeners[s].length!==0||(this.events[s]&&(this.socket.removeListener(s,this.events[s]),delete this.events[s]),delete this.listeners[s])}},Et=class extends Tt{whisper(s,r){return this.socket.emit("client event",{channel:this.name,event:`client-${s}`,data:r}),this}},ni=class extends Et{here(s){return this.on("presence:subscribed",r=>{s(r.map(a=>a.user_info))}),this}joining(s){return this.on("presence:joining",r=>s(r.user_info)),this}whisper(s,r){return this.socket.emit("client event",{channel:this.name,event:`client-${s}`,data:r}),this}leaving(s){return this.on("presence:leaving",r=>s(r.user_info)),this}},_e=class extends Ce{subscribe(){}unsubscribe(){}listen(s,r){return this}listenToAll(s){return this}stopListening(s,r){return this}subscribed(s){return this}error(s){return this}on(s,r){return this}},xt=class extends _e{whisper(s,r){return this}},si=class extends _e{whisper(s,r){return this}},ii=class extends xt{here(s){return this}joining(s){return this}whisper(s,r){return this}leaving(s){return this}},ke=class Pt{static{this._defaultOptions={auth:{headers:{}},authEndpoint:"/broadcasting/auth",userAuthentication:{endpoint:"/broadcasting/user-auth",headers:{}},csrfToken:null,bearerToken:null,host:null,key:null,namespace:"App.Events"}}constructor(r){this.setOptions(r),this.connect()}setOptions(r){this.options={...Pt._defaultOptions,...r,broadcaster:r.broadcaster};let a=this.csrfToken();a&&(this.options.auth.headers["X-CSRF-TOKEN"]=a,this.options.userAuthentication.headers["X-CSRF-TOKEN"]=a),a=this.options.bearerToken,a&&(this.options.auth.headers.Authorization="Bearer "+a,this.options.userAuthentication.headers.Authorization="Bearer "+a)}csrfToken(){return typeof window<"u"&&window.Laravel?.csrfToken?window.Laravel.csrfToken:this.options.csrfToken?this.options.csrfToken:typeof document<"u"&&typeof document.querySelector=="function"?document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")??null:null}},ri="/.well-known/mercure",oi=3e4,ge=100,ai="mercure",Z="private-encrypted-",De="client-",wt=class extends ke{constructor(...s){super(...s),this.channels=Object.create(null),this.eventSource=null,this.lastEventId="",this.whisperEventSources=new Map,this.whisperLastEventIds=new Map,this.whisperListening=new Set,this.clientEventsEnabled=!1,this.topicPrefix="",this.whisperQueue=Promise.resolve(),this.id=ui(),this.status="disconnected",this.statusListeners=[],this.refreshing=!1,this.refreshPending=!1,this.authorizedChannels=new Set,this.subscribedNotified=new Set,this.seededPresenceChannels=new Set,this.pendingSubscriptionEvents=new Map,this.channelJwks=new Map,this.importedKeys=new Map,this.dispatchQueue=Promise.resolve(),this.epoch=0,this.reconnectDelay=1e3,this.reconnectTimer=null,this.tokenTtl=null,this.lastAuthAt=0,this.tokenRefreshTimer=null}connect(){let s=typeof window<"u";if(this.options.host==null&&!s)throw Error('Mercure connector: the "host" option (the hub URL) is required outside a browser.');try{this.url=new URL(this.options.host??ri,s?window.location.origin:void 0)}catch{throw Error(`Mercure connector: the "host" option ("${String(this.options.host)}") is not a valid hub URL.`)}}eventSourceClass(){let s=this.options.eventSource??globalThis.EventSource;if(s===void 0)throw Error('Mercure connector: EventSource is not available globally; pass an implementation via the "eventSource" option.');return s}subscriptionsPath(){return`${this.url.pathname.replace(/\/$/,"")}/subscriptions`}channelTopic(s){return this.topicPrefix===""?s:`${this.topicPrefix}channel/${me(s)}`}whisperTopic(s){return`${this.topicPrefix}whisper/${me(s)}`}channelNameFromTopic(s){if(this.topicPrefix==="")return s;let r=`${this.topicPrefix}channel/`;if(!s.startsWith(r))return null;try{return decodeURIComponent(s.slice(r.length))}catch{return null}}listen(s,r,a){return this.channel(s).listen(r,a)}channel(s){return this.channels[s]||(this.channels[s]=new Ct(s,this.options,this),this.refresh()),this.channels[s]}privateChannel(s){let r="private-"+s;return this.channels[r]||(this.channels[r]=new He(r,this.options,this),this.refresh()),this.channels[r]}encryptedPrivateChannel(s){let r=Z+s;return this.channels[r]||(this.channels[r]=new Zs(r,this.options,this),this.refresh()),this.channels[r]}presenceChannel(s){let r="presence-"+s;return this.channels[r]||(this.channels[r]=new oe(r,this.options,this),this.refresh()),this.channels[r]}leave(s){["","private-",Z,"presence-"].forEach(r=>this.leaveChannel(r+s))}leaveChannel(s){this.channels[s]&&(delete this.channels[s],this.forgetChannelState(s),this.refresh())}socketId(){return this.id}whisper(s,r,a){let c=this.channels[s];c&&(this.clientEventsEnabled?this.whisperQueue=this.whisperQueue.then(()=>this.publishWhisper(s,De+r,a).catch(d=>{this.channels[s]?.notifyError(d)})):c.notifyError(Error(`whisper("${r}"): the server did not grant client events; enable the "client_events" option of the Mercure broadcasting connection.`)))}listenForWhispers(s){!this.whisperListening.has(s)&&this.channels[s]&&(this.whisperListening.add(s),this.syncWhisperEventSources())}async publishWhisper(s,r,a){let c;c=s.startsWith(Z)?JSON.stringify({channels:[s],data:await this.encrypt(s,JSON.stringify({event:r,payload:a,socket:this.id}))}):JSON.stringify({channels:[s],event:r,payload:a,socket:this.id});let d=()=>fetch(`${this.url.origin}${this.url.pathname}`,{method:"POST",credentials:"include",body:new URLSearchParams({topic:this.whisperTopic(s),data:c,private:"on"})}),p=await d();if(p.status===401&&this.channels[s]){let g=await this.authenticate(Object.keys(this.channels));g.ok&&(g.denied.length>0&&(this.evict(g.denied,Error(`The broadcasting auth request denied access to [${g.denied.join(", ")}].`)),this.refresh()),this.channels[s]&&(p=await d()))}if(!p.ok)throw Error(`The whisper publish on "${s}" failed with HTTP ${p.status}.`)}connectionStatus(){return this.status}onConnectionChange(s){return this.statusListeners.push(s),()=>{this.statusListeners=this.statusListeners.filter(r=>r!==s)}}disconnect(){this.epoch++,this.channels=Object.create(null),this.authorizedChannels.clear(),this.subscribedNotified.clear(),this.seededPresenceChannels.clear(),this.pendingSubscriptionEvents.clear(),this.channelJwks.clear(),this.importedKeys.clear(),this.lastEventId="",this.whisperLastEventIds.clear(),this.whisperListening.clear(),this.clientEventsEnabled=!1,this.topicPrefix="",this.reconnectTimer&&=(clearTimeout(this.reconnectTimer),null),this.reconnectDelay=1e3,this.tokenRefreshTimer&&=(clearTimeout(this.tokenRefreshTimer),null),this.eventSource?.close(),this.eventSource=null,this.closeWhisperEventSources(),this.setStatus("disconnected")}setStatus(s){this.status=s,this.statusListeners.forEach(r=>r(s))}forgetChannelState(s){this.authorizedChannels.delete(s),this.subscribedNotified.delete(s),this.seededPresenceChannels.delete(s),this.pendingSubscriptionEvents.delete(s),this.channelJwks.delete(s),this.importedKeys.delete(s),this.whisperEventSources.get(s)?.close(),this.whisperEventSources.delete(s),this.whisperLastEventIds.delete(s),this.whisperListening.delete(s)}evict(s,r){s.forEach(a=>{let c=this.channels[a];c&&(delete this.channels[a],this.forgetChannelState(a),c.notifyError(r))})}notifyAllError(s){Object.values(this.channels).forEach(r=>r.notifyError(s))}guardedChannelNames(){return Object.keys(this.channels).filter(s=>s.startsWith("private-")||s.startsWith("presence-"))}refresh(){this.runExclusive(()=>this.doRefresh())}runExclusive(s){this.refreshing?this.refreshPending=!0:(this.refreshing=!0,s().catch(r=>{this.notifyAllError(r),Object.keys(this.channels).length>0&&(this.setStatus("reconnecting"),this.scheduleReconnect())}).finally(()=>{this.refreshing=!1,this.refreshPending&&(this.refreshPending=!1,this.refresh())}))}scheduleTokenRefresh(){if(this.tokenTtl===null)return;this.tokenRefreshTimer&&clearTimeout(this.tokenRefreshTimer);let s=this.epoch;this.tokenRefreshTimer=setTimeout(()=>{this.tokenRefreshTimer=null,s===this.epoch&&Object.keys(this.channels).length!==0&&(this.tokenTtl!==null&&Date.now()-this.lastAuthAt>=this.tokenTtl*1e3?this.refresh():this.runExclusive(async()=>{let r=await this.authenticate(Object.keys(this.channels));s===this.epoch&&(r.ok?(r.denied.length>0&&(this.evict(r.denied,Error(`The broadcasting auth request denied access to [${r.denied.join(", ")}].`)),this.refresh()),this.scheduleTokenRefresh()):(this.notifyAllError(r.error),this.scheduleReconnect()))}))},Math.max(this.tokenTtl*.8*1e3,5e3))}scheduleReconnect(){if(this.reconnectTimer)return;let s=this.epoch;this.reconnectTimer=setTimeout(()=>{this.reconnectTimer=null,s===this.epoch&&Object.keys(this.channels).length!==0&&this.refresh()},this.reconnectDelay),this.reconnectDelay=Math.min(this.reconnectDelay*2,oi)}async doRefresh(){let s=this.epoch;if(await Promise.resolve(),s!==this.epoch)return;this.refreshPending=!1;let r=Object.keys(this.channels);if(r.length===0){this.eventSource?.close(),this.eventSource=null,this.closeWhisperEventSources(),this.authorizedChannels.clear(),this.setStatus("disconnected");return}r.length>ge&&(this.evict(r.slice(ge),Error(`Mercure broadcasting authorizes at most ${ge} channels per connection.`)),r=r.slice(0,ge)),this.eventSource||this.setStatus("connecting");let a=await this.authenticate(r);if(s!==this.epoch)return;if(!a.ok){let g=r.filter(C=>!this.authorizedChannels.has(C)&&this.channels[C]);if(a.rejected&&g.length>0){this.evict(g,Error(`The broadcasting auth request was denied (HTTP ${String(a.status)}) after joining [${g.join(", ")}].`)),this.refreshPending=!0;return}this.notifyAllError(a.error),this.setStatus("reconnecting"),this.scheduleReconnect();return}if(this.reconnectTimer&&=(clearTimeout(this.reconnectTimer),null),a.denied.length>0&&(this.evict(a.denied,Error(`The broadcasting auth request denied access to [${a.denied.join(", ")}].`)),r=r.filter(g=>this.channels[g]),r.length===0)){this.eventSource?.close(),this.eventSource=null,this.closeWhisperEventSources(),this.authorizedChannels.clear(),this.setStatus("disconnected");return}this.authorizedChannels=new Set(r),this.scheduleTokenRefresh(),r.filter(g=>this.channels[g]instanceof oe&&!this.seededPresenceChannels.has(g)&&!this.pendingSubscriptionEvents.has(g)).forEach(g=>this.pendingSubscriptionEvents.set(g,[]));let c=this.buildSubscribeUrl(r.map(g=>this.channelTopic(g)),r.filter(g=>this.channels[g]instanceof oe).map(g=>this.subscriptionEventsPattern(g)),this.lastEventId),d=this.eventSourceClass();this.eventSource?.close();let p=new d(c.toString(),{withCredentials:!0});this.eventSource=p,p.onopen=()=>{this.eventSource===p&&(this.reconnectDelay=1e3,this.setStatus("connected"),r.forEach(g=>{let C=this.channels[g];C&&!this.subscribedNotified.has(g)&&(this.subscribedNotified.add(g),C.notifySubscribed())}),this.seedPresenceChannels(s))},p.onerror=g=>{this.eventSource===p&&(this.notifyAllError(g),this.setStatus("reconnecting"),p.readyState===d.CLOSED&&(this.subscribedNotified.clear(),this.seededPresenceChannels.clear(),this.pendingSubscriptionEvents.clear(),this.scheduleReconnect()))},p.onmessage=g=>{this.eventSource===p&&this.handleMessage(g)},p.addEventListener(ai,g=>{this.eventSource===p&&this.handleSubscriptionEvent(g)}),this.syncWhisperEventSources()}buildSubscribeUrl(s,r,a){let c=new URL(this.url);return c.search="",s.forEach(d=>c.searchParams.append("match",d)),r.forEach(d=>c.searchParams.append("match_urlpattern",d)),a&&c.searchParams.set("last_event_id",a),c}closeWhisperEventSources(){this.whisperEventSources.forEach(s=>s.close()),this.whisperEventSources.clear()}syncWhisperEventSources(){let s=this.eventSourceClass().CLOSED,r=new Set(this.clientEventsEnabled?this.guardedChannelNames().filter(a=>this.authorizedChannels.has(a)&&this.whisperListening.has(a)):[]);this.whisperEventSources.forEach((a,c)=>{r.has(c)&&a.readyState!==s||(a.close(),this.whisperEventSources.delete(c))}),this.clientEventsEnabled?r.forEach(a=>{this.whisperEventSources.has(a)||this.openWhisperEventSource(a)}):this.whisperLastEventIds.clear()}openWhisperEventSource(s){let r=this.eventSourceClass(),a=new r(this.buildSubscribeUrl([this.whisperTopic(s)],[],this.whisperLastEventIds.get(s)??"").toString(),{withCredentials:!0});this.whisperEventSources.set(s,a),a.onmessage=c=>{this.whisperEventSources.get(s)===a&&(this.whisperLastEventIds.set(s,c.lastEventId),this.handleWhisperMessage(c,s))},a.onerror=()=>{this.whisperEventSources.get(s)===a&&a.readyState===r.CLOSED&&this.scheduleReconnect()}}async seedPresenceChannels(s){await Promise.all([...this.pendingSubscriptionEvents.keys()].map(async r=>{let a=this.channels[r];if(!(a instanceof oe))this.pendingSubscriptionEvents.delete(r);else try{let c=await this.fetchPresenceSnapshot(r);if(s!==this.epoch)return;this.seededPresenceChannels.add(r),a.setInitialMembers(c),(this.pendingSubscriptionEvents.get(r)??[]).forEach(([d,p,g])=>a.applySubscriptionEvent(d,p,g))}catch(c){a.notifyError(c)}finally{this.pendingSubscriptionEvents.delete(r)}}))}handleMessage(s){this.lastEventId=s.lastEventId;let r=ae(s.data);if(!r||!Array.isArray(r.channels))return;let a=r.channels.filter(c=>typeof c=="string");if(typeof r.data=="string"){let c=r.data;a.filter(d=>d.startsWith(Z)&&ve(this.channels,d)).forEach(d=>{this.dispatchQueue=this.dispatchQueue.then(()=>this.dispatchEncrypted(d,c))})}else r.socket&&r.socket===this.id||typeof r.event=="string"&&a.forEach(c=>{!c.startsWith(Z)&&ve(this.channels,c)&&this.channels[c].dispatch(r.event,r.payload)})}handleWhisperMessage(s,r){let a=ae(s.data);if(a&&Array.isArray(a.channels)&&a.channels.length===1&&a.channels[0]===r&&ve(this.channels,r))if(typeof a.data=="string"){let c=a.data;r.startsWith(Z)&&(this.dispatchQueue=this.dispatchQueue.then(()=>this.dispatchEncrypted(r,c,!0)))}else a.socket&&a.socket===this.id||typeof a.event=="string"&&a.event.startsWith(De)&&!r.startsWith(Z)&&this.channels[r].dispatch(a.event,a.payload)}async dispatchEncrypted(s,r,a=!1){let c=this.channels[s];if(c)try{let d=ae(await this.decrypt(s,r));if(!d||typeof d.event!="string")throw Error(`The decrypted update on "${s}" carries no broadcast envelope.`);if(a&&!d.event.startsWith(De)||d.socket&&d.socket===this.id)return;c.dispatch(d.event,d.payload)}catch(d){c.notifyError(d)}}async decrypt(s,r){let a=r.split(".");if(a.length!==5||a[1]!=="")throw Error(`The update on "${s}" is not a direct-encryption compact JWE.`);let[c,,d,p,g]=a,C=ae(St.decode(be(c)));if(C?.alg!=="dir"||C?.enc!=="A256GCM")throw Error(`The update on "${s}" uses an unsupported JWE algorithm.`);let R=be(p),_=be(g),m=new Uint8Array(R.length+_.length);m.set(R),m.set(_,R.length);let L=await crypto.subtle.decrypt({name:"AES-GCM",iv:be(d),additionalData:we.encode(c),tagLength:128},await this.channelKey(s),m);return St.decode(L)}async encrypt(s,r){let a=ci,c=crypto.getRandomValues(new Uint8Array(12)),d=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv:c,additionalData:we.encode(a),tagLength:128},await this.channelKey(s),we.encode(r))),p=d.slice(0,-16),g=d.slice(-16);return[a,"",Se(c),Se(p),Se(g)].join(".")}channelKey(s){let r=this.channelJwks.get(s);if(!r||typeof r.k!="string")return Promise.reject(Error(`No decryption key is known for "${s}": the auth endpoint returned none. Is "encryption_key" configured server-side?`));let a=this.importedKeys.get(s);if(a&&a.k===r.k)return a.key;let c=crypto.subtle.importKey("jwk",r,{name:"AES-GCM"},!1,["encrypt","decrypt"]);return this.importedKeys.set(s,{k:r.k,key:c}),c}handleSubscriptionEvent(s){this.lastEventId=s.lastEventId;let r=ae(s.data);if(!r||typeof r.match!="string"||typeof r.subscriber!="string"||typeof r.active!="boolean"||r.match_type!=="exact"||r.active&&r.payload==null)return;let a=this.channelNameFromTopic(r.match);if(a===null)return;let c=this.pendingSubscriptionEvents.get(a);if(c){c.push([r.subscriber,r.active,r.payload]);return}if(!ve(this.channels,a))return;let d=this.channels[a];d instanceof oe&&d.applySubscriptionEvent(r.subscriber,r.active,r.payload)}async fetchPresenceSnapshot(s){let r=await fetch(`${this.url.origin}${this.subscriptionsPath()}/exact/${me(this.channelTopic(s))}`,{credentials:"include"});if(!r.ok)throw Error(`The subscription snapshot request failed with HTTP ${r.status}.`);return((await r.json()).subscriptions??[]).filter(a=>a.active&&a.payload!=null).map(a=>[a.subscriber,a.payload])}async authenticate(s){let r,a=null;try{let c=await fetch(this.options.authEndpoint,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json",Accept:"application/json",...this.options.auth.headers},body:JSON.stringify({channel_names:s})});if(c.ok)return this.lastAuthAt=Date.now(),{ok:!0,rejected:!1,status:c.status,denied:this.readAuthResponse(await hi(c))};a=c.status,r=Error(`The broadcasting auth request to "${this.options.authEndpoint}" failed with HTTP ${c.status}.`)}catch(c){r=Error(`The broadcasting auth request to "${this.options.authEndpoint}" failed: ${c instanceof Error?c.message:String(c)}.`)}return{ok:!1,rejected:a!==null&&a<500,status:a,denied:[],error:r}}readAuthResponse(s){let r=s??{},a=Number(r.expires_in);this.tokenTtl=Number.isFinite(a)&&a>0?a:null,this.topicPrefix=typeof r.topic_prefix=="string"?r.topic_prefix:"",this.clientEventsEnabled=r.client_events===!0,this.channelJwks.clear();let c=[];return Array.isArray(r.channel_names)&&r.channel_names.forEach(d=>{let p=d??{};typeof p.name=="string"&&(p.denied===!0?c.push(p.name):p.jwk!==null&&typeof p.jwk=="object"&&this.channelJwks.set(p.name,p.jwk))}),c}subscriptionEventsPattern(s){return`${this.subscriptionsPath()}/:match_type/${me(this.channelTopic(s))}/:subscriber`}};function ve(s,r){return Object.prototype.hasOwnProperty.call(s,r)}function ae(s){try{return JSON.parse(s)}catch{return null}}async function hi(s){try{return await s.json()}catch{return null}}var we=new TextEncoder,St=new TextDecoder,ci=Se(we.encode(JSON.stringify({alg:"dir",enc:"A256GCM"})));function be(s){let r=s.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-s.length%4)%4);return Uint8Array.from(atob(r),a=>a.charCodeAt(0))}function Se(s){return btoa(String.fromCharCode(...s)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}function me(s){return encodeURIComponent(s).replace(/[!'()*]/g,r=>"%"+r.charCodeAt(0).toString(16).toUpperCase())}function ui(){return typeof crypto<"u"&&typeof crypto.randomUUID=="function"?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)}var ye=class extends ke{constructor(...s){super(...s),this.channels={}}connect(){if(this.options.client!==void 0)this.pusher=this.options.client;else if(this.options.Pusher)this.pusher=new this.options.Pusher(this.options.key,this.options);else if(typeof window<"u"&&window.Pusher!==void 0)this.pusher=new window.Pusher(this.options.key,this.options);else throw Error("Pusher client not found. Should be globally available or passed via options.client")}signin(){this.pusher.signin()}listen(s,r,a){return this.channel(s).listen(r,a)}channel(s){return this.channels[s]||(this.channels[s]=new ze(this.pusher,s,this.options)),this.channels[s]}privateChannel(s){return this.channels["private-"+s]||(this.channels["private-"+s]=new kt(this.pusher,"private-"+s,this.options)),this.channels["private-"+s]}encryptedPrivateChannel(s){return this.channels["private-encrypted-"+s]||(this.channels["private-encrypted-"+s]=new ei(this.pusher,"private-encrypted-"+s,this.options)),this.channels["private-encrypted-"+s]}presenceChannel(s){return this.channels["presence-"+s]||(this.channels["presence-"+s]=new ti(this.pusher,"presence-"+s,this.options)),this.channels["presence-"+s]}leave(s){[s,"private-"+s,"private-encrypted-"+s,"presence-"+s].forEach(r=>{this.leaveChannel(r)})}leaveChannel(s){this.channels[s]&&(this.channels[s].unsubscribe(),delete this.channels[s])}socketId(){return this.pusher.connection.socket_id}connectionStatus(){let s=this.pusher.connection.state;switch(s){case"connected":case"connecting":return s;case"failed":case"unavailable":return"failed";default:return"disconnected"}}onConnectionChange(s){let r=()=>{s(this.connectionStatus())},a=["state_change","connected","disconnected"];return a.forEach(c=>{this.pusher.connection.bind(c,r)}),()=>{a.forEach(c=>{this.pusher.connection.unbind(c,r)})}}disconnect(){this.pusher.disconnect()}},li=class extends ke{constructor(...s){super(...s),this.channels={}}connect(){let s=this.getSocketIO();this.socket=s(this.options.host??void 0,this.options),this.socket.io.on("reconnect",()=>{Object.values(this.channels).forEach(r=>{r.subscribe()})})}getSocketIO(){if(this.options.client!==void 0)return this.options.client;if(typeof window<"u"&&window.io!==void 0)return window.io;throw Error("Socket.io client not found. Should be globally available or passed via options.client")}listen(s,r,a){return this.channel(s).listen(r,a)}channel(s){return this.channels[s]||(this.channels[s]=new Tt(this.socket,s,this.options)),this.channels[s]}privateChannel(s){return this.channels["private-"+s]||(this.channels["private-"+s]=new Et(this.socket,"private-"+s,this.options)),this.channels["private-"+s]}presenceChannel(s){return this.channels["presence-"+s]||(this.channels["presence-"+s]=new ni(this.socket,"presence-"+s,this.options)),this.channels["presence-"+s]}leave(s){[s,"private-"+s,"presence-"+s].forEach(r=>{this.leaveChannel(r)})}leaveChannel(s){this.channels[s]&&(this.channels[s].unsubscribe(),delete this.channels[s])}socketId(){return this.socket.id}connectionStatus(){return this.socket.connected?"connected":this.socket.io._reconnecting?"reconnecting":this.socket.id===void 0?"connecting":"disconnected"}onConnectionChange(s){let r=()=>{s(this.connectionStatus())},a=["connect","disconnect","connect_error","reconnect_attempt","reconnect","reconnect_error","reconnect_failed"];return a.forEach(c=>{this.socket.on(c,r)}),()=>{a.forEach(c=>{this.socket.off(c,r)})}}disconnect(){this.socket.disconnect()}},_t=class extends ke{constructor(...s){super(...s),this.channels={}}connect(){}listen(s,r,a){return new _e}channel(s){return new _e}privateChannel(s){return new xt}encryptedPrivateChannel(s){return new si}presenceChannel(s){return new ii}leave(s){}leaveChannel(s){}socketId(){return"fake-socket-id"}connectionStatus(){return"connected"}onConnectionChange(s){return()=>{}}disconnect(){}},Lt=class{constructor(s){this.options=s,this.connect(),this.options.withoutInterceptors||this.registerInterceptors()}channel(s){return this.connector.channel(s)}connect(){if(this.options.broadcaster==="reverb")this.connector=new ye({...this.options,cluster:""});else if(this.options.broadcaster==="pusher")this.connector=new ye(this.options);else if(this.options.broadcaster==="ably")this.connector=new ye({...this.options,cluster:"",broadcaster:"pusher"});else if(this.options.broadcaster==="socket.io")this.connector=new li(this.options);else if(this.options.broadcaster==="mercure")this.connector=new wt(this.options);else if(this.options.broadcaster==="null")this.connector=new _t(this.options);else if(typeof this.options.broadcaster=="function"&&Ys(this.options.broadcaster))this.connector=new this.options.broadcaster(this.options);else throw Error(`Broadcaster ${typeof this.options.broadcaster} ${String(this.options.broadcaster)} is not supported.`)}disconnect(){this.connector.disconnect()}join(s){return this.connector.presenceChannel(s)}leave(s){this.connector.leave(s)}leaveChannel(s){this.connector.leaveChannel(s)}leaveAllChannels(){for(let s in this.connector.channels)this.leaveChannel(s)}listen(s,r,a){return this.connector.listen(s,r,a)}private(s){return this.connector.privateChannel(s)}encryptedPrivate(s){if(this.connectorSupportsEncryptedPrivateChannels(this.connector))return this.connector.encryptedPrivateChannel(s);throw Error(`Broadcaster ${typeof this.options.broadcaster} ${String(this.options.broadcaster)} does not support encrypted private channels.`)}connectorSupportsEncryptedPrivateChannels(s){return s instanceof ye||s instanceof wt||s instanceof _t}socketId(){return this.connector.socketId()}connectionStatus(){return this.connector.connectionStatus()}registerInterceptors(){typeof Vue<"u"&&Vue?.http&&this.registerVueRequestInterceptor(),typeof axios=="function"&&this.registerAxiosRequestInterceptor(),typeof jQuery=="function"&&this.registerjQueryAjaxSetup(),typeof Turbo=="object"&&this.registerTurboRequestInterceptor()}registerVueRequestInterceptor(){Vue.http.interceptors.push((s,r)=>{this.socketId()&&s.headers.set("X-Socket-ID",this.socketId()),r()})}registerAxiosRequestInterceptor(){axios.interceptors.request.use(s=>(this.socketId()&&(s.headers["X-Socket-Id"]=this.socketId()),s))}registerjQueryAjaxSetup(){jQuery.ajax!==void 0&&jQuery.ajaxPrefilter((s,r,a)=>{this.socketId()&&a.setRequestHeader("X-Socket-Id",this.socketId())})}registerTurboRequestInterceptor(){document.addEventListener("turbo:before-fetch-request",s=>{s.detail.fetchOptions.headers["X-Socket-Id"]=this.socketId()})}};var Rt=Vs(At()),q=window.InfinityChat;if(q&&q.usuarioId){let r=function(){try{let _=JSON.parse(sessionStorage.getItem(s)||"[]");return Array.isArray(_)?_.map(Number):[]}catch{return[]}},a=function(_){let m=r(),L=Number(_);m.includes(L)||m.push(L),sessionStorage.setItem(s,JSON.stringify(m.slice(-100)))},c=function(_){let m=document.getElementById("chat-interno-badge");if(!m)return;let L=Number(_)||0;m.textContent=L>99?"99+":String(L),m.classList.toggle("hidden",L<1)},g=function(_){if(!_||!p||r().includes(Number(_.mensaje_id)))return;d=_,p.querySelector("[data-autor]").textContent=_.autor||"Staff",p.querySelector("[data-titulo]").textContent=_.titulo||"Chat interno";let m=_.cuerpo||(_.adjunto_nombre?"Archivo: "+_.adjunto_nombre:"Mensaje sin texto");p.querySelector("[data-cuerpo]").textContent=m,p.classList.remove("hidden"),p.classList.add("flex")},C=function(){p&&(p.classList.add("hidden"),p.classList.remove("flex"))},s="chat_interno_cerradas",d=null,p=document.getElementById("chat-interno-popup");async function R(){try{let _=await fetch(q.pendientesUrl,{headers:{Accept:"application/json","X-Requested-With":"XMLHttpRequest"},credentials:"same-origin"});if(!_.ok)return;let m=await _.json();c(m.no_leidos);let L=(m.acciones||[]).find(P=>!r().includes(Number(P.mensaje_id)));L&&g(L),window.dispatchEvent(new CustomEvent("chat:pendientes",{detail:m}))}catch{}}if(document.getElementById("chat-popup-cerrar")?.addEventListener("click",()=>{d&&a(d.mensaje_id),C()}),document.getElementById("chat-popup-abrir")?.addEventListener("click",()=>{d&&(a(d.mensaje_id),window.location.href=q.chatUrl+"?c="+d.conversacion_id)}),document.getElementById("chat-popup-atender")?.addEventListener("click",async()=>{if(!d)return;let _=d.mensaje_id;await fetch(q.atenderUrl+"/"+_+"/atender",{method:"POST",headers:{Accept:"application/json","Content-Type":"application/json","X-CSRF-TOKEN":q.csrf,"X-Requested-With":"XMLHttpRequest"},credentials:"same-origin",body:"{}"}),a(_),C(),window.dispatchEvent(new CustomEvent("chat:accion",{detail:{mensaje_id:_,usuario_id:q.usuarioId}})),R()}),R(),q.key){window.Pusher=Rt.default,window.Echo=new Lt({broadcaster:"reverb",key:q.key,wsHost:q.host,wsPort:q.port,wssPort:q.port,forceTLS:q.scheme==="https",enabledTransports:["ws","wss"],authEndpoint:"/broadcasting/auth"});let _=Number(q.usuarioId);window.Echo.private("chat.usuario."+q.usuarioId).listen(".mensaje.creado",m=>{let L=m.mensaje||{};window.dispatchEvent(new CustomEvent("chat:mensaje",{detail:L}));let P=(L.asignados||[]).some(x=>Number(x.usuario_id)===_&&!x.atendido_at);Number(L.usuario_id)!==_&&L.requiere_accion&&P&&g({mensaje_id:L.id,conversacion_id:L.conversacion_id,autor:L.autor,titulo:L.titulo||"Chat interno",cuerpo:L.cuerpo,adjunto_nombre:L.adjunto?L.adjunto.nombre:null}),R()}).listen(".accion.atendida",m=>{window.dispatchEvent(new CustomEvent("chat:accion",{detail:m})),Number(m.usuario_id)===_&&d&&Number(d.mensaje_id)===Number(m.mensaje_id)&&C(),R()}),window.Echo.connector.pusher.connection.bind("connected",()=>R())}}})();
+(() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __commonJS = (cb, mod) => function __require() {
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e3) {
+      throw mod = 0, e3;
+    }
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
+
+  // ../../../Users/Interplus/AppData/Local/Temp/chat-echo-build/node_modules/pusher-js/dist/web/pusher.js
+  var require_pusher = __commonJS({
+    "../../../Users/Interplus/AppData/Local/Temp/chat-echo-build/node_modules/pusher-js/dist/web/pusher.js"(exports, module) {
+      (function webpackUniversalModuleDefinition(root, factory) {
+        if (typeof exports === "object" && typeof module === "object")
+          module.exports = factory();
+        else if (typeof define === "function" && define.amd)
+          define([], factory);
+        else if (typeof exports === "object")
+          exports["Pusher"] = factory();
+        else
+          root["Pusher"] = factory();
+      })(self, () => {
+        return (
+          /******/
+          (() => {
+            var __webpack_modules__ = {
+              /***/
+              594(__unused_webpack_module, exports2) {
+                "use strict";
+                var __extends = this && this.__extends || /* @__PURE__ */ (function() {
+                  var extendStatics = function(d2, b2) {
+                    extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d3, b3) {
+                      d3.__proto__ = b3;
+                    } || function(d3, b3) {
+                      for (var p2 in b3) if (b3.hasOwnProperty(p2)) d3[p2] = b3[p2];
+                    };
+                    return extendStatics(d2, b2);
+                  };
+                  return function(d2, b2) {
+                    extendStatics(d2, b2);
+                    function __() {
+                      this.constructor = d2;
+                    }
+                    d2.prototype = b2 === null ? Object.create(b2) : (__.prototype = b2.prototype, new __());
+                  };
+                })();
+                Object.defineProperty(exports2, "__esModule", { value: true });
+                var INVALID_BYTE = 256;
+                var Coder = (
+                  /** @class */
+                  (function() {
+                    function Coder2(_paddingCharacter) {
+                      if (_paddingCharacter === void 0) {
+                        _paddingCharacter = "=";
+                      }
+                      this._paddingCharacter = _paddingCharacter;
+                    }
+                    Coder2.prototype.encodedLength = function(length) {
+                      if (!this._paddingCharacter) {
+                        return (length * 8 + 5) / 6 | 0;
+                      }
+                      return (length + 2) / 3 * 4 | 0;
+                    };
+                    Coder2.prototype.encode = function(data) {
+                      var out = "";
+                      var i2 = 0;
+                      for (; i2 < data.length - 2; i2 += 3) {
+                        var c2 = data[i2] << 16 | data[i2 + 1] << 8 | data[i2 + 2];
+                        out += this._encodeByte(c2 >>> 3 * 6 & 63);
+                        out += this._encodeByte(c2 >>> 2 * 6 & 63);
+                        out += this._encodeByte(c2 >>> 1 * 6 & 63);
+                        out += this._encodeByte(c2 >>> 0 * 6 & 63);
+                      }
+                      var left = data.length - i2;
+                      if (left > 0) {
+                        var c2 = data[i2] << 16 | (left === 2 ? data[i2 + 1] << 8 : 0);
+                        out += this._encodeByte(c2 >>> 3 * 6 & 63);
+                        out += this._encodeByte(c2 >>> 2 * 6 & 63);
+                        if (left === 2) {
+                          out += this._encodeByte(c2 >>> 1 * 6 & 63);
+                        } else {
+                          out += this._paddingCharacter || "";
+                        }
+                        out += this._paddingCharacter || "";
+                      }
+                      return out;
+                    };
+                    Coder2.prototype.maxDecodedLength = function(length) {
+                      if (!this._paddingCharacter) {
+                        return (length * 6 + 7) / 8 | 0;
+                      }
+                      return length / 4 * 3 | 0;
+                    };
+                    Coder2.prototype.decodedLength = function(s2) {
+                      return this.maxDecodedLength(s2.length - this._getPaddingLength(s2));
+                    };
+                    Coder2.prototype.decode = function(s2) {
+                      if (s2.length === 0) {
+                        return new Uint8Array(0);
+                      }
+                      var paddingLength = this._getPaddingLength(s2);
+                      var length = s2.length - paddingLength;
+                      var out = new Uint8Array(this.maxDecodedLength(length));
+                      var op = 0;
+                      var i2 = 0;
+                      var haveBad = 0;
+                      var v0 = 0, v1 = 0, v2 = 0, v3 = 0;
+                      for (; i2 < length - 4; i2 += 4) {
+                        v0 = this._decodeChar(s2.charCodeAt(i2 + 0));
+                        v1 = this._decodeChar(s2.charCodeAt(i2 + 1));
+                        v2 = this._decodeChar(s2.charCodeAt(i2 + 2));
+                        v3 = this._decodeChar(s2.charCodeAt(i2 + 3));
+                        out[op++] = v0 << 2 | v1 >>> 4;
+                        out[op++] = v1 << 4 | v2 >>> 2;
+                        out[op++] = v2 << 6 | v3;
+                        haveBad |= v0 & INVALID_BYTE;
+                        haveBad |= v1 & INVALID_BYTE;
+                        haveBad |= v2 & INVALID_BYTE;
+                        haveBad |= v3 & INVALID_BYTE;
+                      }
+                      if (i2 < length - 1) {
+                        v0 = this._decodeChar(s2.charCodeAt(i2));
+                        v1 = this._decodeChar(s2.charCodeAt(i2 + 1));
+                        out[op++] = v0 << 2 | v1 >>> 4;
+                        haveBad |= v0 & INVALID_BYTE;
+                        haveBad |= v1 & INVALID_BYTE;
+                      }
+                      if (i2 < length - 2) {
+                        v2 = this._decodeChar(s2.charCodeAt(i2 + 2));
+                        out[op++] = v1 << 4 | v2 >>> 2;
+                        haveBad |= v2 & INVALID_BYTE;
+                      }
+                      if (i2 < length - 3) {
+                        v3 = this._decodeChar(s2.charCodeAt(i2 + 3));
+                        out[op++] = v2 << 6 | v3;
+                        haveBad |= v3 & INVALID_BYTE;
+                      }
+                      if (haveBad !== 0) {
+                        throw new Error("Base64Coder: incorrect characters for decoding");
+                      }
+                      return out;
+                    };
+                    Coder2.prototype._encodeByte = function(b2) {
+                      var result = b2;
+                      result += 65;
+                      result += 25 - b2 >>> 8 & 0 - 65 - 26 + 97;
+                      result += 51 - b2 >>> 8 & 26 - 97 - 52 + 48;
+                      result += 61 - b2 >>> 8 & 52 - 48 - 62 + 43;
+                      result += 62 - b2 >>> 8 & 62 - 43 - 63 + 47;
+                      return String.fromCharCode(result);
+                    };
+                    Coder2.prototype._decodeChar = function(c2) {
+                      var result = INVALID_BYTE;
+                      result += (42 - c2 & c2 - 44) >>> 8 & -INVALID_BYTE + c2 - 43 + 62;
+                      result += (46 - c2 & c2 - 48) >>> 8 & -INVALID_BYTE + c2 - 47 + 63;
+                      result += (47 - c2 & c2 - 58) >>> 8 & -INVALID_BYTE + c2 - 48 + 52;
+                      result += (64 - c2 & c2 - 91) >>> 8 & -INVALID_BYTE + c2 - 65 + 0;
+                      result += (96 - c2 & c2 - 123) >>> 8 & -INVALID_BYTE + c2 - 97 + 26;
+                      return result;
+                    };
+                    Coder2.prototype._getPaddingLength = function(s2) {
+                      var paddingLength = 0;
+                      if (this._paddingCharacter) {
+                        for (var i2 = s2.length - 1; i2 >= 0; i2--) {
+                          if (s2[i2] !== this._paddingCharacter) {
+                            break;
+                          }
+                          paddingLength++;
+                        }
+                        if (s2.length < 4 || paddingLength > 2) {
+                          throw new Error("Base64Coder: incorrect padding");
+                        }
+                      }
+                      return paddingLength;
+                    };
+                    return Coder2;
+                  })()
+                );
+                exports2.Coder = Coder;
+                var stdCoder = new Coder();
+                function encode(data) {
+                  return stdCoder.encode(data);
+                }
+                exports2.encode = encode;
+                function decode(s2) {
+                  return stdCoder.decode(s2);
+                }
+                exports2.decode = decode;
+                var URLSafeCoder = (
+                  /** @class */
+                  (function(_super) {
+                    __extends(URLSafeCoder2, _super);
+                    function URLSafeCoder2() {
+                      return _super !== null && _super.apply(this, arguments) || this;
+                    }
+                    URLSafeCoder2.prototype._encodeByte = function(b2) {
+                      var result = b2;
+                      result += 65;
+                      result += 25 - b2 >>> 8 & 0 - 65 - 26 + 97;
+                      result += 51 - b2 >>> 8 & 26 - 97 - 52 + 48;
+                      result += 61 - b2 >>> 8 & 52 - 48 - 62 + 45;
+                      result += 62 - b2 >>> 8 & 62 - 45 - 63 + 95;
+                      return String.fromCharCode(result);
+                    };
+                    URLSafeCoder2.prototype._decodeChar = function(c2) {
+                      var result = INVALID_BYTE;
+                      result += (44 - c2 & c2 - 46) >>> 8 & -INVALID_BYTE + c2 - 45 + 62;
+                      result += (94 - c2 & c2 - 96) >>> 8 & -INVALID_BYTE + c2 - 95 + 63;
+                      result += (47 - c2 & c2 - 58) >>> 8 & -INVALID_BYTE + c2 - 48 + 52;
+                      result += (64 - c2 & c2 - 91) >>> 8 & -INVALID_BYTE + c2 - 65 + 0;
+                      result += (96 - c2 & c2 - 123) >>> 8 & -INVALID_BYTE + c2 - 97 + 26;
+                      return result;
+                    };
+                    return URLSafeCoder2;
+                  })(Coder)
+                );
+                exports2.URLSafeCoder = URLSafeCoder;
+                var urlSafeCoder = new URLSafeCoder();
+                function encodeURLSafe(data) {
+                  return urlSafeCoder.encode(data);
+                }
+                exports2.encodeURLSafe = encodeURLSafe;
+                function decodeURLSafe(s2) {
+                  return urlSafeCoder.decode(s2);
+                }
+                exports2.decodeURLSafe = decodeURLSafe;
+                exports2.encodedLength = function(length) {
+                  return stdCoder.encodedLength(length);
+                };
+                exports2.maxDecodedLength = function(length) {
+                  return stdCoder.maxDecodedLength(length);
+                };
+                exports2.decodedLength = function(s2) {
+                  return stdCoder.decodedLength(s2);
+                };
+              },
+              /***/
+              978(__unused_webpack_module, exports2) {
+                "use strict";
+                var __webpack_unused_export__;
+                __webpack_unused_export__ = { value: true };
+                var INVALID_UTF16 = "utf8: invalid string";
+                var INVALID_UTF8 = "utf8: invalid source encoding";
+                function encode(s2) {
+                  var arr = new Uint8Array(encodedLength(s2));
+                  var pos = 0;
+                  for (var i2 = 0; i2 < s2.length; i2++) {
+                    var c2 = s2.charCodeAt(i2);
+                    if (c2 < 128) {
+                      arr[pos++] = c2;
+                    } else if (c2 < 2048) {
+                      arr[pos++] = 192 | c2 >> 6;
+                      arr[pos++] = 128 | c2 & 63;
+                    } else if (c2 < 55296) {
+                      arr[pos++] = 224 | c2 >> 12;
+                      arr[pos++] = 128 | c2 >> 6 & 63;
+                      arr[pos++] = 128 | c2 & 63;
+                    } else {
+                      i2++;
+                      c2 = (c2 & 1023) << 10;
+                      c2 |= s2.charCodeAt(i2) & 1023;
+                      c2 += 65536;
+                      arr[pos++] = 240 | c2 >> 18;
+                      arr[pos++] = 128 | c2 >> 12 & 63;
+                      arr[pos++] = 128 | c2 >> 6 & 63;
+                      arr[pos++] = 128 | c2 & 63;
+                    }
+                  }
+                  return arr;
+                }
+                __webpack_unused_export__ = encode;
+                function encodedLength(s2) {
+                  var result = 0;
+                  for (var i2 = 0; i2 < s2.length; i2++) {
+                    var c2 = s2.charCodeAt(i2);
+                    if (c2 < 128) {
+                      result += 1;
+                    } else if (c2 < 2048) {
+                      result += 2;
+                    } else if (c2 < 55296) {
+                      result += 3;
+                    } else if (c2 <= 57343) {
+                      if (i2 >= s2.length - 1) {
+                        throw new Error(INVALID_UTF16);
+                      }
+                      i2++;
+                      result += 4;
+                    } else {
+                      throw new Error(INVALID_UTF16);
+                    }
+                  }
+                  return result;
+                }
+                __webpack_unused_export__ = encodedLength;
+                function decode(arr) {
+                  var chars = [];
+                  for (var i2 = 0; i2 < arr.length; i2++) {
+                    var b2 = arr[i2];
+                    if (b2 & 128) {
+                      var min = void 0;
+                      if (b2 < 224) {
+                        if (i2 >= arr.length) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        var n1 = arr[++i2];
+                        if ((n1 & 192) !== 128) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        b2 = (b2 & 31) << 6 | n1 & 63;
+                        min = 128;
+                      } else if (b2 < 240) {
+                        if (i2 >= arr.length - 1) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        var n1 = arr[++i2];
+                        var n2 = arr[++i2];
+                        if ((n1 & 192) !== 128 || (n2 & 192) !== 128) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        b2 = (b2 & 15) << 12 | (n1 & 63) << 6 | n2 & 63;
+                        min = 2048;
+                      } else if (b2 < 248) {
+                        if (i2 >= arr.length - 2) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        var n1 = arr[++i2];
+                        var n2 = arr[++i2];
+                        var n3 = arr[++i2];
+                        if ((n1 & 192) !== 128 || (n2 & 192) !== 128 || (n3 & 192) !== 128) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        b2 = (b2 & 15) << 18 | (n1 & 63) << 12 | (n2 & 63) << 6 | n3 & 63;
+                        min = 65536;
+                      } else {
+                        throw new Error(INVALID_UTF8);
+                      }
+                      if (b2 < min || b2 >= 55296 && b2 <= 57343) {
+                        throw new Error(INVALID_UTF8);
+                      }
+                      if (b2 >= 65536) {
+                        if (b2 > 1114111) {
+                          throw new Error(INVALID_UTF8);
+                        }
+                        b2 -= 65536;
+                        chars.push(String.fromCharCode(55296 | b2 >> 10));
+                        b2 = 56320 | b2 & 1023;
+                      }
+                    }
+                    chars.push(String.fromCharCode(b2));
+                  }
+                  return chars.join("");
+                }
+                exports2.D4 = decode;
+              },
+              /***/
+              721(module2, __unused_webpack_exports, __webpack_require__2) {
+                module2.exports = __webpack_require__2(207)["default"];
+              },
+              /***/
+              207(__unused_webpack_module, __webpack_exports__2, __webpack_require__2) {
+                "use strict";
+                __webpack_require__2.d(__webpack_exports__2, {
+                  "default": () => (
+                    /* binding */
+                    pusher
+                  )
+                });
+                ;
+                class ScriptReceiverFactory {
+                  constructor(prefix2, name) {
+                    this.lastId = 0;
+                    this.prefix = prefix2;
+                    this.name = name;
+                  }
+                  create(callback) {
+                    this.lastId++;
+                    var number = this.lastId;
+                    var id = this.prefix + number;
+                    var name = this.name + "[" + number + "]";
+                    var called = false;
+                    var callbackWrapper = function() {
+                      if (!called) {
+                        callback.apply(null, arguments);
+                        called = true;
+                      }
+                    };
+                    this[number] = callbackWrapper;
+                    return { number, id, name, callback: callbackWrapper };
+                  }
+                  remove(receiver) {
+                    delete this[receiver.number];
+                  }
+                }
+                var ScriptReceivers = new ScriptReceiverFactory("_pusher_script_", "Pusher.ScriptReceivers");
+                ;
+                var Defaults = {
+                  VERSION: "8.6.0",
+                  PROTOCOL: 7,
+                  wsPort: 80,
+                  wssPort: 443,
+                  wsPath: "",
+                  httpHost: "sockjs.pusher.com",
+                  httpPort: 80,
+                  httpsPort: 443,
+                  httpPath: "/pusher",
+                  stats_host: "stats.pusher.com",
+                  authEndpoint: "/pusher/auth",
+                  authTransport: "ajax",
+                  activityTimeout: 12e4,
+                  pongTimeout: 3e4,
+                  unavailableTimeout: 1e4,
+                  userAuthentication: {
+                    endpoint: "/pusher/user-auth",
+                    transport: "ajax"
+                  },
+                  channelAuthorization: {
+                    endpoint: "/pusher/auth",
+                    transport: "ajax"
+                  },
+                  cdn_http: "http://js.pusher.com",
+                  cdn_https: "https://js.pusher.com",
+                  dependency_suffix: ""
+                };
+                const defaults = Defaults;
+                ;
+                class DependencyLoader {
+                  constructor(options) {
+                    this.options = options;
+                    this.receivers = options.receivers || ScriptReceivers;
+                    this.loading = {};
+                  }
+                  load(name, options, callback) {
+                    var self2 = this;
+                    if (self2.loading[name] && self2.loading[name].length > 0) {
+                      self2.loading[name].push(callback);
+                    } else {
+                      self2.loading[name] = [callback];
+                      var request = runtime.createScriptRequest(self2.getPath(name, options));
+                      var receiver = self2.receivers.create(function(error) {
+                        self2.receivers.remove(receiver);
+                        if (self2.loading[name]) {
+                          var callbacks = self2.loading[name];
+                          delete self2.loading[name];
+                          var successCallback = function(wasSuccessful) {
+                            if (!wasSuccessful) {
+                              request.cleanup();
+                            }
+                          };
+                          for (var i3 = 0; i3 < callbacks.length; i3++) {
+                            callbacks[i3](error, successCallback);
+                          }
+                        }
+                      });
+                      request.send(receiver);
+                    }
+                  }
+                  getRoot(options) {
+                    var cdn;
+                    var protocol2 = runtime.getDocument().location.protocol;
+                    if (options && options.useTLS || protocol2 === "https:") {
+                      cdn = this.options.cdn_https;
+                    } else {
+                      cdn = this.options.cdn_http;
+                    }
+                    return cdn.replace(/\/*$/, "") + "/" + this.options.version;
+                  }
+                  getPath(name, options) {
+                    return this.getRoot(options) + "/" + name + this.options.suffix + ".js";
+                  }
+                }
+                ;
+                var DependenciesReceivers = new ScriptReceiverFactory("_pusher_dependencies", "Pusher.DependenciesReceivers");
+                var Dependencies = new DependencyLoader({
+                  cdn_http: defaults.cdn_http,
+                  cdn_https: defaults.cdn_https,
+                  version: defaults.VERSION,
+                  suffix: defaults.dependency_suffix,
+                  receivers: DependenciesReceivers
+                });
+                ;
+                const urlStore = {
+                  baseUrl: "https://pusher.com",
+                  urls: {
+                    authenticationEndpoint: {
+                      path: "/docs/channels/server_api/authenticating_users"
+                    },
+                    authorizationEndpoint: {
+                      path: "/docs/channels/server_api/authorizing-users/"
+                    },
+                    javascriptQuickStart: {
+                      path: "/docs/javascript_quick_start"
+                    },
+                    triggeringClientEvents: {
+                      path: "/docs/client_api_guide/client_events#trigger-events"
+                    },
+                    encryptedChannelSupport: {
+                      fullUrl: "https://github.com/pusher/pusher-js/tree/cc491015371a4bde5743d1c87a0fbac0feb53195#encrypted-channel-support"
+                    }
+                  }
+                };
+                const buildLogSuffix = function(key) {
+                  const urlPrefix = "See:";
+                  const urlObj = urlStore.urls[key];
+                  if (!urlObj)
+                    return "";
+                  let url;
+                  if (urlObj.fullUrl) {
+                    url = urlObj.fullUrl;
+                  } else if (urlObj.path) {
+                    url = urlStore.baseUrl + urlObj.path;
+                  }
+                  if (!url)
+                    return "";
+                  return `${urlPrefix} ${url}`;
+                };
+                const url_store = { buildLogSuffix };
+                ;
+                var AuthRequestType;
+                (function(AuthRequestType2) {
+                  AuthRequestType2["UserAuthentication"] = "user-authentication";
+                  AuthRequestType2["ChannelAuthorization"] = "channel-authorization";
+                })(AuthRequestType || (AuthRequestType = {}));
+                ;
+                class BadEventName extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class BadChannelName extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class RequestTimedOut extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class TransportPriorityTooLow extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class TransportClosed extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class UnsupportedFeature extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class UnsupportedTransport extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class UnsupportedStrategy extends Error {
+                  constructor(msg) {
+                    super(msg);
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                class HTTPAuthError extends Error {
+                  constructor(status, msg) {
+                    super(msg);
+                    this.status = status;
+                    Object.setPrototypeOf(this, new.target.prototype);
+                  }
+                }
+                ;
+                const ajax = function(context, query, authOptions, authRequestType, callback) {
+                  const xhr = runtime.createXHR();
+                  xhr.open("POST", authOptions.endpoint, true);
+                  xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                  for (var headerName in authOptions.headers) {
+                    xhr.setRequestHeader(headerName, authOptions.headers[headerName]);
+                  }
+                  if (authOptions.headersProvider != null) {
+                    let dynamicHeaders = authOptions.headersProvider();
+                    for (var headerName in dynamicHeaders) {
+                      xhr.setRequestHeader(headerName, dynamicHeaders[headerName]);
+                    }
+                  }
+                  xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                      if (xhr.status === 200) {
+                        let data;
+                        let parsed = false;
+                        try {
+                          data = JSON.parse(xhr.responseText);
+                          parsed = true;
+                        } catch (e3) {
+                          callback(new HTTPAuthError(200, `JSON returned from ${authRequestType.toString()} endpoint was invalid, yet status code was 200. Data was: ${xhr.responseText}`), null);
+                        }
+                        if (parsed) {
+                          callback(null, data);
+                        }
+                      } else {
+                        let suffix = "";
+                        switch (authRequestType) {
+                          case AuthRequestType.UserAuthentication:
+                            suffix = url_store.buildLogSuffix("authenticationEndpoint");
+                            break;
+                          case AuthRequestType.ChannelAuthorization:
+                            suffix = `Clients must be authorized to join private or presence channels. ${url_store.buildLogSuffix("authorizationEndpoint")}`;
+                            break;
+                        }
+                        callback(new HTTPAuthError(xhr.status, `Unable to retrieve auth string from ${authRequestType.toString()} endpoint - received status: ${xhr.status} from ${authOptions.endpoint}. ${suffix}`), null);
+                      }
+                    }
+                  };
+                  xhr.send(query);
+                  return xhr;
+                };
+                const xhr_auth = ajax;
+                ;
+                function encode(s2) {
+                  return btoa2(utob(s2));
+                }
+                var fromCharCode = String.fromCharCode;
+                var b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                var b64tab = {};
+                for (var i2 = 0, l2 = b64chars.length; i2 < l2; i2++) {
+                  b64tab[b64chars.charAt(i2)] = i2;
+                }
+                var cb_utob = function(c2) {
+                  var cc = c2.charCodeAt(0);
+                  return cc < 128 ? c2 : cc < 2048 ? fromCharCode(192 | cc >>> 6) + fromCharCode(128 | cc & 63) : fromCharCode(224 | cc >>> 12 & 15) + fromCharCode(128 | cc >>> 6 & 63) + fromCharCode(128 | cc & 63);
+                };
+                var utob = function(u2) {
+                  return u2.replace(/[^\x00-\x7F]/g, cb_utob);
+                };
+                var cb_encode = function(ccc) {
+                  var padlen = [0, 2, 1][ccc.length % 3];
+                  var ord = ccc.charCodeAt(0) << 16 | (ccc.length > 1 ? ccc.charCodeAt(1) : 0) << 8 | (ccc.length > 2 ? ccc.charCodeAt(2) : 0);
+                  var chars = [
+                    b64chars.charAt(ord >>> 18),
+                    b64chars.charAt(ord >>> 12 & 63),
+                    padlen >= 2 ? "=" : b64chars.charAt(ord >>> 6 & 63),
+                    padlen >= 1 ? "=" : b64chars.charAt(ord & 63)
+                  ];
+                  return chars.join("");
+                };
+                var btoa2 = typeof window !== "undefined" && window.btoa || function(b2) {
+                  return b2.replace(/[\s\S]{1,3}/g, cb_encode);
+                };
+                ;
+                class Timer {
+                  constructor(set, clear, delay, callback) {
+                    this.clear = clear;
+                    this.timer = set(() => {
+                      if (this.timer) {
+                        this.timer = callback(this.timer);
+                      }
+                    }, delay);
+                  }
+                  isRunning() {
+                    return this.timer !== null;
+                  }
+                  ensureAborted() {
+                    if (this.timer) {
+                      this.clear(this.timer);
+                      this.timer = null;
+                    }
+                  }
+                }
+                const abstract_timer = Timer;
+                ;
+                function timers_clearTimeout(timer) {
+                  window.clearTimeout(timer);
+                }
+                function timers_clearInterval(timer) {
+                  window.clearInterval(timer);
+                }
+                class OneOffTimer extends abstract_timer {
+                  constructor(delay, callback) {
+                    super(setTimeout, timers_clearTimeout, delay, function(timer) {
+                      callback();
+                      return null;
+                    });
+                  }
+                }
+                class PeriodicTimer extends abstract_timer {
+                  constructor(delay, callback) {
+                    super(setInterval, timers_clearInterval, delay, function(timer) {
+                      callback();
+                      return timer;
+                    });
+                  }
+                }
+                ;
+                var Util = {
+                  now() {
+                    if (Date.now) {
+                      return Date.now();
+                    } else {
+                      return (/* @__PURE__ */ new Date()).valueOf();
+                    }
+                  },
+                  defer(callback) {
+                    return new OneOffTimer(0, callback);
+                  },
+                  method(name, ...args) {
+                    var boundArguments = Array.prototype.slice.call(arguments, 1);
+                    return function(object) {
+                      return object[name].apply(object, boundArguments.concat(arguments));
+                    };
+                  }
+                };
+                const util = Util;
+                ;
+                function extend(target, ...sources) {
+                  for (var i3 = 0; i3 < sources.length; i3++) {
+                    var extensions = sources[i3];
+                    for (var property in extensions) {
+                      if (property === "__proto__" || property === "constructor" || property === "prototype") {
+                        continue;
+                      }
+                      if (extensions[property] && extensions[property].constructor && extensions[property].constructor === Object) {
+                        target[property] = extend(target[property] || {}, extensions[property]);
+                      } else {
+                        target[property] = extensions[property];
+                      }
+                    }
+                  }
+                  return target;
+                }
+                function stringify() {
+                  var m2 = ["Pusher"];
+                  for (var i3 = 0; i3 < arguments.length; i3++) {
+                    if (typeof arguments[i3] === "string") {
+                      m2.push(arguments[i3]);
+                    } else {
+                      m2.push(safeJSONStringify(arguments[i3]));
+                    }
+                  }
+                  return m2.join(" : ");
+                }
+                function arrayIndexOf(array, item) {
+                  var nativeIndexOf = Array.prototype.indexOf;
+                  if (array === null) {
+                    return -1;
+                  }
+                  if (nativeIndexOf && array.indexOf === nativeIndexOf) {
+                    return array.indexOf(item);
+                  }
+                  for (var i3 = 0, l3 = array.length; i3 < l3; i3++) {
+                    if (array[i3] === item) {
+                      return i3;
+                    }
+                  }
+                  return -1;
+                }
+                function objectApply(object, f2) {
+                  for (var key in object) {
+                    if (Object.prototype.hasOwnProperty.call(object, key)) {
+                      f2(object[key], key, object);
+                    }
+                  }
+                }
+                function keys(object) {
+                  var keys2 = [];
+                  objectApply(object, function(_2, key) {
+                    keys2.push(key);
+                  });
+                  return keys2;
+                }
+                function values(object) {
+                  var values2 = [];
+                  objectApply(object, function(value) {
+                    values2.push(value);
+                  });
+                  return values2;
+                }
+                function apply(array, f2, context) {
+                  for (var i3 = 0; i3 < array.length; i3++) {
+                    f2.call(context || window, array[i3], i3, array);
+                  }
+                }
+                function map(array, f2) {
+                  var result = [];
+                  for (var i3 = 0; i3 < array.length; i3++) {
+                    result.push(f2(array[i3], i3, array, result));
+                  }
+                  return result;
+                }
+                function mapObject(object, f2) {
+                  var result = {};
+                  objectApply(object, function(value, key) {
+                    result[key] = f2(value);
+                  });
+                  return result;
+                }
+                function filter(array, test) {
+                  test = test || function(value) {
+                    return !!value;
+                  };
+                  var result = [];
+                  for (var i3 = 0; i3 < array.length; i3++) {
+                    if (test(array[i3], i3, array, result)) {
+                      result.push(array[i3]);
+                    }
+                  }
+                  return result;
+                }
+                function filterObject(object, test) {
+                  var result = {};
+                  objectApply(object, function(value, key) {
+                    if (test && test(value, key, object, result) || Boolean(value)) {
+                      result[key] = value;
+                    }
+                  });
+                  return result;
+                }
+                function flatten(object) {
+                  var result = [];
+                  objectApply(object, function(value, key) {
+                    result.push([key, value]);
+                  });
+                  return result;
+                }
+                function any(array, test) {
+                  for (var i3 = 0; i3 < array.length; i3++) {
+                    if (test(array[i3], i3, array)) {
+                      return true;
+                    }
+                  }
+                  return false;
+                }
+                function collections_all(array, test) {
+                  for (var i3 = 0; i3 < array.length; i3++) {
+                    if (!test(array[i3], i3, array)) {
+                      return false;
+                    }
+                  }
+                  return true;
+                }
+                function encodeParamsObject(data) {
+                  return mapObject(data, function(value) {
+                    if (value === null) {
+                      return "";
+                    }
+                    if (typeof value === "object") {
+                      value = safeJSONStringify(value);
+                    }
+                    return encodeURIComponent(encode(value.toString()));
+                  });
+                }
+                function buildQueryString(data) {
+                  var params = filterObject(data, function(value) {
+                    return value !== void 0;
+                  });
+                  var query = map(flatten(encodeParamsObject(params)), util.method("join", "=")).join("&");
+                  return query;
+                }
+                function decycleObject(object) {
+                  var objects = [], paths = [];
+                  return (function derez(value, path) {
+                    var i3, name, nu;
+                    switch (typeof value) {
+                      case "object":
+                        if (!value) {
+                          return null;
+                        }
+                        for (i3 = 0; i3 < objects.length; i3 += 1) {
+                          if (objects[i3] === value) {
+                            return { $ref: paths[i3] };
+                          }
+                        }
+                        objects.push(value);
+                        paths.push(path);
+                        if (Object.prototype.toString.apply(value) === "[object Array]") {
+                          nu = [];
+                          for (i3 = 0; i3 < value.length; i3 += 1) {
+                            nu[i3] = derez(value[i3], path + "[" + i3 + "]");
+                          }
+                        } else {
+                          nu = {};
+                          for (name in value) {
+                            if (Object.prototype.hasOwnProperty.call(value, name)) {
+                              nu[name] = derez(value[name], path + "[" + JSON.stringify(name) + "]");
+                            }
+                          }
+                        }
+                        return nu;
+                      case "number":
+                      case "string":
+                      case "boolean":
+                        return value;
+                    }
+                  })(object, "$");
+                }
+                function safeJSONStringify(source) {
+                  try {
+                    return JSON.stringify(source);
+                  } catch (e3) {
+                    return JSON.stringify(decycleObject(source));
+                  }
+                }
+                ;
+                class Logger {
+                  constructor() {
+                    this.globalLog = (message) => {
+                      if (window.console && window.console.log) {
+                        window.console.log(message);
+                      }
+                    };
+                  }
+                  debug(...args) {
+                    this.log(this.globalLog, args);
+                  }
+                  warn(...args) {
+                    this.log(this.globalLogWarn, args);
+                  }
+                  error(...args) {
+                    this.log(this.globalLogError, args);
+                  }
+                  globalLogWarn(message) {
+                    if (window.console && window.console.warn) {
+                      window.console.warn(message);
+                    } else {
+                      this.globalLog(message);
+                    }
+                  }
+                  globalLogError(message) {
+                    if (window.console && window.console.error) {
+                      window.console.error(message);
+                    } else {
+                      this.globalLogWarn(message);
+                    }
+                  }
+                  log(defaultLoggingFunction, ...args) {
+                    var message = stringify.apply(this, arguments);
+                    if (pusher.log) {
+                      pusher.log(message);
+                    } else if (pusher.logToConsole) {
+                      const log = defaultLoggingFunction.bind(this);
+                      log(message);
+                    }
+                  }
+                }
+                const logger = new Logger();
+                ;
+                var jsonp = function(context, query, authOptions, authRequestType, callback) {
+                  if (authOptions.headers !== void 0 || authOptions.headersProvider != null) {
+                    logger.warn(`To send headers with the ${authRequestType.toString()} request, you must use AJAX, rather than JSONP.`);
+                  }
+                  var callbackName = context.nextAuthCallbackID.toString();
+                  context.nextAuthCallbackID++;
+                  var document2 = context.getDocument();
+                  var script = document2.createElement("script");
+                  context.auth_callbacks[callbackName] = function(data) {
+                    callback(null, data);
+                  };
+                  var callback_name = "Pusher.auth_callbacks['" + callbackName + "']";
+                  script.src = authOptions.endpoint + "?callback=" + encodeURIComponent(callback_name) + "&" + query;
+                  var head = document2.getElementsByTagName("head")[0] || document2.documentElement;
+                  head.insertBefore(script, head.firstChild);
+                };
+                const jsonp_auth = jsonp;
+                ;
+                class ScriptRequest {
+                  constructor(src) {
+                    this.src = src;
+                  }
+                  send(receiver) {
+                    var self2 = this;
+                    var errorString = "Error loading " + self2.src;
+                    self2.script = document.createElement("script");
+                    self2.script.id = receiver.id;
+                    self2.script.src = self2.src;
+                    self2.script.type = "text/javascript";
+                    self2.script.charset = "UTF-8";
+                    if (self2.script.addEventListener) {
+                      self2.script.onerror = function() {
+                        receiver.callback(errorString);
+                      };
+                      self2.script.onload = function() {
+                        receiver.callback(null);
+                      };
+                    } else {
+                      self2.script.onreadystatechange = function() {
+                        if (self2.script.readyState === "loaded" || self2.script.readyState === "complete") {
+                          receiver.callback(null);
+                        }
+                      };
+                    }
+                    if (self2.script.async === void 0 && document.attachEvent && /opera/i.test(navigator.userAgent)) {
+                      self2.errorScript = document.createElement("script");
+                      self2.errorScript.id = receiver.id + "_error";
+                      self2.errorScript.text = receiver.name + "('" + errorString + "');";
+                      self2.script.async = self2.errorScript.async = false;
+                    } else {
+                      self2.script.async = true;
+                    }
+                    var head = document.getElementsByTagName("head")[0];
+                    head.insertBefore(self2.script, head.firstChild);
+                    if (self2.errorScript) {
+                      head.insertBefore(self2.errorScript, self2.script.nextSibling);
+                    }
+                  }
+                  cleanup() {
+                    if (this.script) {
+                      this.script.onload = this.script.onerror = null;
+                      this.script.onreadystatechange = null;
+                    }
+                    if (this.script && this.script.parentNode) {
+                      this.script.parentNode.removeChild(this.script);
+                    }
+                    if (this.errorScript && this.errorScript.parentNode) {
+                      this.errorScript.parentNode.removeChild(this.errorScript);
+                    }
+                    this.script = null;
+                    this.errorScript = null;
+                  }
+                }
+                ;
+                class JSONPRequest {
+                  constructor(url, data) {
+                    this.url = url;
+                    this.data = data;
+                  }
+                  send(receiver) {
+                    if (this.request) {
+                      return;
+                    }
+                    var query = buildQueryString(this.data);
+                    var url = this.url + "/" + receiver.number + "?" + query;
+                    this.request = runtime.createScriptRequest(url);
+                    this.request.send(receiver);
+                  }
+                  cleanup() {
+                    if (this.request) {
+                      this.request.cleanup();
+                    }
+                  }
+                }
+                ;
+                var getAgent = function(sender, useTLS) {
+                  return function(data, callback) {
+                    var scheme = "http" + (useTLS ? "s" : "") + "://";
+                    var url = scheme + (sender.host || sender.options.host) + sender.options.path;
+                    var request = runtime.createJSONPRequest(url, data);
+                    var receiver = runtime.ScriptReceivers.create(function(error, result) {
+                      ScriptReceivers.remove(receiver);
+                      request.cleanup();
+                      if (result && result.host) {
+                        sender.host = result.host;
+                      }
+                      if (callback) {
+                        callback(error, result);
+                      }
+                    });
+                    request.send(receiver);
+                  };
+                };
+                var jsonp_timeline_jsonp = {
+                  name: "jsonp",
+                  getAgent
+                };
+                const jsonp_timeline = jsonp_timeline_jsonp;
+                ;
+                function getGenericURL(baseScheme, params, path) {
+                  var scheme = baseScheme + (params.useTLS ? "s" : "");
+                  var host = params.useTLS ? params.hostTLS : params.hostNonTLS;
+                  return scheme + "://" + host + path;
+                }
+                function getGenericPath(key, queryString) {
+                  var path = "/app/" + key;
+                  var query = "?protocol=" + defaults.PROTOCOL + "&client=js&version=" + defaults.VERSION + (queryString ? "&" + queryString : "");
+                  return path + query;
+                }
+                var ws = {
+                  getInitial: function(key, params) {
+                    var path = (params.httpPath || "") + getGenericPath(key, "flash=false");
+                    return getGenericURL("ws", params, path);
+                  }
+                };
+                var http = {
+                  getInitial: function(key, params) {
+                    var path = (params.httpPath || "/pusher") + getGenericPath(key);
+                    return getGenericURL("http", params, path);
+                  }
+                };
+                var sockjs = {
+                  getInitial: function(key, params) {
+                    return getGenericURL("http", params, params.httpPath || "/pusher");
+                  },
+                  getPath: function(key, params) {
+                    return getGenericPath(key);
+                  }
+                };
+                ;
+                class CallbackRegistry {
+                  constructor() {
+                    this._callbacks = {};
+                  }
+                  get(name) {
+                    return this._callbacks[prefix(name)];
+                  }
+                  add(name, callback, context) {
+                    var prefixedEventName = prefix(name);
+                    this._callbacks[prefixedEventName] = this._callbacks[prefixedEventName] || [];
+                    this._callbacks[prefixedEventName].push({
+                      fn: callback,
+                      context
+                    });
+                  }
+                  remove(name, callback, context) {
+                    if (!name && !callback && !context) {
+                      this._callbacks = {};
+                      return;
+                    }
+                    var names = name ? [prefix(name)] : keys(this._callbacks);
+                    if (callback || context) {
+                      this.removeCallback(names, callback, context);
+                    } else {
+                      this.removeAllCallbacks(names);
+                    }
+                  }
+                  removeCallback(names, callback, context) {
+                    apply(names, function(name) {
+                      this._callbacks[name] = filter(this._callbacks[name] || [], function(binding) {
+                        return callback && callback !== binding.fn || context && context !== binding.context;
+                      });
+                      if (this._callbacks[name].length === 0) {
+                        delete this._callbacks[name];
+                      }
+                    }, this);
+                  }
+                  removeAllCallbacks(names) {
+                    apply(names, function(name) {
+                      delete this._callbacks[name];
+                    }, this);
+                  }
+                }
+                function prefix(name) {
+                  return "_" + name;
+                }
+                ;
+                class Dispatcher {
+                  constructor(failThrough) {
+                    this.callbacks = new CallbackRegistry();
+                    this.global_callbacks = [];
+                    this.failThrough = failThrough;
+                  }
+                  bind(eventName, callback, context) {
+                    this.callbacks.add(eventName, callback, context);
+                    return this;
+                  }
+                  bind_global(callback) {
+                    this.global_callbacks.push(callback);
+                    return this;
+                  }
+                  unbind(eventName, callback, context) {
+                    this.callbacks.remove(eventName, callback, context);
+                    return this;
+                  }
+                  unbind_global(callback) {
+                    if (!callback) {
+                      this.global_callbacks = [];
+                      return this;
+                    }
+                    this.global_callbacks = filter(this.global_callbacks || [], (c2) => c2 !== callback);
+                    return this;
+                  }
+                  unbind_all() {
+                    this.unbind();
+                    this.unbind_global();
+                    return this;
+                  }
+                  emit(eventName, data, metadata) {
+                    for (var i3 = 0; i3 < this.global_callbacks.length; i3++) {
+                      this.global_callbacks[i3](eventName, data);
+                    }
+                    var callbacks = this.callbacks.get(eventName);
+                    var args = [];
+                    if (metadata) {
+                      args.push(data, metadata);
+                    } else if (data) {
+                      args.push(data);
+                    }
+                    if (callbacks && callbacks.length > 0) {
+                      for (var i3 = 0; i3 < callbacks.length; i3++) {
+                        callbacks[i3].fn.apply(callbacks[i3].context || window, args);
+                      }
+                    } else if (this.failThrough) {
+                      this.failThrough(eventName, data);
+                    }
+                    return this;
+                  }
+                }
+                ;
+                class TransportConnection extends Dispatcher {
+                  constructor(hooks2, name, priority, key, options) {
+                    super();
+                    this.initialize = runtime.transportConnectionInitializer;
+                    this.hooks = hooks2;
+                    this.name = name;
+                    this.priority = priority;
+                    this.key = key;
+                    this.options = options;
+                    this.state = "new";
+                    this.timeline = options.timeline;
+                    this.activityTimeout = options.activityTimeout;
+                    this.id = this.timeline.generateUniqueID();
+                  }
+                  handlesActivityChecks() {
+                    return Boolean(this.hooks.handlesActivityChecks);
+                  }
+                  supportsPing() {
+                    return Boolean(this.hooks.supportsPing);
+                  }
+                  connect() {
+                    if (this.socket || this.state !== "initialized") {
+                      return false;
+                    }
+                    var url = this.hooks.urls.getInitial(this.key, this.options);
+                    try {
+                      this.socket = this.hooks.getSocket(url, this.options);
+                    } catch (e3) {
+                      util.defer(() => {
+                        this.onError(e3);
+                        this.changeState("closed");
+                      });
+                      return false;
+                    }
+                    this.bindListeners();
+                    logger.debug("Connecting", { transport: this.name, url });
+                    this.changeState("connecting");
+                    return true;
+                  }
+                  close() {
+                    if (this.socket) {
+                      this.socket.close();
+                      return true;
+                    } else {
+                      return false;
+                    }
+                  }
+                  send(data) {
+                    if (this.state === "open") {
+                      util.defer(() => {
+                        if (this.socket) {
+                          this.socket.send(data);
+                        }
+                      });
+                      return true;
+                    } else {
+                      return false;
+                    }
+                  }
+                  ping() {
+                    if (this.state === "open" && this.supportsPing()) {
+                      this.socket.ping();
+                    }
+                  }
+                  onOpen() {
+                    if (this.hooks.beforeOpen) {
+                      this.hooks.beforeOpen(this.socket, this.hooks.urls.getPath(this.key, this.options));
+                    }
+                    this.changeState("open");
+                    this.socket.onopen = void 0;
+                  }
+                  onError(error) {
+                    this.emit("error", { type: "WebSocketError", error });
+                    this.timeline.error(this.buildTimelineMessage({ error: error.toString() }));
+                  }
+                  onClose(closeEvent) {
+                    if (closeEvent) {
+                      this.changeState("closed", {
+                        code: closeEvent.code,
+                        reason: closeEvent.reason,
+                        wasClean: closeEvent.wasClean
+                      });
+                    } else {
+                      this.changeState("closed");
+                    }
+                    this.unbindListeners();
+                    this.socket = void 0;
+                  }
+                  onMessage(message) {
+                    this.emit("message", message);
+                  }
+                  onActivity() {
+                    this.emit("activity");
+                  }
+                  bindListeners() {
+                    this.socket.onopen = () => {
+                      this.onOpen();
+                    };
+                    this.socket.onerror = (error) => {
+                      this.onError(error);
+                    };
+                    this.socket.onclose = (closeEvent) => {
+                      this.onClose(closeEvent);
+                    };
+                    this.socket.onmessage = (message) => {
+                      this.onMessage(message);
+                    };
+                    if (this.supportsPing()) {
+                      this.socket.onactivity = () => {
+                        this.onActivity();
+                      };
+                    }
+                  }
+                  unbindListeners() {
+                    if (this.socket) {
+                      this.socket.onopen = void 0;
+                      this.socket.onerror = void 0;
+                      this.socket.onclose = void 0;
+                      this.socket.onmessage = void 0;
+                      if (this.supportsPing()) {
+                        this.socket.onactivity = void 0;
+                      }
+                    }
+                  }
+                  changeState(state2, params) {
+                    this.state = state2;
+                    this.timeline.info(this.buildTimelineMessage({
+                      state: state2,
+                      params
+                    }));
+                    this.emit(state2, params);
+                  }
+                  buildTimelineMessage(message) {
+                    return extend({ cid: this.id }, message);
+                  }
+                }
+                ;
+                class Transport {
+                  constructor(hooks2) {
+                    this.hooks = hooks2;
+                  }
+                  isSupported(environment) {
+                    return this.hooks.isSupported(environment);
+                  }
+                  createConnection(name, priority, key, options) {
+                    return new TransportConnection(this.hooks, name, priority, key, options);
+                  }
+                }
+                ;
+                var WSTransport = new Transport({
+                  urls: ws,
+                  handlesActivityChecks: false,
+                  supportsPing: false,
+                  isInitialized: function() {
+                    return Boolean(runtime.getWebSocketAPI());
+                  },
+                  isSupported: function() {
+                    return Boolean(runtime.getWebSocketAPI());
+                  },
+                  getSocket: function(url) {
+                    return runtime.createWebSocket(url);
+                  }
+                });
+                var httpConfiguration = {
+                  urls: http,
+                  handlesActivityChecks: false,
+                  supportsPing: true,
+                  isInitialized: function() {
+                    return true;
+                  }
+                };
+                var streamingConfiguration = extend({
+                  getSocket: function(url) {
+                    return runtime.HTTPFactory.createStreamingSocket(url);
+                  }
+                }, httpConfiguration);
+                var pollingConfiguration = extend({
+                  getSocket: function(url) {
+                    return runtime.HTTPFactory.createPollingSocket(url);
+                  }
+                }, httpConfiguration);
+                var xhrConfiguration = {
+                  isSupported: function() {
+                    return runtime.isXHRSupported();
+                  }
+                };
+                var XHRStreamingTransport = new Transport(extend({}, streamingConfiguration, xhrConfiguration));
+                var XHRPollingTransport = new Transport(extend({}, pollingConfiguration, xhrConfiguration));
+                var Transports = {
+                  ws: WSTransport,
+                  xhr_streaming: XHRStreamingTransport,
+                  xhr_polling: XHRPollingTransport
+                };
+                const transports = Transports;
+                ;
+                var SockJSTransport = new Transport({
+                  file: "sockjs",
+                  urls: sockjs,
+                  handlesActivityChecks: true,
+                  supportsPing: false,
+                  isSupported: function() {
+                    return true;
+                  },
+                  isInitialized: function() {
+                    return window.SockJS !== void 0;
+                  },
+                  getSocket: function(url, options) {
+                    return new window.SockJS(url, null, {
+                      js_path: Dependencies.getPath("sockjs", {
+                        useTLS: options.useTLS
+                      }),
+                      ignore_null_origin: options.ignoreNullOrigin
+                    });
+                  },
+                  beforeOpen: function(socket, path) {
+                    socket.send(JSON.stringify({
+                      path
+                    }));
+                  }
+                });
+                var xdrConfiguration = {
+                  isSupported: function(environment) {
+                    var yes = runtime.isXDRSupported(environment.useTLS);
+                    return yes;
+                  }
+                };
+                var XDRStreamingTransport = new Transport(extend({}, streamingConfiguration, xdrConfiguration));
+                var XDRPollingTransport = new Transport(extend({}, pollingConfiguration, xdrConfiguration));
+                transports.xdr_streaming = XDRStreamingTransport;
+                transports.xdr_polling = XDRPollingTransport;
+                transports.sockjs = SockJSTransport;
+                const transports_transports = transports;
+                ;
+                class NetInfo extends Dispatcher {
+                  constructor() {
+                    super();
+                    var self2 = this;
+                    if (typeof window !== "undefined" && window.addEventListener !== void 0) {
+                      window.addEventListener("online", function() {
+                        self2.emit("online");
+                      }, false);
+                      window.addEventListener("offline", function() {
+                        self2.emit("offline");
+                      }, false);
+                    }
+                  }
+                  isOnline() {
+                    if (window.navigator.onLine === void 0) {
+                      return true;
+                    } else {
+                      return window.navigator.onLine;
+                    }
+                  }
+                }
+                var Network = new NetInfo();
+                ;
+                class AssistantToTheTransportManager {
+                  constructor(manager, transport, options) {
+                    this.manager = manager;
+                    this.transport = transport;
+                    this.minPingDelay = options.minPingDelay;
+                    this.maxPingDelay = options.maxPingDelay;
+                    this.pingDelay = void 0;
+                  }
+                  createConnection(name, priority, key, options) {
+                    options = extend({}, options, {
+                      activityTimeout: this.pingDelay
+                    });
+                    var connection = this.transport.createConnection(name, priority, key, options);
+                    var openTimestamp = null;
+                    var onOpen = function() {
+                      connection.unbind("open", onOpen);
+                      connection.bind("closed", onClosed);
+                      openTimestamp = util.now();
+                    };
+                    var onClosed = (closeEvent) => {
+                      connection.unbind("closed", onClosed);
+                      if (closeEvent.code === 1002 || closeEvent.code === 1003) {
+                        this.manager.reportDeath();
+                      } else if (!closeEvent.wasClean && openTimestamp) {
+                        var lifespan = util.now() - openTimestamp;
+                        if (lifespan < 2 * this.maxPingDelay) {
+                          this.manager.reportDeath();
+                          this.pingDelay = Math.max(lifespan / 2, this.minPingDelay);
+                        }
+                      }
+                    };
+                    connection.bind("open", onOpen);
+                    return connection;
+                  }
+                  isSupported(environment) {
+                    return this.manager.isAlive() && this.transport.isSupported(environment);
+                  }
+                }
+                ;
+                const Protocol = {
+                  decodeMessage: function(messageEvent) {
+                    try {
+                      var messageData = JSON.parse(messageEvent.data);
+                      var pusherEventData = messageData.data;
+                      if (typeof pusherEventData === "string") {
+                        try {
+                          pusherEventData = JSON.parse(messageData.data);
+                        } catch (e3) {
+                        }
+                      }
+                      var pusherEvent = {
+                        event: messageData.event,
+                        channel: messageData.channel,
+                        data: pusherEventData
+                      };
+                      if (messageData.user_id) {
+                        pusherEvent.user_id = messageData.user_id;
+                      }
+                      return pusherEvent;
+                    } catch (e3) {
+                      throw { type: "MessageParseError", error: e3, data: messageEvent.data };
+                    }
+                  },
+                  encodeMessage: function(event) {
+                    return JSON.stringify(event);
+                  },
+                  processHandshake: function(messageEvent) {
+                    var message = Protocol.decodeMessage(messageEvent);
+                    if (message.event === "pusher:connection_established") {
+                      if (!message.data.activity_timeout) {
+                        throw "No activity timeout specified in handshake";
+                      }
+                      return {
+                        action: "connected",
+                        id: message.data.socket_id,
+                        activityTimeout: message.data.activity_timeout * 1e3
+                      };
+                    } else if (message.event === "pusher:error") {
+                      return {
+                        action: this.getCloseAction(message.data),
+                        error: this.getCloseError(message.data)
+                      };
+                    } else {
+                      throw "Invalid handshake";
+                    }
+                  },
+                  getCloseAction: function(closeEvent) {
+                    if (closeEvent.code < 4e3) {
+                      if (closeEvent.code >= 1002 && closeEvent.code <= 1004) {
+                        return "backoff";
+                      } else {
+                        return null;
+                      }
+                    } else if (closeEvent.code === 4e3) {
+                      return "tls_only";
+                    } else if (closeEvent.code < 4100) {
+                      return "refused";
+                    } else if (closeEvent.code < 4200) {
+                      return "backoff";
+                    } else if (closeEvent.code < 4300) {
+                      return "retry";
+                    } else {
+                      return "refused";
+                    }
+                  },
+                  getCloseError: function(closeEvent) {
+                    if (closeEvent.code !== 1e3 && closeEvent.code !== 1001) {
+                      return {
+                        type: "PusherError",
+                        data: {
+                          code: closeEvent.code,
+                          message: closeEvent.reason || closeEvent.message
+                        }
+                      };
+                    } else {
+                      return null;
+                    }
+                  }
+                };
+                const protocol = Protocol;
+                ;
+                class Connection extends Dispatcher {
+                  constructor(id, transport) {
+                    super();
+                    this.id = id;
+                    this.transport = transport;
+                    this.activityTimeout = transport.activityTimeout;
+                    this.bindListeners();
+                  }
+                  handlesActivityChecks() {
+                    return this.transport.handlesActivityChecks();
+                  }
+                  send(data) {
+                    return this.transport.send(data);
+                  }
+                  send_event(name, data, channel) {
+                    var event = { event: name, data };
+                    if (channel) {
+                      event.channel = channel;
+                    }
+                    logger.debug("Event sent", event);
+                    return this.send(protocol.encodeMessage(event));
+                  }
+                  ping() {
+                    if (this.transport.supportsPing()) {
+                      this.transport.ping();
+                    } else {
+                      this.send_event("pusher:ping", {});
+                    }
+                  }
+                  close() {
+                    this.transport.close();
+                  }
+                  bindListeners() {
+                    var listeners = {
+                      message: (messageEvent) => {
+                        var pusherEvent;
+                        try {
+                          pusherEvent = protocol.decodeMessage(messageEvent);
+                        } catch (e3) {
+                          this.emit("error", {
+                            type: "MessageParseError",
+                            error: e3,
+                            data: messageEvent.data
+                          });
+                        }
+                        if (pusherEvent !== void 0) {
+                          logger.debug("Event recd", pusherEvent);
+                          switch (pusherEvent.event) {
+                            case "pusher:error":
+                              this.emit("error", {
+                                type: "PusherError",
+                                data: pusherEvent.data
+                              });
+                              break;
+                            case "pusher:ping":
+                              this.emit("ping");
+                              break;
+                            case "pusher:pong":
+                              this.emit("pong");
+                              break;
+                          }
+                          this.emit("message", pusherEvent);
+                        }
+                      },
+                      activity: () => {
+                        this.emit("activity");
+                      },
+                      error: (error) => {
+                        this.emit("error", error);
+                      },
+                      closed: (closeEvent) => {
+                        unbindListeners();
+                        if (closeEvent && closeEvent.code) {
+                          this.handleCloseEvent(closeEvent);
+                        }
+                        this.transport = null;
+                        this.emit("closed");
+                      }
+                    };
+                    var unbindListeners = () => {
+                      objectApply(listeners, (listener, event) => {
+                        this.transport.unbind(event, listener);
+                      });
+                    };
+                    objectApply(listeners, (listener, event) => {
+                      this.transport.bind(event, listener);
+                    });
+                  }
+                  handleCloseEvent(closeEvent) {
+                    var action = protocol.getCloseAction(closeEvent);
+                    var error = protocol.getCloseError(closeEvent);
+                    if (error) {
+                      this.emit("error", error);
+                    }
+                    if (action) {
+                      this.emit(action, { action, error });
+                    }
+                  }
+                }
+                ;
+                class Handshake {
+                  constructor(transport, callback) {
+                    this.transport = transport;
+                    this.callback = callback;
+                    this.bindListeners();
+                  }
+                  close() {
+                    this.unbindListeners();
+                    this.transport.close();
+                  }
+                  bindListeners() {
+                    this.onMessage = (m2) => {
+                      this.unbindListeners();
+                      var result;
+                      try {
+                        result = protocol.processHandshake(m2);
+                      } catch (e3) {
+                        this.finish("error", { error: e3 });
+                        this.transport.close();
+                        return;
+                      }
+                      if (result.action === "connected") {
+                        this.finish("connected", {
+                          connection: new Connection(result.id, this.transport),
+                          activityTimeout: result.activityTimeout
+                        });
+                      } else {
+                        this.finish(result.action, { error: result.error });
+                        this.transport.close();
+                      }
+                    };
+                    this.onClosed = (closeEvent) => {
+                      this.unbindListeners();
+                      var action = protocol.getCloseAction(closeEvent) || "backoff";
+                      var error = protocol.getCloseError(closeEvent);
+                      this.finish(action, { error });
+                    };
+                    this.transport.bind("message", this.onMessage);
+                    this.transport.bind("closed", this.onClosed);
+                  }
+                  unbindListeners() {
+                    this.transport.unbind("message", this.onMessage);
+                    this.transport.unbind("closed", this.onClosed);
+                  }
+                  finish(action, params) {
+                    this.callback(extend({ transport: this.transport, action }, params));
+                  }
+                }
+                ;
+                class TimelineSender {
+                  constructor(timeline, options) {
+                    this.timeline = timeline;
+                    this.options = options || {};
+                  }
+                  send(useTLS, callback) {
+                    if (this.timeline.isEmpty()) {
+                      return;
+                    }
+                    this.timeline.send(runtime.TimelineTransport.getAgent(this, useTLS), callback);
+                  }
+                }
+                ;
+                class Channel extends Dispatcher {
+                  constructor(name, pusher2) {
+                    super(function(event, data) {
+                      logger.debug("No callbacks on " + name + " for " + event);
+                    });
+                    this.name = name;
+                    this.pusher = pusher2;
+                    this.subscribed = false;
+                    this.subscriptionPending = false;
+                    this.subscriptionCancelled = false;
+                  }
+                  authorize(socketId, callback) {
+                    return callback(null, { auth: "" });
+                  }
+                  trigger(event, data) {
+                    if (event.indexOf("client-") !== 0) {
+                      throw new BadEventName("Event '" + event + "' does not start with 'client-'");
+                    }
+                    if (!this.subscribed) {
+                      var suffix = url_store.buildLogSuffix("triggeringClientEvents");
+                      logger.warn(`Client event triggered before channel 'subscription_succeeded' event . ${suffix}`);
+                    }
+                    return this.pusher.send_event(event, data, this.name);
+                  }
+                  disconnect() {
+                    this.subscribed = false;
+                    this.subscriptionPending = false;
+                  }
+                  handleEvent(event) {
+                    var eventName = event.event;
+                    var data = event.data;
+                    if (eventName === "pusher_internal:subscription_succeeded") {
+                      this.handleSubscriptionSucceededEvent(event);
+                    } else if (eventName === "pusher_internal:subscription_count") {
+                      this.handleSubscriptionCountEvent(event);
+                    } else if (eventName.indexOf("pusher_internal:") !== 0) {
+                      var metadata = {};
+                      this.emit(eventName, data, metadata);
+                    }
+                  }
+                  handleSubscriptionSucceededEvent(event) {
+                    this.subscriptionPending = false;
+                    this.subscribed = true;
+                    if (this.subscriptionCancelled) {
+                      this.pusher.unsubscribe(this.name);
+                    } else {
+                      this.emit("pusher:subscription_succeeded", event.data);
+                    }
+                  }
+                  handleSubscriptionCountEvent(event) {
+                    if (event.data.subscription_count) {
+                      this.subscriptionCount = event.data.subscription_count;
+                    }
+                    this.emit("pusher:subscription_count", event.data);
+                  }
+                  subscribe() {
+                    if (this.subscribed) {
+                      return;
+                    }
+                    this.subscriptionPending = true;
+                    this.subscriptionCancelled = false;
+                    this.authorize(this.pusher.connection.socket_id, (error, data) => {
+                      if (error) {
+                        this.subscriptionPending = false;
+                        logger.error(error.toString());
+                        this.emit("pusher:subscription_error", Object.assign({}, {
+                          type: "AuthError",
+                          error: error.message
+                        }, error instanceof HTTPAuthError ? { status: error.status } : {}));
+                      } else {
+                        this.pusher.send_event("pusher:subscribe", {
+                          auth: data.auth,
+                          channel_data: data.channel_data,
+                          channel: this.name
+                        });
+                      }
+                    });
+                  }
+                  unsubscribe() {
+                    this.subscribed = false;
+                    this.pusher.send_event("pusher:unsubscribe", {
+                      channel: this.name
+                    });
+                  }
+                  cancelSubscription() {
+                    this.subscriptionCancelled = true;
+                  }
+                  reinstateSubscription() {
+                    this.subscriptionCancelled = false;
+                  }
+                }
+                ;
+                class PrivateChannel extends Channel {
+                  authorize(socketId, callback) {
+                    return this.pusher.config.channelAuthorizer({
+                      channelName: this.name,
+                      socketId
+                    }, callback);
+                  }
+                }
+                ;
+                class Members {
+                  constructor() {
+                    this.reset();
+                  }
+                  get(id) {
+                    if (Object.prototype.hasOwnProperty.call(this.members, id)) {
+                      return {
+                        id,
+                        info: this.members[id]
+                      };
+                    } else {
+                      return null;
+                    }
+                  }
+                  each(callback) {
+                    objectApply(this.members, (member, id) => {
+                      callback(this.get(id));
+                    });
+                  }
+                  setMyID(id) {
+                    this.myID = id;
+                  }
+                  onSubscription(subscriptionData) {
+                    this.members = subscriptionData.presence.hash;
+                    this.count = subscriptionData.presence.count;
+                    this.me = this.get(this.myID);
+                  }
+                  addMember(memberData) {
+                    if (this.get(memberData.user_id) === null) {
+                      this.count++;
+                    }
+                    this.members[memberData.user_id] = memberData.user_info;
+                    return this.get(memberData.user_id);
+                  }
+                  removeMember(memberData) {
+                    var member = this.get(memberData.user_id);
+                    if (member) {
+                      delete this.members[memberData.user_id];
+                      this.count--;
+                    }
+                    return member;
+                  }
+                  reset() {
+                    this.members = {};
+                    this.count = 0;
+                    this.myID = null;
+                    this.me = null;
+                  }
+                }
+                ;
+                var __awaiter = function(thisArg, _arguments, P2, generator) {
+                  function adopt(value) {
+                    return value instanceof P2 ? value : new P2(function(resolve) {
+                      resolve(value);
+                    });
+                  }
+                  return new (P2 || (P2 = Promise))(function(resolve, reject) {
+                    function fulfilled(value) {
+                      try {
+                        step(generator.next(value));
+                      } catch (e3) {
+                        reject(e3);
+                      }
+                    }
+                    function rejected(value) {
+                      try {
+                        step(generator["throw"](value));
+                      } catch (e3) {
+                        reject(e3);
+                      }
+                    }
+                    function step(result) {
+                      result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+                    }
+                    step((generator = generator.apply(thisArg, _arguments || [])).next());
+                  });
+                };
+                class PresenceChannel extends PrivateChannel {
+                  constructor(name, pusher2) {
+                    super(name, pusher2);
+                    this.members = new Members();
+                  }
+                  authorize(socketId, callback) {
+                    super.authorize(socketId, (error, authData) => __awaiter(this, void 0, void 0, function* () {
+                      if (!error) {
+                        authData = authData;
+                        if (authData.channel_data != null) {
+                          var channelData = JSON.parse(authData.channel_data);
+                          this.members.setMyID(channelData.user_id);
+                        } else {
+                          yield this.pusher.user.signinDonePromise;
+                          if (this.pusher.user.user_data != null) {
+                            this.members.setMyID(this.pusher.user.user_data.id);
+                          } else {
+                            let suffix = url_store.buildLogSuffix("authorizationEndpoint");
+                            logger.error(`Invalid auth response for channel '${this.name}', expected 'channel_data' field. ${suffix}, or the user should be signed in.`);
+                            callback("Invalid auth response");
+                            return;
+                          }
+                        }
+                      }
+                      callback(error, authData);
+                    }));
+                  }
+                  handleEvent(event) {
+                    var eventName = event.event;
+                    if (eventName.indexOf("pusher_internal:") === 0) {
+                      this.handleInternalEvent(event);
+                    } else {
+                      var data = event.data;
+                      var metadata = {};
+                      if (event.user_id) {
+                        metadata.user_id = event.user_id;
+                      }
+                      this.emit(eventName, data, metadata);
+                    }
+                  }
+                  handleInternalEvent(event) {
+                    var eventName = event.event;
+                    var data = event.data;
+                    switch (eventName) {
+                      case "pusher_internal:subscription_succeeded":
+                        this.handleSubscriptionSucceededEvent(event);
+                        break;
+                      case "pusher_internal:subscription_count":
+                        this.handleSubscriptionCountEvent(event);
+                        break;
+                      case "pusher_internal:member_added":
+                        var addedMember = this.members.addMember(data);
+                        this.emit("pusher:member_added", addedMember);
+                        break;
+                      case "pusher_internal:member_removed":
+                        var removedMember = this.members.removeMember(data);
+                        if (removedMember) {
+                          this.emit("pusher:member_removed", removedMember);
+                        }
+                        break;
+                    }
+                  }
+                  handleSubscriptionSucceededEvent(event) {
+                    this.subscriptionPending = false;
+                    this.subscribed = true;
+                    if (this.subscriptionCancelled) {
+                      this.pusher.unsubscribe(this.name);
+                    } else {
+                      this.members.onSubscription(event.data);
+                      this.emit("pusher:subscription_succeeded", this.members);
+                    }
+                  }
+                  disconnect() {
+                    this.members.reset();
+                    super.disconnect();
+                  }
+                }
+                var utf8 = __webpack_require__2(978);
+                var base64 = __webpack_require__2(594);
+                ;
+                class EncryptedChannel extends PrivateChannel {
+                  constructor(name, pusher2, nacl) {
+                    super(name, pusher2);
+                    this.key = null;
+                    this.nacl = nacl;
+                  }
+                  authorize(socketId, callback) {
+                    super.authorize(socketId, (error, authData) => {
+                      if (error) {
+                        callback(error, authData);
+                        return;
+                      }
+                      let sharedSecret = authData["shared_secret"];
+                      if (!sharedSecret) {
+                        callback(new Error(`No shared_secret key in auth payload for encrypted channel: ${this.name}`), null);
+                        return;
+                      }
+                      this.key = (0, base64.decode)(sharedSecret);
+                      delete authData["shared_secret"];
+                      callback(null, authData);
+                    });
+                  }
+                  trigger(event, data) {
+                    throw new UnsupportedFeature("Client events are not currently supported for encrypted channels");
+                  }
+                  handleEvent(event) {
+                    var eventName = event.event;
+                    var data = event.data;
+                    if (eventName.indexOf("pusher_internal:") === 0 || eventName.indexOf("pusher:") === 0) {
+                      super.handleEvent(event);
+                      return;
+                    }
+                    this.handleEncryptedEvent(eventName, data);
+                  }
+                  handleEncryptedEvent(event, data) {
+                    if (!this.key) {
+                      logger.debug("Received encrypted event before key has been retrieved from the authEndpoint");
+                      return;
+                    }
+                    if (!data.ciphertext || !data.nonce) {
+                      logger.error("Unexpected format for encrypted event, expected object with `ciphertext` and `nonce` fields, got: " + data);
+                      return;
+                    }
+                    let cipherText = (0, base64.decode)(data.ciphertext);
+                    if (cipherText.length < this.nacl.secretbox.overheadLength) {
+                      logger.error(`Expected encrypted event ciphertext length to be ${this.nacl.secretbox.overheadLength}, got: ${cipherText.length}`);
+                      return;
+                    }
+                    let nonce = (0, base64.decode)(data.nonce);
+                    if (nonce.length < this.nacl.secretbox.nonceLength) {
+                      logger.error(`Expected encrypted event nonce length to be ${this.nacl.secretbox.nonceLength}, got: ${nonce.length}`);
+                      return;
+                    }
+                    let bytes = this.nacl.secretbox.open(cipherText, nonce, this.key);
+                    if (bytes === null) {
+                      logger.debug("Failed to decrypt an event, probably because it was encrypted with a different key. Fetching a new key from the authEndpoint...");
+                      this.authorize(this.pusher.connection.socket_id, (error, authData) => {
+                        if (error) {
+                          logger.error(`Failed to make a request to the authEndpoint: ${authData}. Unable to fetch new key, so dropping encrypted event`);
+                          return;
+                        }
+                        bytes = this.nacl.secretbox.open(cipherText, nonce, this.key);
+                        if (bytes === null) {
+                          logger.error(`Failed to decrypt event with new key. Dropping encrypted event`);
+                          return;
+                        }
+                        this.emit(event, this.getDataToEmit(bytes));
+                        return;
+                      });
+                      return;
+                    }
+                    this.emit(event, this.getDataToEmit(bytes));
+                  }
+                  getDataToEmit(bytes) {
+                    let raw = (0, utf8.D4)(bytes);
+                    try {
+                      return JSON.parse(raw);
+                    } catch (_a) {
+                      return raw;
+                    }
+                  }
+                }
+                ;
+                class ConnectionManager extends Dispatcher {
+                  constructor(key, options) {
+                    super();
+                    this.state = "initialized";
+                    this.connection = null;
+                    this.key = key;
+                    this.options = options;
+                    this.timeline = this.options.timeline;
+                    this.usingTLS = this.options.useTLS;
+                    this.errorCallbacks = this.buildErrorCallbacks();
+                    this.connectionCallbacks = this.buildConnectionCallbacks(this.errorCallbacks);
+                    this.handshakeCallbacks = this.buildHandshakeCallbacks(this.errorCallbacks);
+                    var Network2 = runtime.getNetwork();
+                    Network2.bind("online", () => {
+                      this.timeline.info({ netinfo: "online" });
+                      if (this.state === "connecting" || this.state === "unavailable") {
+                        this.retryIn(0);
+                      }
+                    });
+                    Network2.bind("offline", () => {
+                      this.timeline.info({ netinfo: "offline" });
+                      if (this.connection) {
+                        this.sendActivityCheck();
+                      }
+                    });
+                    this.updateStrategy();
+                  }
+                  switchCluster(key) {
+                    this.key = key;
+                    this.updateStrategy();
+                    this.retryIn(0);
+                  }
+                  connect() {
+                    if (this.connection || this.runner) {
+                      return;
+                    }
+                    if (!this.strategy.isSupported()) {
+                      this.updateState("failed");
+                      return;
+                    }
+                    this.updateState("connecting");
+                    this.startConnecting();
+                    this.setUnavailableTimer();
+                  }
+                  send(data) {
+                    if (this.connection) {
+                      return this.connection.send(data);
+                    } else {
+                      return false;
+                    }
+                  }
+                  send_event(name, data, channel) {
+                    if (this.connection) {
+                      return this.connection.send_event(name, data, channel);
+                    } else {
+                      return false;
+                    }
+                  }
+                  disconnect() {
+                    this.disconnectInternally();
+                    this.updateState("disconnected");
+                  }
+                  isUsingTLS() {
+                    return this.usingTLS;
+                  }
+                  startConnecting() {
+                    var callback = (error, handshake) => {
+                      if (error) {
+                        this.runner = this.strategy.connect(0, callback);
+                      } else {
+                        if (handshake.action === "error") {
+                          this.emit("error", {
+                            type: "HandshakeError",
+                            error: handshake.error
+                          });
+                          this.timeline.error({ handshakeError: handshake.error });
+                        } else {
+                          this.abortConnecting();
+                          this.handshakeCallbacks[handshake.action](handshake);
+                        }
+                      }
+                    };
+                    this.runner = this.strategy.connect(0, callback);
+                  }
+                  abortConnecting() {
+                    if (this.runner) {
+                      this.runner.abort();
+                      this.runner = null;
+                    }
+                  }
+                  disconnectInternally() {
+                    this.abortConnecting();
+                    this.clearRetryTimer();
+                    this.clearUnavailableTimer();
+                    if (this.connection) {
+                      var connection = this.abandonConnection();
+                      connection.close();
+                    }
+                  }
+                  updateStrategy() {
+                    this.strategy = this.options.getStrategy({
+                      key: this.key,
+                      timeline: this.timeline,
+                      useTLS: this.usingTLS
+                    });
+                  }
+                  retryIn(delay) {
+                    this.timeline.info({ action: "retry", delay });
+                    if (delay > 0) {
+                      this.emit("connecting_in", Math.round(delay / 1e3));
+                    }
+                    this.retryTimer = new OneOffTimer(delay || 0, () => {
+                      this.disconnectInternally();
+                      this.connect();
+                    });
+                  }
+                  clearRetryTimer() {
+                    if (this.retryTimer) {
+                      this.retryTimer.ensureAborted();
+                      this.retryTimer = null;
+                    }
+                  }
+                  setUnavailableTimer() {
+                    this.unavailableTimer = new OneOffTimer(this.options.unavailableTimeout, () => {
+                      this.updateState("unavailable");
+                    });
+                  }
+                  clearUnavailableTimer() {
+                    if (this.unavailableTimer) {
+                      this.unavailableTimer.ensureAborted();
+                    }
+                  }
+                  sendActivityCheck() {
+                    this.stopActivityCheck();
+                    this.connection.ping();
+                    this.activityTimer = new OneOffTimer(this.options.pongTimeout, () => {
+                      this.timeline.error({ pong_timed_out: this.options.pongTimeout });
+                      this.retryIn(0);
+                    });
+                  }
+                  resetActivityCheck() {
+                    this.stopActivityCheck();
+                    if (this.connection && !this.connection.handlesActivityChecks()) {
+                      this.activityTimer = new OneOffTimer(this.activityTimeout, () => {
+                        this.sendActivityCheck();
+                      });
+                    }
+                  }
+                  stopActivityCheck() {
+                    if (this.activityTimer) {
+                      this.activityTimer.ensureAborted();
+                    }
+                  }
+                  buildConnectionCallbacks(errorCallbacks) {
+                    return extend({}, errorCallbacks, {
+                      message: (message) => {
+                        this.resetActivityCheck();
+                        this.emit("message", message);
+                      },
+                      ping: () => {
+                        this.send_event("pusher:pong", {});
+                      },
+                      activity: () => {
+                        this.resetActivityCheck();
+                      },
+                      error: (error) => {
+                        this.emit("error", error);
+                      },
+                      closed: () => {
+                        this.abandonConnection();
+                        if (this.shouldRetry()) {
+                          this.retryIn(1e3);
+                        }
+                      }
+                    });
+                  }
+                  buildHandshakeCallbacks(errorCallbacks) {
+                    return extend({}, errorCallbacks, {
+                      connected: (handshake) => {
+                        this.activityTimeout = Math.min(this.options.activityTimeout, handshake.activityTimeout, handshake.connection.activityTimeout || Infinity);
+                        this.clearUnavailableTimer();
+                        this.setConnection(handshake.connection);
+                        this.socket_id = this.connection.id;
+                        this.updateState("connected", { socket_id: this.socket_id });
+                      }
+                    });
+                  }
+                  buildErrorCallbacks() {
+                    let withErrorEmitted = (callback) => {
+                      return (result) => {
+                        if (result.error) {
+                          this.emit("error", { type: "WebSocketError", error: result.error });
+                        }
+                        callback(result);
+                      };
+                    };
+                    return {
+                      tls_only: withErrorEmitted(() => {
+                        this.usingTLS = true;
+                        this.updateStrategy();
+                        this.retryIn(0);
+                      }),
+                      refused: withErrorEmitted(() => {
+                        this.disconnect();
+                      }),
+                      backoff: withErrorEmitted(() => {
+                        this.retryIn(1e3);
+                      }),
+                      retry: withErrorEmitted(() => {
+                        this.retryIn(0);
+                      })
+                    };
+                  }
+                  setConnection(connection) {
+                    this.connection = connection;
+                    for (var event in this.connectionCallbacks) {
+                      this.connection.bind(event, this.connectionCallbacks[event]);
+                    }
+                    this.resetActivityCheck();
+                  }
+                  abandonConnection() {
+                    if (!this.connection) {
+                      return;
+                    }
+                    this.stopActivityCheck();
+                    for (var event in this.connectionCallbacks) {
+                      this.connection.unbind(event, this.connectionCallbacks[event]);
+                    }
+                    var connection = this.connection;
+                    this.connection = null;
+                    return connection;
+                  }
+                  updateState(newState, data) {
+                    var previousState = this.state;
+                    this.state = newState;
+                    if (previousState !== newState) {
+                      var newStateDescription = newState;
+                      if (newStateDescription === "connected") {
+                        newStateDescription += " with new socket ID " + data.socket_id;
+                      }
+                      logger.debug("State changed", previousState + " -> " + newStateDescription);
+                      this.timeline.info({ state: newState, params: data });
+                      this.emit("state_change", { previous: previousState, current: newState });
+                      this.emit(newState, data);
+                    }
+                  }
+                  shouldRetry() {
+                    return this.state === "connecting" || this.state === "connected";
+                  }
+                }
+                ;
+                class Channels {
+                  constructor() {
+                    this.channels = {};
+                  }
+                  add(name, pusher2) {
+                    if (!this.channels[name]) {
+                      this.channels[name] = createChannel(name, pusher2);
+                    }
+                    return this.channels[name];
+                  }
+                  all() {
+                    return values(this.channels);
+                  }
+                  find(name) {
+                    return this.channels[name];
+                  }
+                  remove(name) {
+                    var channel = this.channels[name];
+                    delete this.channels[name];
+                    return channel;
+                  }
+                  disconnect() {
+                    objectApply(this.channels, function(channel) {
+                      channel.disconnect();
+                    });
+                  }
+                }
+                function createChannel(name, pusher2) {
+                  if (name.indexOf("private-encrypted-") === 0) {
+                    if (pusher2.config.nacl) {
+                      return factory.createEncryptedChannel(name, pusher2, pusher2.config.nacl);
+                    }
+                    let errMsg = "Tried to subscribe to a private-encrypted- channel but no nacl implementation available";
+                    let suffix = url_store.buildLogSuffix("encryptedChannelSupport");
+                    throw new UnsupportedFeature(`${errMsg}. ${suffix}`);
+                  } else if (name.indexOf("private-") === 0) {
+                    return factory.createPrivateChannel(name, pusher2);
+                  } else if (name.indexOf("presence-") === 0) {
+                    return factory.createPresenceChannel(name, pusher2);
+                  } else if (name.indexOf("#") === 0) {
+                    throw new BadChannelName('Cannot create a channel with name "' + name + '".');
+                  } else {
+                    return factory.createChannel(name, pusher2);
+                  }
+                }
+                ;
+                var Factory = {
+                  createChannels() {
+                    return new Channels();
+                  },
+                  createConnectionManager(key, options) {
+                    return new ConnectionManager(key, options);
+                  },
+                  createChannel(name, pusher2) {
+                    return new Channel(name, pusher2);
+                  },
+                  createPrivateChannel(name, pusher2) {
+                    return new PrivateChannel(name, pusher2);
+                  },
+                  createPresenceChannel(name, pusher2) {
+                    return new PresenceChannel(name, pusher2);
+                  },
+                  createEncryptedChannel(name, pusher2, nacl) {
+                    return new EncryptedChannel(name, pusher2, nacl);
+                  },
+                  createTimelineSender(timeline, options) {
+                    return new TimelineSender(timeline, options);
+                  },
+                  createHandshake(transport, callback) {
+                    return new Handshake(transport, callback);
+                  },
+                  createAssistantToTheTransportManager(manager, transport, options) {
+                    return new AssistantToTheTransportManager(manager, transport, options);
+                  }
+                };
+                const factory = Factory;
+                ;
+                class TransportManager {
+                  constructor(options) {
+                    this.options = options || {};
+                    this.livesLeft = this.options.lives || Infinity;
+                  }
+                  getAssistant(transport) {
+                    return factory.createAssistantToTheTransportManager(this, transport, {
+                      minPingDelay: this.options.minPingDelay,
+                      maxPingDelay: this.options.maxPingDelay
+                    });
+                  }
+                  isAlive() {
+                    return this.livesLeft > 0;
+                  }
+                  reportDeath() {
+                    this.livesLeft -= 1;
+                  }
+                }
+                ;
+                class SequentialStrategy {
+                  constructor(strategies, options) {
+                    this.strategies = strategies;
+                    this.loop = Boolean(options.loop);
+                    this.failFast = Boolean(options.failFast);
+                    this.timeout = options.timeout;
+                    this.timeoutLimit = options.timeoutLimit;
+                  }
+                  isSupported() {
+                    return any(this.strategies, util.method("isSupported"));
+                  }
+                  connect(minPriority, callback) {
+                    var strategies = this.strategies;
+                    var current = 0;
+                    var timeout = this.timeout;
+                    var runner = null;
+                    var tryNextStrategy = (error, handshake) => {
+                      if (handshake) {
+                        callback(null, handshake);
+                      } else {
+                        current = current + 1;
+                        if (this.loop) {
+                          current = current % strategies.length;
+                        }
+                        if (current < strategies.length) {
+                          if (timeout) {
+                            timeout = timeout * 2;
+                            if (this.timeoutLimit) {
+                              timeout = Math.min(timeout, this.timeoutLimit);
+                            }
+                          }
+                          runner = this.tryStrategy(strategies[current], minPriority, { timeout, failFast: this.failFast }, tryNextStrategy);
+                        } else {
+                          callback(true);
+                        }
+                      }
+                    };
+                    runner = this.tryStrategy(strategies[current], minPriority, { timeout, failFast: this.failFast }, tryNextStrategy);
+                    return {
+                      abort: function() {
+                        runner.abort();
+                      },
+                      forceMinPriority: function(p2) {
+                        minPriority = p2;
+                        if (runner) {
+                          runner.forceMinPriority(p2);
+                        }
+                      }
+                    };
+                  }
+                  tryStrategy(strategy, minPriority, options, callback) {
+                    var timer = null;
+                    var runner = null;
+                    if (options.timeout > 0) {
+                      timer = new OneOffTimer(options.timeout, function() {
+                        runner.abort();
+                        callback(true);
+                      });
+                    }
+                    runner = strategy.connect(minPriority, function(error, handshake) {
+                      if (error && timer && timer.isRunning() && !options.failFast) {
+                        return;
+                      }
+                      if (timer) {
+                        timer.ensureAborted();
+                      }
+                      callback(error, handshake);
+                    });
+                    return {
+                      abort: function() {
+                        if (timer) {
+                          timer.ensureAborted();
+                        }
+                        runner.abort();
+                      },
+                      forceMinPriority: function(p2) {
+                        runner.forceMinPriority(p2);
+                      }
+                    };
+                  }
+                }
+                ;
+                class BestConnectedEverStrategy {
+                  constructor(strategies) {
+                    this.strategies = strategies;
+                  }
+                  isSupported() {
+                    return any(this.strategies, util.method("isSupported"));
+                  }
+                  connect(minPriority, callback) {
+                    return connect(this.strategies, minPriority, function(i3, runners) {
+                      return function(error, handshake) {
+                        runners[i3].error = error;
+                        if (error) {
+                          if (allRunnersFailed(runners)) {
+                            callback(true);
+                          }
+                          return;
+                        }
+                        apply(runners, function(runner) {
+                          runner.forceMinPriority(handshake.transport.priority);
+                        });
+                        callback(null, handshake);
+                      };
+                    });
+                  }
+                }
+                function connect(strategies, minPriority, callbackBuilder) {
+                  var runners = map(strategies, function(strategy, i3, _2, rs) {
+                    return strategy.connect(minPriority, callbackBuilder(i3, rs));
+                  });
+                  return {
+                    abort: function() {
+                      apply(runners, abortRunner);
+                    },
+                    forceMinPriority: function(p2) {
+                      apply(runners, function(runner) {
+                        runner.forceMinPriority(p2);
+                      });
+                    }
+                  };
+                }
+                function allRunnersFailed(runners) {
+                  return collections_all(runners, function(runner) {
+                    return Boolean(runner.error);
+                  });
+                }
+                function abortRunner(runner) {
+                  if (!runner.error && !runner.aborted) {
+                    runner.abort();
+                    runner.aborted = true;
+                  }
+                }
+                ;
+                class WebSocketPrioritizedCachedStrategy {
+                  constructor(strategy, transports2, options) {
+                    this.strategy = strategy;
+                    this.transports = transports2;
+                    this.ttl = options.ttl || 1800 * 1e3;
+                    this.usingTLS = options.useTLS;
+                    this.timeline = options.timeline;
+                  }
+                  isSupported() {
+                    return this.strategy.isSupported();
+                  }
+                  connect(minPriority, callback) {
+                    var usingTLS = this.usingTLS;
+                    var info = fetchTransportCache(usingTLS);
+                    var cacheSkipCount = info && info.cacheSkipCount ? info.cacheSkipCount : 0;
+                    var strategies = [this.strategy];
+                    if (info && info.timestamp + this.ttl >= util.now()) {
+                      var transport = this.transports[info.transport];
+                      if (transport) {
+                        if (["ws", "wss"].includes(info.transport) || cacheSkipCount > 3) {
+                          this.timeline.info({
+                            cached: true,
+                            transport: info.transport,
+                            latency: info.latency
+                          });
+                          strategies.push(new SequentialStrategy([transport], {
+                            timeout: info.latency * 2 + 1e3,
+                            failFast: true
+                          }));
+                        } else {
+                          cacheSkipCount++;
+                        }
+                      }
+                    }
+                    var startTimestamp = util.now();
+                    var runner = strategies.pop().connect(minPriority, function cb(error, handshake) {
+                      if (error) {
+                        flushTransportCache(usingTLS);
+                        if (strategies.length > 0) {
+                          startTimestamp = util.now();
+                          runner = strategies.pop().connect(minPriority, cb);
+                        } else {
+                          callback(error);
+                        }
+                      } else {
+                        storeTransportCache(usingTLS, handshake.transport.name, util.now() - startTimestamp, cacheSkipCount);
+                        callback(null, handshake);
+                      }
+                    });
+                    return {
+                      abort: function() {
+                        runner.abort();
+                      },
+                      forceMinPriority: function(p2) {
+                        minPriority = p2;
+                        if (runner) {
+                          runner.forceMinPriority(p2);
+                        }
+                      }
+                    };
+                  }
+                }
+                function getTransportCacheKey(usingTLS) {
+                  return "pusherTransport" + (usingTLS ? "TLS" : "NonTLS");
+                }
+                function fetchTransportCache(usingTLS) {
+                  var storage = runtime.getLocalStorage();
+                  if (storage) {
+                    try {
+                      var serializedCache = storage[getTransportCacheKey(usingTLS)];
+                      if (serializedCache) {
+                        return JSON.parse(serializedCache);
+                      }
+                    } catch (e3) {
+                      flushTransportCache(usingTLS);
+                    }
+                  }
+                  return null;
+                }
+                function storeTransportCache(usingTLS, transport, latency, cacheSkipCount) {
+                  var storage = runtime.getLocalStorage();
+                  if (storage) {
+                    try {
+                      storage[getTransportCacheKey(usingTLS)] = safeJSONStringify({
+                        timestamp: util.now(),
+                        transport,
+                        latency,
+                        cacheSkipCount
+                      });
+                    } catch (e3) {
+                    }
+                  }
+                }
+                function flushTransportCache(usingTLS) {
+                  var storage = runtime.getLocalStorage();
+                  if (storage) {
+                    try {
+                      delete storage[getTransportCacheKey(usingTLS)];
+                    } catch (e3) {
+                    }
+                  }
+                }
+                ;
+                class DelayedStrategy {
+                  constructor(strategy, { delay: number }) {
+                    this.strategy = strategy;
+                    this.options = { delay: number };
+                  }
+                  isSupported() {
+                    return this.strategy.isSupported();
+                  }
+                  connect(minPriority, callback) {
+                    var strategy = this.strategy;
+                    var runner;
+                    var timer = new OneOffTimer(this.options.delay, function() {
+                      runner = strategy.connect(minPriority, callback);
+                    });
+                    return {
+                      abort: function() {
+                        timer.ensureAborted();
+                        if (runner) {
+                          runner.abort();
+                        }
+                      },
+                      forceMinPriority: function(p2) {
+                        minPriority = p2;
+                        if (runner) {
+                          runner.forceMinPriority(p2);
+                        }
+                      }
+                    };
+                  }
+                }
+                ;
+                class IfStrategy {
+                  constructor(test, trueBranch, falseBranch) {
+                    this.test = test;
+                    this.trueBranch = trueBranch;
+                    this.falseBranch = falseBranch;
+                  }
+                  isSupported() {
+                    var branch = this.test() ? this.trueBranch : this.falseBranch;
+                    return branch.isSupported();
+                  }
+                  connect(minPriority, callback) {
+                    var branch = this.test() ? this.trueBranch : this.falseBranch;
+                    return branch.connect(minPriority, callback);
+                  }
+                }
+                ;
+                class FirstConnectedStrategy {
+                  constructor(strategy) {
+                    this.strategy = strategy;
+                  }
+                  isSupported() {
+                    return this.strategy.isSupported();
+                  }
+                  connect(minPriority, callback) {
+                    var runner = this.strategy.connect(minPriority, function(error, handshake) {
+                      if (handshake) {
+                        runner.abort();
+                      }
+                      callback(error, handshake);
+                    });
+                    return runner;
+                  }
+                }
+                ;
+                function testSupportsStrategy(strategy) {
+                  return function() {
+                    return strategy.isSupported();
+                  };
+                }
+                var getDefaultStrategy = function(config, baseOptions, defineTransport2) {
+                  var definedTransports = {};
+                  function defineTransportStrategy(name, type, priority, options, manager) {
+                    var transport = defineTransport2(config, name, type, priority, options, manager);
+                    definedTransports[name] = transport;
+                    return transport;
+                  }
+                  var ws_options = Object.assign({}, baseOptions, {
+                    hostNonTLS: config.wsHost + ":" + config.wsPort,
+                    hostTLS: config.wsHost + ":" + config.wssPort,
+                    httpPath: config.wsPath
+                  });
+                  var wss_options = Object.assign({}, ws_options, {
+                    useTLS: true
+                  });
+                  var sockjs_options = Object.assign({}, baseOptions, {
+                    hostNonTLS: config.httpHost + ":" + config.httpPort,
+                    hostTLS: config.httpHost + ":" + config.httpsPort,
+                    httpPath: config.httpPath
+                  });
+                  var timeouts = {
+                    loop: true,
+                    timeout: 15e3,
+                    timeoutLimit: 6e4
+                  };
+                  var ws_manager = new TransportManager({
+                    minPingDelay: 1e4,
+                    maxPingDelay: config.activityTimeout
+                  });
+                  var streaming_manager = new TransportManager({
+                    lives: 2,
+                    minPingDelay: 1e4,
+                    maxPingDelay: config.activityTimeout
+                  });
+                  var ws_transport = defineTransportStrategy("ws", "ws", 3, ws_options, ws_manager);
+                  var wss_transport = defineTransportStrategy("wss", "ws", 3, wss_options, ws_manager);
+                  var sockjs_transport = defineTransportStrategy("sockjs", "sockjs", 1, sockjs_options);
+                  var xhr_streaming_transport = defineTransportStrategy("xhr_streaming", "xhr_streaming", 1, sockjs_options, streaming_manager);
+                  var xdr_streaming_transport = defineTransportStrategy("xdr_streaming", "xdr_streaming", 1, sockjs_options, streaming_manager);
+                  var xhr_polling_transport = defineTransportStrategy("xhr_polling", "xhr_polling", 1, sockjs_options);
+                  var xdr_polling_transport = defineTransportStrategy("xdr_polling", "xdr_polling", 1, sockjs_options);
+                  var ws_loop = new SequentialStrategy([ws_transport], timeouts);
+                  var wss_loop = new SequentialStrategy([wss_transport], timeouts);
+                  var sockjs_loop = new SequentialStrategy([sockjs_transport], timeouts);
+                  var streaming_loop = new SequentialStrategy([
+                    new IfStrategy(testSupportsStrategy(xhr_streaming_transport), xhr_streaming_transport, xdr_streaming_transport)
+                  ], timeouts);
+                  var polling_loop = new SequentialStrategy([
+                    new IfStrategy(testSupportsStrategy(xhr_polling_transport), xhr_polling_transport, xdr_polling_transport)
+                  ], timeouts);
+                  var http_loop = new SequentialStrategy([
+                    new IfStrategy(testSupportsStrategy(streaming_loop), new BestConnectedEverStrategy([
+                      streaming_loop,
+                      new DelayedStrategy(polling_loop, { delay: 4e3 })
+                    ]), polling_loop)
+                  ], timeouts);
+                  var http_fallback_loop = new IfStrategy(testSupportsStrategy(http_loop), http_loop, sockjs_loop);
+                  var wsStrategy;
+                  if (baseOptions.useTLS) {
+                    wsStrategy = new BestConnectedEverStrategy([
+                      ws_loop,
+                      new DelayedStrategy(http_fallback_loop, { delay: 2e3 })
+                    ]);
+                  } else {
+                    wsStrategy = new BestConnectedEverStrategy([
+                      ws_loop,
+                      new DelayedStrategy(wss_loop, { delay: 2e3 }),
+                      new DelayedStrategy(http_fallback_loop, { delay: 5e3 })
+                    ]);
+                  }
+                  return new WebSocketPrioritizedCachedStrategy(new FirstConnectedStrategy(new IfStrategy(testSupportsStrategy(ws_transport), wsStrategy, http_fallback_loop)), definedTransports, {
+                    ttl: 18e5,
+                    timeline: baseOptions.timeline,
+                    useTLS: baseOptions.useTLS
+                  });
+                };
+                const default_strategy = getDefaultStrategy;
+                ;
+                function transport_connection_initializer() {
+                  var self2 = this;
+                  self2.timeline.info(self2.buildTimelineMessage({
+                    transport: self2.name + (self2.options.useTLS ? "s" : "")
+                  }));
+                  if (self2.hooks.isInitialized()) {
+                    self2.changeState("initialized");
+                  } else if (self2.hooks.file) {
+                    self2.changeState("initializing");
+                    Dependencies.load(self2.hooks.file, { useTLS: self2.options.useTLS }, function(error, callback) {
+                      if (self2.hooks.isInitialized()) {
+                        self2.changeState("initialized");
+                        callback(true);
+                      } else {
+                        if (error) {
+                          self2.onError(error);
+                        }
+                        self2.onClose();
+                        callback(false);
+                      }
+                    });
+                  } else {
+                    self2.onClose();
+                  }
+                }
+                ;
+                var hooks = {
+                  getRequest: function(socket) {
+                    var xdr = new window.XDomainRequest();
+                    xdr.ontimeout = function() {
+                      socket.emit("error", new RequestTimedOut());
+                      socket.close();
+                    };
+                    xdr.onerror = function(e3) {
+                      socket.emit("error", e3);
+                      socket.close();
+                    };
+                    xdr.onprogress = function() {
+                      if (xdr.responseText && xdr.responseText.length > 0) {
+                        socket.onChunk(200, xdr.responseText);
+                      }
+                    };
+                    xdr.onload = function() {
+                      if (xdr.responseText && xdr.responseText.length > 0) {
+                        socket.onChunk(200, xdr.responseText);
+                      }
+                      socket.emit("finished", 200);
+                      socket.close();
+                    };
+                    return xdr;
+                  },
+                  abortRequest: function(xdr) {
+                    xdr.ontimeout = xdr.onerror = xdr.onprogress = xdr.onload = null;
+                    xdr.abort();
+                  }
+                };
+                const http_xdomain_request = hooks;
+                ;
+                const MAX_BUFFER_LENGTH = 256 * 1024;
+                class HTTPRequest extends Dispatcher {
+                  constructor(hooks2, method, url) {
+                    super();
+                    this.hooks = hooks2;
+                    this.method = method;
+                    this.url = url;
+                  }
+                  start(payload) {
+                    this.position = 0;
+                    this.xhr = this.hooks.getRequest(this);
+                    this.unloader = () => {
+                      this.close();
+                    };
+                    runtime.addUnloadListener(this.unloader);
+                    this.xhr.open(this.method, this.url, true);
+                    if (this.xhr.setRequestHeader) {
+                      this.xhr.setRequestHeader("Content-Type", "application/json");
+                    }
+                    this.xhr.send(payload);
+                  }
+                  close() {
+                    if (this.unloader) {
+                      runtime.removeUnloadListener(this.unloader);
+                      this.unloader = null;
+                    }
+                    if (this.xhr) {
+                      this.hooks.abortRequest(this.xhr);
+                      this.xhr = null;
+                    }
+                  }
+                  onChunk(status, data) {
+                    while (true) {
+                      var chunk = this.advanceBuffer(data);
+                      if (chunk) {
+                        this.emit("chunk", { status, data: chunk });
+                      } else {
+                        break;
+                      }
+                    }
+                    if (this.isBufferTooLong(data)) {
+                      this.emit("buffer_too_long");
+                    }
+                  }
+                  advanceBuffer(buffer) {
+                    var unreadData = buffer.slice(this.position);
+                    var endOfLinePosition = unreadData.indexOf("\n");
+                    if (endOfLinePosition !== -1) {
+                      this.position += endOfLinePosition + 1;
+                      return unreadData.slice(0, endOfLinePosition);
+                    } else {
+                      return null;
+                    }
+                  }
+                  isBufferTooLong(buffer) {
+                    return this.position === buffer.length && buffer.length > MAX_BUFFER_LENGTH;
+                  }
+                }
+                ;
+                var State;
+                (function(State2) {
+                  State2[State2["CONNECTING"] = 0] = "CONNECTING";
+                  State2[State2["OPEN"] = 1] = "OPEN";
+                  State2[State2["CLOSED"] = 3] = "CLOSED";
+                })(State || (State = {}));
+                const state = State;
+                ;
+                var autoIncrement = 1;
+                class HTTPSocket {
+                  constructor(hooks2, url) {
+                    this.hooks = hooks2;
+                    this.session = randomNumber(1e3) + "/" + randomString(8);
+                    this.location = getLocation(url);
+                    this.readyState = state.CONNECTING;
+                    this.openStream();
+                  }
+                  send(payload) {
+                    return this.sendRaw(JSON.stringify([payload]));
+                  }
+                  ping() {
+                    this.hooks.sendHeartbeat(this);
+                  }
+                  close(code, reason) {
+                    this.onClose(code, reason, true);
+                  }
+                  sendRaw(payload) {
+                    if (this.readyState === state.OPEN) {
+                      try {
+                        runtime.createSocketRequest("POST", getUniqueURL(getSendURL(this.location, this.session))).start(payload);
+                        return true;
+                      } catch (e3) {
+                        return false;
+                      }
+                    } else {
+                      return false;
+                    }
+                  }
+                  reconnect() {
+                    this.closeStream();
+                    this.openStream();
+                  }
+                  onClose(code, reason, wasClean) {
+                    this.closeStream();
+                    this.readyState = state.CLOSED;
+                    if (this.onclose) {
+                      this.onclose({
+                        code,
+                        reason,
+                        wasClean
+                      });
+                    }
+                  }
+                  onChunk(chunk) {
+                    if (chunk.status !== 200) {
+                      return;
+                    }
+                    if (this.readyState === state.OPEN) {
+                      this.onActivity();
+                    }
+                    var payload;
+                    var type = chunk.data.slice(0, 1);
+                    switch (type) {
+                      case "o":
+                        payload = JSON.parse(chunk.data.slice(1) || "{}");
+                        this.onOpen(payload);
+                        break;
+                      case "a":
+                        payload = JSON.parse(chunk.data.slice(1) || "[]");
+                        for (var i3 = 0; i3 < payload.length; i3++) {
+                          this.onEvent(payload[i3]);
+                        }
+                        break;
+                      case "m":
+                        payload = JSON.parse(chunk.data.slice(1) || "null");
+                        this.onEvent(payload);
+                        break;
+                      case "h":
+                        this.hooks.onHeartbeat(this);
+                        break;
+                      case "c":
+                        payload = JSON.parse(chunk.data.slice(1) || "[]");
+                        this.onClose(payload[0], payload[1], true);
+                        break;
+                    }
+                  }
+                  onOpen(options) {
+                    if (this.readyState === state.CONNECTING) {
+                      if (options && options.hostname) {
+                        this.location.base = replaceHost(this.location.base, options.hostname);
+                      }
+                      this.readyState = state.OPEN;
+                      if (this.onopen) {
+                        this.onopen();
+                      }
+                    } else {
+                      this.onClose(1006, "Server lost session", true);
+                    }
+                  }
+                  onEvent(event) {
+                    if (this.readyState === state.OPEN && this.onmessage) {
+                      this.onmessage({ data: event });
+                    }
+                  }
+                  onActivity() {
+                    if (this.onactivity) {
+                      this.onactivity();
+                    }
+                  }
+                  onError(error) {
+                    if (this.onerror) {
+                      this.onerror(error);
+                    }
+                  }
+                  openStream() {
+                    this.stream = runtime.createSocketRequest("POST", getUniqueURL(this.hooks.getReceiveURL(this.location, this.session)));
+                    this.stream.bind("chunk", (chunk) => {
+                      this.onChunk(chunk);
+                    });
+                    this.stream.bind("finished", (status) => {
+                      this.hooks.onFinished(this, status);
+                    });
+                    this.stream.bind("buffer_too_long", () => {
+                      this.reconnect();
+                    });
+                    try {
+                      this.stream.start();
+                    } catch (error) {
+                      util.defer(() => {
+                        this.onError(error);
+                        this.onClose(1006, "Could not start streaming", false);
+                      });
+                    }
+                  }
+                  closeStream() {
+                    if (this.stream) {
+                      this.stream.unbind_all();
+                      this.stream.close();
+                      this.stream = null;
+                    }
+                  }
+                }
+                function getLocation(url) {
+                  var parts = /([^\?]*)\/*(\??.*)/.exec(url);
+                  return {
+                    base: parts[1],
+                    queryString: parts[2]
+                  };
+                }
+                function getSendURL(url, session) {
+                  return url.base + "/" + session + "/xhr_send";
+                }
+                function getUniqueURL(url) {
+                  var separator = url.indexOf("?") === -1 ? "?" : "&";
+                  return url + separator + "t=" + +/* @__PURE__ */ new Date() + "&n=" + autoIncrement++;
+                }
+                function replaceHost(url, hostname) {
+                  var urlParts = /(https?:\/\/)([^\/:]+)((\/|:)?.*)/.exec(url);
+                  return urlParts[1] + hostname + urlParts[3];
+                }
+                function randomNumber(max) {
+                  return runtime.randomInt(max);
+                }
+                function randomString(length) {
+                  var result = [];
+                  for (var i3 = 0; i3 < length; i3++) {
+                    result.push(randomNumber(32).toString(32));
+                  }
+                  return result.join("");
+                }
+                const http_socket = HTTPSocket;
+                ;
+                var http_streaming_socket_hooks = {
+                  getReceiveURL: function(url, session) {
+                    return url.base + "/" + session + "/xhr_streaming" + url.queryString;
+                  },
+                  onHeartbeat: function(socket) {
+                    socket.sendRaw("[]");
+                  },
+                  sendHeartbeat: function(socket) {
+                    socket.sendRaw("[]");
+                  },
+                  onFinished: function(socket, status) {
+                    socket.onClose(1006, "Connection interrupted (" + status + ")", false);
+                  }
+                };
+                const http_streaming_socket = http_streaming_socket_hooks;
+                ;
+                var http_polling_socket_hooks = {
+                  getReceiveURL: function(url, session) {
+                    return url.base + "/" + session + "/xhr" + url.queryString;
+                  },
+                  onHeartbeat: function() {
+                  },
+                  sendHeartbeat: function(socket) {
+                    socket.sendRaw("[]");
+                  },
+                  onFinished: function(socket, status) {
+                    if (status === 200) {
+                      socket.reconnect();
+                    } else {
+                      socket.onClose(1006, "Connection interrupted (" + status + ")", false);
+                    }
+                  }
+                };
+                const http_polling_socket = http_polling_socket_hooks;
+                ;
+                var http_xhr_request_hooks = {
+                  getRequest: function(socket) {
+                    var Constructor = runtime.getXHRAPI();
+                    var xhr = new Constructor();
+                    xhr.onreadystatechange = xhr.onprogress = function() {
+                      switch (xhr.readyState) {
+                        case 3:
+                          if (xhr.responseText && xhr.responseText.length > 0) {
+                            socket.onChunk(xhr.status, xhr.responseText);
+                          }
+                          break;
+                        case 4:
+                          if (xhr.responseText && xhr.responseText.length > 0) {
+                            socket.onChunk(xhr.status, xhr.responseText);
+                          }
+                          socket.emit("finished", xhr.status);
+                          socket.close();
+                          break;
+                      }
+                    };
+                    return xhr;
+                  },
+                  abortRequest: function(xhr) {
+                    xhr.onreadystatechange = null;
+                    xhr.abort();
+                  }
+                };
+                const http_xhr_request = http_xhr_request_hooks;
+                ;
+                var HTTP = {
+                  createStreamingSocket(url) {
+                    return this.createSocket(http_streaming_socket, url);
+                  },
+                  createPollingSocket(url) {
+                    return this.createSocket(http_polling_socket, url);
+                  },
+                  createSocket(hooks2, url) {
+                    return new http_socket(hooks2, url);
+                  },
+                  createXHR(method, url) {
+                    return this.createRequest(http_xhr_request, method, url);
+                  },
+                  createRequest(hooks2, method, url) {
+                    return new HTTPRequest(hooks2, method, url);
+                  }
+                };
+                const http_http = HTTP;
+                ;
+                http_http.createXDR = function(method, url) {
+                  return this.createRequest(http_xdomain_request, method, url);
+                };
+                const web_http_http = http_http;
+                ;
+                var Runtime = {
+                  nextAuthCallbackID: 1,
+                  auth_callbacks: {},
+                  ScriptReceivers,
+                  DependenciesReceivers,
+                  getDefaultStrategy: default_strategy,
+                  Transports: transports_transports,
+                  transportConnectionInitializer: transport_connection_initializer,
+                  HTTPFactory: web_http_http,
+                  TimelineTransport: jsonp_timeline,
+                  getXHRAPI() {
+                    return window.XMLHttpRequest;
+                  },
+                  getWebSocketAPI() {
+                    return window.WebSocket || window.MozWebSocket;
+                  },
+                  setup(PusherClass) {
+                    if (typeof window !== "undefined") {
+                      window.Pusher = PusherClass;
+                      var initializeOnDocumentBody = () => {
+                        this.onDocumentBody(PusherClass.ready);
+                      };
+                      if (!window.JSON) {
+                        Dependencies.load("json2", {}, initializeOnDocumentBody);
+                      } else {
+                        initializeOnDocumentBody();
+                      }
+                    }
+                  },
+                  getDocument() {
+                    return document;
+                  },
+                  getProtocol() {
+                    return this.getDocument().location.protocol;
+                  },
+                  getAuthorizers() {
+                    return { ajax: xhr_auth, jsonp: jsonp_auth };
+                  },
+                  onDocumentBody(callback) {
+                    if (document.body) {
+                      callback();
+                    } else {
+                      setTimeout(() => {
+                        this.onDocumentBody(callback);
+                      }, 0);
+                    }
+                  },
+                  createJSONPRequest(url, data) {
+                    return new JSONPRequest(url, data);
+                  },
+                  createScriptRequest(src) {
+                    return new ScriptRequest(src);
+                  },
+                  getLocalStorage() {
+                    try {
+                      return window.localStorage;
+                    } catch (e3) {
+                      return void 0;
+                    }
+                  },
+                  createXHR() {
+                    if (this.getXHRAPI()) {
+                      return this.createXMLHttpRequest();
+                    } else {
+                      return this.createMicrosoftXHR();
+                    }
+                  },
+                  createXMLHttpRequest() {
+                    var Constructor = this.getXHRAPI();
+                    return new Constructor();
+                  },
+                  createMicrosoftXHR() {
+                    return new ActiveXObject("Microsoft.XMLHTTP");
+                  },
+                  getNetwork() {
+                    return Network;
+                  },
+                  createWebSocket(url) {
+                    var Constructor = this.getWebSocketAPI();
+                    return new Constructor(url);
+                  },
+                  createSocketRequest(method, url) {
+                    if (this.isXHRSupported()) {
+                      return this.HTTPFactory.createXHR(method, url);
+                    } else if (this.isXDRSupported(url.indexOf("https:") === 0)) {
+                      return this.HTTPFactory.createXDR(method, url);
+                    } else {
+                      throw "Cross-origin HTTP requests are not supported";
+                    }
+                  },
+                  isXHRSupported() {
+                    var Constructor = this.getXHRAPI();
+                    return Boolean(Constructor) && new Constructor().withCredentials !== void 0;
+                  },
+                  isXDRSupported(useTLS) {
+                    var protocol2 = useTLS ? "https:" : "http:";
+                    var documentProtocol = this.getProtocol();
+                    return Boolean(window["XDomainRequest"]) && documentProtocol === protocol2;
+                  },
+                  addUnloadListener(listener) {
+                    if (window.addEventListener !== void 0) {
+                      window.addEventListener("pagehide", listener, false);
+                    } else if (window.attachEvent !== void 0) {
+                      window.attachEvent("onunload", listener);
+                    }
+                  },
+                  removeUnloadListener(listener) {
+                    if (window.addEventListener !== void 0) {
+                      window.removeEventListener("pagehide", listener, false);
+                    } else if (window.detachEvent !== void 0) {
+                      window.detachEvent("onunload", listener);
+                    }
+                  },
+                  randomInt(max) {
+                    const crypto2 = window.crypto || window["msCrypto"];
+                    const limit = Math.floor(Math.pow(2, 32) / max) * max;
+                    let random;
+                    do {
+                      random = crypto2.getRandomValues(new Uint32Array(1))[0];
+                    } while (random >= limit);
+                    return random % max;
+                  }
+                };
+                const runtime = Runtime;
+                ;
+                var TimelineLevel;
+                (function(TimelineLevel2) {
+                  TimelineLevel2[TimelineLevel2["ERROR"] = 3] = "ERROR";
+                  TimelineLevel2[TimelineLevel2["INFO"] = 6] = "INFO";
+                  TimelineLevel2[TimelineLevel2["DEBUG"] = 7] = "DEBUG";
+                })(TimelineLevel || (TimelineLevel = {}));
+                const level = TimelineLevel;
+                ;
+                class Timeline {
+                  constructor(key, session, options) {
+                    this.key = key;
+                    this.session = session;
+                    this.events = [];
+                    this.options = options || {};
+                    this.sent = 0;
+                    this.uniqueID = 0;
+                  }
+                  log(level2, event) {
+                    if (level2 <= this.options.level) {
+                      this.events.push(extend({}, event, { timestamp: util.now() }));
+                      if (this.options.limit && this.events.length > this.options.limit) {
+                        this.events.shift();
+                      }
+                    }
+                  }
+                  error(event) {
+                    this.log(level.ERROR, event);
+                  }
+                  info(event) {
+                    this.log(level.INFO, event);
+                  }
+                  debug(event) {
+                    this.log(level.DEBUG, event);
+                  }
+                  isEmpty() {
+                    return this.events.length === 0;
+                  }
+                  send(sendfn, callback) {
+                    var data = extend({
+                      session: this.session,
+                      bundle: this.sent + 1,
+                      key: this.key,
+                      lib: "js",
+                      version: this.options.version,
+                      cluster: this.options.cluster,
+                      features: this.options.features,
+                      timeline: this.events
+                    }, this.options.params);
+                    this.events = [];
+                    sendfn(data, (error, result) => {
+                      if (!error) {
+                        this.sent++;
+                      }
+                      if (callback) {
+                        callback(error, result);
+                      }
+                    });
+                    return true;
+                  }
+                  generateUniqueID() {
+                    this.uniqueID++;
+                    return this.uniqueID;
+                  }
+                }
+                ;
+                class TransportStrategy {
+                  constructor(name, priority, transport, options) {
+                    this.name = name;
+                    this.priority = priority;
+                    this.transport = transport;
+                    this.options = options || {};
+                  }
+                  isSupported() {
+                    return this.transport.isSupported({
+                      useTLS: this.options.useTLS
+                    });
+                  }
+                  connect(minPriority, callback) {
+                    if (!this.isSupported()) {
+                      return failAttempt(new UnsupportedStrategy(), callback);
+                    } else if (this.priority < minPriority) {
+                      return failAttempt(new TransportPriorityTooLow(), callback);
+                    }
+                    var connected = false;
+                    var transport = this.transport.createConnection(this.name, this.priority, this.options.key, this.options);
+                    var handshake = null;
+                    var onInitialized = function() {
+                      transport.unbind("initialized", onInitialized);
+                      transport.connect();
+                    };
+                    var onOpen = function() {
+                      handshake = factory.createHandshake(transport, function(result) {
+                        connected = true;
+                        unbindListeners();
+                        callback(null, result);
+                      });
+                    };
+                    var onError = function(error) {
+                      unbindListeners();
+                      callback(error);
+                    };
+                    var onClosed = function() {
+                      unbindListeners();
+                      var serializedTransport;
+                      serializedTransport = safeJSONStringify(transport);
+                      callback(new TransportClosed(serializedTransport));
+                    };
+                    var unbindListeners = function() {
+                      transport.unbind("initialized", onInitialized);
+                      transport.unbind("open", onOpen);
+                      transport.unbind("error", onError);
+                      transport.unbind("closed", onClosed);
+                    };
+                    transport.bind("initialized", onInitialized);
+                    transport.bind("open", onOpen);
+                    transport.bind("error", onError);
+                    transport.bind("closed", onClosed);
+                    transport.initialize();
+                    return {
+                      abort: () => {
+                        if (connected) {
+                          return;
+                        }
+                        unbindListeners();
+                        if (handshake) {
+                          handshake.close();
+                        } else {
+                          transport.close();
+                        }
+                      },
+                      forceMinPriority: (p2) => {
+                        if (connected) {
+                          return;
+                        }
+                        if (this.priority < p2) {
+                          if (handshake) {
+                            handshake.close();
+                          } else {
+                            transport.close();
+                          }
+                        }
+                      }
+                    };
+                  }
+                }
+                function failAttempt(error, callback) {
+                  util.defer(function() {
+                    callback(error);
+                  });
+                  return {
+                    abort: function() {
+                    },
+                    forceMinPriority: function() {
+                    }
+                  };
+                }
+                ;
+                const { Transports: strategy_builder_Transports } = runtime;
+                var defineTransport = function(config, name, type, priority, options, manager) {
+                  var transportClass = strategy_builder_Transports[type];
+                  if (!transportClass) {
+                    throw new UnsupportedTransport(type);
+                  }
+                  var enabled = (!config.enabledTransports || arrayIndexOf(config.enabledTransports, name) !== -1) && (!config.disabledTransports || arrayIndexOf(config.disabledTransports, name) === -1);
+                  var transport;
+                  if (enabled) {
+                    options = Object.assign({ ignoreNullOrigin: config.ignoreNullOrigin }, options);
+                    transport = new TransportStrategy(name, priority, manager ? manager.getAssistant(transportClass) : transportClass, options);
+                  } else {
+                    transport = strategy_builder_UnsupportedStrategy;
+                  }
+                  return transport;
+                };
+                var strategy_builder_UnsupportedStrategy = {
+                  isSupported: function() {
+                    return false;
+                  },
+                  connect: function(_2, callback) {
+                    var deferred = util.defer(function() {
+                      callback(new UnsupportedStrategy());
+                    });
+                    return {
+                      abort: function() {
+                        deferred.ensureAborted();
+                      },
+                      forceMinPriority: function() {
+                      }
+                    };
+                  }
+                };
+                ;
+                function validateOptions(options) {
+                  if (options == null) {
+                    throw "You must pass an options object";
+                  }
+                  if (options.cluster == null) {
+                    throw "Options object must provide a cluster";
+                  }
+                  if ("disableStats" in options) {
+                    logger.warn("The disableStats option is deprecated in favor of enableStats");
+                  }
+                }
+                ;
+                const composeChannelQuery = (params, authOptions) => {
+                  var query = "socket_id=" + encodeURIComponent(params.socketId);
+                  for (var key in authOptions.params) {
+                    query += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(authOptions.params[key]);
+                  }
+                  if (authOptions.paramsProvider != null) {
+                    let dynamicParams = authOptions.paramsProvider();
+                    for (var key in dynamicParams) {
+                      query += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(dynamicParams[key]);
+                    }
+                  }
+                  return query;
+                };
+                const UserAuthenticator = (authOptions) => {
+                  if (typeof runtime.getAuthorizers()[authOptions.transport] === "undefined") {
+                    throw `'${authOptions.transport}' is not a recognized auth transport`;
+                  }
+                  return (params, callback) => {
+                    const query = composeChannelQuery(params, authOptions);
+                    runtime.getAuthorizers()[authOptions.transport](runtime, query, authOptions, AuthRequestType.UserAuthentication, callback);
+                  };
+                };
+                const user_authenticator = UserAuthenticator;
+                ;
+                const channel_authorizer_composeChannelQuery = (params, authOptions) => {
+                  var query = "socket_id=" + encodeURIComponent(params.socketId);
+                  query += "&channel_name=" + encodeURIComponent(params.channelName);
+                  for (var key in authOptions.params) {
+                    query += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(authOptions.params[key]);
+                  }
+                  if (authOptions.paramsProvider != null) {
+                    let dynamicParams = authOptions.paramsProvider();
+                    for (var key in dynamicParams) {
+                      query += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(dynamicParams[key]);
+                    }
+                  }
+                  return query;
+                };
+                const ChannelAuthorizer = (authOptions) => {
+                  if (typeof runtime.getAuthorizers()[authOptions.transport] === "undefined") {
+                    throw `'${authOptions.transport}' is not a recognized auth transport`;
+                  }
+                  return (params, callback) => {
+                    const query = channel_authorizer_composeChannelQuery(params, authOptions);
+                    runtime.getAuthorizers()[authOptions.transport](runtime, query, authOptions, AuthRequestType.ChannelAuthorization, callback);
+                  };
+                };
+                const channel_authorizer = ChannelAuthorizer;
+                ;
+                const ChannelAuthorizerProxy = (pusher2, authOptions, channelAuthorizerGenerator) => {
+                  const deprecatedAuthorizerOptions = {
+                    authTransport: authOptions.transport,
+                    authEndpoint: authOptions.endpoint,
+                    auth: {
+                      params: authOptions.params,
+                      headers: authOptions.headers
+                    }
+                  };
+                  return (params, callback) => {
+                    const channel = pusher2.channel(params.channelName);
+                    const channelAuthorizer = channelAuthorizerGenerator(channel, deprecatedAuthorizerOptions);
+                    channelAuthorizer.authorize(params.socketId, callback);
+                  };
+                };
+                ;
+                function getConfig(opts, pusher2) {
+                  let config = {
+                    activityTimeout: opts.activityTimeout || defaults.activityTimeout,
+                    cluster: opts.cluster,
+                    httpPath: opts.httpPath || defaults.httpPath,
+                    httpPort: opts.httpPort || defaults.httpPort,
+                    httpsPort: opts.httpsPort || defaults.httpsPort,
+                    pongTimeout: opts.pongTimeout || defaults.pongTimeout,
+                    statsHost: opts.statsHost || defaults.stats_host,
+                    unavailableTimeout: opts.unavailableTimeout || defaults.unavailableTimeout,
+                    wsPath: opts.wsPath || defaults.wsPath,
+                    wsPort: opts.wsPort || defaults.wsPort,
+                    wssPort: opts.wssPort || defaults.wssPort,
+                    enableStats: getEnableStatsConfig(opts),
+                    httpHost: getHttpHost(opts),
+                    useTLS: shouldUseTLS(opts),
+                    wsHost: getWebsocketHost(opts),
+                    userAuthenticator: buildUserAuthenticator(opts),
+                    channelAuthorizer: buildChannelAuthorizer(opts, pusher2)
+                  };
+                  if ("disabledTransports" in opts)
+                    config.disabledTransports = opts.disabledTransports;
+                  if ("enabledTransports" in opts)
+                    config.enabledTransports = opts.enabledTransports;
+                  if ("ignoreNullOrigin" in opts)
+                    config.ignoreNullOrigin = opts.ignoreNullOrigin;
+                  if ("timelineParams" in opts)
+                    config.timelineParams = opts.timelineParams;
+                  if ("nacl" in opts) {
+                    config.nacl = opts.nacl;
+                  }
+                  return config;
+                }
+                function getHttpHost(opts) {
+                  if (opts.httpHost) {
+                    return opts.httpHost;
+                  }
+                  if (opts.cluster) {
+                    return `sockjs-${opts.cluster}.pusher.com`;
+                  }
+                  return defaults.httpHost;
+                }
+                function getWebsocketHost(opts) {
+                  if (opts.wsHost) {
+                    return opts.wsHost;
+                  }
+                  return getWebsocketHostFromCluster(opts.cluster);
+                }
+                function getWebsocketHostFromCluster(cluster) {
+                  return `ws-${cluster}.pusher.com`;
+                }
+                function shouldUseTLS(opts) {
+                  if (runtime.getProtocol() === "https:") {
+                    return true;
+                  } else if (opts.forceTLS === false) {
+                    return false;
+                  }
+                  return true;
+                }
+                function getEnableStatsConfig(opts) {
+                  if ("enableStats" in opts) {
+                    return opts.enableStats;
+                  }
+                  if ("disableStats" in opts) {
+                    return !opts.disableStats;
+                  }
+                  return false;
+                }
+                const hasCustomHandler = (auth) => {
+                  return "customHandler" in auth && auth["customHandler"] != null;
+                };
+                function buildUserAuthenticator(opts) {
+                  const userAuthentication = Object.assign(Object.assign({}, defaults.userAuthentication), opts.userAuthentication);
+                  if (hasCustomHandler(userAuthentication)) {
+                    return userAuthentication["customHandler"];
+                  }
+                  return user_authenticator(userAuthentication);
+                }
+                function buildChannelAuth(opts, pusher2) {
+                  let channelAuthorization;
+                  if ("channelAuthorization" in opts) {
+                    channelAuthorization = Object.assign(Object.assign({}, defaults.channelAuthorization), opts.channelAuthorization);
+                  } else {
+                    channelAuthorization = {
+                      transport: opts.authTransport || defaults.authTransport,
+                      endpoint: opts.authEndpoint || defaults.authEndpoint
+                    };
+                    if ("auth" in opts) {
+                      if ("params" in opts.auth)
+                        channelAuthorization.params = opts.auth.params;
+                      if ("headers" in opts.auth)
+                        channelAuthorization.headers = opts.auth.headers;
+                    }
+                    if ("authorizer" in opts) {
+                      channelAuthorization.customHandler = ChannelAuthorizerProxy(pusher2, channelAuthorization, opts.authorizer);
+                    }
+                  }
+                  return channelAuthorization;
+                }
+                function buildChannelAuthorizer(opts, pusher2) {
+                  const channelAuthorization = buildChannelAuth(opts, pusher2);
+                  if (hasCustomHandler(channelAuthorization)) {
+                    return channelAuthorization["customHandler"];
+                  }
+                  return channel_authorizer(channelAuthorization);
+                }
+                ;
+                class WatchlistFacade extends Dispatcher {
+                  constructor(pusher2) {
+                    super(function(eventName, data) {
+                      logger.debug(`No callbacks on watchlist events for ${eventName}`);
+                    });
+                    this.pusher = pusher2;
+                    this.bindWatchlistInternalEvent();
+                  }
+                  handleEvent(pusherEvent) {
+                    pusherEvent.data.events.forEach((watchlistEvent) => {
+                      this.emit(watchlistEvent.name, watchlistEvent);
+                    });
+                  }
+                  bindWatchlistInternalEvent() {
+                    this.pusher.connection.bind("message", (pusherEvent) => {
+                      var eventName = pusherEvent.event;
+                      if (eventName === "pusher_internal:watchlist_events") {
+                        this.handleEvent(pusherEvent);
+                      }
+                    });
+                  }
+                }
+                ;
+                function flatPromise() {
+                  let resolve, reject;
+                  const promise = new Promise((res, rej) => {
+                    resolve = res;
+                    reject = rej;
+                  });
+                  return { promise, resolve, reject };
+                }
+                const flat_promise = flatPromise;
+                ;
+                class UserFacade extends Dispatcher {
+                  constructor(pusher2) {
+                    super(function(eventName, data) {
+                      logger.debug("No callbacks on user for " + eventName);
+                    });
+                    this.signin_requested = false;
+                    this.user_data = null;
+                    this.serverToUserChannel = null;
+                    this.signinDonePromise = null;
+                    this._signinDoneResolve = null;
+                    this._onAuthorize = (err, authData) => {
+                      if (err) {
+                        logger.warn(`Error during signin: ${err}`);
+                        this.emit("pusher:signin_error", Object.assign({}, {
+                          type: "AuthError",
+                          error: err.message
+                        }, err instanceof HTTPAuthError ? { status: err.status } : {}));
+                        this._cleanup();
+                        return;
+                      }
+                      this.pusher.send_event("pusher:signin", {
+                        auth: authData.auth,
+                        user_data: authData.user_data
+                      });
+                    };
+                    this.pusher = pusher2;
+                    this.pusher.connection.bind("state_change", ({ previous, current }) => {
+                      if (previous !== "connected" && current === "connected") {
+                        this._signin();
+                      }
+                      if (previous === "connected" && current !== "connected") {
+                        this._cleanup();
+                        this._newSigninPromiseIfNeeded();
+                      }
+                    });
+                    this.watchlist = new WatchlistFacade(pusher2);
+                    this.pusher.connection.bind("message", (event) => {
+                      var eventName = event.event;
+                      if (eventName === "pusher:signin_success") {
+                        this._onSigninSuccess(event.data);
+                      }
+                      if (this.serverToUserChannel && this.serverToUserChannel.name === event.channel) {
+                        this.serverToUserChannel.handleEvent(event);
+                      }
+                    });
+                  }
+                  signin() {
+                    if (this.signin_requested) {
+                      return;
+                    }
+                    this.signin_requested = true;
+                    this._signin();
+                  }
+                  _signin() {
+                    if (!this.signin_requested) {
+                      return;
+                    }
+                    this._newSigninPromiseIfNeeded();
+                    if (this.pusher.connection.state !== "connected") {
+                      return;
+                    }
+                    this.pusher.config.userAuthenticator({
+                      socketId: this.pusher.connection.socket_id
+                    }, this._onAuthorize);
+                  }
+                  _onSigninSuccess(data) {
+                    try {
+                      this.user_data = JSON.parse(data.user_data);
+                    } catch (e3) {
+                      logger.error(`Failed parsing user data after signin: ${data.user_data}`);
+                      this._cleanup();
+                      return;
+                    }
+                    if (typeof this.user_data.id !== "string" || this.user_data.id === "") {
+                      logger.error(`user_data doesn't contain an id. user_data: ${this.user_data}`);
+                      this._cleanup();
+                      return;
+                    }
+                    this._signinDoneResolve();
+                    this._subscribeChannels();
+                  }
+                  _subscribeChannels() {
+                    const ensure_subscribed = (channel) => {
+                      if (channel.subscriptionPending && channel.subscriptionCancelled) {
+                        channel.reinstateSubscription();
+                      } else if (!channel.subscriptionPending && this.pusher.connection.state === "connected") {
+                        channel.subscribe();
+                      }
+                    };
+                    this.serverToUserChannel = new Channel(`#server-to-user-${this.user_data.id}`, this.pusher);
+                    this.serverToUserChannel.bind_global((eventName, data) => {
+                      if (eventName.indexOf("pusher_internal:") === 0 || eventName.indexOf("pusher:") === 0) {
+                        return;
+                      }
+                      this.emit(eventName, data);
+                    });
+                    ensure_subscribed(this.serverToUserChannel);
+                  }
+                  _cleanup() {
+                    this.user_data = null;
+                    if (this.serverToUserChannel) {
+                      this.serverToUserChannel.unbind_all();
+                      this.serverToUserChannel.disconnect();
+                      this.serverToUserChannel = null;
+                    }
+                    if (this.signin_requested) {
+                      this._signinDoneResolve();
+                    }
+                  }
+                  _newSigninPromiseIfNeeded() {
+                    if (!this.signin_requested) {
+                      return;
+                    }
+                    if (this.signinDonePromise && !this.signinDonePromise.done) {
+                      return;
+                    }
+                    const { promise, resolve, reject: _2 } = flat_promise();
+                    promise.done = false;
+                    const setDone = () => {
+                      promise.done = true;
+                    };
+                    promise.then(setDone).catch(setDone);
+                    this.signinDonePromise = promise;
+                    this._signinDoneResolve = resolve;
+                  }
+                }
+                ;
+                class Pusher2 {
+                  static ready() {
+                    Pusher2.isReady = true;
+                    for (var i3 = 0, l3 = Pusher2.instances.length; i3 < l3; i3++) {
+                      Pusher2.instances[i3].connect();
+                    }
+                  }
+                  static getClientFeatures() {
+                    return keys(filterObject({ ws: runtime.Transports.ws }, function(t2) {
+                      return t2.isSupported({});
+                    }));
+                  }
+                  constructor(app_key, options) {
+                    checkAppKey(app_key);
+                    validateOptions(options);
+                    this.key = app_key;
+                    this.options = options;
+                    this.config = getConfig(this.options, this);
+                    this.channels = factory.createChannels();
+                    this.global_emitter = new Dispatcher();
+                    this.sessionID = runtime.randomInt(1e9);
+                    this.timeline = new Timeline(this.key, this.sessionID, {
+                      cluster: this.config.cluster,
+                      features: Pusher2.getClientFeatures(),
+                      params: this.config.timelineParams || {},
+                      limit: 50,
+                      level: level.INFO,
+                      version: defaults.VERSION
+                    });
+                    if (this.config.enableStats) {
+                      this.timelineSender = factory.createTimelineSender(this.timeline, {
+                        host: this.config.statsHost,
+                        path: "/timeline/v2/" + runtime.TimelineTransport.name
+                      });
+                    }
+                    var getStrategy = (options2) => {
+                      return runtime.getDefaultStrategy(this.config, options2, defineTransport);
+                    };
+                    this.connection = factory.createConnectionManager(this.key, {
+                      getStrategy,
+                      timeline: this.timeline,
+                      activityTimeout: this.config.activityTimeout,
+                      pongTimeout: this.config.pongTimeout,
+                      unavailableTimeout: this.config.unavailableTimeout,
+                      useTLS: Boolean(this.config.useTLS)
+                    });
+                    this.connection.bind("connected", () => {
+                      this.subscribeAll();
+                      if (this.timelineSender) {
+                        this.timelineSender.send(this.connection.isUsingTLS());
+                      }
+                    });
+                    this.connection.bind("message", (event) => {
+                      var eventName = event.event;
+                      var internal = eventName.indexOf("pusher_internal:") === 0;
+                      if (event.channel) {
+                        var channel = this.channel(event.channel);
+                        if (channel) {
+                          channel.handleEvent(event);
+                        }
+                      }
+                      if (!internal) {
+                        this.global_emitter.emit(event.event, event.data);
+                      }
+                    });
+                    this.connection.bind("connecting", () => {
+                      this.channels.disconnect();
+                    });
+                    this.connection.bind("disconnected", () => {
+                      this.channels.disconnect();
+                    });
+                    this.connection.bind("error", (err) => {
+                      logger.warn(err);
+                    });
+                    Pusher2.instances.push(this);
+                    this.timeline.info({ instances: Pusher2.instances.length });
+                    this.user = new UserFacade(this);
+                    if (Pusher2.isReady) {
+                      this.connect();
+                    }
+                  }
+                  switchCluster(options) {
+                    const { appKey, cluster } = options;
+                    this.key = appKey;
+                    this.options = Object.assign(Object.assign({}, this.options), { cluster });
+                    this.config = getConfig(this.options, this);
+                    this.connection.switchCluster(this.key);
+                  }
+                  channel(name) {
+                    return this.channels.find(name);
+                  }
+                  allChannels() {
+                    return this.channels.all();
+                  }
+                  connect() {
+                    this.connection.connect();
+                    if (this.timelineSender) {
+                      if (!this.timelineSenderTimer) {
+                        var usingTLS = this.connection.isUsingTLS();
+                        var timelineSender = this.timelineSender;
+                        this.timelineSenderTimer = new PeriodicTimer(6e4, function() {
+                          timelineSender.send(usingTLS);
+                        });
+                      }
+                    }
+                  }
+                  disconnect() {
+                    this.connection.disconnect();
+                    if (this.timelineSenderTimer) {
+                      this.timelineSenderTimer.ensureAborted();
+                      this.timelineSenderTimer = null;
+                    }
+                  }
+                  bind(event_name, callback, context) {
+                    this.global_emitter.bind(event_name, callback, context);
+                    return this;
+                  }
+                  unbind(event_name, callback, context) {
+                    this.global_emitter.unbind(event_name, callback, context);
+                    return this;
+                  }
+                  bind_global(callback) {
+                    this.global_emitter.bind_global(callback);
+                    return this;
+                  }
+                  unbind_global(callback) {
+                    this.global_emitter.unbind_global(callback);
+                    return this;
+                  }
+                  unbind_all(callback) {
+                    this.global_emitter.unbind_all();
+                    return this;
+                  }
+                  subscribeAll() {
+                    var channelName;
+                    for (channelName in this.channels.channels) {
+                      if (this.channels.channels.hasOwnProperty(channelName)) {
+                        this.subscribe(channelName);
+                      }
+                    }
+                  }
+                  subscribe(channel_name) {
+                    var channel = this.channels.add(channel_name, this);
+                    if (channel.subscriptionPending && channel.subscriptionCancelled) {
+                      channel.reinstateSubscription();
+                    } else if (!channel.subscriptionPending && this.connection.state === "connected") {
+                      channel.subscribe();
+                    }
+                    return channel;
+                  }
+                  unsubscribe(channel_name) {
+                    var channel = this.channels.find(channel_name);
+                    if (channel && channel.subscriptionPending) {
+                      channel.cancelSubscription();
+                    } else {
+                      channel = this.channels.remove(channel_name);
+                      if (channel && channel.subscribed) {
+                        channel.unsubscribe();
+                      }
+                    }
+                  }
+                  send_event(event_name, data, channel) {
+                    return this.connection.send_event(event_name, data, channel);
+                  }
+                  shouldUseTLS() {
+                    return this.config.useTLS;
+                  }
+                  signin() {
+                    this.user.signin();
+                  }
+                }
+                Pusher2.instances = [];
+                Pusher2.isReady = false;
+                Pusher2.logToConsole = false;
+                Pusher2.Runtime = runtime;
+                Pusher2.ScriptReceivers = runtime.ScriptReceivers;
+                Pusher2.DependenciesReceivers = runtime.DependenciesReceivers;
+                Pusher2.auth_callbacks = runtime.auth_callbacks;
+                const pusher = Pusher2;
+                function checkAppKey(key) {
+                  if (key === null || key === void 0) {
+                    throw "You must pass your app key when you instantiate Pusher.";
+                  }
+                }
+                runtime.setup(Pusher2);
+              }
+              /******/
+            };
+            var __webpack_module_cache__ = {};
+            function __webpack_require__(moduleId) {
+              var cachedModule = __webpack_module_cache__[moduleId];
+              if (cachedModule !== void 0) {
+                return cachedModule.exports;
+              }
+              var module2 = __webpack_module_cache__[moduleId] = {
+                /******/
+                // no module.id needed
+                /******/
+                // no module.loaded needed
+                /******/
+                exports: {}
+                /******/
+              };
+              __webpack_modules__[moduleId].call(module2.exports, module2, module2.exports, __webpack_require__);
+              return module2.exports;
+            }
+            (() => {
+              __webpack_require__.d = (exports2, definition) => {
+                for (var key in definition) {
+                  if (__webpack_require__.o(definition, key) && !__webpack_require__.o(exports2, key)) {
+                    Object.defineProperty(exports2, key, { enumerable: true, get: definition[key] });
+                  }
+                }
+              };
+            })();
+            (() => {
+              __webpack_require__.o = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
+            })();
+            var __webpack_exports__ = __webpack_require__(721);
+            return __webpack_exports__;
+          })()
+        );
+      });
+    }
+  });
+
+  // ../../../Users/Interplus/AppData/Local/Temp/chat-echo-build/node_modules/laravel-echo/dist/echo.js
+  var e = class {
+    constructor() {
+      this.notificationCreatedEvent = ".Illuminate\\Notifications\\Events\\BroadcastNotificationCreated";
+    }
+    listenForWhisper(e3, t2) {
+      return this.listen(".client-" + e3, t2);
+    }
+    notification(e3) {
+      return this.listen(this.notificationCreatedEvent, e3);
+    }
+    stopListeningForNotification(e3) {
+      return this.stopListening(this.notificationCreatedEvent, e3);
+    }
+    stopListeningForWhisper(e3, t2) {
+      return this.stopListening(".client-" + e3, t2);
+    }
+  };
+  var t = class {
+    constructor(e3) {
+      this.namespace = e3;
+    }
+    format(e3) {
+      return [".", "\\"].includes(e3.charAt(0)) ? e3.substring(1) : (this.namespace && (e3 = this.namespace + "." + e3), e3.replace(/\./g, "\\"));
+    }
+    setNamespace(e3) {
+      this.namespace = e3;
+    }
+  };
+  function n(e3) {
+    try {
+      return Reflect.construct(String, [], e3), true;
+    } catch {
+      return false;
+    }
+  }
+  var r = class extends e {
+    constructor(e3, n2, r2) {
+      super(), this.listeners = /* @__PURE__ */ new Map(), this.subscribedCallbacks = [], this.errorCallbacks = [], this.name = e3, this.options = n2, this.whisperer = r2, this.eventFormatter = new t(this.options.namespace);
+    }
+    listen(e3, t2) {
+      let n2 = this.eventFormatter.format(e3);
+      return this.listeners.set(n2, [...this.listeners.get(n2) ?? [], t2]), this;
+    }
+    stopListening(e3, t2) {
+      let n2 = this.eventFormatter.format(e3);
+      if (!t2) this.listeners.delete(n2);
+      else {
+        let e4 = (this.listeners.get(n2) ?? []).filter((e5) => e5 !== t2);
+        e4.length === 0 ? this.listeners.delete(n2) : this.listeners.set(n2, e4);
+      }
+      return this;
+    }
+    subscribed(e3) {
+      return this.subscribedCallbacks.push(e3), this;
+    }
+    error(e3) {
+      return this.errorCallbacks.push(e3), this;
+    }
+    whisper(e3, t2) {
+      throw Error("Public Mercure channels do not support whisper(): use a private or presence channel, whose members are granted a whisper topic.");
+    }
+    listenForWhisper(e3, t2) {
+      return console.warn(`listenForWhisper("${e3}"): public Mercure channels cannot receive whispers, so this listener will never fire.`), super.listenForWhisper(e3, t2);
+    }
+    dispatch(e3, t2) {
+      (this.listeners.get(e3) ?? []).forEach((e4) => e4(t2));
+    }
+    notifySubscribed() {
+      this.subscribedCallbacks.forEach((e3) => e3());
+    }
+    notifyError(e3) {
+      this.errorCallbacks.forEach((t2) => t2(e3));
+    }
+  };
+  var i = class extends r {
+    whisper(e3, t2) {
+      if (!this.whisperer) throw Error(`whisper("${e3}"): this channel was constructed without a connector to publish through.`);
+      return this.whisperer.whisper(this.name, e3, t2), this;
+    }
+    listenForWhisper(e3, t2) {
+      return this.whisperer?.listenForWhispers(this.name), this.listen(".client-" + e3, t2);
+    }
+  };
+  var a = class extends i {
+  };
+  var o = class extends i {
+    constructor(...e3) {
+      super(...e3), this.hereCallbacks = [], this.joiningCallbacks = [], this.leavingCallbacks = [], this.members = /* @__PURE__ */ new Map(), this.memberCounts = /* @__PURE__ */ new Map(), this.seeded = false;
+    }
+    here(e3) {
+      return this.hereCallbacks.push(e3), this.seeded && this.invoke(e3, this.uniqueMembers()), this;
+    }
+    joining(e3) {
+      return this.joiningCallbacks.push(e3), this;
+    }
+    leaving(e3) {
+      return this.leavingCallbacks.push(e3), this;
+    }
+    setInitialMembers(e3) {
+      this.members = new Map(e3.map(([e4, t2]) => [e4, s(t2)])), this.memberCounts = /* @__PURE__ */ new Map();
+      for (let e4 of this.members.values()) this.memberCounts.set(e4.key, (this.memberCounts.get(e4.key) ?? 0) + 1);
+      this.seeded = true, this.hereCallbacks.forEach((e4) => this.invoke(e4, this.uniqueMembers()));
+    }
+    applySubscriptionEvent(e3, t2, n2) {
+      if (t2) {
+        if (this.members.has(e3)) return;
+        let t3 = s(n2 ?? {}), r2 = (this.memberCounts.get(t3.key) ?? 0) + 1;
+        this.members.set(e3, t3), this.memberCounts.set(t3.key, r2), r2 === 1 && this.joiningCallbacks.forEach((e4) => this.invoke(e4, t3.info));
+      } else {
+        let t3 = this.members.get(e3);
+        if (!t3) return;
+        let n3 = (this.memberCounts.get(t3.key) ?? 1) - 1;
+        this.members.delete(e3), n3 <= 0 ? (this.memberCounts.delete(t3.key), this.leavingCallbacks.forEach((e4) => this.invoke(e4, t3.info))) : this.memberCounts.set(t3.key, n3);
+      }
+    }
+    uniqueMembers() {
+      let e3 = /* @__PURE__ */ new Set(), t2 = [];
+      for (let n2 of this.members.values()) e3.has(n2.key) || (e3.add(n2.key), t2.push(n2.info));
+      return t2;
+    }
+    invoke(e3, t2) {
+      try {
+        e3(t2);
+      } catch (e4) {
+        console.error(`A "${this.name}" presence callback threw:`, e4);
+      }
+    }
+  };
+  function s(e3) {
+    if (typeof e3 == "object" && e3 && "user_id" in e3 && typeof e3.user_id == "string") {
+      let t2 = e3;
+      return {
+        key: "user:" + t2.user_id,
+        info: t2.user_info
+      };
+    }
+    return {
+      key: "payload:" + (JSON.stringify(e3) ?? "undefined"),
+      info: e3
+    };
+  }
+  var c = class extends e {
+    constructor(e3, n2, r2) {
+      super(), this.name = n2, this.pusher = e3, this.options = r2, this.eventFormatter = new t(this.options.namespace), this.subscribe();
+    }
+    subscribe() {
+      this.subscription = this.pusher.subscribe(this.name);
+    }
+    unsubscribe() {
+      this.pusher.unsubscribe(this.name);
+    }
+    listen(e3, t2) {
+      return this.on(this.eventFormatter.format(e3), t2), this;
+    }
+    listenToAll(e3) {
+      return this.subscription.bind_global((t2, n2) => {
+        if (t2.startsWith("pusher:")) return;
+        let r2 = String(this.options.namespace ?? "").replace(/\./g, "\\");
+        e3(t2.startsWith(r2) ? t2.substring(r2.length + 1) : "." + t2, n2);
+      }), this;
+    }
+    stopListening(e3, t2) {
+      return t2 ? this.subscription.unbind(this.eventFormatter.format(e3), t2) : this.subscription.unbind(this.eventFormatter.format(e3)), this;
+    }
+    stopListeningToAll(e3) {
+      return e3 ? this.subscription.unbind_global(e3) : this.subscription.unbind_global(), this;
+    }
+    subscribed(e3) {
+      return this.on("pusher:subscription_succeeded", () => {
+        e3();
+      }), this;
+    }
+    error(e3) {
+      return this.on("pusher:subscription_error", (t2) => {
+        e3(t2);
+      }), this;
+    }
+    on(e3, t2) {
+      return this.subscription.bind(e3, t2), this;
+    }
+  };
+  var l = class extends c {
+    whisper(e3, t2) {
+      return this.pusher.channels.channels[this.name].trigger(`client-${e3}`, t2), this;
+    }
+  };
+  var u = class extends c {
+    whisper(e3, t2) {
+      return this.pusher.channels.channels[this.name].trigger(`client-${e3}`, t2), this;
+    }
+  };
+  var d = class extends l {
+    here(e3) {
+      return this.on("pusher:subscription_succeeded", (t2) => {
+        e3(Object.keys(t2.members).map((e4) => t2.members[e4]));
+      }), this;
+    }
+    joining(e3) {
+      return this.on("pusher:member_added", (t2) => {
+        e3(t2.info);
+      }), this;
+    }
+    whisper(e3, t2) {
+      return this.pusher.channels.channels[this.name].trigger(`client-${e3}`, t2), this;
+    }
+    leaving(e3) {
+      return this.on("pusher:member_removed", (t2) => {
+        e3(t2.info);
+      }), this;
+    }
+  };
+  var f = class extends e {
+    constructor(e3, n2, r2) {
+      super(), this.events = {}, this.listeners = {}, this.name = n2, this.socket = e3, this.options = r2, this.eventFormatter = new t(this.options.namespace), this.subscribe();
+    }
+    subscribe() {
+      this.socket.emit("subscribe", {
+        channel: this.name,
+        auth: this.options.auth || {}
+      });
+    }
+    unsubscribe() {
+      this.unbind(), this.socket.emit("unsubscribe", {
+        channel: this.name,
+        auth: this.options.auth || {}
+      });
+    }
+    listen(e3, t2) {
+      return this.on(this.eventFormatter.format(e3), t2), this;
+    }
+    stopListening(e3, t2) {
+      return this.unbindEvent(this.eventFormatter.format(e3), t2), this;
+    }
+    subscribed(e3) {
+      return this.on("connect", (t2) => {
+        e3(t2);
+      }), this;
+    }
+    error(e3) {
+      return this;
+    }
+    on(e3, t2) {
+      return this.listeners[e3] = this.listeners[e3] || [], this.events[e3] || (this.events[e3] = (t3, n2) => {
+        this.name === t3 && this.listeners[e3] && this.listeners[e3].forEach((e4) => e4(n2));
+      }, this.socket.on(e3, this.events[e3])), this.listeners[e3].push(t2), this;
+    }
+    unbind() {
+      Object.keys(this.events).forEach((e3) => {
+        this.unbindEvent(e3);
+      });
+    }
+    unbindEvent(e3, t2) {
+      this.listeners[e3] = this.listeners[e3] || [], t2 && (this.listeners[e3] = this.listeners[e3].filter((e4) => e4 !== t2)), t2 && this.listeners[e3].length !== 0 || (this.events[e3] && (this.socket.removeListener(e3, this.events[e3]), delete this.events[e3]), delete this.listeners[e3]);
+    }
+  };
+  var p = class extends f {
+    whisper(e3, t2) {
+      return this.socket.emit("client event", {
+        channel: this.name,
+        event: `client-${e3}`,
+        data: t2
+      }), this;
+    }
+  };
+  var m = class extends p {
+    here(e3) {
+      return this.on("presence:subscribed", (t2) => {
+        e3(t2.map((e4) => e4.user_info));
+      }), this;
+    }
+    joining(e3) {
+      return this.on("presence:joining", (t2) => e3(t2.user_info)), this;
+    }
+    whisper(e3, t2) {
+      return this.socket.emit("client event", {
+        channel: this.name,
+        event: `client-${e3}`,
+        data: t2
+      }), this;
+    }
+    leaving(e3) {
+      return this.on("presence:leaving", (t2) => e3(t2.user_info)), this;
+    }
+  };
+  var h = class extends e {
+    subscribe() {
+    }
+    unsubscribe() {
+    }
+    listen(e3, t2) {
+      return this;
+    }
+    listenToAll(e3) {
+      return this;
+    }
+    stopListening(e3, t2) {
+      return this;
+    }
+    subscribed(e3) {
+      return this;
+    }
+    error(e3) {
+      return this;
+    }
+    on(e3, t2) {
+      return this;
+    }
+  };
+  var g = class extends h {
+    whisper(e3, t2) {
+      return this;
+    }
+  };
+  var _ = class extends h {
+    whisper(e3, t2) {
+      return this;
+    }
+  };
+  var v = class extends g {
+    here(e3) {
+      return this;
+    }
+    joining(e3) {
+      return this;
+    }
+    whisper(e3, t2) {
+      return this;
+    }
+    leaving(e3) {
+      return this;
+    }
+  };
+  var y = class e2 {
+    static {
+      this._defaultOptions = {
+        auth: { headers: {} },
+        authEndpoint: "/broadcasting/auth",
+        userAuthentication: {
+          endpoint: "/broadcasting/user-auth",
+          headers: {}
+        },
+        csrfToken: null,
+        bearerToken: null,
+        host: null,
+        key: null,
+        namespace: "App.Events"
+      };
+    }
+    constructor(e3) {
+      this.setOptions(e3), this.connect();
+    }
+    setOptions(t2) {
+      this.options = {
+        ...e2._defaultOptions,
+        ...t2,
+        broadcaster: t2.broadcaster
+      };
+      let n2 = this.csrfToken();
+      n2 && (this.options.auth.headers["X-CSRF-TOKEN"] = n2, this.options.userAuthentication.headers["X-CSRF-TOKEN"] = n2), n2 = this.options.bearerToken, n2 && (this.options.auth.headers.Authorization = "Bearer " + n2, this.options.userAuthentication.headers.Authorization = "Bearer " + n2);
+    }
+    csrfToken() {
+      return typeof window < "u" && window.Laravel?.csrfToken ? window.Laravel.csrfToken : this.options.csrfToken ? this.options.csrfToken : typeof document < "u" && typeof document.querySelector == "function" ? document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ?? null : null;
+    }
+  };
+  var b = "/.well-known/mercure";
+  var x = 3e4;
+  var S = 100;
+  var C = "mercure";
+  var w = "private-encrypted-";
+  var T = "client-";
+  var E = class extends y {
+    constructor(...e3) {
+      super(...e3), this.channels = /* @__PURE__ */ Object.create(null), this.eventSource = null, this.lastEventId = "", this.whisperEventSources = /* @__PURE__ */ new Map(), this.whisperLastEventIds = /* @__PURE__ */ new Map(), this.whisperListening = /* @__PURE__ */ new Set(), this.clientEventsEnabled = false, this.topicPrefix = "", this.whisperQueue = Promise.resolve(), this.id = I(), this.status = "disconnected", this.statusListeners = [], this.refreshing = false, this.refreshPending = false, this.authorizedChannels = /* @__PURE__ */ new Set(), this.subscribedNotified = /* @__PURE__ */ new Set(), this.seededPresenceChannels = /* @__PURE__ */ new Set(), this.pendingSubscriptionEvents = /* @__PURE__ */ new Map(), this.channelJwks = /* @__PURE__ */ new Map(), this.importedKeys = /* @__PURE__ */ new Map(), this.dispatchQueue = Promise.resolve(), this.epoch = 0, this.reconnectDelay = 1e3, this.reconnectTimer = null, this.tokenTtl = null, this.lastAuthAt = 0, this.tokenRefreshTimer = null;
+    }
+    connect() {
+      let e3 = typeof window < "u";
+      if (this.options.host == null && !e3) throw Error('Mercure connector: the "host" option (the hub URL) is required outside a browser.');
+      try {
+        this.url = new URL(this.options.host ?? b, e3 ? window.location.origin : void 0);
+      } catch {
+        throw Error(`Mercure connector: the "host" option ("${String(this.options.host)}") is not a valid hub URL.`);
+      }
+    }
+    eventSourceClass() {
+      let e3 = this.options.eventSource ?? globalThis.EventSource;
+      if (e3 === void 0) throw Error('Mercure connector: EventSource is not available globally; pass an implementation via the "eventSource" option.');
+      return e3;
+    }
+    subscriptionsPath() {
+      return `${this.url.pathname.replace(/\/$/, "")}/subscriptions`;
+    }
+    channelTopic(e3) {
+      return this.topicPrefix === "" ? e3 : `${this.topicPrefix}channel/${F(e3)}`;
+    }
+    whisperTopic(e3) {
+      return `${this.topicPrefix}whisper/${F(e3)}`;
+    }
+    channelNameFromTopic(e3) {
+      if (this.topicPrefix === "") return e3;
+      let t2 = `${this.topicPrefix}channel/`;
+      if (!e3.startsWith(t2)) return null;
+      try {
+        return decodeURIComponent(e3.slice(t2.length));
+      } catch {
+        return null;
+      }
+    }
+    listen(e3, t2, n2) {
+      return this.channel(e3).listen(t2, n2);
+    }
+    channel(e3) {
+      return this.channels[e3] || (this.channels[e3] = new r(e3, this.options, this), this.refresh()), this.channels[e3];
+    }
+    privateChannel(e3) {
+      let t2 = "private-" + e3;
+      return this.channels[t2] || (this.channels[t2] = new i(t2, this.options, this), this.refresh()), this.channels[t2];
+    }
+    encryptedPrivateChannel(e3) {
+      let t2 = w + e3;
+      return this.channels[t2] || (this.channels[t2] = new a(t2, this.options, this), this.refresh()), this.channels[t2];
+    }
+    presenceChannel(e3) {
+      let t2 = "presence-" + e3;
+      return this.channels[t2] || (this.channels[t2] = new o(t2, this.options, this), this.refresh()), this.channels[t2];
+    }
+    leave(e3) {
+      [
+        "",
+        "private-",
+        w,
+        "presence-"
+      ].forEach((t2) => this.leaveChannel(t2 + e3));
+    }
+    leaveChannel(e3) {
+      this.channels[e3] && (delete this.channels[e3], this.forgetChannelState(e3), this.refresh());
+    }
+    socketId() {
+      return this.id;
+    }
+    whisper(e3, t2, n2) {
+      let r2 = this.channels[e3];
+      r2 && (this.clientEventsEnabled ? this.whisperQueue = this.whisperQueue.then(() => this.publishWhisper(e3, T + t2, n2).catch((t3) => {
+        this.channels[e3]?.notifyError(t3);
+      })) : r2.notifyError(/* @__PURE__ */ Error(`whisper("${t2}"): the server did not grant client events; enable the "client_events" option of the Mercure broadcasting connection.`)));
+    }
+    listenForWhispers(e3) {
+      !this.whisperListening.has(e3) && this.channels[e3] && (this.whisperListening.add(e3), this.syncWhisperEventSources());
+    }
+    async publishWhisper(e3, t2, n2) {
+      let r2;
+      r2 = e3.startsWith(w) ? JSON.stringify({
+        channels: [e3],
+        data: await this.encrypt(e3, JSON.stringify({
+          event: t2,
+          payload: n2,
+          socket: this.id
+        }))
+      }) : JSON.stringify({
+        channels: [e3],
+        event: t2,
+        payload: n2,
+        socket: this.id
+      });
+      let i2 = () => fetch(`${this.url.origin}${this.url.pathname}`, {
+        method: "POST",
+        credentials: "include",
+        body: new URLSearchParams({
+          topic: this.whisperTopic(e3),
+          data: r2,
+          private: "on"
+        })
+      }), a2 = await i2();
+      if (a2.status === 401 && this.channels[e3]) {
+        let t3 = await this.authenticate(Object.keys(this.channels));
+        t3.ok && (t3.denied.length > 0 && (this.evict(t3.denied, /* @__PURE__ */ Error(`The broadcasting auth request denied access to [${t3.denied.join(", ")}].`)), this.refresh()), this.channels[e3] && (a2 = await i2()));
+      }
+      if (!a2.ok) throw Error(`The whisper publish on "${e3}" failed with HTTP ${a2.status}.`);
+    }
+    connectionStatus() {
+      return this.status;
+    }
+    onConnectionChange(e3) {
+      return this.statusListeners.push(e3), () => {
+        this.statusListeners = this.statusListeners.filter((t2) => t2 !== e3);
+      };
+    }
+    disconnect() {
+      this.epoch++, this.channels = /* @__PURE__ */ Object.create(null), this.authorizedChannels.clear(), this.subscribedNotified.clear(), this.seededPresenceChannels.clear(), this.pendingSubscriptionEvents.clear(), this.channelJwks.clear(), this.importedKeys.clear(), this.lastEventId = "", this.whisperLastEventIds.clear(), this.whisperListening.clear(), this.clientEventsEnabled = false, this.topicPrefix = "", this.reconnectTimer &&= (clearTimeout(this.reconnectTimer), null), this.reconnectDelay = 1e3, this.tokenRefreshTimer &&= (clearTimeout(this.tokenRefreshTimer), null), this.eventSource?.close(), this.eventSource = null, this.closeWhisperEventSources(), this.setStatus("disconnected");
+    }
+    setStatus(e3) {
+      this.status = e3, this.statusListeners.forEach((t2) => t2(e3));
+    }
+    forgetChannelState(e3) {
+      this.authorizedChannels.delete(e3), this.subscribedNotified.delete(e3), this.seededPresenceChannels.delete(e3), this.pendingSubscriptionEvents.delete(e3), this.channelJwks.delete(e3), this.importedKeys.delete(e3), this.whisperEventSources.get(e3)?.close(), this.whisperEventSources.delete(e3), this.whisperLastEventIds.delete(e3), this.whisperListening.delete(e3);
+    }
+    evict(e3, t2) {
+      e3.forEach((e4) => {
+        let n2 = this.channels[e4];
+        n2 && (delete this.channels[e4], this.forgetChannelState(e4), n2.notifyError(t2));
+      });
+    }
+    notifyAllError(e3) {
+      Object.values(this.channels).forEach((t2) => t2.notifyError(e3));
+    }
+    guardedChannelNames() {
+      return Object.keys(this.channels).filter((e3) => e3.startsWith("private-") || e3.startsWith("presence-"));
+    }
+    refresh() {
+      this.runExclusive(() => this.doRefresh());
+    }
+    runExclusive(e3) {
+      this.refreshing ? this.refreshPending = true : (this.refreshing = true, e3().catch((e4) => {
+        this.notifyAllError(e4), Object.keys(this.channels).length > 0 && (this.setStatus("reconnecting"), this.scheduleReconnect());
+      }).finally(() => {
+        this.refreshing = false, this.refreshPending && (this.refreshPending = false, this.refresh());
+      }));
+    }
+    scheduleTokenRefresh() {
+      if (this.tokenTtl === null) return;
+      this.tokenRefreshTimer && clearTimeout(this.tokenRefreshTimer);
+      let e3 = this.epoch;
+      this.tokenRefreshTimer = setTimeout(() => {
+        this.tokenRefreshTimer = null, e3 === this.epoch && Object.keys(this.channels).length !== 0 && (this.tokenTtl !== null && Date.now() - this.lastAuthAt >= this.tokenTtl * 1e3 ? this.refresh() : this.runExclusive(async () => {
+          let t2 = await this.authenticate(Object.keys(this.channels));
+          e3 === this.epoch && (t2.ok ? (t2.denied.length > 0 && (this.evict(t2.denied, /* @__PURE__ */ Error(`The broadcasting auth request denied access to [${t2.denied.join(", ")}].`)), this.refresh()), this.scheduleTokenRefresh()) : (this.notifyAllError(t2.error), this.scheduleReconnect()));
+        }));
+      }, Math.max(this.tokenTtl * 0.8 * 1e3, 5e3));
+    }
+    scheduleReconnect() {
+      if (this.reconnectTimer) return;
+      let e3 = this.epoch;
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null, e3 === this.epoch && Object.keys(this.channels).length !== 0 && this.refresh();
+      }, this.reconnectDelay), this.reconnectDelay = Math.min(this.reconnectDelay * 2, x);
+    }
+    async doRefresh() {
+      let e3 = this.epoch;
+      if (await Promise.resolve(), e3 !== this.epoch) return;
+      this.refreshPending = false;
+      let t2 = Object.keys(this.channels);
+      if (t2.length === 0) {
+        this.eventSource?.close(), this.eventSource = null, this.closeWhisperEventSources(), this.authorizedChannels.clear(), this.setStatus("disconnected");
+        return;
+      }
+      t2.length > S && (this.evict(t2.slice(S), /* @__PURE__ */ Error(`Mercure broadcasting authorizes at most ${S} channels per connection.`)), t2 = t2.slice(0, S)), this.eventSource || this.setStatus("connecting");
+      let n2 = await this.authenticate(t2);
+      if (e3 !== this.epoch) return;
+      if (!n2.ok) {
+        let e4 = t2.filter((e5) => !this.authorizedChannels.has(e5) && this.channels[e5]);
+        if (n2.rejected && e4.length > 0) {
+          this.evict(e4, /* @__PURE__ */ Error(`The broadcasting auth request was denied (HTTP ${String(n2.status)}) after joining [${e4.join(", ")}].`)), this.refreshPending = true;
+          return;
+        }
+        this.notifyAllError(n2.error), this.setStatus("reconnecting"), this.scheduleReconnect();
+        return;
+      }
+      if (this.reconnectTimer &&= (clearTimeout(this.reconnectTimer), null), n2.denied.length > 0 && (this.evict(n2.denied, /* @__PURE__ */ Error(`The broadcasting auth request denied access to [${n2.denied.join(", ")}].`)), t2 = t2.filter((e4) => this.channels[e4]), t2.length === 0)) {
+        this.eventSource?.close(), this.eventSource = null, this.closeWhisperEventSources(), this.authorizedChannels.clear(), this.setStatus("disconnected");
+        return;
+      }
+      this.authorizedChannels = new Set(t2), this.scheduleTokenRefresh(), t2.filter((e4) => this.channels[e4] instanceof o && !this.seededPresenceChannels.has(e4) && !this.pendingSubscriptionEvents.has(e4)).forEach((e4) => this.pendingSubscriptionEvents.set(e4, []));
+      let r2 = this.buildSubscribeUrl(t2.map((e4) => this.channelTopic(e4)), t2.filter((e4) => this.channels[e4] instanceof o).map((e4) => this.subscriptionEventsPattern(e4)), this.lastEventId), i2 = this.eventSourceClass();
+      this.eventSource?.close();
+      let a2 = new i2(r2.toString(), { withCredentials: true });
+      this.eventSource = a2, a2.onopen = () => {
+        this.eventSource === a2 && (this.reconnectDelay = 1e3, this.setStatus("connected"), t2.forEach((e4) => {
+          let t3 = this.channels[e4];
+          t3 && !this.subscribedNotified.has(e4) && (this.subscribedNotified.add(e4), t3.notifySubscribed());
+        }), this.seedPresenceChannels(e3));
+      }, a2.onerror = (e4) => {
+        this.eventSource === a2 && (this.notifyAllError(e4), this.setStatus("reconnecting"), a2.readyState === i2.CLOSED && (this.subscribedNotified.clear(), this.seededPresenceChannels.clear(), this.pendingSubscriptionEvents.clear(), this.scheduleReconnect()));
+      }, a2.onmessage = (e4) => {
+        this.eventSource === a2 && this.handleMessage(e4);
+      }, a2.addEventListener(C, (e4) => {
+        this.eventSource === a2 && this.handleSubscriptionEvent(e4);
+      }), this.syncWhisperEventSources();
+    }
+    buildSubscribeUrl(e3, t2, n2) {
+      let r2 = new URL(this.url);
+      return r2.search = "", e3.forEach((e4) => r2.searchParams.append("match", e4)), t2.forEach((e4) => r2.searchParams.append("match_urlpattern", e4)), n2 && r2.searchParams.set("last_event_id", n2), r2;
+    }
+    closeWhisperEventSources() {
+      this.whisperEventSources.forEach((e3) => e3.close()), this.whisperEventSources.clear();
+    }
+    syncWhisperEventSources() {
+      let e3 = this.eventSourceClass().CLOSED, t2 = new Set(this.clientEventsEnabled ? this.guardedChannelNames().filter((e4) => this.authorizedChannels.has(e4) && this.whisperListening.has(e4)) : []);
+      this.whisperEventSources.forEach((n2, r2) => {
+        t2.has(r2) && n2.readyState !== e3 || (n2.close(), this.whisperEventSources.delete(r2));
+      }), this.clientEventsEnabled ? t2.forEach((e4) => {
+        this.whisperEventSources.has(e4) || this.openWhisperEventSource(e4);
+      }) : this.whisperLastEventIds.clear();
+    }
+    openWhisperEventSource(e3) {
+      let t2 = this.eventSourceClass(), n2 = new t2(this.buildSubscribeUrl([this.whisperTopic(e3)], [], this.whisperLastEventIds.get(e3) ?? "").toString(), { withCredentials: true });
+      this.whisperEventSources.set(e3, n2), n2.onmessage = (t3) => {
+        this.whisperEventSources.get(e3) === n2 && (this.whisperLastEventIds.set(e3, t3.lastEventId), this.handleWhisperMessage(t3, e3));
+      }, n2.onerror = () => {
+        this.whisperEventSources.get(e3) === n2 && n2.readyState === t2.CLOSED && this.scheduleReconnect();
+      };
+    }
+    async seedPresenceChannels(e3) {
+      await Promise.all([...this.pendingSubscriptionEvents.keys()].map(async (t2) => {
+        let n2 = this.channels[t2];
+        if (!(n2 instanceof o)) this.pendingSubscriptionEvents.delete(t2);
+        else try {
+          let r2 = await this.fetchPresenceSnapshot(t2);
+          if (e3 !== this.epoch) return;
+          this.seededPresenceChannels.add(t2), n2.setInitialMembers(r2), (this.pendingSubscriptionEvents.get(t2) ?? []).forEach(([e4, t3, r3]) => n2.applySubscriptionEvent(e4, t3, r3));
+        } catch (e4) {
+          n2.notifyError(e4);
+        } finally {
+          this.pendingSubscriptionEvents.delete(t2);
+        }
+      }));
+    }
+    handleMessage(e3) {
+      this.lastEventId = e3.lastEventId;
+      let t2 = O(e3.data);
+      if (!t2 || !Array.isArray(t2.channels)) return;
+      let n2 = t2.channels.filter((e4) => typeof e4 == "string");
+      if (typeof t2.data == "string") {
+        let e4 = t2.data;
+        n2.filter((e5) => e5.startsWith(w) && D(this.channels, e5)).forEach((t3) => {
+          this.dispatchQueue = this.dispatchQueue.then(() => this.dispatchEncrypted(t3, e4));
+        });
+      } else t2.socket && t2.socket === this.id || typeof t2.event == "string" && n2.forEach((e4) => {
+        !e4.startsWith(w) && D(this.channels, e4) && this.channels[e4].dispatch(t2.event, t2.payload);
+      });
+    }
+    handleWhisperMessage(e3, t2) {
+      let n2 = O(e3.data);
+      if (n2 && Array.isArray(n2.channels) && n2.channels.length === 1 && n2.channels[0] === t2 && D(this.channels, t2)) {
+        if (typeof n2.data == "string") {
+          let e4 = n2.data;
+          t2.startsWith(w) && (this.dispatchQueue = this.dispatchQueue.then(() => this.dispatchEncrypted(t2, e4, true)));
+        } else n2.socket && n2.socket === this.id || typeof n2.event == "string" && n2.event.startsWith(T) && !t2.startsWith(w) && this.channels[t2].dispatch(n2.event, n2.payload);
+      }
+    }
+    async dispatchEncrypted(e3, t2, n2 = false) {
+      let r2 = this.channels[e3];
+      if (r2) try {
+        let i2 = O(await this.decrypt(e3, t2));
+        if (!i2 || typeof i2.event != "string") throw Error(`The decrypted update on "${e3}" carries no broadcast envelope.`);
+        if (n2 && !i2.event.startsWith(T) || i2.socket && i2.socket === this.id) return;
+        r2.dispatch(i2.event, i2.payload);
+      } catch (e4) {
+        r2.notifyError(e4);
+      }
+    }
+    async decrypt(e3, t2) {
+      let n2 = t2.split(".");
+      if (n2.length !== 5 || n2[1] !== "") throw Error(`The update on "${e3}" is not a direct-encryption compact JWE.`);
+      let [r2, , i2, a2, o2] = n2, s2 = O(j.decode(N(r2)));
+      if (s2?.alg !== "dir" || s2?.enc !== "A256GCM") throw Error(`The update on "${e3}" uses an unsupported JWE algorithm.`);
+      let c2 = N(a2), l2 = N(o2), u2 = new Uint8Array(c2.length + l2.length);
+      u2.set(c2), u2.set(l2, c2.length);
+      let d2 = await crypto.subtle.decrypt({
+        name: "AES-GCM",
+        iv: N(i2),
+        additionalData: A.encode(r2),
+        tagLength: 128
+      }, await this.channelKey(e3), u2);
+      return j.decode(d2);
+    }
+    async encrypt(e3, t2) {
+      let n2 = M, r2 = crypto.getRandomValues(/* @__PURE__ */ new Uint8Array(12)), i2 = new Uint8Array(await crypto.subtle.encrypt({
+        name: "AES-GCM",
+        iv: r2,
+        additionalData: A.encode(n2),
+        tagLength: 128
+      }, await this.channelKey(e3), A.encode(t2))), a2 = i2.slice(0, -16), o2 = i2.slice(-16);
+      return [
+        n2,
+        "",
+        P(r2),
+        P(a2),
+        P(o2)
+      ].join(".");
+    }
+    channelKey(e3) {
+      let t2 = this.channelJwks.get(e3);
+      if (!t2 || typeof t2.k != "string") return Promise.reject(/* @__PURE__ */ Error(`No decryption key is known for "${e3}": the auth endpoint returned none. Is "encryption_key" configured server-side?`));
+      let n2 = this.importedKeys.get(e3);
+      if (n2 && n2.k === t2.k) return n2.key;
+      let r2 = crypto.subtle.importKey("jwk", t2, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+      return this.importedKeys.set(e3, {
+        k: t2.k,
+        key: r2
+      }), r2;
+    }
+    handleSubscriptionEvent(e3) {
+      this.lastEventId = e3.lastEventId;
+      let t2 = O(e3.data);
+      if (!t2 || typeof t2.match != "string" || typeof t2.subscriber != "string" || typeof t2.active != "boolean" || t2.match_type !== "exact" || t2.active && t2.payload == null) return;
+      let n2 = this.channelNameFromTopic(t2.match);
+      if (n2 === null) return;
+      let r2 = this.pendingSubscriptionEvents.get(n2);
+      if (r2) {
+        r2.push([
+          t2.subscriber,
+          t2.active,
+          t2.payload
+        ]);
+        return;
+      }
+      if (!D(this.channels, n2)) return;
+      let i2 = this.channels[n2];
+      i2 instanceof o && i2.applySubscriptionEvent(t2.subscriber, t2.active, t2.payload);
+    }
+    async fetchPresenceSnapshot(e3) {
+      let t2 = await fetch(`${this.url.origin}${this.subscriptionsPath()}/exact/${F(this.channelTopic(e3))}`, { credentials: "include" });
+      if (!t2.ok) throw Error(`The subscription snapshot request failed with HTTP ${t2.status}.`);
+      return ((await t2.json()).subscriptions ?? []).filter((e4) => e4.active && e4.payload != null).map((e4) => [e4.subscriber, e4.payload]);
+    }
+    async authenticate(e3) {
+      let t2, n2 = null;
+      try {
+        let r2 = await fetch(this.options.authEndpoint, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...this.options.auth.headers
+          },
+          body: JSON.stringify({ channel_names: e3 })
+        });
+        if (r2.ok) return this.lastAuthAt = Date.now(), {
+          ok: true,
+          rejected: false,
+          status: r2.status,
+          denied: this.readAuthResponse(await k(r2))
+        };
+        n2 = r2.status, t2 = /* @__PURE__ */ Error(`The broadcasting auth request to "${this.options.authEndpoint}" failed with HTTP ${r2.status}.`);
+      } catch (e4) {
+        t2 = /* @__PURE__ */ Error(`The broadcasting auth request to "${this.options.authEndpoint}" failed: ${e4 instanceof Error ? e4.message : String(e4)}.`);
+      }
+      return {
+        ok: false,
+        rejected: n2 !== null && n2 < 500,
+        status: n2,
+        denied: [],
+        error: t2
+      };
+    }
+    readAuthResponse(e3) {
+      let t2 = e3 ?? {}, n2 = Number(t2.expires_in);
+      this.tokenTtl = Number.isFinite(n2) && n2 > 0 ? n2 : null, this.topicPrefix = typeof t2.topic_prefix == "string" ? t2.topic_prefix : "", this.clientEventsEnabled = t2.client_events === true, this.channelJwks.clear();
+      let r2 = [];
+      return Array.isArray(t2.channel_names) && t2.channel_names.forEach((e4) => {
+        let t3 = e4 ?? {};
+        typeof t3.name == "string" && (t3.denied === true ? r2.push(t3.name) : t3.jwk !== null && typeof t3.jwk == "object" && this.channelJwks.set(t3.name, t3.jwk));
+      }), r2;
+    }
+    subscriptionEventsPattern(e3) {
+      return `${this.subscriptionsPath()}/:match_type/${F(this.channelTopic(e3))}/:subscriber`;
+    }
+  };
+  function D(e3, t2) {
+    return Object.prototype.hasOwnProperty.call(e3, t2);
+  }
+  function O(e3) {
+    try {
+      return JSON.parse(e3);
+    } catch {
+      return null;
+    }
+  }
+  async function k(e3) {
+    try {
+      return await e3.json();
+    } catch {
+      return null;
+    }
+  }
+  var A = new TextEncoder();
+  var j = new TextDecoder();
+  var M = P(A.encode(JSON.stringify({
+    alg: "dir",
+    enc: "A256GCM"
+  })));
+  function N(e3) {
+    let t2 = e3.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - e3.length % 4) % 4);
+    return Uint8Array.from(atob(t2), (e4) => e4.charCodeAt(0));
+  }
+  function P(e3) {
+    return btoa(String.fromCharCode(...e3)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function F(e3) {
+    return encodeURIComponent(e3).replace(/[!'()*]/g, (e4) => "%" + e4.charCodeAt(0).toString(16).toUpperCase());
+  }
+  function I() {
+    return typeof crypto < "u" && typeof crypto.randomUUID == "function" ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+  var L = class extends y {
+    constructor(...e3) {
+      super(...e3), this.channels = {};
+    }
+    connect() {
+      if (this.options.client !== void 0) this.pusher = this.options.client;
+      else if (this.options.Pusher) this.pusher = new this.options.Pusher(this.options.key, this.options);
+      else if (typeof window < "u" && window.Pusher !== void 0) this.pusher = new window.Pusher(this.options.key, this.options);
+      else throw Error("Pusher client not found. Should be globally available or passed via options.client");
+    }
+    signin() {
+      this.pusher.signin();
+    }
+    listen(e3, t2, n2) {
+      return this.channel(e3).listen(t2, n2);
+    }
+    channel(e3) {
+      return this.channels[e3] || (this.channels[e3] = new c(this.pusher, e3, this.options)), this.channels[e3];
+    }
+    privateChannel(e3) {
+      return this.channels["private-" + e3] || (this.channels["private-" + e3] = new l(this.pusher, "private-" + e3, this.options)), this.channels["private-" + e3];
+    }
+    encryptedPrivateChannel(e3) {
+      return this.channels["private-encrypted-" + e3] || (this.channels["private-encrypted-" + e3] = new u(this.pusher, "private-encrypted-" + e3, this.options)), this.channels["private-encrypted-" + e3];
+    }
+    presenceChannel(e3) {
+      return this.channels["presence-" + e3] || (this.channels["presence-" + e3] = new d(this.pusher, "presence-" + e3, this.options)), this.channels["presence-" + e3];
+    }
+    leave(e3) {
+      [
+        e3,
+        "private-" + e3,
+        "private-encrypted-" + e3,
+        "presence-" + e3
+      ].forEach((e4) => {
+        this.leaveChannel(e4);
+      });
+    }
+    leaveChannel(e3) {
+      this.channels[e3] && (this.channels[e3].unsubscribe(), delete this.channels[e3]);
+    }
+    socketId() {
+      return this.pusher.connection.socket_id;
+    }
+    connectionStatus() {
+      let e3 = this.pusher.connection.state;
+      switch (e3) {
+        case "connected":
+        case "connecting":
+          return e3;
+        case "failed":
+        case "unavailable":
+          return "failed";
+        default:
+          return "disconnected";
+      }
+    }
+    onConnectionChange(e3) {
+      let t2 = () => {
+        e3(this.connectionStatus());
+      }, n2 = [
+        "state_change",
+        "connected",
+        "disconnected"
+      ];
+      return n2.forEach((e4) => {
+        this.pusher.connection.bind(e4, t2);
+      }), () => {
+        n2.forEach((e4) => {
+          this.pusher.connection.unbind(e4, t2);
+        });
+      };
+    }
+    disconnect() {
+      this.pusher.disconnect();
+    }
+  };
+  var R = class extends y {
+    constructor(...e3) {
+      super(...e3), this.channels = {};
+    }
+    connect() {
+      let e3 = this.getSocketIO();
+      this.socket = e3(this.options.host ?? void 0, this.options), this.socket.io.on("reconnect", () => {
+        Object.values(this.channels).forEach((e4) => {
+          e4.subscribe();
+        });
+      });
+    }
+    getSocketIO() {
+      if (this.options.client !== void 0) return this.options.client;
+      if (typeof window < "u" && window.io !== void 0) return window.io;
+      throw Error("Socket.io client not found. Should be globally available or passed via options.client");
+    }
+    listen(e3, t2, n2) {
+      return this.channel(e3).listen(t2, n2);
+    }
+    channel(e3) {
+      return this.channels[e3] || (this.channels[e3] = new f(this.socket, e3, this.options)), this.channels[e3];
+    }
+    privateChannel(e3) {
+      return this.channels["private-" + e3] || (this.channels["private-" + e3] = new p(this.socket, "private-" + e3, this.options)), this.channels["private-" + e3];
+    }
+    presenceChannel(e3) {
+      return this.channels["presence-" + e3] || (this.channels["presence-" + e3] = new m(this.socket, "presence-" + e3, this.options)), this.channels["presence-" + e3];
+    }
+    leave(e3) {
+      [
+        e3,
+        "private-" + e3,
+        "presence-" + e3
+      ].forEach((e4) => {
+        this.leaveChannel(e4);
+      });
+    }
+    leaveChannel(e3) {
+      this.channels[e3] && (this.channels[e3].unsubscribe(), delete this.channels[e3]);
+    }
+    socketId() {
+      return this.socket.id;
+    }
+    connectionStatus() {
+      return this.socket.connected ? "connected" : this.socket.io._reconnecting ? "reconnecting" : this.socket.id === void 0 ? "connecting" : "disconnected";
+    }
+    onConnectionChange(e3) {
+      let t2 = () => {
+        e3(this.connectionStatus());
+      }, n2 = [
+        "connect",
+        "disconnect",
+        "connect_error",
+        "reconnect_attempt",
+        "reconnect",
+        "reconnect_error",
+        "reconnect_failed"
+      ];
+      return n2.forEach((e4) => {
+        this.socket.on(e4, t2);
+      }), () => {
+        n2.forEach((e4) => {
+          this.socket.off(e4, t2);
+        });
+      };
+    }
+    disconnect() {
+      this.socket.disconnect();
+    }
+  };
+  var z = class extends y {
+    constructor(...e3) {
+      super(...e3), this.channels = {};
+    }
+    connect() {
+    }
+    listen(e3, t2, n2) {
+      return new h();
+    }
+    channel(e3) {
+      return new h();
+    }
+    privateChannel(e3) {
+      return new g();
+    }
+    encryptedPrivateChannel(e3) {
+      return new _();
+    }
+    presenceChannel(e3) {
+      return new v();
+    }
+    leave(e3) {
+    }
+    leaveChannel(e3) {
+    }
+    socketId() {
+      return "fake-socket-id";
+    }
+    connectionStatus() {
+      return "connected";
+    }
+    onConnectionChange(e3) {
+      return () => {
+      };
+    }
+    disconnect() {
+    }
+  };
+  var B = class {
+    constructor(e3) {
+      this.options = e3, this.connect(), this.options.withoutInterceptors || this.registerInterceptors();
+    }
+    channel(e3) {
+      return this.connector.channel(e3);
+    }
+    connect() {
+      if (this.options.broadcaster === "reverb") this.connector = new L({
+        ...this.options,
+        cluster: ""
+      });
+      else if (this.options.broadcaster === "pusher") this.connector = new L(this.options);
+      else if (this.options.broadcaster === "ably") this.connector = new L({
+        ...this.options,
+        cluster: "",
+        broadcaster: "pusher"
+      });
+      else if (this.options.broadcaster === "socket.io") this.connector = new R(this.options);
+      else if (this.options.broadcaster === "mercure") this.connector = new E(this.options);
+      else if (this.options.broadcaster === "null") this.connector = new z(this.options);
+      else if (typeof this.options.broadcaster == "function" && n(this.options.broadcaster)) this.connector = new this.options.broadcaster(this.options);
+      else throw Error(`Broadcaster ${typeof this.options.broadcaster} ${String(this.options.broadcaster)} is not supported.`);
+    }
+    disconnect() {
+      this.connector.disconnect();
+    }
+    join(e3) {
+      return this.connector.presenceChannel(e3);
+    }
+    leave(e3) {
+      this.connector.leave(e3);
+    }
+    leaveChannel(e3) {
+      this.connector.leaveChannel(e3);
+    }
+    leaveAllChannels() {
+      for (let e3 in this.connector.channels) this.leaveChannel(e3);
+    }
+    listen(e3, t2, n2) {
+      return this.connector.listen(e3, t2, n2);
+    }
+    private(e3) {
+      return this.connector.privateChannel(e3);
+    }
+    encryptedPrivate(e3) {
+      if (this.connectorSupportsEncryptedPrivateChannels(this.connector)) return this.connector.encryptedPrivateChannel(e3);
+      throw Error(`Broadcaster ${typeof this.options.broadcaster} ${String(this.options.broadcaster)} does not support encrypted private channels.`);
+    }
+    connectorSupportsEncryptedPrivateChannels(e3) {
+      return e3 instanceof L || e3 instanceof E || e3 instanceof z;
+    }
+    socketId() {
+      return this.connector.socketId();
+    }
+    connectionStatus() {
+      return this.connector.connectionStatus();
+    }
+    registerInterceptors() {
+      typeof Vue < "u" && Vue?.http && this.registerVueRequestInterceptor(), typeof axios == "function" && this.registerAxiosRequestInterceptor(), typeof jQuery == "function" && this.registerjQueryAjaxSetup(), typeof Turbo == "object" && this.registerTurboRequestInterceptor();
+    }
+    registerVueRequestInterceptor() {
+      Vue.http.interceptors.push((e3, t2) => {
+        this.socketId() && e3.headers.set("X-Socket-ID", this.socketId()), t2();
+      });
+    }
+    registerAxiosRequestInterceptor() {
+      axios.interceptors.request.use((e3) => (this.socketId() && (e3.headers["X-Socket-Id"] = this.socketId()), e3));
+    }
+    registerjQueryAjaxSetup() {
+      jQuery.ajax !== void 0 && jQuery.ajaxPrefilter((e3, t2, n2) => {
+        this.socketId() && n2.setRequestHeader("X-Socket-Id", this.socketId());
+      });
+    }
+    registerTurboRequestInterceptor() {
+      document.addEventListener("turbo:before-fetch-request", (e3) => {
+        e3.detail.fetchOptions.headers["X-Socket-Id"] = this.socketId();
+      });
+    }
+  };
+
+  // resources/js/chat-echo.js
+  var import_pusher_js = __toESM(require_pusher());
+  var cfg = window.InfinityChat;
+  if (cfg && cfg.usuarioId) {
+    let cerradas = function() {
+      try {
+        const ids = JSON.parse(sessionStorage.getItem(claveCerradas) || "[]");
+        return Array.isArray(ids) ? ids.map(Number) : [];
+      } catch (e3) {
+        return [];
+      }
+    }, cerrar = function(id) {
+      const ids = cerradas();
+      const numero = Number(id);
+      if (!ids.includes(numero)) {
+        ids.push(numero);
+      }
+      sessionStorage.setItem(claveCerradas, JSON.stringify(ids.slice(-100)));
+    }, pintarBadge = function(total) {
+      const badge = document.getElementById("chat-interno-badge");
+      if (!badge) return;
+      const n2 = Number(total) || 0;
+      badge.textContent = n2 > 99 ? "99+" : String(n2);
+      badge.classList.toggle("hidden", n2 < 1);
+    }, mostrarPopup = function(accion) {
+      if (!accion || !popup || cerradas().includes(Number(accion.mensaje_id))) return;
+      popupActual = accion;
+      popup.querySelector("[data-autor]").textContent = accion.autor || "Staff";
+      popup.querySelector("[data-titulo]").textContent = accion.titulo || "Chat interno";
+      const texto = accion.cuerpo || (accion.adjunto_nombre ? "Archivo: " + accion.adjunto_nombre : "Mensaje sin texto");
+      popup.querySelector("[data-cuerpo]").textContent = texto;
+      popup.classList.remove("hidden");
+      popup.classList.add("flex");
+    }, ocultarPopup = function() {
+      if (!popup) return;
+      popup.classList.add("hidden");
+      popup.classList.remove("flex");
+    };
+    const claveCerradas = "chat_interno_cerradas";
+    let popupActual = null;
+    const popup = document.getElementById("chat-interno-popup");
+    async function cargarPendientes() {
+      try {
+        const res = await fetch(cfg.pendientesUrl, {
+          headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin"
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        pintarBadge(data.no_leidos);
+        const pendiente = (data.acciones || []).find((accion) => !cerradas().includes(Number(accion.mensaje_id)));
+        if (pendiente) mostrarPopup(pendiente);
+        window.dispatchEvent(new CustomEvent("chat:pendientes", { detail: data }));
+      } catch (e3) {
+      }
+    }
+    document.getElementById("chat-popup-cerrar")?.addEventListener("click", () => {
+      if (popupActual) cerrar(popupActual.mensaje_id);
+      ocultarPopup();
+    });
+    document.getElementById("chat-popup-abrir")?.addEventListener("click", () => {
+      if (!popupActual) return;
+      cerrar(popupActual.mensaje_id);
+      window.location.href = cfg.chatUrl + "?c=" + popupActual.conversacion_id;
+    });
+    document.getElementById("chat-popup-atender")?.addEventListener("click", async () => {
+      if (!popupActual) return;
+      const id = popupActual.mensaje_id;
+      await fetch(cfg.atenderUrl + "/" + id + "/atender", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": cfg.csrf,
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        credentials: "same-origin",
+        body: "{}"
+      });
+      cerrar(id);
+      ocultarPopup();
+      window.dispatchEvent(new CustomEvent("chat:accion", { detail: { mensaje_id: id, usuario_id: cfg.usuarioId } }));
+      cargarPendientes();
+    });
+    cargarPendientes();
+    if (cfg.key) {
+      window.Pusher = import_pusher_js.default;
+      const seguro = window.location.protocol === "https:";
+      const host = cfg.host || window.location.hostname;
+      const port = cfg.host ? cfg.port : seguro ? 443 : Number(window.location.port) || 80;
+      const scheme = cfg.host ? cfg.scheme : seguro ? "https" : "http";
+      window.Echo = new B({
+        broadcaster: "reverb",
+        key: cfg.key,
+        wsHost: host,
+        wsPort: port,
+        wssPort: port,
+        forceTLS: scheme === "https",
+        enabledTransports: ["ws", "wss"],
+        authEndpoint: "/broadcasting/auth"
+      });
+      const yo = Number(cfg.usuarioId);
+      window.Echo.private("chat.usuario." + cfg.usuarioId).listen(".mensaje.creado", (evento) => {
+        const mensaje = evento.mensaje || {};
+        window.dispatchEvent(new CustomEvent("chat:mensaje", { detail: mensaje }));
+        const asignado = (mensaje.asignados || []).some((accion) => Number(accion.usuario_id) === yo && !accion.atendido_at);
+        if (Number(mensaje.usuario_id) !== yo && mensaje.requiere_accion && asignado) {
+          mostrarPopup({
+            mensaje_id: mensaje.id,
+            conversacion_id: mensaje.conversacion_id,
+            autor: mensaje.autor,
+            titulo: mensaje.titulo || "Chat interno",
+            cuerpo: mensaje.cuerpo,
+            adjunto_nombre: mensaje.adjunto ? mensaje.adjunto.nombre : null
+          });
+        }
+        cargarPendientes();
+      }).listen(".accion.atendida", (evento) => {
+        window.dispatchEvent(new CustomEvent("chat:accion", { detail: evento }));
+        if (Number(evento.usuario_id) === yo && popupActual && Number(popupActual.mensaje_id) === Number(evento.mensaje_id)) {
+          ocultarPopup();
+        }
+        cargarPendientes();
+      });
+      window.Echo.connector.pusher.connection.bind("connected", () => cargarPendientes());
+    }
+  }
+})();
 /*! Bundled license information:
 
 pusher-js/dist/web/pusher.js:

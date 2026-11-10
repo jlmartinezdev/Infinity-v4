@@ -103,13 +103,17 @@ if (cfg && cfg.usuarioId) {
 
     if (cfg.key) {
         window.Pusher = Pusher;
+        const seguro = window.location.protocol === 'https:';
+        const host = cfg.host || window.location.hostname;
+        const port = cfg.host ? cfg.port : (seguro ? 443 : (Number(window.location.port) || 80));
+        const scheme = cfg.host ? cfg.scheme : (seguro ? 'https' : 'http');
         window.Echo = new Echo({
             broadcaster: 'reverb',
             key: cfg.key,
-            wsHost: cfg.host,
-            wsPort: cfg.port,
-            wssPort: cfg.port,
-            forceTLS: cfg.scheme === 'https',
+            wsHost: host,
+            wsPort: port,
+            wssPort: port,
+            forceTLS: scheme === 'https',
             enabledTransports: ['ws', 'wss'],
             authEndpoint: '/broadcasting/auth',
         });
