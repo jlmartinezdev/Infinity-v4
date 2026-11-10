@@ -34,6 +34,52 @@ final class HotspotDuracion
     }
 
     /**
+     * Tiempo en línea para leer de un vistazo: "30 min 47 s", "2 h 4 min", "1 d 3 h".
+     */
+    public static function legible(string $valor): string
+    {
+        $s = self::segundos($valor);
+        if ($s === null) {
+            return '—';
+        }
+        if ($s < 60) {
+            return $s.' s';
+        }
+        if ($s < 3600) {
+            $resto = $s % 60;
+
+            return intdiv($s, 60).' min'.($resto > 0 ? ' '.$resto.' s' : '');
+        }
+        if ($s < 86400) {
+            $resto = intdiv($s % 3600, 60);
+
+            return intdiv($s, 3600).' h'.($resto > 0 ? ' '.$resto.' min' : '');
+        }
+        $resto = intdiv($s % 86400, 3600);
+
+        return intdiv($s, 86400).' d'.($resto > 0 ? ' '.$resto.' h' : '');
+    }
+
+    /**
+     * Antigüedad en una sola unidad: "recién", "hace 12 min", "hace 3 h", "hace 2 d".
+     */
+    public static function haceCuanto(\DateTimeInterface $cuando, ?\DateTimeInterface $ahora = null): string
+    {
+        $s = max(0, ($ahora ?? now())->getTimestamp() - $cuando->getTimestamp());
+        if ($s < 60) {
+            return 'recién';
+        }
+        if ($s < 3600) {
+            return 'hace '.intdiv($s, 60).' min';
+        }
+        if ($s < 86400) {
+            return 'hace '.intdiv($s, 3600).' h';
+        }
+
+        return 'hace '.intdiv($s, 86400).' d';
+    }
+
+    /**
      * Anillo de cuota: el arco es el tiempo ya usado y el centro es lo que queda.
      *
      * @return array{etiqueta: string, porcentaje: float, centro_num: string, centro_unit: string, tiene_cuota: bool}|null

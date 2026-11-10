@@ -153,7 +153,17 @@ class HotspotController extends Controller
             }
         }
 
+        $ultimasConexiones = [];
+        foreach ($radius->ultimasConexionesPorUsuarios($offline->pluck('username')->all()) as $usuario => $ultima) {
+            $ultimasConexiones[$usuario] = [
+                'texto' => HotspotDuracion::haceCuanto($ultima['cuando']),
+                'fecha' => $ultima['cuando']->format('d/m/Y H:i'),
+                'mac' => $ultima['mac'],
+            ];
+        }
+
         return view('hotspot.dashboard', [
+            'ultimasConexiones' => $ultimasConexiones,
             'routers' => $routers,
             'routersPorNodo' => $routersPorNodo,
             'selectedRouter' => $selectedRouter,
@@ -267,6 +277,10 @@ class HotspotController extends Controller
             'ip' => (string) ($host['address'] ?? $host['ip'] ?? '—'),
             'mac' => (string) ($host['mac-address'] ?? $host['mac'] ?? '—'),
             'uptime' => (string) ($host['uptime'] ?? '—'),
+            'uptime_legible' => HotspotDuracion::legible((string) ($host['uptime'] ?? '')),
+            // En RouterOS bytes-in es lo que sube el equipo y bytes-out lo que baja.
+            'bytes_subida' => $this->bytesCampoHotspot($host['bytes-in'] ?? $host['bytes_in'] ?? null),
+            'bytes_bajada' => $this->bytesCampoHotspot($host['bytes-out'] ?? $host['bytes_out'] ?? null),
             'session_time_left' => (string) ($host['session-time-left'] ?? ''),
             'cliente' => $cliente,
             'cliente_id' => $match?->cliente_id ? (int) $match->cliente_id : null,
@@ -350,12 +364,21 @@ class HotspotController extends Controller
      */
     private function bytesHostHotspot(array $host): int
     {
-        $in = $host['bytes-in'] ?? $host['bytes_in'] ?? 0;
-        $out = $host['bytes-out'] ?? $host['bytes_out'] ?? 0;
-        $in = is_numeric($in) ? (int) $in : (int) preg_replace('/\D+/', '', (string) $in);
-        $out = is_numeric($out) ? (int) $out : (int) preg_replace('/\D+/', '', (string) $out);
+        return (int) $this->bytesCampoHotspot($host['bytes-in'] ?? $host['bytes_in'] ?? 0)
+            + (int) $this->bytesCampoHotspot($host['bytes-out'] ?? $host['bytes_out'] ?? 0);
+    }
 
-        return max(0, $in) + max(0, $out);
+    /**
+     * Contador de bytes de una sesión; null cuando el router no lo informa.
+     */
+    private function bytesCampoHotspot(mixed $valor): ?int
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+        $bytes = is_numeric($valor) ? (int) $valor : (int) preg_replace('/\D+/', '', (string) $valor);
+
+        return max(0, $bytes);
     }
 
     private function origenSesion(string $user, ?ServicioHotspot $match): string

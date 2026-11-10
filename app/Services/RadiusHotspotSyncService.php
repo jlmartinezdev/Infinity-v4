@@ -423,6 +423,18 @@ class RadiusHotspotSyncService
         return rtrim(rtrim(number_format($gb, 2, '.', ''), '0'), '.').' GB';
     }
 
+    /**
+     * Color de la barra de cuota: ámbar desde el 80 %, rojo desde el 95 %.
+     *
+     * @return 'ok'|'warn'|'danger'
+     */
+    public static function tonoCuota(?float $porcentaje): string
+    {
+        $pct = (float) ($porcentaje ?? 0);
+
+        return $pct >= 95 ? 'danger' : ($pct >= 80 ? 'warn' : 'ok');
+    }
+
     public static function bytesAMb(int $bytes): int
     {
         return (int) round(max(0, $bytes) / self::BYTES_POR_MB);
@@ -585,6 +597,65 @@ class RadiusHotspotSyncService
         }
 
         return $out;
+    }
+
+    /**
+     * Última sesión registrada en radacct por usuario: cuándo terminó (o empezó, si quedó abierta) y desde qué MAC.
+     *
+     * @param  list<string>  $usernames
+     * @return array<string, array{cuando: \Illuminate\Support\Carbon, mac: string}>
+     */
+    public function ultimasConexionesPorUsuarios(array $usernames): array
+    {
+        $usernames = array_values(array_unique(array_filter(array_map(
+            static fn ($u) => trim((string) $u),
+            $usernames
+        ), static fn (string $u) => $u !== '')));
+
+        if ($usernames === [] || ! $this->enabled() || ! $this->conexionAlcanzable()) {
+            return [];
+        }
+
+        try {
+            $db = DB::connection($this->connection());
+            if (! $db->getSchemaBuilder()->hasTable('radacct')) {
+                return [];
+            }
+
+            $placeholders = implode(',', array_fill(0, count($usernames), '?'));
+            $filas = $db->select(
+                "SELECT r.username, r.acctstarttime, r.acctstoptime, r.callingstationid
+                FROM radacct r
+                JOIN (
+                    SELECT username, MAX(acctstarttime) AS inicio
+                    FROM radacct
+                    WHERE username IN ({$placeholders})
+                    GROUP BY username
+                ) u ON u.username = r.username AND u.inicio = r.acctstarttime",
+                $usernames
+            );
+
+            $out = [];
+            foreach ($filas as $fila) {
+                $user = trim((string) ($fila->username ?? ''));
+                $momento = $fila->acctstoptime ?: $fila->acctstarttime;
+                if ($user === '' || ! $momento) {
+                    continue;
+                }
+                $out[$user] = [
+                    'cuando' => \Illuminate\Support\Carbon::parse($momento),
+                    'mac' => strtoupper(str_replace('-', ':', trim((string) ($fila->callingstationid ?? '')))),
+                ];
+            }
+
+            return $out;
+        } catch (Throwable $e) {
+            Log::warning('[RADIUS] no se pudo leer la última conexión por usuarios', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
     }
 
     /**

@@ -21,6 +21,16 @@ class RadiusHotspotSyncServiceTest extends TestCase
         $this->assertNull(RadiusHotspotSyncService::timeoutASegundos(''));
     }
 
+    public function test_tono_de_la_barra_de_cuota(): void
+    {
+        $this->assertSame('ok', RadiusHotspotSyncService::tonoCuota(null));
+        $this->assertSame('ok', RadiusHotspotSyncService::tonoCuota(79.9));
+        $this->assertSame('warn', RadiusHotspotSyncService::tonoCuota(80));
+        $this->assertSame('warn', RadiusHotspotSyncService::tonoCuota(94.9));
+        $this->assertSame('danger', RadiusHotspotSyncService::tonoCuota(95));
+        $this->assertSame('danger', RadiusHotspotSyncService::tonoCuota(100));
+    }
+
     public function test_atributos_de_usuario_activo(): void
     {
         $perfil = new HotspotPerfil([
