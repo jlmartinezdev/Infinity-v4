@@ -1097,6 +1097,163 @@ class MikroTikService
     }
 
     /**
+     * Cierra la sesión viva de esa MAC en un router.
+     */
+    public function cerrarSesionHotspotPorMac(Router $router, string $mac): int
+    {
+        $mac = $this->macHotspotNormalizada($mac);
+        $cerradas = 0;
+
+        try {
+            $client = $this->connect($router);
+            $activos = $client->query(new Query('/ip/hotspot/active/print'))->read();
+            foreach (is_array($activos) ? $activos : [] as $activo) {
+                if (! is_array($activo)) {
+                    continue;
+                }
+                $id = trim((string) ($activo['.id'] ?? ''));
+                $activa = strtoupper(str_replace('-', ':', (string) ($activo['mac-address'] ?? '')));
+                if ($id === '' || $activa !== $mac) {
+                    continue;
+                }
+                $this->assertRouterosOk(
+                    $client->query((new Query('/ip/hotspot/active/remove'))->equal('.id', $id))->read(),
+                    'desconectar '.$mac
+                );
+                $cerradas++;
+            }
+        } finally {
+            $this->disconnect();
+        }
+
+        return $cerradas;
+    }
+
+    /**
+     * Impide que esa MAC vuelva a entrar al hotspot hasta que se desbloquee.
+     *
+     * @return array{ok: bool, ya: bool}
+     */
+    public function bloquearMacHotspot(Router $router, string $mac): array
+    {
+        $mac = $this->macHotspotNormalizada($mac);
+
+        try {
+            $client = $this->connect($router);
+            $existente = $this->bindingHotspotPorMac($client, $mac);
+            if ($existente && strtolower((string) ($existente['type'] ?? '')) === 'blocked') {
+                return ['ok' => true, 'ya' => true];
+            }
+            if ($existente && ! empty($existente['.id'])) {
+                $this->assertRouterosOk(
+                    $client->query((new Query('/ip/hotspot/ip-binding/set'))
+                        ->equal('.id', (string) $existente['.id'])
+                        ->equal('type', 'blocked')
+                        ->equal('comment', 'Sesiones hotspot'))->read(),
+                    'bloquear '.$mac
+                );
+
+                return ['ok' => true, 'ya' => false];
+            }
+            $this->assertRouterosOk(
+                $client->query((new Query('/ip/hotspot/ip-binding/add'))
+                    ->equal('mac-address', $mac)
+                    ->equal('type', 'blocked')
+                    ->equal('comment', 'Sesiones hotspot'))->read(),
+                'bloquear '.$mac
+            );
+        } finally {
+            $this->disconnect();
+        }
+
+        return ['ok' => true, 'ya' => false];
+    }
+
+    public function desbloquearMacHotspot(Router $router, string $mac): bool
+    {
+        $mac = $this->macHotspotNormalizada($mac);
+        $quito = false;
+
+        try {
+            $client = $this->connect($router);
+            $existente = $this->bindingHotspotPorMac($client, $mac);
+            if (! $existente || empty($existente['.id'])) {
+                return false;
+            }
+            if (strtolower((string) ($existente['type'] ?? '')) !== 'blocked') {
+                return false;
+            }
+            $this->assertRouterosOk(
+                $client->query((new Query('/ip/hotspot/ip-binding/remove'))->equal('.id', (string) $existente['.id']))->read(),
+                'desbloquear '.$mac
+            );
+            $quito = true;
+        } finally {
+            $this->disconnect();
+        }
+
+        return $quito;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function macsBloqueadasHotspot(Router $router): array
+    {
+        try {
+            $client = $this->connect($router);
+            $filas = $client->query(new Query('/ip/hotspot/ip-binding/print'))->read();
+        } finally {
+            $this->disconnect();
+        }
+
+        $macs = [];
+        foreach (is_array($filas) ? $filas : [] as $fila) {
+            if (! is_array($fila)) {
+                continue;
+            }
+            if (strtolower((string) ($fila['type'] ?? '')) !== 'blocked') {
+                continue;
+            }
+            $mac = strtoupper(str_replace('-', ':', trim((string) ($fila['mac-address'] ?? ''))));
+            if ($mac !== '') {
+                $macs[] = $mac;
+            }
+        }
+
+        return array_values(array_unique($macs));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function bindingHotspotPorMac($client, string $mac): ?array
+    {
+        $filas = $client->query(new Query('/ip/hotspot/ip-binding/print'))->read();
+        foreach (is_array($filas) ? $filas : [] as $fila) {
+            if (! is_array($fila)) {
+                continue;
+            }
+            $actual = strtoupper(str_replace('-', ':', trim((string) ($fila['mac-address'] ?? ''))));
+            if ($actual === $mac) {
+                return $fila;
+            }
+        }
+
+        return null;
+    }
+
+    private function macHotspotNormalizada(string $mac): string
+    {
+        $mac = strtoupper(str_replace('-', ':', trim($mac)));
+        if (! preg_match('/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/', $mac)) {
+            throw new \InvalidArgumentException('La MAC no es válida.');
+        }
+
+        return $mac;
+    }
+
+    /**
      * Añade un usuario hotspot.
      */
     public function addHotspotUser(Router $router, string $name, string $password, ?string $profile = null, ?string $comment = null, ?string $server = null): array

@@ -204,6 +204,75 @@ class RadiusHotspotSyncService
         return $this->enabled() && $this->conexionAlcanzable();
     }
 
+    /**
+     * Fila de radacct todavía abierta para esa MAC.
+     */
+    public function sesionAbiertaIdPorMac(string $mac): ?int
+    {
+        $mac = strtolower(str_replace('-', ':', trim($mac)));
+        if ($mac === '' || ! $this->enabled() || ! $this->conexionAlcanzable()) {
+            return null;
+        }
+
+        try {
+            $fila = DB::connection($this->connection())->selectOne(
+                "SELECT radacctid FROM radacct
+                 WHERE acctstoptime IS NULL
+                   AND REPLACE(REPLACE(LOWER(callingstationid), '-', ':'), ' ', '') = ?
+                 ORDER BY acctstarttime DESC
+                 LIMIT 1",
+                [$mac]
+            );
+        } catch (Throwable $e) {
+            Log::warning('[RADIUS] no se pudo leer la sesión de la MAC', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        return $fila ? (int) $fila->radacctid : null;
+    }
+
+    /**
+     * Cuando el router confirma el cierre, deja la causa como salida del portal
+     * para que el celular no vuelva a entrar solo.
+     */
+    public function marcarCierreComoSalidaPortal(int $radacctid): bool
+    {
+        if ($radacctid <= 0 || ! $this->enabled() || ! $this->conexionAlcanzable()) {
+            return false;
+        }
+
+        $db = DB::connection($this->connection());
+        try {
+            for ($i = 0; $i < 10; $i++) {
+                $fila = $db->table('radacct')
+                    ->where('radacctid', $radacctid)
+                    ->first(['acctstoptime']);
+                if ($fila && $fila->acctstoptime) {
+                    $db->table('radacct')
+                        ->where('radacctid', $radacctid)
+                        ->update(['acctterminatecause' => 'User-Request']);
+                    usleep(300000);
+                    $db->table('radacct')
+                        ->where('radacctid', $radacctid)
+                        ->update(['acctterminatecause' => 'User-Request']);
+
+                    return true;
+                }
+                usleep(200000);
+            }
+        } catch (Throwable $e) {
+            Log::warning('[RADIUS] no se pudo marcar el cierre de la sesión', [
+                'radacctid' => $radacctid,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return false;
+    }
+
     protected function conexionAlcanzable(): bool
     {
         $cfg = config('database.connections.'.$this->connection(), []);

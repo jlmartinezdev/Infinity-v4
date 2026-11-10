@@ -1,10 +1,11 @@
 # Si el celular ya entró en un hotspot, el otro con el mismo nombre
 # manda la MAC como usuario. La cambiamos por el usuario real y
 # cerramos la sesión vieja de esa MAC para que Simultaneous-Use no la frene.
+# Un cierre desde el portal (User-Request) no vuelve a entrar solo.
 mac_hotspot {
 	if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
 		update control {
-			&Tmp-String-0 := "%{sql:SELECT username FROM radacct WHERE REPLACE(REPLACE(LOWER(callingstationid), '-', ':'), ' ', '') = REPLACE(LOWER('%{User-Name}'), '-', ':') AND username REGEXP '^[A-Za-z0-9_.@+-]+$' AND username NOT LIKE 'T-%%' AND username NOT LIKE 'trial-%%' ORDER BY acctstarttime DESC LIMIT 1}"
+			&Tmp-String-0 := "%{sql:SELECT realuser.username FROM radacct AS last JOIN radacct AS realuser ON REPLACE(REPLACE(LOWER(realuser.callingstationid), '-', ':'), ' ', '') = REPLACE(REPLACE(LOWER(last.callingstationid), '-', ':'), ' ', '') AND realuser.username REGEXP '^[A-Za-z0-9_.@+-]+$' AND realuser.username NOT LIKE 'T-%%' AND realuser.username NOT LIKE 'trial-%%' WHERE REPLACE(REPLACE(LOWER(last.callingstationid), '-', ':'), ' ', '') = REPLACE(LOWER('%{User-Name}'), '-', ':') AND last.acctstarttime = (SELECT MAX(newest.acctstarttime) FROM radacct AS newest WHERE REPLACE(REPLACE(LOWER(newest.callingstationid), '-', ':'), ' ', '') = REPLACE(LOWER('%{User-Name}'), '-', ':')) AND (last.acctstoptime IS NULL OR last.acctterminatecause IS NULL OR last.acctterminatecause <> 'User-Request') ORDER BY realuser.acctstarttime DESC LIMIT 1}"
 		}
 
 		if (&control:Tmp-String-0 && &control:Tmp-String-0 != "") {

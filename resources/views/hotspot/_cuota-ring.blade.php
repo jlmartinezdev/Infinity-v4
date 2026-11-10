@@ -5,8 +5,9 @@
     $size = (string) ($size ?? 'slot');
     $tone = $pct >= 90 ? 'is-danger' : ($pct >= 70 ? 'is-warn' : 'is-ok');
     $resto = 100 - $pct;
+    $esTiempo = in_array($unit, ['min', 's', 'h'], true);
 @endphp
-<span class="hotspot-cuota hotspot-cuota--{{ $size }} {{ $tone }}" @if(! empty($id)) id="{{ $id }}" @endif aria-hidden="true">
+<span class="hotspot-cuota hotspot-cuota--{{ $size }} {{ $tone }}{{ $esTiempo ? ' hotspot-cuota--tiempo' : '' }}" @if(! empty($id)) id="{{ $id }}" @endif aria-hidden="true">
     <svg viewBox="0 0 36 36" class="hotspot-cuota-svg" focusable="false">
         <circle class="hotspot-cuota-track" cx="18" cy="18" r="15.9155" fill="none" pathLength="100"></circle>
         <circle class="hotspot-cuota-fill" cx="18" cy="18" r="15.9155" fill="none" pathLength="100"

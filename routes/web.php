@@ -867,6 +867,9 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->prefix('hotspot')->name('h
     Route::get('/create', [HotspotController::class, 'create'])->name('create');
     Route::get('/clientes/{cliente}', [HotspotController::class, 'editCliente'])->name('clientes.edit');
     Route::middleware('permiso:servicios.editar')->group(function () {
+        Route::post('/dashboard/{router}/desconectar', [HotspotController::class, 'desconectar'])->name('dashboard.desconectar');
+        Route::post('/dashboard/{router}/bloquear', [HotspotController::class, 'bloquear'])->name('dashboard.bloquear');
+        Route::post('/dashboard/{router}/desbloquear', [HotspotController::class, 'desbloquear'])->name('dashboard.desbloquear');
         Route::post('/', [HotspotController::class, 'store'])->name('store');
         Route::post('/clientes/{cliente}', [HotspotController::class, 'storeCliente'])->name('clientes.store');
         Route::put('/clientes/{cliente}/usuarios/{servicioHotspot}', [HotspotController::class, 'updateCliente'])->name('clientes.update');

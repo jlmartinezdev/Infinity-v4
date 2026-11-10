@@ -11,6 +11,8 @@ use App\Models\Servicio;
 use App\Models\ServicioHotspot;
 use App\Services\MikroTikService;
 use App\Services\RadiusHotspotSyncService;
+use App\Support\HotspotDuracion;
+use App\Support\HotspotSesionOrigen;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -137,6 +139,18 @@ class HotspotController extends Controller
             $sesiones[$i]['perfil'] = $locker?->hotspotPerfil?->nombreDistintoDeCuota() ?? '';
             $sesiones[$i]['consumo'] = $vista['etiqueta'];
             $sesiones[$i]['cuota'] = $vista;
+            $sesiones[$i]['trial_tiempo'] = false;
+            if (($fila['origen'] ?? '') === 'trial') {
+                $tiempo = HotspotDuracion::vistaRestante(
+                    (string) ($fila['uptime'] ?? ''),
+                    (string) ($fila['session_time_left'] ?? '')
+                );
+                if ($tiempo !== null) {
+                    $sesiones[$i]['perfil'] = 'Trial';
+                    $sesiones[$i]['cuota'] = $tiempo;
+                    $sesiones[$i]['trial_tiempo'] = true;
+                }
+            }
         }
 
         return view('hotspot.dashboard', [
@@ -149,7 +163,74 @@ class HotspotController extends Controller
             'consumo' => $consumo,
             'routerError' => $routerError,
             'consultadoEn' => $consultadoEn,
+            'macsBloqueadas' => $this->macsBloqueadas($selectedRouter, $routerError, $mikrotik),
         ]);
+    }
+
+    public function desconectar(Request $request, Router $router, MikroTikService $mikrotik, RadiusHotspotSyncService $radius): RedirectResponse
+    {
+        $mac = $this->macAccion($request);
+        if ($mac instanceof RedirectResponse) {
+            return $mac;
+        }
+
+        try {
+            $abierta = $radius->sesionAbiertaIdPorMac($mac);
+            $cerradas = $mikrotik->cerrarSesionHotspotPorMac($router, $mac);
+        } catch (\Throwable $e) {
+            return $this->volverAlDashboard($router, 'error', 'No pude desconectar '.$mac.'.');
+        }
+
+        if ($cerradas < 1) {
+            return $this->volverAlDashboard($router, 'error', $mac.' ya no está en línea.');
+        }
+
+        if ($abierta) {
+            $radius->marcarCierreComoSalidaPortal($abierta);
+        }
+
+        return $this->volverAlDashboard($router, 'success', 'Sesión de '.$mac.' cerrada.');
+    }
+
+    public function bloquear(Request $request, Router $router, MikroTikService $mikrotik): RedirectResponse
+    {
+        $mac = $this->macAccion($request);
+        if ($mac instanceof RedirectResponse) {
+            return $mac;
+        }
+
+        try {
+            $resultado = $mikrotik->bloquearMacHotspot($router, $mac);
+            $mikrotik->cerrarSesionHotspotPorMac($router, $mac);
+        } catch (\Throwable $e) {
+            return $this->volverAlDashboard($router, 'error', 'No pude bloquear '.$mac.'.');
+        }
+
+        $aviso = ! empty($resultado['ya'])
+            ? $mac.' ya estaba bloqueada.'
+            : $mac.' bloqueada. No entra al hotspot hasta que la desbloquees.';
+
+        return $this->volverAlDashboard($router, 'success', $aviso);
+    }
+
+    public function desbloquear(Request $request, Router $router, MikroTikService $mikrotik): RedirectResponse
+    {
+        $mac = $this->macAccion($request);
+        if ($mac instanceof RedirectResponse) {
+            return $mac;
+        }
+
+        try {
+            $quito = $mikrotik->desbloquearMacHotspot($router, $mac);
+        } catch (\Throwable $e) {
+            return $this->volverAlDashboard($router, 'error', 'No pude desbloquear '.$mac.'.');
+        }
+
+        return $this->volverAlDashboard(
+            $router,
+            $quito ? 'success' : 'error',
+            $quito ? $mac.' desbloqueada.' : $mac.' no tenía un bloqueo.'
+        );
     }
 
     /**
@@ -172,18 +253,26 @@ class HotspotController extends Controller
      */
     private function filaSesionViva(array $host, string $user, ?ServicioHotspot $match): array
     {
-        $cliente = $this->nombreLocker($match);
+        $origen = $this->origenSesion($user, $match);
+        $login = strtolower((string) ($host['login-by'] ?? ''));
+        if ($origen !== 'locker' && str_contains($login, 'trial')) {
+            $origen = 'trial';
+        }
+        $cliente = $origen === 'sin-sesion'
+            ? 'Use una cuenta para iniciar sesión'
+            : $this->nombreLocker($match);
 
         return [
             'username' => $user !== '' ? $user : '—',
             'ip' => (string) ($host['address'] ?? $host['ip'] ?? '—'),
             'mac' => (string) ($host['mac-address'] ?? $host['mac'] ?? '—'),
             'uptime' => (string) ($host['uptime'] ?? '—'),
+            'session_time_left' => (string) ($host['session-time-left'] ?? ''),
             'cliente' => $cliente,
             'cliente_id' => $match?->cliente_id ? (int) $match->cliente_id : null,
             'servicio_id' => $match?->servicio_id ? (int) $match->servicio_id : null,
             'estado' => (string) ($match?->servicio?->estado ?? ''),
-            'origen' => $this->origenSesion($user, $match),
+            'origen' => $origen,
             'locker' => $match,
             'perfil' => '',
             'consumo' => '',
@@ -271,17 +360,7 @@ class HotspotController extends Controller
 
     private function origenSesion(string $user, ?ServicioHotspot $match): string
     {
-        if ($match) {
-            return 'locker';
-        }
-        if ($user === '') {
-            return 'sin-usuario';
-        }
-        if (stripos($user, 'trial') !== false) {
-            return 'trial';
-        }
-
-        return 'sin-locker';
+        return HotspotSesionOrigen::de($user, $match !== null);
     }
 
     private function nombreLocker(?ServicioHotspot $hotspot): string
@@ -660,6 +739,16 @@ class HotspotController extends Controller
         $username = $servicioHotspot->username;
         $servicioHotspot->delete();
 
+        if ($request->boolean('from_dashboard')) {
+            $routerId = (int) $request->input('router_id', 0);
+
+            return redirect()
+                ->route('hotspot.dashboard', array_filter([
+                    'router_id' => $routerId > 0 ? $routerId : null,
+                ]))
+                ->with('success', 'Usuario hotspot '.$username.' eliminado.');
+        }
+
         if ($request->boolean('from_index')) {
             return redirect()
                 ->route('hotspot.index', array_filter([
@@ -832,6 +921,39 @@ class HotspotController extends Controller
                 'buscar' => $request->input('buscar'),
                 'page' => $request->input('page'),
             ], fn ($valor) => $valor !== null && $valor !== ''))
+            ->with($tipo, $mensaje);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function macsBloqueadas(?Router $router, ?string $routerError, MikroTikService $mikrotik): array
+    {
+        if (! $router || $routerError) {
+            return [];
+        }
+
+        try {
+            return $mikrotik->macsBloqueadasHotspot($router);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    private function macAccion(Request $request): string|RedirectResponse
+    {
+        $mac = strtoupper(str_replace('-', ':', trim((string) $request->input('mac', ''))));
+        if (! preg_match('/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/', $mac)) {
+            return back()->with('error', 'La MAC no es válida.');
+        }
+
+        return $mac;
+    }
+
+    private function volverAlDashboard(Router $router, string $tipo, string $mensaje): RedirectResponse
+    {
+        return redirect()
+            ->route('hotspot.dashboard', ['router_id' => $router->router_id])
             ->with($tipo, $mensaje);
     }
 }

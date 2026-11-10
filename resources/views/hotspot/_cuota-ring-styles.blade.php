@@ -84,3 +84,7 @@
     .hotspot-cuota--table .hotspot-cuota-unit {
         font-size: 0.5rem;
     }
+    .hotspot-cuota--tiempo .hotspot-cuota-unit {
+        text-transform: none;
+        letter-spacing: 0;
+    }
