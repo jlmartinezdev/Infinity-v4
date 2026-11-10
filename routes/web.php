@@ -323,6 +323,7 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
     Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
     Route::get('/whatsapp/hilo', [WhatsAppWebController::class, 'hiloJson'])->name('whatsapp.hilo');
+    Route::get('/whatsapp/ficha', [WhatsAppWebController::class, 'fichaCliente'])->name('whatsapp.ficha');
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
     Route::get('/whatsapp/contactos', [WhatsAppWebController::class, 'contactos'])->name('whatsapp.contactos');
     Route::get('/whatsapp/asuntos', [WhatsAppAsuntoController::class, 'index'])->name('whatsapp.asuntos.index');

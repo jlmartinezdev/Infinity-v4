@@ -57,6 +57,7 @@ html.wa-fullscreen .wa-app { height: 100%; border-radius: 0; border: 0; box-shad
             Cargando chat...
         </div>
     </div>
+    <aside id="wa-ficha" class="wa-ficha" aria-label="Ficha del cliente" aria-hidden="true"></aside>
 </div>
 
 @php
@@ -79,5 +80,6 @@ window.__WHATSAPP_MENSAJES_CONFIG__ = @json($config);
 
 @push('scripts')
 <script src="{{ asset(mix('js/whatsapp-mensajes.js')) }}" defer></script>
+<script src="{{ asset('js/whatsapp-ficha.js') }}?v=3" defer></script>
 @endpush
 @endsection

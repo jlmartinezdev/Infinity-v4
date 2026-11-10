@@ -61,11 +61,25 @@
               v-model="buscar"
               type="search"
               placeholder="Buscar o empezar un chat nuevo"
-              class="wa-input w-full rounded-lg border-0 py-2 pl-10 pr-3 text-sm focus:ring-0"
+              class="wa-input wa-buscar w-full rounded-lg border-0 py-2 pl-10 pr-3 text-sm focus:ring-0"
               @input="onBuscarInput"
             >
+            <button
+              type="button"
+              class="wa-filtro-btn wa-icon-btn inline-flex items-center justify-center rounded-lg"
+              :class="[filtrosAbiertos ? 'wa-chip-on' : '', filtroAsuntoId !== null && !filtrosAbiertos ? 'is-on' : '']"
+              :title="filtrosAbiertos ? 'Ocultar filtros' : 'Mostrar filtros'"
+              :aria-pressed="filtrosAbiertos ? 'true' : 'false'"
+              :aria-label="filtrosAbiertos ? 'Ocultar filtros' : 'Mostrar filtros'"
+              @click="toggleFiltros"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+              </svg>
+              <span class="wa-filtro-dot" aria-hidden="true"></span>
+            </button>
           </div>
-          <div class="mt-2 flex flex-wrap gap-1.5">
+          <div v-show="filtrosAbiertos" class="mt-2 flex flex-wrap gap-1.5">
             <button
               type="button"
               class="wa-chip rounded-full px-2.5 py-0.5 text-[11px] font-medium transition"
@@ -86,11 +100,6 @@
               :style="filtroAsuntoId === a.id ? { backgroundColor: a.color, color: '#fff' } : undefined"
               @click="filtrarAsunto(a.id)"
             >{{ a.nombre }}</button>
-          </div>
-          <div class="wa-muted mt-2 flex flex-wrap gap-3 text-[10px]">
-            <span class="inline-flex items-center gap-1"><span class="inline-block h-2 w-2 rounded-full bg-[#3b82f6]"></span> Staff</span>
-            <span class="inline-flex items-center gap-1"><span class="inline-block h-2 w-2 rounded-full bg-[#00a884]"></span> Cliente</span>
-            <span class="inline-flex items-center gap-1"><span class="inline-block h-2 w-2 rounded-full bg-[#f59e0b]"></span> Pedido</span>
           </div>
         </div>
 
@@ -115,16 +124,10 @@
               />
               <div class="min-w-0 flex-1">
                 <div class="flex items-baseline justify-between gap-2">
-                  <p
-                    class="wa-title truncate text-[15px]"
-                    :class="(conv.sin_leer || 0) > 0 ? 'font-semibold' : 'font-normal'"
-                  >
+                  <p class="wa-title truncate text-[15px] font-semibold">
                     {{ conv.nombre || formatoTelefono(conv.telefono) }}
                   </p>
-                  <span
-                    class="shrink-0 text-[11px]"
-                    :class="(conv.sin_leer || 0) > 0 ? 'wa-accent' : 'wa-muted'"
-                  >{{ conv.ultimo_at_label || '' }}</span>
+                  <span class="wa-muted shrink-0 text-[11px] tabular-nums">{{ conv.ultimo_at_label || '' }}</span>
                 </div>
                 <div class="mt-0.5 flex items-center justify-between gap-2">
                   <p class="wa-muted min-w-0 truncate text-[13px]">
@@ -134,12 +137,6 @@
                     {{ truncate(conv.ultimo_cuerpo || '-', 42) }}
                   </p>
                   <div class="flex shrink-0 items-center gap-1">
-                    <span
-                      v-if="conv.asunto"
-                      class="max-w-[4rem] truncate rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-white"
-                      :style="{ backgroundColor: conv.asunto.color || '#64748b' }"
-                      :title="conv.asunto.nombre"
-                    >{{ conv.asunto.nombre }}</span>
                     <span
                       v-if="(conv.fallidos || 0) > 0"
                       class="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#ea0038] px-1 text-[10px] font-semibold text-white"
@@ -151,6 +148,9 @@
                     >{{ conv.sin_leer }}</span>
                   </div>
                 </div>
+                <p v-if="conv.cliente_id || conv.asunto" class="mt-0.5 truncate text-[11px]">
+                  <span v-if="conv.cliente_id" class="wa-muted">ID: #{{ conv.cliente_id }}</span><span v-if="conv.cliente_id && conv.asunto" class="wa-muted"> · </span><span v-if="conv.asunto" class="font-medium text-blue-500">{{ conv.asunto.nombre }}</span>
+                </p>
               </div>
             </div>
           </button>
@@ -192,7 +192,12 @@
               :title="hiloMeta.clasificacion_label || hiloMeta.nombre || telActivo"
               size="md"
             />
-            <div class="min-w-0 flex-1">
+            <button
+              type="button"
+              class="wa-chat-id min-w-0 flex-1"
+              aria-haspopup="menu"
+              @click.stop.prevent="abrirMenuChat($event)"
+            >
               <p class="wa-title truncate text-[15px] font-medium">
                 {{ hiloMeta.nombre || formatoTelefono(telActivo) }}
                 <span
@@ -212,7 +217,7 @@
                   · <span class="text-[#ea0038]">{{ hiloMeta.fallidos }} fallido(s)</span>
                 </template>
               </p>
-            </div>
+            </button>
             <div class="flex shrink-0 items-center gap-1.5">
               <button
                 v-if="puedeEditar"
@@ -271,6 +276,17 @@
                 </svg>
                 <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v4H5M9 8L4 3M15 4v4h4M15 8l5-5M9 20v-4H5M9 16l-5 5M15 20v-4h4M15 16l5 5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="wa-icon-btn rounded-lg p-1.5"
+                title="Ficha del cliente"
+                @click="toggleFicha"
+              >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="2" stroke-width="1.75" />
+                  <path stroke-linecap="round" stroke-width="1.75" d="M15.25 5.1v13.8" />
                 </svg>
               </button>
               <button
@@ -474,41 +490,39 @@
             </div>
             <div
               v-if="sugerenciaIa && puedeEditar"
-              class="relative z-10 border-t px-3 py-2 text-xs"
-              style="background: #ecfdf5; color: #065f46;"
+              class="wa-sugerencia relative z-10 border-t px-3 py-2 text-xs"
             >
               <p class="font-semibold">Sugerencia IA — no enviada. Revisá y mandá cuando esté bien.</p>
               <p v-if="sugerenciaIa.escalate" class="mt-0.5">La IA sugiere derivar a un asesor{{ sugerenciaIa.motivo_escalado ? ' (' + sugerenciaIa.motivo_escalado + ')' : '' }}.</p>
               <p
                 v-if="sugerenciaIa.reply"
-                class="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-md bg-white/70 px-2 py-1.5 text-[12px] leading-snug text-emerald-950"
+                class="wa-sugerencia-texto mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-md px-2 py-1.5 text-[12px] leading-snug"
               >{{ sugerenciaIa.reply }}</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  class="rounded-full bg-[#16a34a] px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-40"
+                  class="wa-sugerencia-enviar rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
                   :disabled="!puedeEnviarSugerencia || regenerandoSugerencia"
                   @click="enviarTexto"
                 >Enviar sugerencia</button>
                 <button
                   type="button"
-                  class="rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900 disabled:opacity-40"
+                  class="wa-sugerencia-sec rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
                   :disabled="regenerandoSugerencia || !urls.regenerarSugerenciaIa"
                   @click="regenerarSugerencia"
                 >{{ regenerandoSugerencia ? 'Regenerando…' : 'Regenerar' }}</button>
                 <button
                   type="button"
-                  class="rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900 disabled:opacity-40"
+                  class="wa-sugerencia-sec rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
                   :disabled="regenerandoSugerencia"
                   @click="descartarSugerencia"
                 >Descartar</button>
               </div>
-              <p v-if="errorRegenerarSugerencia" class="mt-1.5 text-[11px] font-medium text-red-700">{{ errorRegenerarSugerencia }}</p>
+              <p v-if="errorRegenerarSugerencia" class="wa-sugerencia-error mt-1.5 text-[11px] font-medium">{{ errorRegenerarSugerencia }}</p>
             </div>
             <div
               v-else-if="(esperandoSugerenciaIa || regenerandoSugerencia) && puedeEditar"
-              class="relative z-10 border-t px-3 py-2 text-xs"
-              style="background: #f0fdf4; color: #166534;"
+              class="wa-sugerencia wa-sugerencia-espera relative z-10 border-t px-3 py-2 text-xs"
             >
               <p class="font-semibold">{{ regenerandoSugerencia ? 'Regenerando sugerencia…' : 'Generando sugerencia…' }}</p>
               <p class="mt-0.5 opacity-80">El borrador aparece acá en unos segundos. No hace falta refrescar.</p>
@@ -1007,19 +1021,20 @@ function safeInitials(nombre, telefono) {
   return digits ? digits.slice(-2) : '?';
 }
 
-/** Avatar ilustrado único por teléfono. SVG solo ASCII. */
+const AVATAR_PALETTE = [
+  ['#00a884', '#025c4c'], ['#53bdeb', '#1e6f9a'], ['#7f66ff', '#4a38b5'],
+  ['#ff7a59', '#c24328'], ['#ffb938', '#b07a10'], ['#c453c3', '#7a2e7a'],
+  ['#06cf9c', '#028060'], ['#34b7f1', '#0b6fa0'], ['#d3396d', '#8c1842'],
+  ['#ac944c', '#6e5c28'], ['#128c7e', '#064e46'], ['#25d366', '#0d8a3e'],
+];
+
+function avatarColors(seed) {
+  return AVATAR_PALETTE[hashSeed(seed) % AVATAR_PALETTE.length];
+}
+
+/** Color único por teléfono, con las iniciales encima. SVG solo ASCII. */
 function buildAvatarDataUri(seed, label) {
-  const h = hashSeed(seed);
-  const palette = [
-    ['#00a884', '#025c4c'], ['#53bdeb', '#1e6f9a'], ['#7f66ff', '#4a38b5'],
-    ['#ff7a59', '#c24328'], ['#ffb938', '#b07a10'], ['#c453c3', '#7a2e7a'],
-    ['#06cf9c', '#028060'], ['#34b7f1', '#0b6fa0'], ['#d3396d', '#8c1842'],
-    ['#ac944c', '#6e5c28'], ['#128c7e', '#064e46'], ['#25d366', '#0d8a3e'],
-  ];
-  const [c1, c2] = palette[h % palette.length];
-  const cx = 22 + (h % 52);
-  const cy = 18 + ((h >> 3) % 50);
-  const r = 28 + ((h >> 5) % 36);
+  const [c1, c2] = avatarColors(seed);
   const initials = String(label || '?')
     .replace(/[^A-Za-z0-9?]/g, '')
     .slice(0, 2)
@@ -1031,12 +1046,7 @@ function buildAvatarDataUri(seed, label) {
     `<stop offset="100%" stop-color="${c2}"/>`,
     '</linearGradient></defs>',
     '<rect width="96" height="96" fill="url(#g)"/>',
-    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" fill-opacity="0.16"/>`,
-    `<circle cx="${96 - cx}" cy="${70 + (h % 20)}" r="${Math.round(r * 0.55)}" fill="#000" fill-opacity="0.12"/>`,
-    '<circle cx="48" cy="36" r="17" fill="#fff" fill-opacity="0.95"/>',
-    '<ellipse cx="48" cy="78" rx="28" ry="22" fill="#fff" fill-opacity="0.95"/>',
-    '<circle cx="48" cy="48" r="22" fill="#000" fill-opacity="0.28"/>',
-    `<text x="48" y="54" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#fff">${initials}</text>`,
+    `<text x="48" y="60" text-anchor="middle" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#fff">${initials}</text>`,
     '</svg>',
   ].join('');
   try {
@@ -1096,8 +1106,8 @@ const WaAvatar = {
       return buildAvatarDataUri(this.seed, this.label);
     },
     style() {
-      if (!this.ring) return {};
-      return { boxShadow: `0 0 0 2px ${this.ring}` };
+      const [c1] = avatarColors(this.seed);
+      return { boxShadow: `0 0 0 2px ${c1}` };
     },
   },
   template: `
@@ -1133,6 +1143,7 @@ export default {
       conversaciones: [],
       asuntos: [],
       filtroAsuntoId: null,
+      filtrosAbiertos: false,
       telActivo: this.telInicial ? String(this.telInicial) : null,
       mensajes: [],
       hiloMeta: {},
@@ -1386,6 +1397,9 @@ export default {
       this.filtroAsuntoId = id;
       this.cargarConversaciones(true);
     },
+    toggleFiltros() {
+      this.filtrosAbiertos = !this.filtrosAbiertos;
+    },
     async cargarAsuntos() {
       if (!this.urls.asuntos) return;
       try {
@@ -1474,6 +1488,7 @@ export default {
       this.lastSyncAt = null;
       this.hiloMeta = {};
       this.syncUrl();
+      window.InfinityWaFicha && window.InfinityWaFicha.sync(null);
     },
     mergeMensajes(incoming) {
       if (!incoming?.length) return { added: 0, updated: 0 };
@@ -1538,6 +1553,7 @@ export default {
           fallidos: data.fallidos,
           sin_leer: data.sin_leer,
         };
+        window.InfinityWaFicha && window.InfinityWaFicha.sync(data.cliente_id || null);
 
         const lote = Array.isArray(data.mensajes) ? data.mensajes : [];
         if (incremental && (this.ultimoId > 0 || this.lastSyncAt)) {
@@ -2208,6 +2224,12 @@ export default {
       if (this.guardandoRapido) return;
       this.modalTicket = false;
       this.modalError = null;
+    },
+    toggleFicha() {
+      window.InfinityWaFicha && window.InfinityWaFicha.toggle(this.hiloMeta.cliente_id || null);
+    },
+    abrirMenuChat(ev) {
+      window.InfinityWaMenu && window.InfinityWaMenu.toggle(ev.currentTarget);
     },
     clienteDetalleUrl(id) {
       const tpl = this.urls.clienteDetalleTpl || '/clientes/__ID__/detalle';

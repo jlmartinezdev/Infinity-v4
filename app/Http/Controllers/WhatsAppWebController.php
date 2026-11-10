@@ -11,6 +11,8 @@ use App\Models\EstadoPedidoDetalle;
 use App\Models\FacturaInterna;
 use App\Models\Pedido;
 use App\Models\Plan;
+use App\Models\Servicio;
+use App\Models\ServicioConexionEvento;
 use App\Models\Ticket;
 use App\Models\TicketAsunto;
 use App\Models\User;
@@ -184,6 +186,7 @@ class WhatsAppWebController extends Controller
                 'ticketEditTpl' => url('/tickets/__ID__/edit'),
                 'pedidoEditTpl' => url('/pedidos/__ID__/edit'),
                 'clienteDetalleTpl' => url('/clientes/__ID__/detalle'),
+                'ficha' => route('whatsapp.ficha'),
                 'cobroShowTpl' => url('/cobros/__ID__'),
             ],
             'flash' => [
@@ -985,6 +988,232 @@ class WhatsAppWebController extends Controller
             'server_now' => $serverNow,
             'incremental' => $incremental,
         ]);
+    }
+
+    public function fichaCliente(Request $request): JsonResponse
+    {
+        $clienteId = (int) $request->get('cliente_id');
+        if ($clienteId <= 0) {
+            return response()->json([
+                'ok' => false,
+                'vinculado' => false,
+                'mensaje' => 'Este chat no está vinculado a un cliente.',
+            ]);
+        }
+
+        $cliente = Cliente::query()->find($clienteId);
+        if (! $cliente) {
+            return response()->json([
+                'ok' => false,
+                'vinculado' => false,
+                'mensaje' => 'No encontramos ese cliente.',
+            ], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'vinculado' => true,
+            'ficha' => $this->armarFichaCliente($cliente),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function armarFichaCliente(Cliente $cliente): array
+    {
+        $servicios = Servicio::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->where('estado', '!=', Servicio::ESTADO_CANCELADO)
+            ->with([
+                'plan:plan_id,nombre,velocidad,tecnologia_id',
+                'plan.tipoTecnologia:tecnologia_id,descripcion',
+                'pool:pool_id,descripcion,olt_id',
+                'pool.olt:olt_id,codigo',
+                'cajaNapPuertoActivo.cajaNap:caja_nap_id,codigo,salida_pon_id',
+                'cajaNapPuertoActivo.cajaNap.salidaPon:salida_pon_id,olt_id,codigo,puerto_olt',
+                'cajaNapPuertoActivo.cajaNap.salidaPon.olt:olt_id,codigo',
+            ])
+            ->orderByRaw("CASE estado WHEN 'A' THEN 0 WHEN 'S' THEN 1 WHEN 'C' THEN 2 WHEN 'P' THEN 3 ELSE 4 END")
+            ->orderByDesc('servicio_id')
+            ->get();
+
+        $servicio = $servicios->first();
+        $estados = Servicio::estadosDisponibles();
+        $estadoCodigo = $servicio?->estado;
+        $estadoLabel = $estadoCodigo ? ($estados[$estadoCodigo] ?? $estadoCodigo) : 'Sin servicio';
+        $estadoTono = match ($estadoCodigo) {
+            Servicio::ESTADO_ACTIVO => 'ok',
+            Servicio::ESTADO_SUSPENDIDO, Servicio::ESTADO_PENDIENTE => 'warn',
+            Servicio::ESTADO_CORTADO => 'bad',
+            default => 'muted',
+        };
+
+        $tech = $this->tecnologiaCorta($servicio);
+        $nap = $servicio?->cajaNapPuertoActivo;
+        $salida = $nap?->cajaNap?->salidaPon;
+        $olt = $salida?->olt ?: $servicio?->pool?->olt;
+        $puertoNum = $salida?->puerto_olt;
+        if ($olt?->codigo && $puertoNum !== null) {
+            $nodoPuerto = $olt->codigo.' / P'.str_pad((string) $puertoNum, 2, '0', STR_PAD_LEFT);
+        } elseif ($nap?->cajaNap?->codigo) {
+            $nodoPuerto = $nap->cajaNap->codigo.' / P'.str_pad((string) ($nap->numero_puerto ?? 0), 2, '0', STR_PAD_LEFT);
+        } else {
+            $nodoPuerto = null;
+        }
+
+        $planNombre = trim((string) ($servicio?->plan?->nombre ?? ''));
+        $velocidad = trim((string) ($servicio?->plan?->velocidad ?? ''));
+        $compactar = static fn (string $texto): string => (string) preg_replace('/\s+/', '', mb_strtolower($texto));
+        if ($velocidad !== '' && $planNombre !== '' && ! str_contains($compactar($planNombre), $compactar($velocidad))) {
+            $planNombre .= ' · '.$velocidad;
+        }
+        if ($planNombre === '') {
+            $planNombre = $velocidad !== '' ? $velocidad : null;
+        }
+
+        $poolDesc = mb_strtolower((string) ($servicio?->pool?->descripcion ?? ''));
+        $ipLabel = str_contains($poolDesc, 'cgnat') ? 'IP asignada (CGNAT)' : 'IP asignada';
+
+        $optica = null;
+        $opticaCuando = null;
+        if ($servicio) {
+            $evento = ServicioConexionEvento::query()
+                ->where('servicio_id', $servicio->servicio_id)
+                ->where('tipo', ServicioConexionEvento::TIPO_SENAL_OPTICA)
+                ->whereNotNull('rx_power_dbm')
+                ->orderByDesc('ocurrio_at')
+                ->orderByDesc('servicio_conexion_evento_id')
+                ->first(['rx_power_dbm', 'ocurrio_at']);
+            if ($evento) {
+                $optica = (float) $evento->rx_power_dbm;
+                $opticaCuando = $evento->ocurrio_at;
+            } elseif ($nap && $nap->potencia_cliente !== null) {
+                $optica = (float) $nap->potencia_cliente;
+            }
+        }
+        $opticaMeta = $this->etiquetaOptica($optica);
+
+        $serial = trim((string) ($servicio?->tr069_serial ?? ''));
+        $mac = trim((string) ($servicio?->mac_address ?? ''));
+        $macSerial = collect([$mac !== '' ? $mac : null, $serial !== '' ? $serial : null])->filter()->implode(' · ');
+
+        $saldoRow = FacturaInterna::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->selectRaw('COALESCE(SUM('.FacturaInterna::sqlSaldoPendienteExpr().'), 0) as saldo_sql')
+            ->first();
+        $saldo = (float) ($saldoRow->saldo_sql ?? 0);
+        $alDia = $saldo <= 0.009;
+
+        $cobro = Cobro::query()
+            ->where('cliente_id', $cliente->cliente_id)
+            ->orderByDesc('fecha_pago')
+            ->orderByDesc('id')
+            ->first(['id', 'fecha_pago', 'forma_pago', 'monto']);
+        $forma = $cobro ? (Cobro::formasPago()[$cobro->forma_pago] ?? $cobro->forma_pago) : null;
+        $cuandoCobro = $cobro?->fecha_pago;
+        $ultimoPago = null;
+        if ($cuandoCobro) {
+            $hora = $cuandoCobro->format('H:i:s');
+            $ultimoPago = $cuandoCobro->format('d/m/Y')
+                .($hora !== '00:00:00' ? ' · '.$cuandoCobro->format('H:i') : '')
+                .($forma ? ' ('.$forma.')' : '');
+        }
+
+        $tickets = Ticket::query()
+            ->with(['usuario:usuario_id,name', 'ticketAsunto:id,nombre'])
+            ->where('cliente_id', $cliente->cliente_id)
+            ->orderByDesc('updated_at')
+            ->limit(6)
+            ->get()
+            ->map(function (Ticket $ticket) {
+                $bruto = trim((string) ($ticket->nota_tecnico ?: $ticket->detalle_tecnico ?: $ticket->descripcion ?: $ticket->observaciones ?: ''));
+                $texto = trim((string) preg_replace('/\s+/u', ' ', strip_tags($bruto)));
+                if ($texto === '') {
+                    $texto = trim((string) ($ticket->ticketAsunto?->nombre ?? ''));
+                }
+                if (mb_strlen($texto) > 180) {
+                    $texto = mb_substr($texto, 0, 177).'…';
+                }
+                $cuando = $ticket->updated_at;
+
+                return [
+                    'id' => $ticket->id,
+                    'autor' => trim((string) ($ticket->usuario?->name ?? '')) ?: 'Sistema',
+                    'hora' => $cuando ? ($cuando->isToday() ? $cuando->format('H:i') : $cuando->format('d/m H:i')) : '',
+                    'texto' => $texto !== '' ? $texto : 'Ticket sin detalle',
+                    'estado' => Ticket::estados()[$ticket->estado] ?? $ticket->estado,
+                ];
+            })
+            ->values();
+
+        return [
+            'cliente_id' => $cliente->cliente_id,
+            'nombre' => trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? '')),
+            'cedula' => $cliente->cedula,
+            'codigo' => '#'.$cliente->cliente_id.($tech ? ' · '.$tech : ''),
+            'estado' => $estadoLabel,
+            'estado_tono' => $estadoTono,
+            'nodo_puerto' => $nodoPuerto,
+            'plan' => $planNombre,
+            'ip_label' => $ipLabel,
+            'ip' => $servicio?->ip,
+            'mac_serial' => $macSerial !== '' ? $macSerial : null,
+            'optica' => $opticaMeta ? [
+                'valor' => number_format($optica, 2, '.', '').' dBm',
+                'etiqueta' => $opticaMeta['label'],
+                'tono' => $opticaMeta['tono'],
+                'cuando' => $opticaCuando?->format('d/m/Y H:i'),
+            ] : null,
+            'cuenta' => $alDia ? 'Al día' : 'Con saldo',
+            'cuenta_tono' => $alDia ? 'ok' : 'warn',
+            'saldo' => number_format($saldo, 0, ',', '.').' Gs.',
+            'saldo_tono' => $alDia ? 'ok' : 'bad',
+            'ultimo_pago' => $ultimoPago,
+            'otros_servicios' => max(0, $servicios->count() - 1),
+            'bitacora' => $tickets,
+            'detalle_url' => '/clientes/'.$cliente->cliente_id.'/detalle',
+        ];
+    }
+
+    private function tecnologiaCorta(?Servicio $servicio): ?string
+    {
+        if (! $servicio) {
+            return null;
+        }
+        $desc = mb_strtolower(trim((string) ($servicio->plan?->tipoTecnologia?->descripcion ?? '')));
+        if ($desc !== '' && (str_contains($desc, 'ftth') || str_contains($desc, 'fibra') || str_contains($desc, 'gpon'))) {
+            return 'FTTH';
+        }
+        if ($desc !== '' && (str_contains($desc, 'radio') || str_contains($desc, 'wireless') || str_contains($desc, 'inal'))) {
+            return 'Radio';
+        }
+        if ($servicio->cajaNapPuertoActivo) {
+            return 'FTTH';
+        }
+        if ($desc === '') {
+            return null;
+        }
+
+        return mb_strtoupper(mb_substr(trim((string) $servicio->plan?->tipoTecnologia?->descripcion), 0, 16));
+    }
+
+    /**
+     * @return array{label: string, tono: string}|null
+     */
+    private function etiquetaOptica(?float $rx): ?array
+    {
+        if ($rx === null) {
+            return null;
+        }
+        if ($rx >= -25) {
+            return ['label' => 'Óptimo', 'tono' => 'ok'];
+        }
+        if ($rx >= -28) {
+            return ['label' => 'Aceptable', 'tono' => 'warn'];
+        }
+
+        return ['label' => 'Baja', 'tono' => 'bad'];
     }
 
     public function marcarLeidos(Request $request): JsonResponse
