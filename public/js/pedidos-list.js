@@ -28117,11 +28117,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var formEstadoId = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(props.filtroEstadoId || 'todos');
     var formClienteId = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(props.filtroClienteId || 'todos');
     var formTecnologia = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('todos');
+    var filtroPlan = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('todos');
     var fechaHoy = new Date().toISOString().split('T')[0];
     var cantidadFiltrosActivos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
       var n = 0;
       if (formEstadoId.value && formEstadoId.value !== 'todos') n += 1;
       if (formTecnologia.value && formTecnologia.value !== 'todos') n += 1;
+      if (filtroPlan.value && filtroPlan.value !== 'todos') n += 1;
       if (filtroFechaDesde.value) n += 1;
       if (filtroFechaHasta.value) n += 1;
       if (filtroInstalacion.value && filtroInstalacion.value !== 'todos') n += 1;
@@ -28132,6 +28134,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     function limpiarFiltros() {
       formEstadoId.value = 'todos';
       formTecnologia.value = 'todos';
+      filtroPlan.value = 'todos';
       filtroFechaDesde.value = '';
       filtroFechaHasta.value = '';
       filtroInstalacion.value = 'todos';
@@ -28234,6 +28237,11 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         localStorage.setItem('pedidos_filtro_instalacion', v);
       } catch (e) {}
     });
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(filtroPlan, function (v) {
+      try {
+        localStorage.setItem('pedidos_filtro_plan', v);
+      } catch (e) {}
+    });
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)([filtroFechaDesde, filtroFechaHasta], function (_ref2) {
       var _ref3 = _slicedToArray(_ref2, 2),
         desde = _ref3[0],
@@ -28259,6 +28267,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         }
         filtroFechaDesde.value = localStorage.getItem('pedidos_fecha_desde') || '';
         filtroFechaHasta.value = localStorage.getItem('pedidos_fecha_hasta') || '';
+        var planGuardado = localStorage.getItem('pedidos_filtro_plan');
+        if (planGuardado === 'todos' || planGuardado === 'basico' || planGuardado === 'estandar' || planGuardado === 'premium') {
+          filtroPlan.value = planGuardado;
+        }
         var storedDesc = localStorage.getItem('pedidos_mostrar_descartados');
         if (storedDesc === '0' || storedDesc === '1') mostrarDescartados.value = storedDesc;
         var storedVista = localStorage.getItem('pedidos_vista');
@@ -28386,6 +28398,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           if (tipo === 'gpon') return /gpon|epon|ftth|fibra|fiber|pon|xg-pon/i.test(desc);
           if (tipo === 'wireless') return /wireless|inalambr|anten|radio|wifi/i.test(desc);
           return true;
+        });
+      }
+
+      if (filtroPlan.value && filtroPlan.value !== 'todos') {
+        list = list.filter(function (p) {
+          return categoriaPlan(nombrePlanSeleccionado(p)) === filtroPlan.value;
         });
       }
 
@@ -28789,6 +28807,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         if (d !== null && d !== void 0 && d.plan_nombre) return d.plan_nombre;
       }
       return (pedido === null || pedido === void 0 || (_pedido$plan = pedido.plan) === null || _pedido$plan === void 0 ? void 0 : _pedido$plan.nombre) || '';
+    };
+    var categoriaPlan = function categoriaPlan(nombre) {
+      var n = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (n.includes('premium')) return 'premium';
+      if (n.includes('estandar')) return 'estandar';
+      if (n.includes('basico')) return 'basico';
+      return '';
     };
     var nombreNodoSeleccionado = function nombreNodoSeleccionado(pedido) {
       var _getSeleccionPedido;
@@ -29577,6 +29602,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       formEstadoId: formEstadoId,
       formClienteId: formClienteId,
       formTecnologia: formTecnologia,
+      filtroPlan: filtroPlan,
       fechaHoy: fechaHoy,
       cantidadFiltrosActivos: cantidadFiltrosActivos,
       limpiarFiltros: limpiarFiltros,
@@ -30805,7 +30831,22 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     value: "gpon"
   }, "GPON / Fibra", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: "wireless"
-  }, "Wireless", -1 /* CACHED */)])), 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.formTecnologia]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[37] || (_cache[37] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Wireless", -1 /* CACHED */)])), 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.formTecnologia]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    class: "block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5"
+  }, "Plan"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
+    "onUpdate:modelValue": function onUpdateModelValue($event) {
+      return $setup.filtroPlan = $event;
+    },
+    class: "w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+    value: "todos"
+  }, "Todos los planes"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+    value: "basico"
+  }, "Básico"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+    value: "estandar"
+  }, "Estándar"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+    value: "premium"
+  }, "Premium")], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.filtroPlan]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[37] || (_cache[37] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5"
   }, "Fecha desde", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[6] || (_cache[6] = function ($event) {

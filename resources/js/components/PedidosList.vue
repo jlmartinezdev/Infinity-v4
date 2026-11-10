@@ -116,6 +116,15 @@
                                             <option value="wireless">Wireless</option>
                                         </select>
                                     </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Plan</label>
+                                        <select v-model="filtroPlan" class="w-full py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                            <option value="todos">Todos los planes</option>
+                                            <option value="basico">Básico</option>
+                                            <option value="estandar">Estándar</option>
+                                            <option value="premium">Premium</option>
+                                        </select>
+                                    </div>
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Fecha desde</label>
@@ -974,12 +983,14 @@ const mostrarDescartados = ref('1');
 const formEstadoId = ref(props.filtroEstadoId || 'todos');
 const formClienteId = ref(props.filtroClienteId || 'todos');
 const formTecnologia = ref('todos');
+const filtroPlan = ref('todos');
 const fechaHoy = new Date().toISOString().split('T')[0];
 
 const cantidadFiltrosActivos = computed(() => {
     let n = 0;
     if (formEstadoId.value && formEstadoId.value !== 'todos') n += 1;
     if (formTecnologia.value && formTecnologia.value !== 'todos') n += 1;
+    if (filtroPlan.value && filtroPlan.value !== 'todos') n += 1;
     if (filtroFechaDesde.value) n += 1;
     if (filtroFechaHasta.value) n += 1;
     if (filtroInstalacion.value && filtroInstalacion.value !== 'todos') n += 1;
@@ -991,6 +1002,7 @@ const cantidadFiltrosActivos = computed(() => {
 function limpiarFiltros() {
     formEstadoId.value = 'todos';
     formTecnologia.value = 'todos';
+    filtroPlan.value = 'todos';
     filtroFechaDesde.value = '';
     filtroFechaHasta.value = '';
     filtroInstalacion.value = 'todos';
@@ -1080,6 +1092,10 @@ watch(filtroInstalacion, (v) => {
     try { localStorage.setItem('pedidos_filtro_instalacion', v); } catch (e) {}
 });
 
+watch(filtroPlan, (v) => {
+    try { localStorage.setItem('pedidos_filtro_plan', v); } catch (e) {}
+});
+
 watch([filtroFechaDesde, filtroFechaHasta], ([desde, hasta]) => {
     try {
         if (desde) localStorage.setItem('pedidos_fecha_desde', desde); else localStorage.removeItem('pedidos_fecha_desde');
@@ -1103,6 +1119,10 @@ onMounted(() => {
         }
         filtroFechaDesde.value = localStorage.getItem('pedidos_fecha_desde') || '';
         filtroFechaHasta.value = localStorage.getItem('pedidos_fecha_hasta') || '';
+        const planGuardado = localStorage.getItem('pedidos_filtro_plan');
+        if (planGuardado === 'todos' || planGuardado === 'basico' || planGuardado === 'estandar' || planGuardado === 'premium') {
+            filtroPlan.value = planGuardado;
+        }
         const storedDesc = localStorage.getItem('pedidos_mostrar_descartados');
         if (storedDesc === '0' || storedDesc === '1') mostrarDescartados.value = storedDesc;
         const storedVista = localStorage.getItem('pedidos_vista');
@@ -1211,6 +1231,10 @@ const pedidosFiltrados = computed(() => {
             if (tipo === 'wireless') return /wireless|inalambr|anten|radio|wifi/i.test(desc);
             return true;
         });
+    }
+
+    if (filtroPlan.value && filtroPlan.value !== 'todos') {
+        list = list.filter(p => categoriaPlan(nombrePlanSeleccionado(p)) === filtroPlan.value);
     }
 
     // Búsqueda instantánea (cliente, cédula, descripción)
@@ -1538,6 +1562,14 @@ const nombrePlanSeleccionado = (pedido) => {
         if (d?.plan_nombre) return d.plan_nombre;
     }
     return pedido?.plan?.nombre || '';
+};
+
+const categoriaPlan = (nombre) => {
+    const n = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (n.includes('premium')) return 'premium';
+    if (n.includes('estandar')) return 'estandar';
+    if (n.includes('basico')) return 'basico';
+    return '';
 };
 
 const nombreNodoSeleccionado = (pedido) => {
