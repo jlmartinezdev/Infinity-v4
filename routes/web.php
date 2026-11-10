@@ -159,7 +159,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Dashboard principal: estadísticas y actividad
-Route::get('/', [HomeController::class, 'index'])->middleware(['auth', 'permiso:dashboard.ver'])->name('home');
+Route::get('/', [HomeController::class, 'index'])->middleware(['auth'])->name('home');
 
 // Dashboard de tareas (Kanban estilo Trello)
 Route::middleware(['auth', 'permiso:tareas.ver'])->group(function () {

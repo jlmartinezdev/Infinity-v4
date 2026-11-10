@@ -236,6 +236,9 @@ class HomeController extends Controller
     public function index()
     {
         $user = Auth::user();
+        if (! $user instanceof User || ! $user->tienePermiso('dashboard.ver')) {
+            return redirect()->route('inicio');
+        }
 
         $stats = $this->obtenerStats();
         $systemStatus = $this->obtenerEstadoSistema($stats);

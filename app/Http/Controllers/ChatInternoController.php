@@ -18,6 +18,8 @@ class ChatInternoController extends Controller
         return view('chat.index', [
             'config' => [
                 'usuarioId' => (int) $request->user()->usuario_id,
+                'nombre' => (string) $request->user()->name,
+                'cargo' => $request->user()->cargo,
                 'abrir' => $request->integer('c') ?: null,
                 'urls' => [
                     'conversaciones' => route('chat.conversaciones'),

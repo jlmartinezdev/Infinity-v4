@@ -75,6 +75,7 @@ class ChatInternoTest extends TestCase
         $this->app->instance(FcmPushService::class, $fcm);
 
         $ana = User::query()->find(1);
+        $this->actingAs($ana)->get('/')->assertRedirect(route('inicio'));
         $this->assertContains('chat-interno.ver', $ana->permisos);
         $this->assertNotContains('chat-interno.ver', User::query()->find(4)->permisos ?? []);
 
@@ -119,6 +120,12 @@ class ChatInternoTest extends TestCase
         $this->actingAs($beto)->get('/chat/adjuntos/'.$adjuntoId)->assertOk();
         $this->actingAs(User::query()->find(3))->getJson('/chat/conversaciones/'.$conversacionId.'/mensajes')->assertForbidden();
         $this->actingAs(User::query()->find(3))->getJson('/chat/adjuntos/'.$adjuntoId)->assertForbidden();
+
+        $this->actingAs($beto)->getJson('/chat/conversaciones/'.$conversacionId.'/mensajes')->assertOk();
+        $vistaAna = $this->actingAs($ana)->getJson('/chat/conversaciones/'.$conversacionId.'/mensajes');
+        $vistaAna->assertOk();
+        $cursorBeto = collect($vistaAna->json('conversacion.participantes'))->firstWhere('usuario_id', 2);
+        $this->assertGreaterThanOrEqual($mensajeId, $cursorBeto['ultimo_leido_mensaje_id'] ?? 0);
 
         $this->actingAs($beto)->postJson('/chat/mensajes/'.$mensajeId.'/atender')->assertOk();
         Event::assertDispatched(AccionChatAtendida::class);

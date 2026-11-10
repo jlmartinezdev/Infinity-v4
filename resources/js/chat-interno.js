@@ -1,19 +1,26 @@
 const cfg = window.__CHAT_INTERNO__;
 if (cfg) {
     const yo = Number(cfg.usuarioId);
+    const raiz = document.getElementById('chat-interno');
     const lista = document.getElementById('chat-lista');
-    const panel = document.getElementById('chat-panel');
-    const aside = document.getElementById('chat-aside');
     const hilo = document.getElementById('chat-hilo');
     const vacio = document.getElementById('chat-vacio');
     const head = document.getElementById('chat-hilo-head');
     const titulo = document.getElementById('chat-hilo-titulo');
     const sub = document.getElementById('chat-hilo-sub');
+    const avatarHilo = document.getElementById('chat-hilo-avatar');
+    const irAcciones = document.getElementById('chat-ir-acciones');
+    const detalle = document.getElementById('chat-detalle');
     const composer = document.getElementById('chat-composer');
     const texto = document.getElementById('chat-texto');
     const archivo = document.getElementById('chat-archivo');
     const archivoNombre = document.getElementById('chat-archivo-nombre');
+    const btnArchivo = document.getElementById('chat-btn-archivo');
+    const btnImagen = document.getElementById('chat-btn-imagen');
+    const btnMencion = document.getElementById('chat-btn-mencion');
+    const menciones = document.getElementById('chat-menciones');
     const accion = document.getElementById('chat-accion');
+    const accionBtn = document.getElementById('chat-accion-btn');
     const asignadosBox = document.getElementById('chat-asignados');
     const errorBox = document.getElementById('chat-error');
     const modal = document.getElementById('chat-modal');
@@ -22,13 +29,24 @@ if (cfg) {
     const modalBuscar = document.getElementById('chat-modal-buscar');
     const modalLista = document.getElementById('chat-modal-lista');
     const modalError = document.getElementById('chat-modal-error');
+    const buscar = document.getElementById('chat-buscar');
+    const filtroAcciones = document.getElementById('chat-filtro-acciones');
+    const filtroNoLeidos = document.getElementById('chat-filtro-noleidos');
 
     let conversaciones = [];
     let usuarios = [];
     let actual = null;
+    let mensajesActuales = [];
     let modoModal = 'directo';
     let canalHilo = null;
+    let filtro = '';
+    let mencionIndice = 0;
+    const aceptaArchivo = archivo.getAttribute('accept') || '';
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const colores = ['#2563eb', '#7c3aed', '#0f766e', '#c2410c', '#be185d', '#1d4ed8'];
+
+    document.getElementById('chat-yo-nombre').textContent = cfg.nombre || 'Staff';
+    document.getElementById('chat-yo-avatar').textContent = iniciales(cfg.nombre || 'Yo');
 
     function headers(json) {
         const base = {
@@ -53,12 +71,6 @@ if (cfg) {
         }
     }
 
-    function hora(iso) {
-        if (!iso) return '';
-        const fecha = new Date(iso);
-        return fecha.toLocaleString('es-PY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    }
-
     function escapar(valor) {
         return String(valor ?? '')
             .replace(/&/g, '&amp;')
@@ -67,92 +79,317 @@ if (cfg) {
             .replace(/"/g, '&quot;');
     }
 
+    function iniciales(nombre) {
+        const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+        const letras = (partes[0] || '?').slice(0, 1) + (partes[1] ? partes[1].slice(0, 1) : '');
+        return letras.toUpperCase();
+    }
+
+    function colorDe(nombre) {
+        let n = 0;
+        const texto = String(nombre || '');
+        for (let i = 0; i < texto.length; i += 1) n += texto.charCodeAt(i);
+        return colores[n % colores.length];
+    }
+
+    function horaCorta(iso) {
+        if (!iso) return '';
+        const fecha = new Date(iso);
+        return fecha.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function dia(iso) {
+        if (!iso) return '';
+        const fecha = new Date(iso);
+        const hoy = new Date();
+        const texto = fecha.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' });
+        return fecha.toDateString() === hoy.toDateString() ? 'Hoy, ' + texto : texto;
+    }
+
+    function peso(bytes) {
+        const n = Number(bytes) || 0;
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return Math.round(n / 1024) + ' KB';
+        return (n / 1048576).toFixed(1) + ' MB';
+    }
+
     function preview(item) {
         if (!item.ultimo) return 'Sin mensajes';
         if (item.ultimo.cuerpo) return item.ultimo.cuerpo;
-        if (item.ultimo.adjunto_nombre) return 'Archivo: ' + item.ultimo.adjunto_nombre;
+        if (item.ultimo.adjunto_nombre) return item.ultimo.adjunto_nombre;
         return 'Mensaje';
     }
 
+    function otroDe(item) {
+        return (item.participantes || []).find((persona) => Number(persona.usuario_id) !== yo) || null;
+    }
+
+    function visibles() {
+        const q = (buscar.value || '').trim().toLowerCase();
+        return conversaciones.filter((item) => {
+            if (filtro === 'acciones' && !(Number(item.acciones_pendientes) > 0)) return false;
+            if (filtro === 'noleidos' && !(Number(item.no_leidos) > 0)) return false;
+            if (!q) return true;
+            return (item.titulo || '').toLowerCase().includes(q) || preview(item).toLowerCase().includes(q);
+        });
+    }
+
+    function pintarChips() {
+        const acciones = conversaciones.reduce((suma, item) => suma + (Number(item.acciones_pendientes) > 0 ? 1 : 0), 0);
+        const noLeidos = conversaciones.reduce((suma, item) => suma + (Number(item.no_leidos) || 0), 0);
+        filtroAcciones.textContent = acciones ? 'Acciones pendientes (' + acciones + ')' : 'Acciones pendientes';
+        filtroNoLeidos.textContent = 'No leídos (' + noLeidos + ')';
+        filtroAcciones.setAttribute('aria-pressed', filtro === 'acciones' ? 'true' : 'false');
+        filtroNoLeidos.setAttribute('aria-pressed', filtro === 'noleidos' ? 'true' : 'false');
+    }
+
+    function htmlCanal(item) {
+        const activo = actual && Number(actual.id) === Number(item.id);
+        const pedidos = Number(item.acciones_pendientes) || 0;
+        const cuenta = Number(item.no_leidos) || pedidos;
+        const badge = cuenta > 0
+            ? '<span class="st-count ' + (pedidos > 0 ? 'rojo' : 'cielo') + '">' + cuenta + '</span>'
+            : '';
+        return '<button type="button" class="st-canal' + (activo ? ' activo' : '') + '" data-id="' + item.id + '"><span><span class="hash">#</span>' + escapar(item.titulo || 'grupo') + '</span>' + badge + '</button>';
+    }
+
+    function htmlDirecto(item) {
+        const activo = actual && Number(actual.id) === Number(item.id);
+        const nombre = item.titulo || 'Chat';
+        const pedidos = Number(item.acciones_pendientes) || 0;
+        const aviso = pedidos > 0
+            ? '<span class="st-tag">' + pedidos + (pedidos === 1 ? ' pedido de acción' : ' pedidos de acción') + '</span>'
+            : '';
+        return '<button type="button" class="st-dm' + (activo ? ' activo' : '') + '" data-id="' + item.id + '">'
+            + '<span class="st-av">' + escapar(iniciales(nombre)) + '</span>'
+            + '<span class="txt"><span class="fila"><b>' + escapar(nombre) + '</b><small>' + escapar(horaCorta(item.ultimo && item.ultimo.creado_at)) + '</small></span>'
+            + '<small class="prev">' + escapar(preview(item)) + '</small>' + aviso + '</span></button>';
+    }
+
     function pintarLista() {
+        pintarChips();
+        const items = visibles();
+        const grupos = items.filter((item) => item.tipo === 'grupo');
+        const directos = items.filter((item) => item.tipo !== 'grupo');
         if (!conversaciones.length) {
-            lista.innerHTML = '<p class="p-4 text-sm text-gray-500 dark:text-gray-400">Todavía no hay conversaciones.</p>';
+            lista.innerHTML = '<p class="st-vacio">Todavía no hay conversaciones.</p>';
             return;
         }
-        lista.innerHTML = conversaciones.map((item) => {
-            const activo = actual && Number(actual.id) === Number(item.id);
-            const badge = item.no_leidos > 0
-                ? '<span class="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-xs text-white">' + item.no_leidos + '</span>'
-                : '';
-            return '<button type="button" data-id="' + item.id + '" class="flex w-full items-start gap-2 border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/60 ' + (activo ? 'bg-blue-50 dark:bg-gray-700' : '') + '">'
-                + '<span class="min-w-0 flex-1"><span class="flex items-center"><span class="truncate font-medium text-gray-900 dark:text-gray-100">' + escapar(item.titulo) + '</span>' + badge + '</span>'
-                + '<span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">' + escapar(preview(item)) + '</span></span></button>';
-        }).join('');
+        if (!items.length) {
+            lista.innerHTML = '<p class="st-vacio">Ningún chat coincide con el filtro.</p>';
+            return;
+        }
+        lista.innerHTML = ''
+            + '<div class="st-sec"><span>Canales del equipo</span><button type="button" data-nuevo="grupo" aria-label="Nuevo grupo">+</button></div>'
+            + (grupos.map(htmlCanal).join('') || '<p class="st-meta" style="padding:0 8px 12px">Sin grupos</p>')
+            + '<div class="st-sec"><span>Mensajes directos</span><em>' + directos.length + '</em></div>'
+            + (directos.map(htmlDirecto).join('') || '<p class="st-meta" style="padding:0 8px">Sin directos</p>');
     }
 
     function mostrarHilo(visible) {
         vacio.classList.toggle('hidden', visible);
-        vacio.classList.toggle('flex', !visible);
         hilo.classList.toggle('hidden', !visible);
-        hilo.classList.toggle('flex', visible);
-        hilo.classList.toggle('flex-col', visible);
         head.classList.toggle('hidden', !visible);
-        head.classList.toggle('flex', visible);
         composer.classList.toggle('hidden', !visible);
-        if (window.matchMedia('(max-width: 767px)').matches) {
-            aside.classList.toggle('hidden', visible);
-            panel.classList.toggle('hidden', !visible);
-            panel.classList.toggle('flex', visible);
-        }
+        raiz.classList.toggle('st-en-hilo', visible);
     }
 
-    function estadoAccion(mensaje) {
-        if (!mensaje.requiere_accion) return '';
-        const mia = (mensaje.asignados || []).find((item) => Number(item.usuario_id) === yo);
-        if (mia && !mia.atendido_at) return '<p class="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">Te pidieron una acción</p>';
-        const pendientes = (mensaje.asignados || []).filter((item) => !item.atendido_at).length;
-        if (pendientes === 0) return '<p class="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Acción atendida</p>';
-        return '<p class="mt-1 text-xs text-amber-600 dark:text-amber-400">Acción pendiente</p>';
+    function pendientesMios(mensaje) {
+        return (mensaje.asignados || []).filter((item) => Number(item.usuario_id) === yo && !item.atendido_at);
     }
 
     function htmlAdjunto(mensaje) {
         if (!mensaje.adjunto) return '';
         const adj = mensaje.adjunto;
         if (adj.es_imagen) {
-            return '<a href="' + escapar(adj.url) + '" target="_blank" rel="noopener"><img src="' + escapar(adj.url) + '" alt="' + escapar(adj.nombre) + '" class="mt-2 max-h-48 rounded-lg"></a>';
+            return '<a href="' + escapar(adj.url) + '" target="_blank" rel="noopener"><img class="st-img" src="' + escapar(adj.url) + '" alt="' + escapar(adj.nombre) + '"></a>';
         }
-        return '<a href="' + escapar(adj.url) + '" class="mt-2 inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noopener">' + escapar(adj.nombre) + '</a>';
+        return '<a class="st-adjunto" href="' + escapar(adj.url) + '" target="_blank" rel="noopener">' + escapar(adj.nombre) + '</a>';
     }
 
-    function htmlMensaje(mensaje) {
+    function horaLarga(iso) {
+        if (!iso) return '';
+        const fecha = new Date(iso);
+        const diaMes = fecha.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit' });
+        const hora = fecha.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+        return diaMes + ', ' + hora;
+    }
+
+    function htmlPedido(mensaje) {
+        if (!mensaje.requiere_accion) return '';
+        const mios = pendientesMios(mensaje);
+        const pendientes = (mensaje.asignados || []).filter((item) => !item.atendido_at);
+        const detalle = mensaje.cuerpo || (mensaje.adjunto ? mensaje.adjunto.nombre : 'Mensaje sin texto');
+        if (mios.length) {
+            return '<div class="st-banner"><div><strong>Te pidieron una acción</strong><span>' + escapar(detalle) + '</span></div><button type="button" class="st-resolver" data-atender="' + mensaje.id + '">Resolver</button></div>';
+        }
+        if (!pendientes.length) {
+            return '<div class="st-banner"><div><strong>Acción atendida</strong><span>' + escapar(detalle) + '</span></div></div>';
+        }
+        return '<div class="st-banner"><div><strong>Acción pendiente</strong><span>Esperando a ' + pendientes.length + (pendientes.length === 1 ? ' persona' : ' personas') + '</span></div></div>';
+    }
+
+    function htmlMensaje(mensaje, anterior) {
         const propio = Number(mensaje.usuario_id) === yo;
-        const lado = propio ? 'ml-auto bg-blue-600 text-white' : 'mr-auto bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100';
-        const cuerpo = mensaje.cuerpo ? '<p class="whitespace-pre-wrap">' + escapar(mensaje.cuerpo) + '</p>' : '';
-        return '<article data-mensaje="' + mensaje.id + '" class="max-w-lg rounded-2xl px-3 py-2 text-sm shadow-sm ' + lado + '">'
-            + (!propio ? '<p class="mb-1 text-xs font-semibold opacity-80">' + escapar(mensaje.autor) + '</p>' : '')
-            + cuerpo
-            + htmlAdjunto(mensaje)
-            + estadoAccion(mensaje)
-            + '<p class="mt-1 text-[11px] opacity-70">' + escapar(hora(mensaje.creado_at)) + '</p></article>';
+        const separador = !anterior || dia(anterior.creado_at) !== dia(mensaje.creado_at)
+            ? '<div class="st-dia"><span>' + escapar(dia(mensaje.creado_at)) + '</span></div>'
+            : '';
+        const cuerpo = htmlLinea(mensaje, propio);
+        const pedido = htmlPedido(mensaje);
+        if (propio) {
+            return separador
+                + '<article class="msg out" data-mensaje="' + mensaje.id + '"><div class="msg-col">'
+                + '<div class="msg-meta"><span class="st-hora">' + escapar(horaLarga(mensaje.creado_at)) + '</span><span class="tu">Tú</span></div>'
+                + '<div class="bubble out' + (pedido ? ' accion' : '') + '">' + cuerpo + htmlAdjunto(mensaje) + pedido + '</div>'
+                + '</div></article>';
+        }
+        return separador
+            + '<article class="msg" data-mensaje="' + mensaje.id + '">'
+            + '<span class="st-av">' + escapar(iniciales(mensaje.autor)) + '</span>'
+            + '<div><div class="msg-meta"><span class="name">' + escapar(mensaje.autor) + '</span><span class="st-hora">' + escapar(horaLarga(mensaje.creado_at)) + '</span></div>'
+            + '<div class="bubble in' + (pedido ? ' accion' : '') + '">' + cuerpo + htmlAdjunto(mensaje) + pedido + '</div></div></article>';
+    }
+
+    function leidoPorOtros(mensaje) {
+        const otros = (actual && actual.participantes ? actual.participantes : []).filter((persona) => Number(persona.usuario_id) !== yo);
+        if (!otros.length) return false;
+        return otros.every((persona) => Number(persona.ultimo_leido_mensaje_id) >= Number(mensaje.id));
+    }
+
+    function marcarMenciones(valor) {
+        const nombres = (actual && actual.participantes ? actual.participantes : [])
+            .map((persona) => persona.name)
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length);
+        let html = escapar(valor);
+        nombres.forEach((nombre) => {
+            const marca = '@' + escapar(nombre);
+            html = html.split(marca).join('<span class="st-mencion">' + marca + '</span>');
+        });
+        return html;
+    }
+
+    function personasMencionables() {
+        return (actual && actual.participantes ? actual.participantes : [])
+            .filter((persona) => Number(persona.usuario_id) !== yo && persona.name);
+    }
+
+    function consultaMencion() {
+        const hasta = texto.value.slice(0, texto.selectionStart);
+        const match = hasta.match(/(^|\s)@([^@\n]*)$/);
+        return match ? match[2] : null;
+    }
+
+    function cerrarMenciones() {
+        menciones.classList.add('hidden');
+        menciones.innerHTML = '';
+        mencionIndice = 0;
+    }
+
+    function pintarMenciones(consulta) {
+        const q = String(consulta || '').toLowerCase();
+        const personas = personasMencionables().filter((persona) => persona.name.toLowerCase().includes(q));
+        if (!personas.length) {
+            cerrarMenciones();
+            return;
+        }
+        if (mencionIndice >= personas.length) mencionIndice = 0;
+        menciones.innerHTML = personas.map((persona, indice) => {
+            const cargo = persona.cargo ? '<span>' + escapar(persona.cargo) + '</span>' : '';
+            return '<button type="button" role="option" class="' + (indice === mencionIndice ? 'activa' : '') + '" data-mencion="' + encodeURIComponent(persona.name) + '"><b>' + escapar(persona.name) + '</b>' + cargo + '</button>';
+        }).join('');
+        menciones.classList.remove('hidden');
+    }
+
+    function insertarMencion(nombre) {
+        const pos = texto.selectionStart;
+        const hasta = texto.value.slice(0, pos);
+        const resto = texto.value.slice(pos);
+        const match = hasta.match(/(^|\s)@([^@\n]*)$/);
+        const base = match ? hasta.slice(0, match.index + match[1].length) : hasta + (hasta && !/\s$/.test(hasta) ? ' ' : '');
+        const pieza = '@' + nombre + ' ';
+        texto.value = base + pieza + resto;
+        const cursor = (base + pieza).length;
+        texto.focus();
+        texto.setSelectionRange(cursor, cursor);
+        cerrarMenciones();
+    }
+
+    function htmlChecks(mensaje) {
+        const leido = leidoPorOtros(mensaje);
+        const marca = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.2 11.2 2.9 7.9l-.9.9 4.2 4.2 8-8-.9-.9z"/></svg>';
+        return '<span class="st-checks' + (leido ? ' leido' : '') + '" title="' + (leido ? 'Leído' : 'Enviado') + '">' + marca + (leido ? marca : '') + '</span>';
+    }
+
+    function htmlLinea(mensaje, propio) {
+        const texto = mensaje.cuerpo ? '<p>' + marcarMenciones(mensaje.cuerpo) + '</p>' : '';
+        const checks = propio ? htmlChecks(mensaje) : '';
+        if (!texto && !checks) return '';
+        return '<div class="st-linea">' + (texto || '<p></p>') + checks + '</div>';
+    }
+
+    function pintarMensajes(conservar) {
+        const top = hilo.scrollTop;
+        let anterior = null;
+        hilo.innerHTML = mensajesActuales.map((mensaje) => {
+            const html = htmlMensaje(mensaje, anterior);
+            anterior = mensaje;
+            return html;
+        }).join('');
+        hilo.scrollTop = conservar ? top : hilo.scrollHeight;
+        const mios = mensajesActuales.filter((mensaje) => pendientesMios(mensaje).length).length;
+        irAcciones.classList.toggle('hidden', mios < 1);
+        irAcciones.textContent = mios + (mios === 1 ? ' Acción pendiente' : ' Acciones pendientes');
+    }
+
+    function pintarDetalle() {
+        if (!actual) {
+            detalle.innerHTML = '<p class="st-vacio">Los datos del chat aparecen al abrir una conversación.</p>';
+            return;
+        }
+        const otro = otroDe(actual);
+        const nombre = actual.titulo || 'Chat';
+        const cargo = actual.tipo === 'grupo'
+            ? ((actual.participantes || []).length + ' personas')
+            : (otro && otro.cargo ? otro.cargo : 'Mensaje directo');
+        const pedidos = mensajesActuales.filter((mensaje) => (mensaje.asignados || []).some((item) => !item.atendido_at));
+        const archivos = mensajesActuales.filter((mensaje) => mensaje.adjunto);
+        const tarjetas = pedidos.map((mensaje) => {
+            const mio = pendientesMios(mensaje).length > 0;
+            return '<article class="st-card"><div class="top"><span>Acción</span><span>' + escapar(horaLarga(mensaje.creado_at)) + '</span></div><p>' + escapar(mensaje.cuerpo || 'Archivo') + '</p><div class="pie"><span>Solicitado por ' + escapar(mensaje.autor) + '</span>'
+                + (mio ? '<button type="button" data-atender="' + mensaje.id + '">Resolver</button>' : '<span></span>')
+                + '</div></article>';
+        }).join('') || '<p class="st-meta">No hay acciones abiertas.</p>';
+        const listaArchivos = archivos.map((mensaje) => {
+            const adj = mensaje.adjunto;
+            return '<a class="st-file" href="' + escapar(adj.url) + '" target="_blank" rel="noopener"><span>' + escapar(adj.nombre) + '</span><small>' + escapar(peso(adj.tamano)) + '</small></a>';
+        }).join('') || '<p class="st-meta">Sin archivos.</p>';
+        detalle.innerHTML = '<div class="st-det-h">Detalles y asignaciones</div>'
+            + '<div class="st-ficha"><span class="st-av xl">' + escapar(iniciales(nombre)) + '</span><strong>' + escapar(nombre) + '</strong><em>' + escapar(cargo) + '</em></div>'
+            + '<div class="st-bloque"><h3>Acciones en este chat <b>' + pedidos.length + '</b></h3>' + tarjetas + '</div>'
+            + '<div class="st-bloque"><h3>Archivos compartidos <b>' + archivos.length + '</b></h3>' + listaArchivos + '</div>';
     }
 
     function agregarMensaje(mensaje) {
         if (!mensaje || !actual || Number(mensaje.conversacion_id) !== Number(actual.id)) return;
-        if (hilo.querySelector('[data-mensaje="' + mensaje.id + '"]')) return;
-        hilo.insertAdjacentHTML('beforeend', htmlMensaje(mensaje));
-        hilo.scrollTop = hilo.scrollHeight;
+        if (mensajesActuales.some((item) => Number(item.id) === Number(mensaje.id))) return;
+        mensajesActuales.push(mensaje);
+        pintarMensajes();
+        pintarDetalle();
     }
 
     function pintarAsignados() {
         const grupo = actual && actual.tipo === 'grupo' && accion.checked;
         asignadosBox.classList.toggle('hidden', !grupo);
+        accionBtn.classList.toggle('activa', accion.checked);
+        accionBtn.setAttribute('aria-pressed', accion.checked ? 'true' : 'false');
         if (!grupo) {
             asignadosBox.innerHTML = '';
             return;
         }
         asignadosBox.innerHTML = (actual.participantes || [])
             .filter((persona) => Number(persona.usuario_id) !== yo)
-            .map((persona) => '<label class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200"><input type="checkbox" value="' + persona.usuario_id + '" class="chat-asignado h-3.5 w-3.5 rounded border-gray-300 text-blue-600"> ' + escapar(persona.name) + '</label>')
+            .map((persona) => '<label><input type="checkbox" value="' + persona.usuario_id + '" class="chat-asignado"> ' + escapar(persona.name) + '</label>')
             .join('');
     }
 
@@ -162,10 +399,22 @@ if (cfg) {
         canalHilo = id;
         window.Echo.private('chat.conversacion.' + id)
             .listen('.mensaje.creado', (evento) => agregarMensaje(evento.mensaje))
-            .listen('.accion.atendida', () => abrir(id, true));
+            .listen('.accion.atendida', () => abrir(id, true))
+            .listen('.lectura.actualizada', (evento) => aplicarLectura(evento));
+    }
+
+    function aplicarLectura(evento) {
+        if (!actual || !evento || Number(evento.conversacion_id) !== Number(actual.id)) return;
+        const persona = (actual.participantes || []).find((item) => Number(item.usuario_id) === Number(evento.usuario_id));
+        if (!persona) return;
+        const cursor = Number(evento.ultimo_leido_mensaje_id) || 0;
+        if (Number(persona.ultimo_leido_mensaje_id) >= cursor) return;
+        persona.ultimo_leido_mensaje_id = cursor;
+        pintarMensajes(true);
     }
 
     async function abrir(id, silencioso) {
+        cerrarMenciones();
         const res = await fetch(cfg.urls.mensajes + '/' + id + '/mensajes', { headers: headers(false), credentials: 'same-origin' });
         if (!res.ok) {
             errorBox.textContent = await leerError(res);
@@ -174,13 +423,16 @@ if (cfg) {
         }
         const data = await res.json();
         actual = data.conversacion;
+        mensajesActuales = data.mensajes || [];
         titulo.textContent = actual.titulo;
+        const otro = otroDe(actual);
         sub.textContent = actual.tipo === 'grupo'
             ? (actual.participantes || []).map((persona) => persona.name).join(', ')
             : 'Mensaje directo';
-        hilo.innerHTML = (data.mensajes || []).map(htmlMensaje).join('');
+        avatarHilo.textContent = iniciales(actual.titulo);
+        pintarMensajes();
+        pintarDetalle();
         mostrarHilo(true);
-        hilo.scrollTop = hilo.scrollHeight;
         pintarAsignados();
         const idx = conversaciones.findIndex((item) => Number(item.id) === Number(actual.id));
         if (idx >= 0) {
@@ -189,8 +441,27 @@ if (cfg) {
             conversaciones.unshift(Object.assign({}, actual, { no_leidos: 0 }));
         }
         pintarLista();
-        if (!silencioso) suscribirHilo(actual.id);
-        else if (canalHilo !== actual.id) suscribirHilo(actual.id);
+        if (!silencioso || canalHilo !== actual.id) suscribirHilo(actual.id);
+        if (otro && !otro.cargo && actual.tipo !== 'grupo') sub.textContent = 'Mensaje directo';
+    }
+
+    async function atender(mensajeId) {
+        const res = await fetch(cfg.urls.atender + '/' + mensajeId + '/atender', {
+            method: 'POST',
+            headers: headers(true),
+            credentials: 'same-origin',
+            body: '{}',
+        });
+        if (!res.ok) {
+            errorBox.textContent = await leerError(res);
+            errorBox.classList.remove('hidden');
+            return;
+        }
+        const idx = conversaciones.findIndex((item) => actual && Number(item.id) === Number(actual.id));
+        if (idx >= 0) {
+            conversaciones[idx].acciones_pendientes = Math.max(0, (Number(conversaciones[idx].acciones_pendientes) || 0) - 1);
+        }
+        await abrir(actual.id, true);
     }
 
     async function cargarLista() {
@@ -212,10 +483,12 @@ if (cfg) {
 
     function pintarModal() {
         const consulta = (modalBuscar.value || '').toLowerCase();
-        const filtro = usuarios.filter((persona) => persona.name.toLowerCase().includes(consulta));
+        const filtroPersonas = usuarios.filter((persona) => persona.name.toLowerCase().includes(consulta));
         const tipo = modoModal === 'grupo' ? 'checkbox' : 'radio';
-        modalLista.innerHTML = filtro.map((persona) => '<label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700"><input type="' + tipo + '" name="chat-persona" value="' + persona.usuario_id + '" class="text-blue-600"><span class="text-sm text-gray-800 dark:text-gray-100">' + escapar(persona.name) + (persona.cargo ? ' <span class="text-gray-500">· ' + escapar(persona.cargo) + '</span>' : '') + '</span></label>').join('')
-            || '<p class="px-2 py-3 text-sm text-gray-500">No hay personal para mostrar.</p>';
+        modalLista.innerHTML = filtroPersonas.map((persona) => {
+            const cargo = persona.cargo ? '<span>' + escapar(persona.cargo) + '</span>' : '';
+            return '<label><input type="' + tipo + '" name="chat-persona" value="' + persona.usuario_id + '"><span class="st-persona"><b>' + escapar(persona.name) + '</b>' + cargo + '</span></label>';
+        }).join('') || '<p class="st-meta">No hay personal para mostrar.</p>';
     }
 
     async function abrirModal(modo) {
@@ -228,33 +501,139 @@ if (cfg) {
         await cargarUsuarios();
         pintarModal();
         modal.classList.remove('hidden');
-        modal.classList.add('flex');
     }
 
     function cerrarModal() {
         modal.classList.add('hidden');
-        modal.classList.remove('flex');
     }
 
     lista.addEventListener('click', (evento) => {
+        const nuevo = evento.target.closest('[data-nuevo]');
+        if (nuevo) {
+            abrirModal(nuevo.dataset.nuevo);
+            return;
+        }
         const boton = evento.target.closest('[data-id]');
         if (boton) abrir(boton.dataset.id, false);
     });
 
-    document.getElementById('chat-volver').addEventListener('click', () => mostrarHilo(false));
     document.getElementById('chat-btn-directo').addEventListener('click', () => abrirModal('directo'));
     document.getElementById('chat-btn-grupo').addEventListener('click', () => abrirModal('grupo'));
+
+    document.getElementById('chat-volver').addEventListener('click', () => mostrarHilo(false));
     document.getElementById('chat-modal-cancelar').addEventListener('click', cerrarModal);
     modalBuscar.addEventListener('input', pintarModal);
-    accion.addEventListener('change', pintarAsignados);
+    buscar.addEventListener('input', () => {
+        const global = document.getElementById('chat-buscar-global');
+        if (global && global.value !== buscar.value) global.value = buscar.value;
+        pintarLista();
+    });
+    const buscarGlobal = document.getElementById('chat-buscar-global');
+    if (buscarGlobal) {
+        buscarGlobal.addEventListener('input', () => {
+            buscar.value = buscarGlobal.value;
+            pintarLista();
+        });
+    }
+    filtroAcciones.addEventListener('click', () => {
+        filtro = filtro === 'acciones' ? '' : 'acciones';
+        pintarLista();
+    });
+    filtroNoLeidos.addEventListener('click', () => {
+        filtro = filtro === 'noleidos' ? '' : 'noleidos';
+        pintarLista();
+    });
+    accionBtn.addEventListener('click', () => {
+        accion.checked = !accion.checked;
+        pintarAsignados();
+    });
+    irAcciones.addEventListener('click', () => {
+        const pedido = hilo.querySelector('.st-banner');
+        if (pedido) pedido.scrollIntoView({ block: 'center' });
+    });
+
+    function clickAtender(evento) {
+        const boton = evento.target.closest('[data-atender]');
+        if (!boton) return;
+        evento.preventDefault();
+        atender(boton.dataset.atender);
+    }
+    hilo.addEventListener('click', clickAtender);
+    detalle.addEventListener('click', clickAtender);
 
     archivo.addEventListener('change', () => {
         const file = archivo.files && archivo.files[0];
         archivoNombre.textContent = file ? file.name : '';
         archivoNombre.classList.toggle('hidden', !file);
+        archivo.accept = aceptaArchivo;
+    });
+
+    btnArchivo.addEventListener('click', () => {
+        archivo.accept = aceptaArchivo;
+        archivo.click();
+    });
+    btnImagen.addEventListener('click', () => {
+        archivo.accept = 'image/jpeg,image/png,image/gif,image/webp';
+        archivo.click();
+    });
+    btnMencion.addEventListener('click', () => {
+        const pos = texto.selectionStart;
+        const hasta = texto.value.slice(0, pos);
+        if (!/(^|\s)@[^@\n]*$/.test(hasta)) {
+            const prefijo = hasta && !/\s$/.test(hasta) ? ' @' : '@';
+            texto.value = hasta + prefijo + texto.value.slice(pos);
+            const cursor = pos + prefijo.length;
+            texto.focus();
+            texto.setSelectionRange(cursor, cursor);
+        } else {
+            texto.focus();
+        }
+        mencionIndice = 0;
+        pintarMenciones(consultaMencion() || '');
+    });
+    menciones.addEventListener('mousedown', (evento) => evento.preventDefault());
+    menciones.addEventListener('click', (evento) => {
+        const boton = evento.target.closest('[data-mencion]');
+        if (!boton) return;
+        insertarMencion(decodeURIComponent(boton.dataset.mencion));
+    });
+    texto.addEventListener('input', () => {
+        const consulta = consultaMencion();
+        if (consulta === null) cerrarMenciones();
+        else {
+            mencionIndice = 0;
+            pintarMenciones(consulta);
+        }
+    });
+    document.addEventListener('click', (evento) => {
+        if (menciones.classList.contains('hidden')) return;
+        if (evento.target === texto || evento.target.closest('#chat-btn-mencion') || menciones.contains(evento.target)) return;
+        cerrarMenciones();
     });
 
     texto.addEventListener('keydown', (evento) => {
+        const abierta = !menciones.classList.contains('hidden');
+        if (abierta && (evento.key === 'ArrowDown' || evento.key === 'ArrowUp')) {
+            evento.preventDefault();
+            const total = menciones.querySelectorAll('button').length;
+            if (!total) return;
+            mencionIndice = evento.key === 'ArrowDown'
+                ? (mencionIndice + 1) % total
+                : (mencionIndice - 1 + total) % total;
+            pintarMenciones(consultaMencion() || '');
+            return;
+        }
+        if (abierta && (evento.key === 'Enter' || evento.key === 'Tab')) {
+            evento.preventDefault();
+            const activa = menciones.querySelector('button.activa') || menciones.querySelector('button');
+            if (activa) insertarMencion(decodeURIComponent(activa.dataset.mencion));
+            return;
+        }
+        if (abierta && evento.key === 'Escape') {
+            evento.preventDefault();
+            cerrarMenciones();
+            return;
+        }
         if (evento.key === 'Enter' && !evento.shiftKey) {
             evento.preventDefault();
             composer.requestSubmit();
@@ -364,6 +743,9 @@ if (cfg) {
             if (!abierto && Number(mensaje.usuario_id) !== yo) {
                 conversaciones[idx].no_leidos = (Number(conversaciones[idx].no_leidos) || 0) + 1;
             }
+            if ((mensaje.asignados || []).some((item) => Number(item.usuario_id) === yo && !item.atendido_at)) {
+                conversaciones[idx].acciones_pendientes = (Number(conversaciones[idx].acciones_pendientes) || 0) + 1;
+            }
             const [item] = conversaciones.splice(idx, 1);
             conversaciones.unshift(item);
             pintarLista();
@@ -373,8 +755,8 @@ if (cfg) {
     });
 
     window.addEventListener('chat:accion', (evento) => {
-        const detalle = evento.detail || {};
-        if (actual && hilo.querySelector('[data-mensaje="' + detalle.mensaje_id + '"]')) {
+        const detalleEvento = evento.detail || {};
+        if (actual && mensajesActuales.some((mensaje) => Number(mensaje.id) === Number(detalleEvento.mensaje_id))) {
             abrir(actual.id, true);
         }
     });

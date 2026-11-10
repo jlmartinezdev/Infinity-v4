@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\AccionChatAtendida;
+use App\Events\LecturaChatActualizada;
 use App\Events\MensajeChatCreado;
 use App\Exceptions\ChatInternoException;
 use App\Models\ChatAdjunto;
@@ -30,18 +31,25 @@ class ChatInternoService
         $conversaciones = ChatConversacion::query()
             ->whereHas('participantes', fn ($q) => $q->where('usuario_id', $user->usuario_id))
             ->with([
-                'participantes.usuario:usuario_id,name',
+                'participantes.usuario:usuario_id,name,cargo',
                 'ultimoMensaje.adjunto',
             ])
             ->get()
             ->sortByDesc(fn (ChatConversacion $c) => $c->ultimoMensaje?->id ?? 0)
             ->values();
 
-        $noLeidos = $this->noLeidosPorConversacion($user, $conversaciones->pluck('id')->all());
+        $ids = $conversaciones->pluck('id')->all();
+        $noLeidos = $this->noLeidosPorConversacion($user, $ids);
+        $acciones = $this->accionesPendientesPorConversacion($user, $ids);
 
         return [
-            'conversaciones' => $conversaciones->map(function (ChatConversacion $conversacion) use ($user, $noLeidos) {
-                return $this->serializarConversacion($conversacion, $user, (int) ($noLeidos[$conversacion->id] ?? 0));
+            'conversaciones' => $conversaciones->map(function (ChatConversacion $conversacion) use ($user, $noLeidos, $acciones) {
+                return $this->serializarConversacion(
+                    $conversacion,
+                    $user,
+                    (int) ($noLeidos[$conversacion->id] ?? 0),
+                    (int) ($acciones[$conversacion->id] ?? 0),
+                );
             })->all(),
         ];
     }
@@ -57,6 +65,9 @@ class ChatInternoService
             ->staff()
             ->activos()
             ->where('usuario_id', '!=', $user->usuario_id)
+            ->whereDoesntHave('rol', function ($rol) {
+                $rol->whereRaw('LOWER(descripcion) = ?', ['cliente app']);
+            })
             ->orderBy('name')
             ->get(['usuario_id', 'name', 'cargo']);
 
@@ -100,7 +111,7 @@ class ChatInternoService
             return $nueva;
         });
 
-        $conversacion->load(['participantes.usuario:usuario_id,name', 'ultimoMensaje.adjunto']);
+        $conversacion->load(['participantes.usuario:usuario_id,name,cargo', 'ultimoMensaje.adjunto']);
 
         return [
             'conversacion' => $this->serializarConversacion($conversacion, $autor, 0),
@@ -146,7 +157,7 @@ class ChatInternoService
             return $nueva;
         });
 
-        $conversacion->load(['participantes.usuario:usuario_id,name', 'ultimoMensaje.adjunto']);
+        $conversacion->load(['participantes.usuario:usuario_id,name,cargo', 'ultimoMensaje.adjunto']);
 
         return [
             'conversacion' => $this->serializarConversacion($conversacion, $autor, 0),
@@ -168,15 +179,20 @@ class ChatInternoService
         }
 
         $mensajes = $consulta->get();
-        $ultimo = ChatMensaje::query()->where('conversacion_id', $conversacion->id)->max('id');
-        if ($ultimo) {
+        $ultimo = (int) ChatMensaje::query()->where('conversacion_id', $conversacion->id)->max('id');
+        $cursor = (int) ChatParticipante::query()
+            ->where('conversacion_id', $conversacion->id)
+            ->where('usuario_id', $user->usuario_id)
+            ->value('ultimo_leido_mensaje_id');
+        if ($ultimo > 0 && $cursor < $ultimo) {
             ChatParticipante::query()
                 ->where('conversacion_id', $conversacion->id)
                 ->where('usuario_id', $user->usuario_id)
                 ->update(['ultimo_leido_mensaje_id' => $ultimo]);
+            event(new LecturaChatActualizada((int) $conversacion->id, (int) $user->usuario_id, $ultimo));
         }
 
-        $conversacion->load(['participantes.usuario:usuario_id,name', 'ultimoMensaje.adjunto']);
+        $conversacion->load(['participantes.usuario:usuario_id,name,cargo', 'ultimoMensaje.adjunto']);
 
         return [
             'conversacion' => $this->serializarConversacion($conversacion, $user, 0),
@@ -377,8 +393,9 @@ class ChatInternoService
 
     private function staffActivo(int $usuarioId): User
     {
-        $otro = User::query()->where('usuario_id', $usuarioId)->where('estado', 'activo')->first();
-        if (! $otro || ! $otro->esStaff()) {
+        $otro = User::query()->with('rol')->where('usuario_id', $usuarioId)->where('estado', 'activo')->first();
+        $rol = strtolower(trim((string) ($otro?->rol?->descripcion ?? '')));
+        if (! $otro || ! $otro->esStaff() || $rol === 'cliente app') {
             throw new ChatInternoException('Ese usuario no está disponible.');
         }
 
@@ -494,6 +511,33 @@ class ChatInternoService
      * @param  list<int>  $conversacionIds
      * @return array<int, int>
      */
+    private function accionesPendientesPorConversacion(User $user, array $conversacionIds): array
+    {
+        if ($conversacionIds === []) {
+            return [];
+        }
+
+        $filas = ChatMensajeAccion::query()
+            ->join('chat_mensajes as m', 'm.id', '=', 'chat_mensaje_acciones.mensaje_id')
+            ->where('chat_mensaje_acciones.usuario_id', $user->usuario_id)
+            ->whereNull('chat_mensaje_acciones.atendido_at')
+            ->whereIn('m.conversacion_id', $conversacionIds)
+            ->groupBy('m.conversacion_id')
+            ->select('m.conversacion_id', DB::raw('count(*) as total'))
+            ->pluck('total', 'conversacion_id');
+
+        $conteo = [];
+        foreach ($filas as $id => $total) {
+            $conteo[(int) $id] = (int) $total;
+        }
+
+        return $conteo;
+    }
+
+    /**
+     * @param  list<int>  $conversacionIds
+     * @return array<int, int>
+     */
     private function noLeidosPorConversacion(User $user, array $conversacionIds): array
     {
         if ($conversacionIds === []) {
@@ -541,7 +585,7 @@ class ChatInternoService
     /**
      * @return array<string, mixed>
      */
-    private function serializarConversacion(ChatConversacion $conversacion, User $user, int $noLeidos): array
+    private function serializarConversacion(ChatConversacion $conversacion, User $user, int $noLeidos, ?int $accionesPendientes = null): array
     {
         $ultimo = $conversacion->ultimoMensaje;
 
@@ -553,7 +597,10 @@ class ChatInternoService
             'participantes' => $conversacion->participantes->map(fn (ChatParticipante $p) => [
                 'usuario_id' => (int) $p->usuario_id,
                 'name' => $p->usuario->name ?? 'Staff',
+                'cargo' => $p->usuario->cargo ?? null,
+                'ultimo_leido_mensaje_id' => $p->ultimo_leido_mensaje_id ? (int) $p->ultimo_leido_mensaje_id : null,
             ])->values()->all(),
+            'acciones_pendientes' => $accionesPendientes ?? (int) ($this->accionesPendientesPorConversacion($user, [(int) $conversacion->id])[$conversacion->id] ?? 0),
             'ultimo' => $ultimo ? [
                 'id' => (int) $ultimo->id,
                 'cuerpo' => $ultimo->cuerpo,
