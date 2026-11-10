@@ -48,3 +48,7 @@ Thumbs.db
 
 # NSSM binarios (scripts de servicio en tools/*.ps1)
 /tools/nssm/
+
+# Configuración local de Claude Code y mockups de diseño
+/.claude/
+/docs/diseño/
