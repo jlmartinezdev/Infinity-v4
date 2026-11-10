@@ -857,13 +857,16 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->prefix('hotspot')->name('h
         Route::put('/clientes/{cliente}/usuarios/{servicioHotspot}', [HotspotController::class, 'updateCliente'])->name('clientes.update');
         Route::delete('/clientes/{cliente}/usuarios/{servicioHotspot}', [HotspotController::class, 'destroy'])->name('clientes.destroy');
     });
-    Route::post('/perfiles/sync-mikrotik', [HotspotPerfilController::class, 'syncMikrotik'])->name('perfiles.sync-mikrotik');
     Route::get('/perfiles', [HotspotPerfilController::class, 'index'])->name('perfiles.index');
-    Route::get('/perfiles/create', [HotspotPerfilController::class, 'create'])->name('perfiles.create');
-    Route::post('/perfiles', [HotspotPerfilController::class, 'store'])->name('perfiles.store');
-    Route::get('/perfiles/{perfil}/edit', [HotspotPerfilController::class, 'edit'])->name('perfiles.edit');
-    Route::put('/perfiles/{perfil}', [HotspotPerfilController::class, 'update'])->name('perfiles.update');
-    Route::delete('/perfiles/{perfil}', [HotspotPerfilController::class, 'destroy'])->name('perfiles.destroy');
+    Route::middleware('permiso:servicios.editar')->group(function () {
+        Route::post('/perfiles/sync-mikrotik', [HotspotPerfilController::class, 'syncMikrotik'])->name('perfiles.sync-mikrotik');
+        Route::get('/perfiles/create', [HotspotPerfilController::class, 'create'])->name('perfiles.create');
+        Route::post('/perfiles', [HotspotPerfilController::class, 'store'])->name('perfiles.store');
+        Route::get('/perfiles/{perfil}/edit', [HotspotPerfilController::class, 'edit'])->name('perfiles.edit');
+        Route::put('/perfiles/{perfil}', [HotspotPerfilController::class, 'update'])->name('perfiles.update');
+        Route::delete('/perfiles/{perfil}', [HotspotPerfilController::class, 'destroy'])->name('perfiles.destroy');
+    });
+    // Reenvía datos ya guardados a RADIUS/MikroTik; lo usa caja/técnico con solo "ver".
     Route::post('/{servicioHotspot}/sync', [HotspotController::class, 'sync'])->name('sync');
 });
 

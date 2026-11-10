@@ -6,6 +6,10 @@
 <div class="max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Perfiles Hotspot</h1>
+        @php
+            $puedeEditar = (bool) auth()->user()?->tienePermiso('servicios.editar');
+        @endphp
+        @if($puedeEditar)
         <div class="flex flex-wrap items-center gap-3">
             <form method="POST" action="{{ route('hotspot.perfiles.sync-mikrotik') }}" class="inline-flex items-center gap-2">
                 @csrf
@@ -29,6 +33,7 @@
                 Nuevo perfil
             </a>
         </div>
+        @endif
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -64,17 +69,21 @@
                         <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $perfil->cuota_gb ? $perfil->cuota_gb.' GB' : 'Ilimitado' }}</td>
                         <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $perfil->shared_users ?? '—' }}</td>
                         <td class="px-4 py-3 text-right">
+                            @if($puedeEditar)
                             <a href="{{ route('hotspot.perfiles.edit', $perfil) }}" class="text-purple-600 dark:text-purple-400 hover:underline mr-3">Editar</a>
                             <form action="{{ route('hotspot.perfiles.destroy', $perfil) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este perfil?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
                             </form>
+                            @else
+                            <span class="text-gray-400">—</span>
+                            @endif
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay perfiles. <a href="{{ route('hotspot.perfiles.create') }}" class="text-purple-600 hover:underline">Crear uno</a>.</td>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay perfiles.@if($puedeEditar) <a href="{{ route('hotspot.perfiles.create') }}" class="text-purple-600 hover:underline">Crear uno</a>.@endif</td>
                     </tr>
                     @endforelse
                 </tbody>
