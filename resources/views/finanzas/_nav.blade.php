@@ -4,6 +4,7 @@
         'finanzas.libro' => 'Libro',
         'finanzas.cobros-mes' => 'Cobros del mes',
         'finanzas.transferencias' => 'Transferencias',
+        'finanzas.control-gastos' => 'Gastos diarios',
         'finanzas.egresos' => 'Gastos',
         'finanzas.retiros' => 'Retiros',
         'finanzas.liquidaciones' => 'Bancard',

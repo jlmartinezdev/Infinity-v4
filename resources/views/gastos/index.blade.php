@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Gastos')
+@section('title', 'Gastos diarios')
 
 @push('styles')
 <style>
@@ -63,11 +63,97 @@
 @endphp
 
 <div class="max-w-7xl mx-auto space-y-6">
+    @if(request()->routeIs('finanzas.control-gastos'))
+        @include('finanzas._nav')
+    @endif
+    <section class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cuenta del mes</p>
+                <div class="mt-1 flex flex-wrap items-center gap-2">
+                    <a href="{{ route($rutaCuenta, ['mes' => $cuentaMes['anterior']]) }}" class="rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600" aria-label="Mes anterior">←</a>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $cuentaMes['etiqueta'] }}</h2>
+                    <a href="{{ route($rutaCuenta, ['mes' => $cuentaMes['siguiente']]) }}" class="rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600" aria-label="Mes siguiente">→</a>
+                    @php
+                        $estadoCuenta = $cuentaMes['estado'];
+                        $estadoClase = match ($estadoCuenta) {
+                            'cerrada' => 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100',
+                            'sin_abrir' => 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200',
+                            default => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
+                        };
+                        $estadoTexto = match ($estadoCuenta) {
+                            'cerrada' => 'Cerrada',
+                            'sin_abrir' => 'Sin abrir',
+                            default => 'Abierta',
+                        };
+                    @endphp
+                    <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $estadoClase }}">{{ $estadoTexto }}</span>
+                </div>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    {{ $cuentaMes['cantidad'] }} registro{{ $cuentaMes['cantidad'] === 1 ? '' : 's' }}
+                    @if($cuentaMes['pendientes'] > 0)
+                        · {{ $cuentaMes['pendientes'] }} por pagar ({{ $formatoGs($cuentaMes['pendiente']) }})
+                    @endif
+                </p>
+            </div>
+            <div class="text-left lg:text-right">
+                <p class="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">{{ $formatoGs($cuentaMes['total']) }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Total que entra al cerrar</p>
+            </div>
+        </div>
+        @if($cuentaMes['desglose'])
+            <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                @foreach($cuentaMes['desglose'] as $linea)
+                    <span class="mr-3 inline-block">{{ $linea['nombre'] }} <strong class="font-mono">{{ $formatoGs($linea['total']) }}</strong></span>
+                @endforeach
+            </p>
+        @endif
+        @if($estadoCuenta === 'cerrada')
+            <p class="mt-3 text-sm text-gray-700 dark:text-gray-200">
+                Cerrada {{ $cuentaMes['cerrado_en'] }}.
+                @if($cuentaMes['egreso_id'])
+                    El resumen de {{ $formatoGs($cuentaMes['total']) }} salió de {{ $cuentaMes['cuenta'] }} y quedó en <a class="underline" href="{{ route('finanzas.egresos') }}">Gastos e inversiones</a>.
+                @else
+                    No había gastos para registrar.
+                @endif
+            </p>
+            @if($puedeOperarCuenta)
+                <form method="post" action="{{ route('finanzas.control-gastos.abrir') }}" class="mt-3" onsubmit="return confirm('Se abre el mes y se revierte el resumen registrado en Gastos e inversiones.');">
+                    @csrf
+                    <input type="hidden" name="mes" value="{{ $cuentaMes['mes'] }}">
+                    <button class="rounded-lg bg-gray-200 px-4 py-2 text-sm dark:bg-gray-700">Abrir mes</button>
+                </form>
+            @endif
+        @elseif($puedeOperarCuenta && $estadoCuenta === 'sin_abrir')
+            <form method="post" action="{{ route('finanzas.control-gastos.abrir') }}" class="mt-3">
+                @csrf
+                <input type="hidden" name="mes" value="{{ $cuentaMes['mes'] }}">
+                <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white">Abrir mes</button>
+            </form>
+        @elseif($puedeOperarCuenta)
+            <form method="post" action="{{ route('finanzas.control-gastos.cerrar') }}" class="mt-3 flex flex-wrap items-end gap-3" onsubmit="return confirm('Se cierra {{ $cuentaMes['etiqueta'] }} y el total se registra en Gastos e inversiones.');">
+                @csrf
+                <input type="hidden" name="mes" value="{{ $cuentaMes['mes'] }}">
+                @if($cuentaMes['total'] > 0)
+                    <div>
+                        <label class="text-sm" for="cuenta-cierre">Cuenta de la que salió</label>
+                        <select id="cuenta-cierre" name="cuenta_id" required class="mt-1 block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800">
+                            @foreach($cuentasFinanzas as $cuentaFin)
+                                <option value="{{ $cuentaFin->id }}">{{ $cuentaFin->nombre }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white">Cerrar mes y registrar</button>
+            </form>
+        @endif
+    </section>
+
     {{-- Header Principal --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
-                Control de Gastos
+                Gastos diarios
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
                     {{ $cantidadFiltrada }} registro{{ $cantidadFiltrada === 1 ? '' : 's' }}
                 </span>
@@ -213,8 +299,11 @@
 
     {{-- Paquete B: Contenedor Principal con Búsqueda y Filtros Inteligentes --}}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <form method="GET" action="{{ route('gastos.index') }}" id="form-filtros-gastos" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-700/30 space-y-3">
+        <form method="GET" action="{{ route($rutaCuenta) }}" id="form-filtros-gastos" class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-700/30 space-y-3">
             <input type="hidden" name="per_page" value="{{ $gastos->perPage() }}">
+            @if(request()->routeIs('finanzas.control-gastos'))
+                <input type="hidden" name="mes" value="{{ $cuentaMes['mes'] }}">
+            @endif
 
             {{-- Fila superior: Input de búsqueda rápida y botón filtrar --}}
             <div class="flex items-center gap-2 flex-wrap">

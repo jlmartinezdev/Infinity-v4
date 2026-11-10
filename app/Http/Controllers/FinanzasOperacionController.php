@@ -62,18 +62,44 @@ class FinanzasOperacionController extends Controller
 
     public function egresos(): View
     {
+        $inicioMes = now()->startOfMonth()->toDateString();
+        $finMes = now()->endOfMonth()->toDateString();
+
+        $totalesMes = FinEgreso::query()
+            ->join('fin_categorias', 'fin_categorias.id', '=', 'fin_egresos.categoria_id')
+            ->where('fin_egresos.estado', 'contabilizado')
+            ->whereDate('fin_egresos.fecha', '>=', $inicioMes)
+            ->whereDate('fin_egresos.fecha', '<=', $finMes)
+            ->selectRaw('COUNT(*) as cantidad')
+            ->selectRaw('COALESCE(SUM(fin_egresos.importe), 0) as total')
+            ->selectRaw("COALESCE(SUM(CASE WHEN fin_categorias.clase = 'opex' THEN fin_egresos.importe ELSE 0 END), 0) as opex")
+            ->selectRaw("COALESCE(SUM(CASE WHEN fin_categorias.clase = 'capex' THEN fin_egresos.importe ELSE 0 END), 0) as capex")
+            ->first();
+
+        $plantillas = FinEgresoPlantilla::query()->with('staff')->where('activa', true)->orderBy('orden')->get();
+
+        $resumenEgresos = [
+            'cantidad_mes' => (int) ($totalesMes->cantidad ?? 0),
+            'total_mes' => round((float) ($totalesMes->total ?? 0), 2),
+            'opex_mes' => round((float) ($totalesMes->opex ?? 0), 2),
+            'capex_mes' => round((float) ($totalesMes->capex ?? 0), 2),
+            'plantillas_count' => $plantillas->count(),
+            'plantillas_total' => round((float) $plantillas->sum('monto'), 2),
+        ];
+
         return view('finanzas.egresos', [
             'cuentas' => $this->cuentasActivas(),
             'categorias' => FinCategoria::query()->whereIn('clase', ['opex', 'capex'])->where('activa', true)->orderBy('nombre')->get(),
             'proveedores' => Proveedor::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'plantillas' => FinEgresoPlantilla::query()->with('staff')->where('activa', true)->orderBy('orden')->get(),
+            'plantillas' => $plantillas,
             'staff' => User::query()
                 ->where('estado', 'activo')
                 ->where('name', 'not like', 'N8N%')
                 ->whereHas('rol', fn ($q) => $q->whereRaw('LOWER(descripcion) not in (?, ?)', ['cliente app', 'cliente']))
                 ->orderBy('name')
                 ->get(['usuario_id', 'name']),
-            'filas' => FinEgreso::query()->with(['cuenta', 'categoria', 'proveedor', 'plantilla', 'staff', 'usuario'])->orderByDesc('id')->limit(30)->get(),
+            'filas' => FinEgreso::query()->with(['cuenta', 'categoria', 'proveedor', 'plantilla', 'staff', 'usuario', 'movimiento'])->where('estado', 'contabilizado')->orderByDesc('fecha')->orderByDesc('id')->limit(30)->get(),
+            'resumenEgresos' => $resumenEgresos,
         ]);
     }
 
@@ -161,9 +187,14 @@ class FinanzasOperacionController extends Controller
 
     public function guardarEgreso(Request $request, FinanzasLibroService $libro): RedirectResponse
     {
+        $request->merge([
+            'plantilla_id' => $request->filled('plantilla_id') ? $request->input('plantilla_id') : null,
+            'descripcion' => trim((string) $request->input('descripcion')),
+        ]);
         $datos = $request->validate([
             'cuenta_id' => ['required', 'integer', 'exists:fin_cuentas,id'],
             'categoria_id' => ['required', 'integer', 'exists:fin_categorias,id'],
+            'descripcion' => ['nullable', 'string', 'max:160', 'required_without:plantilla_id'],
             'importe' => ['required', 'string', 'max:30'],
             'fecha' => ['required', 'date'],
             'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id'],
@@ -175,6 +206,8 @@ class FinanzasOperacionController extends Controller
             'usuario_staff_id' => ['nullable', 'integer', 'exists:users,usuario_id'],
             'documento' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:8192'],
             'factura_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:8192'],
+        ], [
+            'descripcion.required_without' => 'Escribí la descripción cuando el gasto no es habitual.',
         ]);
         $plantilla = ! empty($datos['plantilla_id']) ? FinEgresoPlantilla::query()->find($datos['plantilla_id']) : null;
         if ($plantilla && $plantilla->es_sueldo && empty($datos['usuario_staff_id'])) {
@@ -213,7 +246,7 @@ class FinanzasOperacionController extends Controller
                     'usuario_staff_id' => $datos['usuario_staff_id'] ?? null,
                     'documento_path' => $documentoPath,
                     'factura_path' => $facturaPath,
-                    'concepto' => $plantilla?->nombre,
+                    'concepto' => $plantilla?->nombre ?: ($datos['descripcion'] ?? null),
                 ],
             );
         }, 'finanzas.egresos', 'Egreso registrado.');

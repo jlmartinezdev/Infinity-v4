@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Gasto;
 use App\Models\CategoriaGasto;
+use App\Models\FinCuenta;
+use App\Models\Gasto;
 use App\Models\Proveedor;
+use App\Services\Finanzas\ControlGastoMesService;
+use App\Services\Finanzas\PeriodoCerradoException;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GastoController extends Controller
@@ -60,8 +66,16 @@ class GastoController extends Controller
     /**
      * Listar gastos con métricas ejecutivas, distribución y filtros.
      */
-    public function index(Request $request)
+    public function index(Request $request, ControlGastoMesService $cuentas)
     {
+        $mesCuenta = $cuentas->mesDesde($request->query('mes'));
+        if ($request->routeIs('finanzas.control-gastos') && ! $request->filled('desde') && ! $request->filled('hasta')) {
+            $request->merge([
+                'desde' => $mesCuenta->toDateString(),
+                'hasta' => $mesCuenta->copy()->endOfMonth()->toDateString(),
+            ]);
+        }
+
         $query = $this->gastosFiltradosQuery($request);
 
         $perPagePermitidos = [10, 15, 25, 50, 100];
@@ -95,6 +109,13 @@ class GastoController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        $cuentaMes = $cuentas->presentar($mesCuenta);
+        $rutaCuenta = $request->routeIs('finanzas.control-gastos') ? 'finanzas.control-gastos' : 'gastos.index';
+        $puedeOperarCuenta = $request->user()->tienePermiso('finanzas.crear');
+        $cuentasFinanzas = $puedeOperarCuenta
+            ? FinCuenta::query()->where('activa', true)->orderBy('orden')->get(['id', 'nombre'])
+            : collect();
+
         return view('gastos.index', compact(
             'gastos',
             'categorias',
@@ -106,8 +127,36 @@ class GastoController extends Controller
             'countPendientes',
             'totalFiltrado',
             'cantidadFiltrada',
-            'desgloseCategoriasMes'
+            'desgloseCategoriasMes',
+            'cuentaMes',
+            'rutaCuenta',
+            'puedeOperarCuenta',
+            'cuentasFinanzas'
         ));
+    }
+
+    public function abrirMes(Request $request, ControlGastoMesService $cuentas): RedirectResponse
+    {
+        return $this->operarMes($request, $cuentas, function (ControlGastoMesService $servicio, Carbon $mes) {
+            $servicio->abrir($mes, auth()->id());
+        }, 'Mes abierto. Los gastos de ese mes se pueden cargar hasta el cierre.');
+    }
+
+    public function cerrarMes(Request $request, ControlGastoMesService $cuentas): RedirectResponse
+    {
+        $mes = $cuentas->mesDesde($request->input('mes'));
+        $volver = redirect()->route('finanzas.control-gastos', ['mes' => $mes->format('Y-m')]);
+        $cuentaId = $request->filled('cuenta_id') ? (int) $request->input('cuenta_id') : null;
+        try {
+            $periodo = $cuentas->cerrar($mes, $cuentaId, auth()->id());
+        } catch (InvalidArgumentException|PeriodoCerradoException $e) {
+            return $volver->with('error', $e->getMessage());
+        }
+        $mensaje = (float) $periodo->importe > 0
+            ? 'Mes cerrado. El resumen quedó registrado en Gastos e inversiones.'
+            : 'Mes cerrado. No había gastos para registrar.';
+
+        return $volver->with('success', $mensaje);
     }
 
     /**
@@ -185,6 +234,12 @@ class GastoController extends Controller
 
         $validated['pagado'] = false;
 
+        try {
+            app(ControlGastoMesService::class)->asegurarAbierto(Carbon::parse($validated['fecha']));
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
         Gasto::create($validated);
 
         return redirect()->route('gastos.index')->with('success', 'Gasto registrado correctamente.');
@@ -214,6 +269,14 @@ class GastoController extends Controller
             'referencia' => ['nullable', 'string', 'max:100'],
         ]);
 
+        try {
+            $servicio = app(ControlGastoMesService::class);
+            $servicio->asegurarAbierto($gasto->fecha ?? Carbon::parse($validated['fecha']));
+            $servicio->asegurarAbierto(Carbon::parse($validated['fecha']));
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
         $gasto->update($validated);
 
         return redirect()->route('gastos.index')->with('success', 'Gasto actualizado correctamente.');
@@ -227,6 +290,12 @@ class GastoController extends Controller
         if ($gasto->pagado) {
             return redirect()->route('gastos.index')->with('info', 'Este gasto ya está pagado.');
         }
+        try {
+            app(ControlGastoMesService::class)->asegurarAbierto($gasto->fecha ?? now());
+        } catch (InvalidArgumentException $e) {
+            return redirect()->route('gastos.index')->with('error', $e->getMessage());
+        }
+
         return view('gastos.pagar', compact('gasto'));
     }
 
@@ -236,10 +305,24 @@ class GastoController extends Controller
     public function destroy(Gasto $gasto)
     {
         try {
+            app(ControlGastoMesService::class)->asegurarAbierto($gasto->fecha ?? now());
             $gasto->delete();
             return redirect()->route('gastos.index')->with('success', 'Gasto eliminado correctamente.');
         } catch (\Throwable $e) {
-            return redirect()->route('gastos.index')->with('error', 'No se puede eliminar el gasto porque tiene registros asociados.');
+            return redirect()->route('gastos.index')->with('error', $e instanceof InvalidArgumentException ? $e->getMessage() : 'No se puede eliminar el gasto porque tiene registros asociados.');
         }
+    }
+
+    private function operarMes(Request $request, ControlGastoMesService $cuentas, callable $accion, string $ok): RedirectResponse
+    {
+        $mes = $cuentas->mesDesde($request->input('mes'));
+        $volver = redirect()->route('finanzas.control-gastos', ['mes' => $mes->format('Y-m')]);
+        try {
+            $accion($cuentas, $mes);
+        } catch (InvalidArgumentException|PeriodoCerradoException $e) {
+            return $volver->with('error', $e->getMessage());
+        }
+
+        return $volver->with('success', $ok);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FinEgreso extends Model
 {
@@ -51,5 +52,12 @@ class FinEgreso extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usuario_id', 'usuario_id');
+    }
+
+    public function movimiento(): HasOne
+    {
+        return $this->hasOne(FinMovimiento::class, 'referencia_id', 'id')
+            ->where('referencia_tipo', 'egreso')
+            ->where('tipo', 'egreso');
     }
 }

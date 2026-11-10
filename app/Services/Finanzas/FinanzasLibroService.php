@@ -545,6 +545,7 @@ class FinanzasLibroService
             ->join('fin_categorias', 'fin_categorias.id', '=', 'fin_movimientos.categoria_id')
             ->where('fin_categorias.clase', $clase)
             ->where('fin_movimientos.tipo', 'egreso')
+            ->whereNull('fin_movimientos.revertido_por_id')
             ->whereDate('fin_movimientos.fecha_efectiva', '>=', $desde->toDateString())
             ->whereDate('fin_movimientos.fecha_efectiva', '<=', $hasta->toDateString())
             ->sum('fin_movimientos.importe'), 2);

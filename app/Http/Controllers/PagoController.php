@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pago;
 use App\Models\Compra;
 use App\Models\Gasto;
+use App\Models\Pago;
+use App\Services\Finanzas\ControlGastoMesService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class PagoController extends Controller
 {
@@ -32,6 +34,13 @@ class PagoController extends Controller
             $compra = Compra::findOrFail($referenciaId);
             if ($compra->estado === 'anulado') {
                 return redirect()->back()->with('error', 'No se puede registrar pago en una compra anulada.');
+            }
+        } else {
+            $gasto = Gasto::findOrFail($referenciaId);
+            try {
+                app(ControlGastoMesService::class)->asegurarAbierto($gasto->fecha ?? now());
+            } catch (InvalidArgumentException $e) {
+                return redirect()->back()->with('error', $e->getMessage());
             }
         }
 
