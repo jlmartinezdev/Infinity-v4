@@ -30,7 +30,7 @@
     $puedePerfiles = auth()->user()?->tienePermiso('servicios-hotspot-perfiles.ver') || auth()->user()?->tienePermiso('servicios.ver');
     $titulosHotspot = [
         'sesiones' => ['Sesiones hotspot', 'Quién está en el Wi‑Fi de un router y qué cuentas no tienen sesión.'],
-        'usuarios' => ['Usuarios hotspot', 'Cuentas del locker: documento, PIN y hasta tres usuarios por cliente.'],
+        'usuarios' => ['Usuarios hotspot', 'Cuentas de cada cliente: usuario por documento, PIN y hasta tres por cliente.'],
         'perfiles' => ['Perfiles hotspot', 'Velocidad y cuota que usa cada cuenta.'],
     ];
     $tituloPagina = $titulosHotspot[$vista][0] ?? $titulosHotspot['sesiones'][0];
@@ -386,6 +386,27 @@
         color: #111827;
         box-sizing: border-box;
     }
+    @media (min-width: 640px) {
+        #hotspot-dash-page .hsd-search-usuarios { flex-basis: 24rem; }
+    }
+    .hsd-sugerencias {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% + 0.25rem);
+        left: 0;
+        right: 0;
+        max-height: 15rem;
+        overflow-y: auto;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        background: #fff;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+    }
+    .hsd-sugerencias[hidden] { display: none; }
+    html.dark .hsd-sugerencias {
+        background: #1f2937;
+        border-color: #4b5563;
+    }
     .hsd-search:focus-within,
     .hsd-pop-find:focus-within {
         box-shadow: inset 0 0 0 2px rgba(192, 132, 252, 0.45);
@@ -565,6 +586,35 @@
                     @include('hotspot._icono', ['nombre' => 'sincronizar'])
                 </button>
             </div>
+        @elseif($vista === 'usuarios')
+            @php
+                $buscarUsuarios = trim((string) request('buscar', ''));
+            @endphp
+            <form id="hotspot-find-form" method="GET" action="{{ route('hotspot.dashboard') }}" role="search" class="flex items-center gap-2 pb-2 w-full sm:w-auto">
+                <input type="hidden" name="vista" value="usuarios">
+                @if($selectedRouter)
+                    <input type="hidden" name="router_id" value="{{ $selectedRouter->router_id }}">
+                @endif
+                <div id="hotspot-combobox" class="hsd-search hsd-search-usuarios relative">
+                    {!! $lupa !!}
+                    <input type="text" name="buscar" id="hotspot-buscar" value="{{ $buscarUsuarios }}"
+                        placeholder="Buscar nombre, cédula o usuario"
+                        autocomplete="off"
+                        role="combobox"
+                        aria-label="Buscar usuario o cliente"
+                        aria-expanded="false"
+                        aria-autocomplete="list"
+                        aria-controls="hotspot-sugerencias"
+                        aria-haspopup="listbox"
+                        aria-describedby="hotspot-find-help">
+                    @if($buscarUsuarios !== '')
+                        <a href="{{ $menuHotspot('usuarios') }}" class="hsd-auto-btn" style="text-decoration: none">Limpiar</a>
+                    @endif
+                    <div id="hotspot-sugerencias" role="listbox" hidden class="hsd-sugerencias"></div>
+                </div>
+                <p id="hotspot-buscar-status" class="sr-only" aria-live="polite"></p>
+                <p id="hotspot-find-help" class="sr-only">Enter filtra la lista. Las flechas eligen un cliente. Después tocá una cuenta para confirmar y sincronizar.</p>
+            </form>
         @endif
     </div>
 

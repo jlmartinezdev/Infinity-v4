@@ -67,10 +67,19 @@ class HotspotController extends Controller
         $clientes = null;
         $seleccionado = null;
         $esRecientes = false;
+        $verTodas = false;
+        $totalClientes = 0;
         $perfiles = null;
 
         if ($vista === 'usuarios') {
-            ['clientes' => $clientes, 'seleccionado' => $seleccionado, 'esRecientes' => $esRecientes, 'consumo' => $consumo] = $this->datosUsuarios($request, $radius, $mikrotik);
+            [
+                'clientes' => $clientes,
+                'seleccionado' => $seleccionado,
+                'esRecientes' => $esRecientes,
+                'consumo' => $consumo,
+                'verTodas' => $verTodas,
+                'totalClientes' => $totalClientes,
+            ] = $this->datosUsuarios($request, $radius, $mikrotik);
         } elseif ($vista === 'perfiles') {
             $perfiles = $this->datosPerfiles($request);
         } elseif ($selectedRouter) {
@@ -198,6 +207,8 @@ class HotspotController extends Controller
             'clientes' => $clientes,
             'seleccionado' => $seleccionado,
             'esRecientes' => $esRecientes,
+            'verTodas' => $verTodas,
+            'totalClientes' => $totalClientes,
             'perfiles' => $perfiles,
         ]);
     }
@@ -545,12 +556,13 @@ class HotspotController extends Controller
     }
 
     /**
-     * @return array{clientes: LengthAwarePaginator, seleccionado: ?ServicioHotspot, esRecientes: bool, consumo: array<string, int>}
+     * @return array{clientes: LengthAwarePaginator, seleccionado: ?ServicioHotspot, esRecientes: bool, consumo: array<string, int>, verTodas: bool, totalClientes: int}
      */
     private function datosUsuarios(Request $request, RadiusHotspotSyncService $radius, MikroTikService $mikrotik): array
     {
         $buscar = trim((string) $request->input('buscar', ''));
-        $esRecientes = $buscar === '';
+        $verTodas = $buscar === '' && $request->boolean('todas');
+        $esRecientes = $buscar === '' && ! $verTodas;
 
         $hotspotId = (int) $request->input('hotspot', 0);
         $seleccionado = $hotspotId > 0
@@ -569,10 +581,10 @@ class HotspotController extends Controller
             ])
             ->withCount('servicioHotspots');
 
-        if ($buscar !== '') {
+        if ($buscar !== '' || $verTodas) {
             $clientes = $base
                 ->whereHas('servicioHotspots')
-                ->where(function ($inner) use ($buscar) {
+                ->when($buscar !== '', fn ($query) => $query->where(function ($inner) use ($buscar) {
                     $inner->where('nombre', 'like', "%{$buscar}%")
                         ->orWhere('apellido', 'like', "%{$buscar}%")
                         ->orWhere('cedula', 'like', "%{$buscar}%")
@@ -580,13 +592,13 @@ class HotspotController extends Controller
                             $h->where('username', 'like', "%{$buscar}%")
                                 ->orWhere('comment', 'like', "%{$buscar}%");
                         });
-                })
+                }))
                 ->orderBy('nombre')
                 ->orderBy('apellido')
                 ->paginate(20)
                 ->withQueryString();
 
-            if (! $seleccionado) {
+            if (! $seleccionado && $buscar !== '') {
                 $ocupados = $clientes->getCollection()
                     ->flatMap(fn (Cliente $cl) => $cl->servicioHotspots);
                 if ($ocupados->count() === 1) {
@@ -634,7 +646,11 @@ class HotspotController extends Controller
         }
         $consumo = RadiusHotspotSyncService::combinarConsumoSesionViva($radacct, $vivo);
 
-        return compact('clientes', 'seleccionado', 'esRecientes', 'consumo');
+        $totalClientes = $esRecientes
+            ? Cliente::query()->whereHas('servicioHotspots')->count()
+            : (int) $clientes->total();
+
+        return compact('clientes', 'seleccionado', 'esRecientes', 'consumo', 'verTodas', 'totalClientes');
     }
 
     private function vistaHotspot(Request $request): string
@@ -678,6 +694,7 @@ class HotspotController extends Controller
             'buscar' => $request->input('buscar'),
             'hotspot' => $request->input('hotspot'),
             'page' => $request->input('page'),
+            'todas' => $request->input('todas'),
         ], fn ($valor) => $valor !== null && $valor !== '');
 
         $to = redirect()->route('hotspot.dashboard', $params);
@@ -688,6 +705,16 @@ class HotspotController extends Controller
         }
 
         return $to;
+    }
+
+    /**
+     * El PIN no viaja en el listado: se pide recién cuando el operador toca «Mostrar».
+     */
+    public function pin(ServicioHotspot $servicioHotspot): JsonResponse
+    {
+        return response()
+            ->json(['pin' => (string) $servicioHotspot->password])
+            ->header('Cache-Control', 'no-store');
     }
 
     public function tocar(Request $request): JsonResponse
@@ -863,6 +890,7 @@ class HotspotController extends Controller
                 ->route('hotspot.index', array_filter([
                     'buscar' => $request->input('buscar'),
                     'page' => $request->input('page'),
+                    'todas' => $request->input('todas'),
                 ], fn ($valor) => $valor !== null && $valor !== ''))
                 ->with('success', 'Usuario hotspot '.$username.' eliminado.');
         }
@@ -1014,6 +1042,7 @@ class HotspotController extends Controller
                 ->route('hotspot.index', array_filter([
                     'buscar' => $request->input('buscar'),
                     'page' => $request->input('page'),
+                    'todas' => $request->input('todas'),
                     'hotspot' => $servicioHotspot->getKey(),
                 ], fn ($valor) => $valor !== null && $valor !== ''))
                 ->with($tipo, $mensaje);
@@ -1029,6 +1058,7 @@ class HotspotController extends Controller
             ->route('hotspot.index', array_filter([
                 'buscar' => $request->input('buscar'),
                 'page' => $request->input('page'),
+                'todas' => $request->input('todas'),
             ], fn ($valor) => $valor !== null && $valor !== ''))
             ->with($tipo, $mensaje);
     }

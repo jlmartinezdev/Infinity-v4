@@ -33,7 +33,7 @@
             'id' => $sh->getKey(),
             'clienteId' => (int) $cl->cliente_id,
             'username' => (string) $sh->username,
-            'pin' => (string) $sh->password,
+            'pinUrl' => route('hotspot.pin', $sh),
             'cliente' => $nombre,
             'cedula' => (string) ($cl->cedula ?? ''),
             'slot' => (int) $sh->slot_numero,
@@ -44,9 +44,12 @@
             'perfil' => $sh->hotspotPerfil?->nombre ?: 'default',
             'consumo' => $vista['etiqueta'],
             'tieneCuota' => $vista['tiene_cuota'],
-            'cuotaPct' => $vista['porcentaje'],
-            'centroNum' => $vista['centro_num'],
-            'centroUnit' => $vista['centro_unit'],
+            'cuotaPct' => (int) round((float) ($vista['porcentaje'] ?? 0)),
+            'cuotaTono' => \App\Services\RadiusHotspotSyncService::tonoCuota(round((float) ($vista['porcentaje'] ?? 0))),
+            'usado' => $vista['centro_num'].' '.$vista['centro_unit'],
+            'total' => $vista['tiene_cuota'] ? \Illuminate\Support\Str::after($vista['etiqueta'], ' / ') : '',
+            'vista' => $vista,
+            'perfilDistinto' => $sh->hotspotPerfil?->nombreDistintoDeCuota() ?? '',
             'synced' => $synced,
             'syncUrl' => route('hotspot.sync', $sh),
             'editUrl' => route('hotspot.clientes.edit', $cl),
@@ -78,8 +81,6 @@
     #insp-close,
     #insp-pin-btn,
     #insp-edit-link,
-    #hotspot-buscar,
-    #hotspot-buscar-btn,
     #insp-vaciar-btn,
     #insp-pausar-btn,
     #insp-reanudar-btn,
@@ -112,44 +113,11 @@
         width: 100%;
         padding-bottom: 0.25rem;
     }
-    .hotspot-slot-main {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.5rem;
-    }
-    .hotspot-slot-copy {
+    .hotspot-slot-card .hsd-cuota {
         min-width: 0;
-        flex: 1;
+        margin-top: 0.375rem;
     }
-    @include('hotspot._cuota-ring-styles')
-    .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota-track {
-        stroke: rgba(126, 34, 206, 0.38);
-    }
-    html.dark .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota-track {
-        stroke: rgba(243, 232, 255, 0.42);
-    }
-    .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota-fill {
-        stroke: #7e22ce;
-    }
-    html.dark .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota-fill {
-        stroke: #e9d5ff;
-    }
-    .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota.is-warn .hotspot-cuota-fill {
-        stroke: #fbbf24;
-    }
-    .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota.is-danger .hotspot-cuota-fill {
-        stroke: #fca5a5;
-    }
-    .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota-center {
-        color: inherit;
-    }
-    .hotspot-slot-card:has(.hotspot-slot[aria-pressed="true"]) .hotspot-cuota-unit {
-        color: inherit;
-        opacity: 0.8;
-    }
-    .hotspot-slot-plan {
-        display: block;
+    .hotspot-slot-plan {        display: block;
         margin-top: 0.15rem;
         font-size: 0.75rem;
         line-height: 1.25;
@@ -173,6 +141,10 @@
         flex-wrap: wrap;
         gap: 0.25rem;
         margin-top: 0.75rem;
+    }
+    #insp-risk[hidden],
+    #insp-risk button[hidden] {
+        display: none;
     }
     #insp-risk button,
     #insp-confirm-no,
@@ -299,9 +271,6 @@
     html.dark article.is-focused {
         border-color: #c084fc;
     }
-    #hotspot-hint-narrow {
-        display: block;
-    }
     #insp-close {
         display: inline-flex;
     }
@@ -316,9 +285,6 @@
             position: sticky;
             top: 5rem;
             margin-top: 0;
-        }
-        #hotspot-hint-narrow {
-            display: none;
         }
         #insp-close {
             display: none;
@@ -364,42 +330,36 @@
 @endpush
 
 <div id="hotspot-usuarios">
-    <form id="hotspot-find-form" method="GET" action="{{ route('hotspot.dashboard') }}" role="search" class="sticky top-16 z-30 -mx-4 px-4 py-3 mb-6 bg-gray-50 dark:bg-gray-900 sm:mx-0 sm:px-0">
-        <input type="hidden" name="vista" value="usuarios">
-        @if(! empty($selectedRouter))
-            <input type="hidden" name="router_id" value="{{ $selectedRouter->router_id }}">
-        @endif
-        <label for="hotspot-buscar" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar usuario o cliente</label>
-        <div class="flex flex-wrap gap-2">
-            <div id="hotspot-combobox" class="relative flex-1 min-w-[16rem]">
-                <input type="text" name="buscar" id="hotspot-buscar" value="{{ $buscar }}"
-                    placeholder="Nombre, cédula o usuario…"
-                    autocomplete="off"
-                    role="combobox"
-                    aria-expanded="false"
-                    aria-autocomplete="list"
-                    aria-controls="hotspot-sugerencias"
-                    aria-haspopup="listbox"
-                    aria-describedby="hotspot-find-help hotspot-hint-narrow"
-                    class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 focus:outline-none">
-                <div id="hotspot-sugerencias" role="listbox" hidden
-                    class="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg max-h-60 overflow-y-auto"></div>
-                <p id="hotspot-buscar-status" class="sr-only" aria-live="polite"></p>
-            </div>
-            <button type="submit" id="hotspot-buscar-btn" class="inline-flex items-center px-4 py-2.5 min-h-11 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-400/20">Buscar</button>
-            @if($hayFiltro)
-                <a href="{{ $usuariosBase }}" class="inline-flex items-center px-4 py-2.5 min-h-11 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-400/20">Limpiar</a>
-            @endif
-        </div>
-        <p id="hotspot-find-help" class="mt-1.5 text-sm text-gray-500 dark:text-gray-400">Enter o Buscar filtra el tablero. Flechas eligen un locker.</p>
-        <p id="hotspot-hint-narrow" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Elegí un slot. Tocá el ocupado para confirmar y sincronizar.</p>
-    </form>
-
     <div class="hotspot-work{{ $seleccionado ? ' has-dock' : '' }}">
         <div class="space-y-3 min-w-0">
-            @if($esRecientes && $clientes->isNotEmpty())
-                
-            @endif
+            @php
+                $verTodas = $verTodas ?? false;
+                $totalClientes = (int) ($totalClientes ?? 0);
+                $urlTodas = route('hotspot.dashboard', array_filter([
+                    'vista' => 'usuarios',
+                    'router_id' => $selectedRouter?->router_id,
+                    'todas' => 1,
+                ]));
+                $nClientes = fn (int $n): string => $n === 1 ? '1 cliente' : $n.' clientes';
+            @endphp
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    @if($esRecientes)
+                        Vistos recientemente
+                    @elseif($verTodas)
+                        Todas las cuentas <span class="font-normal text-gray-500 dark:text-gray-400">· {{ $nClientes($totalClientes) }}</span>
+                    @else
+                        Resultados de “{{ $buscar }}” <span class="font-normal text-gray-500 dark:text-gray-400">· {{ $nClientes($totalClientes) }}</span>
+                    @endif
+                </h2>
+                @if($esRecientes)
+                    @if($totalClientes > 0)
+                        <a href="{{ $urlTodas }}" class="text-sm underline underline-offset-2 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white">Ver todas las cuentas ({{ $nClientes($totalClientes) }})</a>
+                    @endif
+                @else
+                    <a href="{{ $usuariosBase }}" class="text-sm underline underline-offset-2 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white">Ver recientes</a>
+                @endif
+            </div>
             @forelse($clientes as $cl)
                 @php
                     $porSlot = $cl->servicioHotspots->keyBy(fn ($h) => (int) $h->slot_numero);
@@ -435,26 +395,16 @@
                                         data-slot="{{ json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) }}"
                                         aria-pressed="{{ $activo ? 'true' : 'false' }}"
                                         id="hotspot-slot-{{ $sh->getKey() }}">
-                                        <span class="hotspot-slot-main">
-                                            <span class="hotspot-slot-copy">
-                                                <span class="block text-xs text-gray-500 dark:text-gray-400">Slot {{ $i }}</span>
-                                                <span class="hotspot-slot-user mt-0.5 block text-sm font-medium font-mono break-all text-gray-900 dark:text-gray-100">{!! $resaltar($sh->username) !!}</span>
-                                                <span class="hotspot-slot-plan">{{ $payload['perfil'] }}@unless($payload['tieneCuota']) · {{ $payload['consumo'] }}@endunless</span>
-                                                @if($payload['tieneCuota'])
-                                                    <span class="sr-only">{{ $payload['consumo'] }}</span>
-                                                @endif
-                                            </span>
-                                            @if($payload['tieneCuota'])
-                                                @include('hotspot._cuota-ring', [
-                                                    'pct' => $payload['cuotaPct'],
-                                                    'num' => $payload['centroNum'],
-                                                    'unit' => $payload['centroUnit'],
-                                                    'size' => 'slot',
-                                                ])
-                                            @endif
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400">Slot {{ $i }}</span>
+                                        <span class="hotspot-slot-user mt-0.5 block text-sm font-medium font-mono break-all text-gray-900 dark:text-gray-100">{!! $resaltar($sh->username) !!}</span>
+                                        <span class="block mt-1">
+                                            @include('hotspot._cuota-barra', [
+                                                'perfil' => $payload['perfilDistinto'],
+                                                'vista' => $payload['vista'],
+                                            ])
                                         </span>
                                         <span class="hotspot-slot-meta">
-                                            <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {{ $estadoBadge[$codigo] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ $estadoLabel }}</span>
+                                            <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {{ $estadoBadge[$codigo] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ $codigo ? ucfirst((string) preg_replace('/o$/', 'a', mb_strtolower($estadoLabel))) : $estadoLabel }}</span>
                                         </span>
                                     </button>
                                 </div>
@@ -477,9 +427,12 @@
                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-10 text-center text-gray-500 dark:text-gray-400">
                     @if($esRecientes)
                         <p>No hay recientes todavía.</p>
-                        <p class="mt-2 text-sm">Buscá un cliente para abrir su locker y sincronizar.</p>
+                        <p class="mt-2 text-sm">Buscá un cliente para ver sus cuentas y sincronizar.</p>
+                        @if($totalClientes > 0)
+                            <p class="mt-2 text-sm"><a href="{{ $urlTodas }}" class="underline underline-offset-2">Ver todas las cuentas</a></p>
+                        @endif
                     @else
-                        <p>Ningún locker coincide con “{{ $buscar }}”.</p>
+                        <p>Ninguna cuenta coincide con “{{ $buscar }}”.</p>
                         <p class="mt-2 text-sm">Probá con el documento o el username, o <a href="{{ $usuariosBase }}" class="underline underline-offset-2">limpiá el filtro</a>.</p>
                     @endif
                 </div>
@@ -544,16 +497,22 @@
                     </div>
                     <div>
                         <dt class="text-gray-500 dark:text-gray-400">Cuota</dt>
-                        <dd class="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-                            <span id="insp-cuota-ring" @if(! ($inspVista['tiene_cuota'] ?? false)) hidden @endif>
-                                @include('hotspot._cuota-ring', [
-                                    'pct' => $inspVista['porcentaje'] ?? 0,
-                                    'num' => $inspVista['centro_num'] ?? '0',
-                                    'unit' => $inspVista['centro_unit'] ?? 'MB',
-                                    'size' => 'insp',
-                                ])
-                            </span>
-                            <span id="insp-consumo">{{ $inspVista['etiqueta'] ?? '—' }}</span>
+                        <dd class="text-gray-900 dark:text-gray-100">
+                            @php
+                                $inspTieneCuota = (bool) ($inspVista['tiene_cuota'] ?? false);
+                                $inspPct = (int) round((float) ($inspVista['porcentaje'] ?? 0));
+                                $inspTono = \App\Services\RadiusHotspotSyncService::tonoCuota($inspPct);
+                                $inspUsado = trim(($inspVista['centro_num'] ?? '0').' '.($inspVista['centro_unit'] ?? 'MB'));
+                                $inspTotal = $inspTieneCuota ? \Illuminate\Support\Str::after((string) $inspVista['etiqueta'], ' / ') : '';
+                            @endphp
+                            <div id="insp-cuota" class="hsd-cuota w-full" @if(! $inspTieneCuota) hidden @endif>
+                                <div class="flex items-baseline justify-between gap-3 text-sm tabular-nums">
+                                    <span><span id="insp-cuota-usado">{{ $inspUsado }}</span> <span class="text-gray-500 dark:text-gray-400">/ <span id="insp-cuota-total">{{ $inspTotal }}</span></span></span>
+                                    <span id="insp-cuota-pct" class="font-semibold hsd-cuota-pct is-{{ $inspTono }}">{{ $inspPct }} %</span>
+                                </div>
+                                <div class="hsd-bar" aria-hidden="true"><div id="insp-cuota-fill" class="hsd-bar-fill is-{{ $inspTono }}" style="width: {{ $inspPct }}%"></div></div>
+                            </div>
+                            <span id="insp-consumo" class="tabular-nums" @if($inspTieneCuota) hidden @endif>{{ $seleccionado ? $inspUsado.' · Ilimitado' : '—' }}</span>
                         </dd>
                     </div>
                     <div>
@@ -564,7 +523,7 @@
                 <div class="insp-actions mt-3">
                     <div class="flex items-center gap-1 text-sm">
                         <span class="text-gray-500 dark:text-gray-400">PIN</span>
-                        <span id="insp-pin" class="font-mono text-gray-900 dark:text-gray-100">{{ \App\Models\ServicioHotspot::pinOculto($seleccionado?->password) }}</span>
+                        <span id="insp-pin" class="font-mono text-gray-900 dark:text-gray-100">{{ \App\Models\ServicioHotspot::pinOculto() }}</span>
                         <button type="button" id="insp-pin-btn" class="inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/20" title="Mostrar PIN" aria-label="Mostrar PIN" aria-pressed="false">
                             <svg id="insp-pin-icon-show" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             <svg id="insp-pin-icon-hide" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" hidden><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
@@ -575,6 +534,7 @@
                         <input type="hidden" name="from_index" value="1">
                         <input type="hidden" name="buscar" id="insp-buscar" value="{{ $buscar }}">
                         <input type="hidden" name="page" value="{{ request('page') }}">
+                        <input type="hidden" name="todas" value="{{ request('todas') }}">
                         <p id="insp-sync-copy" class="mb-2 text-sm text-gray-600 dark:text-gray-300" aria-live="polite"></p>
                         <button type="submit" id="insp-sync-btn"
                             class="w-full px-4 py-2.5 min-h-11 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800 disabled:opacity-60">
@@ -591,7 +551,7 @@
                             <p id="insp-confirm-copy"></p>
                             <div id="insp-confirm-actions">
                                 <button type="button" id="insp-confirm-no">Seguir con el slot</button>
-                                <button type="button" id="insp-confirm-yes">Quitar del locker</button>
+                                <button type="button" id="insp-confirm-yes">Quitar cuenta</button>
                             </div>
                         </div>
                         <form id="insp-vaciar-form" action="{{ $seleccionado && $inspCliente ? route('hotspot.clientes.destroy', [$inspCliente, $seleccionado]) : '' }}" method="POST" hidden>
@@ -600,6 +560,7 @@
                             <input type="hidden" name="from_index" value="1">
                             <input type="hidden" name="buscar" id="insp-vaciar-buscar" value="{{ $buscar }}">
                             <input type="hidden" name="page" value="{{ request('page') }}">
+                        <input type="hidden" name="todas" value="{{ request('todas') }}">
                         </form>
                         <form id="insp-pausar-form" action="{{ $seleccionado?->servicio_id ? route('servicios.suspender', $seleccionado->servicio_id) : '' }}" method="POST" hidden>
                             @csrf
@@ -640,7 +601,9 @@
     var abortCtrl = null;
     var activeIndex = -1;
     var items = [];
-    var currentPin = @json($seleccionado?->password ?: '');
+    var currentPin = '';
+    var currentPinUrl = @json($seleccionado ? route('hotspot.pin', $seleccionado) : '');
+    var pinPedido = 0;
     var pinVisible = false;
     var pinTimer = null;
     var PIN_HIDE_MS = 8000;
@@ -713,10 +676,10 @@
         confirmKind = kind;
         confirmYes.classList.remove('is-pause', 'is-resume');
         if (kind === 'vaciar') {
-            confirmCopy.textContent = 'Esto quita a ' + user + ' del locker. El slot queda libre. No se puede deshacer desde acá.';
-            confirmYes.textContent = 'Quitar del locker';
+            confirmCopy.textContent = 'Esto borra la cuenta ' + user + '. El slot queda libre. No se puede deshacer desde acá.';
+            confirmYes.textContent = 'Quitar cuenta';
         } else if (kind === 'pausar') {
-            confirmCopy.textContent = 'Esto corta el Wi‑Fi de ' + user + '. El usuario sigue en el locker.';
+            confirmCopy.textContent = 'Esto corta el Wi‑Fi de ' + user + '. La cuenta se conserva.';
             confirmYes.textContent = 'Cortar Wi‑Fi';
             confirmYes.classList.add('is-pause');
         } else {
@@ -876,11 +839,11 @@
         if (!items.length) {
             var empty = document.createElement('div');
             empty.className = 'px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400';
-            empty.textContent = 'Ningún locker coincide.';
+            empty.textContent = 'Ninguna cuenta coincide.';
             listbox.appendChild(empty);
             listbox.hidden = false;
             buscar.setAttribute('aria-expanded', 'true');
-            setStatus('Ningún locker coincide. Enter filtra el tablero.');
+            setStatus('Ninguna cuenta coincide. Enter filtra la lista.');
             return;
         }
         items.forEach(function(c, i) {
@@ -901,7 +864,7 @@
         });
         listbox.hidden = false;
         buscar.setAttribute('aria-expanded', 'true');
-        setStatus(items.length + ' resultados. Flechas para elegir, Enter filtra el tablero.');
+        setStatus(items.length + ' resultados. Flechas para elegir, Enter filtra la lista.');
     }
 
     function highlight() {
@@ -987,14 +950,14 @@
         });
     }
 
-    function setPinVisible(on) {
+    function pintarPin(on, texto) {
         if (pinTimer) {
             clearTimeout(pinTimer);
             pinTimer = null;
         }
         pinVisible = on;
         if (!pinEl || !pinBtn) return;
-        pinEl.textContent = on && currentPin ? currentPin : pinMask(currentPin);
+        pinEl.textContent = texto || (on && currentPin ? currentPin : pinMask(currentPin));
         pinBtn.setAttribute('aria-label', on ? 'Ocultar PIN' : 'Mostrar PIN');
         pinBtn.setAttribute('title', on ? 'Ocultar PIN' : 'Mostrar PIN');
         pinBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -1009,29 +972,71 @@
         }
     }
 
-    function setCuotaRing(payload) {
-        var wrap = document.getElementById('insp-cuota-ring');
-        if (!wrap) return;
-        var show = !!payload.tieneCuota;
-        wrap.hidden = !show;
-        if (!show) return;
-        var ring = wrap.querySelector('.hotspot-cuota');
-        var fill = wrap.querySelector('.hotspot-cuota-fill');
-        var num = wrap.querySelector('.hotspot-cuota-num');
-        var unit = wrap.querySelector('.hotspot-cuota-unit');
-        var pct = Math.max(0, Math.min(100, Number(payload.cuotaPct) || 0));
-        if (fill) fill.setAttribute('stroke-dasharray', pct + ' ' + (100 - pct));
-        if (ring) {
-            ring.classList.toggle('is-ok', pct < 70);
-            ring.classList.toggle('is-warn', pct >= 70 && pct < 90);
-            ring.classList.toggle('is-danger', pct >= 90);
+    // El PIN se pide al servidor recién al mostrarlo; no viene en el listado.
+    function setPinVisible(on) {
+        pinPedido += 1;
+        if (!on || currentPin) {
+            pintarPin(on);
+            return;
         }
-        if (num) num.textContent = payload.centroNum || '0';
-        if (unit) unit.textContent = payload.centroUnit || 'MB';
+        if (!currentPinUrl) return;
+        var pedido = pinPedido;
+        if (pinBtn) pinBtn.disabled = true;
+        fetch(currentPinUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            cache: 'no-store'
+        }).then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+        }).then(function (data) {
+            if (pedido !== pinPedido) return;
+            currentPin = String((data && data.pin) || '');
+            if (currentPin) pintarPin(true);
+            else pintarPin(false, 'Sin PIN');
+        }).catch(function () {
+            if (pedido !== pinPedido) return;
+            pintarPin(false, 'No se pudo leer');
+            setStatus('No se pudo leer el PIN. Reintentá.');
+        }).then(function () {
+            if (pinBtn) pinBtn.disabled = false;
+        });
+    }
+
+    function setCuotaBarra(payload) {
+        var caja = document.getElementById('insp-cuota');
+        var texto = document.getElementById('insp-consumo');
+        var tiene = !!payload.tieneCuota;
+        if (caja) caja.hidden = !tiene;
+        if (texto) {
+            texto.hidden = tiene;
+            texto.textContent = (payload.usado || '0 MB') + ' · Ilimitado';
+        }
+        if (!tiene || !caja) return;
+        var pct = Math.max(0, Math.min(100, Number(payload.cuotaPct) || 0));
+        var tono = payload.cuotaTono || 'ok';
+        var fill = document.getElementById('insp-cuota-fill');
+        var pctEl = document.getElementById('insp-cuota-pct');
+        document.getElementById('insp-cuota-usado').textContent = payload.usado || '0 MB';
+        document.getElementById('insp-cuota-total').textContent = payload.total || '';
+        if (fill) {
+            fill.style.width = pct + '%';
+            fill.className = 'hsd-bar-fill is-' + tono;
+        }
+        if (pctEl) {
+            pctEl.textContent = pct + ' %';
+            pctEl.className = 'font-semibold hsd-cuota-pct is-' + tono;
+        }
     }
 
     function fillInspector(payload) {
-        currentPin = payload.pin || '';
+        currentPin = '';
+        currentPinUrl = payload.pinUrl || '';
         emptyEl.hidden = true;
         detailEl.hidden = false;
         clearPickHints();
@@ -1044,8 +1049,7 @@
         document.getElementById('insp-estado').textContent = payload.estadoLabel || '';
         document.getElementById('insp-router').textContent = payload.router || 'Sin router';
         document.getElementById('insp-perfil').textContent = payload.perfil || 'default';
-        document.getElementById('insp-consumo').textContent = payload.consumo || '—';
-        setCuotaRing(payload);
+        setCuotaBarra(payload);
         document.getElementById('insp-synced').textContent = payload.synced || 'Nunca';
         document.getElementById('insp-edit-link').setAttribute('href', payload.editUrl || '#');
         syncForm.setAttribute('action', payload.syncUrl || '');

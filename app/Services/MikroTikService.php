@@ -998,9 +998,13 @@ class MikroTikService
             return [];
         }
 
+        // Un router que el monitoreo ya da por caído solo aportaría la espera del timeout.
         $routers = Router::query()
             ->whereNotNull('hotspot_servidor')
             ->where('hotspot_servidor', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('estado')->orWhere('estado', '!=', Router::ESTADO_DESCONECTADO);
+            })
             ->get();
         if ($routers->isEmpty()) {
             return [];

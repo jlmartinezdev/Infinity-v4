@@ -886,6 +886,7 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->prefix('hotspot')->name('h
     });
     // Reenvía datos ya guardados a RADIUS/MikroTik; lo usa caja/técnico con solo "ver".
     Route::post('/{servicioHotspot}/sync', [HotspotController::class, 'sync'])->name('sync');
+    Route::post('/{servicioHotspot}/pin', [HotspotController::class, 'pin'])->name('pin');
 });
 
 // Inventario / Ventas / Compras / Gastos
