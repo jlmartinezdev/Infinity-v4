@@ -29419,6 +29419,10 @@ var WaAvatar = {
       }))();
     },
     // —— Modales rápidos / GPS ——
+    esEmojiReaccion: function esEmojiReaccion(m) {
+      var c = String((m === null || m === void 0 ? void 0 : m.cuerpo) || '').trim();
+      return c !== '' && c !== '—' && c !== '-' && c !== 'Quitó la reacción';
+    },
     captionMedia: function captionMedia(m) {
       var c = String((m === null || m === void 0 ? void 0 : m.cuerpo) || '').trim();
       if (!c) return '';
@@ -29509,14 +29513,14 @@ var WaAvatar = {
               esPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4E;
               esGif = head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
               esWebp = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46;
-              if (!(m.tipo === 'image' && !esJpeg && !esPng && !esGif && !esWebp)) {
+              if (!((m.tipo === 'image' || m.tipo === 'sticker') && !esJpeg && !esPng && !esGif && !esWebp)) {
                 _context13.n = 8;
                 break;
               }
               throw new Error('not-image');
             case 8:
               blob = data;
-              if (m.tipo === 'image') {
+              if (m.tipo === 'image' || m.tipo === 'sticker') {
                 mime = esPng ? 'image/png' : esGif ? 'image/gif' : esWebp ? 'image/webp' : 'image/jpeg';
                 blob = new Blob([data], {
                   type: mime
@@ -29576,7 +29580,7 @@ var WaAvatar = {
       if (!(m !== null && m !== void 0 && m.media_url)) return;
       this.modalImagen = {
         url: this.mediaSrc(m) || m.media_url,
-        caption: this.captionMedia(m) || 'Imagen'
+        caption: this.captionMedia(m) || (m.tipo === 'sticker' ? 'Sticker' : 'Imagen')
       };
     },
     cerrarModalImagen: function cerrarModalImagen() {
@@ -31405,7 +31409,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex", m.direccion === 'salida' ? 'justify-end' : 'justify-start'])
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["wa-bubble relative max-w-[85%] px-2.5 py-1.5 shadow-sm sm:max-w-[65%]", [m.direccion === 'salida' ? 'wa-bubble-out' : 'wa-bubble-in', m.direccion === 'salida' && m.estado === 'fallido' ? 'wa-bubble-fail' : '']])
-    }, [m.direccion === 'salida' && m.estado === 'fallido' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_51, [_cache[74] || (_cache[74] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, "No enviado", -1 /* CACHED */)), (_m$fallo = m.fallo) !== null && _m$fallo !== void 0 && _m$fallo.codigo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_52, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.codigo), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.tipo !== 'text' && m.tipo !== 'unknown' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_53, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.tipo), 1 /* TEXT */), m.template_name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    }, [m.direccion === 'salida' && m.estado === 'fallido' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_51, [_cache[74] || (_cache[74] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, "No enviado", -1 /* CACHED */)), (_m$fallo = m.fallo) !== null && _m$fallo !== void 0 && _m$fallo.codigo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_52, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.codigo), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.tipo !== 'text' && m.tipo !== 'unknown' && m.tipo !== 'reaction' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_53, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.tipo), 1 /* TEXT */), m.template_name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.template_name), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.direccion === 'salida' && m.contexto_tipo === 'app_whatsapp' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_54, " Desde app WhatsApp ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.tipo === 'audio' && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_55, [$data.mediaHydrating[m.id] && !$options.mediaSrc(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_56, "Cargando audio…")) : $options.mediaSrc(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("audio", {
       key: 1,
@@ -31443,7 +31447,34 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: function onClick($event) {
         return $options.hydrateMedia(m, true);
       }
-    }, "Reintentar", 8 /* PROPS */, _hoisted_65)])), $options.captionMedia(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_66, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.captionMedia(m)), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : ['document', 'video', 'sticker'].includes(m.tipo) && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+    }, "Reintentar", 8 /* PROPS */, _hoisted_65)])), $options.captionMedia(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_66, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.captionMedia(m)), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : m.tipo === 'sticker' && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+      key: 8,
+      class: "my-1"
+    }, [!$data.mediaFailed[m.id] ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+      key: 0,
+      type: "button",
+      class: "block cursor-zoom-in border-0 bg-transparent p-0",
+      title: "Ver sticker",
+      onClick: function onClick($event) {
+        return $options.abrirModalImagen(m);
+      }
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("img", {
+      src: $options.mediaSrc(m) || m.media_url,
+      alt: "Sticker",
+      class: "wa-sticker object-contain",
+      onError: function onError($event) {
+        return $options.onMediaImgError(m);
+      }
+    }, null, 16 /* FULL_PROPS */)])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", {
+      key: 1,
+      class: "rounded-md bg-black/10 px-2 py-1.5 text-xs opacity-80 dark:bg-black/20"
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" No se pudo cargar el sticker "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+      type: "button",
+      class: "ml-1 underline",
+      onClick: function onClick($event) {
+        return $options.hydrateMedia(m, true);
+      }
+    }, "Reintentar")]))])) : ['document', 'video'].includes(m.tipo) && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
       key: 5,
       type: "button",
       class: "my-1 inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20",
@@ -31456,7 +31487,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: function onClick($event) {
         return $options.abrirModalMapa(m);
       }
-    }, " Ver mapa aquí ", 8 /* PROPS */, _hoisted_72)])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_73, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.cuerpo || '-'), 1 /* TEXT */)), m.direccion === 'salida' && m.estado === 'fallido' && m.fallo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_74, [m.fallo.titulo || m.fallo.mensaje ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_75, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.titulo || 'Error Meta') + " ", 1 /* TEXT */), m.fallo.mensaje && m.fallo.mensaje !== m.fallo.titulo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    }, " Ver mapa aquí ", 8 /* PROPS */, _hoisted_72)])) : m.tipo === 'reaction' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+      key: 9,
+      class: $options.esEmojiReaccion(m) ? "wa-reaction" : "text-[13px] leading-snug opacity-80"
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.cuerpo), 3 /* TEXT, CLASS */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_73, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.cuerpo || '-'), 1 /* TEXT */)), m.direccion === 'salida' && m.estado === 'fallido' && m.fallo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_74, [m.fallo.titulo || m.fallo.mensaje ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_75, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.titulo || 'Error Meta') + " ", 1 /* TEXT */), m.fallo.mensaje && m.fallo.mensaje !== m.fallo.titulo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" - " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.mensaje), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.detalle ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_76, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.detalle), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.tip ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_77, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.tip), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("details", _hoisted_78, [_cache[82] || (_cache[82] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("summary", {
       class: "cursor-pointer select-none text-[10px] opacity-80 hover:opacity-100"

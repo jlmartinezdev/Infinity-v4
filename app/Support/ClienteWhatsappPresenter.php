@@ -111,6 +111,9 @@ class ClienteWhatsappPresenter
                 'document' => 'Documento',
                 'sticker' => 'Sticker',
                 'location' => 'Ubicación compartida',
+                'reaction' => ($emoji = trim((string) data_get($m->payload, 'reaction.emoji', ''))) !== ''
+                    ? $emoji
+                    : 'Quitó la reacción',
                 default => $m->template_name ? 'Plantilla: '.$m->template_name : '['.$m->tipo.']',
             };
         }

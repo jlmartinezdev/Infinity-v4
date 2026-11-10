@@ -326,6 +326,9 @@ class WhatsAppWebhookController extends ApiController
                     ? (data_get($message, 'audio.voice') ? 'Nota de voz' : 'Audio')
                     : (data_get($message, "{$tipo}.filename") ?: null)),
             'location' => $this->extraerCuerpoUbicacion($message),
+            'reaction' => ($emoji = trim((string) data_get($message, 'reaction.emoji', ''))) !== ''
+                ? $emoji
+                : 'Quitó la reacción',
             default => null,
         };
     }

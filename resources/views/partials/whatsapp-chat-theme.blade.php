@@ -114,6 +114,21 @@ html.dark .wa-app, html.dark .wa-ficha, html.dark .wa-chat-menu {
   box-shadow: 0 0 0 2px var(--wa-sidebar);
 }
 .wa-filtro-btn.is-on .wa-filtro-dot { display: block; }
+.wa-app .wa-sticker { max-height: 160px; max-width: 160px; }
+.wa-app .wa-reaction { font-size: 28px; line-height: 1.15; }
+.wa-app img.wa-emoji {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0 0.05em;
+  vertical-align: -0.2em;
+}
+.wa-app .wa-reaction img.wa-emoji {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  vertical-align: middle;
+}
 .wa-app .wa-chip { background: var(--wa-chip); color: var(--wa-chip-fg); }
 .wa-app .wa-chip-on { background: #00a884 !important; color: #111b21 !important; }
 .wa-app .wa-chip-neutral { background: #8696a0 !important; color: #111b21 !important; }

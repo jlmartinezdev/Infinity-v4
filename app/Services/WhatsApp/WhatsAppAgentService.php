@@ -1436,6 +1436,9 @@ class WhatsAppAgentService
             'document' => '[documento]',
             'sticker' => '[sticker]',
             'location' => '[ubicacion]',
+            'reaction' => ($emoji = trim((string) data_get($mensaje->payload, 'reaction.emoji', ''))) !== ''
+                ? $emoji
+                : '[reaccion quitada]',
             'template' => $mensaje->template_name
                 ? '[plantilla '.$mensaje->template_name.']'
                 : '[plantilla]',

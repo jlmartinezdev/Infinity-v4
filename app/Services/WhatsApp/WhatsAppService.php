@@ -527,6 +527,18 @@ class WhatsAppService
         $cuerpo = trim((string) ($mensaje->cuerpo ?? ''));
         $tpl = trim((string) ($mensaje->template_name ?? ''));
 
+        if ($mensaje->tipo === 'reaction') {
+            $emoji = trim((string) data_get($mensaje->payload, 'reaction.emoji', ''));
+            if ($emoji !== '') {
+                return $emoji;
+            }
+            if ($cuerpo !== '' && $cuerpo !== '—' && $cuerpo !== '-') {
+                return $cuerpo;
+            }
+
+            return 'Quitó la reacción';
+        }
+
         if ($mensaje->tipo !== 'template' || $tpl === '') {
             return $cuerpo !== '' ? $cuerpo : ($tpl !== '' ? $tpl : '—');
         }

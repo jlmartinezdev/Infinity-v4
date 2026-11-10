@@ -80,6 +80,7 @@ window.__WHATSAPP_MENSAJES_CONFIG__ = @json($config);
 
 @push('scripts')
 <script src="{{ asset(mix('js/whatsapp-mensajes.js')) }}" defer></script>
-<script src="{{ asset('js/whatsapp-ficha.js') }}?v=3" defer></script>
+<script src="{{ asset('js/twemoji.min.js') }}?v=1" defer></script>
+<script src="{{ asset('js/whatsapp-ficha.js') }}?v=4" defer></script>
 @endpush
 @endsection

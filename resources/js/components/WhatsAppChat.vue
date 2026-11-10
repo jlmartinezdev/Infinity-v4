@@ -347,7 +347,7 @@
                     <span>No enviado</span>
                     <span v-if="m.fallo?.codigo" class="rounded bg-black/10 px-1 font-mono normal-case dark:bg-black/20">#{{ m.fallo.codigo }}</span>
                   </div>
-                  <div v-if="m.tipo !== 'text' && m.tipo !== 'unknown'" class="mb-0.5 text-[10px] uppercase tracking-wide opacity-60">
+                  <div v-if="m.tipo !== 'text' && m.tipo !== 'unknown' && m.tipo !== 'reaction'" class="mb-0.5 text-[10px] uppercase tracking-wide opacity-60">
                     {{ m.tipo }}<template v-if="m.template_name"> · {{ m.template_name }}</template>
                   </div>
                   <div v-if="m.direccion === 'salida' && m.contexto_tipo === 'app_whatsapp'" class="wa-accent mb-0.5 text-[10px] opacity-80">
@@ -391,8 +391,28 @@
                     </p>
                     <p v-if="captionMedia(m)" class="mt-1 whitespace-pre-wrap break-words text-[14.2px] leading-[19px]">{{ captionMedia(m) }}</p>
                   </div>
+                  <div v-else-if="m.tipo === 'sticker' && m.media_url" class="my-1">
+                    <button
+                      v-if="!mediaFailed[m.id]"
+                      type="button"
+                      class="block cursor-zoom-in border-0 bg-transparent p-0"
+                      title="Ver sticker"
+                      @click="abrirModalImagen(m)"
+                    >
+                      <img
+                        :src="mediaSrc(m) || m.media_url"
+                        alt="Sticker"
+                        class="wa-sticker object-contain"
+                        @error="onMediaImgError(m)"
+                      >
+                    </button>
+                    <p v-else class="rounded-md bg-black/10 px-2 py-1.5 text-xs opacity-80 dark:bg-black/20">
+                      No se pudo cargar el sticker
+                      <button type="button" class="ml-1 underline" @click="hydrateMedia(m, true)">Reintentar</button>
+                    </p>
+                  </div>
                   <button
-                    v-else-if="['document','video','sticker'].includes(m.tipo) && m.media_url"
+                    v-else-if="['document','video'].includes(m.tipo) && m.media_url"
                     type="button"
                     class="my-1 inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20"
                     @click="abrirMediaAdjunto(m)"
@@ -411,6 +431,10 @@
                       Ver mapa aquí
                     </button>
                   </div>
+                  <div
+                    v-else-if="m.tipo === 'reaction'"
+                    :class="esEmojiReaccion(m) ? 'wa-reaction' : 'text-[13px] leading-snug opacity-80'"
+                  >{{ m.cuerpo }}</div>
                   <div v-else class="wa-msg-body whitespace-pre-wrap break-words text-[14.2px] leading-[19px]">{{ m.cuerpo || '-' }}</div>
 
                   <div
@@ -1938,6 +1962,10 @@ export default {
     },
 
     // —— Modales rápidos / GPS ——
+    esEmojiReaccion(m) {
+      const c = String(m?.cuerpo || '').trim();
+      return c !== '' && c !== '—' && c !== '-' && c !== 'Quitó la reacción';
+    },
     captionMedia(m) {
       const c = String(m?.cuerpo || '').trim();
       if (!c) return '';
@@ -1994,11 +2022,11 @@ export default {
         const esPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4E;
         const esGif = head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
         const esWebp = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46;
-        if (m.tipo === 'image' && !esJpeg && !esPng && !esGif && !esWebp) {
+        if ((m.tipo === 'image' || m.tipo === 'sticker') && !esJpeg && !esPng && !esGif && !esWebp) {
           throw new Error('not-image');
         }
         let blob = data;
-        if (m.tipo === 'image') {
+        if (m.tipo === 'image' || m.tipo === 'sticker') {
           const mime = esPng ? 'image/png' : (esGif ? 'image/gif' : (esWebp ? 'image/webp' : 'image/jpeg'));
           blob = new Blob([data], { type: mime });
         } else if ((!data.type || data.type === 'application/octet-stream') && m.tipo === 'audio') {
@@ -2033,7 +2061,7 @@ export default {
       if (!m?.media_url) return;
       this.modalImagen = {
         url: this.mediaSrc(m) || m.media_url,
-        caption: this.captionMedia(m) || 'Imagen',
+        caption: this.captionMedia(m) || (m.tipo === 'sticker' ? 'Sticker' : 'Imagen'),
       };
     },
     cerrarModalImagen() {

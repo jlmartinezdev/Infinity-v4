@@ -449,3 +449,39 @@
   window.addEventListener('resize', colocar);
   window.addEventListener('scroll', colocar, true);
 })();
+
+(function () {
+  var opciones = {
+    folder: 'svg',
+    ext: '.svg',
+    className: 'wa-emoji'
+  };
+  var pendiente = false;
+
+  function parsear(root) {
+    if (!window.twemoji || !root) return;
+    window.twemoji.parse(root, opciones);
+  }
+
+  function arrancar() {
+    var root = document.querySelector('.wa-app');
+    if (!root || !window.twemoji) return false;
+    parsear(root);
+    new MutationObserver(function () {
+      if (pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(function () {
+        pendiente = false;
+        parsear(root);
+      });
+    }).observe(root, { childList: true, subtree: true, characterData: true });
+    return true;
+  }
+
+  if (arrancar()) return;
+  var intentos = 0;
+  var timer = setInterval(function () {
+    intentos += 1;
+    if (arrancar() || intentos > 40) clearInterval(timer);
+  }, 250);
+})();
