@@ -120,7 +120,7 @@ return [
         'impresora_auto' => (bool) env('WA_AGENT_IMPRESORA_AUTO', false),
         'zabbix_secret' => env('ZABBIX_WEBHOOK_SECRET'),
         /** Últimos N mensajes del hilo que se mandan a N8N (no incluye el actual). */
-        'historial_limite' => max(0, (int) env('WA_AGENT_HISTORIAL_LIMITE', 12)),
+        'historial_limite' => max(0, (int) env('WA_AGENT_HISTORIAL_LIMITE', 20)),
         /** true = solo el chat de hoy (zona horaria de la app). Días anteriores no entran al prompt. */
         'historial_solo_hoy' => filter_var(env('WA_AGENT_HISTORIAL_SOLO_HOY', true), FILTER_VALIDATE_BOOLEAN),
         /** Si historial_solo_hoy es false: mensajes de los últimos N días. 0 = sin recorte por fecha. */

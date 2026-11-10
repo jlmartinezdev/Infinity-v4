@@ -28091,8 +28091,11 @@ var WaAvatar = {
       texto: '',
       sugerenciaAplicadaId: null,
       textoDesdeIa: false,
+      regenerandoSugerencia: false,
+      errorRegenerarSugerencia: '',
       toast: null,
       pollTimer: null,
+      pollIntervalMs: 8000,
       buscarTimer: null,
       stickBottom: true,
       pageLimit: 250,
@@ -28171,9 +28174,7 @@ var WaAvatar = {
     this.cargarAsuntos();
     this.cargarConversaciones(true);
     if (this.telActivo) this.cargarHilo(this.telActivo, false);
-    this.pollTimer = setInterval(function () {
-      return _this.poll();
-    }, 8000);
+    this.reiniciarPoll(8000);
     this._onPedidoCreated = function (ev) {
       var _ev$detail;
       _this.modalPedido = false;
@@ -28221,9 +28222,39 @@ var WaAvatar = {
     puedeEnviarSugerencia: function puedeEnviarSugerencia() {
       var _this$sugerenciaIa;
       return !!((_this$sugerenciaIa = this.sugerenciaIa) !== null && _this$sugerenciaIa !== void 0 && _this$sugerenciaIa.reply && (this.texto || '').trim() && !this.hiloMeta.fuera_ventana && !this.enviando);
+    },
+    /** Último mensaje del cliente sin sugerencia aún → estamos esperando el borrador. */esperandoSugerenciaIa: function esperandoSugerenciaIa() {
+      var _this$hiloMeta2, _this$sugerenciaIa2;
+      if (!this.puedeEditar || !this.configured || (_this$hiloMeta2 = this.hiloMeta) !== null && _this$hiloMeta2 !== void 0 && _this$hiloMeta2.fuera_ventana) return false;
+      if ((_this$sugerenciaIa2 = this.sugerenciaIa) !== null && _this$sugerenciaIa2 !== void 0 && _this$sugerenciaIa2.reply) return false;
+      var msgs = this.mensajes || [];
+      if (!msgs.length) return false;
+      var last = msgs[msgs.length - 1];
+      if (!last || last.direccion !== 'entrada') return false;
+      // Evitar spinner eterno en mensajes viejos (>3 min).
+      if (last.created_at) {
+        var t = Date.parse(last.created_at);
+        if (Number.isFinite(t) && Date.now() - t > 180000) return false;
+      }
+      return true;
+    }
+  },
+  watch: {
+    esperandoSugerenciaIa: function esperandoSugerenciaIa(val) {
+      this.reiniciarPoll(val ? 3000 : 8000);
     }
   },
   methods: {
+    reiniciarPoll: function reiniciarPoll(ms) {
+      var _this2 = this;
+      var next = Math.max(2000, Number(ms) || 8000);
+      if (this.pollTimer && this.pollIntervalMs === next) return;
+      this.pollIntervalMs = next;
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.pollTimer = setInterval(function () {
+        return _this2.poll();
+      }, next);
+    },
     formatoTelefono: function formatoTelefono(raw) {
       return formatoTelefonoPy(raw);
     },
@@ -28252,15 +28283,15 @@ var WaAvatar = {
       this.aplicarPantallaCompleta(true);
     },
     showToast: function showToast(text) {
-      var _this2 = this;
+      var _this3 = this;
       var ok = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
       this.toast = {
         text: text,
         ok: ok
       };
       setTimeout(function () {
-        var _this2$toast;
-        if (((_this2$toast = _this2.toast) === null || _this2$toast === void 0 ? void 0 : _this2$toast.text) === text) _this2.toast = null;
+        var _this3$toast;
+        if (((_this3$toast = _this3.toast) === null || _this3$toast === void 0 ? void 0 : _this3$toast.text) === text) _this3.toast = null;
       }, 6000);
     },
     truncate: function truncate(s, n) {
@@ -28296,11 +28327,11 @@ var WaAvatar = {
       window.history.replaceState({}, '', u);
     },
     onBuscarInput: function onBuscarInput() {
-      var _this3 = this;
+      var _this4 = this;
       if (this.buscarTimer) clearTimeout(this.buscarTimer);
       this.buscarTimer = setTimeout(function () {
-        _this3.syncUrl();
-        _this3.cargarConversaciones(true);
+        _this4.syncUrl();
+        _this4.cargarConversaciones(true);
       }, 320);
     },
     filtrarAsunto: function filtrarAsunto(id) {
@@ -28308,13 +28339,13 @@ var WaAvatar = {
       this.cargarConversaciones(true);
     },
     cargarAsuntos: function cargarAsuntos() {
-      var _this4 = this;
+      var _this5 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
         var _yield$window$axios$g, data, _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
             case 0:
-              if (_this4.urls.asuntos) {
+              if (_this5.urls.asuntos) {
                 _context.n = 1;
                 break;
               }
@@ -28322,17 +28353,17 @@ var WaAvatar = {
             case 1:
               _context.p = 1;
               _context.n = 2;
-              return window.axios.get(_this4.urls.asuntos);
+              return window.axios.get(_this5.urls.asuntos);
             case 2:
               _yield$window$axios$g = _context.v;
               data = _yield$window$axios$g.data;
-              _this4.asuntos = data.asuntos || [];
+              _this5.asuntos = data.asuntos || [];
               _context.n = 4;
               break;
             case 3:
               _context.p = 3;
               _t = _context.v;
-              _this4.asuntos = [];
+              _this5.asuntos = [];
             case 4:
               return _context.a(2);
           }
@@ -28341,45 +28372,45 @@ var WaAvatar = {
     },
     cargarConversaciones: function cargarConversaciones() {
       var _arguments = arguments,
-        _this5 = this;
+        _this6 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-        var _this5$urls;
+        var _this6$urls;
         var reset, _data$total, params, _yield$window$axios$g2, data, lote, seen, _iterator, _step, c, t, _e$response, _e$response2, _t2;
         return _regenerator().w(function (_context2) {
           while (1) switch (_context2.p = _context2.n) {
             case 0:
               reset = _arguments.length > 0 && _arguments[0] !== undefined ? _arguments[0] : false;
-              if ((_this5$urls = _this5.urls) !== null && _this5$urls !== void 0 && _this5$urls.conversaciones) {
+              if ((_this6$urls = _this6.urls) !== null && _this6$urls !== void 0 && _this6$urls.conversaciones) {
                 _context2.n = 1;
                 break;
               }
               return _context2.a(2);
             case 1:
               if (reset) {
-                _this5.pageOffset = 0;
-                _this5.loadingLista = true;
+                _this6.pageOffset = 0;
+                _this6.loadingLista = true;
               }
               _context2.p = 2;
               params = {
-                buscar: _this5.buscar || undefined,
-                limit: _this5.pageLimit,
-                offset: _this5.pageOffset
+                buscar: _this6.buscar || undefined,
+                limit: _this6.pageLimit,
+                offset: _this6.pageOffset
               };
-              if (_this5.filtroAsuntoId !== null && _this5.filtroAsuntoId !== undefined) {
-                params.asunto_id = _this5.filtroAsuntoId;
+              if (_this6.filtroAsuntoId !== null && _this6.filtroAsuntoId !== undefined) {
+                params.asunto_id = _this6.filtroAsuntoId;
               }
               _context2.n = 3;
-              return window.axios.get(_this5.urls.conversaciones, {
+              return window.axios.get(_this6.urls.conversaciones, {
                 params: params
               });
             case 3:
               _yield$window$axios$g2 = _context2.v;
               data = _yield$window$axios$g2.data;
               lote = Array.isArray(data === null || data === void 0 ? void 0 : data.conversaciones) ? data.conversaciones : [];
-              if (reset || _this5.pageOffset === 0) {
-                _this5.conversaciones = lote;
+              if (reset || _this6.pageOffset === 0) {
+                _this6.conversaciones = lote;
               } else {
-                seen = new Set(_this5.conversaciones.map(function (c) {
+                seen = new Set(_this6.conversaciones.map(function (c) {
                   return String(c.telefono);
                 }));
                 _iterator = _createForOfIteratorHelper(lote);
@@ -28387,7 +28418,7 @@ var WaAvatar = {
                   for (_iterator.s(); !(_step = _iterator.n()).done;) {
                     c = _step.value;
                     t = String(c.telefono);
-                    if (!seen.has(t)) _this5.conversaciones.push(c);
+                    if (!seen.has(t)) _this6.conversaciones.push(c);
                   }
                 } catch (err) {
                   _iterator.e(err);
@@ -28395,18 +28426,18 @@ var WaAvatar = {
                   _iterator.f();
                 }
               }
-              _this5.tieneMas = !!data.has_more;
-              _this5.totalChats = (_data$total = data.total) !== null && _data$total !== void 0 ? _data$total : _this5.conversaciones.length;
+              _this6.tieneMas = !!data.has_more;
+              _this6.totalChats = (_data$total = data.total) !== null && _data$total !== void 0 ? _data$total : _this6.conversaciones.length;
               _context2.n = 5;
               break;
             case 4:
               _context2.p = 4;
               _t2 = _context2.v;
-              _this5.showToast(((_e$response = _t2.response) === null || _e$response === void 0 || (_e$response = _e$response.data) === null || _e$response === void 0 ? void 0 : _e$response.message) || ((_e$response2 = _t2.response) === null || _e$response2 === void 0 || (_e$response2 = _e$response2.data) === null || _e$response2 === void 0 ? void 0 : _e$response2.error) || 'No se pudo cargar la lista', false);
+              _this6.showToast(((_e$response = _t2.response) === null || _e$response === void 0 || (_e$response = _e$response.data) === null || _e$response === void 0 ? void 0 : _e$response.message) || ((_e$response2 = _t2.response) === null || _e$response2 === void 0 || (_e$response2 = _e$response2.data) === null || _e$response2 === void 0 ? void 0 : _e$response2.error) || 'No se pudo cargar la lista', false);
             case 5:
               _context2.p = 5;
-              _this5.loadingLista = false;
-              _this5.loadingMas = false;
+              _this6.loadingLista = false;
+              _this6.loadingMas = false;
               return _context2.f(5);
             case 6:
               return _context2.a(2);
@@ -28415,21 +28446,21 @@ var WaAvatar = {
       }))();
     },
     cargarMas: function cargarMas() {
-      var _this6 = this;
+      var _this7 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.n) {
             case 0:
-              if (!(!_this6.tieneMas || _this6.loadingMas)) {
+              if (!(!_this7.tieneMas || _this7.loadingMas)) {
                 _context3.n = 1;
                 break;
               }
               return _context3.a(2);
             case 1:
-              _this6.loadingMas = true;
-              _this6.pageOffset += _this6.pageLimit;
+              _this7.loadingMas = true;
+              _this7.pageOffset += _this7.pageLimit;
               _context3.n = 2;
-              return _this6.cargarConversaciones(false);
+              return _this7.cargarConversaciones(false);
             case 2:
               return _context3.a(2);
           }
@@ -28484,7 +28515,7 @@ var WaAvatar = {
       this.syncUrl();
     },
     mergeMensajes: function mergeMensajes(incoming) {
-      var _this7 = this;
+      var _this8 = this;
       if (!(incoming !== null && incoming !== void 0 && incoming.length)) return {
         added: 0,
         updated: 0
@@ -28518,7 +28549,7 @@ var WaAvatar = {
           return a.id - b.id;
         });
         this.$nextTick(function () {
-          return _this7.hydrateMediaEnHilo();
+          return _this8.hydrateMediaEnHilo();
         });
       }
       return {
@@ -28528,53 +28559,53 @@ var WaAvatar = {
     },
     cargarHilo: function cargarHilo(tel, incremental) {
       var _arguments2 = arguments,
-        _this8 = this;
+        _this9 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-        var _this8$urls;
-        var seq, t, mySeq, params, _yield$window$axios$g3, data, lote, _this8$mergeMensajes, added, _e$response3, _e$response4, _t3;
+        var _this9$urls;
+        var seq, t, mySeq, params, _yield$window$axios$g3, data, lote, _this9$mergeMensajes, added, _e$response3, _e$response4, _t3;
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.p = _context4.n) {
             case 0:
               seq = _arguments2.length > 2 && _arguments2[2] !== undefined ? _arguments2[2] : null;
               t = String(tel || '').trim();
-              if (!(!t || !((_this8$urls = _this8.urls) !== null && _this8$urls !== void 0 && _this8$urls.hilo))) {
+              if (!(!t || !((_this9$urls = _this9.urls) !== null && _this9$urls !== void 0 && _this9$urls.hilo))) {
                 _context4.n = 1;
                 break;
               }
               return _context4.a(2);
             case 1:
-              mySeq = seq == null ? _this8.hiloSeq : seq;
-              if (!incremental) _this8.loadingHilo = true;
+              mySeq = seq == null ? _this9.hiloSeq : seq;
+              if (!incremental) _this9.loadingHilo = true;
               if (!incremental) {
-                if (_this8.hiloAbort) {
+                if (_this9.hiloAbort) {
                   try {
-                    _this8.hiloAbort.abort();
+                    _this9.hiloAbort.abort();
                   } catch (_) {}
                 }
-                _this8.hiloAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                _this9.hiloAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
               }
               _context4.p = 2;
               params = {
                 tel: t
               };
-              if (incremental && _this8.ultimoId > 0) params.after_id = _this8.ultimoId;
-              if (incremental && _this8.lastSyncAt) params.updated_after = _this8.lastSyncAt;
+              if (incremental && _this9.ultimoId > 0) params.after_id = _this9.ultimoId;
+              if (incremental && _this9.lastSyncAt) params.updated_after = _this9.lastSyncAt;
               _context4.n = 3;
-              return window.axios.get(_this8.urls.hilo, {
+              return window.axios.get(_this9.urls.hilo, {
                 params: params,
-                signal: !incremental && _this8.hiloAbort ? _this8.hiloAbort.signal : undefined
+                signal: !incremental && _this9.hiloAbort ? _this9.hiloAbort.signal : undefined
               });
             case 3:
               _yield$window$axios$g3 = _context4.v;
               data = _yield$window$axios$g3.data;
-              if (!(mySeq !== _this8.hiloSeq || String(_this8.telActivo) !== t)) {
+              if (!(mySeq !== _this9.hiloSeq || String(_this9.telActivo) !== t)) {
                 _context4.n = 4;
                 break;
               }
               return _context4.a(2);
             case 4:
-              _this8.hiloMeta = {
-                nombre: data.nombre || _this8.nombreDeLista(t),
+              _this9.hiloMeta = {
+                nombre: data.nombre || _this9.nombreDeLista(t),
                 cliente_id: data.cliente_id,
                 cliente_nombre: data.cliente_nombre,
                 asunto: data.asunto || null,
@@ -28588,30 +28619,30 @@ var WaAvatar = {
                 sin_leer: data.sin_leer
               };
               lote = Array.isArray(data.mensajes) ? data.mensajes : [];
-              if (incremental && (_this8.ultimoId > 0 || _this8.lastSyncAt)) {
-                _this8$mergeMensajes = _this8.mergeMensajes(lote), added = _this8$mergeMensajes.added;
-                if (added) _this8.$nextTick(function () {
-                  return _this8.scrollHilo(false);
+              if (incremental && (_this9.ultimoId > 0 || _this9.lastSyncAt)) {
+                _this9$mergeMensajes = _this9.mergeMensajes(lote), added = _this9$mergeMensajes.added;
+                if (added) _this9.$nextTick(function () {
+                  return _this9.scrollHilo(false);
                 });
               } else {
-                _this8.mensajes = lote;
-                _this8.$nextTick(function () {
-                  _this8.scrollHilo(true);
-                  _this8.hydrateMediaEnHilo();
+                _this9.mensajes = lote;
+                _this9.$nextTick(function () {
+                  _this9.scrollHilo(true);
+                  _this9.hydrateMediaEnHilo();
                 });
               }
               if (incremental) {
-                _this8.$nextTick(function () {
-                  return _this8.hydrateMediaEnHilo();
+                _this9.$nextTick(function () {
+                  return _this9.hydrateMediaEnHilo();
                 });
               }
-              if (data.ultimo_id) _this8.ultimoId = Math.max(_this8.ultimoId, data.ultimo_id);
-              if (data.server_now) _this8.lastSyncAt = data.server_now;
-              if (!incremental && _this8.puedeEditar && _this8.configured) {
-                _this8.aplicarSugerenciaSiCorresponde();
-                _this8.focusComposer();
+              if (data.ultimo_id) _this9.ultimoId = Math.max(_this9.ultimoId, data.ultimo_id);
+              if (data.server_now) _this9.lastSyncAt = data.server_now;
+              if (!incremental && _this9.puedeEditar && _this9.configured) {
+                _this9.aplicarSugerenciaSiCorresponde();
+                _this9.focusComposer();
               } else if (incremental) {
-                _this8.aplicarSugerenciaSiCorresponde();
+                _this9.aplicarSugerenciaSiCorresponde();
               }
               _context4.n = 7;
               break;
@@ -28624,12 +28655,12 @@ var WaAvatar = {
               }
               return _context4.a(2);
             case 6:
-              if (!incremental && mySeq === _this8.hiloSeq) {
-                _this8.showToast(((_e$response3 = _t3.response) === null || _e$response3 === void 0 || (_e$response3 = _e$response3.data) === null || _e$response3 === void 0 ? void 0 : _e$response3.error) || ((_e$response4 = _t3.response) === null || _e$response4 === void 0 || (_e$response4 = _e$response4.data) === null || _e$response4 === void 0 ? void 0 : _e$response4.message) || 'No se pudo cargar el chat', false);
+              if (!incremental && mySeq === _this9.hiloSeq) {
+                _this9.showToast(((_e$response3 = _t3.response) === null || _e$response3 === void 0 || (_e$response3 = _e$response3.data) === null || _e$response3 === void 0 ? void 0 : _e$response3.error) || ((_e$response4 = _t3.response) === null || _e$response4 === void 0 || (_e$response4 = _e$response4.data) === null || _e$response4 === void 0 ? void 0 : _e$response4.message) || 'No se pudo cargar el chat', false);
               }
             case 7:
               _context4.p = 7;
-              if (mySeq === _this8.hiloSeq) _this8.loadingHilo = false;
+              if (mySeq === _this9.hiloSeq) _this9.loadingHilo = false;
               return _context4.f(7);
             case 8:
               return _context4.a(2);
@@ -28638,13 +28669,13 @@ var WaAvatar = {
       }))();
     },
     onAsuntoChange: function onAsuntoChange(ev) {
-      var _this9 = this;
+      var _this0 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
         var raw, asuntoId, _yield$window$axios$p, data, _e$response5, _t4;
         return _regenerator().w(function (_context5) {
           while (1) switch (_context5.p = _context5.n) {
             case 0:
-              if (!(!_this9.telActivo || !_this9.urls.asignarAsunto)) {
+              if (!(!_this0.telActivo || !_this0.urls.asignarAsunto)) {
                 _context5.n = 1;
                 break;
               }
@@ -28652,11 +28683,11 @@ var WaAvatar = {
             case 1:
               raw = ev.target.value;
               asuntoId = raw === '' ? null : Number(raw);
-              _this9.guardandoAsunto = true;
+              _this0.guardandoAsunto = true;
               _context5.p = 2;
               _context5.n = 3;
-              return window.axios.post(_this9.urls.asignarAsunto, {
-                telefono: _this9.telActivo,
+              return window.axios.post(_this0.urls.asignarAsunto, {
+                telefono: _this0.telActivo,
                 whatsapp_asunto_id: asuntoId
               }, {
                 headers: {
@@ -28666,11 +28697,11 @@ var WaAvatar = {
             case 3:
               _yield$window$axios$p = _context5.v;
               data = _yield$window$axios$p.data;
-              _this9.hiloMeta = _objectSpread(_objectSpread({}, _this9.hiloMeta), {}, {
+              _this0.hiloMeta = _objectSpread(_objectSpread({}, _this0.hiloMeta), {}, {
                 asunto: data.asunto || null
               });
-              _this9.conversaciones = _this9.conversaciones.map(function (c) {
-                return String(c.telefono) === String(_this9.telActivo) ? _objectSpread(_objectSpread({}, c), {}, {
+              _this0.conversaciones = _this0.conversaciones.map(function (c) {
+                return String(c.telefono) === String(_this0.telActivo) ? _objectSpread(_objectSpread({}, c), {}, {
                   asunto: data.asunto || null
                 }) : c;
               });
@@ -28679,12 +28710,12 @@ var WaAvatar = {
             case 4:
               _context5.p = 4;
               _t4 = _context5.v;
-              _this9.showToast(((_e$response5 = _t4.response) === null || _e$response5 === void 0 || (_e$response5 = _e$response5.data) === null || _e$response5 === void 0 ? void 0 : _e$response5.error) || 'No se pudo guardar el asunto', false);
+              _this0.showToast(((_e$response5 = _t4.response) === null || _e$response5 === void 0 || (_e$response5 = _e$response5.data) === null || _e$response5 === void 0 ? void 0 : _e$response5.error) || 'No se pudo guardar el asunto', false);
               _context5.n = 5;
-              return _this9.cargarHilo(_this9.telActivo, false);
+              return _this0.cargarHilo(_this0.telActivo, false);
             case 5:
               _context5.p = 5;
-              _this9.guardandoAsunto = false;
+              _this0.guardandoAsunto = false;
               return _context5.f(5);
             case 6:
               return _context5.a(2);
@@ -28693,22 +28724,22 @@ var WaAvatar = {
       }))();
     },
     marcarLeidos: function marcarLeidos(tel) {
-      var _this0 = this;
+      var _this1 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
         var _yield$window$axios$p2, data, _t5;
         return _regenerator().w(function (_context6) {
           while (1) switch (_context6.p = _context6.n) {
             case 0:
-              if (!(!_this0.urls.marcarLeidos || _this0.marcandoLeidos || !tel)) {
+              if (!(!_this1.urls.marcarLeidos || _this1.marcandoLeidos || !tel)) {
                 _context6.n = 1;
                 break;
               }
               return _context6.a(2);
             case 1:
-              _this0.marcandoLeidos = true;
+              _this1.marcandoLeidos = true;
               _context6.p = 2;
               _context6.n = 3;
-              return window.axios.post(_this0.urls.marcarLeidos, {
+              return window.axios.post(_this1.urls.marcarLeidos, {
                 telefono: tel
               }, {
                 headers: {
@@ -28719,15 +28750,15 @@ var WaAvatar = {
               _yield$window$axios$p2 = _context6.v;
               data = _yield$window$axios$p2.data;
               if (data !== null && data !== void 0 && data.ok && (data.marcados || 0) > 0) {
-                _this0.mensajes = _this0.mensajes.map(function (m) {
+                _this1.mensajes = _this1.mensajes.map(function (m) {
                   return m.direccion === 'entrada' && m.estado !== 'leido' ? _objectSpread(_objectSpread({}, m), {}, {
                     estado: 'leido'
                   }) : m;
                 });
-                _this0.hiloMeta = _objectSpread(_objectSpread({}, _this0.hiloMeta), {}, {
+                _this1.hiloMeta = _objectSpread(_objectSpread({}, _this1.hiloMeta), {}, {
                   sin_leer: 0
                 });
-                _this0.conversaciones = _this0.conversaciones.map(function (c) {
+                _this1.conversaciones = _this1.conversaciones.map(function (c) {
                   return String(c.telefono) === String(tel) ? _objectSpread(_objectSpread({}, c), {}, {
                     sin_leer: 0
                   }) : c;
@@ -28740,7 +28771,7 @@ var WaAvatar = {
               _t5 = _context6.v;
             case 5:
               _context6.p = 5;
-              _this0.marcandoLeidos = false;
+              _this1.marcandoLeidos = false;
               return _context6.f(5);
             case 6:
               return _context6.a(2);
@@ -28754,58 +28785,58 @@ var WaAvatar = {
       if (force || this.stickBottom) el.scrollTop = el.scrollHeight;
     },
     poll: function poll() {
-      var _this1 = this;
+      var _this10 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-        var _this1$urls, _data$total2, params, _yield$window$axios$g4, data, lote, byTel, existing, nuevos, _t6;
+        var _this10$urls, _data$total2, params, _yield$window$axios$g4, data, lote, byTel, existing, nuevos, _t6;
         return _regenerator().w(function (_context7) {
           while (1) switch (_context7.p = _context7.n) {
             case 0:
-              if (!(_this1.loadingHilo || _this1.enviando || _this1.loadingLista)) {
+              if (!(_this10.loadingHilo || _this10.enviando || _this10.loadingLista)) {
                 _context7.n = 1;
                 break;
               }
               return _context7.a(2);
             case 1:
               _context7.p = 1;
-              if (!((_this1$urls = _this1.urls) !== null && _this1$urls !== void 0 && _this1$urls.conversaciones)) {
+              if (!((_this10$urls = _this10.urls) !== null && _this10$urls !== void 0 && _this10$urls.conversaciones)) {
                 _context7.n = 3;
                 break;
               }
               params = {
-                buscar: _this1.buscar || undefined,
-                limit: Math.max(_this1.pageLimit, _this1.conversaciones.length || _this1.pageLimit),
+                buscar: _this10.buscar || undefined,
+                limit: Math.max(_this10.pageLimit, _this10.conversaciones.length || _this10.pageLimit),
                 offset: 0
               };
-              if (_this1.filtroAsuntoId !== null && _this1.filtroAsuntoId !== undefined) {
-                params.asunto_id = _this1.filtroAsuntoId;
+              if (_this10.filtroAsuntoId !== null && _this10.filtroAsuntoId !== undefined) {
+                params.asunto_id = _this10.filtroAsuntoId;
               }
               _context7.n = 2;
-              return window.axios.get(_this1.urls.conversaciones, {
+              return window.axios.get(_this10.urls.conversaciones, {
                 params: params
               });
             case 2:
               _yield$window$axios$g4 = _context7.v;
               data = _yield$window$axios$g4.data;
               lote = Array.isArray(data === null || data === void 0 ? void 0 : data.conversaciones) ? data.conversaciones : [];
-              if (!_this1.pageOffset || _this1.conversaciones.length <= _this1.pageLimit) {
-                _this1.conversaciones = lote;
-                _this1.tieneMas = !!data.has_more;
+              if (!_this10.pageOffset || _this10.conversaciones.length <= _this10.pageLimit) {
+                _this10.conversaciones = lote;
+                _this10.tieneMas = !!data.has_more;
               } else {
                 byTel = new Map(lote.map(function (c) {
                   return [String(c.telefono), c];
                 }));
-                _this1.conversaciones = _this1.conversaciones.map(function (c) {
+                _this10.conversaciones = _this10.conversaciones.map(function (c) {
                   return byTel.get(String(c.telefono)) || c;
                 });
-                existing = new Set(_this1.conversaciones.map(function (c) {
+                existing = new Set(_this10.conversaciones.map(function (c) {
                   return String(c.telefono);
                 }));
                 nuevos = lote.filter(function (c) {
                   return !existing.has(String(c.telefono));
                 });
-                if (nuevos.length) _this1.conversaciones = [].concat(_toConsumableArray(nuevos), _toConsumableArray(_this1.conversaciones));
+                if (nuevos.length) _this10.conversaciones = [].concat(_toConsumableArray(nuevos), _toConsumableArray(_this10.conversaciones));
               }
-              _this1.totalChats = (_data$total2 = data.total) !== null && _data$total2 !== void 0 ? _data$total2 : _this1.totalChats;
+              _this10.totalChats = (_data$total2 = data.total) !== null && _data$total2 !== void 0 ? _data$total2 : _this10.totalChats;
             case 3:
               _context7.n = 5;
               break;
@@ -28813,12 +28844,12 @@ var WaAvatar = {
               _context7.p = 4;
               _t6 = _context7.v;
             case 5:
-              if (!(_this1.telActivo && !_this1.loadingHilo)) {
+              if (!(_this10.telActivo && !_this10.loadingHilo)) {
                 _context7.n = 6;
                 break;
               }
               _context7.n = 6;
-              return _this1.cargarHilo(_this1.telActivo, true, _this1.hiloSeq);
+              return _this10.cargarHilo(_this10.telActivo, true, _this10.hiloSeq);
             case 6:
               return _context7.a(2);
           }
@@ -28826,10 +28857,10 @@ var WaAvatar = {
       }))();
     },
     focusComposer: function focusComposer() {
-      var _this10 = this;
+      var _this11 = this;
       this.$nextTick(function () {
-        var el = _this10.$refs.composerInput;
-        if (!el || _this10.hiloMeta.fuera_ventana) return;
+        var el = _this11.$refs.composerInput;
+        if (!el || _this11.hiloMeta.fuera_ventana) return;
         el.focus({
           preventScroll: true
         });
@@ -28848,7 +28879,7 @@ var WaAvatar = {
       this.autoGrowComposer();
     },
     aplicarSugerenciaSiCorresponde: function aplicarSugerenciaSiCorresponde() {
-      var _this11 = this;
+      var _this12 = this;
       var sug = this.sugerenciaIa;
       if (!(sug !== null && sug !== void 0 && sug.reply) || !this.puedeEditar || this.hiloMeta.fuera_ventana) return;
       if (this.sugerenciaAplicadaId === sug.mensaje_id) return;
@@ -28858,32 +28889,32 @@ var WaAvatar = {
       this.textoDesdeIa = true;
       this.sugerenciaAplicadaId = sug.mensaje_id;
       this.$nextTick(function () {
-        return _this11.autoGrowComposer();
+        return _this12.autoGrowComposer();
       });
     },
     descartarSugerencia: function descartarSugerencia() {
-      var _this12 = this;
+      var _this13 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
         var tel, _t7;
         return _regenerator().w(function (_context8) {
           while (1) switch (_context8.p = _context8.n) {
             case 0:
-              tel = _this12.telActivo;
-              if (!(!tel || !_this12.urls.descartarSugerenciaIa)) {
+              tel = _this13.telActivo;
+              if (!(!tel || !_this13.urls.descartarSugerenciaIa)) {
                 _context8.n = 1;
                 break;
               }
-              _this12.hiloMeta = _objectSpread(_objectSpread({}, _this12.hiloMeta), {}, {
+              _this13.hiloMeta = _objectSpread(_objectSpread({}, _this13.hiloMeta), {}, {
                 sugerencia_ia: null
               });
-              if (_this12.textoDesdeIa) _this12.texto = '';
-              _this12.textoDesdeIa = false;
-              _this12.sugerenciaAplicadaId = null;
+              if (_this13.textoDesdeIa) _this13.texto = '';
+              _this13.textoDesdeIa = false;
+              _this13.sugerenciaAplicadaId = null;
               return _context8.a(2);
             case 1:
               _context8.p = 1;
               _context8.n = 2;
-              return window.axios.post(_this12.urls.descartarSugerenciaIa, {
+              return window.axios.post(_this13.urls.descartarSugerenciaIa, {
                 telefono: tel
               }, {
                 headers: {
@@ -28897,16 +28928,96 @@ var WaAvatar = {
               _context8.p = 3;
               _t7 = _context8.v;
             case 4:
-              _this12.hiloMeta = _objectSpread(_objectSpread({}, _this12.hiloMeta), {}, {
+              _this13.hiloMeta = _objectSpread(_objectSpread({}, _this13.hiloMeta), {}, {
                 sugerencia_ia: null
               });
-              if (_this12.textoDesdeIa) _this12.texto = '';
-              _this12.textoDesdeIa = false;
-              _this12.sugerenciaAplicadaId = null;
+              if (_this13.textoDesdeIa) _this13.texto = '';
+              _this13.textoDesdeIa = false;
+              _this13.sugerenciaAplicadaId = null;
+              _this13.errorRegenerarSugerencia = '';
             case 5:
               return _context8.a(2);
           }
         }, _callee8, null, [[1, 3]]);
+      }))();
+    },
+    regenerarSugerencia: function regenerarSugerencia() {
+      var _this14 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+        var tel, _data$sugerencia_ia, _yield$window$axios$p3, data, _e$response6, msg, _t8, _t9;
+        return _regenerator().w(function (_context9) {
+          while (1) switch (_context9.p = _context9.n) {
+            case 0:
+              tel = _this14.telActivo;
+              if (!(!tel || !_this14.urls.regenerarSugerenciaIa || _this14.regenerandoSugerencia)) {
+                _context9.n = 1;
+                break;
+              }
+              return _context9.a(2);
+            case 1:
+              _this14.regenerandoSugerencia = true;
+              _this14.errorRegenerarSugerencia = '';
+              // Quitar la sugerencia vieja de la UI mientras corre el agente.
+              _this14.hiloMeta = _objectSpread(_objectSpread({}, _this14.hiloMeta), {}, {
+                sugerencia_ia: null
+              });
+              _this14.sugerenciaAplicadaId = null;
+              if (_this14.textoDesdeIa) _this14.texto = '';
+              _this14.textoDesdeIa = false;
+              _context9.p = 2;
+              _context9.n = 3;
+              return window.axios.post(_this14.urls.regenerarSugerenciaIa, {
+                telefono: tel
+              }, {
+                headers: {
+                  Accept: 'application/json'
+                },
+                timeout: 90000
+              });
+            case 3:
+              _yield$window$axios$p3 = _context9.v;
+              data = _yield$window$axios$p3.data;
+              if (!(data !== null && data !== void 0 && (_data$sugerencia_ia = data.sugerencia_ia) !== null && _data$sugerencia_ia !== void 0 && _data$sugerencia_ia.reply)) {
+                _context9.n = 4;
+                break;
+              }
+              _this14.hiloMeta = _objectSpread(_objectSpread({}, _this14.hiloMeta), {}, {
+                sugerencia_ia: data.sugerencia_ia
+              });
+              _this14.$nextTick(function () {
+                return _this14.aplicarSugerenciaSiCorresponde();
+              });
+              _context9.n = 5;
+              break;
+            case 4:
+              _this14.errorRegenerarSugerencia = (data === null || data === void 0 ? void 0 : data.error) || 'No se pudo regenerar la sugerencia.';
+              _context9.n = 5;
+              return _this14.cargarHilo(true);
+            case 5:
+              _context9.n = 10;
+              break;
+            case 6:
+              _context9.p = 6;
+              _t8 = _context9.v;
+              msg = (_t8 === null || _t8 === void 0 || (_e$response6 = _t8.response) === null || _e$response6 === void 0 || (_e$response6 = _e$response6.data) === null || _e$response6 === void 0 ? void 0 : _e$response6.error) || (_t8 === null || _t8 === void 0 ? void 0 : _t8.message) || 'Error al regenerar.';
+              _this14.errorRegenerarSugerencia = String(msg);
+              _context9.p = 7;
+              _context9.n = 8;
+              return _this14.cargarHilo(true);
+            case 8:
+              _context9.n = 10;
+              break;
+            case 9:
+              _context9.p = 9;
+              _t9 = _context9.v;
+            case 10:
+              _context9.p = 10;
+              _this14.regenerandoSugerencia = false;
+              return _context9.f(10);
+            case 11:
+              return _context9.a(2);
+          }
+        }, _callee9, null, [[7, 9], [2, 6, 10, 11]]);
       }))();
     },
     abrirSelectorAdjunto: function abrirSelectorAdjunto() {
@@ -28943,42 +29054,42 @@ var WaAvatar = {
       this.adjuntoPendiente = null;
     },
     enviarTexto: function enviarTexto() {
-      var _this13 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-        var body, _yield$window$axios$p3, data, _e$response6, _e$response7, _e$response8, msg, fallido, _t8;
-        return _regenerator().w(function (_context9) {
-          while (1) switch (_context9.p = _context9.n) {
+      var _this15 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+        var body, _yield$window$axios$p4, data, _e$response7, _e$response8, _e$response9, msg, fallido, _t0;
+        return _regenerator().w(function (_context0) {
+          while (1) switch (_context0.p = _context0.n) {
             case 0:
-              if (!(!_this13.telActivo || _this13.hiloMeta.fuera_ventana || _this13.enviando)) {
-                _context9.n = 1;
+              if (!(!_this15.telActivo || _this15.hiloMeta.fuera_ventana || _this15.enviando)) {
+                _context0.n = 1;
                 break;
               }
-              return _context9.a(2);
+              return _context0.a(2);
             case 1:
-              if (!_this13.adjuntoPendiente) {
-                _context9.n = 3;
+              if (!_this15.adjuntoPendiente) {
+                _context0.n = 3;
                 break;
               }
-              _context9.n = 2;
-              return _this13.enviarAdjunto();
+              _context0.n = 2;
+              return _this15.enviarAdjunto();
             case 2:
-              return _context9.a(2);
+              return _context0.a(2);
             case 3:
-              body = (_this13.texto || '').trim();
+              body = (_this15.texto || '').trim();
               if (body) {
-                _context9.n = 4;
+                _context0.n = 4;
                 break;
               }
-              return _context9.a(2);
+              return _context0.a(2);
             case 4:
               // Vaciar al toque y dejar el cursor listo para el siguiente mensaje
-              _this13.texto = '';
-              _this13.focusComposer();
-              _this13.enviando = true;
-              _context9.p = 5;
-              _context9.n = 6;
-              return window.axios.post(_this13.urls.enviar, {
-                telefono: _this13.telActivo,
+              _this15.texto = '';
+              _this15.focusComposer();
+              _this15.enviando = true;
+              _context0.p = 5;
+              _context0.n = 6;
+              return window.axios.post(_this15.urls.enviar, {
+                telefono: _this15.telActivo,
                 modo: 'texto',
                 texto: body
               }, {
@@ -28987,165 +29098,91 @@ var WaAvatar = {
                 }
               });
             case 6:
-              _yield$window$axios$p3 = _context9.v;
-              data = _yield$window$axios$p3.data;
-              if (!data.mensaje) {
-                _context9.n = 7;
-                break;
-              }
-              _this13.mergeMensajes([data.mensaje]);
-              _this13.ultimoId = Math.max(_this13.ultimoId, data.mensaje.id);
-              _this13.$nextTick(function () {
-                return _this13.scrollHilo(true);
-              });
-              _context9.n = 8;
-              break;
-            case 7:
-              _context9.n = 8;
-              return _this13.cargarHilo(_this13.telActivo, false);
-            case 8:
-              _this13.hiloMeta = _objectSpread(_objectSpread({}, _this13.hiloMeta), {}, {
-                sugerencia_ia: null
-              });
-              _this13.textoDesdeIa = false;
-              _this13.sugerenciaAplicadaId = null;
-              _context9.n = 9;
-              return _this13.marcarLeidos(_this13.telActivo);
-            case 9:
-              _context9.n = 10;
-              return _this13.cargarConversaciones(true);
-            case 10:
-              _context9.n = 12;
-              break;
-            case 11:
-              _context9.p = 11;
-              _t8 = _context9.v;
-              msg = ((_e$response6 = _t8.response) === null || _e$response6 === void 0 || (_e$response6 = _e$response6.data) === null || _e$response6 === void 0 ? void 0 : _e$response6.error) || ((_e$response7 = _t8.response) === null || _e$response7 === void 0 || (_e$response7 = _e$response7.data) === null || _e$response7 === void 0 ? void 0 : _e$response7.message) || 'Falló el envío';
-              _this13.showToast(msg, false);
-              fallido = (_e$response8 = _t8.response) === null || _e$response8 === void 0 || (_e$response8 = _e$response8.data) === null || _e$response8 === void 0 ? void 0 : _e$response8.mensaje;
-              if (fallido) {
-                _this13.mergeMensajes([fallido]);
-                _this13.ultimoId = Math.max(_this13.ultimoId, fallido.id);
-                _this13.$nextTick(function () {
-                  return _this13.scrollHilo(true);
-                });
-              } else if (!(_this13.texto || '').trim()) {
-                _this13.texto = body;
-                _this13.autoGrowComposer();
-              }
-              _context9.n = 12;
-              return _this13.cargarConversaciones(true);
-            case 12:
-              _context9.p = 12;
-              _this13.enviando = false;
-              _this13.focusComposer();
-              return _context9.f(12);
-            case 13:
-              return _context9.a(2);
-          }
-        }, _callee9, null, [[5, 11, 12, 13]]);
-      }))();
-    },
-    enviarAdjunto: function enviarAdjunto() {
-      var _this14 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-        var adj, caption, form, _yield$window$axios$p4, data, _e$response9, _e$response0, _e$response1, msg, fallido, _t9;
-        return _regenerator().w(function (_context0) {
-          while (1) switch (_context0.p = _context0.n) {
-            case 0:
-              adj = _this14.adjuntoPendiente;
-              if (!(!(adj !== null && adj !== void 0 && adj.file) || !_this14.telActivo || !_this14.urls.enviarAdjunto || _this14.hiloMeta.fuera_ventana || _this14.enviando)) {
-                _context0.n = 1;
-                break;
-              }
-              return _context0.a(2);
-            case 1:
-              caption = (_this14.texto || '').trim();
-              form = new FormData();
-              form.append('telefono', _this14.telActivo);
-              form.append('archivo', adj.file, adj.name);
-              if (caption) form.append('caption', caption);
-              _this14.texto = '';
-              _this14.quitarAdjunto();
-              _this14.focusComposer();
-              _this14.enviando = true;
-              _context0.p = 2;
-              _context0.n = 3;
-              return window.axios.post(_this14.urls.enviarAdjunto, form, {
-                headers: {
-                  Accept: 'application/json'
-                }
-              });
-            case 3:
               _yield$window$axios$p4 = _context0.v;
               data = _yield$window$axios$p4.data;
               if (!data.mensaje) {
-                _context0.n = 4;
+                _context0.n = 7;
                 break;
               }
-              _this14.mergeMensajes([data.mensaje]);
-              _this14.ultimoId = Math.max(_this14.ultimoId, data.mensaje.id);
-              _this14.$nextTick(function () {
-                return _this14.scrollHilo(true);
+              _this15.mergeMensajes([data.mensaje]);
+              _this15.ultimoId = Math.max(_this15.ultimoId, data.mensaje.id);
+              _this15.$nextTick(function () {
+                return _this15.scrollHilo(true);
               });
-              _context0.n = 5;
+              _context0.n = 8;
               break;
-            case 4:
-              _context0.n = 5;
-              return _this14.cargarHilo(_this14.telActivo, false);
-            case 5:
-              _context0.n = 6;
-              return _this14.marcarLeidos(_this14.telActivo);
-            case 6:
-              _context0.n = 7;
-              return _this14.cargarConversaciones(true);
             case 7:
-              _context0.n = 9;
-              break;
+              _context0.n = 8;
+              return _this15.cargarHilo(_this15.telActivo, false);
             case 8:
-              _context0.p = 8;
-              _t9 = _context0.v;
-              msg = ((_e$response9 = _t9.response) === null || _e$response9 === void 0 || (_e$response9 = _e$response9.data) === null || _e$response9 === void 0 ? void 0 : _e$response9.error) || ((_e$response0 = _t9.response) === null || _e$response0 === void 0 || (_e$response0 = _e$response0.data) === null || _e$response0 === void 0 ? void 0 : _e$response0.message) || 'Falló el envío del archivo';
-              _this14.showToast(msg, false);
-              fallido = (_e$response1 = _t9.response) === null || _e$response1 === void 0 || (_e$response1 = _e$response1.data) === null || _e$response1 === void 0 ? void 0 : _e$response1.mensaje;
-              if (fallido) {
-                _this14.mergeMensajes([fallido]);
-                _this14.ultimoId = Math.max(_this14.ultimoId, fallido.id);
-                _this14.$nextTick(function () {
-                  return _this14.scrollHilo(true);
-                });
-              }
+              _this15.hiloMeta = _objectSpread(_objectSpread({}, _this15.hiloMeta), {}, {
+                sugerencia_ia: null
+              });
+              _this15.textoDesdeIa = false;
+              _this15.sugerenciaAplicadaId = null;
               _context0.n = 9;
-              return _this14.cargarConversaciones(true);
+              return _this15.marcarLeidos(_this15.telActivo);
             case 9:
-              _context0.p = 9;
-              _this14.enviando = false;
-              _this14.focusComposer();
-              return _context0.f(9);
+              _context0.n = 10;
+              return _this15.cargarConversaciones(true);
             case 10:
+              _context0.n = 12;
+              break;
+            case 11:
+              _context0.p = 11;
+              _t0 = _context0.v;
+              msg = ((_e$response7 = _t0.response) === null || _e$response7 === void 0 || (_e$response7 = _e$response7.data) === null || _e$response7 === void 0 ? void 0 : _e$response7.error) || ((_e$response8 = _t0.response) === null || _e$response8 === void 0 || (_e$response8 = _e$response8.data) === null || _e$response8 === void 0 ? void 0 : _e$response8.message) || 'Falló el envío';
+              _this15.showToast(msg, false);
+              fallido = (_e$response9 = _t0.response) === null || _e$response9 === void 0 || (_e$response9 = _e$response9.data) === null || _e$response9 === void 0 ? void 0 : _e$response9.mensaje;
+              if (fallido) {
+                _this15.mergeMensajes([fallido]);
+                _this15.ultimoId = Math.max(_this15.ultimoId, fallido.id);
+                _this15.$nextTick(function () {
+                  return _this15.scrollHilo(true);
+                });
+              } else if (!(_this15.texto || '').trim()) {
+                _this15.texto = body;
+                _this15.autoGrowComposer();
+              }
+              _context0.n = 12;
+              return _this15.cargarConversaciones(true);
+            case 12:
+              _context0.p = 12;
+              _this15.enviando = false;
+              _this15.focusComposer();
+              return _context0.f(12);
+            case 13:
               return _context0.a(2);
           }
-        }, _callee0, null, [[2, 8, 9, 10]]);
+        }, _callee0, null, [[5, 11, 12, 13]]);
       }))();
     },
-    reintentar: function reintentar(m) {
-      var _this15 = this;
+    enviarAdjunto: function enviarAdjunto() {
+      var _this16 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
-        var url, _data$mensaje, _yield$window$axios$p5, data, _e$response10, _t0;
+        var adj, caption, form, _yield$window$axios$p5, data, _e$response0, _e$response1, _e$response10, msg, fallido, _t1;
         return _regenerator().w(function (_context1) {
           while (1) switch (_context1.p = _context1.n) {
             case 0:
-              if (confirm("\xBFReintentar env\xEDo del mensaje #".concat(m.id, "?"))) {
+              adj = _this16.adjuntoPendiente;
+              if (!(!(adj !== null && adj !== void 0 && adj.file) || !_this16.telActivo || !_this16.urls.enviarAdjunto || _this16.hiloMeta.fuera_ventana || _this16.enviando)) {
                 _context1.n = 1;
                 break;
               }
               return _context1.a(2);
             case 1:
-              _this15.reintentandoId = m.id;
-              url = (_this15.urls.reintentarTpl || '').replace('__ID__', m.id);
+              caption = (_this16.texto || '').trim();
+              form = new FormData();
+              form.append('telefono', _this16.telActivo);
+              form.append('archivo', adj.file, adj.name);
+              if (caption) form.append('caption', caption);
+              _this16.texto = '';
+              _this16.quitarAdjunto();
+              _this16.focusComposer();
+              _this16.enviando = true;
               _context1.p = 2;
               _context1.n = 3;
-              return window.axios.post(url, {}, {
+              return window.axios.post(_this16.urls.enviarAdjunto, form, {
                 headers: {
                   Accept: 'application/json'
                 }
@@ -29153,29 +29190,103 @@ var WaAvatar = {
             case 3:
               _yield$window$axios$p5 = _context1.v;
               data = _yield$window$axios$p5.data;
-              _this15.showToast("Reenviado (#".concat(m.id, " -> #").concat(((_data$mensaje = data.mensaje) === null || _data$mensaje === void 0 ? void 0 : _data$mensaje.id) || '?', ")"), true);
-              _context1.n = 4;
-              return _this15.cargarHilo(_this15.telActivo, false);
+              if (!data.mensaje) {
+                _context1.n = 4;
+                break;
+              }
+              _this16.mergeMensajes([data.mensaje]);
+              _this16.ultimoId = Math.max(_this16.ultimoId, data.mensaje.id);
+              _this16.$nextTick(function () {
+                return _this16.scrollHilo(true);
+              });
+              _context1.n = 5;
+              break;
             case 4:
               _context1.n = 5;
-              return _this15.cargarConversaciones(true);
+              return _this16.cargarHilo(_this16.telActivo, false);
             case 5:
-              _context1.n = 7;
-              break;
+              _context1.n = 6;
+              return _this16.marcarLeidos(_this16.telActivo);
             case 6:
-              _context1.p = 6;
-              _t0 = _context1.v;
-              _this15.showToast(((_e$response10 = _t0.response) === null || _e$response10 === void 0 || (_e$response10 = _e$response10.data) === null || _e$response10 === void 0 ? void 0 : _e$response10.error) || 'No se pudo reintentar', false);
               _context1.n = 7;
-              return _this15.cargarHilo(_this15.telActivo, false);
+              return _this16.cargarConversaciones(true);
             case 7:
-              _context1.p = 7;
-              _this15.reintentandoId = null;
-              return _context1.f(7);
+              _context1.n = 9;
+              break;
             case 8:
+              _context1.p = 8;
+              _t1 = _context1.v;
+              msg = ((_e$response0 = _t1.response) === null || _e$response0 === void 0 || (_e$response0 = _e$response0.data) === null || _e$response0 === void 0 ? void 0 : _e$response0.error) || ((_e$response1 = _t1.response) === null || _e$response1 === void 0 || (_e$response1 = _e$response1.data) === null || _e$response1 === void 0 ? void 0 : _e$response1.message) || 'Falló el envío del archivo';
+              _this16.showToast(msg, false);
+              fallido = (_e$response10 = _t1.response) === null || _e$response10 === void 0 || (_e$response10 = _e$response10.data) === null || _e$response10 === void 0 ? void 0 : _e$response10.mensaje;
+              if (fallido) {
+                _this16.mergeMensajes([fallido]);
+                _this16.ultimoId = Math.max(_this16.ultimoId, fallido.id);
+                _this16.$nextTick(function () {
+                  return _this16.scrollHilo(true);
+                });
+              }
+              _context1.n = 9;
+              return _this16.cargarConversaciones(true);
+            case 9:
+              _context1.p = 9;
+              _this16.enviando = false;
+              _this16.focusComposer();
+              return _context1.f(9);
+            case 10:
               return _context1.a(2);
           }
-        }, _callee1, null, [[2, 6, 7, 8]]);
+        }, _callee1, null, [[2, 8, 9, 10]]);
+      }))();
+    },
+    reintentar: function reintentar(m) {
+      var _this17 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+        var url, _data$mensaje, _yield$window$axios$p6, data, _e$response11, _t10;
+        return _regenerator().w(function (_context10) {
+          while (1) switch (_context10.p = _context10.n) {
+            case 0:
+              if (confirm("\xBFReintentar env\xEDo del mensaje #".concat(m.id, "?"))) {
+                _context10.n = 1;
+                break;
+              }
+              return _context10.a(2);
+            case 1:
+              _this17.reintentandoId = m.id;
+              url = (_this17.urls.reintentarTpl || '').replace('__ID__', m.id);
+              _context10.p = 2;
+              _context10.n = 3;
+              return window.axios.post(url, {}, {
+                headers: {
+                  Accept: 'application/json'
+                }
+              });
+            case 3:
+              _yield$window$axios$p6 = _context10.v;
+              data = _yield$window$axios$p6.data;
+              _this17.showToast("Reenviado (#".concat(m.id, " -> #").concat(((_data$mensaje = data.mensaje) === null || _data$mensaje === void 0 ? void 0 : _data$mensaje.id) || '?', ")"), true);
+              _context10.n = 4;
+              return _this17.cargarHilo(_this17.telActivo, false);
+            case 4:
+              _context10.n = 5;
+              return _this17.cargarConversaciones(true);
+            case 5:
+              _context10.n = 7;
+              break;
+            case 6:
+              _context10.p = 6;
+              _t10 = _context10.v;
+              _this17.showToast(((_e$response11 = _t10.response) === null || _e$response11 === void 0 || (_e$response11 = _e$response11.data) === null || _e$response11 === void 0 ? void 0 : _e$response11.error) || 'No se pudo reintentar', false);
+              _context10.n = 7;
+              return _this17.cargarHilo(_this17.telActivo, false);
+            case 7:
+              _context10.p = 7;
+              _this17.reintentandoId = null;
+              return _context10.f(7);
+            case 8:
+              return _context10.a(2);
+          }
+        }, _callee10, null, [[2, 6, 7, 8]]);
       }))();
     },
     revokeMedia: function revokeMedia(id) {
@@ -29188,83 +29299,83 @@ var WaAvatar = {
       this.mediaObjectUrls = urls;
     },
     eliminarMensaje: function eliminarMensaje(m) {
-      var _this16 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-        var url, _e$response11, _e$response12, _t1;
-        return _regenerator().w(function (_context10) {
-          while (1) switch (_context10.p = _context10.n) {
+      var _this18 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+        var url, _e$response12, _e$response13, _t11;
+        return _regenerator().w(function (_context11) {
+          while (1) switch (_context11.p = _context11.n) {
             case 0:
-              if (!(!_this16.puedeEditar || !(m !== null && m !== void 0 && m.id))) {
-                _context10.n = 1;
+              if (!(!_this18.puedeEditar || !(m !== null && m !== void 0 && m.id))) {
+                _context11.n = 1;
                 break;
               }
-              return _context10.a(2);
+              return _context11.a(2);
             case 1:
               if (confirm('¿Eliminar este mensaje de Infinity?\nNo se borra en el WhatsApp del cliente.')) {
-                _context10.n = 2;
+                _context11.n = 2;
                 break;
               }
-              return _context10.a(2);
+              return _context11.a(2);
             case 2:
-              _this16.eliminandoId = m.id;
-              url = (_this16.urls.eliminarMensajeTpl || '/whatsapp/mensajes/__ID__').replace('__ID__', m.id);
-              _context10.p = 3;
-              _context10.n = 4;
+              _this18.eliminandoId = m.id;
+              url = (_this18.urls.eliminarMensajeTpl || '/whatsapp/mensajes/__ID__').replace('__ID__', m.id);
+              _context11.p = 3;
+              _context11.n = 4;
               return window.axios.delete(url, {
                 headers: {
                   Accept: 'application/json'
                 }
               });
             case 4:
-              _this16.revokeMedia(m.id);
-              _this16.mensajes = _this16.mensajes.filter(function (x) {
+              _this18.revokeMedia(m.id);
+              _this18.mensajes = _this18.mensajes.filter(function (x) {
                 return x.id !== m.id;
               });
-              _this16.showToast('Mensaje eliminado de Infinity', true);
-              _context10.n = 5;
-              return _this16.cargarConversaciones(true);
+              _this18.showToast('Mensaje eliminado de Infinity', true);
+              _context11.n = 5;
+              return _this18.cargarConversaciones(true);
             case 5:
-              _context10.n = 7;
+              _context11.n = 7;
               break;
             case 6:
-              _context10.p = 6;
-              _t1 = _context10.v;
-              _this16.showToast(((_e$response11 = _t1.response) === null || _e$response11 === void 0 || (_e$response11 = _e$response11.data) === null || _e$response11 === void 0 ? void 0 : _e$response11.error) || ((_e$response12 = _t1.response) === null || _e$response12 === void 0 || (_e$response12 = _e$response12.data) === null || _e$response12 === void 0 ? void 0 : _e$response12.message) || 'No se pudo eliminar el mensaje', false);
+              _context11.p = 6;
+              _t11 = _context11.v;
+              _this18.showToast(((_e$response12 = _t11.response) === null || _e$response12 === void 0 || (_e$response12 = _e$response12.data) === null || _e$response12 === void 0 ? void 0 : _e$response12.error) || ((_e$response13 = _t11.response) === null || _e$response13 === void 0 || (_e$response13 = _e$response13.data) === null || _e$response13 === void 0 ? void 0 : _e$response13.message) || 'No se pudo eliminar el mensaje', false);
             case 7:
-              _context10.p = 7;
-              _this16.eliminandoId = null;
-              return _context10.f(7);
+              _context11.p = 7;
+              _this18.eliminandoId = null;
+              return _context11.f(7);
             case 8:
-              return _context10.a(2);
+              return _context11.a(2);
           }
-        }, _callee10, null, [[3, 6, 7, 8]]);
+        }, _callee11, null, [[3, 6, 7, 8]]);
       }))();
     },
     eliminarChat: function eliminarChat() {
-      var _this17 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
-        var nombre, tel, _data$borrados, _yield$window$axios$d, data, _e$response13, _e$response14, _t10;
-        return _regenerator().w(function (_context11) {
-          while (1) switch (_context11.p = _context11.n) {
+      var _this19 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+        var nombre, tel, _data$borrados, _yield$window$axios$d, data, _e$response14, _e$response15, _t12;
+        return _regenerator().w(function (_context12) {
+          while (1) switch (_context12.p = _context12.n) {
             case 0:
-              if (!(!_this17.puedeEditar || !_this17.telActivo || !_this17.urls.eliminarConversacion)) {
-                _context11.n = 1;
+              if (!(!_this19.puedeEditar || !_this19.telActivo || !_this19.urls.eliminarConversacion)) {
+                _context12.n = 1;
                 break;
               }
-              return _context11.a(2);
+              return _context12.a(2);
             case 1:
-              nombre = _this17.hiloMeta.nombre || _this17.telActivo;
+              nombre = _this19.hiloMeta.nombre || _this19.telActivo;
               if (confirm("\xBFEliminar todo el chat de ".concat(nombre, "?\nSe borra solo en Infinity, no en el WhatsApp del cliente."))) {
-                _context11.n = 2;
+                _context12.n = 2;
                 break;
               }
-              return _context11.a(2);
+              return _context12.a(2);
             case 2:
-              _this17.eliminandoChat = true;
-              tel = _this17.telActivo;
-              _context11.p = 3;
-              _context11.n = 4;
-              return window.axios.delete(_this17.urls.eliminarConversacion, {
+              _this19.eliminandoChat = true;
+              tel = _this19.telActivo;
+              _context12.p = 3;
+              _context12.n = 4;
+              return window.axios.delete(_this19.urls.eliminarConversacion, {
                 params: {
                   telefono: tel
                 },
@@ -29276,30 +29387,30 @@ var WaAvatar = {
                 }
               });
             case 4:
-              _yield$window$axios$d = _context11.v;
+              _yield$window$axios$d = _context12.v;
               data = _yield$window$axios$d.data;
-              _this17.mensajes.forEach(function (m) {
-                return _this17.revokeMedia(m.id);
+              _this19.mensajes.forEach(function (m) {
+                return _this19.revokeMedia(m.id);
               });
-              _this17.cerrarChat();
-              _this17.showToast("Chat eliminado (".concat((_data$borrados = data.borrados) !== null && _data$borrados !== void 0 ? _data$borrados : 0, " mensajes)"), true);
-              _context11.n = 5;
-              return _this17.cargarConversaciones(true);
+              _this19.cerrarChat();
+              _this19.showToast("Chat eliminado (".concat((_data$borrados = data.borrados) !== null && _data$borrados !== void 0 ? _data$borrados : 0, " mensajes)"), true);
+              _context12.n = 5;
+              return _this19.cargarConversaciones(true);
             case 5:
-              _context11.n = 7;
+              _context12.n = 7;
               break;
             case 6:
-              _context11.p = 6;
-              _t10 = _context11.v;
-              _this17.showToast(((_e$response13 = _t10.response) === null || _e$response13 === void 0 || (_e$response13 = _e$response13.data) === null || _e$response13 === void 0 ? void 0 : _e$response13.error) || ((_e$response14 = _t10.response) === null || _e$response14 === void 0 || (_e$response14 = _e$response14.data) === null || _e$response14 === void 0 ? void 0 : _e$response14.message) || 'No se pudo eliminar el chat', false);
+              _context12.p = 6;
+              _t12 = _context12.v;
+              _this19.showToast(((_e$response14 = _t12.response) === null || _e$response14 === void 0 || (_e$response14 = _e$response14.data) === null || _e$response14 === void 0 ? void 0 : _e$response14.error) || ((_e$response15 = _t12.response) === null || _e$response15 === void 0 || (_e$response15 = _e$response15.data) === null || _e$response15 === void 0 ? void 0 : _e$response15.message) || 'No se pudo eliminar el chat', false);
             case 7:
-              _context11.p = 7;
-              _this17.eliminandoChat = false;
-              return _context11.f(7);
+              _context12.p = 7;
+              _this19.eliminandoChat = false;
+              return _context12.f(7);
             case 8:
-              return _context11.a(2);
+              return _context12.a(2);
           }
-        }, _callee11, null, [[3, 6, 7, 8]]);
+        }, _callee12, null, [[3, 6, 7, 8]]);
       }))();
     },
     // —— Modales rápidos / GPS ——
@@ -29327,39 +29438,39 @@ var WaAvatar = {
     },
     hydrateMedia: function hydrateMedia(m) {
       var _arguments3 = arguments,
-        _this18 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-        var force, urls, failed, res, data, head, esJpeg, esPng, esGif, esWebp, blob, mime, _e$response15, hyd, _t11, _t12, _t13;
-        return _regenerator().w(function (_context12) {
-          while (1) switch (_context12.p = _context12.n) {
+        _this20 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+        var force, urls, failed, res, data, head, esJpeg, esPng, esGif, esWebp, blob, mime, _e$response16, hyd, _t13, _t14, _t15;
+        return _regenerator().w(function (_context13) {
+          while (1) switch (_context13.p = _context13.n) {
             case 0:
               force = _arguments3.length > 1 && _arguments3[1] !== undefined ? _arguments3[1] : false;
               if (!(!(m !== null && m !== void 0 && m.id) || !m.media_url)) {
-                _context12.n = 1;
+                _context13.n = 1;
                 break;
               }
-              return _context12.a(2);
+              return _context13.a(2);
             case 1:
-              if (!(!force && (_this18.mediaObjectUrls[m.id] || _this18.mediaHydrating[m.id]))) {
-                _context12.n = 2;
+              if (!(!force && (_this20.mediaObjectUrls[m.id] || _this20.mediaHydrating[m.id]))) {
+                _context13.n = 2;
                 break;
               }
-              return _context12.a(2);
+              return _context13.a(2);
             case 2:
-              if (force && _this18.mediaObjectUrls[m.id]) {
+              if (force && _this20.mediaObjectUrls[m.id]) {
                 try {
-                  URL.revokeObjectURL(_this18.mediaObjectUrls[m.id]);
+                  URL.revokeObjectURL(_this20.mediaObjectUrls[m.id]);
                 } catch (_) {}
-                urls = _objectSpread({}, _this18.mediaObjectUrls);
+                urls = _objectSpread({}, _this20.mediaObjectUrls);
                 delete urls[m.id];
-                _this18.mediaObjectUrls = urls;
+                _this20.mediaObjectUrls = urls;
               }
-              _this18.mediaHydrating = _objectSpread(_objectSpread({}, _this18.mediaHydrating), {}, _defineProperty({}, m.id, true));
-              failed = _objectSpread({}, _this18.mediaFailed);
+              _this20.mediaHydrating = _objectSpread(_objectSpread({}, _this20.mediaHydrating), {}, _defineProperty({}, m.id, true));
+              failed = _objectSpread({}, _this20.mediaFailed);
               delete failed[m.id];
-              _this18.mediaFailed = failed;
-              _context12.p = 3;
-              _context12.n = 4;
+              _this20.mediaFailed = failed;
+              _context13.p = 3;
+              _context13.n = 4;
               return window.axios.get(m.media_url, {
                 responseType: 'blob',
                 withCredentials: true,
@@ -29369,32 +29480,32 @@ var WaAvatar = {
                 }
               });
             case 4:
-              res = _context12.v;
+              res = _context13.v;
               data = res.data;
               if (!(!(data instanceof Blob) || data.size < 32)) {
-                _context12.n = 5;
+                _context13.n = 5;
                 break;
               }
               throw new Error('empty');
             case 5:
               if (!((data.type || '').includes('text/html') || (data.type || '').includes('application/json'))) {
-                _context12.n = 6;
+                _context13.n = 6;
                 break;
               }
               throw new Error('not-media');
             case 6:
-              _t11 = Uint8Array;
-              _context12.n = 7;
+              _t13 = Uint8Array;
+              _context13.n = 7;
               return data.slice(0, 16).arrayBuffer();
             case 7:
-              _t12 = _context12.v;
-              head = new _t11(_t12);
+              _t14 = _context13.v;
+              head = new _t13(_t14);
               esJpeg = head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF;
               esPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4E;
               esGif = head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
               esWebp = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46;
               if (!(m.tipo === 'image' && !esJpeg && !esPng && !esGif && !esWebp)) {
-                _context12.n = 8;
+                _context13.n = 8;
                 break;
               }
               throw new Error('not-image');
@@ -29410,50 +29521,50 @@ var WaAvatar = {
                   type: m.media_mime || 'audio/ogg'
                 });
               }
-              _this18.mediaObjectUrls = _objectSpread(_objectSpread({}, _this18.mediaObjectUrls), {}, _defineProperty({}, m.id, URL.createObjectURL(blob)));
-              _context12.n = 10;
+              _this20.mediaObjectUrls = _objectSpread(_objectSpread({}, _this20.mediaObjectUrls), {}, _defineProperty({}, m.id, URL.createObjectURL(blob)));
+              _context13.n = 10;
               break;
             case 9:
-              _context12.p = 9;
-              _t13 = _context12.v;
-              console.warn('[WA media] falló', m.id, (_t13 === null || _t13 === void 0 || (_e$response15 = _t13.response) === null || _e$response15 === void 0 ? void 0 : _e$response15.status) || (_t13 === null || _t13 === void 0 ? void 0 : _t13.message));
-              _this18.mediaFailed = _objectSpread(_objectSpread({}, _this18.mediaFailed), {}, _defineProperty({}, m.id, true));
+              _context13.p = 9;
+              _t15 = _context13.v;
+              console.warn('[WA media] falló', m.id, (_t15 === null || _t15 === void 0 || (_e$response16 = _t15.response) === null || _e$response16 === void 0 ? void 0 : _e$response16.status) || (_t15 === null || _t15 === void 0 ? void 0 : _t15.message));
+              _this20.mediaFailed = _objectSpread(_objectSpread({}, _this20.mediaFailed), {}, _defineProperty({}, m.id, true));
             case 10:
-              _context12.p = 10;
-              hyd = _objectSpread({}, _this18.mediaHydrating);
+              _context13.p = 10;
+              hyd = _objectSpread({}, _this20.mediaHydrating);
               delete hyd[m.id];
-              _this18.mediaHydrating = hyd;
-              return _context12.f(10);
+              _this20.mediaHydrating = hyd;
+              return _context13.f(10);
             case 11:
-              return _context12.a(2);
+              return _context13.a(2);
           }
-        }, _callee12, null, [[3, 9, 10, 11]]);
+        }, _callee13, null, [[3, 9, 10, 11]]);
       }))();
     },
     hydrateMediaEnHilo: function hydrateMediaEnHilo() {
-      var _this19 = this;
+      var _this21 = this;
       (this.mensajes || []).forEach(function (m) {
         if (m !== null && m !== void 0 && m.media_url && ['audio', 'video', 'document', 'sticker'].includes(m.tipo)) {
-          _this19.hydrateMedia(m, false);
+          _this21.hydrateMedia(m, false);
         }
       });
     },
     abrirMediaAdjunto: function abrirMediaAdjunto(m) {
-      var _this20 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+      var _this22 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
         var src;
-        return _regenerator().w(function (_context13) {
-          while (1) switch (_context13.n) {
+        return _regenerator().w(function (_context14) {
+          while (1) switch (_context14.n) {
             case 0:
-              _context13.n = 1;
-              return _this20.hydrateMedia(m, false);
+              _context14.n = 1;
+              return _this22.hydrateMedia(m, false);
             case 1:
-              src = _this20.mediaSrc(m) || m.media_url;
+              src = _this22.mediaSrc(m) || m.media_url;
               if (src) window.open(src, '_blank', 'noopener');
             case 2:
-              return _context13.a(2);
+              return _context14.a(2);
           }
-        }, _callee13);
+        }, _callee14);
       }))();
     },
     abrirModalImagen: function abrirModalImagen(m) {
@@ -29487,7 +29598,7 @@ var WaAvatar = {
       if (this.contactoBuscarTimer) clearTimeout(this.contactoBuscarTimer);
     },
     onBuscarClienteContacto: function onBuscarClienteContacto() {
-      var _this21 = this;
+      var _this23 = this;
       if (this.contactoBuscarTimer) clearTimeout(this.contactoBuscarTimer);
       var q = (this.contactoForm.buscar || '').trim();
       if (q.length < 2) {
@@ -29496,14 +29607,14 @@ var WaAvatar = {
         return;
       }
       this.contactoBuscando = true;
-      this.contactoBuscarTimer = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
-        var url, _yield$window$axios$g5, data, _t14;
-        return _regenerator().w(function (_context14) {
-          while (1) switch (_context14.p = _context14.n) {
+      this.contactoBuscarTimer = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+        var url, _yield$window$axios$g5, data, _t16;
+        return _regenerator().w(function (_context15) {
+          while (1) switch (_context15.p = _context15.n) {
             case 0:
-              _context14.p = 0;
-              url = _this21.urls.buscarClienteContacto || _this21.urls.buscarCliente || '/whatsapp/conversacion/buscar-cliente';
-              _context14.n = 1;
+              _context15.p = 0;
+              url = _this23.urls.buscarClienteContacto || _this23.urls.buscarCliente || '/whatsapp/conversacion/buscar-cliente';
+              _context15.n = 1;
               return window.axios.get(url, {
                 params: {
                   q: q
@@ -29513,23 +29624,23 @@ var WaAvatar = {
                 }
               });
             case 1:
-              _yield$window$axios$g5 = _context14.v;
+              _yield$window$axios$g5 = _context15.v;
               data = _yield$window$axios$g5.data;
-              _this21.contactoClientes = Array.isArray(data) ? data : [];
-              _context14.n = 3;
+              _this23.contactoClientes = Array.isArray(data) ? data : [];
+              _context15.n = 3;
               break;
             case 2:
-              _context14.p = 2;
-              _t14 = _context14.v;
-              _this21.contactoClientes = [];
+              _context15.p = 2;
+              _t16 = _context15.v;
+              _this23.contactoClientes = [];
             case 3:
-              _context14.p = 3;
-              _this21.contactoBuscando = false;
-              return _context14.f(3);
+              _context15.p = 3;
+              _this23.contactoBuscando = false;
+              return _context15.f(3);
             case 4:
-              return _context14.a(2);
+              return _context15.a(2);
           }
-        }, _callee14, null, [[0, 2, 3, 4]]);
+        }, _callee15, null, [[0, 2, 3, 4]]);
       })), 280);
     },
     elegirClienteContacto: function elegirClienteContacto(c) {
@@ -29549,64 +29660,64 @@ var WaAvatar = {
       this.contactoForm.quitar_cliente = !!this.hiloMeta.cliente_id;
     },
     guardarContacto: function guardarContacto() {
-      var _this22 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
-        var payload, _yield$window$axios$p6, data, _e$response16, _e$response17, _t15;
-        return _regenerator().w(function (_context15) {
-          while (1) switch (_context15.p = _context15.n) {
+      var _this24 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
+        var payload, _yield$window$axios$p7, data, _e$response17, _e$response18, _t17;
+        return _regenerator().w(function (_context16) {
+          while (1) switch (_context16.p = _context16.n) {
             case 0:
-              if (!(!_this22.telActivo || !_this22.urls.guardarContacto || !_this22.puedeGuardarContacto || _this22.guardandoContacto)) {
-                _context15.n = 1;
+              if (!(!_this24.telActivo || !_this24.urls.guardarContacto || !_this24.puedeGuardarContacto || _this24.guardandoContacto)) {
+                _context16.n = 1;
                 break;
               }
-              return _context15.a(2);
+              return _context16.a(2);
             case 1:
-              _this22.guardandoContacto = true;
-              _this22.modalError = null;
-              _context15.p = 2;
+              _this24.guardandoContacto = true;
+              _this24.modalError = null;
+              _context16.p = 2;
               payload = {
-                telefono: _this22.telActivo,
-                nombre: (_this22.contactoForm.nombre || '').trim() || null,
-                cliente_id: _this22.contactoForm.cliente_id || null,
-                quitar_cliente: !!_this22.contactoForm.quitar_cliente && !_this22.contactoForm.cliente_id
+                telefono: _this24.telActivo,
+                nombre: (_this24.contactoForm.nombre || '').trim() || null,
+                cliente_id: _this24.contactoForm.cliente_id || null,
+                quitar_cliente: !!_this24.contactoForm.quitar_cliente && !_this24.contactoForm.cliente_id
               };
-              _context15.n = 3;
-              return window.axios.post(_this22.urls.guardarContacto, payload, {
+              _context16.n = 3;
+              return window.axios.post(_this24.urls.guardarContacto, payload, {
                 headers: {
                   Accept: 'application/json'
                 }
               });
             case 3:
-              _yield$window$axios$p6 = _context15.v;
-              data = _yield$window$axios$p6.data;
-              _this22.hiloMeta = _objectSpread(_objectSpread({}, _this22.hiloMeta), {}, {
-                nombre: data.nombre || _this22.hiloMeta.nombre,
+              _yield$window$axios$p7 = _context16.v;
+              data = _yield$window$axios$p7.data;
+              _this24.hiloMeta = _objectSpread(_objectSpread({}, _this24.hiloMeta), {}, {
+                nombre: data.nombre || _this24.hiloMeta.nombre,
                 cliente_id: data.cliente_id || null,
                 cliente_nombre: data.cliente_nombre || null
               });
-              _this22.conversaciones = _this22.conversaciones.map(function (c) {
-                return String(c.telefono) === String(_this22.telActivo) ? _objectSpread(_objectSpread({}, c), {}, {
+              _this24.conversaciones = _this24.conversaciones.map(function (c) {
+                return String(c.telefono) === String(_this24.telActivo) ? _objectSpread(_objectSpread({}, c), {}, {
                   nombre: data.nombre || c.nombre,
                   cliente_id: data.cliente_id || null,
                   cliente_nombre: data.cliente_nombre || null
                 }) : c;
               });
-              _this22.showToast('Contacto guardado', true);
-              _this22.cerrarModalContacto();
-              _context15.n = 5;
+              _this24.showToast('Contacto guardado', true);
+              _this24.cerrarModalContacto();
+              _context16.n = 5;
               break;
             case 4:
-              _context15.p = 4;
-              _t15 = _context15.v;
-              _this22.modalError = ((_e$response16 = _t15.response) === null || _e$response16 === void 0 || (_e$response16 = _e$response16.data) === null || _e$response16 === void 0 ? void 0 : _e$response16.error) || ((_e$response17 = _t15.response) === null || _e$response17 === void 0 || (_e$response17 = _e$response17.data) === null || _e$response17 === void 0 ? void 0 : _e$response17.message) || 'No se pudo guardar el contacto';
+              _context16.p = 4;
+              _t17 = _context16.v;
+              _this24.modalError = ((_e$response17 = _t17.response) === null || _e$response17 === void 0 || (_e$response17 = _e$response17.data) === null || _e$response17 === void 0 ? void 0 : _e$response17.error) || ((_e$response18 = _t17.response) === null || _e$response18 === void 0 || (_e$response18 = _e$response18.data) === null || _e$response18 === void 0 ? void 0 : _e$response18.message) || 'No se pudo guardar el contacto';
             case 5:
-              _context15.p = 5;
-              _this22.guardandoContacto = false;
-              return _context15.f(5);
+              _context16.p = 5;
+              _this24.guardandoContacto = false;
+              return _context16.f(5);
             case 6:
-              return _context15.a(2);
+              return _context16.a(2);
           }
-        }, _callee15, null, [[2, 4, 5, 6]]);
+        }, _callee16, null, [[2, 4, 5, 6]]);
       }))();
     },
     embedMapUrl: function embedMapUrl(lat, lng) {
@@ -29650,76 +29761,76 @@ var WaAvatar = {
       });
     },
     cargarMetaRapido: function cargarMetaRapido() {
-      var _this23 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
-        var _yield$window$axios$g6, data, _e$response18, _t16;
-        return _regenerator().w(function (_context16) {
-          while (1) switch (_context16.p = _context16.n) {
+      var _this25 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+        var _yield$window$axios$g6, data, _e$response19, _t18;
+        return _regenerator().w(function (_context17) {
+          while (1) switch (_context17.p = _context17.n) {
             case 0:
-              if (_this23.urls.rapidoMeta) {
-                _context16.n = 1;
+              if (_this25.urls.rapidoMeta) {
+                _context17.n = 1;
                 break;
               }
-              _this23.showToast('Falta URL de meta rápido', false);
-              return _context16.a(2, null);
+              _this25.showToast('Falta URL de meta rápido', false);
+              return _context17.a(2, null);
             case 1:
-              _this23.metaCargando = true;
-              _this23.modalError = null;
-              _context16.p = 2;
-              _context16.n = 3;
-              return window.axios.get(_this23.urls.rapidoMeta, {
+              _this25.metaCargando = true;
+              _this25.modalError = null;
+              _context17.p = 2;
+              _context17.n = 3;
+              return window.axios.get(_this25.urls.rapidoMeta, {
                 params: {
-                  telefono: _this23.telActivo || undefined,
-                  cliente_id: _this23.hiloMeta.cliente_id || undefined
+                  telefono: _this25.telActivo || undefined,
+                  cliente_id: _this25.hiloMeta.cliente_id || undefined
                 },
                 headers: {
                   Accept: 'application/json'
                 }
               });
             case 3:
-              _yield$window$axios$g6 = _context16.v;
+              _yield$window$axios$g6 = _context17.v;
               data = _yield$window$axios$g6.data;
-              _this23.ticketAsuntos = data.ticket_asuntos || [];
-              _this23.tecnicos = data.tecnicos || [];
-              return _context16.a(2, data);
+              _this25.ticketAsuntos = data.ticket_asuntos || [];
+              _this25.tecnicos = data.tecnicos || [];
+              return _context17.a(2, data);
             case 4:
-              _context16.p = 4;
-              _t16 = _context16.v;
-              _this23.showToast(((_e$response18 = _t16.response) === null || _e$response18 === void 0 || (_e$response18 = _e$response18.data) === null || _e$response18 === void 0 ? void 0 : _e$response18.message) || 'No se pudieron cargar datos', false);
-              return _context16.a(2, null);
+              _context17.p = 4;
+              _t18 = _context17.v;
+              _this25.showToast(((_e$response19 = _t18.response) === null || _e$response19 === void 0 || (_e$response19 = _e$response19.data) === null || _e$response19 === void 0 ? void 0 : _e$response19.message) || 'No se pudieron cargar datos', false);
+              return _context17.a(2, null);
             case 5:
-              _context16.p = 5;
-              _this23.metaCargando = false;
-              return _context16.f(5);
+              _context17.p = 5;
+              _this25.metaCargando = false;
+              return _context17.f(5);
             case 6:
-              return _context16.a(2);
+              return _context17.a(2);
           }
-        }, _callee16, null, [[2, 4, 5, 6]]);
+        }, _callee17, null, [[2, 4, 5, 6]]);
       }))();
     },
     abrirModalTicket: function abrirModalTicket() {
-      var _this24 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+      var _this26 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
         var meta, c, label;
-        return _regenerator().w(function (_context17) {
-          while (1) switch (_context17.n) {
+        return _regenerator().w(function (_context18) {
+          while (1) switch (_context18.n) {
             case 0:
-              if (!(!_this24.puedeCrearTicket || !_this24.telActivo)) {
-                _context17.n = 1;
+              if (!(!_this26.puedeCrearTicket || !_this26.telActivo)) {
+                _context18.n = 1;
                 break;
               }
-              return _context17.a(2);
+              return _context18.a(2);
             case 1:
-              _this24.modalTicket = true;
-              _this24.modalError = null;
-              _context17.n = 2;
-              return _this24.cargarMetaRapido();
+              _this26.modalTicket = true;
+              _this26.modalError = null;
+              _context18.n = 2;
+              return _this26.cargarMetaRapido();
             case 2:
-              meta = _context17.v;
+              meta = _context18.v;
               c = meta === null || meta === void 0 ? void 0 : meta.cliente;
-              label = c ? "".concat(c.nombre || '').concat(c.apellido ? " ".concat(c.apellido) : '').trim() : _this24.hiloMeta.cliente_nombre || _this24.hiloMeta.nombre || '';
-              _this24.ticketForm = {
-                cliente_id: (c === null || c === void 0 ? void 0 : c.cliente_id) || _this24.hiloMeta.cliente_id || null,
+              label = c ? "".concat(c.nombre || '').concat(c.apellido ? " ".concat(c.apellido) : '').trim() : _this26.hiloMeta.cliente_nombre || _this26.hiloMeta.nombre || '';
+              _this26.ticketForm = {
+                cliente_id: (c === null || c === void 0 ? void 0 : c.cliente_id) || _this26.hiloMeta.cliente_id || null,
                 cliente_label: label,
                 ticket_asunto_id: '',
                 prioridad: 'media',
@@ -29727,9 +29838,9 @@ var WaAvatar = {
                 descripcion: ''
               };
             case 3:
-              return _context17.a(2);
+              return _context18.a(2);
           }
-        }, _callee17);
+        }, _callee18);
       }))();
     },
     cerrarModalTicket: function cerrarModalTicket() {
@@ -29750,81 +29861,81 @@ var WaAvatar = {
       }).format(v);
     },
     abrirModalCobro: function abrirModalCobro() {
-      var _this25 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
-        var _yield$window$axios$g7, data, c, ids, _e$response19, _t17;
-        return _regenerator().w(function (_context18) {
-          while (1) switch (_context18.p = _context18.n) {
+      var _this27 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+        var _yield$window$axios$g7, data, c, ids, _e$response20, _t19;
+        return _regenerator().w(function (_context19) {
+          while (1) switch (_context19.p = _context19.n) {
             case 0:
-              if (!(!_this25.puedeCrearCobro || !_this25.telActivo)) {
-                _context18.n = 1;
+              if (!(!_this27.puedeCrearCobro || !_this27.telActivo)) {
+                _context19.n = 1;
                 break;
               }
-              return _context18.a(2);
+              return _context19.a(2);
             case 1:
-              _this25.modalCobro = true;
-              _this25.modalError = null;
-              _this25.cobroResultado = null;
-              _this25.metaCargando = true;
-              _context18.p = 2;
-              if (_this25.urls.rapidoCobroMeta) {
-                _context18.n = 3;
+              _this27.modalCobro = true;
+              _this27.modalError = null;
+              _this27.cobroResultado = null;
+              _this27.metaCargando = true;
+              _context19.p = 2;
+              if (_this27.urls.rapidoCobroMeta) {
+                _context19.n = 3;
                 break;
               }
               throw new Error('Falta URL de cobro rápido');
             case 3:
-              _context18.n = 4;
-              return window.axios.get(_this25.urls.rapidoCobroMeta, {
+              _context19.n = 4;
+              return window.axios.get(_this27.urls.rapidoCobroMeta, {
                 params: {
-                  telefono: _this25.telActivo || undefined,
-                  cliente_id: _this25.hiloMeta.cliente_id || undefined
+                  telefono: _this27.telActivo || undefined,
+                  cliente_id: _this27.hiloMeta.cliente_id || undefined
                 },
                 headers: {
                   Accept: 'application/json'
                 }
               });
             case 4:
-              _yield$window$axios$g7 = _context18.v;
+              _yield$window$axios$g7 = _context19.v;
               data = _yield$window$axios$g7.data;
               c = data.cliente;
-              _this25.cobroFacturas = data.facturas || [];
-              _this25.cobroFormasPago = data.formas_pago || {
+              _this27.cobroFacturas = data.facturas || [];
+              _this27.cobroFormasPago = data.formas_pago || {
                 efectivo: 'Efectivo'
               };
-              _this25.cobroTotalPendiente = Number(data.total_pendiente || 0);
-              ids = _this25.cobroFacturas.map(function (f) {
+              _this27.cobroTotalPendiente = Number(data.total_pendiente || 0);
+              ids = _this27.cobroFacturas.map(function (f) {
                 return f.id;
               });
-              _this25.cobroForm = {
+              _this27.cobroForm = {
                 cliente_id: (c === null || c === void 0 ? void 0 : c.cliente_id) || null,
-                cliente_label: c ? "".concat(c.nombre || '').concat(c.apellido ? " ".concat(c.apellido) : '').trim() : _this25.hiloMeta.cliente_nombre || '',
+                cliente_label: c ? "".concat(c.nombre || '').concat(c.apellido ? " ".concat(c.apellido) : '').trim() : _this27.hiloMeta.cliente_nombre || '',
                 cedula: (c === null || c === void 0 ? void 0 : c.cedula) || '',
-                cliente_url: (c === null || c === void 0 ? void 0 : c.url) || (c !== null && c !== void 0 && c.cliente_id ? _this25.clienteDetalleUrl(c.cliente_id) : ''),
+                cliente_url: (c === null || c === void 0 ? void 0 : c.url) || (c !== null && c !== void 0 && c.cliente_id ? _this27.clienteDetalleUrl(c.cliente_id) : ''),
                 factura_ids: ids.slice(),
-                monto: _this25.cobroTotalPendiente || null,
+                monto: _this27.cobroTotalPendiente || null,
                 fecha_pago: data.hoy || new Date().toISOString().slice(0, 10),
                 forma_pago: 'efectivo',
                 referencia: '',
                 observaciones: ''
               };
               if (!(c !== null && c !== void 0 && c.cliente_id)) {
-                _this25.modalError = data.message || 'Vinculá un cliente para registrar el pago.';
+                _this27.modalError = data.message || 'Vinculá un cliente para registrar el pago.';
               }
-              _context18.n = 6;
+              _context19.n = 6;
               break;
             case 5:
-              _context18.p = 5;
-              _t17 = _context18.v;
-              _this25.modalError = ((_e$response19 = _t17.response) === null || _e$response19 === void 0 || (_e$response19 = _e$response19.data) === null || _e$response19 === void 0 ? void 0 : _e$response19.message) || _t17.message || 'No se pudieron cargar facturas';
-              _this25.cobroFacturas = [];
+              _context19.p = 5;
+              _t19 = _context19.v;
+              _this27.modalError = ((_e$response20 = _t19.response) === null || _e$response20 === void 0 || (_e$response20 = _e$response20.data) === null || _e$response20 === void 0 ? void 0 : _e$response20.message) || _t19.message || 'No se pudieron cargar facturas';
+              _this27.cobroFacturas = [];
             case 6:
-              _context18.p = 6;
-              _this25.metaCargando = false;
-              return _context18.f(6);
+              _context19.p = 6;
+              _this27.metaCargando = false;
+              return _context19.f(6);
             case 7:
-              return _context18.a(2);
+              return _context19.a(2);
           }
-        }, _callee18, null, [[2, 5, 6, 7]]);
+        }, _callee19, null, [[2, 5, 6, 7]]);
       }))();
     },
     cerrarModalCobro: function cerrarModalCobro() {
@@ -29834,9 +29945,9 @@ var WaAvatar = {
       this.cobroResultado = null;
     },
     onCobroFacturasChange: function onCobroFacturasChange() {
-      var _this26 = this;
+      var _this28 = this;
       var selected = this.cobroFacturas.filter(function (f) {
-        return _this26.cobroForm.factura_ids.includes(f.id);
+        return _this28.cobroForm.factura_ids.includes(f.id);
       });
       this.cobroForm.monto = Math.round(selected.reduce(function (s, f) {
         return s + Number(f.saldo_pendiente || 0);
@@ -29849,85 +29960,32 @@ var WaAvatar = {
       this.onCobroFacturasChange();
     },
     guardarCobroRapido: function guardarCobroRapido() {
-      var _this27 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
-        var _yield$window$axios$p7, data, _e$response20, _e$response21, _t18;
-        return _regenerator().w(function (_context19) {
-          while (1) switch (_context19.p = _context19.n) {
-            case 0:
-              if (!(!_this27.cobroForm.cliente_id || !_this27.cobroForm.factura_ids.length || _this27.guardandoRapido)) {
-                _context19.n = 1;
-                break;
-              }
-              return _context19.a(2);
-            case 1:
-              _this27.guardandoRapido = true;
-              _this27.modalError = null;
-              _this27.cobroResultado = null;
-              _context19.p = 2;
-              _context19.n = 3;
-              return window.axios.post(_this27.urls.rapidoCobro, {
-                cliente_id: _this27.cobroForm.cliente_id,
-                factura_interna_ids: _this27.cobroForm.factura_ids,
-                monto: Number(_this27.cobroForm.monto),
-                fecha_pago: _this27.cobroForm.fecha_pago,
-                forma_pago: _this27.cobroForm.forma_pago,
-                referencia: _this27.cobroForm.referencia || null,
-                observaciones: _this27.cobroForm.observaciones || null,
-                concepto: 'Cobro desde WhatsApp'
-              }, {
-                headers: {
-                  Accept: 'application/json'
-                }
-              });
-            case 3:
-              _yield$window$axios$p7 = _context19.v;
-              data = _yield$window$axios$p7.data;
-              _this27.cobroResultado = {
-                message: data.message || 'Cobro registrado',
-                url: data.url || null
-              };
-              _this27.showToast(data.message || 'Cobro registrado', true);
-              _context19.n = 5;
-              break;
-            case 4:
-              _context19.p = 4;
-              _t18 = _context19.v;
-              _this27.modalError = ((_e$response20 = _t18.response) === null || _e$response20 === void 0 || (_e$response20 = _e$response20.data) === null || _e$response20 === void 0 ? void 0 : _e$response20.message) || ((_e$response21 = _t18.response) === null || _e$response21 === void 0 || (_e$response21 = _e$response21.data) === null || _e$response21 === void 0 ? void 0 : _e$response21.errors) && Object.values(_t18.response.data.errors).flat()[0] || 'No se pudo registrar el cobro';
-            case 5:
-              _context19.p = 5;
-              _this27.guardandoRapido = false;
-              return _context19.f(5);
-            case 6:
-              return _context19.a(2);
-          }
-        }, _callee19, null, [[2, 4, 5, 6]]);
-      }))();
-    },
-    guardarTicketRapido: function guardarTicketRapido() {
-      var _this28 = this;
+      var _this29 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
-        var _yield$window$axios$p8, data, _e$response22, _e$response23, _t19;
+        var _yield$window$axios$p8, data, _e$response21, _e$response22, _t20;
         return _regenerator().w(function (_context20) {
           while (1) switch (_context20.p = _context20.n) {
             case 0:
-              if (!(!_this28.ticketForm.ticket_asunto_id || _this28.guardandoRapido)) {
+              if (!(!_this29.cobroForm.cliente_id || !_this29.cobroForm.factura_ids.length || _this29.guardandoRapido)) {
                 _context20.n = 1;
                 break;
               }
               return _context20.a(2);
             case 1:
-              _this28.guardandoRapido = true;
-              _this28.modalError = null;
+              _this29.guardandoRapido = true;
+              _this29.modalError = null;
+              _this29.cobroResultado = null;
               _context20.p = 2;
               _context20.n = 3;
-              return window.axios.post(_this28.urls.rapidoTicket, {
-                cliente_id: _this28.ticketForm.cliente_id || null,
-                ticket_asunto_id: Number(_this28.ticketForm.ticket_asunto_id),
-                prioridad: _this28.ticketForm.prioridad || 'media',
-                asignado_id: _this28.ticketForm.asignado_id || null,
-                descripcion: _this28.ticketForm.descripcion || null,
-                telefono: _this28.telActivo
+              return window.axios.post(_this29.urls.rapidoCobro, {
+                cliente_id: _this29.cobroForm.cliente_id,
+                factura_interna_ids: _this29.cobroForm.factura_ids,
+                monto: Number(_this29.cobroForm.monto),
+                fecha_pago: _this29.cobroForm.fecha_pago,
+                forma_pago: _this29.cobroForm.forma_pago,
+                referencia: _this29.cobroForm.referencia || null,
+                observaciones: _this29.cobroForm.observaciones || null,
+                concepto: 'Cobro desde WhatsApp'
               }, {
                 headers: {
                   Accept: 'application/json'
@@ -29936,17 +29994,20 @@ var WaAvatar = {
             case 3:
               _yield$window$axios$p8 = _context20.v;
               data = _yield$window$axios$p8.data;
-              _this28.modalTicket = false;
-              _this28.showToast(data.message || 'Ticket creado', true);
+              _this29.cobroResultado = {
+                message: data.message || 'Cobro registrado',
+                url: data.url || null
+              };
+              _this29.showToast(data.message || 'Cobro registrado', true);
               _context20.n = 5;
               break;
             case 4:
               _context20.p = 4;
-              _t19 = _context20.v;
-              _this28.modalError = ((_e$response22 = _t19.response) === null || _e$response22 === void 0 || (_e$response22 = _e$response22.data) === null || _e$response22 === void 0 ? void 0 : _e$response22.message) || ((_e$response23 = _t19.response) === null || _e$response23 === void 0 || (_e$response23 = _e$response23.data) === null || _e$response23 === void 0 ? void 0 : _e$response23.errors) && Object.values(_t19.response.data.errors).flat()[0] || 'No se pudo crear el ticket';
+              _t20 = _context20.v;
+              _this29.modalError = ((_e$response21 = _t20.response) === null || _e$response21 === void 0 || (_e$response21 = _e$response21.data) === null || _e$response21 === void 0 ? void 0 : _e$response21.message) || ((_e$response22 = _t20.response) === null || _e$response22 === void 0 || (_e$response22 = _e$response22.data) === null || _e$response22 === void 0 ? void 0 : _e$response22.errors) && Object.values(_t20.response.data.errors).flat()[0] || 'No se pudo registrar el cobro';
             case 5:
               _context20.p = 5;
-              _this28.guardandoRapido = false;
+              _this29.guardandoRapido = false;
               return _context20.f(5);
             case 6:
               return _context20.a(2);
@@ -29954,60 +30015,110 @@ var WaAvatar = {
         }, _callee20, null, [[2, 4, 5, 6]]);
       }))();
     },
-    abrirModalPedido: function abrirModalPedido() {
-      var _arguments4 = arguments,
-        _this29 = this;
+    guardarTicketRapido: function guardarTicketRapido() {
+      var _this30 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
-        var _cliente, _cliente2, _cliente3, _cliente4, _cliente5, _loc$maps_lat, _loc$maps_lng;
-        var extra, cliente, meta, loc, _t20;
+        var _yield$window$axios$p9, data, _e$response23, _e$response24, _t21;
         return _regenerator().w(function (_context21) {
           while (1) switch (_context21.p = _context21.n) {
             case 0:
-              extra = _arguments4.length > 0 && _arguments4[0] !== undefined ? _arguments4[0] : {};
-              if (!(!_this29.puedeCrearPedido || !_this29.telActivo)) {
+              if (!(!_this30.ticketForm.ticket_asunto_id || _this30.guardandoRapido)) {
                 _context21.n = 1;
                 break;
               }
               return _context21.a(2);
             case 1:
-              if (_this29.pedidoFormConfig) {
-                _context21.n = 2;
-                break;
-              }
-              _this29.showToast('Formulario de pedido no disponible', false);
-              return _context21.a(2);
-            case 2:
-              cliente = null;
-              _context21.p = 3;
-              _context21.n = 4;
-              return _this29.cargarMetaRapido();
-            case 4:
-              meta = _context21.v;
-              cliente = (meta === null || meta === void 0 ? void 0 : meta.cliente) || null;
-              _context21.n = 6;
+              _this30.guardandoRapido = true;
+              _this30.modalError = null;
+              _context21.p = 2;
+              _context21.n = 3;
+              return window.axios.post(_this30.urls.rapidoTicket, {
+                cliente_id: _this30.ticketForm.cliente_id || null,
+                ticket_asunto_id: Number(_this30.ticketForm.ticket_asunto_id),
+                prioridad: _this30.ticketForm.prioridad || 'media',
+                asignado_id: _this30.ticketForm.asignado_id || null,
+                descripcion: _this30.ticketForm.descripcion || null,
+                telefono: _this30.telActivo
+              }, {
+                headers: {
+                  Accept: 'application/json'
+                }
+              });
+            case 3:
+              _yield$window$axios$p9 = _context21.v;
+              data = _yield$window$axios$p9.data;
+              _this30.modalTicket = false;
+              _this30.showToast(data.message || 'Ticket creado', true);
+              _context21.n = 5;
               break;
+            case 4:
+              _context21.p = 4;
+              _t21 = _context21.v;
+              _this30.modalError = ((_e$response23 = _t21.response) === null || _e$response23 === void 0 || (_e$response23 = _e$response23.data) === null || _e$response23 === void 0 ? void 0 : _e$response23.message) || ((_e$response24 = _t21.response) === null || _e$response24 === void 0 || (_e$response24 = _e$response24.data) === null || _e$response24 === void 0 ? void 0 : _e$response24.errors) && Object.values(_t21.response.data.errors).flat()[0] || 'No se pudo crear el ticket';
             case 5:
               _context21.p = 5;
-              _t20 = _context21.v;
+              _this30.guardandoRapido = false;
+              return _context21.f(5);
             case 6:
-              loc = _this29.ultimaUbicacionHilo();
-              _this29.pedidoInitialValues = {
+              return _context21.a(2);
+          }
+        }, _callee21, null, [[2, 4, 5, 6]]);
+      }))();
+    },
+    abrirModalPedido: function abrirModalPedido() {
+      var _arguments4 = arguments,
+        _this31 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+        var _cliente, _cliente2, _cliente3, _cliente4, _cliente5, _loc$maps_lat, _loc$maps_lng;
+        var extra, cliente, meta, loc, _t22;
+        return _regenerator().w(function (_context22) {
+          while (1) switch (_context22.p = _context22.n) {
+            case 0:
+              extra = _arguments4.length > 0 && _arguments4[0] !== undefined ? _arguments4[0] : {};
+              if (!(!_this31.puedeCrearPedido || !_this31.telActivo)) {
+                _context22.n = 1;
+                break;
+              }
+              return _context22.a(2);
+            case 1:
+              if (_this31.pedidoFormConfig) {
+                _context22.n = 2;
+                break;
+              }
+              _this31.showToast('Formulario de pedido no disponible', false);
+              return _context22.a(2);
+            case 2:
+              cliente = null;
+              _context22.p = 3;
+              _context22.n = 4;
+              return _this31.cargarMetaRapido();
+            case 4:
+              meta = _context22.v;
+              cliente = (meta === null || meta === void 0 ? void 0 : meta.cliente) || null;
+              _context22.n = 6;
+              break;
+            case 5:
+              _context22.p = 5;
+              _t22 = _context22.v;
+            case 6:
+              loc = _this31.ultimaUbicacionHilo();
+              _this31.pedidoInitialValues = {
                 cedula: ((_cliente = cliente) === null || _cliente === void 0 ? void 0 : _cliente.cedula) || '',
-                cliente_id: ((_cliente2 = cliente) === null || _cliente2 === void 0 ? void 0 : _cliente2.cliente_id) || _this29.hiloMeta.cliente_id || null,
+                cliente_id: ((_cliente2 = cliente) === null || _cliente2 === void 0 ? void 0 : _cliente2.cliente_id) || _this31.hiloMeta.cliente_id || null,
                 nombre: ((_cliente3 = cliente) === null || _cliente3 === void 0 ? void 0 : _cliente3.nombre) || '',
                 apellido: ((_cliente4 = cliente) === null || _cliente4 === void 0 ? void 0 : _cliente4.apellido) || '',
-                telefono: ((_cliente5 = cliente) === null || _cliente5 === void 0 ? void 0 : _cliente5.telefono) || _this29.telActivo || '',
+                telefono: ((_cliente5 = cliente) === null || _cliente5 === void 0 ? void 0 : _cliente5.telefono) || _this31.telActivo || '',
                 ubicacion: extra.ubicacion || (loc === null || loc === void 0 ? void 0 : loc.maps_direccion) || (loc === null || loc === void 0 ? void 0 : loc.maps_nombre) || '',
                 maps_gps: extra.maps_gps || (loc === null || loc === void 0 ? void 0 : loc.maps_url) || '',
                 lat: extra.lat != null ? extra.lat : (_loc$maps_lat = loc === null || loc === void 0 ? void 0 : loc.maps_lat) !== null && _loc$maps_lat !== void 0 ? _loc$maps_lat : null,
                 lon: extra.lon != null ? extra.lon : (_loc$maps_lng = loc === null || loc === void 0 ? void 0 : loc.maps_lng) !== null && _loc$maps_lng !== void 0 ? _loc$maps_lng : null
               };
-              _this29.pedidoFormKey += 1;
-              _this29.modalPedido = true;
+              _this31.pedidoFormKey += 1;
+              _this31.modalPedido = true;
             case 7:
-              return _context21.a(2);
+              return _context22.a(2);
           }
-        }, _callee21, null, [[3, 5]]);
+        }, _callee22, null, [[3, 5]]);
       }))();
     },
     cerrarModalPedido: function cerrarModalPedido() {
@@ -30683,240 +30794,261 @@ var _hoisted_97 = {
   class: "mt-0.5"
 };
 var _hoisted_98 = {
+  key: 1,
+  class: "mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-md bg-white/70 px-2 py-1.5 text-[12px] leading-snug text-emerald-950"
+};
+var _hoisted_99 = {
   class: "mt-2 flex flex-wrap gap-2"
 };
-var _hoisted_99 = ["disabled"];
-var _hoisted_100 = {
+var _hoisted_100 = ["disabled"];
+var _hoisted_101 = ["disabled"];
+var _hoisted_102 = ["disabled"];
+var _hoisted_103 = {
+  key: 2,
+  class: "mt-1.5 text-[11px] font-medium text-red-700"
+};
+var _hoisted_104 = {
+  key: 2,
+  class: "relative z-10 border-t px-3 py-2 text-xs",
+  style: {
+    "background": "#f0fdf4",
+    "color": "#166534"
+  }
+};
+var _hoisted_105 = {
+  class: "font-semibold"
+};
+var _hoisted_106 = {
   key: 0,
   class: "mb-2 flex items-center gap-2 rounded-lg bg-black/5 px-2 py-1.5 dark:bg-white/5"
 };
-var _hoisted_101 = ["src"];
-var _hoisted_102 = {
+var _hoisted_107 = ["src"];
+var _hoisted_108 = {
   class: "min-w-0 flex-1"
 };
-var _hoisted_103 = {
+var _hoisted_109 = {
   class: "truncate text-xs font-medium"
 };
-var _hoisted_104 = {
+var _hoisted_110 = {
   class: "wa-muted text-[10px]"
 };
-var _hoisted_105 = {
+var _hoisted_111 = {
   class: "flex items-end gap-2"
 };
-var _hoisted_106 = ["disabled"];
-var _hoisted_107 = ["placeholder", "disabled"];
-var _hoisted_108 = ["disabled", "title"];
-var _hoisted_109 = {
+var _hoisted_112 = ["disabled"];
+var _hoisted_113 = ["placeholder", "disabled"];
+var _hoisted_114 = ["disabled", "title"];
+var _hoisted_115 = {
   class: "wa-muted mt-1.5 px-1 text-[11px]"
 };
-var _hoisted_110 = {
+var _hoisted_116 = {
   key: 3,
   class: "wa-composer relative z-10 border-t px-4 py-3 text-xs text-amber-700 dark:text-amber-300/90"
 };
-var _hoisted_111 = {
+var _hoisted_117 = {
   key: 1,
   class: "wa-empty relative z-10 flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"
 };
-var _hoisted_112 = {
+var _hoisted_118 = {
   class: "relative flex max-h-[94vh] w-full max-w-5xl flex-col items-center"
 };
-var _hoisted_113 = {
+var _hoisted_119 = {
   class: "mb-2 flex w-full items-center justify-between gap-3 px-1"
 };
-var _hoisted_114 = {
+var _hoisted_120 = {
   class: "truncate text-sm font-medium text-white/90"
 };
-var _hoisted_115 = ["src", "alt"];
-var _hoisted_116 = {
+var _hoisted_121 = ["src", "alt"];
+var _hoisted_122 = {
   class: "wa-app flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border shadow-2xl"
 };
-var _hoisted_117 = {
+var _hoisted_123 = {
   class: "wa-header flex items-center justify-between gap-3 border-b px-4 py-3"
 };
-var _hoisted_118 = {
+var _hoisted_124 = {
   class: "min-w-0"
 };
-var _hoisted_119 = {
+var _hoisted_125 = {
   class: "wa-title truncate text-sm font-semibold"
 };
-var _hoisted_120 = {
+var _hoisted_126 = {
   class: "wa-muted truncate text-xs"
 };
-var _hoisted_121 = {
+var _hoisted_127 = {
   class: "relative w-full bg-black/10",
   style: {
     "height": "min(58vh, 420px)"
   }
 };
-var _hoisted_122 = ["src"];
-var _hoisted_123 = {
+var _hoisted_128 = ["src"];
+var _hoisted_129 = {
   class: "wa-composer flex flex-wrap items-center gap-2 border-t px-4 py-3"
 };
-var _hoisted_124 = ["href"];
-var _hoisted_125 = {
+var _hoisted_130 = ["href"];
+var _hoisted_131 = {
   class: "wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl"
 };
-var _hoisted_126 = {
+var _hoisted_132 = {
   class: "wa-header flex items-center justify-between border-b px-4 py-3"
 };
-var _hoisted_127 = {
+var _hoisted_133 = {
   class: "wa-muted font-mono text-xs tabular-nums"
 };
-var _hoisted_128 = {
+var _hoisted_134 = {
   class: "wa-sidebar-body min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
 };
-var _hoisted_129 = {
+var _hoisted_135 = {
   key: 0,
   class: "mt-2 flex items-center justify-between gap-2 rounded-lg bg-black/5 px-3 py-2 dark:bg-white/5"
 };
-var _hoisted_130 = {
+var _hoisted_136 = {
   class: "wa-title min-w-0 truncate text-sm"
 };
-var _hoisted_131 = {
+var _hoisted_137 = {
   key: 0
 };
-var _hoisted_132 = {
+var _hoisted_138 = {
   key: 1,
   class: "mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-black/10 dark:border-white/10"
 };
-var _hoisted_133 = ["onClick"];
-var _hoisted_134 = {
+var _hoisted_139 = ["onClick"];
+var _hoisted_140 = {
   class: "min-w-0 truncate"
 };
-var _hoisted_135 = {
+var _hoisted_141 = {
   class: "wa-muted shrink-0 font-mono text-[11px]"
 };
-var _hoisted_136 = {
+var _hoisted_142 = {
   key: 2,
   class: "wa-muted mt-2 text-xs"
 };
-var _hoisted_137 = {
+var _hoisted_143 = {
   key: 3,
   class: "wa-muted mt-2 text-xs"
 };
-var _hoisted_138 = {
+var _hoisted_144 = {
   key: 0,
   class: "text-sm text-rose-600 dark:text-rose-300"
-};
-var _hoisted_139 = {
-  class: "wa-composer flex justify-end gap-2 border-t px-4 py-3"
-};
-var _hoisted_140 = ["disabled"];
-var _hoisted_141 = ["disabled"];
-var _hoisted_142 = {
-  class: "wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl"
-};
-var _hoisted_143 = {
-  class: "wa-header flex items-center justify-between border-b px-4 py-3"
-};
-var _hoisted_144 = {
-  class: "wa-muted text-xs"
 };
 var _hoisted_145 = {
+  class: "wa-composer flex justify-end gap-2 border-t px-4 py-3"
+};
+var _hoisted_146 = ["disabled"];
+var _hoisted_147 = ["disabled"];
+var _hoisted_148 = {
+  class: "wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl"
+};
+var _hoisted_149 = {
+  class: "wa-header flex items-center justify-between border-b px-4 py-3"
+};
+var _hoisted_150 = {
+  class: "wa-muted text-xs"
+};
+var _hoisted_151 = {
   class: "wa-sidebar-body min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
 };
-var _hoisted_146 = {
+var _hoisted_152 = {
   key: 0,
   class: "wa-muted text-sm"
 };
-var _hoisted_147 = {
+var _hoisted_153 = {
   class: "wa-title text-sm"
 };
-var _hoisted_148 = {
+var _hoisted_154 = {
   key: 0
 };
-var _hoisted_149 = ["value"];
-var _hoisted_150 = ["value"];
-var _hoisted_151 = {
+var _hoisted_155 = ["value"];
+var _hoisted_156 = ["value"];
+var _hoisted_157 = {
   key: 0,
   class: "text-sm text-rose-600 dark:text-rose-300"
 };
-var _hoisted_152 = {
+var _hoisted_158 = {
   class: "wa-composer flex justify-end gap-2 border-t px-4 py-3"
 };
-var _hoisted_153 = ["disabled"];
-var _hoisted_154 = ["disabled"];
-var _hoisted_155 = {
+var _hoisted_159 = ["disabled"];
+var _hoisted_160 = ["disabled"];
+var _hoisted_161 = {
   class: "wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl"
 };
-var _hoisted_156 = {
+var _hoisted_162 = {
   class: "wa-header flex items-center justify-between border-b px-4 py-3"
 };
-var _hoisted_157 = {
+var _hoisted_163 = {
   class: "wa-muted text-xs"
 };
-var _hoisted_158 = {
+var _hoisted_164 = {
   class: "wa-sidebar-body min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
 };
-var _hoisted_159 = {
+var _hoisted_165 = {
   key: 0,
   class: "wa-muted text-sm"
 };
-var _hoisted_160 = {
+var _hoisted_166 = {
   class: "flex items-start justify-between gap-2"
 };
-var _hoisted_161 = {
+var _hoisted_167 = {
   class: "wa-title text-sm"
 };
-var _hoisted_162 = {
+var _hoisted_168 = {
   key: 0
 };
-var _hoisted_163 = {
+var _hoisted_169 = {
   key: 0,
   class: "wa-muted mt-0.5 text-xs"
 };
-var _hoisted_164 = ["href"];
-var _hoisted_165 = {
+var _hoisted_170 = ["href"];
+var _hoisted_171 = {
   class: "mb-1 flex items-center justify-between gap-2"
 };
-var _hoisted_166 = {
+var _hoisted_172 = {
   class: "wa-muted text-[11px]"
 };
-var _hoisted_167 = {
+var _hoisted_173 = {
   key: 0,
   class: "rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-xs text-gray-500 dark:border-gray-600 dark:text-gray-400"
 };
-var _hoisted_168 = {
+var _hoisted_174 = {
   key: 1,
   class: "max-h-48 space-y-1.5 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-600"
 };
-var _hoisted_169 = ["value"];
-var _hoisted_170 = {
-  class: "min-w-0 flex-1 text-xs"
-};
-var _hoisted_171 = {
-  class: "wa-title font-medium"
-};
-var _hoisted_172 = {
-  class: "wa-muted"
-};
-var _hoisted_173 = {
-  class: "mt-0.5 block font-semibold text-emerald-700 dark:text-emerald-300"
-};
-var _hoisted_174 = {
-  class: "grid grid-cols-2 gap-3"
-};
 var _hoisted_175 = ["value"];
 var _hoisted_176 = {
+  class: "min-w-0 flex-1 text-xs"
+};
+var _hoisted_177 = {
+  class: "wa-title font-medium"
+};
+var _hoisted_178 = {
+  class: "wa-muted"
+};
+var _hoisted_179 = {
+  class: "mt-0.5 block font-semibold text-emerald-700 dark:text-emerald-300"
+};
+var _hoisted_180 = {
+  class: "grid grid-cols-2 gap-3"
+};
+var _hoisted_181 = ["value"];
+var _hoisted_182 = {
   key: 0,
   class: "text-sm text-rose-600 dark:text-rose-300"
 };
-var _hoisted_177 = {
+var _hoisted_183 = {
   key: 1,
   class: "text-sm text-emerald-700 dark:text-emerald-300"
 };
-var _hoisted_178 = ["href"];
-var _hoisted_179 = {
+var _hoisted_184 = ["href"];
+var _hoisted_185 = {
   class: "wa-composer flex justify-end gap-2 border-t px-4 py-3"
 };
-var _hoisted_180 = ["disabled"];
-var _hoisted_181 = ["disabled"];
-var _hoisted_182 = {
+var _hoisted_186 = ["disabled"];
+var _hoisted_187 = ["disabled"];
+var _hoisted_188 = {
   class: "fixed inset-0 z-[80] overflow-hidden",
   role: "dialog",
   "aria-modal": "true"
 };
-var _hoisted_183 = {
+var _hoisted_189 = {
   class: "absolute max-h-[90vh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:w-[calc(100vw-2rem)]",
   style: {
     "top": "50%",
@@ -30924,13 +31056,13 @@ var _hoisted_183 = {
     "transform": "translate(-50%, -50%)"
   }
 };
-var _hoisted_184 = {
+var _hoisted_190 = {
   class: "sticky top-0 z-10 flex cursor-default select-none items-center justify-between border-b border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-700/50"
 };
-var _hoisted_185 = {
+var _hoisted_191 = {
   class: "min-w-0 bg-white p-3 dark:bg-gray-800 sm:p-4"
 };
-var _hoisted_186 = {
+var _hoisted_192 = {
   key: 1,
   class: "p-4 text-sm text-gray-500"
 };
@@ -30953,7 +31085,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex min-h-0 flex-col md:flex-row", $data.pantallaCompleta ? 'min-h-0 flex-1' : 'min-h-[72vh] md:h-[min(82vh,900px)]'])
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Lista "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("aside", {
     class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["wa-sidebar flex min-h-0 w-full flex-col md:w-[380px] md:shrink-0 md:border-r", $data.telActivo ? 'hidden md:flex' : 'flex'])
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_1, [_cache[63] || (_cache[63] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"wa-me-avatar flex h-10 w-10 items-center justify-center rounded-full\"><svg class=\"h-6 w-6\" fill=\"currentColor\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V22h19.2v-2.8c0-3.2-6.4-4.8-9.6-4.8z\"></path></svg></div><div class=\"min-w-0 flex-1\"><p class=\"wa-title truncate text-sm font-medium\">Chats</p><p class=\"wa-muted truncate text-[11px]\">WhatsApp Business</p></div>", 2)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_1, [_cache[64] || (_cache[64] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"wa-me-avatar flex h-10 w-10 items-center justify-center rounded-full\"><svg class=\"h-6 w-6\" fill=\"currentColor\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V22h19.2v-2.8c0-3.2-6.4-4.8-9.6-4.8z\"></path></svg></div><div class=\"min-w-0 flex-1\"><p class=\"wa-title truncate text-sm font-medium\">Chats</p><p class=\"wa-muted truncate text-[11px]\">WhatsApp Business</p></div>", 2)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-lg p-1.5",
     title: $options.tituloPantallaCompleta,
@@ -30961,17 +31093,17 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: _cache[1] || (_cache[1] = function () {
       return $options.togglePantallaCompleta && $options.togglePantallaCompleta.apply($options, arguments);
     })
-  }, [!$data.pantallaCompleta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_3, _toConsumableArray(_cache[61] || (_cache[61] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [!$data.pantallaCompleta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_3, _toConsumableArray(_cache[62] || (_cache[62] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M4 8V4h4M4 4l5 5M20 8V4h-4M20 4l-5 5M4 16v4h4M4 20l5-5M20 16v4h-4M20 20l-5-5"
-  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_4, _toConsumableArray(_cache[62] || (_cache[62] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_4, _toConsumableArray(_cache[63] || (_cache[63] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M9 4v4H5M9 8L4 3M15 4v4h4M15 8l5-5M9 20v-4H5M9 16l-5 5M15 20v-4h4M15 16l5 5"
-  }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_2)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [_cache[64] || (_cache[64] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_2)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_5, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_6, [_cache[65] || (_cache[65] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "wa-muted pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
     fill: "none",
     stroke: "currentColor",
@@ -31016,7 +31148,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         return $options.filtrarAsunto(a.id);
       }
     }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(a.nombre), 13 /* TEXT, STYLE, PROPS */, _hoisted_8);
-  }), 128 /* KEYED_FRAGMENT */))]), _cache[65] || (_cache[65] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"wa-muted mt-2 flex flex-wrap gap-3 text-[10px]\"><span class=\"inline-flex items-center gap-1\"><span class=\"inline-block h-2 w-2 rounded-full bg-[#3b82f6]\"></span> Staff</span><span class=\"inline-flex items-center gap-1\"><span class=\"inline-block h-2 w-2 rounded-full bg-[#00a884]\"></span> Cliente</span><span class=\"inline-flex items-center gap-1\"><span class=\"inline-block h-2 w-2 rounded-full bg-[#f59e0b]\"></span> Pedido</span></div>", 1))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [$data.loadingLista && !$data.conversaciones.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_10, " Cargando... ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.conversaciones, function (conv) {
+  }), 128 /* KEYED_FRAGMENT */))]), _cache[66] || (_cache[66] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"wa-muted mt-2 flex flex-wrap gap-3 text-[10px]\"><span class=\"inline-flex items-center gap-1\"><span class=\"inline-block h-2 w-2 rounded-full bg-[#3b82f6]\"></span> Staff</span><span class=\"inline-flex items-center gap-1\"><span class=\"inline-block h-2 w-2 rounded-full bg-[#00a884]\"></span> Cliente</span><span class=\"inline-flex items-center gap-1\"><span class=\"inline-block h-2 w-2 rounded-full bg-[#f59e0b]\"></span> Pedido</span></div>", 1))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_9, [$data.loadingLista && !$data.conversaciones.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_10, " Cargando... ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.conversaciones, function (conv) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
       key: conv.telefono,
       type: "button",
@@ -31064,7 +31196,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: _cache[7] || (_cache[7] = function () {
       return $options.cerrarChat && $options.cerrarChat.apply($options, arguments);
     })
-  }, _toConsumableArray(_cache[66] || (_cache[66] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[67] || (_cache[67] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-5 w-5",
     fill: "none",
     stroke: "currentColor",
@@ -31095,7 +31227,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     key: 0
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.cliente_nombre), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.total || $data.mensajes.length) + " msgs ", 1 /* TEXT */), ($data.hiloMeta.fallidos || 0) > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [_cache[67] || (_cache[67] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_31, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.fallidos) + " fallido(s)", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_32, [$props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+  }, [_cache[68] || (_cache[68] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_31, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.fallidos) + " fallido(s)", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_32, [$props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
     key: 0,
     type: "button",
     class: "wa-chip rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-90",
@@ -31150,12 +31282,12 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: _cache[12] || (_cache[12] = function () {
       return $options.togglePantallaCompleta && $options.togglePantallaCompleta.apply($options, arguments);
     })
-  }, [!$data.pantallaCompleta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_40, _toConsumableArray(_cache[68] || (_cache[68] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, [!$data.pantallaCompleta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_40, _toConsumableArray(_cache[69] || (_cache[69] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M4 8V4h4M4 4l5 5M20 8V4h-4M20 4l-5 5M4 16v4h4M4 20l5-5M20 16v4h-4M20 20l-5-5"
-  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_41, _toConsumableArray(_cache[69] || (_cache[69] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+  }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_41, _toConsumableArray(_cache[70] || (_cache[70] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "stroke-width": "2",
@@ -31169,7 +31301,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onClick: _cache[13] || (_cache[13] = function () {
       return $options.eliminarChat && $options.eliminarChat.apply($options, arguments);
     })
-  }, _toConsumableArray(_cache[70] || (_cache[70] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[71] || (_cache[71] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-5 w-5",
     fill: "none",
     stroke: "currentColor",
@@ -31180,7 +31312,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-9 0h12"
-  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_42)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_43, [_cache[72] || (_cache[72] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_42)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_43, [_cache[73] || (_cache[73] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted shrink-0 text-[11px]"
   }, "Asunto", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
     class: "wa-input min-w-0 flex-1 rounded-lg border-0 px-2 py-1.5 text-xs focus:ring-1 focus:ring-[#00a884]",
@@ -31189,7 +31321,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onChange: _cache[14] || (_cache[14] = function () {
       return $options.onAsuntoChange && $options.onAsuntoChange.apply($options, arguments);
     })
-  }, [_cache[71] || (_cache[71] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+  }, [_cache[72] || (_cache[72] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: ""
   }, "Sin asunto", -1 /* CACHED */)), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.asuntos, function (a) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
@@ -31209,7 +31341,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex", m.direccion === 'salida' ? 'justify-end' : 'justify-start'])
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
       class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["wa-bubble relative max-w-[85%] px-2.5 py-1.5 shadow-sm sm:max-w-[65%]", [m.direccion === 'salida' ? 'wa-bubble-out' : 'wa-bubble-in', m.direccion === 'salida' && m.estado === 'fallido' ? 'wa-bubble-fail' : '']])
-    }, [m.direccion === 'salida' && m.estado === 'fallido' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_51, [_cache[73] || (_cache[73] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, "No enviado", -1 /* CACHED */)), (_m$fallo = m.fallo) !== null && _m$fallo !== void 0 && _m$fallo.codigo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_52, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.codigo), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.tipo !== 'text' && m.tipo !== 'unknown' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_53, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.tipo), 1 /* TEXT */), m.template_name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    }, [m.direccion === 'salida' && m.estado === 'fallido' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_51, [_cache[74] || (_cache[74] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, "No enviado", -1 /* CACHED */)), (_m$fallo = m.fallo) !== null && _m$fallo !== void 0 && _m$fallo.codigo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_52, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.codigo), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.tipo !== 'text' && m.tipo !== 'unknown' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_53, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.tipo), 1 /* TEXT */), m.template_name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.template_name), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.direccion === 'salida' && m.contexto_tipo === 'app_whatsapp' ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_54, " Desde app WhatsApp ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.tipo === 'audio' && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_55, [$data.mediaHydrating[m.id] && !$options.mediaSrc(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_56, "Cargando audio…")) : $options.mediaSrc(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("audio", {
       key: 1,
@@ -31220,7 +31352,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       style: {
         "height": "36px"
       }
-    }, null, 8 /* PROPS */, _hoisted_57)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_58, [_cache[74] || (_cache[74] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" No se pudo cargar el audio ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    }, null, 8 /* PROPS */, _hoisted_57)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_58, [_cache[75] || (_cache[75] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" No se pudo cargar el audio ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
       type: "button",
       class: "ml-1 underline",
       onClick: function onClick($event) {
@@ -31241,7 +31373,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onError: function onError($event) {
         return $options.onMediaImgError(m);
       }
-    }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_63)], 8 /* PROPS */, _hoisted_62)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_64, [_cache[75] || (_cache[75] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" No se pudo cargar la imagen ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_63)], 8 /* PROPS */, _hoisted_62)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_64, [_cache[76] || (_cache[76] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" No se pudo cargar la imagen ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
       type: "button",
       class: "ml-1 underline",
       onClick: function onClick($event) {
@@ -31262,13 +31394,13 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       }
     }, " Ver mapa aquí ", 8 /* PROPS */, _hoisted_72)])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_73, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.cuerpo || '-'), 1 /* TEXT */)), m.direccion === 'salida' && m.estado === 'fallido' && m.fallo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_74, [m.fallo.titulo || m.fallo.mensaje ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_75, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.titulo || 'Error Meta') + " ", 1 /* TEXT */), m.fallo.mensaje && m.fallo.mensaje !== m.fallo.titulo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" - " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.mensaje), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.detalle ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_76, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.detalle), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.tip ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_77, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.tip), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("details", _hoisted_78, [_cache[81] || (_cache[81] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("summary", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" - " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.mensaje), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.detalle ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_76, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.detalle), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.tip ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_77, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.fallo.tip), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("details", _hoisted_78, [_cache[82] || (_cache[82] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("summary", {
       class: "cursor-pointer select-none text-[10px] opacity-80 hover:opacity-100"
-    }, "Ver más detalle", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dl", _hoisted_79, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[76] || (_cache[76] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dt", {
+    }, "Ver más detalle", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dl", _hoisted_79, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[77] || (_cache[77] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dt", {
       class: "inline"
-    }, "id:", -1 /* CACHED */)), _cache[77] || (_cache[77] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)()), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dd", _hoisted_80, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.id), 1 /* TEXT */)]), m.wamid ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_81, [_cache[78] || (_cache[78] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dt", {
+    }, "id:", -1 /* CACHED */)), _cache[78] || (_cache[78] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)()), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dd", _hoisted_80, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.id), 1 /* TEXT */)]), m.wamid ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_81, [_cache[79] || (_cache[79] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dt", {
       class: "inline"
-    }, "wamid:", -1 /* CACHED */)), _cache[79] || (_cache[79] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)()), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dd", _hoisted_82, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.wamid), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.template_name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_83, [_cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dt", {
+    }, "wamid:", -1 /* CACHED */)), _cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)()), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dd", _hoisted_82, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.wamid), 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.template_name ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_83, [_cache[81] || (_cache[81] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dt", {
       class: "inline"
     }, "plantilla:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("dd", _hoisted_84, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.template_name) + " (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.template_language || '-') + ")", 1 /* TEXT */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), m.fallo.href_doc ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_85, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
       href: m.fallo.href_doc,
@@ -31284,7 +31416,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: function onClick($event) {
         return $options.eliminarMensaje(m);
       }
-    }, _toConsumableArray(_cache[82] || (_cache[82] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+    }, _toConsumableArray(_cache[83] || (_cache[83] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
       class: "h-3.5 w-3.5",
       fill: "none",
       stroke: "currentColor",
@@ -31316,46 +31448,56 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.ticks(m.estado)), 11 /* TEXT, CLASS, PROPS */, _hoisted_92)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 2 /* CLASS */)], 2 /* CLASS */)], 64 /* STABLE_FRAGMENT */);
   }), 128 /* KEYED_FRAGMENT */)), !$data.loadingHilo && !$data.mensajes.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_93, " Sin mensajes en este chat. ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 512 /* NEED_PATCH */), $props.puedeEditar && $props.configured ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 2
-  }, [$data.hiloMeta.fuera_ventana ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_94, [_cache[83] || (_cache[83] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Fuera de ventana 24 h: el texto libre va a fallar. ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
+  }, [$data.hiloMeta.fuera_ventana ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_94, [_cache[84] || (_cache[84] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Fuera de ventana 24 h: el texto libre va a fallar. ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
     href: $options.plantillaUrl($data.telActivo),
     class: "font-semibold underline"
-  }, "Enviar con plantilla APPROVED", 8 /* PROPS */, _hoisted_95)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $options.sugerenciaIa && $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_96, [_cache[84] || (_cache[84] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Enviar con plantilla APPROVED", 8 /* PROPS */, _hoisted_95)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $options.sugerenciaIa && $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_96, [_cache[85] || (_cache[85] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "font-semibold"
-  }, "Sugerencia IA — no enviada. Revisá y mandá cuando esté bien.", -1 /* CACHED */)), $options.sugerenciaIa.escalate ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_97, "La IA sugiere derivar a un asesor" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.sugerenciaIa.motivo_escalado ? ' (' + $options.sugerenciaIa.motivo_escalado + ')' : '') + ".", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_98, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Sugerencia IA — no enviada. Revisá y mandá cuando esté bien.", -1 /* CACHED */)), $options.sugerenciaIa.escalate ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_97, "La IA sugiere derivar a un asesor" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.sugerenciaIa.motivo_escalado ? ' (' + $options.sugerenciaIa.motivo_escalado + ')' : '') + ".", 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $options.sugerenciaIa.reply ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_98, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.sugerenciaIa.reply), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_99, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "rounded-full bg-[#16a34a] px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-40",
-    disabled: !$options.puedeEnviarSugerencia,
+    disabled: !$options.puedeEnviarSugerencia || $data.regenerandoSugerencia,
     onClick: _cache[15] || (_cache[15] = function () {
       return $options.enviarTexto && $options.enviarTexto.apply($options, arguments);
     })
-  }, "Enviar sugerencia", 8 /* PROPS */, _hoisted_99), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Enviar sugerencia", 8 /* PROPS */, _hoisted_100), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
-    class: "rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900",
+    class: "rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900 disabled:opacity-40",
+    disabled: $data.regenerandoSugerencia || !$props.urls.regenerarSugerenciaIa,
     onClick: _cache[16] || (_cache[16] = function () {
+      return $options.regenerarSugerencia && $options.regenerarSugerencia.apply($options, arguments);
+    })
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.regenerandoSugerencia ? 'Regenerando…' : 'Regenerar'), 9 /* TEXT, PROPS */, _hoisted_101), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900 disabled:opacity-40",
+    disabled: $data.regenerandoSugerencia,
+    onClick: _cache[17] || (_cache[17] = function () {
       return $options.descartarSugerencia && $options.descartarSugerencia.apply($options, arguments);
     })
-  }, "Descartar")])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
+  }, "Descartar", 8 /* PROPS */, _hoisted_102)]), $data.errorRegenerarSugerencia ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_103, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.errorRegenerarSugerencia), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : ($options.esperandoSugerenciaIa || $data.regenerandoSugerencia) && $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_104, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_105, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.regenerandoSugerencia ? 'Regenerando sugerencia…' : 'Generando sugerencia…'), 1 /* TEXT */), _cache[86] || (_cache[86] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "mt-0.5 opacity-80"
+  }, "El borrador aparece acá en unos segundos. No hace falta refrescar.", -1 /* CACHED */))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     class: "wa-composer relative z-10 border-t px-3 py-2.5",
-    onSubmit: _cache[23] || (_cache[23] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onSubmit: _cache[24] || (_cache[24] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.enviarTexto && $options.enviarTexto.apply($options, arguments);
     }, ["prevent"]))
-  }, [$data.adjuntoPendiente ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_100, [$data.adjuntoPendiente.previewUrl ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("img", {
+  }, [$data.adjuntoPendiente ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_106, [$data.adjuntoPendiente.previewUrl ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("img", {
     key: 0,
     src: $data.adjuntoPendiente.previewUrl,
     alt: "",
     class: "h-10 w-10 rounded object-cover"
-  }, null, 8 /* PROPS */, _hoisted_101)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_102, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_103, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.adjuntoPendiente.name), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_104, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.adjuntoPendiente.label) + " · el texto se envía como pie", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 8 /* PROPS */, _hoisted_107)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_108, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_109, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.adjuntoPendiente.name), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_110, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.adjuntoPendiente.label) + " · el texto se envía como pie", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-xs",
-    onClick: _cache[17] || (_cache[17] = function () {
+    onClick: _cache[18] || (_cache[18] = function () {
       return $options.quitarAdjunto && $options.quitarAdjunto.apply($options, arguments);
     })
-  }, "Quitar")])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_105, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+  }, "Quitar")])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_111, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     ref: "fileInput",
     type: "file",
     class: "hidden",
     accept: "image/jpeg,image/png,image/jpg,.pdf,application/pdf,video/mp4,audio/*,.doc,.docx,.xls,.xlsx,.txt",
-    onChange: _cache[18] || (_cache[18] = function () {
+    onChange: _cache[19] || (_cache[19] = function () {
       return $options.onAdjuntoSeleccionado && $options.onAdjuntoSeleccionado.apply($options, arguments);
     })
   }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
@@ -31363,10 +31505,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "wa-icon-btn inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full disabled:opacity-40",
     disabled: $data.hiloMeta.fuera_ventana || $data.enviando,
     title: "Adjuntar imagen, PDF u otro archivo",
-    onClick: _cache[19] || (_cache[19] = function () {
+    onClick: _cache[20] || (_cache[20] = function () {
       return $options.abrirSelectorAdjunto && $options.abrirSelectorAdjunto.apply($options, arguments);
     })
-  }, _toConsumableArray(_cache[85] || (_cache[85] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[87] || (_cache[87] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-5 w-5",
     fill: "none",
     stroke: "currentColor",
@@ -31376,9 +31518,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     d: "M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_106), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
+  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_112), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
     ref: "composerInput",
-    "onUpdate:modelValue": _cache[20] || (_cache[20] = function ($event) {
+    "onUpdate:modelValue": _cache[21] || (_cache[21] = function ($event) {
       return $data.texto = $event;
     }),
     rows: "1",
@@ -31387,101 +31529,101 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     autocomplete: "off",
     class: "wa-input max-h-28 min-h-[42px] flex-1 resize-none rounded-lg border-0 px-3 py-2.5 text-[15px] focus:ring-0 disabled:opacity-50",
     disabled: $data.hiloMeta.fuera_ventana,
-    onInput: _cache[21] || (_cache[21] = function () {
+    onInput: _cache[22] || (_cache[22] = function () {
       return $options.onComposerInput && $options.onComposerInput.apply($options, arguments);
     }),
-    onKeydown: _cache[22] || (_cache[22] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withKeys)((0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onKeydown: _cache[23] || (_cache[23] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withKeys)((0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.enviarTexto && $options.enviarTexto.apply($options, arguments);
     }, ["exact", "prevent"]), ["enter"]))
-  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_107), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.texto]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_113), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.texto]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "submit",
     class: "wa-send inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full disabled:opacity-40",
     disabled: $data.hiloMeta.fuera_ventana || $data.enviando || !$data.texto.trim() && !$data.adjuntoPendiente,
     title: $data.hiloMeta.fuera_ventana ? 'Fuera de ventana 24h' : 'Enviar (Enter)'
-  }, _toConsumableArray(_cache[86] || (_cache[86] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[88] || (_cache[88] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-5 w-5",
     fill: "currentColor",
     viewBox: "0 0 24 24"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
     d: "M1.101 21.757L23.8 12.017 1.101 2.276 1.1 10.01l15.4 2.007-15.4 2.007z"
-  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_108)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_109, [$data.hiloMeta.fuera_ventana ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_114)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_115, [$data.hiloMeta.fuera_ventana ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Usá una plantilla aprobada para contactar de nuevo.")], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Enter envía · clip para imagen/PDF · Shift+Enter nueva línea")], 64 /* STABLE_FRAGMENT */))])], 32 /* NEED_HYDRATION */)], 64 /* STABLE_FRAGMENT */)) : $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_110, " WhatsApp no configurado: no se puede responder desde aquí. ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_111, _toConsumableArray(_cache[87] || (_cache[87] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"wa-empty-icon flex h-20 w-20 items-center justify-center rounded-full\"><svg class=\"h-10 w-10\" fill=\"currentColor\" viewBox=\"0 0 24 24\"><path d=\"M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z\"></path></svg></div><p class=\"wa-title text-2xl font-light\">Infinity WhatsApp</p><p class=\"wa-muted max-w-sm text-sm\">Elegí un chat de la lista para ver la conversación.</p>", 3)]))))], 2 /* CLASS */)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Visor de imagen (dentro del chat) "), $data.modalImagen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Enter envía · clip para imagen/PDF · Shift+Enter nueva línea")], 64 /* STABLE_FRAGMENT */))])], 32 /* NEED_HYDRATION */)], 64 /* STABLE_FRAGMENT */)) : $props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_116, " WhatsApp no configurado: no se puede responder desde aquí. ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_117, _toConsumableArray(_cache[89] || (_cache[89] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createStaticVNode)("<div class=\"wa-empty-icon flex h-20 w-20 items-center justify-center rounded-full\"><svg class=\"h-10 w-10\" fill=\"currentColor\" viewBox=\"0 0 24 24\"><path d=\"M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z\"></path></svg></div><p class=\"wa-title text-2xl font-light\">Infinity WhatsApp</p><p class=\"wa-muted max-w-sm text-sm\">Elegí un chat de la lista para ver la conversación.</p>", 3)]))))], 2 /* CLASS */)], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Visor de imagen (dentro del chat) "), $data.modalImagen ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 1,
     class: "fixed inset-0 z-[85] flex items-center justify-center bg-black/80 p-3",
-    onClick: _cache[25] || (_cache[25] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onClick: _cache[26] || (_cache[26] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.cerrarModalImagen && $options.cerrarModalImagen.apply($options, arguments);
     }, ["self"])),
-    onKeydown: _cache[26] || (_cache[26] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withKeys)((0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onKeydown: _cache[27] || (_cache[27] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withKeys)((0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.cerrarModalImagen && $options.cerrarModalImagen.apply($options, arguments);
     }, ["prevent"]), ["esc"]))
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_112, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_113, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_114, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalImagen.caption || 'Imagen'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_118, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_119, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_120, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalImagen.caption || 'Imagen'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "rounded-full bg-white/15 px-3 py-1 text-sm text-white hover:bg-white/25",
-    onClick: _cache[24] || (_cache[24] = function () {
+    onClick: _cache[25] || (_cache[25] = function () {
       return $options.cerrarModalImagen && $options.cerrarModalImagen.apply($options, arguments);
     })
   }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("img", {
     src: $data.modalImagen.url,
     alt: $data.modalImagen.caption || 'Imagen',
     class: "max-h-[86vh] max-w-full rounded-lg object-contain shadow-2xl"
-  }, null, 8 /* PROPS */, _hoisted_115)])], 32 /* NEED_HYDRATION */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal mapa GPS "), $data.modalMapa ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+  }, null, 8 /* PROPS */, _hoisted_121)])], 32 /* NEED_HYDRATION */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal mapa GPS "), $data.modalMapa ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 2,
     class: "fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3",
-    onClick: _cache[30] || (_cache[30] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onClick: _cache[31] || (_cache[31] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.cerrarModalMapa && $options.cerrarModalMapa.apply($options, arguments);
     }, ["self"]))
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_116, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_117, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_118, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_119, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalMapa.nombre || 'Ubicación'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_120, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalMapa.direccion || "".concat($data.modalMapa.lat, ", ").concat($data.modalMapa.lng)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_122, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_123, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_124, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_125, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalMapa.nombre || 'Ubicación'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_126, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalMapa.direccion || "".concat($data.modalMapa.lat, ", ").concat($data.modalMapa.lng)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
-    onClick: _cache[27] || (_cache[27] = function () {
+    onClick: _cache[28] || (_cache[28] = function () {
       return $options.cerrarModalMapa && $options.cerrarModalMapa.apply($options, arguments);
     })
-  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_121, [$data.modalMapa.embed ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("iframe", {
+  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_127, [$data.modalMapa.embed ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("iframe", {
     key: 0,
     src: $data.modalMapa.embed,
     class: "absolute inset-0 h-full w-full border-0",
     loading: "lazy",
     referrerpolicy: "no-referrer-when-downgrade",
     title: "Mapa"
-  }, null, 8 /* PROPS */, _hoisted_122)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_123, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
+  }, null, 8 /* PROPS */, _hoisted_128)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_129, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", {
     href: $data.modalMapa.url,
     target: "_blank",
     rel: "noopener",
     class: "wa-accent rounded-lg px-3 py-1.5 text-xs font-semibold underline"
-  }, "Abrir en Google Maps", 8 /* PROPS */, _hoisted_124), $props.puedeCrearPedido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+  }, "Abrir en Google Maps", 8 /* PROPS */, _hoisted_130), $props.puedeCrearPedido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
     key: 0,
     type: "button",
     class: "wa-chip wa-chip-on rounded-lg px-3 py-1.5 text-xs font-semibold",
-    onClick: _cache[28] || (_cache[28] = function () {
+    onClick: _cache[29] || (_cache[29] = function () {
       return $options.usarMapaEnPedido && $options.usarMapaEnPedido.apply($options, arguments);
     })
   }, "Usar en pedido")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip rounded-lg px-3 py-1.5 text-xs",
-    onClick: _cache[29] || (_cache[29] = function () {
+    onClick: _cache[30] || (_cache[30] = function () {
       return $options.cerrarModalMapa && $options.cerrarModalMapa.apply($options, arguments);
     })
   }, "Listo")])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal guardar contacto / vincular cliente "), $data.modalContacto ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 3,
     class: "fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3",
-    onClick: _cache[38] || (_cache[38] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onClick: _cache[39] || (_cache[39] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.cerrarModalContacto && $options.cerrarModalContacto.apply($options, arguments);
     }, ["self"]))
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_125, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_126, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[88] || (_cache[88] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_131, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_132, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[90] || (_cache[90] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-title text-sm font-semibold"
-  }, "Guardar contacto", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_127, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Guardar contacto", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_133, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)), 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
-    onClick: _cache[31] || (_cache[31] = function () {
+    onClick: _cache[32] || (_cache[32] = function () {
       return $options.cerrarModalContacto && $options.cerrarModalContacto.apply($options, arguments);
     })
-  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_128, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[89] || (_cache[89] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_134, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[91] || (_cache[91] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Nombre en WhatsApp", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    "onUpdate:modelValue": _cache[32] || (_cache[32] = function ($event) {
+    "onUpdate:modelValue": _cache[33] || (_cache[33] = function ($event) {
       return $data.contactoForm.nombre = $event;
     }),
     type: "text",
@@ -31489,28 +31631,28 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm",
     placeholder: "Ej: Juan Pérez",
     autocomplete: "off"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.contactoForm.nombre]]), _cache[90] || (_cache[90] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.contactoForm.nombre]]), _cache[92] || (_cache[92] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-muted mt-1 text-[11px]"
-  }, "Solo afecta el contacto del panel; no cambia el cliente ISP.", -1 /* CACHED */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[91] || (_cache[91] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Solo afecta el contacto del panel; no cambia el cliente ISP.", -1 /* CACHED */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[93] || (_cache[93] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Vincular a cliente existente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    "onUpdate:modelValue": _cache[33] || (_cache[33] = function ($event) {
+    "onUpdate:modelValue": _cache[34] || (_cache[34] = function ($event) {
       return $data.contactoForm.buscar = $event;
     }),
     type: "search",
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm",
     placeholder: "Buscar por nombre, cédula o ID…",
     autocomplete: "off",
-    onInput: _cache[34] || (_cache[34] = function () {
+    onInput: _cache[35] || (_cache[35] = function () {
       return $options.onBuscarClienteContacto && $options.onBuscarClienteContacto.apply($options, arguments);
     })
-  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.contactoForm.buscar]]), $data.contactoForm.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_129, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_130, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.contactoForm.cliente_id) + " ", 1 /* TEXT */), $data.contactoForm.cliente_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_131, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.contactoForm.cliente_label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 544 /* NEED_HYDRATION, NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.contactoForm.buscar]]), $data.contactoForm.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_135, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_136, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.contactoForm.cliente_id) + " ", 1 /* TEXT */), $data.contactoForm.cliente_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_137, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.contactoForm.cliente_label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-muted shrink-0 text-xs underline",
-    onClick: _cache[35] || (_cache[35] = function () {
+    onClick: _cache[36] || (_cache[36] = function () {
       return $options.limpiarClienteContacto && $options.limpiarClienteContacto.apply($options, arguments);
     })
-  }, "Quitar")])) : $data.contactoClientes.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_132, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.contactoClientes, function (c) {
+  }, "Quitar")])) : $data.contactoClientes.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_138, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.contactoClientes, function (c) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
       key: c.cliente_id
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
@@ -31519,163 +31661,163 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: function onClick($event) {
         return $options.elegirClienteContacto(c);
       }
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_134, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_135, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.cliente_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.cedula || '—'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_133)]);
-  }), 128 /* KEYED_FRAGMENT */))])) : $data.contactoForm.buscar.trim().length >= 2 && !$data.contactoBuscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_136, "Sin resultados.")) : $data.contactoBuscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_137, "Buscando…")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $data.modalError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_138, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_139, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_140, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.nombre) + " " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.apellido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_141, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.cliente_id) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(c.cedula || '—'), 1 /* TEXT */)], 8 /* PROPS */, _hoisted_139)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : $data.contactoForm.buscar.trim().length >= 2 && !$data.contactoBuscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_142, "Sin resultados.")) : $data.contactoBuscando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_143, "Buscando…")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $data.modalError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_144, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_145, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip rounded-lg px-3 py-1.5 text-xs",
     disabled: $data.guardandoContacto,
-    onClick: _cache[36] || (_cache[36] = function () {
+    onClick: _cache[37] || (_cache[37] = function () {
       return $options.cerrarModalContacto && $options.cerrarModalContacto.apply($options, arguments);
     })
-  }, "Cancelar", 8 /* PROPS */, _hoisted_140), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Cancelar", 8 /* PROPS */, _hoisted_146), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip wa-chip-on rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
     disabled: $data.guardandoContacto || !$options.puedeGuardarContacto,
-    onClick: _cache[37] || (_cache[37] = function () {
+    onClick: _cache[38] || (_cache[38] = function () {
       return $options.guardarContacto && $options.guardarContacto.apply($options, arguments);
     })
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.guardandoContacto ? 'Guardando…' : 'Guardar'), 9 /* TEXT, PROPS */, _hoisted_141)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal ticket rápido "), $data.modalTicket ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.guardandoContacto ? 'Guardando…' : 'Guardar'), 9 /* TEXT, PROPS */, _hoisted_147)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal ticket rápido "), $data.modalTicket ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 4,
     class: "fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3",
-    onClick: _cache[46] || (_cache[46] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onClick: _cache[47] || (_cache[47] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.cerrarModalTicket && $options.cerrarModalTicket.apply($options, arguments);
     }, ["self"]))
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_142, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_143, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[92] || (_cache[92] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_148, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_149, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[94] || (_cache[94] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-title text-sm font-semibold"
-  }, "Ticket rápido", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_144, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Ticket rápido", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_150, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
-    onClick: _cache[39] || (_cache[39] = function () {
+    onClick: _cache[40] || (_cache[40] = function () {
       return $options.cerrarModalTicket && $options.cerrarModalTicket.apply($options, arguments);
     })
-  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_145, [$data.metaCargando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_146, "Cargando datos...")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_151, [$data.metaCargando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_152, "Cargando datos...")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[93] || (_cache[93] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[95] || (_cache[95] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
-  }, "Cliente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_147, [$data.ticketForm.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, "Cliente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_153, [$data.ticketForm.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.ticketForm.cliente_id) + " ", 1 /* TEXT */), $data.ticketForm.cliente_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_148, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.ticketForm.cliente_label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.ticketForm.cliente_id) + " ", 1 /* TEXT */), $data.ticketForm.cliente_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_154, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.ticketForm.cliente_label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Sin cliente vinculado (se crea igual)")], 64 /* STABLE_FRAGMENT */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[95] || (_cache[95] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Sin cliente vinculado (se crea igual)")], 64 /* STABLE_FRAGMENT */))])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[97] || (_cache[97] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Asunto *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
-    "onUpdate:modelValue": _cache[40] || (_cache[40] = function ($event) {
+    "onUpdate:modelValue": _cache[41] || (_cache[41] = function ($event) {
       return $data.ticketForm.ticket_asunto_id = $event;
     }),
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm"
-  }, [_cache[94] || (_cache[94] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+  }, [_cache[96] || (_cache[96] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: ""
   }, "Elegir asunto", -1 /* CACHED */)), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.ticketAsuntos, function (a) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
       key: a.id,
       value: a.id
-    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(a.nombre), 9 /* TEXT, PROPS */, _hoisted_149);
-  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.ticketForm.ticket_asunto_id]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[97] || (_cache[97] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(a.nombre), 9 /* TEXT, PROPS */, _hoisted_155);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.ticketForm.ticket_asunto_id]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[99] || (_cache[99] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Prioridad", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
-    "onUpdate:modelValue": _cache[41] || (_cache[41] = function ($event) {
+    "onUpdate:modelValue": _cache[42] || (_cache[42] = function ($event) {
       return $data.ticketForm.prioridad = $event;
     }),
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm"
-  }, _toConsumableArray(_cache[96] || (_cache[96] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+  }, _toConsumableArray(_cache[98] || (_cache[98] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: "baja"
   }, "Baja", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: "media"
   }, "Media", -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: "alta"
-  }, "Alta", -1 /* CACHED */)])), 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.ticketForm.prioridad]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[99] || (_cache[99] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Alta", -1 /* CACHED */)])), 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.ticketForm.prioridad]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[101] || (_cache[101] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Asignar a", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
-    "onUpdate:modelValue": _cache[42] || (_cache[42] = function ($event) {
+    "onUpdate:modelValue": _cache[43] || (_cache[43] = function ($event) {
       return $data.ticketForm.asignado_id = $event;
     }),
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm"
-  }, [_cache[98] || (_cache[98] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+  }, [_cache[100] || (_cache[100] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
     value: ""
   }, "Sin asignar", -1 /* CACHED */)), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.tecnicos, function (t) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
       key: t.id,
       value: t.id
-    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre), 9 /* TEXT, PROPS */, _hoisted_150);
-  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.ticketForm.asignado_id]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[100] || (_cache[100] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre), 9 /* TEXT, PROPS */, _hoisted_156);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.ticketForm.asignado_id]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[102] || (_cache[102] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Descripción", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
-    "onUpdate:modelValue": _cache[43] || (_cache[43] = function ($event) {
+    "onUpdate:modelValue": _cache[44] || (_cache[44] = function ($event) {
       return $data.ticketForm.descripcion = $event;
     }),
     rows: "4",
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm",
     placeholder: "Detalle del problema..."
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.ticketForm.descripcion]])]), $data.modalError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_151, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_152, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.ticketForm.descripcion]])]), $data.modalError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_157, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_158, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip rounded-lg px-3 py-1.5 text-xs",
     disabled: $data.guardandoRapido,
-    onClick: _cache[44] || (_cache[44] = function () {
+    onClick: _cache[45] || (_cache[45] = function () {
       return $options.cerrarModalTicket && $options.cerrarModalTicket.apply($options, arguments);
     })
-  }, "Cancelar", 8 /* PROPS */, _hoisted_153), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Cancelar", 8 /* PROPS */, _hoisted_159), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip wa-chip-on rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
     disabled: $data.guardandoRapido || $data.metaCargando || !$data.ticketForm.ticket_asunto_id,
-    onClick: _cache[45] || (_cache[45] = function () {
+    onClick: _cache[46] || (_cache[46] = function () {
       return $options.guardarTicketRapido && $options.guardarTicketRapido.apply($options, arguments);
     })
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.guardandoRapido ? 'Guardando...' : 'Crear ticket'), 9 /* TEXT, PROPS */, _hoisted_154)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal cobro rápido "), $data.modalCobro ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.guardandoRapido ? 'Guardando...' : 'Crear ticket'), 9 /* TEXT, PROPS */, _hoisted_160)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal cobro rápido "), $data.modalCobro ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 5,
     class: "fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3",
-    onClick: _cache[58] || (_cache[58] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
+    onClick: _cache[59] || (_cache[59] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {
       return $options.cerrarModalCobro && $options.cerrarModalCobro.apply($options, arguments);
     }, ["self"]))
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_155, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_156, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[101] || (_cache[101] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_161, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_162, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[103] || (_cache[103] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "wa-title text-sm font-semibold"
-  }, "Registrar pago", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_157, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Registrar pago", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_163, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatoTelefono($data.telActivo)) + " · sin salir del chat", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-icon-btn rounded-full px-2 py-1 text-sm",
-    onClick: _cache[47] || (_cache[47] = function () {
+    onClick: _cache[48] || (_cache[48] = function () {
       return $options.cerrarModalCobro && $options.cerrarModalCobro.apply($options, arguments);
     })
-  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_158, [$data.metaCargando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_159, "Cargando facturas...")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, "Cerrar")]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_164, [$data.metaCargando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_165, "Cargando facturas...")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_160, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[102] || (_cache[102] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_166, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[104] || (_cache[104] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
-  }, "Cliente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_161, [$data.cobroForm.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, "Cliente", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_167, [$data.cobroForm.cliente_id ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroForm.cliente_id) + " ", 1 /* TEXT */), $data.cobroForm.cliente_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_162, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroForm.cliente_label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" #" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroForm.cliente_id) + " ", 1 /* TEXT */), $data.cobroForm.cliente_label ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("span", _hoisted_168, " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroForm.cliente_label), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Sin cliente vinculado")], 64 /* STABLE_FRAGMENT */))]), $data.cobroForm.cedula ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_163, "CI/RUC: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroForm.cedula), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $data.cobroForm.cliente_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Sin cliente vinculado")], 64 /* STABLE_FRAGMENT */))]), $data.cobroForm.cedula ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_169, "CI/RUC: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroForm.cedula), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), $data.cobroForm.cliente_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
     key: 0,
     href: $data.cobroForm.cliente_url,
     target: "_blank",
     rel: "noopener",
     class: "wa-accent shrink-0 text-xs font-medium"
-  }, "Ver cuenta", 8 /* PROPS */, _hoisted_164)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_165, [_cache[103] || (_cache[103] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Ver cuenta", 8 /* PROPS */, _hoisted_170)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_171, [_cache[105] || (_cache[105] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted text-[11px]"
-  }, "Facturas pendientes", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_166, "Total: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatGs($data.cobroTotalPendiente)), 1 /* TEXT */)]), !$data.cobroFacturas.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_167, " No hay facturas con saldo pendiente. ")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_168, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.cobroFacturas, function (f) {
+  }, "Facturas pendientes", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_172, "Total: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatGs($data.cobroTotalPendiente)), 1 /* TEXT */)]), !$data.cobroFacturas.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_173, " No hay facturas con saldo pendiente. ")) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_174, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.cobroFacturas, function (f) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("label", {
       key: f.id,
       class: "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5"
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-      "onUpdate:modelValue": _cache[48] || (_cache[48] = function ($event) {
+      "onUpdate:modelValue": _cache[49] || (_cache[49] = function ($event) {
         return $data.cobroForm.factura_ids = $event;
       }),
       type: "checkbox",
       class: "mt-1",
       value: f.id,
-      onChange: _cache[49] || (_cache[49] = function () {
+      onChange: _cache[50] || (_cache[50] = function () {
         return $options.onCobroFacturasChange && $options.onCobroFacturasChange.apply($options, arguments);
       })
-    }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_169), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $data.cobroForm.factura_ids]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_170, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_171, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(f.id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_172, " · vence " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(f.fecha_vencimiento || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_173, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatGs(f.saldo_pendiente)), 1 /* TEXT */)])]);
+    }, null, 40 /* PROPS, NEED_HYDRATION */, _hoisted_175), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $data.cobroForm.factura_ids]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_176, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_177, "#" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(f.id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_178, " · vence " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(f.fecha_vencimiento || '—'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_179, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatGs(f.saldo_pendiente)), 1 /* TEXT */)])]);
   }), 128 /* KEYED_FRAGMENT */))])), $data.cobroFacturas.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
     key: 2,
     type: "button",
     class: "wa-muted mt-1 text-[11px] underline",
-    onClick: _cache[50] || (_cache[50] = function () {
+    onClick: _cache[51] || (_cache[51] = function () {
       return $options.seleccionarTodasFacturasCobro && $options.seleccionarTodasFacturasCobro.apply($options, arguments);
     })
-  }, "Seleccionar todas")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_174, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[104] || (_cache[104] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, "Seleccionar todas")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_180, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[106] || (_cache[106] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Monto *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    "onUpdate:modelValue": _cache[51] || (_cache[51] = function ($event) {
+    "onUpdate:modelValue": _cache[52] || (_cache[52] = function ($event) {
       return $data.cobroForm.monto = $event;
     }),
     type: "number",
@@ -31684,18 +31826,18 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm"
   }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.monto, void 0, {
     number: true
-  }]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[105] || (_cache[105] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[107] || (_cache[107] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Fecha *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    "onUpdate:modelValue": _cache[52] || (_cache[52] = function ($event) {
+    "onUpdate:modelValue": _cache[53] || (_cache[53] = function ($event) {
       return $data.cobroForm.fecha_pago = $event;
     }),
     type: "date",
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.fecha_pago]])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[106] || (_cache[106] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.fecha_pago]])])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[108] || (_cache[108] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Forma de pago *", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
-    "onUpdate:modelValue": _cache[53] || (_cache[53] = function ($event) {
+    "onUpdate:modelValue": _cache[54] || (_cache[54] = function ($event) {
       return $data.cobroForm.forma_pago = $event;
     }),
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm"
@@ -31703,53 +31845,53 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
       key: key,
       value: key
-    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(label), 9 /* TEXT, PROPS */, _hoisted_175);
-  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.cobroForm.forma_pago]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[107] || (_cache[107] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(label), 9 /* TEXT, PROPS */, _hoisted_181);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.cobroForm.forma_pago]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[109] || (_cache[109] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Referencia", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
-    "onUpdate:modelValue": _cache[54] || (_cache[54] = function ($event) {
+    "onUpdate:modelValue": _cache[55] || (_cache[55] = function ($event) {
       return $data.cobroForm.referencia = $event;
     }),
     type: "text",
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm",
     placeholder: "Nº transferencia / cheque…"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.referencia]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[108] || (_cache[108] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.referencia]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[110] || (_cache[110] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", {
     class: "wa-muted mb-1 block text-[11px]"
   }, "Observaciones", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("textarea", {
-    "onUpdate:modelValue": _cache[55] || (_cache[55] = function ($event) {
+    "onUpdate:modelValue": _cache[56] || (_cache[56] = function ($event) {
       return $data.cobroForm.observaciones = $event;
     }),
     rows: "2",
     class: "wa-input w-full rounded-lg border-0 px-3 py-2 text-sm",
     placeholder: "Notas del pago…"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.observaciones]])]), $data.modalError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_176, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $data.cobroResultado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_177, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroResultado.message) + " ", 1 /* TEXT */), $data.cobroResultado.url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.cobroForm.observaciones]])]), $data.modalError ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_182, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.modalError), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $data.cobroResultado ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_183, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.cobroResultado.message) + " ", 1 /* TEXT */), $data.cobroResultado.url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
     key: 0,
     href: $data.cobroResultado.url,
     target: "_blank",
     class: "ml-1 underline"
-  }, "Ver recibo", 8 /* PROPS */, _hoisted_178)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_179, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Ver recibo", 8 /* PROPS */, _hoisted_184)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_185, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip rounded-lg px-3 py-1.5 text-xs",
     disabled: $data.guardandoRapido,
-    onClick: _cache[56] || (_cache[56] = function () {
+    onClick: _cache[57] || (_cache[57] = function () {
       return $options.cerrarModalCobro && $options.cerrarModalCobro.apply($options, arguments);
     })
-  }, "Cancelar", 8 /* PROPS */, _hoisted_180), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, "Cancelar", 8 /* PROPS */, _hoisted_186), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "wa-chip wa-chip-on rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
     disabled: $data.guardandoRapido || $data.metaCargando || !$data.cobroForm.cliente_id || !$data.cobroForm.factura_ids.length || !$data.cobroForm.monto,
-    onClick: _cache[57] || (_cache[57] = function () {
+    onClick: _cache[58] || (_cache[58] = function () {
       return $options.guardarCobroRapido && $options.guardarCobroRapido.apply($options, arguments);
     })
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.guardandoRapido ? 'Guardando...' : 'Registrar pago'), 9 /* TEXT, PROPS */, _hoisted_181)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal pedido (mismo PedidoForm Paso 1/2) "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.guardandoRapido ? 'Guardando...' : 'Registrar pago'), 9 /* TEXT, PROPS */, _hoisted_187)])])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal pedido (mismo PedidoForm Paso 1/2) "), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Teleport, {
     to: "body"
-  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_182, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_188, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-gray-900/60 transition-opacity",
     "aria-hidden": "true",
-    onClick: _cache[59] || (_cache[59] = function () {
+    onClick: _cache[60] || (_cache[60] = function () {
       return $options.cerrarModalPedido && $options.cerrarModalPedido.apply($options, arguments);
     })
-  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_183, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_184, [_cache[110] || (_cache[110] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+  }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_189, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_190, [_cache[112] || (_cache[112] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-4 w-4 text-gray-400 dark:text-gray-500",
@@ -31765,10 +31907,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "button",
     class: "rounded-lg p-1.5 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600",
     "aria-label": "Cerrar",
-    onClick: _cache[60] || (_cache[60] = function () {
+    onClick: _cache[61] || (_cache[61] = function () {
       return $options.cerrarModalPedido && $options.cerrarModalPedido.apply($options, arguments);
     })
-  }, _toConsumableArray(_cache[109] || (_cache[109] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+  }, _toConsumableArray(_cache[111] || (_cache[111] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
     class: "h-5 w-5 text-gray-600 dark:text-gray-400",
     fill: "none",
     stroke: "currentColor",
@@ -31778,7 +31920,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "stroke-linejoin": "round",
     "stroke-width": "2",
     d: "M6 18L18 6M6 6l12 12"
-  })], -1 /* CACHED */)])))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_185, [$data.modalPedido && $props.pedidoFormConfig ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(_component_PedidoForm, {
+  })], -1 /* CACHED */)])))]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_191, [$data.modalPedido && $props.pedidoFormConfig ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(_component_PedidoForm, {
     key: $data.pedidoFormKey,
     "pedido-id": $props.pedidoFormConfig.pedidoId || 'Nuevo',
     planes: $props.pedidoFormConfig.planes || [],
@@ -31792,7 +31934,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     "csrf-token": $props.pedidoFormConfig.csrfToken,
     "modal-mode": true,
     "initial-values": $data.pedidoInitialValues
-  }, null, 8 /* PROPS */, ["pedido-id", "planes", "estado-id", "buscar-cliente-url", "verificar-telefono-url", "cedula-temporal-url", "consultar-padron-url", "submit-url", "cancel-url", "csrf-token", "initial-values"])) : $data.modalPedido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_186, " No se pudo cargar el formulario de pedido (faltan permisos o configuración). ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $data.modalPedido]])]))], 2 /* CLASS */);
+  }, null, 8 /* PROPS */, ["pedido-id", "planes", "estado-id", "buscar-cliente-url", "verificar-telefono-url", "cedula-temporal-url", "consultar-padron-url", "submit-url", "cancel-url", "csrf-token", "initial-values"])) : $data.modalPedido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_192, " No se pudo cargar el formulario de pedido (faltan permisos o configuración). ")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $data.modalPedido]])]))], 2 /* CLASS */);
 }
 
 /***/ },

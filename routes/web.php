@@ -341,6 +341,7 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::post('/whatsapp/mensajes/{mensaje}/reintentar', [WhatsAppWebController::class, 'reintentar'])->name('whatsapp.reintentar');
     Route::post('/whatsapp/marcar-leidos', [WhatsAppWebController::class, 'marcarLeidos'])->name('whatsapp.marcar-leidos');
     Route::post('/whatsapp/sugerencia-ia/descartar', [WhatsAppWebController::class, 'descartarSugerenciaIa'])->name('whatsapp.sugerencia-ia.descartar');
+    Route::post('/whatsapp/sugerencia-ia/regenerar', [WhatsAppWebController::class, 'regenerarSugerenciaIa'])->name('whatsapp.sugerencia-ia.regenerar');
     Route::post('/whatsapp/conversacion/asunto', [WhatsAppWebController::class, 'asignarAsunto'])->name('whatsapp.asignar-asunto');
     Route::get('/whatsapp/conversacion/buscar-cliente', [WhatsAppWebController::class, 'buscarClientes'])->name('whatsapp.buscar-cliente');
     Route::post('/whatsapp/conversacion/contacto', [WhatsAppWebController::class, 'guardarContacto'])->name('whatsapp.guardar-contacto');
@@ -596,6 +597,7 @@ Route::middleware(['auth', 'permiso:finanzas.ver'])->group(function () {
     Route::get('/finanzas/cobros-del-mes', [FinanzasDashboardController::class, 'cobrosMes'])->name('finanzas.cobros-mes');
     Route::get('/finanzas/transferencias', [FinanzasOperacionController::class, 'transferencias'])->name('finanzas.transferencias');
     Route::get('/finanzas/egresos', [FinanzasOperacionController::class, 'egresos'])->name('finanzas.egresos');
+    Route::get('/finanzas/control-gastos', [GastoController::class, 'index'])->name('finanzas.control-gastos');
     Route::get('/finanzas/egresos/{egreso}/archivo/{tipo}', [FinanzasOperacionController::class, 'archivo'])
         ->whereIn('tipo', ['documento', 'factura'])
         ->name('finanzas.egresos.archivo');
@@ -609,6 +611,8 @@ Route::middleware(['auth', 'permiso:finanzas.crear'])->group(function () {
     Route::post('/finanzas/cobros-del-mes', [FinanzasDashboardController::class, 'cargarCobrosMes'])->name('finanzas.cobros-mes.store');
     Route::post('/finanzas/transferencias', [FinanzasOperacionController::class, 'guardarTransferencia'])->name('finanzas.transferencias.store');
     Route::post('/finanzas/egresos', [FinanzasOperacionController::class, 'guardarEgreso'])->name('finanzas.egresos.store');
+    Route::post('/finanzas/control-gastos/abrir', [GastoController::class, 'abrirMes'])->name('finanzas.control-gastos.abrir');
+    Route::post('/finanzas/control-gastos/cerrar', [GastoController::class, 'cerrarMes'])->name('finanzas.control-gastos.cerrar');
     Route::post('/finanzas/egresos/plantillas', [FinanzasOperacionController::class, 'crearPlantilla'])->name('finanzas.egresos.plantillas.store');
     Route::post('/finanzas/egresos/plantillas/{plantilla}', [FinanzasOperacionController::class, 'guardarPlantilla'])->name('finanzas.egresos.plantilla');
     Route::post('/finanzas/retiros', [FinanzasOperacionController::class, 'guardarRetiro'])->name('finanzas.retiros.store');

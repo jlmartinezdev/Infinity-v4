@@ -487,22 +487,30 @@
                 <button
                   type="button"
                   class="rounded-full bg-[#16a34a] px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-40"
-                  :disabled="!puedeEnviarSugerencia"
+                  :disabled="!puedeEnviarSugerencia || regenerandoSugerencia"
                   @click="enviarTexto"
                 >Enviar sugerencia</button>
                 <button
                   type="button"
-                  class="rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900"
+                  class="rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900 disabled:opacity-40"
+                  :disabled="regenerandoSugerencia || !urls.regenerarSugerenciaIa"
+                  @click="regenerarSugerencia"
+                >{{ regenerandoSugerencia ? 'Regenerando…' : 'Regenerar' }}</button>
+                <button
+                  type="button"
+                  class="rounded-full bg-white/80 px-3 py-1 text-[12px] font-semibold text-emerald-900 disabled:opacity-40"
+                  :disabled="regenerandoSugerencia"
                   @click="descartarSugerencia"
                 >Descartar</button>
               </div>
+              <p v-if="errorRegenerarSugerencia" class="mt-1.5 text-[11px] font-medium text-red-700">{{ errorRegenerarSugerencia }}</p>
             </div>
             <div
-              v-else-if="esperandoSugerenciaIa && puedeEditar"
+              v-else-if="(esperandoSugerenciaIa || regenerandoSugerencia) && puedeEditar"
               class="relative z-10 border-t px-3 py-2 text-xs"
               style="background: #f0fdf4; color: #166534;"
             >
-              <p class="font-semibold">Generando sugerencia…</p>
+              <p class="font-semibold">{{ regenerandoSugerencia ? 'Regenerando sugerencia…' : 'Generando sugerencia…' }}</p>
               <p class="mt-0.5 opacity-80">El borrador aparece acá en unos segundos. No hace falta refrescar.</p>
             </div>
             <form class="wa-composer relative z-10 border-t px-3 py-2.5" @submit.prevent="enviarTexto">
@@ -1146,6 +1154,8 @@ export default {
       texto: '',
       sugerenciaAplicadaId: null,
       textoDesdeIa: false,
+      regenerandoSugerencia: false,
+      errorRegenerarSugerencia: '',
       toast: null,
       pollTimer: null,
       pollIntervalMs: 8000,
@@ -1695,6 +1705,38 @@ export default {
       if (this.textoDesdeIa) this.texto = '';
       this.textoDesdeIa = false;
       this.sugerenciaAplicadaId = null;
+      this.errorRegenerarSugerencia = '';
+    },
+    async regenerarSugerencia() {
+      const tel = this.telActivo;
+      if (!tel || !this.urls.regenerarSugerenciaIa || this.regenerandoSugerencia) return;
+      this.regenerandoSugerencia = true;
+      this.errorRegenerarSugerencia = '';
+      // Quitar la sugerencia vieja de la UI mientras corre el agente.
+      this.hiloMeta = { ...this.hiloMeta, sugerencia_ia: null };
+      this.sugerenciaAplicadaId = null;
+      if (this.textoDesdeIa) this.texto = '';
+      this.textoDesdeIa = false;
+      try {
+        const { data } = await window.axios.post(
+          this.urls.regenerarSugerenciaIa,
+          { telefono: tel },
+          { headers: { Accept: 'application/json' }, timeout: 90000 },
+        );
+        if (data?.sugerencia_ia?.reply) {
+          this.hiloMeta = { ...this.hiloMeta, sugerencia_ia: data.sugerencia_ia };
+          this.$nextTick(() => this.aplicarSugerenciaSiCorresponde());
+        } else {
+          this.errorRegenerarSugerencia = data?.error || 'No se pudo regenerar la sugerencia.';
+          await this.cargarHilo(true);
+        }
+      } catch (e) {
+        const msg = e?.response?.data?.error || e?.message || 'Error al regenerar.';
+        this.errorRegenerarSugerencia = String(msg);
+        try { await this.cargarHilo(true); } catch (_) { /* ignore */ }
+      } finally {
+        this.regenerandoSugerencia = false;
+      }
     },
     abrirSelectorAdjunto() {
       if (this.hiloMeta.fuera_ventana || this.enviando) return;

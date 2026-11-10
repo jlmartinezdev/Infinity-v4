@@ -168,6 +168,7 @@ class WhatsAppWebController extends Controller
                 'enviar' => route('whatsapp.enviar.store'),
                 'enviarAdjunto' => route('whatsapp.enviar-adjunto'),
                 'descartarSugerenciaIa' => route('whatsapp.sugerencia-ia.descartar'),
+                'regenerarSugerenciaIa' => route('whatsapp.sugerencia-ia.regenerar'),
                 'reintentarTpl' => url('/whatsapp/mensajes/__ID__/reintentar'),
                 'enviarPlantilla' => route('whatsapp.enviar'),
                 'mediaTpl' => url('/whatsapp/mensajes/__ID__/media'),
@@ -1008,6 +1009,23 @@ class WhatsAppWebController extends Controller
         app(\App\Services\WhatsApp\WhatsAppAgentService::class)->marcarSugerencia($tel, 'descartada');
 
         return response()->json(['ok' => true]);
+    }
+
+    public function regenerarSugerenciaIa(Request $request): JsonResponse
+    {
+        $tel = $this->normalizeTel($request->input('telefono') ?: $request->input('tel'));
+        if (! $tel) {
+            return response()->json(['ok' => false, 'error' => 'Teléfono requerido'], 422);
+        }
+
+        $out = app(\App\Services\WhatsApp\WhatsAppAgentService::class)->regenerarSugerencia($tel);
+
+        return response()->json([
+            'ok' => (bool) ($out['ok'] ?? false),
+            'sugerencia_ia' => $out['sugerencia'] ?? null,
+            'error' => $out['error'] ?? null,
+            'modo' => $out['modo'] ?? null,
+        ], ($out['ok'] ?? false) ? 200 : 422);
     }
 
 

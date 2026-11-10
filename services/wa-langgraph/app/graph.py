@@ -17,7 +17,8 @@ _MEMORY = MemorySaver()
 
 _COBERTURA_RE = re.compile(
     r"cuenta disponible|hay (cuenta|cupo)|tienen (lugar|cupo)|hay lugar|"
-    r"cupo (para |de )?instal|\bcobertura\b|llega(n)? (la |el )?(fibra|internet|antena)",
+    r"cupo (para |de )?instal|\bcobertura\b|llega(n)? (la |el )?(fibra|internet|antena)|"
+    r"\bzona\b|compa[nñ][ií]a\b",
     re.I,
 )
 _TRANSFERENCIA_RE = re.compile(
@@ -44,13 +45,27 @@ _CONDICIONES_RE = re.compile(
     re.I,
 )
 _CATALOGO_RE = re.compile(
-    r"\b(planes?|precios?|cu[aá]nto (sale|cuesta|vale)|cat[aá]logo|"
-    r"tienen (fibra|antena)|plan de \d)",
+    r"\b(planes?|precios?|cu[aá]nto (sale|cuesta|vale|ser[ií]a|sube)|"
+    r"desde cuanto|cuota (del |de )?(internet|wifi)|cat[aá]logo|"
+    r"tienen (fibra|antena)|plan de \d|est[aá]ndar de \d|megas?\b)",
     re.I,
 )
 _WIFI_VENTA_RE = re.compile(
     r"quiero (wifi|internet|fibra|antena)|necesito (wifi|internet|fibra)|"
-    r"contratar|instalar(me)? (wifi|internet|fibra)|me gustar[ií]a (el )?internet",
+    r"contratar|instalar(me)? (wifi|internet|fibra)|me gustar[ií]a (el )?internet|"
+    r"instalaci[oó]n (del |de )?(wifi|internet|antena)|conocer (por |sobre )?(el )?internet|"
+    r"servicio de internet|solicitar el plan|bajar (el )?internet|requisitos para",
+    re.I,
+)
+_USO_CONOCIDO_RE = re.compile(
+    r"\b(negocio|trabajo|home\s*office|streaming|netflix|youtube|"
+    r"varios (equipos|celulares|dispositivos)|tvs?|televisores?|c[aá]maras?|oficina|"
+    r"estudi(o|ar)|zoom|reuni[oó]n|gaming|juegos?|dispositivos?)\b",
+    re.I,
+)
+_PIDIO_PRECIOS_RE = re.compile(
+    r"\b(planes?|precios?|cu[aá]nto (sale|cuesta|vale|ser[ií]a)|desde cuanto|"
+    r"cuota|cotiz|lista de planes|megas?\b|est[aá]ndar de \d|100\.?000|150\.?000|175\.?000)\b",
     re.I,
 )
 _MAPS_RE = re.compile(
@@ -183,19 +198,20 @@ def _force_intent(msg_low: str, payload: dict[str, Any], historial: str) -> str 
         return "falla"
     if _MAPS_RE.search(msg_low) or bool(payload.get("parece_mapa")):
         return "cobertura_con_dato"
-    if _WIFI_VENTA_RE.search(msg_low):
+    if _COBERTURA_RE.search(msg_low) and not _TRANSFERENCIA_RE.search(msg_low):
         return "cobertura"
     if _CONDICIONES_RE.search(msg_low):
         return "condiciones"
     if _BENEFICIOS_RE.search(msg_low):
         return "beneficios"
-    if _COBERTURA_RE.search(msg_low) and not _TRANSFERENCIA_RE.search(msg_low):
-        return "cobertura"
     if _TRANSFERENCIA_RE.search(msg_low) and not _COBERTURA_RE.search(msg_low):
         return "transferencia"
     if bool(payload.get("parece_datos_transferencia")) and not _CONDICIONES_RE.search(msg_low):
         return "transferencia"
-    if _CATALOGO_RE.search(msg_low) and not _COBERTURA_RE.search(msg_low):
+    # Quiero internet / instalación: venta consultiva (descubrir), no saltar a pedir Maps.
+    if _WIFI_VENTA_RE.search(msg_low) or (
+        _CATALOGO_RE.search(msg_low) and not _COBERTURA_RE.search(msg_low)
+    ):
         return "catalogo_internet"
     return None
 
@@ -255,6 +271,17 @@ def build_graph():
                 intent = "falla"
             if forced == "saludo":
                 intent = "saludo"
+            # Venta consultiva: no dejar que Gemini convierta “quiero internet” en cobertura seca.
+            if forced == "catalogo_internet" and intent in {
+                "otro",
+                "saludo",
+                "meta",
+                "cobertura",
+                "cobertura_con_dato",
+            }:
+                intent = "catalogo_internet"
+            if forced == "cobertura" and intent in {"otro", "saludo", "meta"}:
+                intent = "cobertura"
             tema_nuevo = bool(data.get("tema_nuevo", True if forced else True))
             continue_process = bool(data.get("continue_process"))
             needs_human = bool(data.get("needs_human"))
@@ -409,25 +436,37 @@ def build_graph():
             facts = {**facts, "respuesta_diagnostico": decision.get("reply")}
 
         gemini = GeminiClient()
-        estilo = str((state.get("payload") or {}).get("estilo_interplus") or "")
-        memoria = str((state.get("payload") or {}).get("memoria_instrucciones") or "")
-        planes = (facts.get("catalogo") or {}).get("planes_texto") or ""
+        payload = state.get("payload") or {}
+        estilo = str(payload.get("estilo_interplus") or "")
+        memoria = str(payload.get("memoria_instrucciones") or "")
+        catalogo = facts.get("catalogo") or {}
+        planes = catalogo.get("planes_texto") or ""
+        planes_prompt = catalogo.get("planes_prompt") or payload.get("planes_prompt") or ""
         texto_oficial = facts.get("texto_oficial") or ""
+        blob_uso = f"{mensaje}\n{historial}"
+        uso_conocido = bool(_USO_CONOCIDO_RE.search(blob_uso))
+        pidio_precios = bool(_PIDIO_PRECIOS_RE.search(mensaje))
+        apertura_del_dia = bool(payload.get("apertura_del_dia") or payload.get("primera_vez"))
+        sector = str(state.get("sector") or "meta")
         user = (
             f"intent={intent}\n"
-            f"sector={state.get('sector') or 'meta'}\n"
+            f"sector={sector}\n"
             f"proceso={state.get('proceso')}\n"
             f"proceso_pila={state.get('proceso_pila') or []}\n"
             f"proceso_cancelado={state.get('proceso_cancelado')}\n"
             f"sandbox={state.get('sandbox')}\n"
             f"ya_saludo_agente={facts.get('ya_saludo_agente')}\n"
+            f"apertura_del_dia={apertura_del_dia}\n"
+            f"uso_conocido={uso_conocido}\n"
+            f"pidio_precios={pidio_precios}\n"
             f"needs_human={bool(state.get('needs_human') or facts.get('needs_human_sugerido'))}\n"
             f"mensaje_cliente={mensaje}\n"
             f"historial_reciente={historial[:2500]}\n"
-            f"planes_texto={str(planes)[:2500]}\n"
+            f"planes_texto={str(planes)[:2000]}\n"
+            f"planes_prompt={str(planes_prompt)[:2800]}\n"
             f"texto_oficial_{intent}={str(texto_oficial)[:2500]}\n"
             f"memoria_instrucciones={memoria[:4500]}\n"
-            f"hechos_tools={json.dumps(facts, ensure_ascii=False)[:5000]}\n"
+            f"hechos_tools={json.dumps(facts, ensure_ascii=False)[:4500]}\n"
             f"estilo={estilo[:1800]}"
         )
         text = ""
@@ -461,16 +500,42 @@ def build_graph():
                 text = str(texto_oficial)
             elif intent == "falla" and decision.get("reply"):
                 text = str(decision.get("reply") or "")
-            elif intent == "catalogo_internet" and planes:
-                text = str(planes)[:1500]
+            elif intent == "catalogo_internet" or (
+                sector == "comercial" and intent in {"cobertura", "otro"} and _WIFI_VENTA_RE.search(mensaje)
+            ):
+                if pidio_precios and planes:
+                    text = (
+                        str(planes)[:1200]
+                        + "\n\nLa mensualidad es una inversión en continuidad y tranquilidad del hogar. "
+                        "Para la mayoría recomendamos el Premium (opción más completa: prioridad de soporte "
+                        "y tráfico prioritario). ¿Avanzamos con ese mientras confirmamos su zona?"
+                    )
+                elif not uso_conocido:
+                    text = (
+                        "Con gusto le ayudamos a elegir el plan adecuado. "
+                        "¿Lo usaría en hogar o negocio, y aproximadamente con cuántos dispositivos "
+                        "(celulares, TV, trabajo en casa)? Así le recomendamos la opción más completa."
+                    )
+                elif planes:
+                    text = (
+                        "Para el uso que comenta, la opción más completa es el Premium: "
+                        "más tranquilidad con prioridad de soporte y tráfico prioritario "
+                        "(inversión en continuidad, no un gasto suelto). "
+                        "¿Nos comparte barrio/ciudad o su ubicación para confirmar cobertura?"
+                    )
+                else:
+                    text = (
+                        "¿Me indica si busca fibra o antena, y cuántos dispositivos usaría? "
+                        "Le orientamos al plan más completo para su caso."
+                    )
             elif intent in {"saludo", "meta"}:
                 text = "¿En qué le podemos ayudar?"
             elif intent == "comprobante_aviso":
                 text = "Gracias. Cuando tenga la captura del comprobante, envíenosla por aquí para registrarlo."
             elif intent.startswith("cobertura"):
                 text = (
-                    "Con gusto verificamos cobertura. Indíquenos barrio y ciudad, "
-                    "o envíenos su ubicación por WhatsApp."
+                    "Con gusto verificamos cobertura en su zona. Indíquenos barrio y ciudad, "
+                    "o envíenos su ubicación por WhatsApp; luego le orientamos al plan más completo."
                 )
             elif intent in {"saldo", "plan_cuenta", "identificacion", "pago"}:
                 text = (
@@ -567,13 +632,22 @@ def run_turn(payload: dict[str, Any]) -> dict[str, Any]:
         pass
 
     mensaje = str(payload.get("mensaje") or "").strip()
-    if not mensaje:
-        mensaje = str(payload.get("mensaje_hilo_reciente") or "").strip()
+    hilo_reciente = str(payload.get("mensaje_hilo_reciente") or "").strip()
+    # Preferir ráfaga unida si trae más contexto que el último bubble solo.
+    if hilo_reciente and (
+        not mensaje or (hilo_reciente != mensaje and len(hilo_reciente) >= len(mensaje))
+    ):
+        mensaje = hilo_reciente
+
+    historial_texto = str(payload.get("historial_texto") or "").strip()
+    # Si el historial está vacío pero hay ráfaga, al menos dejar rastro del hilo del día.
+    if not historial_texto and hilo_reciente:
+        historial_texto = f"Cliente (ráfaga): {hilo_reciente}"
 
     init: AgentState = {
         "wa_id": wa_id,
         "mensaje": mensaje,
-        "historial_texto": str(payload.get("historial_texto") or ""),
+        "historial_texto": historial_texto,
         "sandbox": bool(payload.get("sandbox")),
         "payload": payload,
         "proceso": proceso,

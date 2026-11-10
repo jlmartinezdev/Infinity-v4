@@ -112,13 +112,13 @@ class WhatsAppAgentService
      *   modo: string|null
      * }
      */
-    public function procesar(WhatsappMensaje $mensaje, ?bool $enviar = null, bool $sandbox = false): array
+    public function procesar(WhatsappMensaje $mensaje, ?bool $enviar = null, bool $sandbox = false, bool $forzar = false): array
     {
         // Revisión siempre: el job llega con null y no sale a WhatsApp.
         // Solo un humano (panel o artisan --enviar) pasa true.
         $enviar = $sandbox ? false : $enviar === true;
 
-        if ($this->yaProcesado($mensaje)) {
+        if (! $forzar && $this->yaProcesado($mensaje)) {
             return $this->resultadoVacio('duplicado');
         }
 
@@ -746,7 +746,8 @@ class WhatsAppAgentService
         $body = [
             'wa_id' => $mensaje->telefono,
             'nombre_perfil' => null,
-            'mensaje' => $cuerpo,
+            // Ráfaga del cliente (“hola” + “quiero internet”) como mensaje principal para clasificar/redactar.
+            'mensaje' => $cuerpoAnalisis !== '' ? $cuerpoAnalisis : $cuerpo,
             'mensaje_hilo_reciente' => $cuerpoAnalisis,
             'estilo_interplus' => $estilo !== '' ? $estilo : null,
             'memoria_instrucciones' => $memoriaInstrucciones !== '' ? $memoriaInstrucciones : null,
@@ -780,6 +781,7 @@ class WhatsAppAgentService
             'parece_baja' => $pareceBaja,
             'parece_instalacion' => $pareceInstalacion,
             'primera_vez' => $primeraVez && $hilo['historial'] === [],
+            'apertura_del_dia' => $mensaje->id ? $this->esAperturaDelDia($mensaje) : ($primeraVez && $hilo['historial'] === []),
             'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
             'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
             'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
@@ -804,7 +806,7 @@ class WhatsAppAgentService
         ];
 
         try {
-            $cached = Cache::remember('wa_agent.catalogo_planes_v4', 300, fn () => $this->catalogoPlanesFresh());
+            $cached = Cache::remember('wa_agent.catalogo_planes_v5', 300, fn () => $this->catalogoPlanesFresh());
 
             return is_array($cached) ? array_merge($vacio, $cached) : $vacio;
         } catch (\Throwable) {
@@ -970,10 +972,11 @@ class WhatsAppAgentService
     {
         $bloques = [
             'Planes vigentes (mensual, megas ilimitados, sin permanencia, equipos en comodato). Cotice SOLO estos; no invente precios. No mencione “IVA incluido”. No cotice planes Dedicado ni a medida.',
-            'Embudo Premium: (1) si falta, preguntá uso (hogar/negocio, dispositivos, streaming); (2) anclá Premium como recomendación default cuando el uso lo justifica; (3) contraste suave Básico=esencial, Estándar=equilibrio, Premium=prioridad de soporte + tráfico prioritario; (4) un micro-cierre: pedir ubicación o “¿avanzamos con el Premium?”. Un gancho 1–2 oraciones. El básico es válido; nunca lo menosprecie. Sin FOMO ni presión.',
-            'Enrutado: pregunta fibra/FTTH/100/200/300 → SOLO fibra. Pregunta antena/10/20/30 megas → SOLO antena. "Qué planes hay" → las dos listas + recomendación Premium + CTA.',
-            'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca diga que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor. No listar y callarse: siempre una recomendación Premium cuando cotiza.',
-            'NUNCA copie estas instrucciones al cliente. No diga “Embudo Premium”, “Venta suave”, “Salida WhatsApp”, “Enrutado”, “prioridad N” ni “Cotice SOLO”.',
+            'Embudo consultivo Premium: (1) si falta uso (“quiero internet/wifi/instalación”, “conocer el servicio”) NO listés el catálogo: 1–2 preguntas (hogar/negocio, dispositivos, streaming/TV) + gancho de tranquilidad; (2) con uso, anclá Premium como opción más completa (prioridad de soporte + tráfico prioritario = inversión en continuidad, no un gasto); (3) contraste suave Básico=esencial, Estándar=equilibrio, Premium=tranquilidad; (4) un micro-cierre: ubicación o “¿avanzamos con el Premium?”. Un gancho 1–2 oraciones. El básico es válido; nunca lo menosprecie. Sin FOMO ni presión.',
+            'Corpus típico Interplus: “cuánto es la cuota”, “instalación del wifi/antena”, “llega a mi zona/barrio”, “fibra o antena”, “plan con TV”, “estándar de 20 megas”. Precio/cuota/megas → lista corta + Premium. Zona/cobertura → certeza de proceso (confirmar zona) antes de empujar plan. Instalación → no inventes costo de instalación si no está en hechos; pedí zona/uso.',
+            'Enrutado: pregunta fibra/FTTH/100/200/300 → SOLO fibra. Pregunta antena/10/20/30 megas → SOLO antena. "Qué planes hay" / "cuánto sale" → las dos listas + recomendación Premium + CTA. "Quiero internet" sin uso → descubrir, no listar.',
+            'Salida WhatsApp: una línea por plan, oración completa, con Mbps. Ej: «Fibra Básico 100 Mbps — Gs. 100.000». Nunca diga que fibra es 10 o 20 Mbps. Cotizar no es derivar a asesor. No listar y callarse: siempre una recomendación Premium cuando cotiza. Framing: mensualidad = inversión en tranquilidad.',
+            'NUNCA copie estas instrucciones al cliente. No diga “Embudo Premium”, “Venta suave”, “Salida WhatsApp”, “Enrutado”, “prioridad N”, “Corpus” ni “Cotice SOLO”.',
         ];
 
         $seccion = static function (string $titulo, array $items): ?string {
@@ -1223,8 +1226,25 @@ class WhatsAppAgentService
             ->exists();
     }
 
+    /** Borrador/salida que ya incluye el saludo horario de apertura. */
+    public static function textoTieneSaludoApertura(?string $texto): bool
+    {
+        $t = trim((string) $texto);
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/^\s*(?:¡?\s*)?(?:muy\s+)?buen(?:os|as)\s+(?:d[ií]as|tardes|noches)\b/iu',
+            $t
+        );
+    }
+
     /**
-     * Primer contacto del día: saluda una sola vez, aunque escriba de nuevo enseguida.
+     * Primer contacto del día: saluda mientras no haya salida enviada hoy
+     * ni un borrador previo que YA lleve el saludo de apertura.
+     * Un borrador seco (sin saludo) no bloquea: la ráfaga “hola” + “quiero internet”
+     * y Regenerar deben poder anteponer el saludo.
      */
     public function esAperturaDelDia(WhatsappMensaje $mensaje): bool
     {
@@ -1245,7 +1265,6 @@ class WhatsAppAgentService
             return false;
         }
 
-        // Con auto_send=false no hay salida hasta que el staff envíe: el borrador ya cuenta.
         $entradasHoy = WhatsappMensaje::query()
             ->where('telefono', $mensaje->telefono)
             ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
@@ -1256,9 +1275,16 @@ class WhatsAppAgentService
             ->get(['id', 'payload']);
 
         foreach ($entradasHoy as $prev) {
-            if (trim((string) data_get($prev->payload, 'wa_agent.reply', '')) !== '') {
+            $borrador = trim((string) data_get($prev->payload, 'wa_agent.reply', ''));
+            if ($borrador !== '' && self::textoTieneSaludoApertura($borrador)) {
                 return false;
             }
+        }
+
+        // El propio mensaje (p.ej. regenerar) ya tiene saludo en el borrador actual → no duplicar.
+        $actual = trim((string) data_get($mensaje->payload, 'wa_agent.reply', ''));
+        if ($actual !== '' && self::textoTieneSaludoApertura($actual)) {
+            return false;
         }
 
         return true;
@@ -1335,6 +1361,10 @@ class WhatsAppAgentService
     public function conSaludoDeApertura(WhatsappMensaje $mensaje, ?string $reply): ?string
     {
         $reply = FraseCliente::recortarSaludoMarca(trim((string) $reply));
+        // Si el modelo ya puso el saludo horario, no duplicar.
+        if (self::textoTieneSaludoApertura($reply)) {
+            return $reply === '' ? null : $reply;
+        }
         if (! $this->esAperturaDelDia($mensaje)) {
             return $reply === '' ? null : $reply;
         }
@@ -1352,7 +1382,8 @@ class WhatsAppAgentService
             $nombre = null;
         }
 
-        $saludo = self::saludoDeApertura($mensaje->created_at, $nombre, $apellido);
+        // Hora actual del panel (no la del mensaje de la mañana): “Buenas tardes” si se responde a la tarde.
+        $saludo = self::saludoDeApertura(now(), $nombre, $apellido);
 
         return $reply === '' ? $saludo : $saludo."\n\n".$reply;
     }
@@ -2060,6 +2091,65 @@ class WhatsAppAgentService
             'escalate' => (bool) ($agent['escalate'] ?? false),
             'motivo_escalado' => isset($agent['motivo_escalado']) ? (string) $agent['motivo_escalado'] : null,
             'error' => isset($agent['error']) ? (string) $agent['error'] : null,
+        ];
+    }
+
+    /**
+     * Vuelve a correr el agente sobre el último inbound (borrador panel, sin auto-send).
+     *
+     * @return array{ok: bool, sugerencia: ?array{mensaje_id:int,reply:string,escalate:bool,motivo_escalado:?string,error:?string}, error: ?string, modo: ?string}
+     */
+    public function regenerarSugerencia(string $telefono): array
+    {
+        $tel = preg_replace('/\D+/', '', $telefono) ?: '';
+        if ($tel === '') {
+            return ['ok' => false, 'sugerencia' => null, 'error' => 'telefono_vacio', 'modo' => null];
+        }
+
+        $entrada = WhatsappMensaje::query()
+            ->where('telefono', $tel)
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $entrada) {
+            return ['ok' => false, 'sugerencia' => null, 'error' => 'sin_entrada', 'modo' => null];
+        }
+
+        $payload = is_array($entrada->payload) ? $entrada->payload : [];
+        unset($payload['wa_agent']);
+        $entrada->payload = $payload;
+        $entrada->save();
+
+        $sandbox = self::esTelefonoTest($tel);
+        try {
+            $resultado = $this->procesar($entrada, false, $sandbox, true);
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'sugerencia' => null,
+                'error' => 'excepcion: '.$e->getMessage(),
+                'modo' => null,
+            ];
+        }
+
+        $sugerencia = $this->sugerenciaPendientePara($tel);
+        $reply = trim((string) ($resultado['reply'] ?? ''));
+        if ($sugerencia === null && $reply !== '') {
+            $sugerencia = [
+                'mensaje_id' => (int) $entrada->id,
+                'reply' => $reply,
+                'escalate' => (bool) ($resultado['escalate'] ?? false),
+                'motivo_escalado' => isset($resultado['motivo_escalado']) ? (string) $resultado['motivo_escalado'] : null,
+                'error' => isset($resultado['error']) ? (string) $resultado['error'] : null,
+            ];
+        }
+
+        return [
+            'ok' => $sugerencia !== null && trim((string) ($sugerencia['reply'] ?? '')) !== '',
+            'sugerencia' => $sugerencia,
+            'error' => $sugerencia ? null : (string) ($resultado['error'] ?? 'sin_reply'),
+            'modo' => isset($resultado['modo']) ? (string) $resultado['modo'] : null,
         ];
     }
 
