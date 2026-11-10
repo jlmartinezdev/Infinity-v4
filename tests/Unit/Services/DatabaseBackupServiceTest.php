@@ -24,6 +24,8 @@ class DatabaseBackupServiceTest extends TestCase
             'database' => 'infinity',
             'username' => 'root',
             'password' => '',
+            // Forzar TCP en el test (sin socket) para no depender del OS.
+            'unix_socket' => '',
         ], BackupScheduleConfig::TIPO_ESENCIAL);
 
         $this->assertContains('--ignore-table=infinity.auditoria', $esencial);
@@ -31,7 +33,7 @@ class DatabaseBackupServiceTest extends TestCase
         $this->assertContains('infinity', $esencial);
 
         $completo = $service->mysqlDumpCommand([
-            'host' => '127.0.0.1',
+            'host' => 'db.ejemplo.local',
             'port' => 3306,
             'database' => 'infinity',
             'username' => 'root',
@@ -39,6 +41,20 @@ class DatabaseBackupServiceTest extends TestCase
         ], BackupScheduleConfig::TIPO_COMPLETO);
 
         $this->assertFalse(collect($completo)->contains(fn ($arg) => str_starts_with((string) $arg, '--ignore-table=')));
+        $this->assertContains('--host=db.ejemplo.local', $completo);
+        $this->assertContains('--port=3306', $completo);
+
+        $local = $service->mysqlDumpCommand([
+            'host' => 'localhost',
+            'port' => 3306,
+            'database' => 'infinity',
+            'username' => 'infinity',
+            'password' => 'x',
+            'unix_socket' => '/run/mysqld/mysqld.sock',
+        ], BackupScheduleConfig::TIPO_COMPLETO);
+        $this->assertContains('--protocol=SOCKET', $local);
+        $this->assertContains('--socket=/run/mysqld/mysqld.sock', $local);
+        $this->assertFalse(collect($local)->contains(fn ($arg) => str_starts_with((string) $arg, '--port=')));
     }
 
     public function test_nombre_incluye_el_tipo(): void

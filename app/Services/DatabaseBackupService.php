@@ -258,22 +258,41 @@ class DatabaseBackupService
     {
         $tipo = BackupScheduleConfig::normalizarTipo($tipo);
         $binary = $this->resolveMysqldumpBinary();
-        $host = $config['host'] ?? '127.0.0.1';
+        $host = trim((string) ($config['host'] ?? '127.0.0.1'));
         $port = (string) ($config['port'] ?? '3306');
         $database = (string) ($config['database'] ?? '');
         $username = $config['username'] ?? 'root';
         $password = (string) ($config['password'] ?? '');
+        $socket = trim((string) ($config['unix_socket'] ?? ''));
+        if ($socket === '') {
+            $socket = $this->detectMysqlSocket() ?? '';
+        }
+
+        // localhost + --port fuerza TCP (127.0.0.1) y rompe users solo definidos como user@localhost (socket).
+        $hostLower = strtolower($host);
+        $usarSocket = $socket !== ''
+            && (
+                in_array($hostLower, ['localhost', ''], true)
+                || ($hostLower === '127.0.0.1' && PHP_OS_FAMILY !== 'Windows')
+            );
 
         $command = [
             $binary,
             '--user='.$username,
-            '--host='.$host,
-            '--port='.$port,
             '--single-transaction',
             '--routines',
             '--no-tablespaces',
             '--default-character-set=utf8mb4',
         ];
+
+        if ($usarSocket) {
+            $command[] = '--host=localhost';
+            $command[] = '--protocol=SOCKET';
+            $command[] = '--socket='.$socket;
+        } else {
+            $command[] = '--host='.($host !== '' ? $host : '127.0.0.1');
+            $command[] = '--port='.$port;
+        }
 
         if ($resultFile !== null && $resultFile !== '') {
             $command[] = '--result-file='.$resultFile;
@@ -292,6 +311,21 @@ class DatabaseBackupService
         $command[] = $database;
 
         return $command;
+    }
+
+    private function detectMysqlSocket(): ?string
+    {
+        foreach ([
+            '/run/mysqld/mysqld.sock',
+            '/var/run/mysqld/mysqld.sock',
+            '/tmp/mysql.sock',
+        ] as $path) {
+            if (@\file_exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     /**
