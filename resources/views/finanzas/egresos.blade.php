@@ -35,6 +35,13 @@
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="abrir-pago"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Registrar pago (egreso)</span>
+            </button>
             <button type="button" id="abrir-habituales"
                 class="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-colors">
                 <svg class="w-4 h-4 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,18 +113,23 @@
         </div>
     </div>
 
-    <div class="mb-8 max-w-3xl">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden" id="bloque-pago">
+@php
+    $abrirHabituales = $errors->has('nombre') || $errors->has('monto');
+    $abrirPago = $errors->any() && ! $abrirHabituales;
+@endphp
+<div id="modal-pago" class="{{ $abrirPago ? '' : 'hidden' }} fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="modal-pago-titulo">
+    <div class="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl" id="bloque-pago">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-700/30 flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5">
                     <span class="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     </span>
                     <div>
-                        <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Registrar pago (egreso)</h2>
+                        <h2 id="modal-pago-titulo" class="text-base font-bold text-gray-900 dark:text-gray-100">Registrar pago (egreso)</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Descuenta el saldo de la cuenta y asienta en el libro</p>
                     </div>
                 </div>
+                <button type="button" id="cerrar-pago" class="shrink-0 rounded-lg bg-gray-200 hover:bg-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 transition-colors">Cerrar</button>
             </div>
 
             <form method="post" action="{{ route('finanzas.egresos.store') }}" enctype="multipart/form-data" class="p-5 space-y-4">
@@ -246,20 +258,18 @@
                     <textarea id="obs-pago" name="observaciones" class="{{ $cls }}" rows="2" placeholder="Detalle adicional opcional...">{{ old('observaciones') }}</textarea>
                 </div>
 
-                <div class="pt-1">
-                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm transition-colors">
+                <div class="pt-2 flex items-center justify-end gap-2">
+                    <button type="button" id="cancelar-pago" class="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                         <span>Registrar egreso</span>
                     </button>
                 </div>
             </form>
-        </div>
-
+    </div>
 </div>
-
-@php
-    $abrirHabituales = $errors->has('nombre') || $errors->has('monto');
-@endphp
 <div id="modal-habituales" class="{{ $abrirHabituales ? '' : 'hidden' }} fixed inset-x-0 bottom-0 top-16 z-[60] overflow-y-auto bg-black/50 backdrop-blur-sm p-4 sm:p-6">
     <div class="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-700/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -603,6 +613,20 @@
         aplicar(plantilla.selectedOptions[0]);
     });
 
+    const modalPago = document.getElementById('modal-pago');
+    function abrirPago() {
+        modalPago.classList.remove('hidden');
+    }
+    function cerrarPago() {
+        modalPago.classList.add('hidden');
+    }
+    document.getElementById('abrir-pago').addEventListener('click', abrirPago);
+    document.getElementById('cerrar-pago').addEventListener('click', cerrarPago);
+    document.getElementById('cancelar-pago').addEventListener('click', cerrarPago);
+    modalPago.addEventListener('click', function (evento) {
+        if (evento.target === modalPago) cerrarPago();
+    });
+
     const modalHabituales = document.getElementById('modal-habituales');
     function cerrarHabituales() {
         modalHabituales.classList.add('hidden');
@@ -620,7 +644,7 @@
             plantilla.value = boton.dataset.cargar;
             aplicar(boton);
             cerrarHabituales();
-            bloquePago.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            abrirPago();
             importe.focus();
         });
     });
@@ -743,6 +767,7 @@
         if (evento.key !== 'Escape') return;
         if (!visor.classList.contains('hidden')) cerrarVisor();
         else if (!detalle.classList.contains('hidden')) cerrarDetalle();
+        else if (!modalPago.classList.contains('hidden')) cerrarPago();
         else if (!modalHabituales.classList.contains('hidden')) cerrarHabituales();
     });
 })();

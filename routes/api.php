@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\ServicioController;
 use App\Http\Controllers\Api\V1\SolicitudAccesoController;
 use App\Http\Controllers\Api\V1\StaffAppController;
 use App\Http\Controllers\Api\V1\StaffAvisoEnCaminoController;
+use App\Http\Controllers\Api\V1\StaffChatController;
 use App\Http\Controllers\Api\V1\StaffConfigController;
 use App\Http\Controllers\Api\V1\StaffPedidoInstalacionController;
 use App\Http\Controllers\Api\V1\StaffUbicacionController;
@@ -21,8 +22,10 @@ use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\TpagoWebhookController;
 use App\Http\Controllers\Api\V1\WaAgentToolsController;
+use App\Http\Controllers\Api\V1\WebConsultaController;
 use App\Http\Controllers\Api\V1\WhatsAppAgentController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,6 +36,8 @@ use Illuminate\Support\Facades\Route;
 | Staff: email + contraseÃ±a
 | Cliente: documento + clave PLUS**** (o documento legacy)
 */
+
+Broadcast::routes(['middleware' => ['auth:sanctum', 'api.staff']]);
 
 Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -48,6 +53,12 @@ Route::prefix('v1')->group(function () {
     // Webhooks WhatsApp Cloud API (verify_token + firma App Secret)
     Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
     Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
+
+    // Sitio web de consulta de cuenta y pago TPago (Authorization: Bearer)
+    Route::middleware('web.consulta')->prefix('web')->group(function () {
+        Route::post('/cuenta', [WebConsultaController::class, 'cuenta']);
+        Route::post('/pago', [WebConsultaController::class, 'pago']);
+    });
 
     // Confirmación de pagos TPago / Bancard (URL a configurar en el portal TPago)
     Route::match(['get', 'post', 'head'], '/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
@@ -174,6 +185,18 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permiso:solicitudes-acceso.editar');
 
             Route::post('/staff/save-push-token', [AuthController::class, 'savePushToken']);
+
+            Route::middleware('permiso:chat-interno.ver')->prefix('staff/chat')->group(function () {
+                Route::get('/conversaciones', [StaffChatController::class, 'conversaciones']);
+                Route::get('/usuarios', [StaffChatController::class, 'usuarios']);
+                Route::get('/pendientes', [StaffChatController::class, 'pendientes']);
+                Route::post('/directos', [StaffChatController::class, 'directos']);
+                Route::post('/grupos', [StaffChatController::class, 'grupos']);
+                Route::get('/conversaciones/{id}/mensajes', [StaffChatController::class, 'mensajes'])->whereNumber('id');
+                Route::post('/conversaciones/{id}/mensajes', [StaffChatController::class, 'enviar'])->whereNumber('id');
+                Route::post('/mensajes/{id}/atender', [StaffChatController::class, 'atender'])->whereNumber('id');
+                Route::get('/adjuntos/{id}', [StaffChatController::class, 'adjunto'])->whereNumber('id');
+            });
 
             // Staff 1.5 — Activos paginados + Panel counts
             Route::get('/staff/auditoria', [StaffAppController::class, 'auditoria']);

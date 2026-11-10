@@ -59,6 +59,8 @@ mix.js('resources/js/herramientas-red.js', 'public/js').vue();
 mix.js('resources/js/tareas-dashboard.js', 'public/js').vue();
 mix.js('resources/js/whatsapp-mensajes.js', 'public/js').vue();
 mix.js('resources/js/whatsapp-test-n8n.js', 'public/js').vue();
+mix.js('resources/js/chat-echo.js', 'public/js');
+mix.js('resources/js/chat-interno.js', 'public/js');
 
 mix.postCss('resources/css/app.css', 'public/css', [
     require('tailwindcss'),

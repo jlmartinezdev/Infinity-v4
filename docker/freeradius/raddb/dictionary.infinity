@@ -1,2 +1,4 @@
 # Atributo de control (radcheck) con la cuota total en bytes.
 ATTRIBUTE	Max-Data	3000	string
+# Marca interna: este login llegó como MAC y ya se resolvió al usuario.
+ATTRIBUTE	Infinity-Mac-Auth	3001	integer

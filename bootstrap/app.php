@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['web', 'auth']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'permiso' => \App\Http\Middleware\CheckPermiso::class,
@@ -21,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.staff' => \App\Http\Middleware\EnsureStaffApi::class,
             'api.cliente' => \App\Http\Middleware\EnsureClientePortalApi::class,
             'wa.agent.secret' => \App\Http\Middleware\VerifyInterplusAgentSecret::class,
+            'web.consulta' => \App\Http\Middleware\VerifyWebConsultaToken::class,
         ]);
         // Usuario ya autenticado que visita /login → inicio según permisos
         $middleware->redirectUsersTo(function () {

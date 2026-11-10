@@ -17,6 +17,10 @@ class RadiusHotspotSyncService
 
     public const GIGAWORD = 4294967296;
 
+    protected ?string $exprOctetos = null;
+
+    protected ?bool $corteDisponible = null;
+
     public function enabled(): bool
     {
         return (bool) config('radius.enabled');
@@ -30,7 +34,7 @@ class RadiusHotspotSyncService
     /**
      * @return array{success: bool, skipped?: bool, error?: string}
      */
-    public function sync(ServicioHotspot $sh): array
+    public function sync(ServicioHotspot $sh, bool $incluirSesionViva = true): array
     {
         if (! $this->enabled()) {
             return ['success' => true, 'skipped' => true];
@@ -43,7 +47,7 @@ class RadiusHotspotSyncService
         try {
             $sh->loadMissing(['servicio', 'hotspotPerfil', 'router']);
             $this->syncNas($sh->router);
-            $this->escribirUsuario($sh);
+            $this->escribirUsuario($sh, $incluirSesionViva);
             $sh->update(['last_synced' => now()]);
 
             return ['success' => true];
@@ -193,6 +197,11 @@ class RadiusHotspotSyncService
 
             return ['ok' => false, 'error' => $e->getMessage(), 'usuarios' => []];
         }
+    }
+
+    public function operativo(): bool
+    {
+        return $this->enabled() && $this->conexionAlcanzable();
     }
 
     protected function conexionAlcanzable(): bool
@@ -423,7 +432,7 @@ class RadiusHotspotSyncService
         return $servicio?->estado === Servicio::ESTADO_ACTIVO;
     }
 
-    protected function escribirUsuario(ServicioHotspot $sh): void
+    protected function escribirUsuario(ServicioHotspot $sh, bool $incluirSesionViva = true): void
     {
         $username = trim((string) $sh->username);
         if ($username === '') {
@@ -431,19 +440,21 @@ class RadiusHotspotSyncService
         }
 
         $usados = $this->bytesUsados($username);
-        try {
-            $vivo = app(MikroTikService::class)->bytesHotspotActivosPorUsuarios([$username]);
-            if ($vivo !== []) {
-                $usados = self::combinarConsumoSesionViva(
-                    $this->bytesRadacctPorUsuarios([$username]),
-                    $vivo
-                )[$username] ?? $usados;
+        if ($incluirSesionViva) {
+            try {
+                $vivo = app(MikroTikService::class)->bytesHotspotActivosPorUsuarios([$username]);
+                if ($vivo !== []) {
+                    $usados = self::combinarConsumoSesionViva(
+                        $this->bytesRadacctPorUsuarios([$username]),
+                        $vivo
+                    )[$username] ?? $usados;
+                }
+            } catch (Throwable $e) {
+                Log::warning('[RADIUS] no se pudo sumar consumo vivo al sync', [
+                    'username' => $username,
+                    'error' => $e->getMessage(),
+                ]);
             }
-        } catch (Throwable $e) {
-            Log::warning('[RADIUS] no se pudo sumar consumo vivo al sync', [
-                'username' => $username,
-                'error' => $e->getMessage(),
-            ]);
         }
         $this->reemplazarAtributos('radcheck', $username, $this->atributosCheck($sh, $usados));
         $this->reemplazarAtributos('radreply', $username, $this->atributosReply($sh, $usados));
@@ -472,10 +483,14 @@ class RadiusHotspotSyncService
                 return 0;
             }
 
-            $expr = self::sqlOctetosSesion();
+            $expr = $this->expresionOctetos();
+            $resta = $this->tieneCorteCuota()
+                ? ' - COALESCE((SELECT bytes_base FROM hotspot_cuota_corte WHERE username = ? LIMIT 1), 0)'
+                : '';
+            $params = $resta !== '' ? [$username, $username] : [$username];
             $fila = $db->selectOne(
-                "SELECT COALESCE(SUM({$expr}), 0) AS usados FROM radacct WHERE username = ?",
-                [$username]
+                "SELECT GREATEST(0, COALESCE(SUM({$expr}), 0){$resta}) AS usados FROM radacct WHERE username = ?",
+                $params
             );
 
             return max(0, (int) ($fila->usados ?? 0));
@@ -525,7 +540,7 @@ class RadiusHotspotSyncService
             }
 
             $placeholders = implode(',', array_fill(0, count($usernames), '?'));
-            $expr = self::sqlOctetosSesion();
+            $expr = $this->expresionOctetos();
             $filas = $db->select(
                 "SELECT username,
                     COALESCE(SUM(CASE WHEN acctstoptime IS NULL THEN 0 ELSE {$expr} END), 0) AS cerradas,
@@ -548,7 +563,7 @@ class RadiusHotspotSyncService
                 ];
             }
 
-            return $out;
+            return $this->aplicarCortes($out);
         } catch (Throwable $e) {
             Log::warning('[RADIUS] no se pudo leer consumo por usuarios', [
                 'error' => $e->getMessage(),
@@ -584,9 +599,227 @@ class RadiusHotspotSyncService
         return $out;
     }
 
-    protected static function sqlOctetosSesion(): string
+    /**
+     * Resta el corte del período: primero a las sesiones cerradas y el resto a la abierta.
+     *
+     * @return array{cerradas: int, abiertas: int}
+     */
+    public static function restarBaseContador(int $cerradas, int $abiertas, int $base): array
     {
-        return 'CAST(COALESCE(acctinputoctets, 0) AS UNSIGNED) + CAST(COALESCE(acctoutputoctets, 0) AS UNSIGNED)';
+        $base = max(0, $base);
+        $cerradas = max(0, $cerradas);
+        $abiertas = max(0, $abiertas);
+        $deCerradas = min($cerradas, $base);
+
+        return [
+            'cerradas' => $cerradas - $deCerradas,
+            'abiertas' => max(0, $abiertas - ($base - $deCerradas)),
+        ];
+    }
+
+    /**
+     * Cierra las sesiones RADIUS abiertas para que el corte no siga sumando tráfico viejo.
+     *
+     * @param  list<string>  $usernames
+     */
+    public function cerrarContabilidadAbierta(array $usernames): int
+    {
+        $usernames = $this->normalizarUsernames($usernames);
+        if ($usernames === []) {
+            return 0;
+        }
+
+        $cerradas = 0;
+        $db = DB::connection($this->connection());
+        foreach (array_chunk($usernames, 200) as $lote) {
+            $cerradas += $db->table('radacct')
+                ->whereIn('username', $lote)
+                ->whereNull('acctstoptime')
+                ->update([
+                    'acctstoptime' => now()->format('Y-m-d H:i:s'),
+                    'acctterminatecause' => 'Admin-Reset',
+                ]);
+        }
+
+        return $cerradas;
+    }
+
+    /**
+     * Suma histórica de radacct, sin restar el corte del período.
+     *
+     * @param  list<string>  $usernames
+     * @return array<string, int>
+     */
+    public function consumoAcumulado(array $usernames): array
+    {
+        $usernames = $this->normalizarUsernames($usernames);
+        if ($usernames === [] || ! $this->enabled()) {
+            return [];
+        }
+
+        $db = DB::connection($this->connection());
+        if (! $db->getSchemaBuilder()->hasTable('radacct')) {
+            return [];
+        }
+
+        $expr = $this->expresionOctetos();
+        $out = [];
+        foreach (array_chunk($usernames, 200) as $lote) {
+            $placeholders = implode(',', array_fill(0, count($lote), '?'));
+            $filas = $db->select(
+                "SELECT username, COALESCE(SUM({$expr}), 0) AS usados
+                FROM radacct WHERE username IN ({$placeholders}) GROUP BY username",
+                $lote
+            );
+            foreach ($filas as $fila) {
+                $user = trim((string) ($fila->username ?? ''));
+                if ($user !== '') {
+                    $out[$user] = max(0, (int) ($fila->usados ?? 0));
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, int>  $bases
+     */
+    public function registrarCortesCuota(array $bases, string $periodo): void
+    {
+        $ahora = now()->format('Y-m-d H:i:s');
+        $filas = [];
+        foreach ($bases as $username => $bytes) {
+            $username = trim((string) $username);
+            if ($username === '') {
+                continue;
+            }
+            $filas[] = [
+                'username' => $username,
+                'bytes_base' => max(0, (int) $bytes),
+                'periodo' => $periodo,
+                'cortado_en' => $ahora,
+            ];
+        }
+        if ($filas === []) {
+            return;
+        }
+
+        $db = DB::connection($this->connection());
+        foreach (array_chunk($filas, 200) as $lote) {
+            $db->table('hotspot_cuota_corte')->upsert(
+                $lote,
+                ['username'],
+                ['bytes_base', 'periodo', 'cortado_en']
+            );
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function periodosCorte(array $usernames): array
+    {
+        $usernames = $this->normalizarUsernames($usernames);
+        if ($usernames === [] || ! $this->tieneCorteCuota()) {
+            return [];
+        }
+
+        $out = [];
+        $db = DB::connection($this->connection());
+        foreach (array_chunk($usernames, 200) as $lote) {
+            $filas = $db->table('hotspot_cuota_corte')
+                ->whereIn('username', $lote)
+                ->get(['username', 'periodo']);
+            foreach ($filas as $fila) {
+                $user = trim((string) ($fila->username ?? ''));
+                if ($user !== '') {
+                    $out[$user] = (string) ($fila->periodo ?? '');
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<string>  $usernames
+     * @return list<string>
+     */
+    protected function normalizarUsernames(array $usernames): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($u) => trim((string) $u),
+            $usernames
+        ), static fn (string $u) => $u !== '')));
+    }
+
+    protected function expresionOctetos(): string
+    {
+        if ($this->exprOctetos !== null) {
+            return $this->exprOctetos;
+        }
+
+        $expr = 'CAST(COALESCE(acctinputoctets, 0) AS UNSIGNED) + CAST(COALESCE(acctoutputoctets, 0) AS UNSIGNED)';
+        try {
+            $schema = DB::connection($this->connection())->getSchemaBuilder();
+            if ($schema->hasColumn('radacct', 'acctinputgigawords') && $schema->hasColumn('radacct', 'acctoutputgigawords')) {
+                $expr .= ' + CAST(COALESCE(acctinputgigawords, 0) AS UNSIGNED) * '.self::GIGAWORD
+                    .' + CAST(COALESCE(acctoutputgigawords, 0) AS UNSIGNED) * '.self::GIGAWORD;
+            }
+        } catch (Throwable) {
+        }
+
+        return $this->exprOctetos = $expr;
+    }
+
+    protected function tieneCorteCuota(): bool
+    {
+        if ($this->corteDisponible !== null) {
+            return $this->corteDisponible;
+        }
+
+        try {
+            $this->corteDisponible = DB::connection($this->connection())
+                ->getSchemaBuilder()
+                ->hasTable('hotspot_cuota_corte');
+        } catch (Throwable) {
+            $this->corteDisponible = false;
+        }
+
+        return $this->corteDisponible;
+    }
+
+    /**
+     * @param  array<string, array{cerradas: int, abiertas: int}>  $partes
+     * @return array<string, array{cerradas: int, abiertas: int}>
+     */
+    protected function aplicarCortes(array $partes): array
+    {
+        if ($partes === [] || ! $this->tieneCorteCuota()) {
+            return $partes;
+        }
+
+        $bases = [];
+        $db = DB::connection($this->connection());
+        foreach (array_chunk(array_keys($partes), 200) as $lote) {
+            $filas = $db->table('hotspot_cuota_corte')->whereIn('username', $lote)->get(['username', 'bytes_base']);
+            foreach ($filas as $fila) {
+                $user = trim((string) ($fila->username ?? ''));
+                if ($user !== '') {
+                    $bases[$user] = max(0, (int) ($fila->bytes_base ?? 0));
+                }
+            }
+        }
+
+        foreach ($partes as $user => $par) {
+            if (! isset($bases[$user])) {
+                continue;
+            }
+            $partes[$user] = self::restarBaseContador($par['cerradas'], $par['abiertas'], $bases[$user]);
+        }
+
+        return $partes;
     }
 
     /**

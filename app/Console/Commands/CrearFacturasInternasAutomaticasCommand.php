@@ -7,6 +7,7 @@ use App\Models\FacturacionParametro;
 use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
+use App\Services\HotspotCuotaResetService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -109,6 +110,22 @@ class CrearFacturasInternasAutomaticasCommand extends Command
             $omitidos,
             $errores
         ));
+
+        if (! $dryRun) {
+            $cuota = app(HotspotCuotaResetService::class)->resetear($periodoDesde->format('Y-m'));
+            if ($cuota['skipped']) {
+                $this->info('Cuota hotspot: '.($cuota['motivo'] ?? 'sin cambios.'));
+            } else {
+                $this->info(sprintf(
+                    'Cuota hotspot %s: %d contadores en cero, %d ya estaban en cero, %d sesiones cerradas, %d errores.',
+                    $periodoDesde->format('Y-m'),
+                    $cuota['reseteados'],
+                    $cuota['ya_reseteados'],
+                    $cuota['sesiones'],
+                    $cuota['errores']
+                ));
+            }
+        }
 
         return self::SUCCESS;
     }

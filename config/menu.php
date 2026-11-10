@@ -18,6 +18,7 @@ $accesoRapidoCatalogo = [
     ['name' => 'rapido-agenda', 'label' => 'Agenda', 'path' => '/agenda', 'permiso' => 'clientes-agenda.ver'],
     ['name' => 'rapido-servicios', 'label' => 'Servicios', 'path' => '/servicios', 'permiso' => 'servicios-lista.ver'],
     ['name' => 'rapido-whatsapp', 'label' => 'WhatsApp', 'path' => '/whatsapp/mensajes', 'permiso' => 'whatsapp.ver'],
+    ['name' => 'rapido-chat-interno', 'label' => 'Chat interno', 'path' => '/chat', 'permiso' => 'chat-interno.ver'],
     ['name' => 'rapido-mapa-tecnicos', 'label' => 'Técnicos en mapa', 'path' => '/staff/mapa-tecnicos', 'permiso' => 'staff-mapa-tecnicos.ver'],
     ['name' => 'rapido-solicitudes', 'label' => 'Solicitudes app', 'path' => '/solicitudes-acceso', 'permiso' => 'solicitudes-acceso.ver'],
     ['name' => 'rapido-tv', 'label' => 'TV streaming', 'path' => '/tv-cuentas', 'permiso' => 'tv.ver'],
@@ -111,6 +112,14 @@ return [
             'icon' => 'chat',
             'permiso' => 'whatsapp.ver',
             'activePrefix' => '/whatsapp',
+        ],
+        [
+            'name' => 'chat-interno',
+            'label' => 'Chat interno',
+            'path' => '/chat',
+            'icon' => 'user-group',
+            'permiso' => 'chat-interno.ver',
+            'activePrefix' => '/chat',
         ],
         [
             'name' => 'servicios',

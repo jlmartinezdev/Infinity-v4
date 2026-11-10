@@ -12,6 +12,7 @@ use App\Models\RouterScheduler;
 use App\Models\RouterScript;
 use App\Models\Servicio;
 use App\Models\ServicioHotspot;
+use App\Support\HotspotLoginBy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RouterOS\Client;
@@ -1035,6 +1036,67 @@ class MikroTikService
     }
 
     /**
+     * Cierra las sesiones hotspot autenticadas de esos usuarios para que vuelvan a pedir el límite a RADIUS.
+     *
+     * @param  list<string>  $usernames
+     */
+    public function cerrarSesionesHotspot(array $usernames): int
+    {
+        $wanted = [];
+        foreach ($usernames as $username) {
+            $user = trim((string) $username);
+            if ($user !== '') {
+                $wanted[$user] = true;
+            }
+        }
+        if ($wanted === []) {
+            return 0;
+        }
+
+        $routers = Router::query()
+            ->whereNotNull('hotspot_servidor')
+            ->where('hotspot_servidor', '!=', '')
+            ->get();
+
+        $cerradas = 0;
+        foreach ($routers as $router) {
+            try {
+                $client = $this->connect($router);
+                $query = new Query('/ip/hotspot/active/print');
+                $servidor = trim((string) $router->hotspot_servidor);
+                if ($servidor !== '') {
+                    $query->where('server', $servidor);
+                }
+                $activos = $client->query($query)->read();
+                foreach (is_array($activos) ? $activos : [] as $activo) {
+                    if (! is_array($activo)) {
+                        continue;
+                    }
+                    $user = trim((string) ($activo['user'] ?? ''));
+                    $id = trim((string) ($activo['.id'] ?? ''));
+                    if ($user === '' || $id === '' || ! isset($wanted[$user])) {
+                        continue;
+                    }
+                    $this->assertRouterosOk(
+                        $client->query((new Query('/ip/hotspot/active/remove'))->equal('.id', $id))->read(),
+                        'cerrar sesión hotspot '.$user
+                    );
+                    $cerradas++;
+                }
+            } catch (Throwable $e) {
+                Log::warning('[MikroTik] no se pudo cerrar la sesión hotspot', [
+                    'router' => $router->router_id,
+                    'error' => $e->getMessage(),
+                ]);
+            } finally {
+                $this->disconnect();
+            }
+        }
+
+        return $cerradas;
+    }
+
+    /**
      * Añade un usuario hotspot.
      */
     public function addHotspotUser(Router $router, string $name, string $password, ?string $profile = null, ?string $comment = null, ?string $server = null): array
@@ -1327,19 +1389,9 @@ class MikroTikService
                 ->equal('dns-name', $dnsName);
             $this->assertRouterosOk($client->query($setPerfil)->read(), 'dns-name');
 
-            $loginBy = array_values(array_unique(array_filter(array_map(
-                'trim',
-                explode(',', (string) ($perfil['login-by'] ?? 'http-chap'))
-            ), fn (string $m) => $m !== '' && strcasecmp($m, 'cookie') !== 0)));
-            if (! in_array('http-chap', $loginBy, true)) {
-                $loginBy[] = 'http-chap';
-            }
-            if (! in_array('http-pap', $loginBy, true)) {
-                $loginBy[] = 'http-pap';
-            }
             $this->assertRouterosOk($client->query((new Query('/ip/hotspot/profile/set'))
                 ->equal('.id', (string) $perfil['.id'])
-                ->equal('login-by', implode(',', $loginBy)))->read(), 'login-by');
+                ->equal('login-by', HotspotLoginBy::paraRoaming((string) ($perfil['login-by'] ?? 'http-chap'))))->read(), 'login-by');
 
             $estaticos = $client->query(new Query('/ip/dns/static/print'))->read();
             $estaticos = is_array($estaticos) ? $estaticos : [];

@@ -137,6 +137,14 @@ class RadiusHotspotSyncServiceTest extends TestCase
                 ['u1' => 50]
             )
         );
+        $this->assertSame(
+            ['cerradas' => 0, 'abiertas' => 20],
+            RadiusHotspotSyncService::restarBaseContador(100, 50, 130)
+        );
+        $this->assertSame(
+            ['cerradas' => 0, 'abiertas' => 0],
+            RadiusHotspotSyncService::restarBaseContador(80, 20, 100)
+        );
     }
 
     public function test_sync_falla_rapido_si_radius_no_escucha(): void

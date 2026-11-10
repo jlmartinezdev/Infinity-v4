@@ -71,6 +71,7 @@ return [
         'tv.editar' => ['tv.crear', 'tv.editar', 'tv.eliminar'],
         'whatsapp.ver' => ['whatsapp.ver'],
         'whatsapp.editar' => ['whatsapp.editar'],
+        'chat-interno.ver' => ['chat-interno.ver'],
         'facturacion.ver' => ['facturacion-dashboard.ver'],
         'facturas.ver' => ['facturas.ver'],
         'facturas.crear' => ['facturas.crear', 'facturas.editar'],
@@ -255,6 +256,12 @@ return [
             'label' => 'WhatsApp',
             'items' => [
                 ['label' => 'WhatsApp', 'base' => 'whatsapp', 'acciones' => ['ver', 'editar']],
+            ],
+        ],
+        [
+            'label' => 'Chat interno',
+            'items' => [
+                ['label' => 'Chat interno', 'base' => 'chat-interno', 'acciones' => ['ver']],
             ],
         ],
         [

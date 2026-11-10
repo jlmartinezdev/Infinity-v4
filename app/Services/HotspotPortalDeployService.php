@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Router;
+use App\Support\HotspotLoginBy;
 use Illuminate\Support\Facades\Log;
 use RouterOS\Query;
 use Throwable;
@@ -165,24 +166,25 @@ class HotspotPortalDeployService
                 ->equal('html-directory', 'hotspot');
             $this->ejecutarSet($client, $set, $nombre);
 
-            if ($nombre === 'default' || $trialUptime === '') {
-                continue;
+            $loginActual = (string) ($perfil['login-by'] ?? 'http-chap');
+            if ($nombre !== 'default' && $trialUptime !== '') {
+                $metodos = array_values(array_filter(array_map(
+                    static fn (string $metodo) => trim($metodo),
+                    explode(',', $loginActual)
+                ), static fn (string $metodo) => $metodo !== ''));
+                if (! in_array('trial', $metodos, true)) {
+                    $metodos[] = 'trial';
+                }
+                $loginActual = implode(',', $metodos);
+                $this->ejecutarSet($client, (new Query('/ip/hotspot/profile/set'))
+                    ->equal('.id', (string) $perfil['.id'])
+                    ->equal('trial-uptime-limit', $trialUptime)
+                    ->equal('trial-uptime-reset', '3d'), $nombre);
             }
 
-            $loginBy = array_values(array_unique(array_filter(array_map(
-                'trim',
-                explode(',', (string) ($perfil['login-by'] ?? 'http-chap'))
-            ))));
-            if (! in_array('trial', $loginBy, true)) {
-                $loginBy[] = 'trial';
-            }
             $this->ejecutarSet($client, (new Query('/ip/hotspot/profile/set'))
                 ->equal('.id', (string) $perfil['.id'])
-                ->equal('login-by', implode(',', $loginBy)), $nombre);
-            $this->ejecutarSet($client, (new Query('/ip/hotspot/profile/set'))
-                ->equal('.id', (string) $perfil['.id'])
-                ->equal('trial-uptime-limit', $trialUptime)
-                ->equal('trial-uptime-reset', '3d'), $nombre);
+                ->equal('login-by', HotspotLoginBy::paraRoaming($loginActual)), $nombre);
         }
     }
 

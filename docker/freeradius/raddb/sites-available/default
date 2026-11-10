@@ -23,6 +23,8 @@ server default {
 	}
 
 	authorize {
+		mac_hotspot
+		roaming_hotspot
 		filter_username
 		preprocess
 		chap
@@ -33,9 +35,13 @@ server default {
 		expiration
 		logintime
 		pap
+		mac_hotspot_aceptar
 	}
 
 	authenticate {
+		Auth-Type Accept {
+			ok
+		}
 		Auth-Type PAP {
 			pap
 		}

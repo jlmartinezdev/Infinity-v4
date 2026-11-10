@@ -18,6 +18,7 @@ COPY raddb/clients.conf.template /etc/freeradius/3.0/clients.conf.template
 COPY raddb/mods-available/sql /etc/freeradius/3.0/mods-available/sql.infinity
 COPY raddb/dictionary.infinity /etc/freeradius/3.0/dictionary.infinity
 COPY raddb/policy.d/cuota_hotspot /etc/freeradius/3.0/policy.d/cuota_hotspot
+COPY raddb/policy.d/mac_hotspot /etc/freeradius/3.0/policy.d/mac_hotspot
 
 RUN sed -i 's/\r$//' /entrypoint.sh \
     && chmod +x /entrypoint.sh

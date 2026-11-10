@@ -39,6 +39,8 @@
     "dependencies": {
         "html2canvas": "^1.4.1",
         "sweetalert2": "^11.26.17",
-        "vue": "^3.5.26"
+        "vue": "^3.5.26",
+        "laravel-echo": "^2.6.3",
+        "pusher-js": "^8.6.0"
     }
 }

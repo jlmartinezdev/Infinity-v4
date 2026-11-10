@@ -10,6 +10,7 @@ use App\Http\Controllers\AvisoPushWebController;
 use App\Http\Controllers\CajaNapController;
 use App\Http\Controllers\CategoriaGastoController;
 use App\Http\Controllers\CategoriaProductoController;
+use App\Http\Controllers\ChatInternoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDashboardController;
 use App\Http\Controllers\CobroController;
@@ -274,6 +275,20 @@ Route::middleware(['auth', 'permiso:solicitudes-acceso.editar'])->group(function
     Route::post('/solicitudes-acceso/{solicitud}/aprobar', [SolicitudAccesoWebController::class, 'aprobar'])->name('solicitudes-acceso.aprobar');
     Route::post('/solicitudes-acceso/{solicitud}/rechazar', [SolicitudAccesoWebController::class, 'rechazar'])->name('solicitudes-acceso.rechazar');
     Route::post('/solicitudes-acceso/{solicitud}/reenviar-clave', [SolicitudAccesoWebController::class, 'reenviarClave'])->name('solicitudes-acceso.reenviar-clave');
+});
+
+// Chat interno del personal
+Route::middleware(['auth', 'permiso:chat-interno.ver'])->prefix('chat')->name('chat.')->group(function () {
+    Route::get('/', [ChatInternoController::class, 'index'])->name('index');
+    Route::get('/pendientes', [ChatInternoController::class, 'pendientes'])->name('pendientes');
+    Route::get('/usuarios', [ChatInternoController::class, 'usuarios'])->name('usuarios');
+    Route::get('/conversaciones', [ChatInternoController::class, 'conversaciones'])->name('conversaciones');
+    Route::post('/directos', [ChatInternoController::class, 'directos'])->name('directos');
+    Route::post('/grupos', [ChatInternoController::class, 'grupos'])->name('grupos');
+    Route::get('/conversaciones/{id}/mensajes', [ChatInternoController::class, 'mensajes'])->whereNumber('id')->name('mensajes');
+    Route::post('/conversaciones/{id}/mensajes', [ChatInternoController::class, 'enviar'])->whereNumber('id')->name('mensajes.store');
+    Route::post('/mensajes/{id}/atender', [ChatInternoController::class, 'atender'])->whereNumber('id')->name('mensajes.atender');
+    Route::get('/adjuntos/{id}', [ChatInternoController::class, 'adjunto'])->whereNumber('id')->name('adjuntos');
 });
 
 // WhatsApp Cloud API (panel)

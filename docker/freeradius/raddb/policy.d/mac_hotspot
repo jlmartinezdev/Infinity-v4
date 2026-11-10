@@ -1,0 +1,35 @@
+# Si el celular ya entró en un hotspot, el otro con el mismo nombre
+# manda la MAC como usuario. La cambiamos por el usuario real y
+# cerramos la sesión vieja de esa MAC para que Simultaneous-Use no la frene.
+mac_hotspot {
+	if (&User-Name =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+		update control {
+			&Tmp-String-0 := "%{sql:SELECT username FROM radacct WHERE REPLACE(REPLACE(LOWER(callingstationid), '-', ':'), ' ', '') = REPLACE(LOWER('%{User-Name}'), '-', ':') AND username REGEXP '^[A-Za-z0-9_.@+-]+$' AND username NOT LIKE 'T-%%' AND username NOT LIKE 'trial-%%' ORDER BY acctstarttime DESC LIMIT 1}"
+		}
+
+		if (&control:Tmp-String-0 && &control:Tmp-String-0 != "") {
+			update request {
+				&User-Name := "%{control:Tmp-String-0}"
+			}
+			update control {
+				&Infinity-Mac-Auth := 1
+			}
+		}
+	}
+}
+
+roaming_hotspot {
+	if (&Calling-Station-Id =~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/ && &User-Name =~ /^[A-Za-z0-9_.@+-]+$/) {
+		update control {
+			&Tmp-String-0 := "%{sql:UPDATE radacct SET acctstoptime = NOW(), acctterminatecause = 'Lost-Carrier' WHERE username = '%{User-Name}' AND acctstoptime IS NULL AND REPLACE(REPLACE(LOWER(callingstationid), '-', ':'), ' ', '') = REPLACE(LOWER('%{Calling-Station-Id}'), '-', ':')}"
+		}
+	}
+}
+
+mac_hotspot_aceptar {
+	if (&control:Infinity-Mac-Auth && &control:Cleartext-Password && (!&control:Auth-Type || &control:Auth-Type != Reject)) {
+		update control {
+			&Auth-Type := Accept
+		}
+	}
+}

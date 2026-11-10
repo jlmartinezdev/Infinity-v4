@@ -93,6 +93,14 @@
                         </style>
                         @include('partials.theme-toggle')
                         @auth
+                            @if(auth()->user()->esStaff() && auth()->user()->tienePermiso('chat-interno.ver'))
+                                <a href="{{ route('chat.index') }}" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200" aria-label="Chat interno" title="Chat interno">
+                                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v8a2 2 0 01-2 2h-2v2l-3-2H9a2 2 0 01-2-2v-1M15 6a2 2 0 012 2v6a2 2 0 01-2 2H7l-3 2v-2H4a2 2 0 01-2-2V8a2 2 0 012-2h11z"/>
+                                    </svg>
+                                    <span id="chat-interno-badge" class="absolute -right-0.5 -top-0.5 hidden h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-medium text-white flex">0</span>
+                                </a>
+                            @endif
                             @if(auth()->user()->esAdministrador())
                                 @include('partials.notifications')
                             @endif
@@ -145,6 +153,9 @@
     <script src="{{ asset(mix('js/theme.js')) }}"></script>
     <script src="{{ asset(mix('js/app.js')) }}" defer></script>
     @auth
+    @if(auth()->user()->esStaff() && auth()->user()->tienePermiso('chat-interno.ver'))
+        @include('partials.chat-interno-realtime')
+    @endif
     <script>
         (function () {
             var url = @json(route('sesion.ping', [], false));
