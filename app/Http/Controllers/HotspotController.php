@@ -31,12 +31,17 @@ class HotspotController extends Controller
     {
         $routers = Router::query()->with('nodo')->orderBy('nombre')->get();
         $routersPorNodo = $this->routersPorNodoWatch($routers);
+        $vista = $this->vistaHotspot($request);
         $routerId = (int) $request->query('router_id', 0);
 
         if ($routerId <= 0) {
             $ultimo = (int) $request->session()->get(self::SESSION_DASHBOARD_ROUTER, 0);
             if ($ultimo > 0 && $routers->contains(fn (Router $r) => (int) $r->router_id === $ultimo)) {
-                return redirect()->route('hotspot.dashboard', ['router_id' => $ultimo]);
+                $params = $request->query();
+                $params['router_id'] = $ultimo;
+                $params['vista'] = $vista;
+
+                return redirect()->route('hotspot.dashboard', $params);
             }
         }
 
@@ -53,8 +58,22 @@ class HotspotController extends Controller
         $routerError = null;
         $consultadoEn = null;
         $activeHosts = [];
+        $mapped = collect();
+        $sesiones = [];
+        $offline = collect();
+        $consumo = [];
+        $ultimasConexiones = [];
+        $macsBloqueadas = [];
+        $clientes = null;
+        $seleccionado = null;
+        $esRecientes = false;
+        $perfiles = null;
 
-        if ($selectedRouter) {
+        if ($vista === 'usuarios') {
+            ['clientes' => $clientes, 'seleccionado' => $seleccionado, 'esRecientes' => $esRecientes, 'consumo' => $consumo] = $this->datosUsuarios($request, $radius, $mikrotik);
+        } elseif ($vista === 'perfiles') {
+            $perfiles = $this->datosPerfiles($request);
+        } elseif ($selectedRouter) {
             $consultadoEn = now();
             try {
                 $activeHosts = $mikrotik->getHotspotActiveHosts($selectedRouter, $selectedRouter->hotspot_servidor);
@@ -67,8 +86,7 @@ class HotspotController extends Controller
             }
         }
 
-        $mapped = collect();
-        if ($selectedRouter) {
+        if ($vista === 'sesiones' && $selectedRouter) {
             $mapped = ServicioHotspot::query()
                 ->with(['servicio.cliente', 'cliente', 'hotspotPerfil', 'router'])
                 ->where(function ($q) use ($selectedRouter) {
@@ -81,6 +99,7 @@ class HotspotController extends Controller
                 ->get();
         }
 
+        if ($vista === 'sesiones') {
         $todosPorUsername = ServicioHotspot::query()
             ->with(['servicio.cliente', 'cliente', 'hotspotPerfil', 'router'])
             ->get()
@@ -127,7 +146,7 @@ class HotspotController extends Controller
             $locker = $fila['locker'];
             $user = (string) $fila['username'];
             $bytes = (int) ($consumo[$user] ?? 0);
-            $vista = $locker
+            $cuotaFila = $locker
                 ? RadiusHotspotSyncService::consumoVista($bytes, $locker->hotspotPerfil?->cuota_gb)
                 : [
                     'etiqueta' => '',
@@ -137,8 +156,8 @@ class HotspotController extends Controller
                     'tiene_cuota' => false,
                 ];
             $sesiones[$i]['perfil'] = $locker?->hotspotPerfil?->nombreDistintoDeCuota() ?? '';
-            $sesiones[$i]['consumo'] = $vista['etiqueta'];
-            $sesiones[$i]['cuota'] = $vista;
+            $sesiones[$i]['consumo'] = $cuotaFila['etiqueta'];
+            $sesiones[$i]['cuota'] = $cuotaFila;
             $sesiones[$i]['trial_tiempo'] = false;
             if (($fila['origen'] ?? '') === 'trial') {
                 $tiempo = HotspotDuracion::vistaRestante(
@@ -161,6 +180,7 @@ class HotspotController extends Controller
                 'mac' => $ultima['mac'],
             ];
         }
+        }
 
         return view('hotspot.dashboard', [
             'ultimasConexiones' => $ultimasConexiones,
@@ -173,7 +193,12 @@ class HotspotController extends Controller
             'consumo' => $consumo,
             'routerError' => $routerError,
             'consultadoEn' => $consultadoEn,
-            'macsBloqueadas' => $this->macsBloqueadas($selectedRouter, $routerError, $mikrotik),
+            'macsBloqueadas' => $vista === 'sesiones' ? $this->macsBloqueadas($selectedRouter, $routerError, $mikrotik) : [],
+            'vista' => $vista,
+            'clientes' => $clientes,
+            'seleccionado' => $seleccionado,
+            'esRecientes' => $esRecientes,
+            'perfiles' => $perfiles,
         ]);
     }
 
@@ -514,7 +539,15 @@ class HotspotController extends Controller
     /**
      * Cards por cliente: hasta 3 slots hotspot.
      */
-    public function index(Request $request, RadiusHotspotSyncService $radius, MikroTikService $mikrotik): View
+    public function index(Request $request): RedirectResponse
+    {
+        return $this->redirigirAlMenu($request, 'usuarios');
+    }
+
+    /**
+     * @return array{clientes: LengthAwarePaginator, seleccionado: ?ServicioHotspot, esRecientes: bool, consumo: array<string, int>}
+     */
+    private function datosUsuarios(Request $request, RadiusHotspotSyncService $radius, MikroTikService $mikrotik): array
     {
         $buscar = trim((string) $request->input('buscar', ''));
         $esRecientes = $buscar === '';
@@ -601,7 +634,60 @@ class HotspotController extends Controller
         }
         $consumo = RadiusHotspotSyncService::combinarConsumoSesionViva($radacct, $vivo);
 
-        return view('hotspot.index', compact('clientes', 'seleccionado', 'esRecientes', 'consumo'));
+        return compact('clientes', 'seleccionado', 'esRecientes', 'consumo');
+    }
+
+    private function vistaHotspot(Request $request): string
+    {
+        $vista = (string) $request->query('vista', 'sesiones');
+        if (! in_array($vista, ['sesiones', 'usuarios', 'perfiles'], true)) {
+            $vista = 'sesiones';
+        }
+        $user = $request->user();
+        $puedePerfiles = $user && ($user->tienePermiso('servicios-hotspot-perfiles.ver') || $user->tienePermiso('servicios.ver'));
+        if ($vista === 'perfiles' && ! $puedePerfiles) {
+            return 'sesiones';
+        }
+
+        return $vista;
+    }
+
+    private function datosPerfiles(Request $request): LengthAwarePaginator
+    {
+        $query = HotspotPerfil::query()->orderBy('nombre');
+        if ($request->filled('buscar')) {
+            $q = (string) $request->input('buscar');
+            $query->where(function ($qry) use ($q) {
+                $qry->where('nombre', 'like', "%{$q}%")
+                    ->orWhere('rate_limit', 'like', "%{$q}%");
+            });
+        }
+
+        return $query->paginate(15)->withQueryString();
+    }
+
+    private function redirigirAlMenu(Request $request, string $vista): RedirectResponse
+    {
+        $routerId = (int) $request->input('router_id', 0);
+        if ($routerId <= 0) {
+            $routerId = (int) $request->session()->get(self::SESSION_DASHBOARD_ROUTER, 0);
+        }
+        $params = array_filter([
+            'vista' => $vista,
+            'router_id' => $routerId > 0 ? $routerId : null,
+            'buscar' => $request->input('buscar'),
+            'hotspot' => $request->input('hotspot'),
+            'page' => $request->input('page'),
+        ], fn ($valor) => $valor !== null && $valor !== '');
+
+        $to = redirect()->route('hotspot.dashboard', $params);
+        foreach (['success', 'error', 'warning'] as $clave) {
+            if ($request->session()->has($clave)) {
+                $to->with($clave, $request->session()->get($clave));
+            }
+        }
+
+        return $to;
     }
 
     public function tocar(Request $request): JsonResponse

@@ -128,11 +128,9 @@ return [
             'submenu' => [
                 ['name' => 'lista-servicios', 'label' => 'Lista servicios', 'path' => '/servicios', 'permiso' => 'servicios-lista.ver'],
                 ['name' => 'pppoe-eventos', 'label' => 'Eventos PPPoE MikroTik', 'path' => '/servicios/pppoe-eventos', 'permiso' => 'servicios-lista.ver'],
-                ['name' => 'hotspot-dashboard', 'label' => 'Sesiones hotspot', 'path' => '/hotspot/dashboard', 'permiso' => 'servicios-hotspot.ver'],
-                ['name' => 'hotspot-usuarios', 'label' => 'Usuarios Hotspot', 'path' => '/hotspot', 'permiso' => 'servicios-hotspot-usuarios.ver'],
+                ['name' => 'hotspot-dashboard', 'label' => 'Admin hotspot', 'path' => '/hotspot/dashboard', 'permiso' => 'servicios-hotspot.ver'],
                 ['name' => 'hotspot-mapa', 'label' => 'Mapa puntos Hotspot', 'path' => '/hotspot/mapa', 'permiso' => 'servicios-hotspot-usuarios.ver'],
                 ['name' => 'hotspot-radius', 'label' => 'Usuarios RADIUS', 'path' => '/hotspot/radius', 'permiso' => 'servicios-hotspot-usuarios.ver'],
-                ['name' => 'hotspot-perfiles', 'label' => 'Perfiles Hotspot', 'path' => '/hotspot/perfiles', 'permiso' => 'servicios-hotspot-perfiles.ver'],
             ],
         ],
         [

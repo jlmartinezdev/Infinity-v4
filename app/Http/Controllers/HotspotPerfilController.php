@@ -12,20 +12,20 @@ class HotspotPerfilController extends Controller
 {
     public function index(Request $request)
     {
-        $query = HotspotPerfil::query()->orderBy('nombre');
-
-        if ($request->filled('buscar')) {
-            $q = $request->buscar;
-            $query->where(function ($qry) use ($q) {
-                $qry->where('nombre', 'like', "%{$q}%")
-                    ->orWhere('rate_limit', 'like', "%{$q}%");
-            });
+        $routerId = (int) $request->input('router_id', $request->session()->get('hotspot_dashboard_router_id', 0));
+        $to = redirect()->route('hotspot.dashboard', array_filter([
+            'vista' => 'perfiles',
+            'buscar' => $request->input('buscar'),
+            'page' => $request->input('page'),
+            'router_id' => $routerId > 0 ? $routerId : null,
+        ], fn ($valor) => $valor !== null && $valor !== ''));
+        foreach (['success', 'error', 'warning'] as $clave) {
+            if ($request->session()->has($clave)) {
+                $to->with($clave, $request->session()->get($clave));
+            }
         }
 
-        $perfiles = $query->paginate(15)->withQueryString();
-        $routers = Router::with('nodo')->orderBy('nombre')->get();
-
-        return view('hotspot.perfiles.index', compact('perfiles', 'routers'));
+        return $to;
     }
 
     public function create()

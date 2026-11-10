@@ -1,7 +1,5 @@
 @extends('layouts.app')
 
-@section('title', 'Sesiones hotspot')
-
 @php
     $estados = \App\Models\Servicio::estadosDisponibles();
     $linkUser = 'underline underline-offset-2 decoration-gray-400 dark:decoration-gray-500 text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-white';
@@ -28,7 +26,23 @@
         }
     }
     $lupa = '<svg class="w-4 h-4 flex-none text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke-width="2"></circle><path stroke-linecap="round" stroke-width="2" d="m20 20-3.5-3.5"></path></svg>';
+    $vista = $vista ?? 'sesiones';
     $puedePerfiles = auth()->user()?->tienePermiso('servicios-hotspot-perfiles.ver') || auth()->user()?->tienePermiso('servicios.ver');
+    $titulosHotspot = [
+        'sesiones' => ['Sesiones hotspot', 'Quién está en el Wi‑Fi de un router y qué cuentas no tienen sesión.'],
+        'usuarios' => ['Usuarios hotspot', 'Cuentas del locker: documento, PIN y hasta tres usuarios por cliente.'],
+        'perfiles' => ['Perfiles hotspot', 'Velocidad y cuota que usa cada cuenta.'],
+    ];
+    $tituloPagina = $titulosHotspot[$vista][0] ?? $titulosHotspot['sesiones'][0];
+    $subtituloPagina = $titulosHotspot[$vista][1] ?? $titulosHotspot['sesiones'][1];
+    $menuHotspot = function (string $destino, array $extra = []) use ($selectedRouter) {
+        return route('hotspot.dashboard', array_filter(array_merge([
+            'vista' => $destino,
+            'router_id' => $selectedRouter?->router_id,
+        ], $extra), fn ($valor) => $valor !== null && $valor !== ''));
+    };
+    $sesiones = $sesiones ?? [];
+    $offline = $offline ?? collect();
     $puedeCrear = (bool) auth()->user()?->tienePermiso('servicios.editar');
     $macsBloqueadas = $macsBloqueadas ?? [];
     $nVivas = count($sesiones);
@@ -46,6 +60,8 @@
         }
     }
 @endphp
+
+@section('title', $tituloPagina)
 
 @push('styles')
 <style>
@@ -460,9 +476,10 @@
 <div id="hotspot-dash-page" class="max-w-7xl mx-auto space-y-4">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Sesiones hotspot</h1>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Quién está en el Wi‑Fi de un router y qué cuentas no tienen sesión.</p>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ $tituloPagina }}</h1>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $subtituloPagina }}</p>
         </div>
+        @if($vista === 'sesiones')
         <div id="hotspot-dash-router-box" class="hsd-router" data-loaded="{{ $selectedRouter?->router_id }}">
             <span id="hotspot-dash-router-label" class="block mb-1 text-xs text-gray-500 dark:text-gray-400">Router</span>
             <button type="button" id="hotspot-dash-router-btn" class="hsd-router-btn"
@@ -520,17 +537,18 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 
     <div class="hsd-tabs flex flex-wrap items-end justify-between gap-x-3">
-        <nav class="flex gap-1" aria-label="Vistas hotspot">
-            <a href="{{ route('hotspot.dashboard', $selectedRouter ? ['router_id' => $selectedRouter->router_id] : []) }}" class="hsd-tab is-on" aria-current="page">Sesiones</a>
-            <a href="{{ route('hotspot.index') }}" class="hsd-tab">Usuarios hotspot</a>
+        <nav class="flex gap-1" aria-label="Administrar hotspot">
+            <a href="{{ $menuHotspot('sesiones') }}" class="hsd-tab {{ $vista === 'sesiones' ? 'is-on' : '' }}" @if($vista === 'sesiones') aria-current="page" @endif>Sesiones</a>
+            <a href="{{ $menuHotspot('usuarios') }}" class="hsd-tab {{ $vista === 'usuarios' ? 'is-on' : '' }}" @if($vista === 'usuarios') aria-current="page" @endif>Usuarios hotspot</a>
             @if($puedePerfiles)
-                <a href="{{ route('hotspot.perfiles.index') }}" class="hsd-tab">Perfiles</a>
+                <a href="{{ $menuHotspot('perfiles') }}" class="hsd-tab {{ $vista === 'perfiles' ? 'is-on' : '' }}" @if($vista === 'perfiles') aria-current="page" @endif>Perfiles</a>
             @endif
         </nav>
-        @if($selectedRouter)
+        @if($vista === 'sesiones' && $selectedRouter)
             <div class="flex flex-wrap items-center gap-2 pb-2 w-full sm:w-auto">
                 <label class="hsd-search">
                     {!! $lupa !!}
@@ -550,7 +568,11 @@
         @endif
     </div>
 
-    @if($selectedRouter)
+    @if($vista === 'usuarios')
+        @include('hotspot.paneles.usuarios')
+    @elseif($vista === 'perfiles')
+        @include('hotspot.paneles.perfiles')
+    @elseif($selectedRouter)
         <div id="hotspot-dash-session-host"
             data-copy="Tu sesión se cerró. Entrá de nuevo para seguir las sesiones."
             data-entrar="{{ route('login') }}"></div>
@@ -705,7 +727,7 @@
                                                     <span class="hsd-tag">{{ $etiquetaPortal }}</span>
                                                 </span>
                                             @elseif($esLocker && $fila['username'] !== '—')
-                                                <a href="{{ route('hotspot.index', ['buscar' => $fila['username']]) }}" class="font-semibold {{ $linkUser }}">{{ $fila['username'] }}</a>
+                                                <a href="{{ $menuHotspot('usuarios', ['buscar' => $fila['username']]) }}" class="font-semibold {{ $linkUser }}">{{ $fila['username'] }}</a>
                                             @else
                                                 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $fila['username'] }}</span>
                                             @endif
@@ -740,7 +762,7 @@
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
                                             <div class="inline-flex items-center gap-1">
                                                 @if($esPortal)
-                                                    <a href="{{ route('hotspot.index') }}" class="hsd-btn hsd-btn-primary">Asignar cuenta</a>
+                                                    <a href="{{ $menuHotspot('usuarios') }}" class="hsd-btn hsd-btn-primary">Asignar cuenta</a>
                                                 @elseif($puedeCortar)
                                                     <form method="POST" action="{{ route('hotspot.dashboard.desconectar', $selectedRouter) }}" class="inline" onsubmit="return confirm(@json('¿Desconectar a '.$quien.'? Si entró con la cuenta del celular, no vuelve a entrar solo.'))">
                                                         @csrf
@@ -756,7 +778,7 @@
                                                                 <button type="button" role="menuitem" class="hsd-menu-item" data-copiar="{{ $fila['mac'] }}" data-copiar-texto>Copiar MAC</button>
                                                             @endif
                                                             @if($esLocker && $fila['username'] !== '—')
-                                                                <a role="menuitem" class="hsd-menu-item" href="{{ route('hotspot.index', ['buscar' => $fila['username']]) }}">Ver usuario</a>
+                                                                <a role="menuitem" class="hsd-menu-item" href="{{ $menuHotspot('usuarios', ['buscar' => $fila['username']]) }}">Ver usuario</a>
                                                             @endif
                                                             @if($esLocker && $fila['cliente_id'] && $puedeCrear)
                                                                 <a role="menuitem" class="hsd-menu-item" href="{{ route('hotspot.clientes.edit', $fila['cliente_id']) }}">Editar cuenta</a>
@@ -892,7 +914,7 @@
                                             data-pct="{{ ! empty($cuotaVista['tiene_cuota']) ? (float) ($cuotaVista['porcentaje'] ?? 0) : '' }}"
                                             data-buscar="{{ mb_strtolower($sh->username.' '.$nombre.' '.$perfilNombre.' '.($ultima['mac'] ?? '')) }}">
                                             <td class="px-4 py-3">
-                                                <a href="{{ route('hotspot.index', ['buscar' => $sh->username]) }}" class="font-semibold {{ $linkUser }}">{{ $sh->username }}</a>
+                                                <a href="{{ $menuHotspot('usuarios', ['buscar' => $sh->username]) }}" class="font-semibold {{ $linkUser }}">{{ $sh->username }}</a>
                                             </td>
                                             <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
                                                 @include('hotspot._cuota-barra', [
@@ -925,7 +947,7 @@
                                                     <div class="hsd-menu-wrap">
                                                         <button type="button" class="hsd-btn hsd-btn-icon" data-menu-btn aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de {{ $sh->username }}">⋯</button>
                                                         <div class="hsd-menu" role="menu" hidden>
-                                                            <a role="menuitem" class="hsd-menu-item" href="{{ route('hotspot.index', ['buscar' => $sh->username]) }}">Ver usuario</a>
+                                                            <a role="menuitem" class="hsd-menu-item" href="{{ $menuHotspot('usuarios', ['buscar' => $sh->username]) }}">Ver usuario</a>
                                                             @if($sh->cliente_id && $puedeCrear)
                                                                 <a role="menuitem" class="hsd-menu-item" href="{{ route('hotspot.clientes.edit', $sh->cliente_id) }}">Editar cuenta</a>
                                                                 <form method="POST" action="{{ route('hotspot.clientes.destroy', [$sh->cliente_id, $sh]) }}" onsubmit="return confirm(@json('¿Quitar la cuenta '.$sh->username.'? Deja de poder entrar al hotspot.'))">
@@ -959,6 +981,7 @@
 </div>
 @endsection
 
+@if($vista === 'sesiones')
 @push('scripts')
 <script>
 (function () {
@@ -1512,3 +1535,4 @@
 })();
 </script>
 @endpush
+@endif
