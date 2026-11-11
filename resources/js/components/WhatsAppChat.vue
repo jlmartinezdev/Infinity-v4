@@ -473,7 +473,9 @@
                   </div>
                   <div v-else-if="m.error_message" class="mt-1 text-[11px] text-rose-600 dark:text-rose-200/90">{{ m.error_message }}</div>
 
-                  <div class="wa-muted mt-0.5 flex items-center justify-end gap-1.5 text-[11px]">
+                  <div class="wa-muted mt-0.5 flex items-end justify-between gap-3 text-[11px]">
+                    <span v-if="m.direccion === 'salida' && m.autor" class="min-w-0 truncate leading-none">{{ m.autor }}</span>
+                    <span class="ml-auto inline-flex shrink-0 items-center gap-1.5">
                     <button
                       v-if="puedeEditar"
                       type="button"
@@ -507,6 +509,7 @@
                       class="text-[14px] leading-none"
                       :class="m.estado === 'leido' ? 'wa-ticks-read' : ''"
                     >{{ ticks(m.estado) }}</span>
+                    </span>
                   </div>
                 </div>
               </div>

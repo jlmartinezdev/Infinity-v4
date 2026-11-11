@@ -43,6 +43,7 @@ class WhatsappMensaje extends Model
         'error_code',
         'error_message',
         'cliente_id',
+        'usuario_id',
         'ticket_id',
         'contexto_tipo',
         'contexto_id',
@@ -54,12 +55,18 @@ class WhatsappMensaje extends Model
         return [
             'payload' => 'array',
             'contexto_id' => 'integer',
+            'usuario_id' => 'integer',
         ];
     }
 
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'cliente_id', 'cliente_id');
+    }
+
+    public function usuario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'usuario_id', 'usuario_id');
     }
 
     public function ticket(): BelongsTo

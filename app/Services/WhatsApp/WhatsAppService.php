@@ -888,6 +888,7 @@ class WhatsAppService
         $meta = array_filter([
             'cliente_id' => $original->cliente_id,
             'ticket_id' => $original->ticket_id,
+            'usuario_id' => auth()->id() ?: $original->usuario_id,
             'contexto_tipo' => $original->contexto_tipo ?: 'reintento',
             'contexto_id' => $original->contexto_id ?: $original->id,
         ], static fn ($v) => $v !== null && $v !== '');
@@ -1788,14 +1789,15 @@ class WhatsAppService
     }
 
     /**
-     * @param  array{cliente_id?: int|null, ticket_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}  $meta
-     * @return array{cliente_id?: int|null, ticket_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}
+     * @param  array{cliente_id?: int|null, ticket_id?: int|null, usuario_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}  $meta
+     * @return array{cliente_id?: int|null, ticket_id?: int|null, usuario_id?: int|null, contexto_tipo?: string|null, contexto_id?: int|null}
      */
     private function metaFields(array $meta): array
     {
         return array_filter([
             'cliente_id' => $meta['cliente_id'] ?? null,
             'ticket_id' => $meta['ticket_id'] ?? null,
+            'usuario_id' => $meta['usuario_id'] ?? null,
             'contexto_tipo' => $meta['contexto_tipo'] ?? null,
             'contexto_id' => $meta['contexto_id'] ?? null,
         ], static fn ($v) => $v !== null && $v !== '');

@@ -917,6 +917,7 @@ class WhatsAppWebController extends Controller
         }
 
         $hilo = $query
+            ->with('usuario:usuario_id,name')
             ->orderBy('id')
             ->limit(300)
             ->get()
@@ -1435,7 +1436,7 @@ class WhatsAppWebController extends Controller
             $validated['telefono'],
             $request->file('archivo'),
             $validated['caption'] ?? null,
-            ['contexto_tipo' => 'manual_panel']
+            $this->metaManual()
         );
 
         if ($mensaje->estado === WhatsappMensaje::ESTADO_FALLIDO) {
@@ -1498,7 +1499,7 @@ class WhatsAppWebController extends Controller
             return $this->whatsapp->sendText(
                 $validated['telefono'],
                 (string) $validated['texto'],
-                ['contexto_tipo' => 'manual_panel']
+                $this->metaManual()
             );
         }
 
@@ -1539,8 +1540,18 @@ class WhatsAppWebController extends Controller
             $tplName,
             (string) ($aprobada['language'] ?? $tplLang),
             $params,
-            ['contexto_tipo' => 'manual_panel']
+            $this->metaManual()
         );
+    }
+
+    private function metaManual(): array
+    {
+        $id = auth()->id();
+
+        return array_filter([
+            'contexto_tipo' => 'manual_panel',
+            'usuario_id' => $id ? (int) $id : null,
+        ], static fn ($v) => $v !== null && $v !== '');
     }
 
     private function normalizeTel(mixed $tel): ?string
@@ -1878,6 +1889,9 @@ class WhatsAppWebController extends Controller
             'created_at' => $m->created_at?->toIso8601String(),
             'updated_at' => $m->updated_at?->toIso8601String(),
             'hora' => $m->created_at?->format('H:i'),
+            'autor' => $m->esSalida()
+                ? (trim((string) ($m->usuario?->name ?? '')) ?: null)
+                : null,
             'dia' => $m->created_at?->format('Y-m-d'),
             'dia_label' => $m->created_at?->translatedFormat('d M Y'),
             'fallo' => $fallo,
