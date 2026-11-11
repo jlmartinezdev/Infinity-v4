@@ -82,6 +82,8 @@ class HerramientasRedPayload
                 'antena_dhcp' => route('servicios.herramientas-red.antena-dhcp', $servicio->servicio_id),
                 'olt' => route('servicios.herramientas-red.olt', $servicio->servicio_id),
                 'olt_desc' => route('servicios.herramientas-red.olt-desc', $servicio->servicio_id),
+                'olt_instalacion' => route('servicios.herramientas-red.olt-instalacion', $servicio->servicio_id),
+                'olt_instalacion_aplicar' => route('servicios.herramientas-red.olt-instalacion.aplicar', $servicio->servicio_id),
                 'tr069' => route('servicios.herramientas-red.tr069', $servicio->servicio_id),
                 'tr069_hosts' => route('servicios.herramientas-red.tr069-hosts', $servicio->servicio_id),
                 'tr069_reboot' => route('servicios.herramientas-red.tr069-reboot', $servicio->servicio_id),
@@ -98,6 +100,7 @@ class HerramientasRedPayload
             ],
             'csrf' => csrf_token(),
             'es_fibra' => $esFibra,
+            'perfiles_olt' => \App\Support\OltPerfilInstalacion::listar(),
             'es_antena' => $esAntena,
             'tiene_router' => (bool) $router,
             'tr069_enabled' => (bool) config('genieacs.enabled')

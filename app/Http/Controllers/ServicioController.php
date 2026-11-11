@@ -1504,6 +1504,198 @@ class ServicioController extends Controller
     }
 
     /**
+     * Busca una ONU por número de serie en las OLT del servicio y, si no aparece, en el resto.
+     */
+    public function herramientasRedOltInstalacionBuscar(
+        Request $request,
+        $servicio_id,
+        \App\Services\Olt\VsolGponClient $vsol
+    ) {
+        $servicio = $this->servicioFibraParaOlt($servicio_id);
+        if ($servicio instanceof \Illuminate\Http\JsonResponse) {
+            return $servicio;
+        }
+
+        $serial = \App\Support\OltPerfilInstalacion::normalizarSerial((string) $request->input('serial', ''));
+        if (strlen($serial) < 8) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ingresá el número de serie completo de la ONU u ONT.',
+            ], 422);
+        }
+
+        $encontrada = $this->localizarOnuPorSerial($servicio, $serial, $vsol);
+        if ($encontrada === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No aparece ninguna ONU con la serie '.$serial.' en las OLT consultadas.',
+                'serial' => $serial,
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'ONU encontrada en '.$encontrada['olt'].' PON '.$encontrada['pon_port'].':'.$encontrada['onu_index'].'.',
+            ...$encontrada,
+        ]);
+    }
+
+    /**
+     * Ata el perfil de ONT o de ONU puente + router a la ONU encontrada por serie.
+     */
+    public function herramientasRedOltInstalacionAplicar(
+        Request $request,
+        $servicio_id,
+        \App\Services\Olt\VsolGponClient $vsol
+    ) {
+        $servicio = $this->servicioFibraParaOlt($servicio_id);
+        if ($servicio instanceof \Illuminate\Http\JsonResponse) {
+            return $servicio;
+        }
+
+        $serial = \App\Support\OltPerfilInstalacion::normalizarSerial((string) $request->input('serial', ''));
+        $modo = (string) $request->input('modo', '');
+        $perfil = \App\Support\OltPerfilInstalacion::perfil($modo);
+        if (strlen($serial) < 8 || $perfil === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Elegí el tipo de instalación e ingresá la serie.',
+            ], 422);
+        }
+
+        $encontrada = $this->localizarOnuPorSerial($servicio, $serial, $vsol);
+        if ($encontrada === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No aparece ninguna ONU con la serie '.$serial.'.',
+                'serial' => $serial,
+            ], 422);
+        }
+
+        $olt = \App\Models\Olt::query()->find($encontrada['olt_id']);
+        if (! $olt) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La OLT de esa ONU ya no está en el sistema.',
+            ], 422);
+        }
+
+        try {
+            @set_time_limit(120);
+            $aplicado = $vsol->aplicarPerfilInstalacion(
+                $olt,
+                (int) $encontrada['pon_port'],
+                (int) $encontrada['onu_index'],
+                $perfil
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                ...$encontrada,
+            ], 422);
+        }
+
+        return response()->json([
+            ...$aplicado,
+            ...$encontrada,
+            'modo' => $modo,
+            'perfil_label' => $perfil['label'],
+        ], $aplicado['success'] ? 200 : 422);
+    }
+
+    /**
+     * @return Servicio|\Illuminate\Http\JsonResponse
+     */
+    private function servicioFibraParaOlt($servicio_id)
+    {
+        $servicio = Servicio::with([
+            'pool.olt',
+            'pool.router.nodo',
+            'cajaNapPuertoActivo.cajaNap.salidaPon.olt',
+        ])->findOrFail($servicio_id);
+
+        if (! $this->servicioEsFibra($servicio)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este servicio no parece fibra/GPON.',
+            ], 422);
+        }
+
+        return $servicio;
+    }
+
+    /**
+     * @return array{serial: string, pon_port: int, onu_index: int, modelo: ?string, olt: string, olt_id: int, comando: string}|null
+     */
+    private function localizarOnuPorSerial(Servicio $servicio, string $serial, \App\Services\Olt\VsolGponClient $vsol): ?array
+    {
+        $olts = $this->oltsParaBusquedaInstalacion($servicio, $serial);
+
+        foreach ($olts as $olt) {
+            try {
+                @set_time_limit(180);
+                $hit = $vsol->buscarOnuPorSerial($olt, $serial);
+                if ($hit === null) {
+                    continue;
+                }
+
+                return [
+                    'serial' => $hit['serial'],
+                    'pon_port' => $hit['pon_port'],
+                    'onu_index' => $hit['onu_index'],
+                    'modelo' => $hit['modelo'] ?? null,
+                    'olt' => $olt->codigo ?? $olt->ip,
+                    'olt_id' => (int) $olt->olt_id,
+                    'comando' => $hit['comando'] ?? 'show onu info',
+                ];
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, \App\Models\Olt>
+     */
+    private function oltsParaBusquedaInstalacion(Servicio $servicio, string $serial)
+    {
+        $olts = $this->oltsCandidatosParaServicio($servicio);
+
+        $preferidaId = \App\Models\OltOnu::query()
+            ->whereRaw('UPPER(serial) = ?', [$serial])
+            ->value('olt_id');
+
+        \App\Models\Olt::query()
+            ->orderBy('codigo')
+            ->get()
+            ->each(function ($olt) use ($olts, $preferidaId) {
+                if (! $olt->tieneCredencialesGestion() || $olts->contains('olt_id', $olt->olt_id)) {
+                    return;
+                }
+                if ((int) $preferidaId === (int) $olt->olt_id) {
+                    $olts->prepend($olt);
+
+                    return;
+                }
+                $olts->push($olt);
+            });
+
+        if ($preferidaId) {
+            $preferida = $olts->first(fn ($olt) => (int) $olt->olt_id === (int) $preferidaId);
+            if ($preferida) {
+                $olts = collect([$preferida])->merge(
+                    $olts->reject(fn ($olt) => (int) $olt->olt_id === (int) $preferidaId)
+                );
+            }
+        }
+
+        return $olts->values();
+    }
+
+    /**
      * Identificador del servicio para desc ONU: usuario_pppoe (NOMBRE_APELLIDO).
      */
     private function descripcionOnuDesdeServicio(Servicio $servicio, \App\Services\Olt\VsolGponClient $vsol): string

@@ -802,6 +802,8 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::post('/servicios/{servicio_id}/herramientas-red/antena-dhcp', [ServicioController::class, 'herramientasRedAntenaDhcp'])->name('servicios.herramientas-red.antena-dhcp');
     Route::post('/servicios/{servicio_id}/herramientas-red/olt', [ServicioController::class, 'herramientasRedOlt'])->name('servicios.herramientas-red.olt');
     Route::post('/servicios/{servicio_id}/herramientas-red/olt-desc', [ServicioController::class, 'herramientasRedOltDesc'])->name('servicios.herramientas-red.olt-desc');
+    Route::post('/servicios/{servicio_id}/herramientas-red/olt-instalacion', [ServicioController::class, 'herramientasRedOltInstalacionBuscar'])->name('servicios.herramientas-red.olt-instalacion');
+    Route::post('/servicios/{servicio_id}/herramientas-red/olt-instalacion/aplicar', [ServicioController::class, 'herramientasRedOltInstalacionAplicar'])->name('servicios.herramientas-red.olt-instalacion.aplicar');
     Route::get('/servicios/{servicio_id}/herramientas-red/tr069', [ServicioController::class, 'herramientasRedTr069'])->name('servicios.herramientas-red.tr069');
     Route::get('/servicios/{servicio_id}/herramientas-red/tr069-hosts', [ServicioController::class, 'herramientasRedTr069Hosts'])->name('servicios.herramientas-red.tr069-hosts');
     Route::post('/servicios/{servicio_id}/herramientas-red/tr069-reboot', [ServicioController::class, 'herramientasRedTr069Reboot'])->name('servicios.herramientas-red.tr069-reboot');

@@ -502,6 +502,65 @@
           </div>
         </section>
 
+        <section v-if="esFibra" class="noc-card">
+          <div class="noc-card-head">
+            <span class="noc-icon noc-icon--amber">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <h2 class="noc-card-title">Instalación OLT</h2>
+              <p class="noc-card-sub">Buscar por serie y aplicar perfil de ONT o de ONU + router</p>
+            </div>
+          </div>
+          <div class="noc-card-body space-y-3">
+            <label class="block text-xs text-gray-500 dark:text-gray-400">
+              Número de serie
+              <input
+                v-model="oltSerial"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm uppercase text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                placeholder="FHTT… o HWTC…"
+              />
+            </label>
+            <div class="space-y-2">
+              <label
+                v-for="perfil in perfilesOlt"
+                :key="perfil.modo"
+                class="flex cursor-pointer gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-600"
+              >
+                <input v-model="oltModo" type="radio" class="mt-1" :value="perfil.modo" />
+                <span>
+                  <span class="font-medium text-gray-900 dark:text-gray-100">{{ perfil.label }}</span>
+                  <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{{ perfil.detalle }} Perfiles {{ perfil.line }} y {{ perfil.srv }}.</span>
+                </span>
+              </label>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="!canOlt || loading.oltInstalacion"
+                @click="onOltInstalacionBuscar"
+              >{{ loading.oltInstalacion && !oltEncontradaAplicando ? 'Buscando…' : 'Buscar serie' }}</button>
+              <button
+                type="button"
+                class="inline-flex items-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                :disabled="!canOlt || !oltEncontrada || loading.oltInstalacion"
+                @click="onOltInstalacionAplicar"
+              >{{ oltEncontradaAplicando ? 'Aplicando…' : 'Aplicar en la OLT' }}</button>
+            </div>
+            <div v-if="oltEncontrada" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+              <p><span class="text-gray-500">OLT</span> <span class="font-medium text-gray-900 dark:text-gray-100">{{ oltEncontrada.olt }}</span></p>
+              <p><span class="text-gray-500">PON/ONU</span> <span class="font-mono font-semibold">{{ oltEncontrada.pon_port }}:{{ oltEncontrada.onu_index }}</span></p>
+              <p v-if="oltEncontrada.modelo"><span class="text-gray-500">Modelo</span> {{ oltEncontrada.modelo }}</p>
+              <p><span class="text-gray-500">Serie</span> <span class="font-mono">{{ oltEncontrada.serial }}</span></p>
+            </div>
+            <div v-show="outOltInstalacion" class="text-sm" v-html="outOltInstalacion"></div>
+          </div>
+        </section>
+
         <!-- CPE / Antena (solo wireless) -->
         <section v-if="esAntena" class="noc-card">
           <div class="noc-card-head">
@@ -1016,37 +1075,38 @@
         </div>
 
         <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
-          <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="mb-3 flex items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Últimas 12 horas · PPPoE</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Sesión PPPoE · 12 h</p>
               <p v-if="timeline" class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
                 {{ timeline.inicio }} → {{ timeline.fin }}
-                · Estado actual:
-                <span v-if="timeline.estado_actual === 'up'" class="font-medium text-sky-500 dark:text-sky-400">conectado</span>
-                <span v-else-if="timeline.estado_actual === 'down'" class="font-medium text-amber-500 dark:text-amber-400">desconectado</span>
-                <span v-else class="font-medium text-gray-500 dark:text-gray-400">sin datos</span>
               </p>
             </div>
-            <div v-if="timeline" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400">
-              <span class="inline-flex items-center gap-1.5">
-                <span class="pppoe-timeline-legend pppoe-timeline-legend--up"></span>
-                Conectado {{ timeline.conectado_humano }}
-                ({{ formatPct(timeline.conectado_pct) }}%)
-              </span>
-              <span class="inline-flex items-center gap-1.5">
-                <span class="pppoe-timeline-legend pppoe-timeline-legend--down"></span>
-                Desconectado {{ timeline.desconectado_humano }}
-                ({{ formatPct(timeline.desconectado_pct) }}%)
-              </span>
-              <span class="inline-flex items-center gap-1.5">
-                <span class="pppoe-timeline-legend pppoe-timeline-legend--unknown"></span>
-                Sin datos {{ timeline.sin_datos_humano }}
-                ({{ formatPct(timeline.sin_datos_pct) }}%)
-              </span>
+            <span
+              v-if="timeline"
+              class="pppoe-estado"
+              :class="'pppoe-estado--' + (timeline.estado_actual || 'unknown')"
+            >
+              {{ timeline.estado_actual === 'up' ? 'Conectado' : (timeline.estado_actual === 'down' ? 'Desconectado' : 'Sin datos') }}
+            </span>
+          </div>
+
+          <div v-if="timeline" class="mb-3 grid grid-cols-3 gap-2">
+            <div class="pppoe-stat">
+              <p class="pppoe-stat-label">Conectado</p>
+              <p class="pppoe-stat-value">{{ timeline.conectado_humano }}</p>
+            </div>
+            <div class="pppoe-stat">
+              <p class="pppoe-stat-label">Cortes</p>
+              <p class="pppoe-stat-value">{{ pppoeCortes }}</p>
+            </div>
+            <div class="pppoe-stat">
+              <p class="pppoe-stat-label">Desconectado</p>
+              <p class="pppoe-stat-value">{{ timeline.desconectado_humano }}</p>
             </div>
           </div>
 
-          <div class="pppoe-timeline-track">
+          <div class="pppoe-timeline-track pppoe-timeline-track--chart">
             <div
               v-for="(seg, idx) in (timeline?.segmentos || [])"
               :key="'seg-' + idx"
@@ -1062,8 +1122,21 @@
               v-for="(marca, idx) in timeline.marcas"
               :key="'marca-' + idx"
               class="absolute text-[9px] text-gray-400/80 dark:text-gray-500"
-              :style="{ left: marca.left_pct + '%', transform: 'translateX(-50%)' }"
+              :style="{ left: marca.left_pct + '%', transform: idx === 0 ? 'none' : (idx === timeline.marcas.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)') }"
             >{{ marca.label }}</span>
+          </div>
+
+          <div v-if="pppoeCambios.length" class="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <div
+              v-for="(ev, idx) in pppoeCambios"
+              :key="'pppoe-' + idx"
+              class="pppoe-cambio"
+              :title="ev.detalle"
+            >
+              <span class="pppoe-cambio-dot" :class="ev.badge === 'down' ? 'pppoe-cambio-dot--down' : 'pppoe-cambio-dot--up'"></span>
+              <span class="pppoe-cambio-hora">{{ ev.hora }}</span>
+              <span class="pppoe-cambio-que">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
+            </div>
           </div>
         </div>
 
@@ -1077,12 +1150,6 @@
               :class="eventsFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
               @click="eventsFilter = 'todos'"
             >Todos ({{ eventos.length }})</button>
-            <button
-              type="button"
-              class="rounded-md px-2.5 py-1 font-medium transition-colors"
-              :class="eventsFilter === 'pppoe' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
-              @click="eventsFilter = 'pppoe'"
-            >PPPoE</button>
             <button
               type="button"
               class="rounded-md px-2.5 py-1 font-medium transition-colors"
@@ -1136,7 +1203,7 @@
               </tr>
               <tr v-if="!filteredEventos.length">
                 <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">
-                  {{ eventos.length ? 'No hay eventos que coincidan con la búsqueda o filtro.' : 'Todavía no hay eventos. Se registran al consultar MAC/tráfico o ONU en OLT.' }}
+                  {{ eventos.length ? 'No hay eventos que coincidan con la búsqueda o filtro.' : 'Todavía no hay lecturas de señal. La sesión PPPoE está en el gráfico de arriba.' }}
                 </td>
               </tr>
             </tbody>
@@ -1174,6 +1241,11 @@ const pingStats = ref(null);
 const outMac = ref('');
 const outTrafico = ref('');
 const outOlt = ref('');
+const outOltInstalacion = ref('');
+const oltSerial = ref(props.initialPayload?.servicio?.tr069_serial || '');
+const oltModo = ref('ont');
+const oltEncontrada = ref(null);
+const oltEncontradaAplicando = ref(false);
 const outAntena = ref('');
 const outAntenaDhcp = ref('');
 const outTr069 = ref('');
@@ -1201,6 +1273,7 @@ const loading = reactive({
   trafico: false,
   olt: false,
   oltDesc: false,
+  oltInstalacion: false,
   antena: false,
   antenaDhcp: false,
   tr069: false,
@@ -1240,6 +1313,7 @@ const timeline = computed(() => payload.value?.timeline || null);
 const canPing = computed(() => !!servicio.value.ip);
 const canMac = computed(() => !!payload.value?.tiene_router);
 const canOlt = computed(() => !!payload.value?.es_fibra);
+const perfilesOlt = computed(() => payload.value?.perfiles_olt || []);
 const canOltDesc = computed(() => !!payload.value?.es_fibra && !!servicio.value.desc_onu);
 const canAntena = computed(() => !!payload.value?.es_antena);
 const esFibra = computed(() => !!payload.value?.es_fibra);
@@ -1270,8 +1344,19 @@ const tr069TieneDetalle = computed(() => {
   if (tr069Resumen.value && tr069Resumen.value.success) return true;
   return Array.isArray(tr069Hosts.value) && tr069Hosts.value.length > 0;
 });
+const pppoeCambios = computed(() => {
+  return (payload.value?.eventos || [])
+    .filter((e) => e.badge === 'up' || e.badge === 'down')
+    .slice(0, 8)
+    .map((e) => {
+      const partes = String(e.ocurrio_at || '').split(' ');
+      const hora = (partes[1] || '').slice(0, 5);
+      return { ...e, hora };
+    });
+});
+const pppoeCortes = computed(() => pppoeCambios.value.filter((e) => e.badge === 'down').length);
 const eventos = computed(() => {
-  const all = payload.value?.eventos || [];
+  const all = (payload.value?.eventos || []).filter((e) => e.badge !== 'up' && e.badge !== 'down');
   if (esFibra.value) {
     return all.filter((e) => e.tipo !== 'senal_antena');
   }
@@ -1282,9 +1367,7 @@ const eventos = computed(() => {
 });
 const filteredEventos = computed(() => {
   let list = eventos.value;
-  if (eventsFilter.value === 'pppoe') {
-    list = list.filter((e) => e.tipo === 'conexion' || e.badge === 'up' || e.badge === 'down');
-  } else if (eventsFilter.value === 'optica') {
+  if (eventsFilter.value === 'optica') {
     list = list.filter((e) => e.tipo === 'senal_optica' || e.tipo === 'senal_antena' || e.badge === 'olt');
   } else if (eventsFilter.value === 'noc') {
     list = list.filter((e) => e.tipo !== 'conexion' && e.tipo !== 'senal_optica' && e.tipo !== 'senal_antena');
@@ -1302,8 +1385,8 @@ const filteredEventos = computed(() => {
   return list;
 });
 const registroSubtitulo = computed(() => {
-  if (esFibra.value) return 'Señal óptica ONU y eventos PPPoE';
-  if (esAntena.value) return 'Señal antena y eventos PPPoE';
+  if (esFibra.value) return 'Lecturas de señal óptica';
+  if (esAntena.value) return 'Lecturas de señal de la antena';
   return 'Eventos de conexión';
 });
 const tr069WifiEnabled = computed(() => {
@@ -1318,10 +1401,6 @@ function barPct(dbm) {
   const max = -50;
   const pct = ((Number(dbm) - min) / (max - min)) * 100;
   return Math.max(4, Math.min(100, Math.round(pct)));
-}
-
-function formatPct(n) {
-  return Number(n ?? 0).toFixed(1).replace('.', ',');
 }
 
 function formatAsociadoTiempo(raw) {
@@ -2426,6 +2505,54 @@ function onOltDesc() {
     outOlt.value = errHtml('Error al aplicar descripción en OLT.');
   }).finally(function () {
     loading.oltDesc = false;
+  });
+}
+
+function onOltInstalacionBuscar() {
+  var url = payload.value?.urls?.olt_instalacion;
+  if (!url) return;
+  loading.oltInstalacion = true;
+  oltEncontradaAplicando.value = false;
+  oltEncontrada.value = null;
+  outOltInstalacion.value = '<p class="text-gray-500 dark:text-gray-400">Buscando la serie en la OLT…</p>';
+  postJson(url, { serial: oltSerial.value }).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outOltInstalacion.value = errHtml(d.message);
+      return;
+    }
+    oltEncontrada.value = d;
+    outOltInstalacion.value = '<p class="text-green-700 dark:text-green-400">' + escapeHtml(d.message || 'Encontrada') + '</p>';
+  }).catch(function () {
+    outOltInstalacion.value = errHtml('Error al buscar la serie.');
+  }).finally(function () {
+    loading.oltInstalacion = false;
+  });
+}
+
+function onOltInstalacionAplicar() {
+  var url = payload.value?.urls?.olt_instalacion_aplicar;
+  if (!url || !oltEncontrada.value) return;
+  var perfil = perfilesOlt.value.find(function (p) { return p.modo === oltModo.value; });
+  var etiqueta = perfil ? perfil.label : oltModo.value;
+  var donde = oltEncontrada.value.olt + ' PON ' + oltEncontrada.value.pon_port + ':' + oltEncontrada.value.onu_index;
+  if (!confirm('¿Aplicar «' + etiqueta + '» en ' + donde + '?')) return;
+  loading.oltInstalacion = true;
+  oltEncontradaAplicando.value = true;
+  outOltInstalacion.value = '<p class="text-gray-500 dark:text-gray-400">Aplicando perfil en la OLT…</p>';
+  postJson(url, { serial: oltSerial.value, modo: oltModo.value }).then(function (res) {
+    var d = res.data || {};
+    if (!res.ok || d.success === false) {
+      outOltInstalacion.value = errHtml(d.message) + oltCmdResultHtml(d);
+      return;
+    }
+    oltEncontrada.value = d;
+    outOltInstalacion.value = '<p class="text-green-700 dark:text-green-400 font-medium">' + escapeHtml(d.message || 'Perfil aplicado') + '</p>' + oltCmdResultHtml(d);
+  }).catch(function () {
+    outOltInstalacion.value = errHtml('Error al aplicar el perfil.');
+  }).finally(function () {
+    loading.oltInstalacion = false;
+    oltEncontradaAplicando.value = false;
   });
 }
 

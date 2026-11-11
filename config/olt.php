@@ -1,6 +1,25 @@
 <?php
 
 return [
+    /**
+     * Perfiles que la herramienta de red ata al instalar.
+     * ont: Huawei enrutador (EG8145). La VLAN 199 la pone la ONT en su WAN.
+     * onu_router: ONU puente + router. El router manda PPPoE sin VLAN.
+     */
+    'perfiles_instalacion' => [
+        'ont' => [
+            'label' => 'ONT Huawei',
+            'detalle' => 'La ONT enruta y marca la VLAN 199 en su WAN. El LAN del cliente no se toca.',
+            'line' => 'line_PPPOE+HOSPOT',
+            'srv' => 'srv_1',
+        ],
+        'onu_router' => [
+            'label' => 'ONU + router',
+            'detalle' => 'El router manda PPPoE sin VLAN. La ONU etiqueta la 199 hacia el MikroTik.',
+            'line' => 'line_puente',
+            'srv' => 'srv_puente',
+        ],
+    ],
     'vsol' => [
         'default_user' => env('OLT_VSOL_USER', 'admin'),
         'default_telnet_port' => (int) env('OLT_VSOL_TELNET_PORT', 23),

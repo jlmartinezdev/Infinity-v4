@@ -3,6 +3,7 @@
 namespace App\Services\Olt;
 
 use App\Models\Olt;
+use App\Support\OltPerfilInstalacion;
 use RuntimeException;
 
 class VsolGponClient
@@ -910,6 +911,104 @@ class VsolGponClient
     public function salidaEsInvalida(string $output): bool
     {
         return $this->salidaInvalida($output);
+    }
+
+    /**
+     * @return array{pon_port: int, onu_index: int, serial: string, modelo: ?string, comando: string}|null
+     */
+    public function buscarOnuPorSerial(Olt $olt, string $serial): ?array
+    {
+        $serial = OltPerfilInstalacion::normalizarSerial($serial);
+        if (strlen($serial) < 8) {
+            return null;
+        }
+
+        $session = $this->openSession($olt);
+        try {
+            $timeout = (int) config('olt.vsol.command_timeout', 90);
+            $out = $session->exec('show onu info', $timeout);
+            $hit = OltPerfilInstalacion::buscarEnSalida($out, $serial);
+            if ($hit === null) {
+                return null;
+            }
+
+            return $hit + ['comando' => 'show onu info'];
+        } finally {
+            $session->disconnect();
+        }
+    }
+
+    /**
+     * Ata line profile y service profile. La ONU no puede tener un TCONT cargado a mano.
+     *
+     * @param  array{line: string, srv: string, label?: string}  $perfil
+     * @return array{success: bool, message: string, comando: string, raw: string, line: string, srv: string}
+     */
+    public function aplicarPerfilInstalacion(Olt $olt, int $ponPort, int $onuIndex, array $perfil): array
+    {
+        $comandos = OltPerfilInstalacion::comandos($ponPort, $onuIndex, $perfil);
+        $session = $this->openSession($olt);
+        $raw = '';
+
+        try {
+            foreach ($comandos as $cmd) {
+                $out = $session->exec($cmd, 20);
+                $raw .= $out."\n";
+                if ($cmd === $comandos[0]) {
+                    continue;
+                }
+                if ($this->perfilRechazado($out)) {
+                    $session->exec('exit', 8);
+
+                    return [
+                        'success' => false,
+                        'message' => $this->mensajePerfilRechazado($out),
+                        'comando' => implode(' → ', $comandos),
+                        'raw' => mb_substr(trim($raw), 0, 1200),
+                        'line' => $perfil['line'],
+                        'srv' => $perfil['srv'],
+                    ];
+                }
+            }
+
+            $show = $session->exec("show onu {$onuIndex} profile", 15);
+            $session->exec('exit', 8);
+            $raw .= $show;
+            $ok = stripos($show, $perfil['line']) !== false && stripos($show, $perfil['srv']) !== false;
+
+            return [
+                'success' => $ok,
+                'message' => $ok
+                    ? "Perfil aplicado en PON {$ponPort} ONU {$onuIndex}: {$perfil['line']} + {$perfil['srv']}."
+                    : 'La OLT aceptó los comandos, pero al leer el perfil no coinciden los nombres.',
+                'comando' => implode(' → ', $comandos),
+                'raw' => mb_substr(trim($raw), 0, 1200),
+                'line' => $perfil['line'],
+                'srv' => $perfil['srv'],
+            ];
+        } finally {
+            $session->disconnect();
+        }
+    }
+
+    private function perfilRechazado(string $output): bool
+    {
+        return stripos($output, 'Error:') !== false
+            || $this->salidaInvalida($output)
+            || (stripos($output, 'OK') === false && ! $this->salidaSoloEcoComando($output, ''));
+    }
+
+    private function mensajePerfilRechazado(string $output): string
+    {
+        if (stripos($output, 'tcont has been configurated') !== false) {
+            return 'La ONU ya tiene un TCONT cargado. El perfil solo entra en una ONU recién autorizada, sin configuración manual previa.';
+        }
+
+        if (preg_match('/Error\s*:\s*(.+)/i', $output, $m)) {
+            return 'La OLT rechazó el perfil: '.trim($m[1]);
+        }
+
+        return 'La OLT rechazó el cambio de perfil.';
     }
 
     private function openSession(Olt $olt): VsolTelnetSession

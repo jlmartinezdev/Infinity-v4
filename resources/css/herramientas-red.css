@@ -243,6 +243,59 @@
 .dark .noc-log-badge--wifi { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }
 .dark .noc-log-badge--up { background: rgb(20 83 45 / 0.45); color: #86efac; }
 .dark .noc-log-badge--down { background: rgb(127 29 29 / 0.45); color: #fca5a5; }
+.pppoe-estado {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.pppoe-estado--up { background: #e0f2fe; color: #0369a1; }
+.pppoe-estado--down { background: #ffedd5; color: #c2410c; }
+.pppoe-estado--unknown { background: #f1f5f9; color: #64748b; }
+.dark .pppoe-estado--up { background: rgb(12 74 110 / 0.45); color: #7dd3fc; }
+.dark .pppoe-estado--down { background: rgb(124 45 18 / 0.45); color: #fdba74; }
+.dark .pppoe-estado--unknown { background: #334155; color: #cbd5e1; }
+.pppoe-stat-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+.pppoe-stat-value {
+    margin-top: 0.125rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.dark .pppoe-stat-value { color: #f1f5f9; }
+.pppoe-cambio {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 9999px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.6875rem;
+    color: #475569;
+}
+.dark .pppoe-cambio {
+    border-color: #334155;
+    background: #0f172a;
+    color: #cbd5e1;
+}
+.pppoe-cambio-dot {
+    height: 0.45rem;
+    width: 0.45rem;
+    border-radius: 9999px;
+}
+.pppoe-cambio-dot--up { background: #0ea5e9; }
+.pppoe-cambio-dot--down { background: #f97316; }
+.pppoe-cambio-hora { font-family: ui-monospace, monospace; font-weight: 600; }
 .pppoe-timeline-track {
     position: relative;
     height: 0.625rem;
@@ -250,6 +303,9 @@
     overflow: hidden;
     border-radius: 9999px;
     background: rgb(226 232 240 / 0.65);
+}
+.pppoe-timeline-track--chart {
+    height: 1.35rem;
 }
 .dark .pppoe-timeline-track {
     background: rgb(51 65 85 / 0.55);
