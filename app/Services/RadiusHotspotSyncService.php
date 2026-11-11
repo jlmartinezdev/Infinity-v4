@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Router;
 use App\Models\Servicio;
 use App\Models\ServicioHotspot;
+use App\Support\HotspotSesionOrigen;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -232,6 +233,93 @@ class RadiusHotspotSyncService
         }
 
         return $fila ? (int) $fila->radacctid : null;
+    }
+
+    /**
+     * Cuenta con la que esa MAC entró por última vez.
+     * Si el cierre fue desde el portal, no se reasigna: el celular no debe volver solo.
+     *
+     * @param  list<string>  $macs
+     * @return array<string, string> mac normalizada => username
+     */
+    public function usuariosRealesPorMacs(array $macs): array
+    {
+        $macs = array_values(array_unique(array_filter(array_map(
+            static fn ($mac) => HotspotSesionOrigen::esMac((string) $mac)
+                ? HotspotSesionOrigen::macNormalizada((string) $mac)
+                : '',
+            $macs
+        ))));
+
+        if ($macs === [] || ! $this->enabled() || ! $this->conexionAlcanzable()) {
+            return [];
+        }
+
+        try {
+            $db = DB::connection($this->connection());
+            if (! $db->getSchemaBuilder()->hasTable('radacct')) {
+                return [];
+            }
+
+            $norm = "REPLACE(REPLACE(LOWER(%s.callingstationid), '-', ':'), ' ', '')";
+            $placeholders = implode(',', array_fill(0, count($macs), '?'));
+            $filas = $db->select(
+                'SELECT '.sprintf($norm, 'realuser').' AS mac, realuser.username AS username, realuser.acctstarttime AS acctstarttime
+                FROM radacct AS last
+                JOIN radacct AS realuser
+                  ON '.sprintf($norm, 'realuser').' = '.sprintf($norm, 'last')."
+                 AND realuser.username REGEXP '^[A-Za-z0-9_.@+-]+$'
+                 AND realuser.username NOT LIKE 'T-%'
+                 AND realuser.username NOT LIKE 'trial-%'
+                WHERE ".sprintf($norm, 'last')." IN ({$placeholders})
+                  AND last.acctstarttime = (
+                      SELECT MAX(newest.acctstarttime) FROM radacct AS newest
+                      WHERE ".sprintf($norm, 'newest').' = '.sprintf($norm, 'last')."
+                  )
+                  AND (last.acctstoptime IS NULL OR last.acctterminatecause IS NULL OR last.acctterminatecause <> 'User-Request')
+                ORDER BY realuser.acctstarttime DESC",
+                $macs
+            );
+        } catch (Throwable $e) {
+            Log::warning('[RADIUS] no se pudo resolver la cuenta de la MAC', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+
+        return self::elegirUsuarioRealPorMac(array_map(static fn ($fila) => [
+            'mac' => (string) ($fila->mac ?? ''),
+            'username' => (string) ($fila->username ?? ''),
+        ], $filas));
+    }
+
+    /**
+     * La consulta ya viene de la sesión más reciente a la más vieja.
+     * La primera cuenta válida de cada MAC gana.
+     *
+     * @param  list<array{mac?: string, username?: string}>  $filas
+     * @return array<string, string>
+     */
+    public static function elegirUsuarioRealPorMac(array $filas): array
+    {
+        $out = [];
+        foreach ($filas as $fila) {
+            $mac = HotspotSesionOrigen::macNormalizada((string) ($fila['mac'] ?? ''));
+            $user = trim((string) ($fila['username'] ?? ''));
+            if ($mac === '' || $user === '' || isset($out[$mac]) || HotspotSesionOrigen::esMac($user)) {
+                continue;
+            }
+            if (preg_match('/^[A-Za-z0-9_.@+-]+$/', $user) !== 1) {
+                continue;
+            }
+            if (stripos($user, 'T-') === 0 || stripos($user, 'trial-') === 0) {
+                continue;
+            }
+            $out[$mac] = $user;
+        }
+
+        return $out;
     }
 
     /**

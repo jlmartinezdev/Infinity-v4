@@ -54,6 +54,7 @@ server default {
 	}
 
 	preacct {
+		mac_hotspot
 		preprocess
 		acct_unique
 		suffix

@@ -10,6 +10,21 @@ use Tests\TestCase;
 
 class RadiusHotspotSyncServiceTest extends TestCase
 {
+    public function test_la_mac_queda_con_la_cuenta_mas_reciente(): void
+    {
+        $elegido = RadiusHotspotSyncService::elegirUsuarioRealPorMac([
+            ['mac' => 'F6:AB:C8:90:99:85', 'username' => '4512345'],
+            ['mac' => 'f6-ab-c8-90-99-85', 'username' => '3099888'],
+            ['mac' => 'AA:BB:CC:DD:EE:FF', 'username' => 'T-trial'],
+            ['mac' => 'AA:BB:CC:DD:EE:FF', 'username' => 'trial-1'],
+            ['mac' => '11:22:33:44:55:66', 'username' => '11:22:33:44:55:66'],
+        ]);
+
+        $this->assertSame([
+            'f6:ab:c8:90:99:85' => '4512345',
+        ], $elegido);
+    }
+
     public function test_timeout_a_segundos(): void
     {
         $this->assertSame(90, RadiusHotspotSyncService::timeoutASegundos('90'));

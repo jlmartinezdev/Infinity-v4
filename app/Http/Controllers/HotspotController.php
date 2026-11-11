@@ -117,12 +117,29 @@ class HotspotController extends Controller
         $vivosKeys = [];
         $sesiones = [];
         $vivoBytes = [];
+        $hostsVivos = [];
+        $macsVivas = [];
 
         foreach ($activeHosts as $host) {
             if (! is_array($host)) {
                 continue;
             }
             $user = trim((string) ($host['user'] ?? $host['username'] ?? ''));
+            $hostsVivos[] = [$host, $user];
+            if (HotspotSesionOrigen::esMac($user)) {
+                $macsVivas[] = $user;
+            }
+        }
+
+        $cuentaPorMac = $radius->usuariosRealesPorMacs($macsVivas);
+
+        foreach ($hostsVivos as [$host, $user]) {
+            if (HotspotSesionOrigen::esMac($user)) {
+                $real = $cuentaPorMac[HotspotSesionOrigen::macNormalizada($user)] ?? null;
+                if (is_string($real) && $real !== '') {
+                    $user = $real;
+                }
+            }
             $key = mb_strtolower($user);
             $match = $key !== '' ? $todosPorUsername->get($key) : null;
             if ($key !== '') {

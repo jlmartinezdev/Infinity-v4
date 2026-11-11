@@ -33,4 +33,9 @@ class HotspotSesionOrigen
     {
         return (bool) preg_match('/^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/', trim($valor));
     }
+
+    public static function macNormalizada(string $valor): string
+    {
+        return strtolower(str_replace(['-', ' '], [':', ''], trim($valor)));
+    }
 }

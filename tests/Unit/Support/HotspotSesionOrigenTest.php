@@ -23,6 +23,12 @@ class HotspotSesionOrigenTest extends TestCase
         $this->assertSame('sin-locker', HotspotSesionOrigen::de('1234567', false));
     }
 
+    public function test_normaliza_la_mac_para_buscar_la_cuenta(): void
+    {
+        $this->assertSame('f6:ab:c8:90:99:85', HotspotSesionOrigen::macNormalizada('F6:AB:C8:90:99:85'));
+        $this->assertSame('f6:ab:c8:90:99:85', HotspotSesionOrigen::macNormalizada('f6-ab-c8-90-99-85'));
+    }
+
     public function test_vacio_y_trial_se_conservan(): void
     {
         $this->assertSame('sin-usuario', HotspotSesionOrigen::de('', false));
