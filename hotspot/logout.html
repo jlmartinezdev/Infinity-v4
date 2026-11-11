@@ -91,7 +91,7 @@
       $(if username)
       <div class="status-row">
         <span class="status-label">Usuario</span>
-        <span class="status-value">$(username)</span>
+        <span class="status-value" id="hs-usuario">$(username)</span>
       </div>
       $(endif)
       <div class="status-row">
@@ -103,6 +103,21 @@
         <span class="status-value">$(bytes-in-nice) / $(bytes-out-nice)</span>
       </div>
     </div>
+    <script>
+      (function () {
+        var usuario = '$(username)';
+        var celda = document.getElementById('hs-usuario');
+        if (!celda || !/^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/.test(usuario)) {
+          return;
+        }
+        try {
+          var guardada = sessionStorage.getItem('hs-cuenta') || '';
+          if (guardada) {
+            celda.textContent = guardada;
+          }
+        } catch (e) {}
+      })();
+    </script>
     <form action="$(link-login)" method="get">
       <button type="submit">Volver a entrar</button>
     </form>

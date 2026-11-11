@@ -39,6 +39,9 @@ use Illuminate\Support\Facades\Route;
 
 Broadcast::routes(['middleware' => ['auth:sanctum', 'api.staff']]);
 
+Route::get('/hotspot/cuenta-por-mac', \App\Http\Controllers\Api\HotspotCuentaMacController::class)
+    ->middleware('throttle:30,1');
+
 Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/auth/login', [AuthController::class, 'login']); // alias N8N (JSON viejo)

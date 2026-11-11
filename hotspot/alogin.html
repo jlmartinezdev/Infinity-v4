@@ -74,7 +74,7 @@
   <div class="container">
     <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
     <h1>Conectado</h1>
-    <p>$(if username)Entraste como <b>$(username)</b>.$(endif) Abrí el estado de tu conexión para ver el tiempo y cerrar sesión. Después, en el navegador: <b>wifi.interplus</b>.</p>
+    <p>$(if username)Entraste como <b id="hs-usuario">$(username)</b>.$(endif) Abrí el estado de tu conexión para ver el tiempo y cerrar sesión. Después, en el navegador: <b>wifi.interplus</b>.</p>
     <div class="actions">
       <a class="btn-status" href="$(link-status)">Ver estado de la conexión</a>
       <a class="btn-logout" href="$(link-logout)" onclick="return confirm('¿Cerrar la sesión de Wi-Fi Zone?');">Cerrar sesión</a>
@@ -82,7 +82,20 @@
     </div>
   </div>
   <script>
-    window.location.replace('$(link-status)');
+    (function () {
+      var usuario = '$(username)';
+      var celda = document.getElementById('hs-usuario');
+      var esMac = /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/.test(usuario);
+      if (celda && esMac) {
+        try {
+          var guardada = sessionStorage.getItem('hs-cuenta') || '';
+          if (guardada && !/^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/.test(guardada)) {
+            celda.textContent = guardada;
+          }
+        } catch (e) {}
+      }
+      window.location.replace('$(link-status)');
+    })();
   </script>
 </body>
 </html>

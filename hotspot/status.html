@@ -287,7 +287,7 @@
             $(if username)
             <div class="status-row">
                 <span class="status-label">Usuario</span>
-                <span class="status-value">$(username)</span>
+                <span class="status-value" id="hs-usuario">$(username)</span>
             </div>
             $(endif)
             
@@ -379,6 +379,32 @@
         // ========================================
         function isTrial() {
             return username.startsWith('T-') || username.startsWith('trial-');
+        }
+
+        function esMac(valor) {
+            return /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/.test(String(valor || '').trim());
+        }
+
+        function mostrarCuentaEnLugarDeMac(valor) {
+            var celda = document.getElementById('hs-usuario');
+            if (!celda || !esMac(valor)) {
+                return;
+            }
+            var guardada = '';
+            try { guardada = sessionStorage.getItem('hs-cuenta') || ''; } catch (e) {}
+            if (guardada && !esMac(guardada)) {
+                celda.textContent = guardada;
+            }
+            fetch('https://infinityisppro.net/api/hotspot/cuenta-por-mac?mac=' + encodeURIComponent(valor))
+                .then(function (respuesta) { return respuesta.ok ? respuesta.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.username || esMac(data.username)) {
+                        return;
+                    }
+                    celda.textContent = data.username;
+                    try { sessionStorage.setItem('hs-cuenta', data.username); } catch (e) {}
+                })
+                .catch(function () {});
         }
         
         function parseUptime(uptimeStr) {
@@ -529,6 +555,8 @@
             console.log('Usuario:', username);
             console.log('Es trial:', isTrial());
             console.log('Uptime:', uptimeStr);
+
+            mostrarCuentaEnLugarDeMac(username);
             
             // Configurar display de trial si aplica
             if (isTrial()) {

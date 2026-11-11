@@ -242,7 +242,7 @@ class RadiusHotspotSyncService
      * @param  list<string>  $macs
      * @return array<string, string> mac normalizada => username
      */
-    public function usuariosRealesPorMacs(array $macs): array
+    public function usuariosRealesPorMacs(array $macs, bool $soloAbierta = false): array
     {
         $macs = array_values(array_unique(array_filter(array_map(
             static fn ($mac) => HotspotSesionOrigen::esMac((string) $mac)
@@ -277,6 +277,7 @@ class RadiusHotspotSyncService
                       WHERE ".sprintf($norm, 'newest').' = '.sprintf($norm, 'last')."
                   )
                   AND (last.acctstoptime IS NULL OR last.acctterminatecause IS NULL OR last.acctterminatecause <> 'User-Request')
+                  ".($soloAbierta ? 'AND last.acctstoptime IS NULL' : '')."
                 ORDER BY realuser.acctstarttime DESC",
                 $macs
             );
