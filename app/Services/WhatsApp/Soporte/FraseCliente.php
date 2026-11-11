@@ -29,6 +29,16 @@ class FraseCliente
 
     public const AGRADECIMIENTO = 'Un placer atenderle. Quedamos a las órdenes.';
 
+    public const CORTES_NORMALES = 'Los cortes pueden deberse a varios factores: los equipos son activos y dependen de la potencia de la fibra, de la electricidad y del comportamiento del mismo equipo. No siempre ocurren; si llega a pasar, quedamos a su disposición para el análisis y el monitoreo correspondientes.';
+
+    public const HORARIO_OFICINA = 'Estamos en nuestra oficina de lunes a viernes, de 9 a 18, y los sábados hasta las 12, para ayudarle.';
+
+    public const APP_INTERPLUS = 'Puede descargar nuestra aplicación para un diagnóstico más sencillo y gestionar todo lo relacionado con su servicio. También podrá acceder a beneficios futuros que estamos preparando. El enlace está en nuestra web: interplus.com.py';
+
+    public const CIERRE_CALIDO = 'Perfecto. Cualquier consulta, estamos para guiarle; siéntase libre de escribirnos cuando lo necesite.';
+
+    public const ACK_PRUEBA = 'Perfecto. Avísenos cómo le queda tras la prueba.';
+
     public const PLAZO_PAGO = 'La fecha de pago es del 1 al 5 de cada mes. Si no se registra en ese plazo, el servicio se suspende y no se descuentan los días suspendidos. Cuando el pago se acredita, vuelve solo.';
 
     public const ACERCATE = 'Pruebe acercarse al router de su casa y vuelva a conectarse al WiFi.';

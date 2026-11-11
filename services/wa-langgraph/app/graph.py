@@ -87,8 +87,57 @@ _AGENTE_SALUDO_RE = re.compile(
 _FALLA_RE = re.compile(
     r"no me anda|sin internet|no tengo (net|internet|wifi)|se cort[oó]|"
     r"no navega|ca[ií]do|no anda (el |la )?(wifi|internet|net)|sin se[nñ]al|"
-    r"no conecta|est[aá] lento|lent[ií]simo",
+    r"no conecta|est[aá] lento|lent[ií]simo|"
+    r"no funcion[oó]|no me funcion|no anduvo|sigue sin|todav[ií]a no|"
+    r"igual (no|sigue)|no sirvi[oó]",
     re.I,
+)
+_CIERRE_RE = re.compile(
+    r"^(gracias|muchas gracias|mil gracias|ok gracias|dale gracias|"
+    r"ok|okay|listo|perfecto|buen[ií]simo|genial|nada mas|nada más|"
+    r"de nada|eso es todo)\.?$",
+    re.I,
+)
+_ACK_RE = re.compile(r"^(dale|ok|okay|listo|va|bueno|si|sí)\.?$", re.I)
+_YA_FUNCIONA_RE = re.compile(
+    r"ya (me |nos )?(funciona|anda|volvi[oó]|hay se[nñ]al|tiene se[nñ]al|est[aá] bien)|"
+    r"volvi[oó] a funcionar|ya volvi[oó]|se (solucion[oó]|arreg[oó])",
+    re.I,
+)
+_CORTES_PREG_RE = re.compile(
+    r"cortes?\s+(son|es)\s+normal|es normal|"
+    r"por qu[eé].{0,40}corte|cortes?\s+frecuentes|"
+    r"siempre se corta|se corta mucho|cortes?\s+intermit",
+    re.I,
+)
+_APP_RE = re.compile(
+    r"\bapp\b|aplicaci[oó]n|interplus\.com|portal interplus|"
+    r"c[oó]digo de verificaci[oó]n|creo una cuenta|crear (una )?cuenta|"
+    r"descargar (la )?app",
+    re.I,
+)
+_CANNED_CORTES = (
+    "Los cortes pueden deberse a varios factores: los equipos son activos y "
+    "dependen de la potencia de la fibra, de la electricidad y del comportamiento "
+    "del mismo equipo. No siempre ocurren; si llega a pasar, quedamos a su "
+    "disposición para el análisis y el monitoreo correspondientes."
+)
+_CANNED_HORARIO = (
+    "Estamos en nuestra oficina de lunes a viernes, de 9 a 18, "
+    "y los sábados hasta las 12, para ayudarle."
+)
+_CANNED_APP = (
+    "Puede descargar nuestra aplicación para un diagnóstico más sencillo y "
+    "gestionar todo lo relacionado con su servicio. También podrá acceder a "
+    "beneficios futuros que estamos preparando. El enlace está en nuestra web: "
+    "interplus.com.py"
+)
+_CANNED_CIERRE = "Un placer atenderle. Quedamos a las órdenes."
+_CANNED_YA_FUNCIONA = "Nos alegra que ya funcione. Quedamos a las órdenes."
+_CANNED_ACK_FALLA = "Perfecto. Avísenos cómo le queda tras la prueba."
+_CANNED_CIERRE_CALIDO = (
+    "Perfecto. Cualquier consulta, estamos para guiarle; "
+    "siéntase libre de escribirnos cuando lo necesite."
 )
 _RETOMAR_RE = re.compile(
     r"y lo del (internet|wifi|pago|saldo)|seguimos con|volviendo a|"
@@ -127,10 +176,12 @@ class AgentState(TypedDict, total=False):
 def _norm_proceso(intent: str) -> str:
     if intent in {"saldo", "identificacion", "transferencia", "comprobante_aviso"}:
         return "pago"
-    if intent in {"falla", "zona"}:
+    if intent in {"falla", "zona", "ack_falla", "info_cortes", "ya_funciona"}:
         return "falla"
     if intent in {"cobertura", "cobertura_con_dato", "catalogo_internet", "beneficios", "condiciones"}:
         return "venta"
+    if intent in {"cierre", "app_cliente"}:
+        return "none"
     return "none"
 
 
@@ -144,12 +195,12 @@ def _sector_de(intent: str, proceso: str) -> str:
         "transferencia",
     }:
         return "comercial"
-    if intent in {"falla", "zona"} or proceso == "falla":
+    if intent in {"falla", "zona", "ack_falla", "info_cortes", "ya_funciona"} or proceso == "falla":
         return "tecnico"
     # Saldo/mora en embudo sin-internet = paso cobranza del sector técnico
     if intent in {"saldo", "identificacion", "comprobante_aviso"} or proceso == "pago":
         return "tecnico" if proceso == "falla" else "comercial"
-    if intent in {"saludo", "meta", "handoff"}:
+    if intent in {"saludo", "meta", "handoff", "cierre", "app_cliente"}:
         return "meta"
     return "meta"
 
@@ -192,6 +243,14 @@ def _force_intent(msg_low: str, payload: dict[str, Any], historial: str) -> str 
         if _ya_saludo_agente(historial):
             return "meta"
         return "saludo"
+    if _CIERRE_RE.match(msg_low):
+        return "cierre"
+    if _YA_FUNCIONA_RE.search(msg_low) and not _FALLA_RE.search(msg_low):
+        return "ya_funciona"
+    if _CORTES_PREG_RE.search(msg_low):
+        return "info_cortes"
+    if _APP_RE.search(msg_low) and not _CATALOGO_RE.search(msg_low) and not _FALLA_RE.search(msg_low):
+        return "app_cliente"
     if _COMPROBANTE_AVISO_RE.search(msg_low):
         return "comprobante_aviso"
     if _FALLA_RE.search(msg_low) and not _TRANSFERENCIA_RE.search(msg_low):
@@ -271,6 +330,8 @@ def build_graph():
                 intent = "falla"
             if forced == "saludo":
                 intent = "saludo"
+            if forced in {"cierre", "ya_funciona", "info_cortes", "app_cliente", "ack_falla"}:
+                intent = forced
             # Venta consultiva: no dejar que Gemini convierta “quiero internet” en cobertura seca.
             if forced == "catalogo_internet" and intent in {
                 "otro",
@@ -288,6 +349,33 @@ def build_graph():
             confidence = float(data.get("confidence") or (0.9 if forced else 0.55))
             if forced and intent == "otro":
                 intent = forced
+
+        # Ack corto en medio de falla (“dale”) = seguir el proceso, no menú de temas.
+        hilo_sugiere_falla = bool(
+            proceso == "falla"
+            or re.search(
+                r"desenchuf|reinici|av[ií]senos si le funciona|asignaremos a un t[eé]cnico|"
+                r"sin internet|no funcion|verificar su servicio",
+                historial[-1400:],
+                re.I,
+            )
+        )
+        if hilo_sugiere_falla and _ACK_RE.match(msg_low) and intent in {
+            "otro",
+            "meta",
+            "saludo",
+            "cierre",
+        }:
+            intent = "ack_falla"
+            tema_nuevo = False
+            continue_process = True
+            confidence = max(float(confidence or 0), 0.92)
+            if proceso in {"", "none"}:
+                proceso = "falla"
+
+        if intent in {"cierre", "ya_funciona", "info_cortes", "app_cliente", "ack_falla"}:
+            tema_nuevo = False if intent in {"ack_falla", "ya_funciona", "info_cortes"} else tema_nuevo
+            continue_process = True if intent in {"ack_falla", "info_cortes", "ya_funciona"} else continue_process
 
         # Retomar tema apilado (“y lo del internet…”)
         retomado, pila = _desapilar_si_retoma(pila, mensaje, tema_nuevo)
@@ -352,8 +440,19 @@ def build_graph():
         }
         cliente_id = state.get("cliente_id")
 
-        if intent in {"saludo", "meta", "comprobante_aviso"}:
+        if intent in {"saludo", "meta", "comprobante_aviso", "cierre", "ack_falla"}:
             facts["nota"] = "razonar_con_historial"
+        elif intent == "ya_funciona":
+            facts["nota"] = "servicio_restablecido"
+            facts["canned_cierre"] = _CANNED_YA_FUNCIONA
+        elif intent == "info_cortes":
+            facts["nota"] = "explicar_cortes"
+            facts["canned_cortes"] = _CANNED_CORTES
+            facts["conocimiento"] = tools.conocimiento(mensaje, "soporte")
+        elif intent == "app_cliente":
+            facts["nota"] = "guiar_app"
+            facts["canned_app"] = _CANNED_APP
+            facts["conocimiento"] = tools.conocimiento(mensaje, "soporte")
         elif intent == "cobertura_con_dato":
             facts["nota"] = "ubicacion_recibida"
             facts["conocimiento"] = tools.conocimiento(mensaje, "cobertura")
@@ -494,12 +593,28 @@ def build_graph():
 
         # Fallbacks sin Gemini: hechos/canned antes que silencio.
         if not text:
+            msg_low = mensaje.lower().strip()
             if intent == "transferencia":
                 text = str((facts.get("canned") or {}).get("transferencia") or "")
             elif intent in {"beneficios", "condiciones"} and texto_oficial:
                 text = str(texto_oficial)
+            elif intent == "cierre":
+                text = _CANNED_CIERRE_CALIDO if _APP_RE.search(historial) else _CANNED_CIERRE
+            elif intent == "ya_funciona":
+                text = str(facts.get("canned_cierre") or _CANNED_YA_FUNCIONA)
+            elif intent == "info_cortes":
+                text = str(facts.get("canned_cortes") or _CANNED_CORTES)
+            elif intent == "app_cliente":
+                text = str(facts.get("canned_app") or _CANNED_APP)
+            elif intent == "ack_falla":
+                text = _CANNED_ACK_FALLA
             elif intent == "falla" and decision.get("reply"):
                 text = str(decision.get("reply") or "")
+            elif intent == "falla":
+                text = (
+                    "Vamos a revisar su servicio. "
+                    "En breve le confirmamos el siguiente paso o la visita técnica."
+                )
             elif intent == "catalogo_internet" or (
                 sector == "comercial" and intent in {"cobertura", "otro"} and _WIFI_VENTA_RE.search(mensaje)
             ):
@@ -547,12 +662,20 @@ def build_graph():
                     "Vamos a revisar si hay alguna afectación en su zona. "
                     "¿Nos confirma barrio y ciudad del servicio?"
                 )
-            else:
-                # Nunca devolver un “un momento” vacío: pedir el dato útil.
+            elif _CORTES_PREG_RE.search(mensaje) or _CORTES_PREG_RE.search(historial[-800:]):
+                text = _CANNED_CORTES
+            elif _CIERRE_RE.match(msg_low) or _YA_FUNCIONA_RE.search(msg_low):
+                text = _CANNED_YA_FUNCIONA if _YA_FUNCIONA_RE.search(msg_low) else _CANNED_CIERRE
+            elif _APP_RE.search(mensaje) or _APP_RE.search(historial[-600:]):
+                text = _CANNED_APP
+            elif str(state.get("proceso") or "") == "falla":
                 text = (
-                    "¿Me confirma en qué podemos ayudarle "
-                    "(internet, plan, pago, cobertura u otro tema)?"
+                    "Seguimos con su reclamo de servicio. "
+                    "Cuéntenos si ya volvió o si sigue sin internet."
                 )
+            else:
+                # Último recurso: abrir el pedido sin menú comercial forzado.
+                text = "¿En qué le podemos ayudar?"
             if gemini_err:
                 print(f"[wa-langgraph] compose gemini_fail intent={intent} err={gemini_err}", flush=True)
 
@@ -570,7 +693,7 @@ def build_graph():
             modo = "langgraph_saludo"
         elif intent == "meta":
             modo = "langgraph_meta"
-        elif intent in {"beneficios", "condiciones"}:
+        elif intent in {"beneficios", "condiciones", "cierre", "ya_funciona", "info_cortes", "app_cliente", "ack_falla"}:
             modo = f"langgraph_{intent}"
         elif intent == "catalogo_internet":
             modo = "langgraph_catalogo"

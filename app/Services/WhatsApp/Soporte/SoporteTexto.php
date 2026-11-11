@@ -344,7 +344,7 @@ class SoporteTexto
             return false;
         }
 
-        return (bool) preg_match('/^(gracias|muchas gracias|ok|okay|listo|perfecto|dale|buen[ií]simo|genial|nada mas|nada más)\.?$/u', $t);
+        return (bool) preg_match('/^(gracias|muchas gracias|mil gracias|ok gracias|dale gracias|ok|okay|listo|perfecto|dale|buen[ií]simo|genial|nada mas|nada más|de nada|eso es todo)\.?$/u', $t);
     }
 
     public static function pareceTelevision(?string $texto): bool
