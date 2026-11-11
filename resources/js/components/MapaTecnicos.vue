@@ -24,12 +24,39 @@
           <span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
           Tickets ({{ tickets.length }})
         </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer">
+          <input v-model="capaRecorrido" type="checkbox" class="rounded border-gray-300" />
+          <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+          Recorrido
+        </label>
+        <input
+          v-if="capaRecorrido"
+          v-model="fechaRecorrido"
+          type="date"
+          :max="hoyLocal()"
+          class="rounded-lg bg-white/95 dark:bg-gray-900/95 px-2 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+        />
       </div>
       <div class="flex flex-wrap gap-2 pointer-events-auto">
         <button type="button" class="rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200" @click="toggleSatelite">
           {{ satelite ? 'Mapa' : 'Satélite' }}
         </button>
       </div>
+    </div>
+
+    <div v-if="capaRecorrido" class="absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
+      <div class="font-semibold text-gray-900 dark:text-gray-100">{{ tituloRecorrido }}</div>
+      <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ notaRecorrido }}</p>
+      <p v-if="errorRecorrido" class="mt-1 text-red-600 dark:text-red-300">{{ errorRecorrido }}</p>
+      <ul v-else-if="recorridos.length" class="mt-1 max-h-40 overflow-y-auto space-y-1">
+        <li v-for="t in recorridos" :key="t.tecnico_id">
+          <button type="button" class="flex items-center gap-1.5 text-left w-full hover:underline" @click="enfocarRecorrido(t)">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: colorTecnico(t.tecnico_id) }"></span>
+            <span>{{ t.nombre }} · {{ formatoDistancia(t.distancia_m) }}<template v-if="t.visitas"> · {{ t.visitas }} visitas</template></span>
+          </button>
+        </li>
+      </ul>
+      <p v-else class="mt-1 text-gray-500 dark:text-gray-400">Sin recorrido en esa fecha.</p>
     </div>
 
     <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 rounded-lg z-20">
@@ -45,11 +72,19 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
+function hoyLocal() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 
 const props = defineProps({
   apiKey: { type: String, default: '' },
   urlUbicaciones: { type: String, required: true },
+  urlRecorridos: { type: String, default: '' },
   urlClientes: { type: String, default: '' },
   urlPedidos: { type: String, default: '' },
   urlTickets: { type: String, default: '' },
@@ -69,7 +104,26 @@ const capaTecnicos = ref(true);
 const capaClientes = ref(false);
 const capaPedidos = ref(false);
 const capaTickets = ref(false);
+const capaRecorrido = ref(false);
+const fechaRecorrido = ref(hoyLocal());
+const recorridos = ref([]);
+const modoRecorrido = ref('puntos');
+const errorRecorrido = ref('');
 const satelite = ref(false);
+
+const COLORES_RECORRIDO = ['#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5'];
+
+const tituloRecorrido = computed(() => {
+  const [y, m, d] = String(fechaRecorrido.value || '').split('-');
+  const etiqueta = d && m && y ? `${d}/${m}/${y}` : fechaRecorrido.value;
+  return modoRecorrido.value === 'resumen' ? `Resumen ${etiqueta}` : `Recorrido ${etiqueta}`;
+});
+
+const notaRecorrido = computed(() => (
+  modoRecorrido.value === 'resumen'
+    ? 'Quedó el resumen del día. Los puntos detallados ya se eliminaron.'
+    : 'Durante el día se guarda el trayecto. A la noche queda solo el resumen.'
+));
 
 let map = null;
 let googleRef = null;
@@ -83,7 +137,29 @@ let fittedOnce = false;
 let clientesCargados = false;
 let pedidosCargados = false;
 let ticketsCargados = false;
+let recorridoPorId = {};
+let figurasRecorrido = [];
+let recorridoPoll = null;
+let recorridoSeq = 0;
 const OFFLINE_MS = 5 * 60 * 1000;
+
+function colorTecnico(id) {
+  const n = Math.abs(Number(id) || 0);
+  return COLORES_RECORRIDO[n % COLORES_RECORRIDO.length];
+}
+
+function formatoDistancia(metros) {
+  const n = Number(metros) || 0;
+  if (n < 1000) return `${Math.round(n)} m`;
+  return `${(n / 1000).toLocaleString('es-PY', { maximumFractionDigits: 1 })} km`;
+}
+
+function formatoHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+}
 
 function isOnline(item) {
   if (!item?.updated_at) return false;
@@ -155,6 +231,10 @@ function popupTecnico(item) {
   const online = isOnline(item);
   const mapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(item.lat + ',' + item.lng)}`;
   const visita = item.visita_id ? `#${item.visita_id}` : 'Ninguna';
+  const rec = recorridoPorId[item.tecnico_id];
+  const lineaRec = rec
+    ? `<div style="color:#374151">Recorrido: ${escapeHtml(formatoDistancia(rec.distancia_m))} · ${escapeHtml(formatoHora(rec.inicio))}–${escapeHtml(formatoHora(rec.fin))}</div>`
+    : '';
   // Colores inline: el body en dark mode hereda text-gray-100 y deja el popup ilegible.
   return (
     `<div style="min-width:180px;font:13px/1.4 system-ui,sans-serif;color:#111827;background:#fff">` +
@@ -162,7 +242,24 @@ function popupTecnico(item) {
     `<div style="color:#374151">Estado: <strong style="color:${online ? '#16a34a' : '#4b5563'}">${online ? 'Online' : 'Offline'}</strong></div>` +
     `<div style="color:#374151">Última act.: ${escapeHtml(formatUpdated(item.updated_at))}</div>` +
     `<div style="color:#374151">Visita: ${escapeHtml(String(visita))}</div>` +
+    lineaRec +
     `<div style="margin-top:6px"><a href="${mapsUrl}" target="_blank" rel="noopener" style="color:#2563eb;font-weight:600;text-decoration:underline">Abrir en Maps</a></div></div>`
+  );
+}
+
+function popupRecorrido(item) {
+  const visitas = item.visitas ? `<div style="color:#374151">Visitas: ${escapeHtml(String(item.visitas))}</div>` : '';
+  const nota = modoRecorrido.value === 'resumen'
+    ? '<div style="color:#6b7280;margin-top:4px">Resumen guardado. Los puntos detallados de ese día ya se eliminaron.</div>'
+    : '<div style="color:#6b7280;margin-top:4px">Trayecto del día. A la noche queda solo el resumen.</div>';
+  return (
+    `<div style="min-width:180px;font:13px/1.4 system-ui,sans-serif;color:#111827;background:#fff">` +
+    `<div style="font-weight:700;color:#111827">${escapeHtml(item.nombre || 'Técnico')}</div>` +
+    `<div style="color:#374151">Distancia: ${escapeHtml(formatoDistancia(item.distancia_m))}</div>` +
+    `<div style="color:#374151">${escapeHtml(formatoHora(item.inicio))} – ${escapeHtml(formatoHora(item.fin))}</div>` +
+    visitas +
+    nota +
+    '</div>'
   );
 }
 
@@ -396,6 +493,105 @@ async function ensureTickets() {
   syncTicketsMarkers();
 }
 
+function clearRecorridoFiguras() {
+  figurasRecorrido.forEach((f) => f.setMap(null));
+  figurasRecorrido = [];
+}
+
+function syncRecorridoFiguras() {
+  clearRecorridoFiguras();
+  if (!capaRecorrido.value || !map || !googleRef) return;
+  recorridos.value.forEach((t) => {
+    const path = (t.traza || [])
+      .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }))
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    if (!path.length) return;
+    const color = colorTecnico(t.tecnico_id);
+    if (path.length === 1) {
+      const marker = new googleRef.maps.Marker({
+        map,
+        position: path[0],
+        title: t.nombre,
+        icon: pinIcon(googleRef, color),
+        zIndex: 35,
+      });
+      marker.addListener('click', () => {
+        infoWindow.setContent(popupRecorrido(t));
+        infoWindow.open({ map, anchor: marker });
+      });
+      figurasRecorrido.push(marker);
+      return;
+    }
+    const poly = new googleRef.maps.Polyline({
+      map,
+      path,
+      strokeColor: color,
+      strokeOpacity: 0.9,
+      strokeWeight: 4,
+      geodesic: true,
+      zIndex: 35,
+    });
+    poly.addListener('click', (e) => {
+      infoWindow.setContent(popupRecorrido(t));
+      infoWindow.setPosition(e.latLng);
+      infoWindow.open(map);
+    });
+    figurasRecorrido.push(poly);
+  });
+}
+
+function enfocarRecorrido(t) {
+  if (!map || !googleRef) return;
+  const path = (t.traza || []).filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  if (!path.length) return;
+  const bounds = new googleRef.maps.LatLngBounds();
+  path.forEach((p) => bounds.extend({ lat: Number(p.lat), lng: Number(p.lng) }));
+  map.fitBounds(bounds, 64);
+}
+
+function syncRecorridoPoll() {
+  if (recorridoPoll) {
+    clearInterval(recorridoPoll);
+    recorridoPoll = null;
+  }
+  if (!capaRecorrido.value || fechaRecorrido.value !== hoyLocal()) return;
+  recorridoPoll = setInterval(() => {
+    fetchRecorrido();
+  }, 60000);
+}
+
+async function fetchRecorrido() {
+  if (!props.urlRecorridos) {
+    errorRecorrido.value = 'No está configurada la ruta de recorridos.';
+    return;
+  }
+  const seq = ++recorridoSeq;
+  const url = `${props.urlRecorridos}?fecha=${encodeURIComponent(fechaRecorrido.value)}`;
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (seq !== recorridoSeq) return;
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || 'No se pudo cargar el recorrido.');
+    }
+    const payload = data.data || {};
+    modoRecorrido.value = payload.modo === 'resumen' ? 'resumen' : 'puntos';
+    const list = Array.isArray(payload.tecnicos) ? payload.tecnicos : [];
+    recorridos.value = list;
+    const index = {};
+    list.forEach((t) => { index[t.tecnico_id] = t; });
+    recorridoPorId = index;
+    errorRecorrido.value = '';
+    syncRecorridoFiguras();
+  } catch (e) {
+    if (seq !== recorridoSeq) return;
+    errorRecorrido.value = e.message || 'No se pudo cargar el recorrido.';
+  }
+}
+
 watch(capaTecnicos, syncTecnicosVisibility);
 watch(capaClientes, async (on) => {
   if (on) {
@@ -433,6 +629,24 @@ watch(capaTickets, async (on) => {
   }
   syncTicketsMarkers();
 });
+watch(capaRecorrido, async (on) => {
+  if (!on) {
+    recorridoSeq += 1;
+    clearRecorridoFiguras();
+    recorridos.value = [];
+    recorridoPorId = {};
+    errorRecorrido.value = '';
+    syncRecorridoPoll();
+    return;
+  }
+  await fetchRecorrido();
+  syncRecorridoPoll();
+});
+watch(fechaRecorrido, async () => {
+  if (!capaRecorrido.value) return;
+  await fetchRecorrido();
+  syncRecorridoPoll();
+});
 
 onMounted(async () => {
   if (!props.apiKey) {
@@ -451,6 +665,10 @@ onMounted(async () => {
     infoWindow = new googleRef.maps.InfoWindow();
     applyMapType();
     await fetchUbicaciones();
+    if (capaRecorrido.value) {
+      await fetchRecorrido();
+      syncRecorridoPoll();
+    }
     const ms = Math.max(5, Number(props.pollSegundos) || 15) * 1000;
     pollTimer = setInterval(fetchUbicaciones, ms);
   } catch (e) {
@@ -461,8 +679,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer);
+  if (recorridoPoll) clearInterval(recorridoPoll);
   for (const entry of markersTecnicos.values()) entry.marker.setMap(null);
   markersTecnicos.clear();
+  clearRecorridoFiguras();
   clearMarkers(markersClientes);
   clearMarkers(markersPedidos);
   clearMarkers(markersTickets);

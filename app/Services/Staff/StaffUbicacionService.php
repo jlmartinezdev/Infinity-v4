@@ -6,13 +6,19 @@ use App\Models\StaffUbicacion;
 use App\Models\Ticket;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class StaffUbicacionService
 {
     public const RATE_LIMIT_SECONDS = 20;
 
     public const FLOTA_LOOKBACK_HOURS = 24;
+
+    public function __construct(
+        private readonly StaffRecorridoService $recorridos
+    ) {}
 
     /**
      * Upsert última posición del técnico. Respeta rate-limit por usuario.
@@ -58,6 +64,28 @@ class StaffUbicacionService
                 'reported_at' => now(),
             ]
         );
+
+        $enTurno = array_key_exists('en_turno', $data) ? (bool) $data['en_turno'] : true;
+        if ($enTurno) {
+            try {
+                $accuracy = array_key_exists('accuracy', $data) && $data['accuracy'] !== null
+                    ? (float) $data['accuracy']
+                    : null;
+                $this->recorridos->registrarPunto(
+                    $usuarioId,
+                    $lat,
+                    $lng,
+                    $accuracy,
+                    $visitaId !== null ? (int) $visitaId : null,
+                    $ubicacion->reported_at ?? now(),
+                );
+            } catch (Throwable $e) {
+                Log::warning('staff.recorrido.registrar', [
+                    'usuario_id' => $usuarioId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return ['ubicacion' => $ubicacion, 'throttled' => false];
     }

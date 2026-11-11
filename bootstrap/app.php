@@ -139,6 +139,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 Log::info('Tarea iniciado: fcm:avisar-facturas-por-vencer');
             });
 
+        // Recorrido de técnicos: a la noche (o al encender, si el PC estaba apagado)
+        // queda el resumen del día y se borran los puntos detallados.
+        $schedule->command('staff:cerrar-recorridos')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->when(fn () => \App\Support\ScheduleOnceAfter::due('staff-cerrar-recorridos', '00:10'))
+            ->before(function () {
+                Log::info('Tarea iniciado: staff:cerrar-recorridos');
+            });
+
         // Loyalty: vencer lotes de puntos (FIFO)
         $schedule->command('loyalty:expirar-puntos')
             ->everyFifteenMinutes()

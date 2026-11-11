@@ -8,7 +8,7 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Técnicos en mapa</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Flota en vivo desde la app ISP Staff. Verde = reporte en los últimos 5 minutos; gris = offline.
-            Podés activar capas de clientes, pedidos y tickets, y satélite. El mapa mantiene el estilo claro de Google.
+            La capa Recorrido dibuja el trayecto del día. A la noche queda un resumen (kilómetros, horario y trazo) y se borran los puntos detallados.
         </p>
     </div>
 
@@ -22,6 +22,7 @@
     $mapaConfig = [
         'apiKey' => $googleMapsApiKey ?? '',
         'urlUbicaciones' => $urlUbicaciones ?? '',
+        'urlRecorridos' => $urlRecorridos ?? '',
         'urlClientes' => $urlClientes ?? '',
         'urlPedidos' => $urlPedidos ?? '',
         'urlTickets' => $urlTickets ?? '',

@@ -9,6 +9,7 @@ if (el) {
   createApp(MapaTecnicos, {
     apiKey: cfg.apiKey || '',
     urlUbicaciones: cfg.urlUbicaciones || '',
+    urlRecorridos: cfg.urlRecorridos || '',
     urlClientes: cfg.urlClientes || '',
     urlPedidos: cfg.urlPedidos || '',
     urlTickets: cfg.urlTickets || '',

@@ -7,8 +7,11 @@ use App\Models\Cliente;
 use App\Models\Pedido;
 use App\Models\Servicio;
 use App\Models\Ticket;
+use App\Services\Staff\StaffRecorridoService;
 use App\Services\Staff\StaffUbicacionService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Throwable;
@@ -16,7 +19,8 @@ use Throwable;
 class StaffMapaController extends Controller
 {
     public function __construct(
-        private readonly StaffUbicacionService $ubicaciones
+        private readonly StaffUbicacionService $ubicaciones,
+        private readonly StaffRecorridoService $recorridos,
     ) {}
 
     public function index(): View
@@ -24,6 +28,7 @@ class StaffMapaController extends Controller
         return view('staff.mapa-tecnicos', [
             'googleMapsApiKey' => config('services.google.maps_key'),
             'urlUbicaciones' => route('staff.mapa-tecnicos.ubicaciones'),
+            'urlRecorridos' => route('staff.mapa-tecnicos.recorridos'),
             'urlClientes' => route('staff.mapa-tecnicos.clientes'),
             'urlPedidos' => route('staff.mapa-tecnicos.pedidos'),
             'urlTickets' => route('staff.mapa-tecnicos.tickets'),
@@ -44,6 +49,55 @@ class StaffMapaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'No se pudo cargar la flota de técnicos.',
+            ], 500);
+        }
+    }
+
+    public function recorridos(Request $request): JsonResponse
+    {
+        $raw = trim((string) $request->query('fecha', ''));
+        if ($raw !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fecha inválida. Usá AAAA-MM-DD.',
+            ], 422);
+        }
+
+        try {
+            if ($raw === '') {
+                $fecha = now()->startOfDay();
+            } else {
+                $fecha = Carbon::createFromFormat('Y-m-d', $raw);
+                if (! $fecha instanceof Carbon || $fecha->format('Y-m-d') !== $raw) {
+                    throw new \InvalidArgumentException('Fecha inválida.');
+                }
+                $fecha = $fecha->startOfDay();
+            }
+        } catch (Throwable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fecha inválida. Usá AAAA-MM-DD.',
+            ], 422);
+        }
+
+        if ($fecha->toDateString() > now()->toDateString()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La fecha no puede ser futura.',
+            ], 422);
+        }
+
+        try {
+            return response()->json([
+                'success' => true,
+                'data' => $this->recorridos->payloadFecha($fecha),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('mapa-tecnicos.recorridos', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo cargar el recorrido.',
             ], 500);
         }
     }
