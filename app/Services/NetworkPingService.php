@@ -19,12 +19,15 @@ class NetworkPingService
      *     min_ms: int|null,
      *     max_ms: int|null,
      *     avg_ms: int|null,
+     *     jitter_ms: float|null,
+     *     latencia_ms: float|null,
+     *     muestras: list<float|null>,
      *     calidad: string,
      *     output: string,
      *     message: string
      * }
      */
-    public function ping(string $ip, int $packets = 4): array
+    public function ping(string $ip, int $packets = 10): array
     {
         $ip = trim($ip);
         if (! filter_var($ip, FILTER_VALIDATE_IP)) {
@@ -48,6 +51,15 @@ class NetworkPingService
         $text = trim(implode("\n", $output));
         $alive = $this->detectAlive($text, $isWindows) || $exitCode === 0;
         $stats = $this->parseEstadisticas($text, $packets, $alive);
+        $muestras = $this->parseMuestras($text);
+        $jitter = $this->jitterMs($muestras);
+        $latencia = null;
+        foreach (array_reverse($muestras) as $muestra) {
+            if ($muestra !== null) {
+                $latencia = $muestra;
+                break;
+            }
+        }
 
         return [
             'success' => true,
@@ -61,12 +73,53 @@ class NetworkPingService
             'min_ms' => $stats['min_ms'],
             'max_ms' => $stats['max_ms'],
             'avg_ms' => $stats['avg_ms'],
+            'jitter_ms' => $jitter,
+            'latencia_ms' => $latencia,
+            'muestras' => $muestras,
             'calidad' => $this->textoCalidad($alive, $stats),
             'output' => $text !== '' ? $text : '(sin salida del comando ping)',
             'message' => $alive
                 ? "El equipo {$ip} responde."
                 : "El equipo {$ip} no respondió.",
         ];
+    }
+
+    /**
+     * Una entrada por sonda, en orden. null es un paquete perdido.
+     *
+     * @return list<float|null>
+     */
+    private function parseMuestras(string $text): array
+    {
+        $muestras = [];
+        foreach (preg_split('/\R/', $text) ?: [] as $line) {
+            if (preg_match('/(?:time|tiempo)\s*[=<]\s*([\d.]+)\s*ms/i', $line, $m)) {
+                $muestras[] = round((float) $m[1], 1);
+                continue;
+            }
+            if (preg_match('/timed out|tiempo de espera agotado|host unreachable|destino inaccesible/i', $line)) {
+                $muestras[] = null;
+            }
+        }
+
+        return $muestras;
+    }
+
+    /**
+     * @param  list<float|null>  $muestras
+     */
+    private function jitterMs(array $muestras): ?float
+    {
+        $ok = array_values(array_filter($muestras, static fn ($ms) => $ms !== null));
+        if (count($ok) < 2) {
+            return count($ok) === 1 ? 0.0 : null;
+        }
+        $sum = 0.0;
+        for ($i = 1, $n = count($ok); $i < $n; $i++) {
+            $sum += abs($ok[$i] - $ok[$i - 1]);
+        }
+
+        return round($sum / (count($ok) - 1), 1);
     }
 
     /**

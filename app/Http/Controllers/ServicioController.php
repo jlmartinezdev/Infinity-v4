@@ -882,7 +882,7 @@ class ServicioController extends Controller
         }
 
         try {
-            $result = $pingService->ping($ip, 4);
+            $result = $pingService->ping($ip, 10);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,

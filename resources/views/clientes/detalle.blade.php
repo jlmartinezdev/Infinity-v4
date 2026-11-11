@@ -1944,14 +1944,7 @@
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-base font-bold font-mono text-gray-900 dark:text-gray-100">{{ $primerServicio?->ip ?: 'Sin IP' }}</span>
-                                @if($primerServicio?->ip)
-                                    <button type="button" class="cd-copy-btn" data-cd-copy="{{ $primerServicio->ip }}" title="Copiar dirección IP">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                    </button>
-                                @endif
-                            </div>
+                            <span class="text-base font-bold font-mono text-gray-900 dark:text-gray-100">{{ $primerServicio?->ip ?: 'Sin IP' }}</span>
                             <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1 truncate">
                                 Pool: {{ $primerServicio?->pool?->nombre_pool ?? 'Estándar' }}
                             </p>
@@ -1965,19 +1958,7 @@
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="text-sm font-bold font-mono text-gray-900 dark:text-gray-100 truncate">{{ $primerServicio?->usuario_pppoe ?: 'Sin usuario' }}</span>
-                                @if($primerServicio?->usuario_pppoe)
-                                    <button type="button" class="cd-copy-btn shrink-0" data-cd-copy="{{ $primerServicio->usuario_pppoe }}" title="Copiar usuario PPPoE">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                    </button>
-                                    @if($primerServicio->password_pppoe)
-                                        <button type="button" class="cd-copy-btn shrink-0 text-purple-600 dark:text-purple-400" data-cd-pppoe data-usuario="{{ $primerServicio->usuario_pppoe }}" data-password="{{ $primerServicio->password_pppoe }}" title="Ver contraseña PPPoE">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                        </button>
-                                    @endif
-                                @endif
-                            </div>
+                            <span class="block text-sm font-bold font-mono text-gray-900 dark:text-gray-100 truncate">{{ $primerServicio?->usuario_pppoe ?: 'Sin usuario' }}</span>
                             <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
                                 Autenticación activa en MikroTik
                             </p>
@@ -2627,38 +2608,6 @@
             if (facturaEmptyRow) {
                 facturaEmptyRow.classList.toggle('hidden', visibleCount > 0);
             }
-        });
-    });
-
-    // Copia rápida al portapapeles con Toast de SweetAlert
-    function copyToClipboard(text) {
-        if (!text) return;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(function() {
-                showToast('success', 'Copiado: ' + text);
-            }).catch(function() {
-                execCopy(text);
-            });
-            return;
-        }
-        execCopy(text);
-    }
-    function execCopy(text) {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand('copy'); } catch (e) {}
-        document.body.removeChild(ta);
-        showToast('success', 'Copiado: ' + text);
-    }
-
-    document.querySelectorAll('[data-cd-copy]').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            copyToClipboard(btn.getAttribute('data-cd-copy') || '');
         });
     });
 

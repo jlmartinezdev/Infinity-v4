@@ -515,29 +515,6 @@
         color: #9ca3af;
     }
 
-    /* Botón de copia rápida */
-    .cliente-detalle-page .cd-copy-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.5rem;
-        height: 1.5rem;
-        border-radius: 0.375rem;
-        border: none;
-        background: transparent;
-        color: var(--cd-muted);
-        cursor: pointer;
-        padding: 0;
-        transition: color 0.15s, background-color 0.15s;
-    }
-    .cliente-detalle-page .cd-copy-btn:hover {
-        color: #7c3aed;
-        background: rgba(124, 58, 237, 0.08);
-    }
-    html.dark .cliente-detalle-page .cd-copy-btn:hover {
-        color: #c4b5fd;
-        background: rgba(139, 92, 246, 0.15);
-    }
     .cliente-detalle-page .cd-filter-pill {
         display: inline-flex;
         align-items: center;

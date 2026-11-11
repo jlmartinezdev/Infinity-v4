@@ -264,96 +264,73 @@
 
       <div class="noc-tools-grid" :class="{ 'is-4': toolsCols >= 4 }">
         <!-- Ping -->
-        <section class="noc-card">
-          <div class="noc-card-head">
+        <section class="noc-card noc-ping">
+          <div class="noc-card-head noc-ping-head">
             <span class="noc-icon noc-icon--blue">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </span>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <h2 class="noc-card-title">Ping CPE</h2>
-                <button
-                  v-if="pingStats"
-                  type="button"
-                  class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                  title="Copiar resultado ping"
-                  @click="copyPingStats"
-                >
-                  <svg v-if="!copiedPing" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                  <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                  <span class="text-[11px]">{{ copiedPing ? '¡Copiado!' : 'Copiar' }}</span>
-                </button>
-              </div>
-              <p class="noc-card-sub">ICMP desde el servidor</p>
+            <div class="min-w-0 flex-1">
+              <h2 class="noc-card-title">Ping CPE</h2>
+              <p class="noc-card-sub">ICMP desde el servidor NOC</p>
             </div>
+            <span
+              v-if="pingVista"
+              class="noc-ping-loss"
+              :class="pingVista.lossClass"
+            >{{ pingVista.loss }}% pérdida</span>
           </div>
-          <div class="noc-card-body space-y-3">
-            <div class="flex items-stretch gap-2">
-              <div class="noc-input-display flex flex-1 items-center font-mono text-sm">{{ servicio.ip || 'Sin IP asignada' }}</div>
+          <div class="noc-card-body">
+            <div class="noc-ping-target">
+              <span class="noc-ping-ip">{{ servicio.ip || 'Sin IP asignada' }}</span>
               <button
                 type="button"
-                class="noc-btn-icon noc-btn-icon--primary"
+                class="noc-ping-play"
                 title="Ejecutar ping"
                 aria-label="Ejecutar ping"
+                :aria-busy="loading.ping ? 'true' : 'false'"
                 :disabled="!canPing || loading.ping"
                 @click="onPing"
               >
-                <svg v-show="!loading.ping" class="noc-btn-action-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.866l11.196-6.86a1 1 0 0 0 0-1.732L9.5 4.274A1 1 0 0 0 8 5.14z"/></svg>
-                <svg v-show="loading.ping" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <svg v-show="!loading.ping" class="noc-ping-play-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.866l11.196-6.86a1 1 0 0 0 0-1.732L9.5 4.274A1 1 0 0 0 8 5.14z"/></svg>
+                <svg v-show="loading.ping" class="noc-ping-play-icon animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
               </button>
             </div>
-            <div v-show="outPing" class="text-sm" v-html="outPing"></div>
-            <div v-if="pingStats" class="space-y-2">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center gap-1.5">
-                  <span
-                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
-                    :class="pingQuality(pingStats.avg_ms, pingStats.loss_pct).badge"
-                  >
-                    <span class="h-1.5 w-1.5 rounded-full" :class="pingQuality(pingStats.avg_ms, pingStats.loss_pct).dot"></span>
-                    {{ pingQuality(pingStats.avg_ms, pingStats.loss_pct).label }}
-                  </span>
-                  <span
-                    v-if="pingStats.alive"
-                    class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                  >Responde</span>
-                  <span
-                    v-else
-                    class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                  >Sin respuesta</span>
+            <div v-show="outPing" class="noc-ping-error" v-html="outPing"></div>
+            <template v-if="pingVista">
+              <div class="noc-ping-stats">
+                <div class="noc-ping-stat">
+                  <span class="noc-ping-k">Latencia</span>
+                  <span class="noc-ping-v" :class="pingVista.latenciaClass">{{ pingVista.latencia }}</span>
+                </div>
+                <div class="noc-ping-stat">
+                  <span class="noc-ping-k">Promedio</span>
+                  <span class="noc-ping-v">{{ pingVista.promedio }}</span>
+                </div>
+                <div class="noc-ping-stat">
+                  <span class="noc-ping-k">Jitter</span>
+                  <span class="noc-ping-v">{{ pingVista.jitter }}</span>
                 </div>
               </div>
-              <p class="text-xs text-gray-600 dark:text-gray-300">{{ pingStats.calidad }}</p>
-              <div class="grid grid-cols-2 gap-2">
-                <div class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
-                  <p class="noc-metric-label">Paquetes</p>
-                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {{ pingStats.received }} de {{ pingStats.sent }}
-                  </p>
-                </div>
-                <div class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
-                  <p class="noc-metric-label">Pérdida</p>
-                  <p
-                    class="text-sm font-semibold"
-                    :class="pingStats.loss_pct > 0 ? 'noc-metric--warn' : 'text-emerald-600 dark:text-emerald-400'"
-                  >{{ pingStats.loss_pct }}%</p>
-                </div>
-                <div v-if="pingStats.avg_ms != null" class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
-                  <p class="noc-metric-label">Promedio</p>
-                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ pingStats.avg_ms }} ms</p>
-                </div>
-                <div v-if="pingStats.min_ms != null || pingStats.max_ms != null" class="rounded-md border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-700/60 dark:bg-gray-800/40">
-                  <p class="noc-metric-label">Mín / Máx</p>
-                  <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 font-mono text-xs">
-                    {{ pingStats.min_ms != null ? pingStats.min_ms : '—' }} / {{ pingStats.max_ms != null ? pingStats.max_ms : '—' }} ms
-                  </p>
-                </div>
+              <div
+                v-if="pingVista.barras.length"
+                class="noc-ping-chart"
+                role="img"
+                :aria-label="'Latencia de ' + pingVista.barras.length + ' sondas'"
+              >
+                <span
+                  v-for="(bar, i) in pingVista.barras"
+                  :key="'ping-bar-' + i"
+                  class="noc-ping-bar"
+                  :class="{ 'is-lost': bar.lost }"
+                  :style="{ height: bar.h }"
+                  :title="bar.title"
+                ></span>
               </div>
-              <details v-if="pingStats.output" class="text-xs text-gray-500 dark:text-gray-400">
-                <summary class="cursor-pointer select-none">Ver detalle técnico</summary>
-                <pre class="mt-1 max-h-40 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 font-mono text-[11px] text-gray-800 dark:border-gray-600 dark:bg-gray-900/50 dark:text-gray-200 whitespace-pre-wrap">{{ pingStats.output }}</pre>
-              </details>
-            </div>
+              <div class="noc-ping-foot">
+                <span>Seq: {{ pingVista.seq }}</span>
+                <span>{{ pingVista.enviados }} enviados · {{ pingVista.recibidos }} recibidos</span>
+              </div>
+            </template>
           </div>
         </section>
 
@@ -499,65 +476,6 @@
               </button>
             </div>
             <div v-show="outOlt" class="text-sm" v-html="outOlt"></div>
-          </div>
-        </section>
-
-        <section v-if="esFibra" class="noc-card">
-          <div class="noc-card-head">
-            <span class="noc-icon noc-icon--amber">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            </span>
-            <div class="flex-1 min-w-0">
-              <h2 class="noc-card-title">Instalación OLT</h2>
-              <p class="noc-card-sub">Buscar por serie y aplicar perfil de ONT o de ONU + router</p>
-            </div>
-          </div>
-          <div class="noc-card-body space-y-3">
-            <label class="block text-xs text-gray-500 dark:text-gray-400">
-              Número de serie
-              <input
-                v-model="oltSerial"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm uppercase text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                placeholder="FHTT… o HWTC…"
-              />
-            </label>
-            <div class="space-y-2">
-              <label
-                v-for="perfil in perfilesOlt"
-                :key="perfil.modo"
-                class="flex cursor-pointer gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-600"
-              >
-                <input v-model="oltModo" type="radio" class="mt-1" :value="perfil.modo" />
-                <span>
-                  <span class="font-medium text-gray-900 dark:text-gray-100">{{ perfil.label }}</span>
-                  <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{{ perfil.detalle }} Perfiles {{ perfil.line }} y {{ perfil.srv }}.</span>
-                </span>
-              </label>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                :disabled="!canOlt || loading.oltInstalacion"
-                @click="onOltInstalacionBuscar"
-              >{{ loading.oltInstalacion && !oltEncontradaAplicando ? 'Buscando…' : 'Buscar serie' }}</button>
-              <button
-                type="button"
-                class="inline-flex items-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-                :disabled="!canOlt || !oltEncontrada || loading.oltInstalacion"
-                @click="onOltInstalacionAplicar"
-              >{{ oltEncontradaAplicando ? 'Aplicando…' : 'Aplicar en la OLT' }}</button>
-            </div>
-            <div v-if="oltEncontrada" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
-              <p><span class="text-gray-500">OLT</span> <span class="font-medium text-gray-900 dark:text-gray-100">{{ oltEncontrada.olt }}</span></p>
-              <p><span class="text-gray-500">PON/ONU</span> <span class="font-mono font-semibold">{{ oltEncontrada.pon_port }}:{{ oltEncontrada.onu_index }}</span></p>
-              <p v-if="oltEncontrada.modelo"><span class="text-gray-500">Modelo</span> {{ oltEncontrada.modelo }}</p>
-              <p><span class="text-gray-500">Serie</span> <span class="font-mono">{{ oltEncontrada.serial }}</span></p>
-            </div>
-            <div v-show="outOltInstalacion" class="text-sm" v-html="outOltInstalacion"></div>
           </div>
         </section>
 
@@ -709,7 +627,67 @@
         </section>
       </div>
 
-      <section v-if="huaweiOnu" class="noc-card noc-card--float mt-4">
+      <div v-if="esFibra" class="noc-pair" :class="{ 'is-single': !huaweiOnu && !(cpeSsh && esFibra) }">
+        <section class="noc-card">
+          <div class="noc-card-head">
+            <span class="noc-icon noc-icon--amber">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <h2 class="noc-card-title">Instalación OLT</h2>
+              <p class="noc-card-sub">Buscar por serie y aplicar perfil de ONT o de ONU + router</p>
+            </div>
+          </div>
+          <div class="noc-card-body space-y-3">
+            <label class="block text-xs text-gray-500 dark:text-gray-400">
+              Número de serie
+              <input
+                v-model="oltSerial"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm uppercase text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                placeholder="FHTT… o HWTC…"
+              />
+            </label>
+            <div class="space-y-2">
+              <label
+                v-for="perfil in perfilesOlt"
+                :key="perfil.modo"
+                class="flex cursor-pointer gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-600"
+              >
+                <input v-model="oltModo" type="radio" class="mt-1" :value="perfil.modo" />
+                <span>
+                  <span class="font-medium text-gray-900 dark:text-gray-100">{{ perfil.label }}</span>
+                  <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{{ perfil.detalle }} Perfiles {{ perfil.line }} y {{ perfil.srv }}.</span>
+                </span>
+              </label>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                :disabled="!canOlt || loading.oltInstalacion"
+                @click="onOltInstalacionBuscar"
+              >{{ loading.oltInstalacion && !oltEncontradaAplicando ? 'Buscando…' : 'Buscar serie' }}</button>
+              <button
+                type="button"
+                class="inline-flex items-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                :disabled="!canOlt || !oltEncontrada || loading.oltInstalacion"
+                @click="onOltInstalacionAplicar"
+              >{{ oltEncontradaAplicando ? 'Aplicando…' : 'Aplicar en la OLT' }}</button>
+            </div>
+            <div v-if="oltEncontrada" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+              <p><span class="text-gray-500">OLT</span> <span class="font-medium text-gray-900 dark:text-gray-100">{{ oltEncontrada.olt }}</span></p>
+              <p><span class="text-gray-500">PON/ONU</span> <span class="font-mono font-semibold">{{ oltEncontrada.pon_port }}:{{ oltEncontrada.onu_index }}</span></p>
+              <p v-if="oltEncontrada.modelo"><span class="text-gray-500">Modelo</span> {{ oltEncontrada.modelo }}</p>
+              <p><span class="text-gray-500">Serie</span> <span class="font-mono">{{ oltEncontrada.serial }}</span></p>
+            </div>
+            <div v-show="outOltInstalacion" class="text-sm" v-html="outOltInstalacion"></div>
+          </div>
+        </section>
+
+      <section v-if="huaweiOnu" class="noc-card noc-card--float">
         <div class="noc-card-head">
           <span class="noc-icon noc-icon--blue">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
@@ -919,7 +897,7 @@
         </div>
       </section>
 
-      <section v-else-if="cpeSsh && esFibra" class="noc-card mt-4">
+      <section v-else-if="cpeSsh && esFibra" class="noc-card">
         <div class="noc-card-head">
           <span class="noc-icon noc-icon--blue">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
@@ -936,6 +914,7 @@
           </p>
         </div>
       </section>
+      </div>
 
       <section v-if="tr069Enabled && tr069TieneDetalle" class="noc-card mt-4">
         <div class="noc-card-head">
@@ -1298,7 +1277,6 @@ const diagnosticoStep = ref('');
 const diagnosticoResultado = ref(null);
 const copiedDiag = ref(false);
 const copiedMac = ref(false);
-const copiedPing = ref(false);
 const copiedWifi = ref(false);
 const mikrotikMac = ref('');
 const eventsFilter = ref('todos');
@@ -1463,7 +1441,6 @@ function clearResults() {
   diagnosticoResultado.value = null;
   copiedDiag.value = false;
   copiedMac.value = false;
-  copiedPing.value = false;
   copiedWifi.value = false;
   mikrotikMac.value = '';
   eventsSearch.value = '';
@@ -1720,6 +1697,61 @@ function rxGaugePercent(dbm) {
   return Math.max(4, Math.min(96, Math.round(pct)));
 }
 
+function pingMsLabel(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  const rounded = Math.round(n * 10) / 10;
+  return (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)) + ' ms';
+}
+
+const pingVista = computed(() => {
+  const p = pingStats.value;
+  if (!p) return null;
+  let muestras = Array.isArray(p.muestras) ? p.muestras.slice() : [];
+  if (!muestras.length && p.sent) {
+    const total = Number(p.sent) || 0;
+    const lost = Number(p.lost) || 0;
+    const ok = Math.max(0, total - lost);
+    const marca = p.latencia_ms ?? p.avg_ms ?? 1;
+    muestras = [
+      ...Array.from({ length: ok }, () => marca),
+      ...Array.from({ length: lost }, () => null),
+    ];
+  }
+  const nums = muestras.filter((v) => v != null && v !== '').map(Number).filter(Number.isFinite);
+  const min = nums.length ? Math.min(...nums) : 0;
+  const max = nums.length ? Math.max(...nums) : 1;
+  const span = Math.max(max - min, 0.01);
+  const barras = muestras.map((ms, i) => {
+    const lost = ms == null || ms === '' || !Number.isFinite(Number(ms));
+    const n = lost ? null : Number(ms);
+    return {
+      h: lost ? '16%' : (32 + ((n - min) / span) * 68) + '%',
+      lost,
+      title: lost ? `Seq ${i + 1}: sin respuesta` : `Seq ${i + 1}: ${pingMsLabel(n)}`,
+    };
+  });
+  const latencia = p.latencia_ms != null ? p.latencia_ms : (nums.length ? nums[nums.length - 1] : null);
+  const loss = Number(p.loss_pct) || 0;
+  let latenciaClass = 'is-muted';
+  if (latencia != null && loss < 100) {
+    latenciaClass = loss > 0 || Number(latencia) >= 80 ? 'is-warn' : 'is-ok';
+  }
+  const total = muestras.length || Number(p.sent) || 0;
+  return {
+    loss,
+    lossClass: loss === 0 ? 'is-ok' : (loss < 50 ? 'is-warn' : 'is-bad'),
+    latencia: pingMsLabel(latencia),
+    latenciaClass,
+    promedio: pingMsLabel(p.avg_ms),
+    jitter: pingMsLabel(p.jitter_ms),
+    barras,
+    seq: total ? `#1-${total}` : '—',
+    enviados: p.sent ?? total,
+    recibidos: p.received ?? nums.length,
+  };
+});
+
 function rxQuality(dbm) {
   if (dbm === null || dbm === undefined || dbm === '') {
     return { label: 'Sin datos', color: 'text-gray-400', status: 'unknown' };
@@ -1737,29 +1769,6 @@ function rxQuality(dbm) {
   return { label: 'Potencia Óptima', color: 'text-emerald-600 dark:text-emerald-400', status: 'optimal', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' };
 }
 
-function pingQuality(avgMs, lossPct) {
-  if (lossPct === 100) {
-    return { label: 'Sin respuesta', color: 'text-rose-600 dark:text-rose-400', badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300', dot: 'bg-rose-500' };
-  }
-  if (lossPct > 0) {
-    return { label: `Pérdida (${lossPct}%)`, color: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300', dot: 'bg-amber-500' };
-  }
-  if (avgMs == null) {
-    return { label: 'En línea', color: 'text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300', dot: 'bg-emerald-500' };
-  }
-  const ms = Number(avgMs);
-  if (ms < 25) {
-    return { label: 'Excelente (<25ms)', color: 'text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300', dot: 'bg-emerald-500' };
-  }
-  if (ms < 50) {
-    return { label: 'Bueno (25-50ms)', color: 'text-sky-600 dark:text-sky-400', badge: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300', dot: 'bg-sky-500' };
-  }
-  if (ms < 90) {
-    return { label: 'Moderado (50-90ms)', color: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300', dot: 'bg-amber-500' };
-  }
-  return { label: 'Elevado (>90ms)', color: 'text-rose-600 dark:text-rose-400', badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300', dot: 'bg-rose-500' };
-}
-
 function setCopiedState(type) {
   if (type === 'diag') {
     copiedDiag.value = true;
@@ -1767,9 +1776,6 @@ function setCopiedState(type) {
   } else if (type === 'mac') {
     copiedMac.value = true;
     setTimeout(() => { copiedMac.value = false; }, 2500);
-  } else if (type === 'ping') {
-    copiedPing.value = true;
-    setTimeout(() => { copiedPing.value = false; }, 2500);
   } else if (type === 'wifi') {
     copiedWifi.value = true;
     setTimeout(() => { copiedWifi.value = false; }, 2500);
@@ -1803,14 +1809,6 @@ function copyText(str, type) {
   } else {
     fallbackCopy(str, type);
   }
-}
-
-function copyPingStats() {
-  if (!pingStats.value) return;
-  const p = pingStats.value;
-  const serv = servicio.value;
-  const text = `📡 Ping CPE [${serv.ip || '—'}]: ${p.alive ? 'Online' : 'Sin respuesta'} | Promedio: ${p.avg_ms ?? '—'} ms (Mín: ${p.min_ms ?? '—'} / Máx: ${p.max_ms ?? '—'} ms) | Pérdida: ${p.loss_pct}% (${p.received}/${p.sent})`;
-  copyText(text, 'ping');
 }
 
 async function runAutoDiagnostico() {
@@ -2005,7 +2003,7 @@ function copyDiagnosticoResumen() {
 function onPing() {
   loading.ping = true;
   pingStats.value = null;
-  outPing.value = '<p class="text-gray-500 dark:text-gray-400">Consultando…</p>';
+  outPing.value = '';
   return postJson(payload.value.urls.ping).then(function (res) {
     var d = res.data;
     outPing.value = '';
@@ -2022,6 +2020,9 @@ function onPing() {
       min_ms: d.min_ms != null ? d.min_ms : null,
       max_ms: d.max_ms != null ? d.max_ms : null,
       avg_ms: d.avg_ms != null ? d.avg_ms : null,
+      jitter_ms: d.jitter_ms != null ? d.jitter_ms : null,
+      latencia_ms: d.latencia_ms != null ? d.latencia_ms : null,
+      muestras: Array.isArray(d.muestras) ? d.muestras : [],
       calidad: d.calidad || d.message || '',
       output: d.output || '',
     };
