@@ -306,6 +306,91 @@
 .pppoe-cambio-dot--up { background: #0ea5e9; }
 .pppoe-cambio-dot--down { background: #f97316; }
 .pppoe-cambio-hora { font-family: ui-monospace, monospace; font-weight: 600; }
+.pppoe-eventos { margin-top: 0.75rem; }
+.pppoe-eventos-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: none;
+    background: transparent;
+    padding: 0.15rem 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+}
+.pppoe-eventos-toggle:hover { color: #0f172a; }
+.pppoe-eventos-toggle:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+}
+.dark .pppoe-eventos-toggle { color: #cbd5e1; }
+.dark .pppoe-eventos-toggle:hover { color: #f8fafc; }
+.pppoe-eventos-count {
+    min-width: 1.15rem;
+    border-radius: 999px;
+    background: #e2e8f0;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    color: #334155;
+}
+.dark .pppoe-eventos-count { background: #334155; color: #e2e8f0; }
+.pppoe-eventos-chevron {
+    width: 0.85rem;
+    height: 0.85rem;
+    transition: transform 0.15s ease;
+}
+.pppoe-eventos-chevron.is-open { transform: rotate(180deg); }
+.pppoe-eventos-list {
+    margin-top: 0.55rem;
+    overflow: hidden;
+    border-radius: 0.65rem;
+    border: 1px solid #e2e8f0;
+}
+.dark .pppoe-eventos-list { border-color: #334155; }
+.pppoe-eventos-vacio {
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+.pppoe-evento {
+    display: grid;
+    grid-template-columns: auto 5.5rem 4.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.75rem;
+    color: #334155;
+}
+.pppoe-evento + .pppoe-evento { border-top: 1px solid #e2e8f0; }
+.dark .pppoe-evento { color: #e2e8f0; }
+.dark .pppoe-evento + .pppoe-evento { border-top-color: #1e293b; }
+.pppoe-evento-cuando { display: flex; flex-direction: column; line-height: 1.15; }
+.pppoe-evento-fecha { font-size: 0.625rem; color: #64748b; }
+.dark .pppoe-evento-fecha { color: #94a3b8; }
+.pppoe-evento-que { font-weight: 700; }
+.pppoe-evento-que.is-up { color: #0369a1; }
+.pppoe-evento-que.is-down { color: #c2410c; }
+.dark .pppoe-evento-que.is-up { color: #7dd3fc; }
+.dark .pppoe-evento-que.is-down { color: #fdba74; }
+.pppoe-evento-detalle {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #64748b;
+}
+.dark .pppoe-evento-detalle { color: #94a3b8; }
+@media (max-width: 640px) {
+    .pppoe-evento {
+        grid-template-columns: auto 4.5rem minmax(0, 1fr);
+    }
+    .pppoe-evento-detalle { display: none; }
+}
 .pppoe-timeline-track {
     position: relative;
     height: 0.625rem;

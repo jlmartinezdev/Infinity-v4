@@ -1117,6 +1117,37 @@
               <span class="pppoe-cambio-que">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
             </div>
           </div>
+
+          <div class="pppoe-eventos">
+            <button
+              type="button"
+              class="pppoe-eventos-toggle"
+              :aria-expanded="pppoeEventosAbiertos ? 'true' : 'false'"
+              @click="pppoeEventosAbiertos = !pppoeEventosAbiertos"
+            >
+              <span>{{ pppoeEventosAbiertos ? 'Ocultar eventos' : 'Ver eventos' }}</span>
+              <span class="pppoe-eventos-count">{{ pppoeEventos.length }}</span>
+              <svg class="pppoe-eventos-chevron" :class="{ 'is-open': pppoeEventosAbiertos }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div v-show="pppoeEventosAbiertos" class="pppoe-eventos-list">
+              <p v-if="!pppoeEventos.length" class="pppoe-eventos-vacio">No hay cortes ni reconexiones en las últimas lecturas.</p>
+              <div
+                v-for="(ev, idx) in pppoeEventos"
+                :key="'pppoe-ev-' + idx"
+                class="pppoe-evento"
+              >
+                <span class="pppoe-cambio-dot" :class="ev.badge === 'down' ? 'pppoe-cambio-dot--down' : 'pppoe-cambio-dot--up'"></span>
+                <span class="pppoe-evento-cuando">
+                  <span class="pppoe-cambio-hora">{{ ev.hora }}</span>
+                  <span class="pppoe-evento-fecha">{{ ev.fecha }}</span>
+                </span>
+                <span class="pppoe-evento-que" :class="ev.badge === 'down' ? 'is-down' : 'is-up'">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
+                <span class="pppoe-evento-detalle">{{ ev.detalle || '—' }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Filtros de eventos -->
@@ -1281,6 +1312,7 @@ const copiedWifi = ref(false);
 const mikrotikMac = ref('');
 const eventsFilter = ref('todos');
 const eventsSearch = ref('');
+const pppoeEventosAbiertos = ref(false);
 
 const servicio = computed(() => payload.value?.servicio || {});
 const wifiBackup = computed(() => payload.value?.wifi_backup || null);
@@ -1322,16 +1354,16 @@ const tr069TieneDetalle = computed(() => {
   if (tr069Resumen.value && tr069Resumen.value.success) return true;
   return Array.isArray(tr069Hosts.value) && tr069Hosts.value.length > 0;
 });
-const pppoeCambios = computed(() => {
+const pppoeEventos = computed(() => {
   return (payload.value?.eventos || [])
     .filter((e) => e.badge === 'up' || e.badge === 'down')
-    .slice(0, 8)
     .map((e) => {
       const partes = String(e.ocurrio_at || '').split(' ');
       const hora = (partes[1] || '').slice(0, 5);
-      return { ...e, hora };
+      return { ...e, hora, fecha: partes[0] || '' };
     });
 });
+const pppoeCambios = computed(() => pppoeEventos.value.slice(0, 8));
 const pppoeCortes = computed(() => pppoeCambios.value.filter((e) => e.badge === 'down').length);
 const eventos = computed(() => {
   const all = (payload.value?.eventos || []).filter((e) => e.badge !== 'up' && e.badge !== 'down');
