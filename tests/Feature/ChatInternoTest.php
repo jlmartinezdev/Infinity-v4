@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Events\AccionChatAtendida;
 use App\Events\MensajeChatCreado;
+use App\Events\MensajeChatEliminado;
 use App\Models\User;
 use App\Services\FcmPushService;
 use Illuminate\Database\Schema\Blueprint;
@@ -158,6 +159,70 @@ class ChatInternoTest extends TestCase
             ->assertJsonPath('acciones.0.cuerpo', 'Hay que subir al nodo');
         $this->actingAs(User::query()->find(3))->getJson('/chat/pendientes')
             ->assertJsonPath('acciones.0.cuerpo', 'Hay que subir al nodo');
+    }
+
+    public function test_eliminar_y_reenviar_un_mensaje(): void
+    {
+        Storage::fake('local');
+        Event::fake([MensajeChatCreado::class, MensajeChatEliminado::class]);
+        $this->app->instance(FcmPushService::class, \Mockery::mock(FcmPushService::class)->shouldIgnoreMissing());
+
+        $ana = User::query()->find(1);
+        $beto = User::query()->find(2);
+        $carla = User::query()->find(3);
+
+        $directo = $this->actingAs($ana)->postJson('/chat/directos', ['usuario_id' => 2]);
+        $directo->assertCreated();
+        $directoId = $directo->json('conversacion.id');
+
+        $enviado = $this->actingAs($ana)->post('/chat/conversaciones/'.$directoId.'/mensajes', [
+            'cuerpo' => 'A',
+            'archivo' => UploadedFile::fake()->create('nota.txt', 4, 'text/plain'),
+        ]);
+        $enviado->assertCreated();
+        $mensajeId = $enviado->json('mensaje.id');
+        $this->assertCount(1, Storage::disk('local')->allFiles('chat'));
+
+        $this->actingAs($beto)->deleteJson('/chat/mensajes/'.$mensajeId)->assertForbidden();
+        $this->actingAs($carla)->deleteJson('/chat/mensajes/'.$mensajeId)->assertForbidden();
+
+        $grupo = $this->actingAs($ana)->postJson('/chat/grupos', [
+            'titulo' => 'Cuadrilla',
+            'usuario_ids' => [3],
+        ]);
+        $grupo->assertCreated();
+        $grupoId = $grupo->json('conversacion.id');
+
+        $this->actingAs($ana)->postJson('/chat/mensajes/'.$mensajeId.'/reenviar', [
+            'conversacion_id' => $directoId,
+        ])->assertStatus(422);
+
+        $this->actingAs($carla)->postJson('/chat/mensajes/'.$mensajeId.'/reenviar', [
+            'conversacion_id' => $grupoId,
+        ])->assertForbidden();
+
+        $reenvio = $this->actingAs($ana)->postJson('/chat/mensajes/'.$mensajeId.'/reenviar', [
+            'conversacion_id' => $grupoId,
+        ]);
+        $reenvio->assertCreated();
+        $reenvio->assertJsonPath('mensaje.cuerpo', 'A');
+        $reenvio->assertJsonPath('mensaje.usuario_id', 1);
+        $reenvio->assertJsonPath('mensaje.conversacion_id', $grupoId);
+        $reenvio->assertJsonPath('mensaje.adjunto.nombre', 'nota.txt');
+        $this->assertNotSame($mensajeId, $reenvio->json('mensaje.id'));
+        $this->assertCount(2, Storage::disk('local')->allFiles('chat'));
+
+        $this->actingAs($carla)->getJson('/chat/conversaciones/'.$grupoId.'/mensajes')
+            ->assertJsonPath('mensajes.0.cuerpo', 'A');
+
+        $this->actingAs($ana)->deleteJson('/chat/mensajes/'.$mensajeId)->assertOk();
+        Event::assertDispatched(MensajeChatEliminado::class, function (MensajeChatEliminado $evento) use ($mensajeId, $directoId) {
+            return $evento->mensajeId === (int) $mensajeId
+                && $evento->conversacionId === (int) $directoId;
+        });
+        $this->actingAs($ana)->getJson('/chat/conversaciones/'.$directoId.'/mensajes')
+            ->assertJsonPath('mensajes', []);
+        $this->assertCount(1, Storage::disk('local')->allFiles('chat'));
     }
 
     private function usuario(int $id, string $nombre, int $rolId, ?int $clienteId = null, array $permisos = []): void

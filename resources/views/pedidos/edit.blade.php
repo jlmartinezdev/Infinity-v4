@@ -6,8 +6,10 @@
 <div class="max-w-5xl mx-auto">
     <div class="mb-6">
         <a href="{{ route('pedidos.index') }}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">&larr; Volver a pedidos</a>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Editar pedido</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">Editar pedido #{{ $pedido->pedido_id }}</h1>
     </div>
+
+    @include('pedidos._resumen', ['pedido' => $pedido, 'pasos' => $pasos])
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
         <form action="{{ route('pedidos.update', $pedido) }}" method="POST">

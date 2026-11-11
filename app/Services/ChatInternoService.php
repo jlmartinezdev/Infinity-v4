@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Events\AccionChatAtendida;
 use App\Events\LecturaChatActualizada;
 use App\Events\MensajeChatCreado;
+use App\Events\MensajeChatEliminado;
 use App\Exceptions\ChatInternoException;
 use App\Models\ChatAdjunto;
 use App\Models\ChatConversacion;
@@ -15,6 +16,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ChatInternoService
@@ -337,6 +339,116 @@ class ChatInternoService
         ));
 
         return ['mensaje' => $this->serializarMensaje($mensaje, $conversacion)];
+    }
+
+    /**
+     * @return array{mensaje_id: int, conversacion_id: int}
+     */
+    public function eliminar(User $user, int $mensajeId): array
+    {
+        $this->asegurarStaff($user);
+        $mensaje = ChatMensaje::query()
+            ->with(['adjunto', 'conversacion.participantes'])
+            ->find($mensajeId);
+        if (! $mensaje || ! $mensaje->conversacion) {
+            throw new ChatInternoException('El mensaje no existe.', 404);
+        }
+        if (! $this->esParticipante($user, $mensaje->conversacion)) {
+            throw new ChatInternoException('No participas de esta conversación.', 403);
+        }
+        if ((int) $mensaje->usuario_id !== (int) $user->usuario_id) {
+            throw new ChatInternoException('Solo puedes eliminar tus mensajes.', 403);
+        }
+
+        $conversacion = $mensaje->conversacion;
+        $adjunto = $mensaje->adjunto;
+        $participantes = $conversacion->participantes->pluck('usuario_id')->map(fn ($id) => (int) $id)->all();
+        $mensajeId = (int) $mensaje->id;
+        $conversacionId = (int) $conversacion->id;
+
+        DB::transaction(function () use ($mensaje) {
+            $mensaje->delete();
+        });
+
+        if ($adjunto) {
+            Storage::disk($adjunto->disco ?: 'local')->delete($adjunto->ruta);
+        }
+
+        event(new MensajeChatEliminado($mensajeId, $conversacionId, $participantes));
+
+        return [
+            'mensaje_id' => $mensajeId,
+            'conversacion_id' => $conversacionId,
+        ];
+    }
+
+    /**
+     * @return array{mensaje: array<string, mixed>}
+     */
+    public function reenviar(User $user, int $mensajeId, int $destinoId): array
+    {
+        $this->asegurarStaff($user);
+        $origen = ChatMensaje::query()->with(['adjunto', 'conversacion.participantes'])->find($mensajeId);
+        if (! $origen || ! $origen->conversacion) {
+            throw new ChatInternoException('El mensaje no existe.', 404);
+        }
+        if (! $this->esParticipante($user, $origen->conversacion)) {
+            throw new ChatInternoException('No participas de esta conversación.', 403);
+        }
+        if ((int) $origen->conversacion_id === $destinoId) {
+            throw new ChatInternoException('Elige otro chat.');
+        }
+
+        $destino = $this->conversacionDe($user, $destinoId);
+        $texto = trim((string) $origen->cuerpo);
+        $adjunto = $origen->adjunto;
+        if ($texto === '' && $adjunto === null) {
+            throw new ChatInternoException('Este mensaje no se puede reenviar.');
+        }
+
+        $mensaje = DB::transaction(function () use ($user, $destino, $texto, $adjunto) {
+            $nuevo = ChatMensaje::query()->create([
+                'conversacion_id' => $destino->id,
+                'usuario_id' => $user->usuario_id,
+                'cuerpo' => $texto !== '' ? $texto : null,
+            ]);
+
+            if ($adjunto) {
+                $discoNombre = $adjunto->disco ?: 'local';
+                $disco = Storage::disk($discoNombre);
+                $extension = strtolower((string) pathinfo((string) $adjunto->ruta, PATHINFO_EXTENSION));
+                $extension = preg_replace('/[^a-z0-9]/', '', $extension) ?: 'bin';
+                $ruta = 'chat/'.$destino->id.'/'.(string) Str::uuid().'.'.$extension;
+                if (! $disco->exists($adjunto->ruta) || ! $disco->copy($adjunto->ruta, $ruta)) {
+                    throw new ChatInternoException('No se pudo reenviar el archivo.');
+                }
+                ChatAdjunto::query()->create([
+                    'mensaje_id' => $nuevo->id,
+                    'disco' => $discoNombre,
+                    'ruta' => $ruta,
+                    'nombre_original' => $adjunto->nombre_original,
+                    'mime' => $adjunto->mime,
+                    'tamano' => $adjunto->tamano,
+                ]);
+            }
+
+            ChatParticipante::query()
+                ->where('conversacion_id', $destino->id)
+                ->where('usuario_id', $user->usuario_id)
+                ->update(['ultimo_leido_mensaje_id' => $nuevo->id]);
+
+            return $nuevo;
+        });
+
+        $mensaje->load(['autor:usuario_id,name', 'adjunto', 'acciones']);
+        $destino->load('participantes.usuario:usuario_id,name,push_token');
+        $payload = $this->serializarMensaje($mensaje, $destino);
+        $participantes = $destino->participantes->pluck('usuario_id')->map(fn ($id) => (int) $id)->all();
+
+        event(new MensajeChatCreado($payload, $participantes));
+        $this->avisarPush($user, $destino, $mensaje, []);
+
+        return ['mensaje' => $payload];
     }
 
     /**

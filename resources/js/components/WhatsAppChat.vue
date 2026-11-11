@@ -218,6 +218,15 @@
                 </template>
               </p>
             </button>
+            <a
+              v-if="hiloMeta.pedido"
+              data-pedido-menu
+              class="sr-only"
+              :href="hiloMeta.pedido.url"
+              target="_blank"
+              rel="noopener"
+              :title="hiloMeta.pedido.descripcion"
+            >{{ hiloMeta.pedido.label || 'Pedido asociado' }}</a>
             <div class="flex shrink-0 items-center gap-1.5">
               <button
                 v-if="puedeEditar"
@@ -1058,18 +1067,14 @@ function avatarColors(seed) {
 
 /** Color único por teléfono, con las iniciales encima. SVG solo ASCII. */
 function buildAvatarDataUri(seed, label) {
-  const [c1, c2] = avatarColors(seed);
+  const [c1] = avatarColors(seed);
   const initials = String(label || '?')
     .replace(/[^A-Za-z0-9?]/g, '')
     .slice(0, 2)
     .toUpperCase() || '?';
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">',
-    '<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">',
-    `<stop offset="0%" stop-color="${c1}"/>`,
-    `<stop offset="100%" stop-color="${c2}"/>`,
-    '</linearGradient></defs>',
-    '<rect width="96" height="96" fill="url(#g)"/>',
+    `<rect width="96" height="96" fill="${c1}"/>`,
     `<text x="48" y="60" text-anchor="middle" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#fff">${initials}</text>`,
     '</svg>',
   ].join('');
@@ -1571,6 +1576,7 @@ export default {
           clasificacion: data.clasificacion,
           clasificacion_label: data.clasificacion_label,
           clasificacion_color: data.clasificacion_color,
+          pedido: data.pedido || null,
           fuera_ventana: data.fuera_ventana,
           sugerencia_ia: data.sugerencia_ia || null,
           total: data.total,

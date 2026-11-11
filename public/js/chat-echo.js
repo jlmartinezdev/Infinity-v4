@@ -5282,6 +5282,13 @@
           ocultarPopup();
         }
         cargarPendientes();
+      }).listen(".mensaje.eliminado", (evento) => {
+        window.dispatchEvent(new CustomEvent("chat:eliminado", { detail: evento }));
+        if (popupActual && Number(popupActual.mensaje_id) === Number(evento.mensaje_id)) {
+          cerrar(evento.mensaje_id);
+          ocultarPopup();
+        }
+        cargarPendientes();
       });
       window.Echo.connector.pusher.connection.bind("connected", () => cargarPendientes());
     }

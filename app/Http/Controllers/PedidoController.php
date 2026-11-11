@@ -389,11 +389,20 @@ class PedidoController extends Controller
     public function edit(Pedido $pedido)
     {
         // Incluir activo y solo_pedido (clientes creados desde pedidos)
+        $pedido->load([
+            'cliente',
+            'estadoPedidoDetalles.estadoPedido',
+            'estadoPedidoDetalles.usuario',
+            'estadoPedidoDetalles.nodo',
+            'estadoPedidoDetalles.tipoTecnologia',
+            'estadoPedidoDetalles.plan',
+        ]);
         $clientes = Cliente::whereIn('estado', ['activo', 'solo_pedido'])->orderBy('nombre')->get();
         $estados = EstadoPedido::orderBy('descripcion')->get();
+        $pasos = EstadoPedido::orderBy('estado_id')->get();
         $estadoActual = $pedido->estadoActual();
 
-        return view('pedidos.edit', compact('pedido', 'clientes', 'estados', 'estadoActual'));
+        return view('pedidos.edit', compact('pedido', 'clientes', 'estados', 'pasos', 'estadoActual'));
     }
 
     /**

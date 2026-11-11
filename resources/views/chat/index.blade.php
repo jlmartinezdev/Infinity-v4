@@ -102,6 +102,17 @@
             <p class="st-vacio">Los datos del chat aparecen al abrir una conversación.</p>
         </aside>
     </div>
+    <div id="chat-msg-menu" class="st-msg-menu hidden" role="menu"></div>
+    <div id="chat-reenviar" class="st-modal hidden" role="dialog" aria-modal="true" aria-labelledby="chat-reenviar-titulo">
+        <div class="st-modal-caja">
+            <h3 id="chat-reenviar-titulo">Reenviar mensaje</h3>
+            <div id="chat-reenviar-lista"></div>
+            <p id="chat-reenviar-error" class="st-error hidden"></p>
+            <div class="st-modal-acciones">
+                <button type="button" id="chat-reenviar-cancelar">Cancelar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="chat-modal" class="st-modal hidden">
@@ -250,7 +261,7 @@
 .msg-meta { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--muted); }
 .msg-meta .name { color: #e2e8f0; font-weight: 600; font-size: 12px; }
 .msg-meta .tu { color: #38bdf8; font-weight: 600; }
-.bubble { margin-top: 4px; padding: 8px 14px; border-radius: 16px; font-size: 14px; }
+.bubble { margin-top: 4px; padding: 8px 14px; border-radius: 16px; font-size: 14px; cursor: pointer; }
 .bubble.in { background: rgba(23,32,51,.8); border: 1px solid rgba(30,41,59,.8); border-top-left-radius: 4px; }
 .bubble.out { background: #2563eb; color: #fff; border-top-right-radius: 4px; }
 .bubble p { margin: 0; white-space: pre-wrap; }
@@ -307,6 +318,15 @@
 .st-file { display: flex; justify-content: space-between; gap: 8px; padding: 6px; border-radius: 6px; color: #cbd5e1; text-decoration: none; font-size: 12px; }
 .st-file:hover { background: var(--s800); }
 .st-file small { color: #64748b; font-size: 10px; }
+.st-msg-menu { position: fixed; z-index: 70; min-width: 188px; padding: 4px; background: #121c30; border: 1px solid #334155; border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+.st-msg-menu button { width: 100%; display: block; border: 0; background: transparent; color: #e2e8f0; font: inherit; font-size: 13px; text-align: left; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.st-msg-menu button:hover, .st-msg-menu button:focus { background: #1b2944; outline: none; }
+.st-msg-menu button.peligro { color: #fca5a5; }
+.st-msg-menu p { margin: 6px 10px 8px; color: #cbd5e1; font-size: 13px; }
+#chat-reenviar-lista { max-height: 280px; overflow: auto; }
+#chat-reenviar-lista button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; background: transparent; color: #e2e8f0; font: inherit; font-size: 13px; font-weight: 600; text-align: left; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+#chat-reenviar-lista button span { color: #94a3b8; font-size: 11px; font-weight: 400; }
+#chat-reenviar-lista button:hover { background: #1b2944; }
 .st-modal { position: fixed; inset: 0; z-index: 80; background: rgba(4,8,16,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .st-modal-caja { width: min(440px, 100%); background: #121c30; border: 1px solid var(--s750); border-radius: 12px; padding: 18px; }
 .st-modal-caja h3 { margin: 0 0 12px; }

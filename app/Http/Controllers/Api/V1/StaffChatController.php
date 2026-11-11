@@ -92,6 +92,24 @@ class StaffChatController extends ApiController
         return $this->responder(fn () => $this->chat->atender($request->user(), $id));
     }
 
+    public function eliminar(Request $request, int $id): JsonResponse
+    {
+        return $this->responder(fn () => $this->chat->eliminar($request->user(), $id));
+    }
+
+    public function reenviar(Request $request, int $id): JsonResponse
+    {
+        $datos = $request->validate([
+            'conversacion_id' => ['required', 'integer'],
+        ]);
+
+        return $this->responder(fn () => $this->ok(
+            $this->chat->reenviar($request->user(), $id, (int) $datos['conversacion_id']),
+            'Mensaje reenviado',
+            201
+        ));
+    }
+
     public function adjunto(Request $request, int $id)
     {
         try {

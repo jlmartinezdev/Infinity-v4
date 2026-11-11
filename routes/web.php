@@ -288,6 +288,8 @@ Route::middleware(['auth', 'permiso:chat-interno.ver'])->prefix('chat')->name('c
     Route::get('/conversaciones/{id}/mensajes', [ChatInternoController::class, 'mensajes'])->whereNumber('id')->name('mensajes');
     Route::post('/conversaciones/{id}/mensajes', [ChatInternoController::class, 'enviar'])->whereNumber('id')->name('mensajes.store');
     Route::post('/mensajes/{id}/atender', [ChatInternoController::class, 'atender'])->whereNumber('id')->name('mensajes.atender');
+    Route::delete('/mensajes/{id}', [ChatInternoController::class, 'eliminar'])->whereNumber('id')->name('mensajes.destroy');
+    Route::post('/mensajes/{id}/reenviar', [ChatInternoController::class, 'reenviar'])->whereNumber('id')->name('mensajes.reenviar');
     Route::get('/adjuntos/{id}', [ChatInternoController::class, 'adjunto'])->whereNumber('id')->name('adjuntos');
 });
 
@@ -788,6 +790,7 @@ Route::delete('/trabajos-red/{trabajoRed}', [TrabajoRedController::class, 'destr
 Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::get('/servicios', [ServicioController::class, 'index'])->name('servicios.index');
     Route::get('/servicios/pppoe-eventos', [ServicioPppoeEventoController::class, 'index'])->name('servicios.pppoe-eventos.index');
+    Route::get('/servicios/pppoe-eventos/detalle', [ServicioPppoeEventoController::class, 'detalle'])->name('servicios.pppoe-eventos.detalle');
     Route::get('/servicios/create', [ServicioController::class, 'create'])->name('servicios.create')->middleware('permiso:servicios.crear');
     Route::get('/servicios/ips-disponibles', [ServicioController::class, 'ipsDisponibles'])->name('servicios.ips-disponibles')->middleware('permiso:servicios.crear');
     Route::post('/servicios/{servicio_id}/ping', [ServicioController::class, 'ping'])->name('servicios.ping');

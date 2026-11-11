@@ -310,6 +310,10 @@
       desc: 'Crear un pedido de instalación o de servicio.',
       paths: ['M8 6h8l1 3H7l1-3z', 'M6 9h12l-1 10H7L6 9z']
     },
+    'Pedido asociado': {
+      desc: 'Abrir el pedido de instalación de este número.',
+      paths: ['M8 6h8l1 3H7l1-3z', 'M6 9h12l-1 10H7L6 9z', 'M9 13h6']
+    },
     Pago: {
       desc: 'Registrar un cobro.',
       paths: ['M3 7h18v10H3z', 'M3 11h18', 'M12 15.2a1.7 1.7 0 100-3.4 1.7 1.7 0 000 3.4']
@@ -365,6 +369,18 @@
       item.run = function () { node.click(); };
       items.push(item);
     });
+    var pedido = header.querySelector('[data-pedido-menu]');
+    if (pedido && !pedido.hidden) {
+      var itemPedido = fichaAccion('Pedido asociado', pedido.getAttribute('title'));
+      var detallePedido = (pedido.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
+      if (detallePedido) itemPedido.desc = detallePedido;
+      itemPedido.run = function () { pedido.click(); };
+      var despuesDeCrear = -1;
+      for (var i = 0; i < items.length; i += 1) {
+        if (items[i].label === 'Pedido') despuesDeCrear = i;
+      }
+      items.splice(despuesDeCrear + 1, 0, itemPedido);
+    }
     var borrar = header.querySelector('button[title^="Eliminar chat"]');
     if (borrar) {
       var itemBorrar = fichaAccion('Eliminar chat', borrar.getAttribute('title'));

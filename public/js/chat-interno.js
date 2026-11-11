@@ -32,6 +32,10 @@ if (cfg) {
     const buscar = document.getElementById('chat-buscar');
     const filtroAcciones = document.getElementById('chat-filtro-acciones');
     const filtroNoLeidos = document.getElementById('chat-filtro-noleidos');
+    const menu = document.getElementById('chat-msg-menu');
+    const reenviar = document.getElementById('chat-reenviar');
+    const reenviarLista = document.getElementById('chat-reenviar-lista');
+    const reenviarError = document.getElementById('chat-reenviar-error');
 
     let conversaciones = [];
     let usuarios = [];
@@ -41,6 +45,8 @@ if (cfg) {
     let canalHilo = null;
     let filtro = '';
     let mencionIndice = 0;
+    let menuMensaje = null;
+    let menuConfirma = false;
     const aceptaArchivo = archivo.getAttribute('accept') || '';
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     const colores = ['#2563eb', '#7c3aed', '#0f766e', '#c2410c', '#be185d', '#1d4ed8'];
@@ -329,6 +335,7 @@ if (cfg) {
     }
 
     function pintarMensajes(conservar) {
+        cerrarMenu();
         const top = hilo.scrollTop;
         let anterior = null;
         hilo.innerHTML = mensajesActuales.map((mensaje) => {
@@ -400,7 +407,8 @@ if (cfg) {
         window.Echo.private('chat.conversacion.' + id)
             .listen('.mensaje.creado', (evento) => agregarMensaje(evento.mensaje))
             .listen('.accion.atendida', () => abrir(id, true))
-            .listen('.lectura.actualizada', (evento) => aplicarLectura(evento));
+            .listen('.lectura.actualizada', (evento) => aplicarLectura(evento))
+            .listen('.mensaje.eliminado', (evento) => aplicarEliminado(evento));
     }
 
     function aplicarLectura(evento) {
@@ -552,13 +560,218 @@ if (cfg) {
         if (pedido) pedido.scrollIntoView({ block: 'center' });
     });
 
+    function textoCopiable(mensaje) {
+        const cuerpo = (mensaje.cuerpo || '').trim();
+        if (cuerpo) return cuerpo;
+        return mensaje.adjunto ? mensaje.adjunto.nombre : '';
+    }
+
+    function cerrarMenu() {
+        menuMensaje = null;
+        menuConfirma = false;
+        menu.classList.add('hidden');
+        menu.innerHTML = '';
+    }
+
+    function pintarMenu() {
+        if (!menuMensaje) return;
+        if (menuConfirma) {
+            menu.innerHTML = '<p>¿Eliminar este mensaje?</p>'
+                + '<button type="button" class="peligro" data-accion="confirmar-eliminar">Eliminar</button>'
+                + '<button type="button" data-accion="cancelar">Cancelar</button>';
+            return;
+        }
+        const propio = Number(menuMensaje.usuario_id) === yo;
+        const copiar = textoCopiable(menuMensaje)
+            ? '<button type="button" role="menuitem" data-accion="copiar">Copiar</button>'
+            : '';
+        const eliminar = propio
+            ? '<button type="button" role="menuitem" class="peligro" data-accion="eliminar">Eliminar mensaje</button>'
+            : '';
+        menu.innerHTML = copiar
+            + '<button type="button" role="menuitem" data-accion="reenviar">Reenviar</button>'
+            + eliminar;
+    }
+
+    function abrirMenu(mensaje, ancla) {
+        menuMensaje = mensaje;
+        menuConfirma = false;
+        pintarMenu();
+        menu.classList.remove('hidden');
+        const caja = menu.getBoundingClientRect();
+        const rect = ancla.getBoundingClientRect();
+        const limite = Math.min(window.innerHeight, composer.getBoundingClientRect().top) - 8;
+        const cabeAbajo = rect.bottom + 6 + caja.height <= limite;
+        const top = cabeAbajo ? rect.bottom + 6 : Math.max(8, rect.top - caja.height - 6);
+        const preferido = Number(mensaje.usuario_id) === yo ? rect.right - caja.width : rect.left;
+        menu.style.top = top + 'px';
+        menu.style.left = Math.max(8, Math.min(preferido, window.innerWidth - caja.width - 8)) + 'px';
+        const primero = menu.querySelector('button');
+        if (primero) primero.focus();
+    }
+
+    async function copiarMensaje(mensaje) {
+        const valor = textoCopiable(mensaje);
+        const boton = menu.querySelector('[data-accion="copiar"]');
+        let ok = false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(valor);
+                ok = true;
+            }
+        } catch (e) {
+            ok = false;
+        }
+        if (!ok) {
+            const area = document.createElement('textarea');
+            area.value = valor;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.left = '-9999px';
+            document.body.appendChild(area);
+            area.select();
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            area.remove();
+        }
+        if (boton) boton.textContent = ok ? 'Copiado' : 'No se pudo copiar';
+        window.setTimeout(cerrarMenu, 700);
+    }
+
+    function cerrarReenviar() {
+        reenviar.classList.add('hidden');
+        reenviarError.classList.add('hidden');
+        reenviarLista.innerHTML = '';
+    }
+
+    function abrirReenviar(mensaje) {
+        cerrarMenu();
+        menuMensaje = mensaje;
+        reenviarError.classList.add('hidden');
+        const destinos = conversaciones.filter((item) => !actual || Number(item.id) !== Number(actual.id));
+        reenviarLista.innerHTML = destinos.length
+            ? destinos.map((item) => '<button type="button" data-destino="' + item.id + '">' + escapar(item.titulo) + '<span>' + escapar(item.tipo === 'grupo' ? 'Grupo' : 'Directo') + '</span></button>').join('')
+            : '<p class="st-meta">No hay otro chat para reenviar.</p>';
+        reenviar.classList.remove('hidden');
+    }
+
+    async function enviarReenvio(destinoId) {
+        if (!menuMensaje) return;
+        reenviarError.classList.add('hidden');
+        const res = await fetch(cfg.urls.atender + '/' + menuMensaje.id + '/reenviar', {
+            method: 'POST',
+            headers: headers(true),
+            credentials: 'same-origin',
+            body: JSON.stringify({ conversacion_id: Number(destinoId) }),
+        });
+        if (!res.ok) {
+            reenviarError.textContent = await leerError(res);
+            reenviarError.classList.remove('hidden');
+            return;
+        }
+        const data = await res.json();
+        const mensaje = data.mensaje;
+        cerrarReenviar();
+        menuMensaje = null;
+        if (!mensaje) return;
+        agregarMensaje(mensaje);
+        const idx = conversaciones.findIndex((item) => Number(item.id) === Number(mensaje.conversacion_id));
+        if (idx >= 0) {
+            conversaciones[idx].ultimo = {
+                id: mensaje.id,
+                cuerpo: mensaje.cuerpo,
+                adjunto_nombre: mensaje.adjunto ? mensaje.adjunto.nombre : null,
+                usuario_id: mensaje.usuario_id,
+                creado_at: mensaje.creado_at,
+            };
+            const [item] = conversaciones.splice(idx, 1);
+            conversaciones.unshift(item);
+            pintarLista();
+        } else {
+            cargarLista();
+        }
+    }
+
+    async function eliminarMensaje(mensaje) {
+        const res = await fetch(cfg.urls.atender + '/' + mensaje.id, {
+            method: 'DELETE',
+            headers: headers(true),
+            credentials: 'same-origin',
+        });
+        if (!res.ok) {
+            cerrarMenu();
+            errorBox.textContent = await leerError(res);
+            errorBox.classList.remove('hidden');
+            return;
+        }
+        const data = await res.json();
+        aplicarEliminado(data);
+    }
+
+    function aplicarEliminado(evento) {
+        if (!evento) return;
+        const id = Number(evento.mensaje_id);
+        const convId = Number(evento.conversacion_id);
+        cerrarMenu();
+        if (actual && Number(actual.id) === convId) {
+            const antes = mensajesActuales.length;
+            mensajesActuales = mensajesActuales.filter((mensaje) => Number(mensaje.id) !== id);
+            if (mensajesActuales.length !== antes) pintarMensajes(true);
+        }
+        const idx = conversaciones.findIndex((item) => Number(item.id) === convId && item.ultimo && Number(item.ultimo.id) === id);
+        if (idx >= 0) cargarLista();
+    }
+
     function clickAtender(evento) {
         const boton = evento.target.closest('[data-atender]');
         if (!boton) return;
         evento.preventDefault();
         atender(boton.dataset.atender);
     }
-    hilo.addEventListener('click', clickAtender);
+    hilo.addEventListener('click', (evento) => {
+        clickAtender(evento);
+        if (evento.target.closest('a, button')) return;
+        const burbuja = evento.target.closest('.bubble');
+        if (!burbuja) return;
+        const articulo = burbuja.closest('[data-mensaje]');
+        const mensaje = mensajesActuales.find((item) => Number(item.id) === Number(articulo && articulo.dataset.mensaje));
+        if (!mensaje) return;
+        evento.stopPropagation();
+        abrirMenu(mensaje, burbuja);
+    });
+    menu.addEventListener('click', (evento) => {
+        evento.stopPropagation();
+        const boton = evento.target.closest('[data-accion]');
+        if (!boton || !menuMensaje) return;
+        const mensaje = menuMensaje;
+        if (boton.dataset.accion === 'copiar') copiarMensaje(mensaje);
+        else if (boton.dataset.accion === 'reenviar') abrirReenviar(mensaje);
+        else if (boton.dataset.accion === 'eliminar') {
+            menuConfirma = true;
+            pintarMenu();
+        } else if (boton.dataset.accion === 'confirmar-eliminar') eliminarMensaje(mensaje);
+        else if (boton.dataset.accion === 'cancelar') cerrarMenu();
+    });
+    document.addEventListener('click', (evento) => {
+        if (menu.classList.contains('hidden')) return;
+        if (menu.contains(evento.target)) return;
+        cerrarMenu();
+    });
+    document.addEventListener('keydown', (evento) => {
+        if (evento.key !== 'Escape') return;
+        if (!menu.classList.contains('hidden')) cerrarMenu();
+        if (!reenviar.classList.contains('hidden')) cerrarReenviar();
+    });
+    hilo.addEventListener('scroll', () => {
+        if (!menu.classList.contains('hidden')) cerrarMenu();
+    });
+    document.getElementById('chat-reenviar-cancelar').addEventListener('click', () => {
+        menuMensaje = null;
+        cerrarReenviar();
+    });
+    reenviarLista.addEventListener('click', (evento) => {
+        const boton = evento.target.closest('[data-destino]');
+        if (boton) enviarReenvio(boton.dataset.destino);
+    });
     detalle.addEventListener('click', clickAtender);
 
     archivo.addEventListener('change', () => {
@@ -753,6 +966,8 @@ if (cfg) {
             cargarLista();
         }
     });
+
+    window.addEventListener('chat:eliminado', (evento) => aplicarEliminado(evento.detail || {}));
 
     window.addEventListener('chat:accion', (evento) => {
         const detalleEvento = evento.detail || {};

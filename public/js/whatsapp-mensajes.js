@@ -27935,7 +27935,7 @@ function buildAvatarDataUri(seed, label) {
     c1 = _palette[0],
     c2 = _palette[1];
   var initials = String(label || '?').replace(/[^A-Za-z0-9?]/g, '').slice(0, 2).toUpperCase() || '?';
-  var svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">', '<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">', "<stop offset=\"0%\" stop-color=\"".concat(c1, "\"/>"), "<stop offset=\"100%\" stop-color=\"".concat(c2, "\"/>"), '</linearGradient></defs>', '<rect width="96" height="96" fill="url(#g)"/>', "<text x=\"48\" y=\"60\" text-anchor=\"middle\" font-family=\"Arial,sans-serif\" font-size=\"36\" font-weight=\"700\" fill=\"#fff\">".concat(initials, "</text>"), '</svg>'].join('');
+  var svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">', "<rect width=\"96\" height=\"96\" fill=\"".concat(c1, "\"/>"), "<text x=\"48\" y=\"60\" text-anchor=\"middle\" font-family=\"Arial,sans-serif\" font-size=\"36\" font-weight=\"700\" fill=\"#fff\">".concat(initials, "</text>"), '</svg>'].join('');
   try {
     return "data:image/svg+xml;charset=utf-8,".concat(encodeURIComponent(svg));
   } catch (_) {
@@ -28616,6 +28616,7 @@ var WaAvatar = {
                 clasificacion: data.clasificacion,
                 clasificacion_label: data.clasificacion_label,
                 clasificacion_color: data.clasificacion_color,
+                pedido: data.pedido || null,
                 fuera_ventana: data.fuera_ventana,
                 sugerencia_ia: data.sugerencia_ia || null,
                 total: data.total,
@@ -31271,7 +31272,15 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     key: 0
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.cliente_nombre), 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.total || $data.mensajes.length) + " msgs ", 1 /* TEXT */), ($data.hiloMeta.fallidos || 0) > 0 ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 1
-  }, [_cache[68] || (_cache[68] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_31, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.fallidos) + " fallido(s)", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_32, [$props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+  }, [_cache[68] || (_cache[68] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · ", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_31, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.fallidos) + " fallido(s)", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])]), $data.hiloMeta.pedido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("a", {
+    key: "pedido-asociado",
+    "data-pedido-menu": "",
+    href: $data.hiloMeta.pedido.url,
+    target: "_blank",
+    rel: "noopener",
+    class: "sr-only",
+    title: $data.hiloMeta.pedido.descripcion || ""
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.pedido.label || "Pedido asociado"), 9, ["href", "title"])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_32, [$props.puedeEditar ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
     key: 0,
     type: "button",
     class: "wa-chip rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-90",

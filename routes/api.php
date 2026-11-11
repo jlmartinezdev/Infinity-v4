@@ -195,6 +195,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/conversaciones/{id}/mensajes', [StaffChatController::class, 'mensajes'])->whereNumber('id');
                 Route::post('/conversaciones/{id}/mensajes', [StaffChatController::class, 'enviar'])->whereNumber('id');
                 Route::post('/mensajes/{id}/atender', [StaffChatController::class, 'atender'])->whereNumber('id');
+                Route::delete('/mensajes/{id}', [StaffChatController::class, 'eliminar'])->whereNumber('id');
+                Route::post('/mensajes/{id}/reenviar', [StaffChatController::class, 'reenviar'])->whereNumber('id');
                 Route::get('/adjuntos/{id}', [StaffChatController::class, 'adjunto'])->whereNumber('id');
             });
 

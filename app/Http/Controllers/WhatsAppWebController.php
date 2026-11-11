@@ -977,6 +977,7 @@ class WhatsAppWebController extends Controller
             'clasificacion' => $clasif['tipo'],
             'clasificacion_label' => $clasif['label'],
             'clasificacion_color' => $clasif['color'],
+            'pedido' => $this->pedidoAsociadoAlNumero($tel, $contacto?->cliente_id ? (int) $contacto->cliente_id : null),
             'fuera_ventana' => $fueraVentana,
             'sugerencia_ia' => app(\App\Services\WhatsApp\WhatsAppAgentService::class)
                 ->sugerenciaPendientePara($tel),
@@ -1686,6 +1687,52 @@ class WhatsAppWebController extends Controller
             'items' => $items,
             'total' => $hasMore ? $loaded + 1 : $loaded, // mínimo conocido
             'has_more' => $hasMore,
+        ];
+    }
+
+    /**
+     * Pedido de instalación todavía abierto del cliente de este número.
+     *
+     * @return array{id:int,label:string,descripcion:string,url:string}|null
+     */
+    private function pedidoAsociadoAlNumero(?string $tel, ?int $clienteId): ?array
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->tienePermiso('pedidos.editar')) {
+            return null;
+        }
+
+        if (! $clienteId && $tel) {
+            $cliente = $this->whatsapp->findClienteByPhone($tel);
+            $clienteId = $cliente ? (int) $cliente->cliente_id : null;
+        }
+        if (! $clienteId) {
+            return null;
+        }
+
+        $pedidos = Pedido::query()
+            ->where('cliente_id', $clienteId)
+            ->where('estado_instalado', false)
+            ->orderByDesc('pedido_id')
+            ->get(['pedido_id', 'espera_ampliacion_red']);
+        $pedido = $pedidos->first();
+        if (! $pedido) {
+            return null;
+        }
+
+        $detalle = 'Abrir el pedido #'.$pedido->pedido_id.' de este número.';
+        if ($pedido->espera_ampliacion_red) {
+            $detalle .= ' En espera de red.';
+        }
+        if ($pedidos->count() > 1) {
+            $detalle .= ' Hay '.$pedidos->count().' pendientes; este es el más reciente.';
+        }
+
+        return [
+            'id' => (int) $pedido->pedido_id,
+            'label' => 'Pedido asociado',
+            'descripcion' => $detalle,
+            'url' => route('pedidos.edit', $pedido),
         ];
     }
 

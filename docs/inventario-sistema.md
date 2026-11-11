@@ -181,7 +181,7 @@ El menú se define en `config/menu.php` y se filtra por permisos del usuario en 
 | `/servicios` | `ServiciosIndex.vue` |
 | `/servicios/{id}/edit` | `servicios/edit`, `_form` |
 | `/servicios/{id}/herramientas-red` | NOC: ping, MAC, ONU, antena, timeline PPPoE |
-| `/servicios/pppoe-eventos` | Eventos PPPoE agrupados por cliente |
+| `/servicios/pppoe-eventos` | Eventos PPPoE: dashboard por período y router, detalle por cliente y líneas con desconexión continua (umbrales en `config/pppoe_eventos.php`) |
 | `/hotspot/*` | Hotspot MikroTik |
 | `/servicios/{id}/migrar` | Migración de servicio |
 
