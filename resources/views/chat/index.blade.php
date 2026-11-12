@@ -113,6 +113,16 @@
             </div>
         </div>
     </div>
+    <div id="chat-vista" class="st-modal hidden" role="dialog" aria-modal="true" aria-label="Vista previa">
+        <div class="st-vista">
+            <img id="chat-vista-img" alt="">
+            <div class="st-vista-pie">
+                <span id="chat-vista-nombre"></span>
+                <a id="chat-vista-abrir" href="#" target="_blank" rel="noopener">Abrir archivo</a>
+                <button type="button" id="chat-vista-cerrar">Cerrar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="chat-modal" class="st-modal hidden">
@@ -279,7 +289,13 @@
 .st-resolver { border: 0; border-radius: 4px; background: #f59e0b; color: #0f172a; font-weight: 700; font-size: 11px; padding: 4px 10px; cursor: pointer; }
 .st-hora { font-size: 10px; color: #64748b; }
 .st-adjunto { color: #bae6fd; font-size: 13px; font-weight: 600; }
-.st-img { max-height: 180px; border-radius: 8px; display: block; margin-top: 8px; }
+.st-img-btn { display: block; margin-top: 8px; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+.st-img { max-height: 180px; border-radius: 8px; display: block; }
+.st-vista { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: min(960px, 100%); }
+#chat-vista-img { max-width: 100%; max-height: calc(100vh - 120px); object-fit: contain; border-radius: 8px; background: #0b1326; }
+.st-vista-pie { display: flex; align-items: center; gap: 12px; max-width: 100%; color: #e2e8f0; font-size: 13px; }
+#chat-vista-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#chat-vista-abrir, #chat-vista-cerrar { border: 0; background: transparent; color: #bae6fd; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
 #chat-composer { padding: 16px; background: var(--s900); border-top: 1px solid rgba(30,41,59,.7); }
 .st-caja { position: relative; background: var(--bg); border: 1px solid var(--s700); border-radius: 12px; padding: 10px; }
 .st-caja textarea { border: 0; background: transparent; color: #f1f5f9; resize: none; min-height: 44px; padding: 4px; font-size: 14px; }

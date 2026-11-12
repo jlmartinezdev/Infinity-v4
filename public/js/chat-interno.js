@@ -36,6 +36,10 @@ if (cfg) {
     const reenviar = document.getElementById('chat-reenviar');
     const reenviarLista = document.getElementById('chat-reenviar-lista');
     const reenviarError = document.getElementById('chat-reenviar-error');
+    const vista = document.getElementById('chat-vista');
+    const vistaImg = document.getElementById('chat-vista-img');
+    const vistaNombre = document.getElementById('chat-vista-nombre');
+    const vistaAbrir = document.getElementById('chat-vista-abrir');
 
     let conversaciones = [];
     let usuarios = [];
@@ -208,7 +212,7 @@ if (cfg) {
         if (!mensaje.adjunto) return '';
         const adj = mensaje.adjunto;
         if (adj.es_imagen) {
-            return '<a href="' + escapar(adj.url) + '" target="_blank" rel="noopener"><img class="st-img" src="' + escapar(adj.url) + '" alt="' + escapar(adj.nombre) + '"></a>';
+            return '<button type="button" class="st-img-btn" data-vista="' + escapar(adj.url) + '" data-nombre="' + escapar(adj.nombre) + '"><img class="st-img" src="' + escapar(adj.url) + '" alt="' + escapar(adj.nombre) + '"></button>';
         }
         return '<a class="st-adjunto" href="' + escapar(adj.url) + '" target="_blank" rel="noopener">' + escapar(adj.nombre) + '</a>';
     }
@@ -721,6 +725,22 @@ if (cfg) {
         if (idx >= 0) cargarLista();
     }
 
+    function abrirVista(url, nombre) {
+        if (!url) return;
+        cerrarMenu();
+        vistaImg.src = url;
+        vistaImg.alt = nombre || 'Imagen';
+        vistaNombre.textContent = nombre || '';
+        vistaAbrir.href = url;
+        vista.classList.remove('hidden');
+    }
+
+    function cerrarVista() {
+        vista.classList.add('hidden');
+        vistaImg.removeAttribute('src');
+        vistaAbrir.href = '#';
+    }
+
     function clickAtender(evento) {
         const boton = evento.target.closest('[data-atender]');
         if (!boton) return;
@@ -729,6 +749,13 @@ if (cfg) {
     }
     hilo.addEventListener('click', (evento) => {
         clickAtender(evento);
+        const vistaBtn = evento.target.closest('[data-vista]');
+        if (vistaBtn) {
+            evento.preventDefault();
+            evento.stopPropagation();
+            abrirVista(vistaBtn.getAttribute('data-vista'), vistaBtn.getAttribute('data-nombre') || '');
+            return;
+        }
         if (evento.target.closest('a, button')) return;
         const burbuja = evento.target.closest('.bubble');
         if (!burbuja) return;
@@ -758,9 +785,17 @@ if (cfg) {
     });
     document.addEventListener('keydown', (evento) => {
         if (evento.key !== 'Escape') return;
+        if (!vista.classList.contains('hidden')) {
+            cerrarVista();
+            return;
+        }
         if (!menu.classList.contains('hidden')) cerrarMenu();
         if (!reenviar.classList.contains('hidden')) cerrarReenviar();
     });
+    vista.addEventListener('click', (evento) => {
+        if (evento.target === vista) cerrarVista();
+    });
+    document.getElementById('chat-vista-cerrar').addEventListener('click', cerrarVista);
     hilo.addEventListener('scroll', () => {
         if (!menu.classList.contains('hidden')) cerrarMenu();
     });
