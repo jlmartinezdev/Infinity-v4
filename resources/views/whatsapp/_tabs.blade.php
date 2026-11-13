@@ -20,6 +20,7 @@
         'asuntos' => ['label' => 'Asuntos', 'route' => 'whatsapp.asuntos.index'],
         'enviar' => ['label' => 'Enviar', 'route' => 'whatsapp.enviar'],
     ];
+    $waChats = \App\Models\WhatsappMensaje::cantidadChats();
 @endphp
 <div class="mb-4 flex flex-wrap items-center gap-2">
     @foreach($tabs as $key => $tab)
@@ -30,6 +31,9 @@
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700' }}">
             {{ $tab['label'] }}
+            @if ($key === 'mensajes' && $waChats > 0)
+                <span class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-5 {{ $active ? 'bg-white/25 text-white' : 'bg-emerald-600 text-white' }}">{{ number_format($waChats, 0, ',', '.') }}</span>
+            @endif
         </a>
     @endforeach
 </div>

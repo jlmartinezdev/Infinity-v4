@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
 
 class WhatsappMensaje extends Model
 {
@@ -92,6 +93,19 @@ class WhatsappMensaje extends Model
     public function scopeExcluirSandboxN8n($query)
     {
         return $query->where('telefono', 'not like', self::TELEFONO_SANDBOX_PREFIX.'%');
+    }
+
+    /** Chats reales: un número = un chat, sin el sandbox de pruebas. */
+    public static function cantidadChats(): int
+    {
+        return (int) Cache::remember('whatsapp.chats.count', 45, function () {
+            return (int) static::query()
+                ->excluirSandboxN8n()
+                ->whereNotNull('telefono')
+                ->where('telefono', '!=', '')
+                ->distinct()
+                ->count('telefono');
+        });
     }
 
     /**
