@@ -141,6 +141,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Recorrido de técnicos: a la noche (o al encender, si el PC estaba apagado)
         // queda el resumen del día y se borran los puntos detallados.
+        // Señal óptica y de antena: madrugada, o al encender si el equipo estaba apagado.
+        $schedule->command('senal:leer-diaria')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping(150)
+            ->when(fn () => \App\Support\ScheduleOnceAfter::due('senal-diaria', '04:00'))
+            ->before(function () {
+                Log::info('Tarea iniciado: senal:leer-diaria');
+            });
+
         $schedule->command('staff:cerrar-recorridos')
             ->everyFifteenMinutes()
             ->withoutOverlapping()

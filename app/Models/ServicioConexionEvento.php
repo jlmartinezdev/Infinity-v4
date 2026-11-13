@@ -112,7 +112,7 @@ class ServicioConexionEvento extends Model
             self::FUENTE_MIKROTIK_CONSULTA => 'Consulta MikroTik',
             self::FUENTE_OLT_CONSULTA => 'Consulta OLT',
             self::FUENTE_UBNT_SSH => 'SSH Ubiquiti',
-            self::FUENTE_CRON => 'Cron',
+            self::FUENTE_CRON => 'Lectura diaria',
             self::FUENTE_MANUAL => 'Manual',
             self::FUENTE_INSTALACION => 'Finalizar instalación',
             default => $this->fuente ?? '—',

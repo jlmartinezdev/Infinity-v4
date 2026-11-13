@@ -253,6 +253,7 @@ return [
             'icon' => 'server',
             'submenu' => [
                 ['name' => 'red-monitoreo', 'label' => 'Monitoreo de red', 'path' => '/sistema/red-monitoreo', 'permiso' => 'sistema-red-monitoreo.ver'],
+                ['name' => 'senal-lecturas', 'label' => 'Informe de señal', 'path' => '/sistema/senal-lecturas', 'permiso' => 'sistema-red-monitoreo.ver'],
                 ['name' => 'aps-wireless', 'label' => 'APs wireless', 'path' => '/sistema/aps-wireless', 'permiso' => 'sistema-aps-wireless.ver'],
                 ['name' => 'aps-wireless-avisos', 'label' => 'Alertas caída AP', 'path' => '/sistema/aps-wireless-avisos', 'permiso' => 'sistema-aps-wireless-avisos.ver', 'admin_only' => true],
                 ['name' => 'router-caida-avisos', 'label' => 'Alertas caída router', 'path' => '/sistema/router-caida-avisos', 'permiso' => 'sistema-red-monitoreo.ver'],

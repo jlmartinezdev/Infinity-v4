@@ -18,7 +18,7 @@ class UbntAntenaService
      *
      * @return array<string, mixed>
      */
-    public function consultarWstalist(string $host, ?string $macEsperada = null): array
+    public function consultarWstalist(string $host, ?string $macEsperada = null, ?int $timeout = null): array
     {
         $host = trim($host);
         if ($host === '') {
@@ -31,7 +31,7 @@ class UbntAntenaService
         $user = (string) config('ubnt.ssh_user', 'ubnt');
         $password = (string) config('ubnt.ssh_password', '');
         $port = (int) config('ubnt.ssh_port', 22);
-        $timeout = (int) config('ubnt.connect_timeout', 15);
+        $timeout = $timeout ?? (int) config('ubnt.connect_timeout', 15);
         $command = (string) config('ubnt.command', 'wstalist');
 
         try {
