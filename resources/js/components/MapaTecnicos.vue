@@ -29,6 +29,15 @@
           <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
           Recorrido
         </label>
+        <select
+          v-if="personasMapa.length"
+          v-model="filtroTecnico"
+          class="rounded-lg bg-white/95 dark:bg-gray-900/95 px-2 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 max-w-[11rem]"
+          title="Mostrar un técnico"
+        >
+          <option value="">Todos</option>
+          <option v-for="p in personasMapa" :key="p.tecnico_id" :value="String(p.tecnico_id)">{{ p.nombre }}</option>
+        </select>
         <input
           v-if="capaRecorrido"
           v-model="fechaRecorrido"
@@ -50,10 +59,30 @@
       <p v-if="avisoRuta" class="mt-1 text-[11px] text-amber-700 dark:text-amber-300">{{ avisoRuta }}</p>
       <p v-if="errorRecorrido" class="mt-1 text-red-600 dark:text-red-300">{{ errorRecorrido }}</p>
       <ul v-else-if="recorridos.length" class="mt-1 max-h-40 overflow-y-auto space-y-1">
-        <li v-for="t in recorridos" :key="t.tecnico_id">
-          <button type="button" class="flex items-center gap-1.5 text-left w-full hover:underline" @click="enfocarRecorrido(t)">
+        <li v-if="filtroTecnico">
+          <button type="button" class="text-left text-sky-700 dark:text-sky-300 hover:underline" @click="filtroTecnico = ''">Ver todos</button>
+        </li>
+        <li v-for="t in recorridos" :key="t.tecnico_id" class="flex items-center gap-1">
+          <button type="button" class="flex items-center gap-1.5 text-left min-w-0 flex-1 hover:underline" :class="recorridoVisible(t.tecnico_id) ? '' : 'opacity-45'" @click="enfocarRecorrido(t)">
             <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: colorTecnico(t.tecnico_id) }"></span>
-            <span>{{ t.nombre }} · {{ formatoDistancia(t.distancia_m) }}<template v-if="t.visitas"> · {{ t.visitas }} visitas</template></span>
+            <span class="truncate">{{ t.nombre }} · {{ formatoDistancia(t.distancia_m) }}<template v-if="t.visitas"> · {{ t.visitas }} visitas</template></span>
+          </button>
+          <button
+            type="button"
+            class="shrink-0 rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+            :title="recorridoVisible(t.tecnico_id) ? 'Ocultar recorrido' : 'Mostrar recorrido'"
+            @click="alternarRecorrido(t.tecnico_id)"
+          >
+            <svg v-if="recorridoVisible(t.tecnico_id)" viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 3l18 18" />
+              <path d="M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-4.1 4.7" />
+              <path d="M6.2 6.2C3.6 8.1 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4-.8" />
+              <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+            </svg>
           </button>
         </li>
       </ul>
@@ -111,9 +140,16 @@ const recorridos = ref([]);
 const modoRecorrido = ref('puntos');
 const errorRecorrido = ref('');
 const avisoRuta = ref('');
+const filtroTecnico = ref('');
+const recorridosOcultos = ref({});
 const satelite = ref(false);
 
-const COLORES_RECORRIDO = ['#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5'];
+const COLORES_RECORRIDO = [
+  '#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed',
+  '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5',
+  '#0f766e', '#b45309', '#be123c', '#1d4ed8', '#6d28d9',
+  '#15803d', '#c026d3', '#0369a1', '#a16207', '#b91c1c',
+];
 
 const tituloRecorrido = computed(() => {
   const [y, m, d] = String(fechaRecorrido.value || '').split('-');
@@ -150,9 +186,45 @@ const cacheRutas = new Map();
 const OFFLINE_MS = 5 * 60 * 1000;
 
 function colorTecnico(id) {
-  const n = Math.abs(Number(id) || 0);
-  return COLORES_RECORRIDO[n % COLORES_RECORRIDO.length];
+  return colorPorId.value[id] || COLORES_RECORRIDO[Math.abs(Number(id) || 0) % COLORES_RECORRIDO.length];
 }
+
+function pasaFiltro(id) {
+  return !filtroTecnico.value || String(id) === String(filtroTecnico.value);
+}
+
+const personasMapa = computed(() => {
+  const nombres = new Map();
+  tecnicos.value.forEach((t) => {
+    nombres.set(t.tecnico_id, t.nombre || `Técnico ${t.tecnico_id}`);
+  });
+  recorridos.value.forEach((t) => {
+    if (!nombres.has(t.tecnico_id)) nombres.set(t.tecnico_id, t.nombre || `Técnico ${t.tecnico_id}`);
+  });
+  return [...nombres.entries()]
+    .map(([tecnico_id, nombre]) => ({ tecnico_id, nombre }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || Number(a.tecnico_id) - Number(b.tecnico_id));
+});
+
+const colorPorId = computed(() => {
+  const out = {};
+  personasMapa.value.forEach((p, i) => {
+    out[p.tecnico_id] = COLORES_RECORRIDO[i % COLORES_RECORRIDO.length];
+  });
+  return out;
+});
+
+function recorridoVisible(id) {
+  return !recorridosOcultos.value[String(id)];
+}
+
+function alternarRecorrido(id) {
+  const key = String(id);
+  recorridosOcultos.value = { ...recorridosOcultos.value, [key]: !recorridosOcultos.value[key] };
+  if (capaRecorrido.value) syncRecorridoFiguras();
+}
+
+const recorridosVisibles = computed(() => recorridos.value.filter((t) => pasaFiltro(t.tecnico_id) && recorridoVisible(t.tecnico_id)));
 
 function formatoDistancia(metros) {
   const n = Number(metros) || 0;
@@ -172,10 +244,6 @@ function isOnline(item) {
   const t = Date.parse(item.updated_at);
   if (Number.isNaN(t)) return false;
   return Date.now() - t <= OFFLINE_MS;
-}
-
-function markerColor(item) {
-  return isOnline(item) ? '#16a34a' : '#9ca3af';
 }
 
 function loadGoogleMaps(apiKey) {
@@ -198,16 +266,20 @@ function loadGoogleMaps(apiKey) {
   });
 }
 
-function pinIcon(google, color, glyph = '') {
+function pinIcon(google, color, glyph = '', online = null) {
   const w = 36;
   const h = 44;
   const label = glyph
     ? `<text x="18" y="20" text-anchor="middle" fill="#fff" font-size="12" font-family="sans-serif" font-weight="700">${glyph}</text>`
     : '<circle cx="18" cy="15" r="5" fill="#fff"/>';
+  const badge = online === null
+    ? ''
+    : `<circle cx="28" cy="7" r="4.5" fill="${online ? '#16a34a' : '#6b7280'}" stroke="#fff" stroke-width="1.5"/>`;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 36 44">` +
     `<path fill="${color}" stroke="#1f2937" stroke-width="1" d="M18 0C9.7 0 3 6.7 3 15c0 11 15 29 15 29s15-18 15-29C33 6.7 26.3 0 18 0z"/>` +
     label +
+    badge +
     '</svg>';
   return {
     url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
@@ -391,7 +463,7 @@ function upsertTecnicos(items) {
         map: capaTecnicos.value ? map : null,
         position: pos,
         title: item.nombre || `Técnico ${id}`,
-        icon: pinIcon(googleRef, markerColor(item)),
+        icon: pinIcon(googleRef, colorTecnico(item.tecnico_id), '', isOnline(item)),
         zIndex: 50,
       });
       marker.addListener('click', () => {
@@ -402,7 +474,7 @@ function upsertTecnicos(items) {
       markersTecnicos.set(id, entry);
     } else {
       entry.marker.setPosition(pos);
-      entry.marker.setIcon(pinIcon(googleRef, markerColor(item)));
+      entry.marker.setIcon(pinIcon(googleRef, colorTecnico(item.tecnico_id), '', isOnline(item)));
       entry.marker.setTitle(item.nombre || `Técnico ${id}`);
       entry.marker.setMap(capaTecnicos.value ? map : null);
       entry.item = item;
@@ -464,7 +536,7 @@ async function fetchUbicaciones() {
   try {
     const list = await fetchJson(props.urlUbicaciones);
     tecnicos.value = list;
-    upsertTecnicos(list);
+    upsertTecnicos(tecnicos.value.filter((t) => pasaFiltro(t.tecnico_id)));
     error.value = '';
   } catch (e) {
     // Si el mapa ya tiene pines, un fallo de refresco no debe tapar la vista.
@@ -636,7 +708,7 @@ async function syncRecorridoFiguras() {
   clearRecorridoFiguras();
   if (!capaRecorrido.value || !map || !googleRef) return;
   let algunaRecta = false;
-  await Promise.all(recorridos.value.map(async (t) => {
+  await Promise.all(recorridosVisibles.value.map(async (t) => {
     const path = (t.traza || [])
       .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }))
       .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
@@ -651,6 +723,10 @@ async function syncRecorridoFiguras() {
   avisoRuta.value = algunaRecta
     ? 'No se pudo calzar alguna ruta sobre las calles. Esa línea une los puntos en recta.'
     : '';
+}
+
+function elegirTecnico(t) {
+  filtroTecnico.value = String(t.tecnico_id);
 }
 
 function enfocarRecorrido(t) {
@@ -704,6 +780,19 @@ async function fetchRecorrido() {
     errorRecorrido.value = e.message || 'No se pudo cargar el recorrido.';
   }
 }
+
+watch(filtroTecnico, () => {
+  upsertTecnicos(tecnicos.value.filter((t) => pasaFiltro(t.tecnico_id)));
+  if (capaRecorrido.value) syncRecorridoFiguras();
+  if (!filtroTecnico.value || !map) return;
+  const rec = recorridos.value.find((t) => String(t.tecnico_id) === filtroTecnico.value);
+  if (rec && (rec.traza || []).length) {
+    enfocarRecorrido(rec);
+    return;
+  }
+  const entry = [...markersTecnicos.entries()].find(([id]) => String(id) === filtroTecnico.value);
+  if (entry) map.panTo(entry[1].marker.getPosition());
+});
 
 watch(capaTecnicos, syncTecnicosVisibility);
 watch(capaClientes, async (on) => {

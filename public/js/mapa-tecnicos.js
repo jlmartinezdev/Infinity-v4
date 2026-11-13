@@ -21212,15 +21212,21 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
-function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
-function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
-function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, e) { if ("object" != _typeof(t) || !t) return t; var r; if ("undefined" != typeof Symbol && void 0 !== (r = t[Symbol.toPrimitive])) { var i = r.call(t, e || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === e ? String : Number)(t); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -21296,8 +21302,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var modoRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('puntos');
     var errorRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var avisoRuta = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var filtroTecnico = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var recorridosOcultos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)({});
     var satelite = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
-    var COLORES_RECORRIDO = ['#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5'];
+    var COLORES_RECORRIDO = ['#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5', '#0f766e', '#b45309', '#be123c', '#1d4ed8', '#6d28d9', '#15803d', '#c026d3', '#0369a1', '#a16207', '#b91c1c'];
     var tituloRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
       var _String$split = String(fechaRecorrido.value || '').split('-'),
         _String$split2 = _slicedToArray(_String$split, 3),
@@ -21331,9 +21339,51 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var directionsService = null;
     var cacheRutas = new Map();
     function colorTecnico(id) {
-      var n = Math.abs(Number(id) || 0);
-      return COLORES_RECORRIDO[n % COLORES_RECORRIDO.length];
+      return colorPorId.value[id] || COLORES_RECORRIDO[Math.abs(Number(id) || 0) % COLORES_RECORRIDO.length];
     }
+    function pasaFiltro(id) {
+      return !filtroTecnico.value || String(id) === String(filtroTecnico.value);
+    }
+    var personasMapa = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      var nombres = new Map();
+      tecnicos.value.forEach(function (t) {
+        nombres.set(t.tecnico_id, t.nombre || "T\xE9cnico ".concat(t.tecnico_id));
+      });
+      recorridos.value.forEach(function (t) {
+        if (!nombres.has(t.tecnico_id)) nombres.set(t.tecnico_id, t.nombre || "T\xE9cnico ".concat(t.tecnico_id));
+      });
+      return _toConsumableArray(nombres.entries()).map(function (_ref2) {
+        var _ref3 = _slicedToArray(_ref2, 2),
+          tecnico_id = _ref3[0],
+          nombre = _ref3[1];
+        return {
+          tecnico_id: tecnico_id,
+          nombre: nombre
+        };
+      }).sort(function (a, b) {
+        return a.nombre.localeCompare(b.nombre, 'es') || Number(a.tecnico_id) - Number(b.tecnico_id);
+      });
+    });
+    var colorPorId = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      var out = {};
+      personasMapa.value.forEach(function (p, i) {
+        out[p.tecnico_id] = COLORES_RECORRIDO[i % COLORES_RECORRIDO.length];
+      });
+      return out;
+    });
+    function recorridoVisible(id) {
+      return !recorridosOcultos.value[String(id)];
+    }
+    function alternarRecorrido(id) {
+      var key = String(id);
+      recorridosOcultos.value = _objectSpread(_objectSpread({}, recorridosOcultos.value), {}, _defineProperty({}, key, !recorridosOcultos.value[key]));
+      if (capaRecorrido.value) syncRecorridoFiguras();
+    }
+    var recorridosVisibles = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
+      return recorridos.value.filter(function (t) {
+        return pasaFiltro(t.tecnico_id) && recorridoVisible(t.tecnico_id);
+      });
+    });
     function formatoDistancia(metros) {
       var n = Number(metros) || 0;
       if (n < 1000) return "".concat(Math.round(n), " m");
@@ -21355,9 +21405,6 @@ var OFFLINE_MS = 5 * 60 * 1000;
       var t = Date.parse(item.updated_at);
       if (Number.isNaN(t)) return false;
       return Date.now() - t <= OFFLINE_MS;
-    }
-    function markerColor(item) {
-      return isOnline(item) ? '#16a34a' : '#9ca3af';
     }
     function loadGoogleMaps(apiKey) {
       var _window$google;
@@ -21389,10 +21436,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
     }
     function pinIcon(google, color) {
       var glyph = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+      var online = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
       var w = 36;
       var h = 44;
       var label = glyph ? "<text x=\"18\" y=\"20\" text-anchor=\"middle\" fill=\"#fff\" font-size=\"12\" font-family=\"sans-serif\" font-weight=\"700\">".concat(glyph, "</text>") : '<circle cx="18" cy="15" r="5" fill="#fff"/>';
-      var svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"".concat(w, "\" height=\"").concat(h, "\" viewBox=\"0 0 36 44\">") + "<path fill=\"".concat(color, "\" stroke=\"#1f2937\" stroke-width=\"1\" d=\"M18 0C9.7 0 3 6.7 3 15c0 11 15 29 15 29s15-18 15-29C33 6.7 26.3 0 18 0z\"/>") + label + '</svg>';
+      var badge = online === null ? '' : "<circle cx=\"28\" cy=\"7\" r=\"4.5\" fill=\"".concat(online ? '#16a34a' : '#6b7280', "\" stroke=\"#fff\" stroke-width=\"1.5\"/>");
+      var svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"".concat(w, "\" height=\"").concat(h, "\" viewBox=\"0 0 36 44\">") + "<path fill=\"".concat(color, "\" stroke=\"#1f2937\" stroke-width=\"1\" d=\"M18 0C9.7 0 3 6.7 3 15c0 11 15 29 15 29s15-18 15-29C33 6.7 26.3 0 18 0z\"/>") + label + badge + '</svg>';
       return {
         url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
         scaledSize: new google.maps.Size(w, h),
@@ -21559,7 +21608,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
             map: capaTecnicos.value ? map : null,
             position: pos,
             title: item.nombre || "T\xE9cnico ".concat(id),
-            icon: pinIcon(googleRef, markerColor(item)),
+            icon: pinIcon(googleRef, colorTecnico(item.tecnico_id), '', isOnline(item)),
             zIndex: 50
           });
           marker.addListener('click', function () {
@@ -21576,7 +21625,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
           markersTecnicos.set(id, entry);
         } else {
           entry.marker.setPosition(pos);
-          entry.marker.setIcon(pinIcon(googleRef, markerColor(item)));
+          entry.marker.setIcon(pinIcon(googleRef, colorTecnico(item.tecnico_id), '', isOnline(item)));
           entry.marker.setTitle(item.nombre || "T\xE9cnico ".concat(id));
           entry.marker.setMap(capaTecnicos.value ? map : null);
           entry.item = item;
@@ -21705,7 +21754,9 @@ var OFFLINE_MS = 5 * 60 * 1000;
             case 2:
               list = _context8.v;
               tecnicos.value = list;
-              upsertTecnicos(list);
+              upsertTecnicos(tecnicos.value.filter(function (t) {
+                return pasaFiltro(t.tecnico_id);
+              }));
               error.value = '';
               _context8.n = 4;
               break;
@@ -21874,10 +21925,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
           var _result$routes;
           if (status === 'MAX_WAYPOINTS_EXCEEDED' && trozo.length > 4) {
             var medio = Math.ceil(trozo.length / 2);
-            Promise.all([pedirTramo(trozo.slice(0, medio)), pedirTramo(trozo.slice(medio - 1))]).then(function (_ref2) {
-              var _ref3 = _slicedToArray(_ref2, 2),
-                a = _ref3[0],
-                b = _ref3[1];
+            Promise.all([pedirTramo(trozo.slice(0, medio)), pedirTramo(trozo.slice(medio - 1))]).then(function (_ref4) {
+              var _ref5 = _slicedToArray(_ref4, 2),
+                a = _ref5[0],
+                b = _ref5[1];
               return resolve(a && b ? a.concat(b) : null);
             });
             return;
@@ -22045,8 +22096,8 @@ var OFFLINE_MS = 5 * 60 * 1000;
             case 1:
               algunaRecta = false;
               _context12.n = 2;
-              return Promise.all(recorridos.value.map(/*#__PURE__*/function () {
-                var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(t) {
+              return Promise.all(recorridosVisibles.value.map(/*#__PURE__*/function () {
+                var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(t) {
                   var path, color, ruta, _t0;
                   return _regenerator().w(function (_context11) {
                     while (1) switch (_context11.n) {
@@ -22097,7 +22148,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
                   }, _callee11);
                 }));
                 return function (_x7) {
-                  return _ref0.apply(this, arguments);
+                  return _ref12.apply(this, arguments);
                 };
               }()));
             case 2:
@@ -22114,6 +22165,9 @@ var OFFLINE_MS = 5 * 60 * 1000;
         }, _callee12);
       }));
       return _syncRecorridoFiguras.apply(this, arguments);
+    }
+    function elegirTecnico(t) {
+      filtroTecnico.value = String(t.tecnico_id);
     }
     function enfocarRecorrido(t) {
       if (!map || !googleRef) return;
@@ -22217,9 +22271,29 @@ var OFFLINE_MS = 5 * 60 * 1000;
       }));
       return _fetchRecorrido.apply(this, arguments);
     }
+    (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(filtroTecnico, function () {
+      upsertTecnicos(tecnicos.value.filter(function (t) {
+        return pasaFiltro(t.tecnico_id);
+      }));
+      if (capaRecorrido.value) syncRecorridoFiguras();
+      if (!filtroTecnico.value || !map) return;
+      var rec = recorridos.value.find(function (t) {
+        return String(t.tecnico_id) === filtroTecnico.value;
+      });
+      if (rec && (rec.traza || []).length) {
+        enfocarRecorrido(rec);
+        return;
+      }
+      var entry = _toConsumableArray(markersTecnicos.entries()).find(function (_ref6) {
+        var _ref7 = _slicedToArray(_ref6, 1),
+          id = _ref7[0];
+        return String(id) === filtroTecnico.value;
+      });
+      if (entry) map.panTo(entry[1].marker.getPosition());
+    });
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaTecnicos, syncTecnicosVisibility);
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaClientes, /*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(on) {
+      var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(on) {
         var _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
@@ -22248,11 +22322,11 @@ var OFFLINE_MS = 5 * 60 * 1000;
         }, _callee, null, [[1, 3]]);
       }));
       return function (_x3) {
-        return _ref4.apply(this, arguments);
+        return _ref8.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaPedidos, /*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(on) {
+      var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(on) {
         var _t2;
         return _regenerator().w(function (_context2) {
           while (1) switch (_context2.p = _context2.n) {
@@ -22281,11 +22355,11 @@ var OFFLINE_MS = 5 * 60 * 1000;
         }, _callee2, null, [[1, 3]]);
       }));
       return function (_x4) {
-        return _ref5.apply(this, arguments);
+        return _ref9.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaTickets, /*#__PURE__*/function () {
-      var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(on) {
+      var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(on) {
         var _t3;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.p = _context3.n) {
@@ -22314,11 +22388,11 @@ var OFFLINE_MS = 5 * 60 * 1000;
         }, _callee3, null, [[1, 3]]);
       }));
       return function (_x5) {
-        return _ref6.apply(this, arguments);
+        return _ref0.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaRecorrido, /*#__PURE__*/function () {
-      var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(on) {
+      var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(on) {
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.n) {
             case 0:
@@ -22346,7 +22420,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
         }, _callee4);
       }));
       return function (_x6) {
-        return _ref7.apply(this, arguments);
+        return _ref1.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(fechaRecorrido, /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
@@ -22464,6 +22538,8 @@ var OFFLINE_MS = 5 * 60 * 1000;
       modoRecorrido: modoRecorrido,
       errorRecorrido: errorRecorrido,
       avisoRuta: avisoRuta,
+      filtroTecnico: filtroTecnico,
+      recorridosOcultos: recorridosOcultos,
       satelite: satelite,
       COLORES_RECORRIDO: COLORES_RECORRIDO,
       tituloRecorrido: tituloRecorrido,
@@ -22585,10 +22661,15 @@ var OFFLINE_MS = 5 * 60 * 1000;
       cacheRutas: cacheRutas,
       OFFLINE_MS: OFFLINE_MS,
       colorTecnico: colorTecnico,
+      pasaFiltro: pasaFiltro,
+      personasMapa: personasMapa,
+      colorPorId: colorPorId,
+      recorridoVisible: recorridoVisible,
+      alternarRecorrido: alternarRecorrido,
+      recorridosVisibles: recorridosVisibles,
       formatoDistancia: formatoDistancia,
       formatoHora: formatoHora,
       isOnline: isOnline,
-      markerColor: markerColor,
       loadGoogleMaps: loadGoogleMaps,
       pinIcon: pinIcon,
       escapeHtml: escapeHtml,
@@ -22617,6 +22698,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
       rutaPorCalles: rutaPorCalles,
       dibujarTrazo: dibujarTrazo,
       syncRecorridoFiguras: syncRecorridoFiguras,
+      elegirTecnico: elegirTecnico,
       enfocarRecorrido: enfocarRecorrido,
       syncRecorridoPoll: syncRecorridoPoll,
       fetchRecorrido: fetchRecorrido,
@@ -22683,46 +22765,72 @@ var _hoisted_8 = {
 var _hoisted_9 = {
   class: "inline-flex items-center gap-1.5 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer"
 };
-var _hoisted_10 = ["max"];
-var _hoisted_11 = {
+var _hoisted_10 = ["value"];
+var _hoisted_11 = ["max"];
+var _hoisted_12 = {
   class: "flex flex-wrap gap-2 pointer-events-auto"
 };
-var _hoisted_12 = {
+var _hoisted_13 = {
   key: 0,
   class: "absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200"
 };
-var _hoisted_13 = {
+var _hoisted_14 = {
   class: "font-semibold text-gray-900 dark:text-gray-100"
 };
-var _hoisted_14 = {
+var _hoisted_15 = {
   class: "mt-0.5 text-[11px] text-gray-500 dark:text-gray-400"
 };
-var _hoisted_15 = {
+var _hoisted_16 = {
   key: 0,
   class: "mt-1 text-[11px] text-amber-700 dark:text-amber-300"
 };
-var _hoisted_16 = {
+var _hoisted_17 = {
   key: 1,
   class: "mt-1 text-red-600 dark:text-red-300"
 };
-var _hoisted_17 = {
+var _hoisted_18 = {
   key: 2,
   class: "mt-1 max-h-40 overflow-y-auto space-y-1"
 };
-var _hoisted_18 = ["onClick"];
 var _hoisted_19 = {
+  key: 0
+};
+var _hoisted_20 = ["onClick"];
+var _hoisted_21 = {
+  class: "truncate"
+};
+var _hoisted_22 = ["title", "onClick"];
+var _hoisted_23 = {
+  key: 0,
+  viewBox: "0 0 24 24",
+  class: "w-3.5 h-3.5",
+  fill: "none",
+  stroke: "currentColor",
+  "stroke-width": "2",
+  "aria-hidden": "true"
+};
+var _hoisted_24 = {
+  key: 1,
+  viewBox: "0 0 24 24",
+  class: "w-3.5 h-3.5",
+  fill: "none",
+  stroke: "currentColor",
+  "stroke-width": "2",
+  "aria-hidden": "true"
+};
+var _hoisted_25 = {
   key: 3,
   class: "mt-1 text-gray-500 dark:text-gray-400"
 };
-var _hoisted_20 = {
+var _hoisted_26 = {
   key: 1,
   class: "absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 rounded-lg z-20"
 };
-var _hoisted_21 = {
+var _hoisted_27 = {
   key: 2,
   class: "absolute bottom-3 left-3 right-3 z-20 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-200"
 };
-var _hoisted_22 = {
+var _hoisted_28 = {
   key: 3,
   class: "absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg z-20 p-4"
 };
@@ -22733,7 +22841,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTecnicos]]), _cache[6] || (_cache[6] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTecnicos]]), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-green-600"
   }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Técnicos (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tecnicos.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_6, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
@@ -22741,7 +22849,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaClientes]]), _cache[7] || (_cache[7] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaClientes]]), _cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-violet-600"
   }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Clientes (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.clientes.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_7, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[2] || (_cache[2] = function ($event) {
@@ -22749,7 +22857,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaPedidos]]), _cache[8] || (_cache[8] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaPedidos]]), _cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-amber-500"
   }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Pedidos (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.pedidos.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_8, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[3] || (_cache[3] = function ($event) {
@@ -22757,7 +22865,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTickets]]), _cache[9] || (_cache[9] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaTickets]]), _cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-sky-600"
   }, null, -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Tickets (" + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tickets.length) + ") ", 1 /* TEXT */)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("label", _hoisted_9, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
     "onUpdate:modelValue": _cache[4] || (_cache[4] = function ($event) {
@@ -22765,26 +22873,47 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     }),
     type: "checkbox",
     class: "rounded border-gray-300"
-  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaRecorrido]]), _cache[10] || (_cache[10] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelCheckbox, $setup.capaRecorrido]]), _cache[12] || (_cache[12] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
     class: "w-2.5 h-2.5 rounded-full bg-rose-600"
-  }, null, -1 /* CACHED */)), _cache[11] || (_cache[11] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Recorrido ", -1 /* CACHED */))]), $setup.capaRecorrido ? (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("input", {
+  }, null, -1 /* CACHED */)), _cache[13] || (_cache[13] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Recorrido ", -1 /* CACHED */))]), $setup.personasMapa.length ? (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("select", {
     key: 0,
     "onUpdate:modelValue": _cache[5] || (_cache[5] = function ($event) {
+      return $setup.filtroTecnico = $event;
+    }),
+    class: "rounded-lg bg-white/95 dark:bg-gray-900/95 px-2 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 max-w-[11rem]",
+    title: "Mostrar un técnico"
+  }, [_cache[14] || (_cache[14] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("option", {
+    value: ""
+  }, "Todos", -1 /* CACHED */)), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.personasMapa, function (p) {
+    return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
+      key: p.tecnico_id,
+      value: String(p.tecnico_id)
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(p.nombre), 9 /* TEXT, PROPS */, _hoisted_10);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $setup.filtroTecnico]]) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.capaRecorrido ? (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)(((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("input", {
+    key: 1,
+    "onUpdate:modelValue": _cache[6] || (_cache[6] = function ($event) {
       return $setup.fechaRecorrido = $event;
     }),
     type: "date",
     max: $setup.hoyLocal(),
     class: "rounded-lg bg-white/95 dark:bg-gray-900/95 px-2 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200"
-  }, null, 8 /* PROPS */, _hoisted_10)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.fechaRecorrido]]) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_11, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, null, 8 /* PROPS */, _hoisted_11)), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $setup.fechaRecorrido]]) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_12, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200",
     onClick: $setup.toggleSatelite
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.capaRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_12, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tituloRecorrido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.notaRecorrido), 1 /* TEXT */), $setup.avisoRuta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.avisoRuta), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorRecorrido), 1 /* TEXT */)) : $setup.recorridos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_17, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.recorridos, function (t) {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.capaRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tituloRecorrido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.notaRecorrido), 1 /* TEXT */), $setup.avisoRuta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.avisoRuta), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorRecorrido), 1 /* TEXT */)) : $setup.recorridos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_18, [$setup.filtroTecnico ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", _hoisted_19, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "text-left text-sky-700 dark:text-sky-300 hover:underline",
+    onClick: _cache[7] || (_cache[7] = function ($event) {
+      return $setup.filtroTecnico = '';
+    })
+  }, "Ver todos")])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.recorridos, function (t) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
-      key: t.tecnico_id
+      key: t.tecnico_id,
+      class: "flex items-center gap-1"
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
       type: "button",
-      class: "flex items-center gap-1.5 text-left w-full hover:underline",
+      class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["flex items-center gap-1.5 text-left min-w-0 flex-1 hover:underline", $setup.recorridoVisible(t.tecnico_id) ? '' : 'opacity-45']),
       onClick: function onClick($event) {
         return $setup.enfocarRecorrido(t);
       }
@@ -22793,12 +22922,33 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
         background: $setup.colorTecnico(t.tecnico_id)
       })
-    }, null, 4 /* STYLE */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatoDistancia(t.distancia_m)), 1 /* TEXT */), t.visitas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    }, null, 4 /* STYLE */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_21, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatoDistancia(t.distancia_m)), 1 /* TEXT */), t.visitas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.visitas) + " visitas", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 8 /* PROPS */, _hoisted_18)]);
-  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_19, "Sin recorrido en esa fecha."))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_20, _toConsumableArray(_cache[12] || (_cache[12] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.visitas) + " visitas", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 10 /* CLASS, PROPS */, _hoisted_20), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+      type: "button",
+      class: "shrink-0 rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800",
+      title: $setup.recorridoVisible(t.tecnico_id) ? 'Ocultar recorrido' : 'Mostrar recorrido',
+      onClick: function onClick($event) {
+        return $setup.alternarRecorrido(t.tecnico_id);
+      }
+    }, [$setup.recorridoVisible(t.tecnico_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_23, _toConsumableArray(_cache[15] || (_cache[15] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"
+    }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
+      cx: "12",
+      cy: "12",
+      r: "3"
+    }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_24, _toConsumableArray(_cache[16] || (_cache[16] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M3 3l18 18"
+    }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-4.1 4.7"
+    }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M6.2 6.2C3.6 8.1 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4-.8"
+    }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M9.9 9.9a3 3 0 0 0 4.2 4.2"
+    }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_22)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_25, "Sin recorrido en esa fecha."))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_26, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-gray-700 dark:text-gray-300 text-sm"
-  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_22, _toConsumableArray(_cache[13] || (_cache[13] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_27, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_28, _toConsumableArray(_cache[18] || (_cache[18] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-amber-800 dark:text-amber-200 text-center text-sm"
   }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
 }
