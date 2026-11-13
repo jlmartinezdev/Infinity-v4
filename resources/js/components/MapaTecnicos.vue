@@ -67,7 +67,18 @@
     </div>
 
     <div v-else-if="capaRecorrido" class="absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
-      <div class="font-semibold text-gray-900 dark:text-gray-100">{{ tituloRecorrido }}</div>
+      <div class="flex items-center justify-between gap-2">
+        <div class="font-semibold text-gray-900 dark:text-gray-100">{{ tituloRecorrido }}</div>
+        <button
+          type="button"
+          class="shrink-0 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-[11px] text-gray-700 dark:text-gray-200 disabled:opacity-40"
+          :disabled="!recorridosVisibles.length"
+          title="Dibujar desde el inicio hasta el fin"
+          @click="reproducirRutas"
+        >
+          Dibujar
+        </button>
+      </div>
       <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ notaRecorrido }}</p>
       <p v-if="avisoRuta" class="mt-1 text-[11px] text-amber-700 dark:text-amber-300">{{ avisoRuta }}</p>
       <p v-if="errorRecorrido" class="mt-1 text-red-600 dark:text-red-300">{{ errorRecorrido }}</p>
@@ -106,6 +117,16 @@
               <path d="M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-4.1 4.7" />
               <path d="M6.2 6.2C3.6 8.1 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4-.8" />
               <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="shrink-0 rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+            title="Dibujar recorrido"
+            @click="reproducirRuta(t)"
+          >
+            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5-11-6.5z" />
             </svg>
           </button>
         </li>
@@ -206,6 +227,10 @@ let pedidosCargados = false;
 let ticketsCargados = false;
 let recorridoPorId = {};
 let figurasRecorrido = [];
+let ultimosDibujos = [];
+let animacionRuta = 0;
+let animFrame = null;
+let camsActivas = [];
 let recorridoPoll = null;
 let recorridoSeq = 0;
 let rutaSeq = 0;
@@ -605,7 +630,24 @@ async function ensureTickets() {
   syncTicketsMarkers();
 }
 
+function cancelarAnimacionRuta() {
+  animacionRuta += 1;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = null;
+  camsActivas = [];
+}
+
+function completarAnimacionEnCurso(exceptoId) {
+  camsActivas.forEach((c) => {
+    if (exceptoId != null && String(c.id) === String(exceptoId)) return;
+    if (c.poly) c.poly.setPath(c.camino.puntos);
+    if (c.cabeza) c.cabeza.setMap(null);
+  });
+  camsActivas = [];
+}
+
 function clearRecorridoFiguras() {
+  cancelarAnimacionRuta();
   figurasRecorrido.forEach((f) => f.setMap(null));
   figurasRecorrido = [];
 }
@@ -843,6 +885,177 @@ async function rutaPorCalles(path) {
   }
 }
 
+function prefiereMenosMovimiento() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+}
+
+function avanceSuave(t) {
+  const x = Math.min(1, Math.max(0, t));
+  return 1 - (1 - x) ** 3;
+}
+
+function duracionDibujo(metros) {
+  return Math.round(Math.min(7500, Math.max(2200, (metros / 1000) * 550)));
+}
+
+function caminoAnimable(path) {
+  const puntos = [];
+  const acum = [];
+  let total = 0;
+  path.forEach((p, idx) => {
+    if (idx > 0) total += distanciaMetros(path[idx - 1], p);
+    puntos.push({ lat: p.lat, lng: p.lng });
+    acum.push(total);
+  });
+  const tope = 520;
+  if (puntos.length <= tope || total < 1) return { puntos, acum, total };
+  const paso = total / (tope - 1);
+  const out = [puntos[0]];
+  let meta = paso;
+  for (let i = 1; i < puntos.length - 1 && out.length < tope - 1; i += 1) {
+    if (acum[i] >= meta) {
+      out.push(puntos[i]);
+      meta += paso;
+    }
+  }
+  out.push(puntos[puntos.length - 1]);
+  const fino = [0];
+  for (let i = 1; i < out.length; i += 1) fino.push(fino[i - 1] + distanciaMetros(out[i - 1], out[i]));
+  return { puntos: out, acum: fino, total: fino[fino.length - 1] };
+}
+
+function sliceHasta(camino, metros) {
+  const { puntos, acum, total } = camino;
+  if (!puntos.length) return [];
+  const m = Math.max(0, Math.min(total, metros));
+  if (m <= 0 || puntos.length < 2) return [puntos[0]];
+  let lo = 1;
+  let hi = acum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (acum[mid] < m) lo = mid + 1;
+    else hi = mid;
+  }
+  const span = acum[lo] - acum[lo - 1];
+  const t = span < 0.01 ? 1 : (m - acum[lo - 1]) / span;
+  const head = {
+    lat: puntos[lo - 1].lat + (puntos[lo].lat - puntos[lo - 1].lat) * t,
+    lng: puntos[lo - 1].lng + (puntos[lo].lng - puntos[lo - 1].lng) * t,
+  };
+  const parcial = puntos.slice(0, lo);
+  parcial.push(head);
+  return parcial;
+}
+
+function iconoCabeza(color) {
+  const s = 14;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><circle cx="${s / 2}" cy="${s / 2}" r="${(s / 2) - 2}" fill="${color}" stroke="#fff" stroke-width="2"/></svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new googleRef.maps.Size(s, s),
+    anchor: new googleRef.maps.Point(s / 2, s / 2),
+  };
+}
+
+function animarTrazos(dibujos, { conservarOtros = false } = {}) {
+  if (conservarOtros) completarAnimacionEnCurso(dibujos.length === 1 ? dibujos[0].item.tecnico_id : null);
+  cancelarAnimacionRuta();
+  const token = animacionRuta;
+  if (!conservarOtros) {
+    figurasRecorrido.forEach((f) => f.setMap(null));
+    figurasRecorrido = [];
+  } else {
+    const ids = new Set(dibujos.map((d) => String(d.item.tecnico_id)));
+    figurasRecorrido = figurasRecorrido.filter((f) => {
+      if (!ids.has(String(f.tecnicoId))) return true;
+      f.setMap(null);
+      return false;
+    });
+  }
+  if (prefiereMenosMovimiento()) {
+    dibujos.forEach((d) => dibujarTrazo(d.item, d.path, d.color));
+    return;
+  }
+  const cams = [];
+  dibujos.forEach((d) => {
+    if (!d.path || d.path.length < 2) {
+      if (d.path?.length) dibujarTrazo(d.item, d.path, d.color);
+      return;
+    }
+    const camino = caminoAnimable(d.path);
+    if (camino.total < 1) {
+      dibujarTrazo(d.item, d.path, d.color);
+      return;
+    }
+    const poly = new googleRef.maps.Polyline({
+      map,
+      path: [camino.puntos[0]],
+      strokeColor: d.color,
+      strokeOpacity: 0.95,
+      strokeWeight: 5,
+      geodesic: false,
+      zIndex: 35,
+    });
+    poly.addListener('click', (e) => {
+      infoWindow.setContent(popupRecorrido(d.item));
+      infoWindow.setPosition(e.latLng);
+      infoWindow.open(map);
+    });
+    const cabeza = new googleRef.maps.Marker({
+      map,
+      position: camino.puntos[0],
+      clickable: false,
+      zIndex: 46,
+      icon: iconoCabeza(d.color),
+    });
+    poly.tecnicoId = d.item.tecnico_id;
+    cabeza.tecnicoId = d.item.tecnico_id;
+    figurasRecorrido.push(poly, cabeza);
+    cams.push({ id: d.item.tecnico_id, camino, poly, cabeza, ms: duracionDibujo(camino.total) });
+  });
+  camsActivas = cams;
+  if (!cams.length) return;
+  const t0 = performance.now();
+  const tick = (now) => {
+    if (token !== animacionRuta || !map) return;
+    let sigue = false;
+    const avance = now - t0;
+    cams.forEach((c) => {
+      const t = Math.min(1, avance / c.ms);
+      const parcial = sliceHasta(c.camino, c.camino.total * avanceSuave(t));
+      c.poly.setPath(parcial);
+      const punta = parcial[parcial.length - 1];
+      if (punta) c.cabeza.setPosition(punta);
+      if (t < 1) sigue = true;
+      else c.cabeza.setMap(null);
+    });
+    if (sigue) animFrame = requestAnimationFrame(tick);
+    else {
+      animFrame = null;
+      camsActivas = [];
+    }
+  };
+  animFrame = requestAnimationFrame(tick);
+}
+
+function reproducirRutas() {
+  if (!ultimosDibujos.length || !map || !googleRef) return;
+  animarTrazos(ultimosDibujos);
+}
+
+async function reproducirRuta(t) {
+  if (!map || !googleRef || !t) return;
+  if (editando.value && String(editando.value.tecnico_id) === String(t.tecnico_id)) return;
+  const id = String(t.tecnico_id);
+  if (!recorridoVisible(t.tecnico_id)) {
+    recorridosOcultos.value = { ...recorridosOcultos.value, [id]: false };
+    await syncRecorridoFiguras();
+  }
+  const dibujo = ultimosDibujos.find((d) => String(d.item.tecnico_id) === id);
+  if (!dibujo || (dibujo.path || []).length < 2) return;
+  animarTrazos([dibujo], { conservarOtros: true });
+}
+
 function dibujarTrazo(item, path, color) {
   if (path.length === 1) {
     const marker = new googleRef.maps.Marker({
@@ -856,6 +1069,7 @@ function dibujarTrazo(item, path, color) {
       infoWindow.setContent(popupRecorrido(item));
       infoWindow.open({ map, anchor: marker });
     });
+    marker.tecnicoId = item.tecnico_id;
     figurasRecorrido.push(marker);
     return;
   }
@@ -873,6 +1087,7 @@ function dibujarTrazo(item, path, color) {
     infoWindow.setPosition(e.latLng);
     infoWindow.open(map);
   });
+  poly.tecnicoId = item.tecnico_id;
   figurasRecorrido.push(poly);
 }
 
@@ -1105,11 +1320,15 @@ async function restaurarRuta() {
   }
 }
 
-async function syncRecorridoFiguras() {
+async function syncRecorridoFiguras({ animar = false } = {}) {
   const seq = ++rutaSeq;
   clearRecorridoFiguras();
-  if (!capaRecorrido.value || !map || !googleRef) return;
+  if (!capaRecorrido.value || !map || !googleRef) {
+    ultimosDibujos = [];
+    return;
+  }
   let algunaRecta = false;
+  const dibujos = [];
   await Promise.all(recorridosVisibles.value.map(async (t) => {
     const path = (t.traza || [])
       .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }))
@@ -1122,12 +1341,15 @@ async function syncRecorridoFiguras() {
       : (path.length > 1 ? await rutaPorCalles(path) : { path, porCalles: true });
     if (seq !== rutaSeq || !capaRecorrido.value || !map) return;
     if (path.length > 1 && !ruta.porCalles) algunaRecta = true;
-    dibujarTrazo(t, ruta.path, color);
+    dibujos.push({ item: t, path: ruta.path, color });
   }));
   if (seq !== rutaSeq || !capaRecorrido.value) return;
   avisoRuta.value = algunaRecta
     ? 'No se pudo calzar alguna ruta sobre las calles. Esa línea une los puntos en recta.'
     : '';
+  ultimosDibujos = dibujos;
+  if (animar) animarTrazos(dibujos);
+  else dibujos.forEach((d) => dibujarTrazo(d.item, d.path, d.color));
 }
 
 function elegirTecnico(t) {
@@ -1154,7 +1376,7 @@ function syncRecorridoPoll() {
   }, 60000);
 }
 
-async function fetchRecorrido() {
+async function fetchRecorrido({ animar = false } = {}) {
   if (!props.urlRecorridos) {
     errorRecorrido.value = 'No está configurada la ruta de recorridos.';
     return;
@@ -1179,7 +1401,7 @@ async function fetchRecorrido() {
     list.forEach((t) => { index[t.tecnico_id] = t; });
     recorridoPorId = index;
     errorRecorrido.value = '';
-    syncRecorridoFiguras();
+    syncRecorridoFiguras({ animar });
   } catch (e) {
     if (seq !== recorridoSeq) return;
     errorRecorrido.value = e.message || 'No se pudo cargar el recorrido.';
@@ -1188,7 +1410,7 @@ async function fetchRecorrido() {
 
 watch(filtroTecnico, () => {
   upsertTecnicos(tecnicos.value.filter((t) => pasaFiltro(t.tecnico_id)));
-  if (capaRecorrido.value) syncRecorridoFiguras();
+  if (capaRecorrido.value) syncRecorridoFiguras({ animar: true });
   if (!filtroTecnico.value || !map) return;
   const rec = recorridos.value.find((t) => String(t.tecnico_id) === filtroTecnico.value);
   if (rec && (rec.traza || []).length) {
@@ -1250,13 +1472,13 @@ watch(capaRecorrido, async (on) => {
     syncRecorridoPoll();
     return;
   }
-  await fetchRecorrido();
+  await fetchRecorrido({ animar: true });
   syncRecorridoPoll();
 });
 watch(fechaRecorrido, async () => {
   if (editando.value) cancelarEdicion();
   if (!capaRecorrido.value) return;
-  await fetchRecorrido();
+  await fetchRecorrido({ animar: true });
   syncRecorridoPoll();
 });
 
@@ -1278,7 +1500,7 @@ onMounted(async () => {
     applyMapType();
     await fetchUbicaciones();
     if (capaRecorrido.value) {
-      await fetchRecorrido();
+      await fetchRecorrido({ animar: true });
       syncRecorridoPoll();
     }
     const ms = Math.max(5, Number(props.pollSegundos) || 15) * 1000;
