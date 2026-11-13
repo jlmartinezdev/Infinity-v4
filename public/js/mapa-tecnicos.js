@@ -21212,6 +21212,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -21291,6 +21295,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var recorridos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)([]);
     var modoRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('puntos');
     var errorRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
+    var avisoRuta = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var satelite = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var COLORES_RECORRIDO = ['#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5'];
     var tituloRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
@@ -21303,7 +21308,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return modoRecorrido.value === 'resumen' ? "Resumen ".concat(etiqueta) : "Recorrido ".concat(etiqueta);
     });
     var notaRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
-      return modoRecorrido.value === 'resumen' ? 'Quedó el resumen del día. Los puntos detallados ya se eliminaron.' : 'Durante el día se guarda el trayecto. A la noche queda solo el resumen.';
+      return modoRecorrido.value === 'resumen' ? 'Resumen del día, dibujado sobre las calles. Los puntos detallados ya se eliminaron.' : 'La línea sigue las calles entre los puntos. A la noche queda solo el resumen.';
     });
     var map = null;
     var googleRef = null;
@@ -21321,6 +21326,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var figurasRecorrido = [];
     var recorridoPoll = null;
     var recorridoSeq = 0;
+    var rutaSeq = 0;
+    var rutasPorCalle = true;
+    var directionsService = null;
+    var cacheRutas = new Map();
     function colorTecnico(id) {
       var n = Math.abs(Number(id) || 0);
       return COLORES_RECORRIDO[n % COLORES_RECORRIDO.length];
@@ -21807,54 +21816,304 @@ var OFFLINE_MS = 5 * 60 * 1000;
       });
       figurasRecorrido = [];
     }
-    function syncRecorridoFiguras() {
-      clearRecorridoFiguras();
-      if (!capaRecorrido.value || !map || !googleRef) return;
-      recorridos.value.forEach(function (t) {
-        var path = (t.traza || []).map(function (p) {
+    function distanciaMetros(a, b) {
+      var radio = 6371000;
+      var p1 = a.lat * Math.PI / 180;
+      var p2 = b.lat * Math.PI / 180;
+      var dp = (b.lat - a.lat) * Math.PI / 180;
+      var dl = (b.lng - a.lng) * Math.PI / 180;
+      var h = Math.pow(Math.sin(dp / 2), 2) + Math.cos(p1) * Math.cos(p2) * Math.pow(Math.sin(dl / 2), 2);
+      return 2 * radio * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+    function muestrearRuta(path) {
+      var minMetros = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 120;
+      var maxPuntos = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 49;
+      if (path.length <= 2) return path;
+      var kept = [path[0]];
+      for (var i = 1; i < path.length - 1; i += 1) {
+        if (distanciaMetros(kept[kept.length - 1], path[i]) >= minMetros) kept.push(path[i]);
+      }
+      var ultimo = path[path.length - 1];
+      if (distanciaMetros(kept[kept.length - 1], ultimo) > 15) kept.push(ultimo);else kept[kept.length - 1] = ultimo;
+      if (kept.length <= maxPuntos) return kept;
+      var paso = Math.ceil((kept.length - 2) / (maxPuntos - 2));
+      var out = [kept[0]];
+      for (var _i = paso; _i < kept.length - 1; _i += paso) out.push(kept[_i]);
+      out.push(kept[kept.length - 1]);
+      return out;
+    }
+    function partirRuta(path) {
+      var tamano = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 25;
+      if (path.length <= tamano) return [path];
+      var trozos = [];
+      var i = 0;
+      while (i < path.length - 1) {
+        var fin = Math.min(i + tamano - 1, path.length - 1);
+        trozos.push(path.slice(i, fin + 1));
+        i = fin;
+      }
+      return trozos;
+    }
+    function pedirTramo(trozo) {
+      if (!directionsService) directionsService = new googleRef.maps.DirectionsService();
+      var request = {
+        origin: trozo[0],
+        destination: trozo[trozo.length - 1],
+        waypoints: trozo.slice(1, -1).map(function (p) {
           return {
-            lat: Number(p.lat),
-            lng: Number(p.lng)
+            location: p,
+            stopover: false
           };
-        }).filter(function (p) {
-          return Number.isFinite(p.lat) && Number.isFinite(p.lng);
-        });
-        if (!path.length) return;
-        var color = colorTecnico(t.tecnico_id);
-        if (path.length === 1) {
-          var marker = new googleRef.maps.Marker({
-            map: map,
-            position: path[0],
-            title: t.nombre,
-            icon: pinIcon(googleRef, color),
-            zIndex: 35
-          });
-          marker.addListener('click', function () {
-            infoWindow.setContent(popupRecorrido(t));
-            infoWindow.open({
-              map: map,
-              anchor: marker
+        }),
+        travelMode: googleRef.maps.TravelMode.DRIVING,
+        optimizeWaypoints: false,
+        region: 'py'
+      };
+      return new Promise(function (resolve) {
+        directionsService.route(request, function (result, status) {
+          var _result$routes;
+          if (status === 'MAX_WAYPOINTS_EXCEEDED' && trozo.length > 4) {
+            var medio = Math.ceil(trozo.length / 2);
+            Promise.all([pedirTramo(trozo.slice(0, medio)), pedirTramo(trozo.slice(medio - 1))]).then(function (_ref2) {
+              var _ref3 = _slicedToArray(_ref2, 2),
+                a = _ref3[0],
+                b = _ref3[1];
+              return resolve(a && b ? a.concat(b) : null);
+            });
+            return;
+          }
+          if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') rutasPorCalle = false;
+          if (status !== 'OK' || !(result !== null && result !== void 0 && (_result$routes = result.routes) !== null && _result$routes !== void 0 && _result$routes[0])) {
+            resolve(null);
+            return;
+          }
+          var road = [];
+          result.routes[0].legs.forEach(function (leg) {
+            leg.steps.forEach(function (step) {
+              (step.path || []).forEach(function (ll) {
+                return road.push({
+                  lat: ll.lat(),
+                  lng: ll.lng()
+                });
+              });
             });
           });
-          figurasRecorrido.push(marker);
-          return;
-        }
-        var poly = new googleRef.maps.Polyline({
+          resolve(road.length > 1 ? road : null);
+        });
+      });
+    }
+    function rutaPorCalles(_x2) {
+      return _rutaPorCalles.apply(this, arguments);
+    }
+    function _rutaPorCalles() {
+      _rutaPorCalles = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(path) {
+        var _googleRef;
+        var muestra, firma, unido, _iterator4, _step4, trozo, road, _t8, _t9;
+        return _regenerator().w(function (_context10) {
+          while (1) switch (_context10.p = _context10.n) {
+            case 0:
+              muestra = muestrearRuta(path);
+              if (!(muestra.length < 2 || !rutasPorCalle || !((_googleRef = googleRef) !== null && _googleRef !== void 0 && (_googleRef = _googleRef.maps) !== null && _googleRef !== void 0 && _googleRef.DirectionsService))) {
+                _context10.n = 1;
+                break;
+              }
+              return _context10.a(2, {
+                path: path,
+                porCalles: false
+              });
+            case 1:
+              firma = muestra.map(function (p) {
+                return "".concat(p.lat.toFixed(4), ",").concat(p.lng.toFixed(4));
+              }).join('|');
+              if (!cacheRutas.has(firma)) {
+                _context10.n = 2;
+                break;
+              }
+              return _context10.a(2, {
+                path: cacheRutas.get(firma),
+                porCalles: true
+              });
+            case 2:
+              _context10.p = 2;
+              unido = [];
+              _iterator4 = _createForOfIteratorHelper(partirRuta(muestra));
+              _context10.p = 3;
+              _iterator4.s();
+            case 4:
+              if ((_step4 = _iterator4.n()).done) {
+                _context10.n = 8;
+                break;
+              }
+              trozo = _step4.value;
+              _context10.n = 5;
+              return pedirTramo(trozo);
+            case 5:
+              road = _context10.v;
+              if (road) {
+                _context10.n = 6;
+                break;
+              }
+              return _context10.a(2, {
+                path: path,
+                porCalles: false
+              });
+            case 6:
+              unido.push.apply(unido, _toConsumableArray(road));
+            case 7:
+              _context10.n = 4;
+              break;
+            case 8:
+              _context10.n = 10;
+              break;
+            case 9:
+              _context10.p = 9;
+              _t8 = _context10.v;
+              _iterator4.e(_t8);
+            case 10:
+              _context10.p = 10;
+              _iterator4.f();
+              return _context10.f(10);
+            case 11:
+              cacheRutas.set(firma, unido);
+              return _context10.a(2, {
+                path: unido,
+                porCalles: true
+              });
+            case 12:
+              _context10.p = 12;
+              _t9 = _context10.v;
+              return _context10.a(2, {
+                path: path,
+                porCalles: false
+              });
+          }
+        }, _callee10, null, [[3, 9, 10, 11], [2, 12]]);
+      }));
+      return _rutaPorCalles.apply(this, arguments);
+    }
+    function dibujarTrazo(item, path, color) {
+      if (path.length === 1) {
+        var marker = new googleRef.maps.Marker({
           map: map,
-          path: path,
-          strokeColor: color,
-          strokeOpacity: 0.9,
-          strokeWeight: 4,
-          geodesic: true,
+          position: path[0],
+          title: item.nombre,
+          icon: pinIcon(googleRef, color),
           zIndex: 35
         });
-        poly.addListener('click', function (e) {
-          infoWindow.setContent(popupRecorrido(t));
-          infoWindow.setPosition(e.latLng);
-          infoWindow.open(map);
+        marker.addListener('click', function () {
+          infoWindow.setContent(popupRecorrido(item));
+          infoWindow.open({
+            map: map,
+            anchor: marker
+          });
         });
-        figurasRecorrido.push(poly);
+        figurasRecorrido.push(marker);
+        return;
+      }
+      var poly = new googleRef.maps.Polyline({
+        map: map,
+        path: path,
+        strokeColor: color,
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
+        geodesic: false,
+        zIndex: 35
       });
+      poly.addListener('click', function (e) {
+        infoWindow.setContent(popupRecorrido(item));
+        infoWindow.setPosition(e.latLng);
+        infoWindow.open(map);
+      });
+      figurasRecorrido.push(poly);
+    }
+    function syncRecorridoFiguras() {
+      return _syncRecorridoFiguras.apply(this, arguments);
+    }
+    function _syncRecorridoFiguras() {
+      _syncRecorridoFiguras = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+        var seq, algunaRecta;
+        return _regenerator().w(function (_context12) {
+          while (1) switch (_context12.n) {
+            case 0:
+              seq = ++rutaSeq;
+              clearRecorridoFiguras();
+              if (!(!capaRecorrido.value || !map || !googleRef)) {
+                _context12.n = 1;
+                break;
+              }
+              return _context12.a(2);
+            case 1:
+              algunaRecta = false;
+              _context12.n = 2;
+              return Promise.all(recorridos.value.map(/*#__PURE__*/function () {
+                var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(t) {
+                  var path, color, ruta, _t0;
+                  return _regenerator().w(function (_context11) {
+                    while (1) switch (_context11.n) {
+                      case 0:
+                        path = (t.traza || []).map(function (p) {
+                          return {
+                            lat: Number(p.lat),
+                            lng: Number(p.lng)
+                          };
+                        }).filter(function (p) {
+                          return Number.isFinite(p.lat) && Number.isFinite(p.lng);
+                        });
+                        if (!(!path.length || seq !== rutaSeq)) {
+                          _context11.n = 1;
+                          break;
+                        }
+                        return _context11.a(2);
+                      case 1:
+                        color = colorTecnico(t.tecnico_id);
+                        if (!(path.length > 1)) {
+                          _context11.n = 3;
+                          break;
+                        }
+                        _context11.n = 2;
+                        return rutaPorCalles(path);
+                      case 2:
+                        _t0 = _context11.v;
+                        _context11.n = 4;
+                        break;
+                      case 3:
+                        _t0 = {
+                          path: path,
+                          porCalles: true
+                        };
+                      case 4:
+                        ruta = _t0;
+                        if (!(seq !== rutaSeq || !capaRecorrido.value || !map)) {
+                          _context11.n = 5;
+                          break;
+                        }
+                        return _context11.a(2);
+                      case 5:
+                        if (path.length > 1 && !ruta.porCalles) algunaRecta = true;
+                        dibujarTrazo(t, ruta.path, color);
+                      case 6:
+                        return _context11.a(2);
+                    }
+                  }, _callee11);
+                }));
+                return function (_x7) {
+                  return _ref0.apply(this, arguments);
+                };
+              }()));
+            case 2:
+              if (!(seq !== rutaSeq || !capaRecorrido.value)) {
+                _context12.n = 3;
+                break;
+              }
+              return _context12.a(2);
+            case 3:
+              avisoRuta.value = algunaRecta ? 'No se pudo calzar alguna ruta sobre las calles. Esa línea une los puntos en recta.' : '';
+            case 4:
+              return _context12.a(2);
+          }
+        }, _callee12);
+      }));
+      return _syncRecorridoFiguras.apply(this, arguments);
     }
     function enfocarRecorrido(t) {
       if (!map || !googleRef) return;
@@ -21885,22 +22144,22 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _fetchRecorrido.apply(this, arguments);
     }
     function _fetchRecorrido() {
-      _fetchRecorrido = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-        var seq, url, res, data, payload, list, index, _t8;
-        return _regenerator().w(function (_context10) {
-          while (1) switch (_context10.p = _context10.n) {
+      _fetchRecorrido = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+        var seq, url, res, data, payload, list, index, _t1;
+        return _regenerator().w(function (_context13) {
+          while (1) switch (_context13.p = _context13.n) {
             case 0:
               if (props.urlRecorridos) {
-                _context10.n = 1;
+                _context13.n = 1;
                 break;
               }
               errorRecorrido.value = 'No está configurada la ruta de recorridos.';
-              return _context10.a(2);
+              return _context13.a(2);
             case 1:
               seq = ++recorridoSeq;
               url = "".concat(props.urlRecorridos, "?fecha=").concat(encodeURIComponent(fechaRecorrido.value));
-              _context10.p = 2;
-              _context10.n = 3;
+              _context13.p = 2;
+              _context13.n = 3;
               return fetch(url, {
                 headers: {
                   Accept: 'application/json',
@@ -21909,21 +22168,21 @@ var OFFLINE_MS = 5 * 60 * 1000;
                 credentials: 'same-origin'
               });
             case 3:
-              res = _context10.v;
-              _context10.n = 4;
+              res = _context13.v;
+              _context13.n = 4;
               return res.json().catch(function () {
                 return {};
               });
             case 4:
-              data = _context10.v;
+              data = _context13.v;
               if (!(seq !== recorridoSeq)) {
-                _context10.n = 5;
+                _context13.n = 5;
                 break;
               }
-              return _context10.a(2);
+              return _context13.a(2);
             case 5:
               if (!(!res.ok || data.success === false)) {
-                _context10.n = 6;
+                _context13.n = 6;
                 break;
               }
               throw new Error(data.message || 'No se pudo cargar el recorrido.');
@@ -21939,28 +22198,28 @@ var OFFLINE_MS = 5 * 60 * 1000;
               recorridoPorId = index;
               errorRecorrido.value = '';
               syncRecorridoFiguras();
-              _context10.n = 9;
+              _context13.n = 9;
               break;
             case 7:
-              _context10.p = 7;
-              _t8 = _context10.v;
+              _context13.p = 7;
+              _t1 = _context13.v;
               if (!(seq !== recorridoSeq)) {
-                _context10.n = 8;
+                _context13.n = 8;
                 break;
               }
-              return _context10.a(2);
+              return _context13.a(2);
             case 8:
-              errorRecorrido.value = _t8.message || 'No se pudo cargar el recorrido.';
+              errorRecorrido.value = _t1.message || 'No se pudo cargar el recorrido.';
             case 9:
-              return _context10.a(2);
+              return _context13.a(2);
           }
-        }, _callee10, null, [[2, 7]]);
+        }, _callee13, null, [[2, 7]]);
       }));
       return _fetchRecorrido.apply(this, arguments);
     }
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaTecnicos, syncTecnicosVisibility);
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaClientes, /*#__PURE__*/function () {
-      var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(on) {
+      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(on) {
         var _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
@@ -21988,12 +22247,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee, null, [[1, 3]]);
       }));
-      return function (_x2) {
-        return _ref2.apply(this, arguments);
+      return function (_x3) {
+        return _ref4.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaPedidos, /*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(on) {
+      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(on) {
         var _t2;
         return _regenerator().w(function (_context2) {
           while (1) switch (_context2.p = _context2.n) {
@@ -22021,12 +22280,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee2, null, [[1, 3]]);
       }));
-      return function (_x3) {
-        return _ref3.apply(this, arguments);
+      return function (_x4) {
+        return _ref5.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaTickets, /*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(on) {
+      var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(on) {
         var _t3;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.p = _context3.n) {
@@ -22054,12 +22313,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee3, null, [[1, 3]]);
       }));
-      return function (_x4) {
-        return _ref4.apply(this, arguments);
+      return function (_x5) {
+        return _ref6.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(capaRecorrido, /*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(on) {
+      var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(on) {
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.n) {
             case 0:
@@ -22068,10 +22327,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
                 break;
               }
               recorridoSeq += 1;
+              rutaSeq += 1;
               clearRecorridoFiguras();
               recorridos.value = [];
               recorridoPorId = {};
               errorRecorrido.value = '';
+              avisoRuta.value = '';
               syncRecorridoPoll();
               return _context4.a(2);
             case 1:
@@ -22084,8 +22345,8 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee4);
       }));
-      return function (_x5) {
-        return _ref5.apply(this, arguments);
+      return function (_x6) {
+        return _ref7.apply(this, arguments);
       };
     }());
     (0,vue__WEBPACK_IMPORTED_MODULE_0__.watch)(fechaRecorrido, /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
@@ -22202,6 +22463,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
       recorridos: recorridos,
       modoRecorrido: modoRecorrido,
       errorRecorrido: errorRecorrido,
+      avisoRuta: avisoRuta,
       satelite: satelite,
       COLORES_RECORRIDO: COLORES_RECORRIDO,
       tituloRecorrido: tituloRecorrido,
@@ -22302,6 +22564,25 @@ var OFFLINE_MS = 5 * 60 * 1000;
       set recorridoSeq(v) {
         recorridoSeq = v;
       },
+      get rutaSeq() {
+        return rutaSeq;
+      },
+      set rutaSeq(v) {
+        rutaSeq = v;
+      },
+      get rutasPorCalle() {
+        return rutasPorCalle;
+      },
+      set rutasPorCalle(v) {
+        rutasPorCalle = v;
+      },
+      get directionsService() {
+        return directionsService;
+      },
+      set directionsService(v) {
+        directionsService = v;
+      },
+      cacheRutas: cacheRutas,
       OFFLINE_MS: OFFLINE_MS,
       colorTecnico: colorTecnico,
       formatoDistancia: formatoDistancia,
@@ -22329,6 +22610,12 @@ var OFFLINE_MS = 5 * 60 * 1000;
       ensurePedidos: ensurePedidos,
       ensureTickets: ensureTickets,
       clearRecorridoFiguras: clearRecorridoFiguras,
+      distanciaMetros: distanciaMetros,
+      muestrearRuta: muestrearRuta,
+      partirRuta: partirRuta,
+      pedirTramo: pedirTramo,
+      rutaPorCalles: rutaPorCalles,
+      dibujarTrazo: dibujarTrazo,
       syncRecorridoFiguras: syncRecorridoFiguras,
       enfocarRecorrido: enfocarRecorrido,
       syncRecorridoPoll: syncRecorridoPoll,
@@ -22412,26 +22699,30 @@ var _hoisted_14 = {
 };
 var _hoisted_15 = {
   key: 0,
-  class: "mt-1 text-red-600 dark:text-red-300"
+  class: "mt-1 text-[11px] text-amber-700 dark:text-amber-300"
 };
 var _hoisted_16 = {
   key: 1,
+  class: "mt-1 text-red-600 dark:text-red-300"
+};
+var _hoisted_17 = {
+  key: 2,
   class: "mt-1 max-h-40 overflow-y-auto space-y-1"
 };
-var _hoisted_17 = ["onClick"];
-var _hoisted_18 = {
-  key: 2,
+var _hoisted_18 = ["onClick"];
+var _hoisted_19 = {
+  key: 3,
   class: "mt-1 text-gray-500 dark:text-gray-400"
 };
-var _hoisted_19 = {
+var _hoisted_20 = {
   key: 1,
   class: "absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 rounded-lg z-20"
 };
-var _hoisted_20 = {
+var _hoisted_21 = {
   key: 2,
   class: "absolute bottom-3 left-3 right-3 z-20 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-200"
 };
-var _hoisted_21 = {
+var _hoisted_22 = {
   key: 3,
   class: "absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg z-20 p-4"
 };
@@ -22488,7 +22779,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "button",
     class: "rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200",
     onClick: $setup.toggleSatelite
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.capaRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_12, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tituloRecorrido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.notaRecorrido), 1 /* TEXT */), $setup.errorRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorRecorrido), 1 /* TEXT */)) : $setup.recorridos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_16, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.recorridos, function (t) {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.capaRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_12, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_13, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tituloRecorrido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.notaRecorrido), 1 /* TEXT */), $setup.avisoRuta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.avisoRuta), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorRecorrido), 1 /* TEXT */)) : $setup.recorridos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_17, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.recorridos, function (t) {
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", {
       key: t.tecnico_id
     }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
@@ -22504,10 +22795,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       })
     }, null, 4 /* STYLE */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatoDistancia(t.distancia_m)), 1 /* TEXT */), t.visitas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.visitas) + " visitas", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 8 /* PROPS */, _hoisted_17)]);
-  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_18, "Sin recorrido en esa fecha."))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_19, _toConsumableArray(_cache[12] || (_cache[12] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.visitas) + " visitas", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 8 /* PROPS */, _hoisted_18)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_19, "Sin recorrido en esa fecha."))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_20, _toConsumableArray(_cache[12] || (_cache[12] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-gray-700 dark:text-gray-300 text-sm"
-  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_20, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_21, _toConsumableArray(_cache[13] || (_cache[13] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_22, _toConsumableArray(_cache[13] || (_cache[13] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-amber-800 dark:text-amber-200 text-center text-sm"
   }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
 }
