@@ -1049,7 +1049,7 @@
         <div class="noc-card-head border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div>
             <h2 class="noc-card-title text-base">Registro de actividad reciente</h2>
-            <p class="noc-card-sub">{{ registroSubtitulo }} · últimos 30</p>
+            <p class="noc-card-sub">{{ registroSubtitulo }}<template v-if="!senal"> · últimos 30</template></p>
           </div>
         </div>
 
@@ -1150,7 +1150,209 @@
           </div>
         </div>
 
-        <!-- Filtros de eventos -->
+        <div v-if="senal" class="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                {{ senal.etiqueta }} · {{ senalVentanaLabel }}
+              </p>
+              <p v-if="senalGrafico" class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                {{ senalGrafico.rango }}
+              </p>
+            </div>
+            <span
+              v-if="senalUltima"
+              class="senal-ahora"
+              :class="'senal-ahora--' + senalUltima.nivel"
+            >{{ senalUltima.dbm }} dBm</span>
+          </div>
+
+          <div class="senal-filtros">
+            <div class="senal-filtro">
+              <span id="senal-ventana" class="senal-filtro-k">Ventana</span>
+              <div class="senal-chips" role="group" aria-labelledby="senal-ventana">
+                <button
+                  v-for="v in senalVentanas"
+                  :key="v.id"
+                  type="button"
+                  class="senal-chip"
+                  :class="{ 'is-on': senalVentana === v.id }"
+                  :aria-pressed="senalVentana === v.id ? 'true' : 'false'"
+                  @click="elegirVentanaSenal(v.id)"
+                >
+                  {{ v.label }}
+                  <span class="senal-chip-n">{{ senalConteosVentana[v.id] }}</span>
+                </button>
+              </div>
+            </div>
+            <div class="senal-filtro">
+              <span id="senal-calidad" class="senal-filtro-k">Calidad</span>
+              <div class="senal-chips" role="group" aria-labelledby="senal-calidad">
+                <button
+                  type="button"
+                  class="senal-chip"
+                  :class="{ 'is-on': senalCalidad === 'todas' }"
+                  :aria-pressed="senalCalidad === 'todas' ? 'true' : 'false'"
+                  @click="elegirCalidadSenal('todas')"
+                >
+                  Todas
+                  <span class="senal-chip-n">{{ senalConteosCalidad.todas }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="senal-chip"
+                  :class="{ 'is-on': senalCalidad === 'atencion' }"
+                  :aria-pressed="senalCalidad === 'atencion' ? 'true' : 'false'"
+                  @click="elegirCalidadSenal('atencion')"
+                >
+                  Atención
+                  <span class="senal-chip-n">{{ senalConteosCalidad.atencion }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="senal-chip"
+                  :class="{ 'is-on': senalCalidad === 'critica' }"
+                  :aria-pressed="senalCalidad === 'critica' ? 'true' : 'false'"
+                  @click="elegirCalidadSenal('critica')"
+                >
+                  Crítica
+                  <span class="senal-chip-n">{{ senalConteosCalidad.critica }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="senalGrafico" class="senal-plot">
+            <p class="sr-only">Con el foco en el gráfico, las flechas izquierda y derecha recorren cada lectura.</p>
+            <div class="senal-stage">
+            <svg
+              class="senal-chart"
+              :viewBox="'0 0 ' + senalGrafico.w + ' ' + senalGrafico.h"
+              role="img"
+              :aria-label="senalAria"
+              tabindex="0"
+              @pointerdown="onSenalMove"
+              @pointermove="onSenalMove"
+              @pointerleave="onSenalLeave"
+              @keydown="onSenalKey"
+            >
+              <defs>
+                <linearGradient
+                  id="senal-area-fill"
+                  gradientUnits="userSpaceOnUse"
+                  x1="0"
+                  :y1="senalGrafico.plotTop"
+                  x2="0"
+                  :y2="senalGrafico.plotBottom"
+                >
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.55" />
+                  <stop offset="42%" stop-color="#2563eb" stop-opacity="0.22" />
+                  <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <line
+                v-for="(tick, idx) in senalGrafico.yTicks"
+                :key="'yg-' + idx"
+                class="senal-grid"
+                :x1="senalGrafico.plotLeft"
+                :x2="senalGrafico.plotRight"
+                :y1="tick.y"
+                :y2="tick.y"
+              />
+              <line
+                v-for="(tick, idx) in senalGrafico.xTicks"
+                :key="'xg-' + idx"
+                class="senal-grid"
+                :x1="tick.x"
+                :x2="tick.x"
+                :y1="senalGrafico.plotTop"
+                :y2="senalGrafico.plotBottom"
+              />
+              <text
+                v-for="(tick, idx) in senalGrafico.yTicks"
+                :key="'yl-' + idx"
+                :x="senalGrafico.plotLeft - 6"
+                :y="tick.y"
+                text-anchor="end"
+                dominant-baseline="middle"
+              >{{ tick.label }}</text>
+              <path
+                v-if="senalGrafico.area"
+                class="senal-area"
+                fill="url(#senal-area-fill)"
+                :d="senalGrafico.area"
+              />
+              <path
+                v-if="senalGrafico.path"
+                class="senal-line"
+                :d="senalGrafico.path"
+              />
+              <line
+                class="senal-umbral senal-umbral--atencion"
+                :x1="senalGrafico.plotLeft"
+                :x2="senalGrafico.plotRight"
+                :y1="senalGrafico.yAtencion"
+                :y2="senalGrafico.yAtencion"
+              />
+              <line
+                class="senal-umbral senal-umbral--critica"
+                :x1="senalGrafico.plotLeft"
+                :x2="senalGrafico.plotRight"
+                :y1="senalGrafico.yCritica"
+                :y2="senalGrafico.yCritica"
+              />
+              <text
+                v-for="(tick, idx) in senalGrafico.xTicks"
+                :key="'xl-' + idx"
+                :x="tick.x"
+                :y="senalGrafico.h - 6"
+                :text-anchor="tick.anchor"
+              >{{ tick.label }}</text>
+            </svg>
+            <div
+              v-if="senalCursor"
+              class="senal-cursor"
+              :class="{ 'is-flip': senalCursor.flip }"
+              :style="{
+                '--x': senalCursor.x + '%',
+                '--y': senalCursor.y + '%',
+                '--line-top': senalCursor.lineTop + '%',
+                '--line-h': senalCursor.lineH + '%',
+              }"
+            >
+              <span class="senal-cursor-line"></span>
+              <span class="senal-cursor-dot"></span>
+              <div class="senal-tip" role="tooltip">
+                <div class="senal-tip-row"><span>Fecha</span><strong>{{ senalCursor.fecha }}</strong></div>
+                <div class="senal-tip-row"><span>Hora</span><strong>{{ senalCursor.hora }}</strong></div>
+                <div class="senal-tip-row">
+                  <span>{{ senal.metrica === 'rssi' ? 'RSSI' : 'RX' }}</span>
+                  <strong class="senal-tip-rx">
+                    <svg v-if="senalCursor.tendencia === 'baja'" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M2.5 7.2 6 10.5l3.5-3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg v-else-if="senalCursor.tendencia === 'sube'" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10.5v-9M2.5 4.8 6 1.5l3.5 3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {{ senalCursor.dbm }} dBm
+                  </strong>
+                </div>
+              </div>
+            </div>
+            </div>
+            <p class="senal-leyenda">
+              <span class="senal-leyenda-item is-atencion">Atención ≤ {{ senal.atencion }} dBm</span>
+              <span class="senal-leyenda-item is-critica">Crítica ≤ {{ senal.critica }} dBm</span>
+            </p>
+            <div v-if="senalLectura" class="senal-lectura" aria-live="polite">
+              <span class="senal-lectura-k">{{ senalLecturaKicker }}</span>
+              <span class="senal-lectura-hora">{{ senalLectura.hora }}</span>
+              <span class="senal-lectura-dbm" :class="'is-' + senalLectura.nivel">{{ senalLectura.dbm }} dBm</span>
+              <span class="senal-lectura-nivel">{{ senalLectura.nivelLabel }}</span>
+              <span class="senal-lectura-meta">{{ senalLectura.meta }}</span>
+            </div>
+          </div>
+          <p v-else class="senal-vacio">No hay lecturas de señal en esta ventana. Ampliá el rango.</p>
+        </div>
+
+        <!-- Filtros de eventos (servicios sin serie de señal) -->
+        <template v-else>
         <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-gray-500 dark:text-gray-400 font-medium mr-1">Filtrar:</span>
@@ -1219,6 +1421,7 @@
             </tbody>
           </table>
         </div>
+        </template>
       </section>
 
       <p v-if="!compact" class="mt-4 text-xs text-gray-400 dark:text-gray-500">
@@ -1313,6 +1516,15 @@ const mikrotikMac = ref('');
 const eventsFilter = ref('todos');
 const eventsSearch = ref('');
 const pppoeEventosAbiertos = ref(false);
+const senalVentanas = [
+  { id: '6h', label: '6 h', ms: 6 * 60 * 60 * 1000 },
+  { id: '24h', label: '24 h', ms: 24 * 60 * 60 * 1000 },
+  { id: '7d', label: '7 días', ms: 7 * 24 * 60 * 60 * 1000 },
+  { id: '30d', label: '30 días', ms: 30 * 24 * 60 * 60 * 1000 },
+];
+const senalVentana = ref('24h');
+const senalCalidad = ref('todas');
+const senalHover = ref(null);
 
 const servicio = computed(() => payload.value?.servicio || {});
 const wifiBackup = computed(() => payload.value?.wifi_backup || null);
@@ -1395,10 +1607,100 @@ const filteredEventos = computed(() => {
   return list;
 });
 const registroSubtitulo = computed(() => {
-  if (esFibra.value) return 'Lecturas de señal óptica';
-  if (esAntena.value) return 'Lecturas de señal de la antena';
+  if (esFibra.value) return 'Señal óptica en el tiempo';
+  if (esAntena.value) return 'Señal de la antena en el tiempo';
   return 'Eventos de conexión';
 });
+const senal = computed(() => payload.value?.senal || null);
+const senalPuntos = computed(() => {
+  const raw = senal.value?.puntos || [];
+  return raw
+    .map((p) => ({ ...p, ms: Date.parse(p.t) }))
+    .filter((p) => Number.isFinite(p.ms) && Number.isFinite(Number(p.dbm)))
+    .sort((a, b) => a.ms - b.ms);
+});
+const senalConteosVentana = computed(() => {
+  const ahora = Date.now();
+  const out = {};
+  senalVentanas.forEach((v) => {
+    out[v.id] = senalPuntos.value.filter((p) => ahora - p.ms <= v.ms).length;
+  });
+  return out;
+});
+const senalEnVentana = computed(() => {
+  const v = senalVentanas.find((item) => item.id === senalVentana.value) || senalVentanas[1];
+  const corte = Date.now() - v.ms;
+  return senalPuntos.value.filter((p) => p.ms >= corte);
+});
+const senalConteosCalidad = computed(() => {
+  let atencion = 0;
+  let critica = 0;
+  senalEnVentana.value.forEach((p) => {
+    const nivel = nivelSenal(p.dbm);
+    if (nivel === 'critica') {
+      critica += 1;
+      atencion += 1;
+    } else if (nivel === 'atencion') {
+      atencion += 1;
+    }
+  });
+  return { todas: senalEnVentana.value.length, atencion, critica };
+});
+const senalGrafico = computed(() => construirSenalGrafico());
+const senalLecturaIndex = computed(() => {
+  const dots = senalGrafico.value?.dots || [];
+  const n = dots.length;
+  if (!n) return -1;
+  if (senalHover.value != null) return Math.max(0, Math.min(n - 1, senalHover.value));
+  for (let i = n - 1; i >= 0; i -= 1) {
+    if (!dots[i].dim) return i;
+  }
+  return n - 1;
+});
+const senalLectura = computed(() => {
+  const dots = senalGrafico.value?.dots;
+  if (!dots?.length || senalLecturaIndex.value < 0) return null;
+  return dots[senalLecturaIndex.value];
+});
+const senalCursor = computed(() => {
+  const g = senalGrafico.value;
+  const i = senalHover.value;
+  if (!g || i == null) return null;
+  const d = g.dots[i];
+  if (!d) return null;
+  const prev = i > 0 ? g.dots[i - 1] : null;
+  let tendencia = null;
+  if (prev && Number.isFinite(d.dbmNum) && Number.isFinite(prev.dbmNum)) {
+    const diff = d.dbmNum - prev.dbmNum;
+    if (Math.abs(diff) >= 0.05) tendencia = diff < 0 ? 'baja' : 'sube';
+  }
+  return {
+    x: (d.x / g.w) * 100,
+    y: (d.y / g.h) * 100,
+    lineTop: (g.plotTop / g.h) * 100,
+    lineH: ((g.plotBottom - g.plotTop) / g.h) * 100,
+    flip: d.x > g.w * 0.58,
+    fecha: d.fecha,
+    hora: d.horaCorta,
+    dbm: d.dbm,
+    tendencia,
+  };
+});
+const senalUltima = computed(() => {
+  const dots = senalGrafico.value?.dots;
+  if (!dots?.length) return null;
+  return dots[dots.length - 1];
+});
+const senalLecturaKicker = computed(() => {
+  if (senalHover.value != null) return 'Punto';
+  if (senalCalidad.value === 'critica') return 'Última crítica';
+  if (senalCalidad.value === 'atencion') return 'Última en atención';
+  return 'Última';
+});
+const senalVentanaLabel = computed(() => {
+  return senalVentanas.find((v) => v.id === senalVentana.value)?.label || '24 h';
+});
+const senalAria = computed(() => senalGrafico.value?.aria || 'Sin lecturas de señal en la ventana elegida');
 const tr069WifiEnabled = computed(() => {
   const list = tr069Resumen.value?.wifi;
   if (!Array.isArray(list)) return [];
@@ -1435,6 +1737,319 @@ function timelineSegClass(estado) {
   if (estado === 'down') return 'pppoe-timeline-seg--down';
   return 'pppoe-timeline-seg--unknown';
 }
+
+function nivelSenal(dbm) {
+  const serie = senal.value;
+  if (!serie) return 'ok';
+  const n = Number(dbm);
+  if (n <= Number(serie.critica)) return 'critica';
+  if (n <= Number(serie.atencion)) return 'atencion';
+  return 'ok';
+}
+
+function coincideCalidadSenal(nivel) {
+  if (senalCalidad.value === 'todas') return true;
+  if (senalCalidad.value === 'critica') return nivel === 'critica';
+  return nivel === 'atencion' || nivel === 'critica';
+}
+
+function fmtDbm(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '—';
+  return v.toFixed(2);
+}
+
+function fmtFechaHora(ms, modo) {
+  const d = new Date(ms);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  if (modo === 'eje-hora') return `${hh}:${mi}`;
+  if (modo === 'hora') return `${hh}:${mi}:${ss}`;
+  if (modo === 'fecha') return `${dd}/${mo}/${d.getFullYear()}`;
+  if (modo === 'eje-fecha' || modo === 'corto') return `${dd}/${mo} ${hh}:${mi}`;
+  return `${dd}/${mo}/${d.getFullYear()} ${hh}:${mi}:${ss}`;
+}
+
+function metaSenal(p) {
+  const partes = [];
+  if (p.pon) partes.push(`PON ${p.pon}`);
+  if (p.estado) partes.push(p.estado);
+  if (p.tx != null && p.tx !== '') partes.push(`TX ${fmtDbm(p.tx)} dBm`);
+  if (p.fuente) partes.push(p.fuente);
+  return partes.join(' · ') || '—';
+}
+
+function curvaSenal(dots) {
+  const n = dots.length;
+  if (n < 2) return '';
+  const fmt = (v) => v.toFixed(2);
+  const dx = [];
+  const slope = [];
+  for (let i = 0; i < n - 1; i += 1) {
+    dx[i] = dots[i + 1].x - dots[i].x;
+    slope[i] = dx[i] > 0.5 ? (dots[i + 1].y - dots[i].y) / dx[i] : 0;
+  }
+  const tan = new Array(n);
+  tan[0] = slope[0];
+  tan[n - 1] = slope[n - 2];
+  for (let i = 1; i < n - 1; i += 1) {
+    tan[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i += 1) {
+    if (Math.abs(slope[i]) < 1e-6) {
+      tan[i] = 0;
+      tan[i + 1] = 0;
+      continue;
+    }
+    const a = tan[i] / slope[i];
+    const b = tan[i + 1] / slope[i];
+    const h = (a * a) + (b * b);
+    if (h > 9) {
+      const t = 3 / Math.sqrt(h);
+      tan[i] = t * a * slope[i];
+      tan[i + 1] = t * b * slope[i];
+    }
+  }
+  let d = `M${fmt(dots[0].x)} ${fmt(dots[0].y)}`;
+  for (let i = 0; i < n - 1; i += 1) {
+    if (dx[i] <= 0.5) {
+      d += ` L${fmt(dots[i + 1].x)} ${fmt(dots[i + 1].y)}`;
+      continue;
+    }
+    const seg = dx[i] / 3;
+    const c1x = dots[i].x + seg;
+    const c1y = dots[i].y + tan[i] * seg;
+    const c2x = dots[i + 1].x - seg;
+    const c2y = dots[i + 1].y - tan[i + 1] * seg;
+    d += ` C${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(dots[i + 1].x)} ${fmt(dots[i + 1].y)}`;
+  }
+  return d;
+}
+
+function escalaSenal(metrica) {
+  if (metrica === 'rssi') {
+    return { min: -90, max: -35, ticks: [-90, -80, -70, -60, -50, -35] };
+  }
+  if (metrica === 'rx') {
+    return { min: -33, max: -7, ticks: [-33, -28, -23, -18, -13, -7] };
+  }
+  return null;
+}
+
+function construirSenalGrafico() {
+  const serie = senal.value;
+  const puntos = senalEnVentana.value;
+  if (!serie || !puntos.length) return null;
+
+  const w = 640;
+  const h = 196;
+  const pad = { l: 46, r: 16, t: 14, b: 24 };
+  const plotLeft = pad.l;
+  const plotRight = w - pad.r;
+  const plotTop = pad.t;
+  const plotBottom = h - pad.b;
+  const plotW = plotRight - plotLeft;
+  const plotH = plotBottom - plotTop;
+
+  const valores = puntos.map((p) => Number(p.dbm));
+  const atencion = Number(serie.atencion);
+  const critica = Number(serie.critica);
+  const escala = escalaSenal(serie.metrica);
+  let min = escala ? escala.min : -33;
+  let max = escala ? escala.max : -7;
+  if (!escala) {
+    min = Math.min(...valores, critica);
+    max = Math.max(...valores, atencion);
+    if (max - min < 1) {
+      min -= 1;
+      max += 1;
+    }
+    const padY = Math.max(0.6, (max - min) * 0.14);
+    min -= padY;
+    max += padY;
+  }
+  const span = max - min || 1;
+
+  const yOf = (dbm) => (escala
+    ? plotTop + ((dbm - min) / span) * plotH
+    : plotBottom - ((dbm - min) / span) * plotH);
+  const clampY = (y) => Math.max(plotTop, Math.min(plotBottom, y));
+
+  let x0 = puntos[0].ms;
+  let x1 = puntos[puntos.length - 1].ms;
+  if (x1 - x0 < 60 * 1000) {
+    x0 -= 30 * 60 * 1000;
+    x1 += 30 * 60 * 1000;
+  }
+  const xSpan = x1 - x0 || 1;
+  const xOf = (ms) => plotLeft + 6 + ((ms - x0) / xSpan) * (plotW - 12);
+
+  const nivelLabel = { ok: 'Buena', atencion: 'Atención', critica: 'Crítica' };
+  const dots = puntos.map((p) => {
+    const nivel = nivelSenal(p.dbm);
+    return {
+      x: xOf(p.ms),
+      y: clampY(yOf(Number(p.dbm))),
+      dbm: fmtDbm(p.dbm),
+      dbmNum: Number(p.dbm),
+      nivel,
+      nivelLabel: nivelLabel[nivel],
+      hora: fmtFechaHora(p.ms, 'full'),
+      fecha: fmtFechaHora(p.ms, 'fecha'),
+      horaCorta: fmtFechaHora(p.ms, 'hora'),
+      meta: metaSenal(p),
+      dim: !coincideCalidadSenal(nivel),
+    };
+  });
+
+  const path = curvaSenal(dots);
+  let area = '';
+  if (dots.length >= 2) {
+    const last = dots[dots.length - 1];
+    const first = dots[0];
+    area = `${path} L${last.x.toFixed(1)} ${plotBottom.toFixed(1)} L${first.x.toFixed(1)} ${plotBottom.toFixed(1)} Z`;
+  }
+
+  const yTicks = [];
+  const marcasY = escala ? escala.ticks : null;
+  if (marcasY) {
+    marcasY.forEach((value) => {
+      yTicks.push({ y: yOf(value), label: String(value) });
+    });
+  } else {
+    for (let i = 0; i < 4; i += 1) {
+      const value = min + (span * i) / 3;
+      yTicks.push({
+        y: yOf(value),
+        label: span >= 12 ? value.toFixed(0) : value.toFixed(1),
+      });
+    }
+  }
+
+  const conFecha = xSpan > 36 * 60 * 60 * 1000;
+  const xTicks = [];
+  for (let i = 0; i < 4; i += 1) {
+    const ms = x0 + (xSpan * i) / 3;
+    xTicks.push({
+      x: xOf(ms),
+      label: fmtFechaHora(ms, conFecha ? 'eje-fecha' : 'eje-hora'),
+      anchor: i === 0 ? 'start' : (i === 3 ? 'end' : 'middle'),
+    });
+  }
+
+  const yAtencion = clampY(yOf(atencion));
+  const yCritica = clampY(yOf(critica));
+
+  const peor = Math.min(...valores);
+  const ultima = puntos[puntos.length - 1];
+
+  return {
+    w,
+    h,
+    plotLeft,
+    plotRight,
+    plotTop,
+    plotBottom,
+    path,
+    area,
+    dots,
+    yTicks,
+    xTicks,
+    bandaAtencion: escala
+      ? { y: yCritica, h: Math.max(1, yAtencion - yCritica) }
+      : {
+        y: Math.min(yAtencion, yCritica),
+        h: Math.max(1, Math.abs(yCritica - yAtencion)),
+      },
+    bandaCritica: escala
+      ? { y: plotTop, h: Math.max(1, yCritica - plotTop) }
+      : { y: yCritica, h: Math.max(1, plotBottom - yCritica) },
+    yAtencion,
+    yCritica,
+    rango: `${fmtFechaHora(puntos[0].ms, 'corto')} → ${fmtFechaHora(puntos[puntos.length - 1].ms, 'corto')} · peor ${fmtDbm(peor)} dBm`,
+    nivel: nivelSenal(ultima.dbm),
+    aria: `${serie.etiqueta}, ${puntos.length} lecturas, última ${fmtDbm(ultima.dbm)} dBm, peor ${fmtDbm(peor)} dBm`,
+  };
+}
+
+function elegirVentanaSenal(id) {
+  senalVentana.value = id;
+  senalHover.value = null;
+}
+
+function elegirCalidadSenal(id) {
+  senalCalidad.value = id;
+  senalHover.value = null;
+}
+
+function onSenalMove(ev) {
+  const g = senalGrafico.value;
+  if (!g || !g.dots.length) return;
+  const rect = ev.currentTarget.getBoundingClientRect();
+  if (!rect.width) return;
+  const x = ((ev.clientX - rect.left) / rect.width) * g.w;
+  if (x < g.plotLeft - 8 || x > g.plotRight + 8) return;
+  let best = 0;
+  let bestD = Infinity;
+  g.dots.forEach((d, i) => {
+    const dist = Math.abs(d.x - x);
+    if (dist < bestD) {
+      bestD = dist;
+      best = i;
+    }
+  });
+  senalHover.value = best;
+}
+
+function onSenalLeave() {
+  senalHover.value = null;
+}
+
+function onSenalKey(ev) {
+  const n = senalGrafico.value?.dots.length || 0;
+  if (!n) return;
+  const cur = senalHover.value == null ? n - 1 : senalHover.value;
+  if (ev.key === 'ArrowRight') {
+    ev.preventDefault();
+    senalHover.value = Math.min(n - 1, cur + 1);
+  } else if (ev.key === 'ArrowLeft') {
+    ev.preventDefault();
+    senalHover.value = Math.max(0, cur - 1);
+  } else if (ev.key === 'Home') {
+    ev.preventDefault();
+    senalHover.value = 0;
+  } else if (ev.key === 'End') {
+    ev.preventDefault();
+    senalHover.value = n - 1;
+  }
+}
+
+function ventanaInicialSenal(puntos) {
+  const ahora = Date.now();
+  const list = Array.isArray(puntos) ? puntos : [];
+  for (let i = 0; i < senalVentanas.length; i += 1) {
+    const v = senalVentanas[i];
+    const n = list.filter((p) => {
+      const ms = Date.parse(p.t);
+      return Number.isFinite(ms) && ahora - ms <= v.ms;
+    }).length;
+    if (n >= 2) return v.id;
+  }
+  return list.length ? '30d' : '24h';
+}
+
+watch(
+  () => payload.value?.servicio?.servicio_id,
+  () => {
+    senalVentana.value = ventanaInicialSenal(payload.value?.senal?.puntos);
+    senalCalidad.value = 'todas';
+    senalHover.value = null;
+  },
+  { immediate: true },
+);
 
 function csrfToken() {
   return payload.value?.csrf

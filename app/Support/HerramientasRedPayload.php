@@ -117,6 +117,7 @@ class HerramientasRedPayload
             'ultima_antena' => self::serializarAntena($ultimaAntena),
             'wifi_backup' => app(PortalClienteAccionService::class)->backupWifiParaServicio((int) $servicio->servicio_id),
             'timeline' => self::serializarTimeline($timeline),
+            'senal' => self::serieSenal($servicio, $esFibra, $esAntena),
             'eventos' => $conexionEventos->map(fn (ServicioConexionEvento $ev) => self::serializarEvento($ev))->values()->all(),
         ];
     }
@@ -266,6 +267,69 @@ class HerramientasRedPayload
             'sin_datos_pct' => $timeline['sin_datos_pct'] ?? 0,
             'segmentos' => $segmentos,
             'marcas' => $timeline['marcas'] ?? [],
+        ];
+    }
+
+    /**
+     * Serie de señal para el gráfico (últimas lecturas en 30 días).
+     * Fibra: RX de la ONU. Antena: RSSI. Umbrales en dBm (más negativo = peor).
+     *
+     * @return array{metrica: string, etiqueta: string, unidad: string, atencion: float, critica: float, puntos: list<array<string, mixed>>}|null
+     */
+    private static function serieSenal(Servicio $servicio, bool $esFibra, bool $esAntena): ?array
+    {
+        if ($esFibra) {
+            $tipo = ServicioConexionEvento::TIPO_SENAL_OPTICA;
+            $metrica = 'rx';
+            $etiqueta = 'RX óptica';
+            $atencion = -25.0;
+            $critica = -28.0;
+        } elseif ($esAntena) {
+            $tipo = ServicioConexionEvento::TIPO_SENAL_ANTENA;
+            $metrica = 'rssi';
+            $etiqueta = 'Señal';
+            $atencion = -70.0;
+            $critica = -80.0;
+        } else {
+            return null;
+        }
+
+        $filas = ServicioConexionEvento::query()
+            ->where('servicio_id', $servicio->servicio_id)
+            ->where('tipo', $tipo)
+            ->where('ocurrio_at', '>=', now()->subDays(30))
+            ->orderByDesc('ocurrio_at')
+            ->orderByDesc('servicio_conexion_evento_id')
+            ->limit(1500)
+            ->get()
+            ->reverse()
+            ->values();
+
+        $puntos = [];
+        foreach ($filas as $ev) {
+            $dbm = $esFibra ? $ev->rx_power_dbm : $ev->antena_signal_dbm;
+            if ($dbm === null || $ev->ocurrio_at === null) {
+                continue;
+            }
+            $puntos[] = [
+                't' => $ev->ocurrio_at->toIso8601String(),
+                'dbm' => round((float) $dbm, 2),
+                'tx' => $esFibra && $ev->tx_power_dbm !== null ? round((float) $ev->tx_power_dbm, 2) : null,
+                'estado' => $esFibra ? ($ev->onu_estado ?: null) : null,
+                'pon' => ($ev->pon_port !== null && $ev->onu_index !== null)
+                    ? $ev->pon_port.':'.$ev->onu_index
+                    : null,
+                'fuente' => $ev->etiquetaFuente(),
+            ];
+        }
+
+        return [
+            'metrica' => $metrica,
+            'etiqueta' => $etiqueta,
+            'unidad' => 'dBm',
+            'atencion' => $atencion,
+            'critica' => $critica,
+            'puntos' => $puntos,
         ];
     }
 
