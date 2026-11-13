@@ -10,6 +10,7 @@ if (el) {
     apiKey: cfg.apiKey || '',
     urlUbicaciones: cfg.urlUbicaciones || '',
     urlRecorridos: cfg.urlRecorridos || '',
+    urlAjusteRecorrido: cfg.urlAjusteRecorrido || '',
     urlClientes: cfg.urlClientes || '',
     urlPedidos: cfg.urlPedidos || '',
     urlTickets: cfg.urlTickets || '',

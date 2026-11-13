@@ -2,8 +2,10 @@
 
 namespace App\Services\Staff;
 
+use App\Models\StaffRecorridoAjuste;
 use App\Models\StaffRecorridoPunto;
 use App\Models\StaffRecorridoResumen;
+use App\Models\User;
 use App\Support\StaffRecorridoGeometria;
 use Carbon\Carbon;
 use DateTimeInterface;
@@ -82,7 +84,7 @@ class StaffRecorridoService
                 return [
                     'modo' => 'resumen',
                     'fecha' => $inicio->toDateString(),
-                    'tecnicos' => $this->ordenar($tecnicos),
+                    'tecnicos' => $this->aplicarAjustes($inicio->toDateString(), $this->ordenar($tecnicos)),
                 ];
             }
         }
@@ -90,7 +92,7 @@ class StaffRecorridoService
         return [
             'modo' => 'puntos',
             'fecha' => $inicio->toDateString(),
-            'tecnicos' => $this->ordenar($this->tecnicosDesdePuntos($inicio, $fin)),
+            'tecnicos' => $this->aplicarAjustes($inicio->toDateString(), $this->ordenar($this->tecnicosDesdePuntos($inicio, $fin))),
         ];
     }
 
@@ -304,7 +306,90 @@ class StaffRecorridoService
                 is_array($resumen['traza'] ?? null) ? $resumen['traza'] : [],
                 fn ($p) => is_array($p) && isset($p['lat'], $p['lng'])
             )),
+            'manual' => false,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $tecnicos
+     * @return list<array<string, mixed>>
+     */
+    private function aplicarAjustes(string $fecha, array $tecnicos): array
+    {
+        $ajustes = StaffRecorridoAjuste::query()
+            ->whereDate('fecha', $fecha)
+            ->get()
+            ->keyBy('usuario_id');
+
+        foreach ($tecnicos as $i => $tecnico) {
+            $ajuste = $ajustes->get($tecnico['tecnico_id']);
+            $traza = is_array($ajuste?->traza) ? $ajuste->traza : [];
+            if (count($traza) < 2) {
+                continue;
+            }
+            $tecnicos[$i]['traza'] = array_values($traza);
+            $tecnicos[$i]['manual'] = true;
+        }
+
+        return $tecnicos;
+    }
+
+    /**
+     * @param  list<array{lat: float|int|string, lng: float|int|string}>  $traza
+     */
+    public function guardarAjuste(int $usuarioId, string $fecha, array $traza): void
+    {
+        $this->validarFechaAjuste($fecha);
+        if (! User::query()->where('usuario_id', $usuarioId)->exists()) {
+            throw new InvalidArgumentException('El técnico no existe.');
+        }
+
+        $limpia = [];
+        foreach ($traza as $punto) {
+            if (! is_array($punto) || ! isset($punto['lat'], $punto['lng'])) {
+                continue;
+            }
+            $lat = round((float) $punto['lat'], 6);
+            $lng = round((float) $punto['lng'], 6);
+            if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+                continue;
+            }
+            if (abs($lat) < 0.01 && abs($lng) < 0.01) {
+                continue;
+            }
+            $limpia[] = ['lat' => $lat, 'lng' => $lng];
+        }
+        if (count($limpia) < 2) {
+            throw new InvalidArgumentException('La ruta necesita al menos dos puntos.');
+        }
+        if (count($limpia) > 400) {
+            $limpia = StaffRecorridoGeometria::simplificar($limpia, 30, 400);
+        }
+
+        StaffRecorridoAjuste::query()->updateOrCreate(
+            ['usuario_id' => $usuarioId, 'fecha' => $fecha],
+            ['traza' => $limpia]
+        );
+    }
+
+    public function borrarAjuste(int $usuarioId, string $fecha): void
+    {
+        $this->validarFechaAjuste($fecha);
+        StaffRecorridoAjuste::query()
+            ->where('usuario_id', $usuarioId)
+            ->whereDate('fecha', $fecha)
+            ->delete();
+    }
+
+    private function validarFechaAjuste(string $fecha): void
+    {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            throw new InvalidArgumentException('Fecha inválida. Usá AAAA-MM-DD.');
+        }
+        $dia = Carbon::createFromFormat('Y-m-d', $fecha);
+        if ($dia === false || $dia->format('Y-m-d') !== $fecha || $dia->toDateString() > now()->toDateString()) {
+            throw new InvalidArgumentException('La fecha no es válida.');
+        }
     }
 
     /**

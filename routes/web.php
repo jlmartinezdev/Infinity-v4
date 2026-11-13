@@ -223,6 +223,8 @@ Route::middleware(['auth', 'flota.staff'])->group(function () {
     Route::get('/staff/mapa-tecnicos', [StaffMapaController::class, 'index'])->name('staff.mapa-tecnicos');
     Route::get('/staff/mapa-tecnicos/ubicaciones', [StaffMapaController::class, 'ubicaciones'])->name('staff.mapa-tecnicos.ubicaciones');
     Route::get('/staff/mapa-tecnicos/recorridos', [StaffMapaController::class, 'recorridos'])->name('staff.mapa-tecnicos.recorridos');
+    Route::post('/staff/mapa-tecnicos/recorridos/ajuste', [StaffMapaController::class, 'guardarAjuste'])->name('staff.mapa-tecnicos.recorridos.ajuste');
+    Route::delete('/staff/mapa-tecnicos/recorridos/ajuste', [StaffMapaController::class, 'borrarAjuste'])->name('staff.mapa-tecnicos.recorridos.ajuste.borrar');
     Route::get('/staff/mapa-tecnicos/clientes', [StaffMapaController::class, 'clientes'])->name('staff.mapa-tecnicos.clientes');
     Route::get('/staff/mapa-tecnicos/pedidos', [StaffMapaController::class, 'pedidos'])->name('staff.mapa-tecnicos.pedidos');
     Route::get('/staff/mapa-tecnicos/tickets', [StaffMapaController::class, 'tickets'])->name('staff.mapa-tecnicos.tickets');

@@ -53,7 +53,20 @@
       </div>
     </div>
 
-    <div v-if="capaRecorrido" class="absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
+    <div v-if="capaRecorrido && editando" class="absolute bottom-3 left-3 z-10 w-72 pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
+      <div class="font-semibold text-gray-900 dark:text-gray-100">Editar ruta · {{ editando.nombre }}</div>
+      <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Arrastrá un punto para corregir el desvío. Un clic en el mapa agrega un punto en el tramo más cercano.</p>
+      <p v-if="errorEdicion" class="mt-1 text-red-600 dark:text-red-300">{{ errorEdicion }}</p>
+      <div class="mt-2 flex flex-wrap gap-1">
+        <button type="button" class="rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1" @click="alternarCallesEdicion">{{ editando.porCalles ? 'Por calles' : 'Línea recta' }}</button>
+        <button type="button" class="rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 disabled:opacity-40" :disabled="verticeActivo == null || editando.vertices.length <= 2" @click="quitarVertice">Quitar punto</button>
+        <button type="button" class="rounded-md bg-emerald-600 text-white px-2 py-1 disabled:opacity-50" :disabled="guardandoRuta" @click="guardarEdicion">{{ guardandoRuta ? 'Guardando…' : 'Guardar' }}</button>
+        <button type="button" class="rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1" @click="restaurarRuta">Automático</button>
+        <button type="button" class="rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1" @click="cancelarEdicion">Cancelar</button>
+      </div>
+    </div>
+
+    <div v-else-if="capaRecorrido" class="absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
       <div class="font-semibold text-gray-900 dark:text-gray-100">{{ tituloRecorrido }}</div>
       <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ notaRecorrido }}</p>
       <p v-if="avisoRuta" class="mt-1 text-[11px] text-amber-700 dark:text-amber-300">{{ avisoRuta }}</p>
@@ -66,6 +79,17 @@
           <button type="button" class="flex items-center gap-1.5 text-left min-w-0 flex-1 hover:underline" :class="recorridoVisible(t.tecnico_id) ? '' : 'opacity-45'" @click="enfocarRecorrido(t)">
             <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: colorTecnico(t.tecnico_id) }"></span>
             <span class="truncate">{{ t.nombre }} · {{ formatoDistancia(t.distancia_m) }}<template v-if="t.visitas"> · {{ t.visitas }} visitas</template></span>
+          </button>
+          <button
+            type="button"
+            class="shrink-0 rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+            title="Editar ruta"
+            @click="empezarEdicion(t)"
+          >
+            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z" />
+            </svg>
           </button>
           <button
             type="button"
@@ -115,6 +139,7 @@ const props = defineProps({
   apiKey: { type: String, default: '' },
   urlUbicaciones: { type: String, required: true },
   urlRecorridos: { type: String, default: '' },
+  urlAjusteRecorrido: { type: String, default: '' },
   urlClientes: { type: String, default: '' },
   urlPedidos: { type: String, default: '' },
   urlTickets: { type: String, default: '' },
@@ -142,6 +167,10 @@ const errorRecorrido = ref('');
 const avisoRuta = ref('');
 const filtroTecnico = ref('');
 const recorridosOcultos = ref({});
+const editando = ref(null);
+const verticeActivo = ref(null);
+const guardandoRuta = ref(false);
+const errorEdicion = ref('');
 const satelite = ref(false);
 
 const COLORES_RECORRIDO = [
@@ -182,6 +211,11 @@ let recorridoSeq = 0;
 let rutaSeq = 0;
 let rutasPorCalle = true;
 let directionsService = null;
+let editLine = null;
+let editMarkers = [];
+let editClick = null;
+let editTimer = null;
+let dibujoEdicion = [];
 const cacheRutas = new Map();
 const OFFLINE_MS = 5 * 60 * 1000;
 
@@ -603,36 +637,131 @@ function muestrearRuta(path, minMetros = 120, maxPuntos = 49) {
   return out;
 }
 
-function partirRuta(path, tamano = 25) {
-  if (path.length <= tamano) return [path];
-  const trozos = [];
-  let i = 0;
-  while (i < path.length - 1) {
-    const fin = Math.min(i + tamano - 1, path.length - 1);
-    trozos.push(path.slice(i, fin + 1));
-    i = fin;
+function largoTrazo(path) {
+  let metros = 0;
+  for (let i = 1; i < path.length; i += 1) metros += distanciaMetros(path[i - 1], path[i]);
+  return metros;
+}
+
+function tramoRazonable(road, desde, hasta) {
+  const recta = distanciaMetros(desde, hasta);
+  const ruta = largoTrazo(road);
+  if (!(ruta < 80000) || !road.length) return false;
+  if (distanciaMetros(road[0], desde) > 400) return false;
+  if (distanciaMetros(road[road.length - 1], hasta) > 400) return false;
+  if (recta < 80) return ruta < 450;
+  if (ruta > recta * 2.2 && ruta - recta > 800) return false;
+  const tope = Math.max(500, recta * 0.7);
+  const paso = Math.max(1, Math.floor(road.length / 12));
+  for (let i = 0; i < road.length; i += paso) {
+    if (distanciaASegmento(road[i], desde, hasta) > tope) return false;
   }
-  return trozos;
+  return true;
+}
+
+function esPuntaYRetorno(origen, punta, regreso) {
+  if (!regreso) return false;
+  const ida = distanciaMetros(origen, punta);
+  const vuelta = distanciaMetros(punta, regreso);
+  const cierre = distanciaMetros(origen, regreso);
+  if (ida < 70 || vuelta < 70) return false;
+  return cierre <= 90 || (cierre < ida * 0.45 && cierre < vuelta * 0.45);
+}
+
+function anexarCamino(destino, camino) {
+  if (!camino?.length) return;
+  const inicio = destino.length && distanciaMetros(destino[destino.length - 1], camino[0]) < 8 ? 1 : 0;
+  for (let i = inicio; i < camino.length; i += 1) destino.push(camino[i]);
+}
+
+function caminoDeLegs(legs) {
+  const road = [];
+  (legs || []).forEach((leg) => {
+    (leg.steps || []).forEach((step) => {
+      (step.path || []).forEach((ll) => road.push({ lat: ll.lat(), lng: ll.lng() }));
+    });
+  });
+  return road;
+}
+
+function recortarTramo(seg, desde, hasta) {
+  if (!seg || seg.length < 2) return [desde, hasta];
+  let i0 = 0;
+  let mejor0 = Infinity;
+  for (let i = 0; i < seg.length; i += 1) {
+    const d = distanciaMetros(seg[i], desde);
+    if (d < mejor0) {
+      mejor0 = d;
+      i0 = i;
+    }
+    if (d <= 30 && i > 0) break;
+  }
+  let i1 = i0;
+  let mejor1 = Infinity;
+  for (let i = i0; i < seg.length; i += 1) {
+    const d = distanciaMetros(seg[i], hasta);
+    if (d < mejor1) {
+      mejor1 = d;
+      i1 = i;
+    }
+    if (d <= 40 && i > i0) break;
+  }
+  const cortado = seg.slice(i0, Math.max(i0, i1) + 1).map((p) => ({ lat: p.lat, lng: p.lng }));
+  if (cortado.length < 2) return [{ lat: desde.lat, lng: desde.lng }, { lat: hasta.lat, lng: hasta.lng }];
+  cortado[0] = { lat: desde.lat, lng: desde.lng };
+  cortado[cortado.length - 1] = { lat: hasta.lat, lng: hasta.lng };
+  return cortado;
+}
+
+function pedirPar(desde, hasta) {
+  if (!rutasPorCalle) return Promise.resolve(null);
+  if (!directionsService) directionsService = new googleRef.maps.DirectionsService();
+  return new Promise((resolve) => {
+    directionsService.route({
+      origin: desde,
+      destination: hasta,
+      travelMode: googleRef.maps.TravelMode.DRIVING,
+      region: 'py',
+    }, (result, status) => {
+      if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') rutasPorCalle = false;
+      const seg = status === 'OK' ? caminoDeLegs(result?.routes?.[0]?.legs) : [];
+      if (seg.length > 1 && tramoRazonable(seg, desde, hasta)) resolve(recortarTramo(seg, desde, hasta));
+      else resolve([{ lat: desde.lat, lng: desde.lng }, { lat: hasta.lat, lng: hasta.lng }]);
+    });
+  });
 }
 
 function pedirTramo(trozo) {
+  if (!rutasPorCalle || trozo.length < 2) return Promise.resolve(null);
+  if (trozo.length === 2) return pedirPar(trozo[0], trozo[1]);
   if (!directionsService) directionsService = new googleRef.maps.DirectionsService();
   const request = {
     origin: trozo[0],
     destination: trozo[trozo.length - 1],
-    waypoints: trozo.slice(1, -1).map((p) => ({ location: p, stopover: false })),
+    waypoints: trozo.slice(1, -1).map((p) => ({ location: p, stopover: true })),
     travelMode: googleRef.maps.TravelMode.DRIVING,
     optimizeWaypoints: false,
     region: 'py',
   };
   return new Promise((resolve) => {
     directionsService.route(request, (result, status) => {
-      if (status === 'MAX_WAYPOINTS_EXCEEDED' && trozo.length > 4) {
+      const partir = () => {
         const medio = Math.ceil(trozo.length / 2);
         Promise.all([
           pedirTramo(trozo.slice(0, medio)),
           pedirTramo(trozo.slice(medio - 1)),
-        ]).then(([a, b]) => resolve(a && b ? a.concat(b) : null));
+        ]).then(([a, b]) => {
+          if (!a || !b) {
+            resolve(null);
+            return;
+          }
+          const unido = a.slice();
+          anexarCamino(unido, b);
+          resolve(unido);
+        });
+      };
+      if ((status === 'MAX_WAYPOINTS_EXCEEDED' || status === 'ZERO_RESULTS' || status === 'NOT_FOUND') && trozo.length > 3) {
+        partir();
         return;
       }
       if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') rutasPorCalle = false;
@@ -640,11 +769,35 @@ function pedirTramo(trozo) {
         resolve(null);
         return;
       }
+      const puntos = trozo;
+      const legs = result.routes[0].legs || [];
+      if (legs.length !== puntos.length - 1) {
+        if (trozo.length > 3) {
+          partir();
+          return;
+        }
+        const road = caminoDeLegs(legs);
+        resolve(road.length > 1 ? recortarTramo(road, puntos[0], puntos[puntos.length - 1]) : null);
+        return;
+      }
       const road = [];
-      result.routes[0].legs.forEach((leg) => {
-        leg.steps.forEach((step) => {
-          (step.path || []).forEach((ll) => road.push({ lat: ll.lat(), lng: ll.lng() }));
-        });
+      let previo = null;
+      legs.forEach((leg, i) => {
+        const desde = puntos[i];
+        const hasta = puntos[i + 1];
+        const seg = caminoDeLegs([leg]);
+        let camino;
+        if (i > 0 && previo?.length > 1 && esPuntaYRetorno(puntos[i - 1], desde, hasta)) {
+          camino = previo.slice().reverse();
+          camino[0] = { lat: desde.lat, lng: desde.lng };
+          camino[camino.length - 1] = { lat: hasta.lat, lng: hasta.lng };
+        } else if (seg.length > 1 && tramoRazonable(seg, desde, hasta)) {
+          camino = recortarTramo(seg, desde, hasta);
+        } else {
+          camino = [{ lat: desde.lat, lng: desde.lng }, { lat: hasta.lat, lng: hasta.lng }];
+        }
+        anexarCamino(road, camino);
+        previo = camino;
       });
       resolve(road.length > 1 ? road : null);
     });
@@ -658,11 +811,31 @@ async function rutaPorCalles(path) {
   if (cacheRutas.has(firma)) return { path: cacheRutas.get(firma), porCalles: true };
   try {
     const unido = [];
-    for (const trozo of partirRuta(muestra)) {
-      const road = await pedirTramo(trozo);
+    let i = 0;
+    while (i < muestra.length - 1) {
+      if (!rutasPorCalle) return { path, porCalles: false };
+      if (i + 2 < muestra.length && esPuntaYRetorno(muestra[i], muestra[i + 1], muestra[i + 2])) {
+        const ida = await pedirPar(muestra[i], muestra[i + 1]);
+        if (!ida) return { path, porCalles: false };
+        anexarCamino(unido, ida);
+        const vuelta = ida.map((p) => ({ lat: p.lat, lng: p.lng })).reverse();
+        vuelta[0] = { lat: muestra[i + 1].lat, lng: muestra[i + 1].lng };
+        vuelta[vuelta.length - 1] = { lat: muestra[i + 2].lat, lng: muestra[i + 2].lng };
+        anexarCamino(unido, vuelta);
+        i += 2;
+        continue;
+      }
+      let j = i + 1;
+      while (j < muestra.length - 1 && !(j + 2 < muestra.length && esPuntaYRetorno(muestra[j], muestra[j + 1], muestra[j + 2]))) {
+        j += 1;
+        if (j - i >= 24) break;
+      }
+      const road = await pedirTramo(muestra.slice(i, j + 1));
       if (!road) return { path, porCalles: false };
-      unido.push(...road);
+      anexarCamino(unido, road);
+      i = j;
     }
+    if (unido.length < 2) return { path, porCalles: false };
     cacheRutas.set(firma, unido);
     return { path: unido, porCalles: true };
   } catch {
@@ -703,6 +876,235 @@ function dibujarTrazo(item, path, color) {
   figurasRecorrido.push(poly);
 }
 
+function iconoVertice(color, activo) {
+  const s = activo ? 18 : 14;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><circle cx="${s / 2}" cy="${s / 2}" r="${(s / 2) - 2}" fill="${color}" stroke="#fff" stroke-width="2"/></svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new googleRef.maps.Size(s, s),
+    anchor: new googleRef.maps.Point(s / 2, s / 2),
+  };
+}
+
+function distanciaASegmento(p, a, b) {
+  const lat0 = (a.lat * Math.PI) / 180;
+  const x = (q) => ((q.lng - a.lng) * Math.PI) / 180 * Math.cos(lat0) * 6371000;
+  const y = (q) => ((q.lat - a.lat) * Math.PI) / 180 * 6371000;
+  const px = x(p);
+  const py = y(p);
+  const bx = x(b);
+  const by = y(b);
+  const len2 = bx * bx + by * by;
+  if (len2 < 1) return Math.hypot(px, py);
+  const t = Math.max(0, Math.min(1, (px * bx + py * by) / len2));
+  return Math.hypot(px - t * bx, py - t * by);
+}
+
+function limpiarEdicion() {
+  if (editTimer) clearTimeout(editTimer);
+  editTimer = null;
+  if (editClick) googleRef?.maps?.event?.removeListener(editClick);
+  editClick = null;
+  editMarkers.forEach((m) => m.setMap(null));
+  editMarkers = [];
+  if (editLine) editLine.setMap(null);
+  editLine = null;
+  dibujoEdicion = [];
+}
+
+function tokenCsrf() {
+  return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
+
+async function refrescarLineaEdicion() {
+  if (!editando.value || !map || !googleRef) return;
+  const vertices = editando.value.vertices;
+  let path = vertices;
+  if (editando.value.porCalles && vertices.length > 1) {
+    const ruta = await rutaPorCalles(vertices);
+    path = ruta.path;
+  }
+  dibujoEdicion = path;
+  const color = colorTecnico(editando.value.tecnico_id);
+  if (!editLine) {
+    editLine = new googleRef.maps.Polyline({
+      map,
+      path,
+      strokeColor: color,
+      strokeOpacity: 0.95,
+      strokeWeight: 5,
+      zIndex: 60,
+    });
+  } else {
+    editLine.setPath(path);
+    editLine.setOptions({ strokeColor: color });
+  }
+}
+
+function syncMarcadoresEdicion() {
+  editMarkers.forEach((m) => m.setMap(null));
+  editMarkers = [];
+  if (!editando.value || !map || !googleRef) return;
+  const color = colorTecnico(editando.value.tecnico_id);
+  editando.value.vertices.forEach((p, i) => {
+    const marker = new googleRef.maps.Marker({
+      map,
+      position: p,
+      draggable: true,
+      icon: iconoVertice(color, verticeActivo.value === i),
+      zIndex: 70,
+      title: 'Arrastrá para corregir',
+    });
+    marker.addListener('click', () => {
+      verticeActivo.value = i;
+      syncMarcadoresEdicion();
+      refrescarLineaEdicion();
+    });
+    marker.addListener('dragend', (e) => {
+      editando.value.vertices[i] = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      refrescarLineaEdicion();
+    });
+    editMarkers.push(marker);
+  });
+}
+
+function programarLineaEdicion() {
+  if (editTimer) clearTimeout(editTimer);
+  editTimer = setTimeout(() => refrescarLineaEdicion(), 250);
+}
+
+function empezarEdicion(t) {
+  const crudos = (t.traza || [])
+    .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (crudos.length < 2) return;
+  limpiarEdicion();
+  errorEdicion.value = '';
+  verticeActivo.value = null;
+  editando.value = {
+    tecnico_id: t.tecnico_id,
+    nombre: t.nombre,
+    porCalles: !t.manual,
+    vertices: (t.manual ? crudos : muestrearRuta(crudos, 180, 40)).map((p) => ({ lat: p.lat, lng: p.lng })),
+  };
+  syncRecorridoFiguras();
+  syncMarcadoresEdicion();
+  refrescarLineaEdicion();
+  editClick = map.addListener('click', (e) => insertarVertice(e.latLng.lat(), e.latLng.lng()));
+  enfocarRecorrido(t);
+}
+
+function insertarVertice(lat, lng) {
+  if (!editando.value) return;
+  const punto = { lat, lng };
+  const vertices = editando.value.vertices;
+  let mejor = 0;
+  let mejorDist = Infinity;
+  for (let i = 0; i < vertices.length - 1; i += 1) {
+    const d = distanciaASegmento(punto, vertices[i], vertices[i + 1]);
+    if (d < mejorDist) {
+      mejorDist = d;
+      mejor = i;
+    }
+  }
+  vertices.splice(mejor + 1, 0, punto);
+  verticeActivo.value = mejor + 1;
+  syncMarcadoresEdicion();
+  programarLineaEdicion();
+}
+
+function quitarVertice() {
+  if (!editando.value || verticeActivo.value == null || editando.value.vertices.length <= 2) return;
+  editando.value.vertices.splice(verticeActivo.value, 1);
+  verticeActivo.value = null;
+  syncMarcadoresEdicion();
+  programarLineaEdicion();
+}
+
+function alternarCallesEdicion() {
+  if (!editando.value) return;
+  editando.value.porCalles = !editando.value.porCalles;
+  refrescarLineaEdicion();
+}
+
+function cancelarEdicion() {
+  limpiarEdicion();
+  editando.value = null;
+  verticeActivo.value = null;
+  errorEdicion.value = '';
+  syncRecorridoFiguras();
+}
+
+async function enviarAjuste(method, body) {
+  const res = await fetch(props.urlAjusteRecorrido, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': tokenCsrf(),
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || 'No se pudo guardar la ruta.');
+  }
+}
+
+async function guardarEdicion() {
+  if (!editando.value || !props.urlAjusteRecorrido) {
+    errorEdicion.value = 'No está configurado el guardado de la ruta.';
+    return;
+  }
+  guardandoRuta.value = true;
+  errorEdicion.value = '';
+  try {
+    await refrescarLineaEdicion();
+    const traza = (dibujoEdicion.length > 1 ? dibujoEdicion : editando.value.vertices)
+      .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+    await enviarAjuste('POST', {
+      tecnico_id: editando.value.tecnico_id,
+      fecha: fechaRecorrido.value,
+      traza,
+    });
+    const id = String(editando.value.tecnico_id);
+    const item = recorridos.value.find((t) => String(t.tecnico_id) === id);
+    if (item) {
+      item.traza = traza;
+      item.manual = true;
+    }
+    cancelarEdicion();
+  } catch (e) {
+    errorEdicion.value = e.message || 'No se pudo guardar la ruta.';
+  } finally {
+    guardandoRuta.value = false;
+  }
+}
+
+async function restaurarRuta() {
+  if (!editando.value || !props.urlAjusteRecorrido) return;
+  guardandoRuta.value = true;
+  errorEdicion.value = '';
+  try {
+    await enviarAjuste('DELETE', {
+      tecnico_id: editando.value.tecnico_id,
+      fecha: fechaRecorrido.value,
+    });
+    const id = String(editando.value.tecnico_id);
+    cancelarEdicion();
+    await fetchRecorrido();
+    const item = recorridos.value.find((t) => String(t.tecnico_id) === id);
+    if (item) item.manual = false;
+    syncRecorridoFiguras();
+  } catch (e) {
+    errorEdicion.value = e.message || 'No se pudo restaurar la ruta.';
+  } finally {
+    guardandoRuta.value = false;
+  }
+}
+
 async function syncRecorridoFiguras() {
   const seq = ++rutaSeq;
   clearRecorridoFiguras();
@@ -714,7 +1116,10 @@ async function syncRecorridoFiguras() {
       .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     if (!path.length || seq !== rutaSeq) return;
     const color = colorTecnico(t.tecnico_id);
-    const ruta = path.length > 1 ? await rutaPorCalles(path) : { path, porCalles: true };
+    if (editando.value && String(editando.value.tecnico_id) === String(t.tecnico_id)) return;
+    const ruta = t.manual
+      ? { path, porCalles: true }
+      : (path.length > 1 ? await rutaPorCalles(path) : { path, porCalles: true });
     if (seq !== rutaSeq || !capaRecorrido.value || !map) return;
     if (path.length > 1 && !ruta.porCalles) algunaRecta = true;
     dibujarTrazo(t, ruta.path, color);
@@ -840,6 +1245,8 @@ watch(capaRecorrido, async (on) => {
     recorridoPorId = {};
     errorRecorrido.value = '';
     avisoRuta.value = '';
+    limpiarEdicion();
+    editando.value = null;
     syncRecorridoPoll();
     return;
   }
@@ -847,6 +1254,7 @@ watch(capaRecorrido, async (on) => {
   syncRecorridoPoll();
 });
 watch(fechaRecorrido, async () => {
+  if (editando.value) cancelarEdicion();
   if (!capaRecorrido.value) return;
   await fetchRecorrido();
   syncRecorridoPoll();
@@ -886,6 +1294,7 @@ onBeforeUnmount(() => {
   if (recorridoPoll) clearInterval(recorridoPoll);
   for (const entry of markersTecnicos.values()) entry.marker.setMap(null);
   markersTecnicos.clear();
+  limpiarEdicion();
   clearRecorridoFiguras();
   clearMarkers(markersClientes);
   clearMarkers(markersPedidos);

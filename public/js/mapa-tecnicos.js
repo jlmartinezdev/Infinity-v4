@@ -21250,6 +21250,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
       type: String,
       default: ''
     },
+    urlAjusteRecorrido: {
+      type: String,
+      default: ''
+    },
     urlClientes: {
       type: String,
       default: ''
@@ -21304,6 +21308,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var avisoRuta = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var filtroTecnico = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var recorridosOcultos = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)({});
+    var editando = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
+    var verticeActivo = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(null);
+    var guardandoRuta = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
+    var errorEdicion = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)('');
     var satelite = (0,vue__WEBPACK_IMPORTED_MODULE_0__.ref)(false);
     var COLORES_RECORRIDO = ['#e11d48', '#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5', '#0f766e', '#b45309', '#be123c', '#1d4ed8', '#6d28d9', '#15803d', '#c026d3', '#0369a1', '#a16207', '#b91c1c'];
     var tituloRecorrido = (0,vue__WEBPACK_IMPORTED_MODULE_0__.computed)(function () {
@@ -21337,6 +21345,11 @@ var OFFLINE_MS = 5 * 60 * 1000;
     var rutaSeq = 0;
     var rutasPorCalle = true;
     var directionsService = null;
+    var editLine = null;
+    var editMarkers = [];
+    var editClick = null;
+    var editTimer = null;
+    var dibujoEdicion = [];
     var cacheRutas = new Map();
     function colorTecnico(id) {
       return colorPorId.value[id] || COLORES_RECORRIDO[Math.abs(Number(id) || 0) % COLORES_RECORRIDO.length];
@@ -21893,19 +21906,124 @@ var OFFLINE_MS = 5 * 60 * 1000;
       out.push(kept[kept.length - 1]);
       return out;
     }
-    function partirRuta(path) {
-      var tamano = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 25;
-      if (path.length <= tamano) return [path];
-      var trozos = [];
-      var i = 0;
-      while (i < path.length - 1) {
-        var fin = Math.min(i + tamano - 1, path.length - 1);
-        trozos.push(path.slice(i, fin + 1));
-        i = fin;
+    function largoTrazo(path) {
+      var metros = 0;
+      for (var i = 1; i < path.length; i += 1) metros += distanciaMetros(path[i - 1], path[i]);
+      return metros;
+    }
+    function tramoRazonable(road, desde, hasta) {
+      var recta = distanciaMetros(desde, hasta);
+      var ruta = largoTrazo(road);
+      if (!(ruta < 80000) || !road.length) return false;
+      if (distanciaMetros(road[0], desde) > 400) return false;
+      if (distanciaMetros(road[road.length - 1], hasta) > 400) return false;
+      if (recta < 80) return ruta < 450;
+      if (ruta > recta * 2.2 && ruta - recta > 800) return false;
+      var tope = Math.max(500, recta * 0.7);
+      var paso = Math.max(1, Math.floor(road.length / 12));
+      for (var i = 0; i < road.length; i += paso) {
+        if (distanciaASegmento(road[i], desde, hasta) > tope) return false;
       }
-      return trozos;
+      return true;
+    }
+    function esPuntaYRetorno(origen, punta, regreso) {
+      if (!regreso) return false;
+      var ida = distanciaMetros(origen, punta);
+      var vuelta = distanciaMetros(punta, regreso);
+      var cierre = distanciaMetros(origen, regreso);
+      if (ida < 70 || vuelta < 70) return false;
+      return cierre <= 90 || cierre < ida * 0.45 && cierre < vuelta * 0.45;
+    }
+    function anexarCamino(destino, camino) {
+      if (!(camino !== null && camino !== void 0 && camino.length)) return;
+      var inicio = destino.length && distanciaMetros(destino[destino.length - 1], camino[0]) < 8 ? 1 : 0;
+      for (var i = inicio; i < camino.length; i += 1) destino.push(camino[i]);
+    }
+    function caminoDeLegs(legs) {
+      var road = [];
+      (legs || []).forEach(function (leg) {
+        (leg.steps || []).forEach(function (step) {
+          (step.path || []).forEach(function (ll) {
+            return road.push({
+              lat: ll.lat(),
+              lng: ll.lng()
+            });
+          });
+        });
+      });
+      return road;
+    }
+    function recortarTramo(seg, desde, hasta) {
+      if (!seg || seg.length < 2) return [desde, hasta];
+      var i0 = 0;
+      var mejor0 = Infinity;
+      for (var i = 0; i < seg.length; i += 1) {
+        var d = distanciaMetros(seg[i], desde);
+        if (d < mejor0) {
+          mejor0 = d;
+          i0 = i;
+        }
+        if (d <= 30 && i > 0) break;
+      }
+      var i1 = i0;
+      var mejor1 = Infinity;
+      for (var _i2 = i0; _i2 < seg.length; _i2 += 1) {
+        var _d = distanciaMetros(seg[_i2], hasta);
+        if (_d < mejor1) {
+          mejor1 = _d;
+          i1 = _i2;
+        }
+        if (_d <= 40 && _i2 > i0) break;
+      }
+      var cortado = seg.slice(i0, Math.max(i0, i1) + 1).map(function (p) {
+        return {
+          lat: p.lat,
+          lng: p.lng
+        };
+      });
+      if (cortado.length < 2) return [{
+        lat: desde.lat,
+        lng: desde.lng
+      }, {
+        lat: hasta.lat,
+        lng: hasta.lng
+      }];
+      cortado[0] = {
+        lat: desde.lat,
+        lng: desde.lng
+      };
+      cortado[cortado.length - 1] = {
+        lat: hasta.lat,
+        lng: hasta.lng
+      };
+      return cortado;
+    }
+    function pedirPar(desde, hasta) {
+      if (!rutasPorCalle) return Promise.resolve(null);
+      if (!directionsService) directionsService = new googleRef.maps.DirectionsService();
+      return new Promise(function (resolve) {
+        directionsService.route({
+          origin: desde,
+          destination: hasta,
+          travelMode: googleRef.maps.TravelMode.DRIVING,
+          region: 'py'
+        }, function (result, status) {
+          var _result$routes;
+          if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') rutasPorCalle = false;
+          var seg = status === 'OK' ? caminoDeLegs(result === null || result === void 0 || (_result$routes = result.routes) === null || _result$routes === void 0 || (_result$routes = _result$routes[0]) === null || _result$routes === void 0 ? void 0 : _result$routes.legs) : [];
+          if (seg.length > 1 && tramoRazonable(seg, desde, hasta)) resolve(recortarTramo(seg, desde, hasta));else resolve([{
+            lat: desde.lat,
+            lng: desde.lng
+          }, {
+            lat: hasta.lat,
+            lng: hasta.lng
+          }]);
+        });
+      });
     }
     function pedirTramo(trozo) {
+      if (!rutasPorCalle || trozo.length < 2) return Promise.resolve(null);
+      if (trozo.length === 2) return pedirPar(trozo[0], trozo[1]);
       if (!directionsService) directionsService = new googleRef.maps.DirectionsService();
       var request = {
         origin: trozo[0],
@@ -21913,7 +22031,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
         waypoints: trozo.slice(1, -1).map(function (p) {
           return {
             location: p,
-            stopover: false
+            stopover: true
           };
         }),
         travelMode: googleRef.maps.TravelMode.DRIVING,
@@ -21922,32 +22040,73 @@ var OFFLINE_MS = 5 * 60 * 1000;
       };
       return new Promise(function (resolve) {
         directionsService.route(request, function (result, status) {
-          var _result$routes;
-          if (status === 'MAX_WAYPOINTS_EXCEEDED' && trozo.length > 4) {
+          var _result$routes2;
+          var partir = function partir() {
             var medio = Math.ceil(trozo.length / 2);
             Promise.all([pedirTramo(trozo.slice(0, medio)), pedirTramo(trozo.slice(medio - 1))]).then(function (_ref4) {
               var _ref5 = _slicedToArray(_ref4, 2),
                 a = _ref5[0],
                 b = _ref5[1];
-              return resolve(a && b ? a.concat(b) : null);
+              if (!a || !b) {
+                resolve(null);
+                return;
+              }
+              var unido = a.slice();
+              anexarCamino(unido, b);
+              resolve(unido);
             });
+          };
+          if ((status === 'MAX_WAYPOINTS_EXCEEDED' || status === 'ZERO_RESULTS' || status === 'NOT_FOUND') && trozo.length > 3) {
+            partir();
             return;
           }
           if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') rutasPorCalle = false;
-          if (status !== 'OK' || !(result !== null && result !== void 0 && (_result$routes = result.routes) !== null && _result$routes !== void 0 && _result$routes[0])) {
+          if (status !== 'OK' || !(result !== null && result !== void 0 && (_result$routes2 = result.routes) !== null && _result$routes2 !== void 0 && _result$routes2[0])) {
             resolve(null);
             return;
           }
+          var puntos = trozo;
+          var legs = result.routes[0].legs || [];
+          if (legs.length !== puntos.length - 1) {
+            if (trozo.length > 3) {
+              partir();
+              return;
+            }
+            var _road = caminoDeLegs(legs);
+            resolve(_road.length > 1 ? recortarTramo(_road, puntos[0], puntos[puntos.length - 1]) : null);
+            return;
+          }
           var road = [];
-          result.routes[0].legs.forEach(function (leg) {
-            leg.steps.forEach(function (step) {
-              (step.path || []).forEach(function (ll) {
-                return road.push({
-                  lat: ll.lat(),
-                  lng: ll.lng()
-                });
-              });
-            });
+          var previo = null;
+          legs.forEach(function (leg, i) {
+            var _previo;
+            var desde = puntos[i];
+            var hasta = puntos[i + 1];
+            var seg = caminoDeLegs([leg]);
+            var camino;
+            if (i > 0 && ((_previo = previo) === null || _previo === void 0 ? void 0 : _previo.length) > 1 && esPuntaYRetorno(puntos[i - 1], desde, hasta)) {
+              camino = previo.slice().reverse();
+              camino[0] = {
+                lat: desde.lat,
+                lng: desde.lng
+              };
+              camino[camino.length - 1] = {
+                lat: hasta.lat,
+                lng: hasta.lng
+              };
+            } else if (seg.length > 1 && tramoRazonable(seg, desde, hasta)) {
+              camino = recortarTramo(seg, desde, hasta);
+            } else {
+              camino = [{
+                lat: desde.lat,
+                lng: desde.lng
+              }, {
+                lat: hasta.lat,
+                lng: hasta.lng
+              }];
+            }
+            anexarCamino(road, camino);
+            previo = camino;
           });
           resolve(road.length > 1 ? road : null);
         });
@@ -21958,13 +22117,13 @@ var OFFLINE_MS = 5 * 60 * 1000;
     }
     function _rutaPorCalles() {
       _rutaPorCalles = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(path) {
-        var _googleRef;
-        var muestra, firma, unido, _iterator4, _step4, trozo, road, _t8, _t9;
+        var _googleRef2;
+        var muestra, firma, unido, i, ida, vuelta, j, road, _t8;
         return _regenerator().w(function (_context10) {
           while (1) switch (_context10.p = _context10.n) {
             case 0:
               muestra = muestrearRuta(path);
-              if (!(muestra.length < 2 || !rutasPorCalle || !((_googleRef = googleRef) !== null && _googleRef !== void 0 && (_googleRef = _googleRef.maps) !== null && _googleRef !== void 0 && _googleRef.DirectionsService))) {
+              if (!(muestra.length < 2 || !rutasPorCalle || !((_googleRef2 = googleRef) !== null && _googleRef2 !== void 0 && (_googleRef2 = _googleRef2.maps) !== null && _googleRef2 !== void 0 && _googleRef2.DirectionsService))) {
                 _context10.n = 1;
                 break;
               }
@@ -21987,20 +22146,30 @@ var OFFLINE_MS = 5 * 60 * 1000;
             case 2:
               _context10.p = 2;
               unido = [];
-              _iterator4 = _createForOfIteratorHelper(partirRuta(muestra));
-              _context10.p = 3;
-              _iterator4.s();
-            case 4:
-              if ((_step4 = _iterator4.n()).done) {
-                _context10.n = 8;
+              i = 0;
+            case 3:
+              if (!(i < muestra.length - 1)) {
+                _context10.n = 13;
                 break;
               }
-              trozo = _step4.value;
+              if (rutasPorCalle) {
+                _context10.n = 4;
+                break;
+              }
+              return _context10.a(2, {
+                path: path,
+                porCalles: false
+              });
+            case 4:
+              if (!(i + 2 < muestra.length && esPuntaYRetorno(muestra[i], muestra[i + 1], muestra[i + 2]))) {
+                _context10.n = 7;
+                break;
+              }
               _context10.n = 5;
-              return pedirTramo(trozo);
+              return pedirPar(muestra[i], muestra[i + 1]);
             case 5:
-              road = _context10.v;
-              if (road) {
+              ida = _context10.v;
+              if (ida) {
                 _context10.n = 6;
                 break;
               }
@@ -22009,36 +22178,82 @@ var OFFLINE_MS = 5 * 60 * 1000;
                 porCalles: false
               });
             case 6:
-              unido.push.apply(unido, _toConsumableArray(road));
+              anexarCamino(unido, ida);
+              vuelta = ida.map(function (p) {
+                return {
+                  lat: p.lat,
+                  lng: p.lng
+                };
+              }).reverse();
+              vuelta[0] = {
+                lat: muestra[i + 1].lat,
+                lng: muestra[i + 1].lng
+              };
+              vuelta[vuelta.length - 1] = {
+                lat: muestra[i + 2].lat,
+                lng: muestra[i + 2].lng
+              };
+              anexarCamino(unido, vuelta);
+              i += 2;
+              return _context10.a(3, 3);
             case 7:
-              _context10.n = 4;
-              break;
+              j = i + 1;
             case 8:
-              _context10.n = 10;
-              break;
+              if (!(j < muestra.length - 1 && !(j + 2 < muestra.length && esPuntaYRetorno(muestra[j], muestra[j + 1], muestra[j + 2])))) {
+                _context10.n = 10;
+                break;
+              }
+              j += 1;
+              if (!(j - i >= 24)) {
+                _context10.n = 9;
+                break;
+              }
+              return _context10.a(3, 10);
             case 9:
-              _context10.p = 9;
-              _t8 = _context10.v;
-              _iterator4.e(_t8);
+              _context10.n = 8;
+              break;
             case 10:
-              _context10.p = 10;
-              _iterator4.f();
-              return _context10.f(10);
+              _context10.n = 11;
+              return pedirTramo(muestra.slice(i, j + 1));
             case 11:
+              road = _context10.v;
+              if (road) {
+                _context10.n = 12;
+                break;
+              }
+              return _context10.a(2, {
+                path: path,
+                porCalles: false
+              });
+            case 12:
+              anexarCamino(unido, road);
+              i = j;
+              _context10.n = 3;
+              break;
+            case 13:
+              if (!(unido.length < 2)) {
+                _context10.n = 14;
+                break;
+              }
+              return _context10.a(2, {
+                path: path,
+                porCalles: false
+              });
+            case 14:
               cacheRutas.set(firma, unido);
               return _context10.a(2, {
                 path: unido,
                 porCalles: true
               });
-            case 12:
-              _context10.p = 12;
-              _t9 = _context10.v;
+            case 15:
+              _context10.p = 15;
+              _t8 = _context10.v;
               return _context10.a(2, {
                 path: path,
                 porCalles: false
               });
           }
-        }, _callee10, null, [[3, 9, 10, 11], [2, 12]]);
+        }, _callee10, null, [[2, 15]]);
       }));
       return _rutaPorCalles.apply(this, arguments);
     }
@@ -22077,30 +22292,387 @@ var OFFLINE_MS = 5 * 60 * 1000;
       });
       figurasRecorrido.push(poly);
     }
+    function iconoVertice(color, activo) {
+      var s = activo ? 18 : 14;
+      var svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"".concat(s, "\" height=\"").concat(s, "\"><circle cx=\"").concat(s / 2, "\" cy=\"").concat(s / 2, "\" r=\"").concat(s / 2 - 2, "\" fill=\"").concat(color, "\" stroke=\"#fff\" stroke-width=\"2\"/></svg>");
+      return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new googleRef.maps.Size(s, s),
+        anchor: new googleRef.maps.Point(s / 2, s / 2)
+      };
+    }
+    function distanciaASegmento(p, a, b) {
+      var lat0 = a.lat * Math.PI / 180;
+      var x = function x(q) {
+        return (q.lng - a.lng) * Math.PI / 180 * Math.cos(lat0) * 6371000;
+      };
+      var y = function y(q) {
+        return (q.lat - a.lat) * Math.PI / 180 * 6371000;
+      };
+      var px = x(p);
+      var py = y(p);
+      var bx = x(b);
+      var by = y(b);
+      var len2 = bx * bx + by * by;
+      if (len2 < 1) return Math.hypot(px, py);
+      var t = Math.max(0, Math.min(1, (px * bx + py * by) / len2));
+      return Math.hypot(px - t * bx, py - t * by);
+    }
+    function limpiarEdicion() {
+      var _googleRef;
+      if (editTimer) clearTimeout(editTimer);
+      editTimer = null;
+      if (editClick) (_googleRef = googleRef) === null || _googleRef === void 0 || (_googleRef = _googleRef.maps) === null || _googleRef === void 0 || (_googleRef = _googleRef.event) === null || _googleRef === void 0 || _googleRef.removeListener(editClick);
+      editClick = null;
+      editMarkers.forEach(function (m) {
+        return m.setMap(null);
+      });
+      editMarkers = [];
+      if (editLine) editLine.setMap(null);
+      editLine = null;
+      dibujoEdicion = [];
+    }
+    function tokenCsrf() {
+      var _document$querySelect;
+      return ((_document$querySelect = document.querySelector('meta[name="csrf-token"]')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.getAttribute('content')) || '';
+    }
+    function refrescarLineaEdicion() {
+      return _refrescarLineaEdicion.apply(this, arguments);
+    }
+    function _refrescarLineaEdicion() {
+      _refrescarLineaEdicion = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+        var vertices, path, ruta, color;
+        return _regenerator().w(function (_context11) {
+          while (1) switch (_context11.n) {
+            case 0:
+              if (!(!editando.value || !map || !googleRef)) {
+                _context11.n = 1;
+                break;
+              }
+              return _context11.a(2);
+            case 1:
+              vertices = editando.value.vertices;
+              path = vertices;
+              if (!(editando.value.porCalles && vertices.length > 1)) {
+                _context11.n = 3;
+                break;
+              }
+              _context11.n = 2;
+              return rutaPorCalles(vertices);
+            case 2:
+              ruta = _context11.v;
+              path = ruta.path;
+            case 3:
+              dibujoEdicion = path;
+              color = colorTecnico(editando.value.tecnico_id);
+              if (!editLine) {
+                editLine = new googleRef.maps.Polyline({
+                  map: map,
+                  path: path,
+                  strokeColor: color,
+                  strokeOpacity: 0.95,
+                  strokeWeight: 5,
+                  zIndex: 60
+                });
+              } else {
+                editLine.setPath(path);
+                editLine.setOptions({
+                  strokeColor: color
+                });
+              }
+            case 4:
+              return _context11.a(2);
+          }
+        }, _callee11);
+      }));
+      return _refrescarLineaEdicion.apply(this, arguments);
+    }
+    function syncMarcadoresEdicion() {
+      editMarkers.forEach(function (m) {
+        return m.setMap(null);
+      });
+      editMarkers = [];
+      if (!editando.value || !map || !googleRef) return;
+      var color = colorTecnico(editando.value.tecnico_id);
+      editando.value.vertices.forEach(function (p, i) {
+        var marker = new googleRef.maps.Marker({
+          map: map,
+          position: p,
+          draggable: true,
+          icon: iconoVertice(color, verticeActivo.value === i),
+          zIndex: 70,
+          title: 'Arrastrá para corregir'
+        });
+        marker.addListener('click', function () {
+          verticeActivo.value = i;
+          syncMarcadoresEdicion();
+          refrescarLineaEdicion();
+        });
+        marker.addListener('dragend', function (e) {
+          editando.value.vertices[i] = {
+            lat: e.latLng.lat(),
+            lng: e.latLng.lng()
+          };
+          refrescarLineaEdicion();
+        });
+        editMarkers.push(marker);
+      });
+    }
+    function programarLineaEdicion() {
+      if (editTimer) clearTimeout(editTimer);
+      editTimer = setTimeout(function () {
+        return refrescarLineaEdicion();
+      }, 250);
+    }
+    function empezarEdicion(t) {
+      var crudos = (t.traza || []).map(function (p) {
+        return {
+          lat: Number(p.lat),
+          lng: Number(p.lng)
+        };
+      }).filter(function (p) {
+        return Number.isFinite(p.lat) && Number.isFinite(p.lng);
+      });
+      if (crudos.length < 2) return;
+      limpiarEdicion();
+      errorEdicion.value = '';
+      verticeActivo.value = null;
+      editando.value = {
+        tecnico_id: t.tecnico_id,
+        nombre: t.nombre,
+        porCalles: !t.manual,
+        vertices: (t.manual ? crudos : muestrearRuta(crudos, 180, 40)).map(function (p) {
+          return {
+            lat: p.lat,
+            lng: p.lng
+          };
+        })
+      };
+      syncRecorridoFiguras();
+      syncMarcadoresEdicion();
+      refrescarLineaEdicion();
+      editClick = map.addListener('click', function (e) {
+        return insertarVertice(e.latLng.lat(), e.latLng.lng());
+      });
+      enfocarRecorrido(t);
+    }
+    function insertarVertice(lat, lng) {
+      if (!editando.value) return;
+      var punto = {
+        lat: lat,
+        lng: lng
+      };
+      var vertices = editando.value.vertices;
+      var mejor = 0;
+      var mejorDist = Infinity;
+      for (var i = 0; i < vertices.length - 1; i += 1) {
+        var d = distanciaASegmento(punto, vertices[i], vertices[i + 1]);
+        if (d < mejorDist) {
+          mejorDist = d;
+          mejor = i;
+        }
+      }
+      vertices.splice(mejor + 1, 0, punto);
+      verticeActivo.value = mejor + 1;
+      syncMarcadoresEdicion();
+      programarLineaEdicion();
+    }
+    function quitarVertice() {
+      if (!editando.value || verticeActivo.value == null || editando.value.vertices.length <= 2) return;
+      editando.value.vertices.splice(verticeActivo.value, 1);
+      verticeActivo.value = null;
+      syncMarcadoresEdicion();
+      programarLineaEdicion();
+    }
+    function alternarCallesEdicion() {
+      if (!editando.value) return;
+      editando.value.porCalles = !editando.value.porCalles;
+      refrescarLineaEdicion();
+    }
+    function cancelarEdicion() {
+      limpiarEdicion();
+      editando.value = null;
+      verticeActivo.value = null;
+      errorEdicion.value = '';
+      syncRecorridoFiguras();
+    }
+    function enviarAjuste(_x3, _x4) {
+      return _enviarAjuste.apply(this, arguments);
+    }
+    function _enviarAjuste() {
+      _enviarAjuste = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(method, body) {
+        var res, data;
+        return _regenerator().w(function (_context12) {
+          while (1) switch (_context12.n) {
+            case 0:
+              _context12.n = 1;
+              return fetch(props.urlAjusteRecorrido, {
+                method: method,
+                headers: {
+                  Accept: 'application/json',
+                  'Content-Type': 'application/json',
+                  'X-CSRF-TOKEN': tokenCsrf(),
+                  'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(body)
+              });
+            case 1:
+              res = _context12.v;
+              _context12.n = 2;
+              return res.json().catch(function () {
+                return {};
+              });
+            case 2:
+              data = _context12.v;
+              if (!(!res.ok || data.success === false)) {
+                _context12.n = 3;
+                break;
+              }
+              throw new Error(data.message || 'No se pudo guardar la ruta.');
+            case 3:
+              return _context12.a(2);
+          }
+        }, _callee12);
+      }));
+      return _enviarAjuste.apply(this, arguments);
+    }
+    function guardarEdicion() {
+      return _guardarEdicion.apply(this, arguments);
+    }
+    function _guardarEdicion() {
+      _guardarEdicion = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+        var traza, id, item, _t9;
+        return _regenerator().w(function (_context13) {
+          while (1) switch (_context13.p = _context13.n) {
+            case 0:
+              if (!(!editando.value || !props.urlAjusteRecorrido)) {
+                _context13.n = 1;
+                break;
+              }
+              errorEdicion.value = 'No está configurado el guardado de la ruta.';
+              return _context13.a(2);
+            case 1:
+              guardandoRuta.value = true;
+              errorEdicion.value = '';
+              _context13.p = 2;
+              _context13.n = 3;
+              return refrescarLineaEdicion();
+            case 3:
+              traza = (dibujoEdicion.length > 1 ? dibujoEdicion : editando.value.vertices).map(function (p) {
+                return {
+                  lat: Number(p.lat),
+                  lng: Number(p.lng)
+                };
+              });
+              _context13.n = 4;
+              return enviarAjuste('POST', {
+                tecnico_id: editando.value.tecnico_id,
+                fecha: fechaRecorrido.value,
+                traza: traza
+              });
+            case 4:
+              id = String(editando.value.tecnico_id);
+              item = recorridos.value.find(function (t) {
+                return String(t.tecnico_id) === id;
+              });
+              if (item) {
+                item.traza = traza;
+                item.manual = true;
+              }
+              cancelarEdicion();
+              _context13.n = 6;
+              break;
+            case 5:
+              _context13.p = 5;
+              _t9 = _context13.v;
+              errorEdicion.value = _t9.message || 'No se pudo guardar la ruta.';
+            case 6:
+              _context13.p = 6;
+              guardandoRuta.value = false;
+              return _context13.f(6);
+            case 7:
+              return _context13.a(2);
+          }
+        }, _callee13, null, [[2, 5, 6, 7]]);
+      }));
+      return _guardarEdicion.apply(this, arguments);
+    }
+    function restaurarRuta() {
+      return _restaurarRuta.apply(this, arguments);
+    }
+    function _restaurarRuta() {
+      _restaurarRuta = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+        var id, item, _t0;
+        return _regenerator().w(function (_context14) {
+          while (1) switch (_context14.p = _context14.n) {
+            case 0:
+              if (!(!editando.value || !props.urlAjusteRecorrido)) {
+                _context14.n = 1;
+                break;
+              }
+              return _context14.a(2);
+            case 1:
+              guardandoRuta.value = true;
+              errorEdicion.value = '';
+              _context14.p = 2;
+              _context14.n = 3;
+              return enviarAjuste('DELETE', {
+                tecnico_id: editando.value.tecnico_id,
+                fecha: fechaRecorrido.value
+              });
+            case 3:
+              id = String(editando.value.tecnico_id);
+              cancelarEdicion();
+              _context14.n = 4;
+              return fetchRecorrido();
+            case 4:
+              item = recorridos.value.find(function (t) {
+                return String(t.tecnico_id) === id;
+              });
+              if (item) item.manual = false;
+              syncRecorridoFiguras();
+              _context14.n = 6;
+              break;
+            case 5:
+              _context14.p = 5;
+              _t0 = _context14.v;
+              errorEdicion.value = _t0.message || 'No se pudo restaurar la ruta.';
+            case 6:
+              _context14.p = 6;
+              guardandoRuta.value = false;
+              return _context14.f(6);
+            case 7:
+              return _context14.a(2);
+          }
+        }, _callee14, null, [[2, 5, 6, 7]]);
+      }));
+      return _restaurarRuta.apply(this, arguments);
+    }
     function syncRecorridoFiguras() {
       return _syncRecorridoFiguras.apply(this, arguments);
     }
     function _syncRecorridoFiguras() {
-      _syncRecorridoFiguras = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+      _syncRecorridoFiguras = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
         var seq, algunaRecta;
-        return _regenerator().w(function (_context12) {
-          while (1) switch (_context12.n) {
+        return _regenerator().w(function (_context16) {
+          while (1) switch (_context16.n) {
             case 0:
               seq = ++rutaSeq;
               clearRecorridoFiguras();
               if (!(!capaRecorrido.value || !map || !googleRef)) {
-                _context12.n = 1;
+                _context16.n = 1;
                 break;
               }
-              return _context12.a(2);
+              return _context16.a(2);
             case 1:
               algunaRecta = false;
-              _context12.n = 2;
+              _context16.n = 2;
               return Promise.all(recorridosVisibles.value.map(/*#__PURE__*/function () {
-                var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(t) {
-                  var path, color, ruta, _t0;
-                  return _regenerator().w(function (_context11) {
-                    while (1) switch (_context11.n) {
+                var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(t) {
+                  var path, color, ruta, _t1, _t10;
+                  return _regenerator().w(function (_context15) {
+                    while (1) switch (_context15.n) {
                       case 0:
                         path = (t.traza || []).map(function (p) {
                           return {
@@ -22111,58 +22683,77 @@ var OFFLINE_MS = 5 * 60 * 1000;
                           return Number.isFinite(p.lat) && Number.isFinite(p.lng);
                         });
                         if (!(!path.length || seq !== rutaSeq)) {
-                          _context11.n = 1;
+                          _context15.n = 1;
                           break;
                         }
-                        return _context11.a(2);
+                        return _context15.a(2);
                       case 1:
                         color = colorTecnico(t.tecnico_id);
-                        if (!(path.length > 1)) {
-                          _context11.n = 3;
+                        if (!(editando.value && String(editando.value.tecnico_id) === String(t.tecnico_id))) {
+                          _context15.n = 2;
                           break;
                         }
-                        _context11.n = 2;
-                        return rutaPorCalles(path);
+                        return _context15.a(2);
                       case 2:
-                        _t0 = _context11.v;
-                        _context11.n = 4;
-                        break;
-                      case 3:
-                        _t0 = {
+                        if (!t.manual) {
+                          _context15.n = 3;
+                          break;
+                        }
+                        _t1 = {
                           path: path,
                           porCalles: true
                         };
-                      case 4:
-                        ruta = _t0;
-                        if (!(seq !== rutaSeq || !capaRecorrido.value || !map)) {
-                          _context11.n = 5;
+                        _context15.n = 7;
+                        break;
+                      case 3:
+                        if (!(path.length > 1)) {
+                          _context15.n = 5;
                           break;
                         }
-                        return _context11.a(2);
+                        _context15.n = 4;
+                        return rutaPorCalles(path);
+                      case 4:
+                        _t10 = _context15.v;
+                        _context15.n = 6;
+                        break;
                       case 5:
+                        _t10 = {
+                          path: path,
+                          porCalles: true
+                        };
+                      case 6:
+                        _t1 = _t10;
+                      case 7:
+                        ruta = _t1;
+                        if (!(seq !== rutaSeq || !capaRecorrido.value || !map)) {
+                          _context15.n = 8;
+                          break;
+                        }
+                        return _context15.a(2);
+                      case 8:
                         if (path.length > 1 && !ruta.porCalles) algunaRecta = true;
                         dibujarTrazo(t, ruta.path, color);
-                      case 6:
-                        return _context11.a(2);
+                      case 9:
+                        return _context15.a(2);
                     }
-                  }, _callee11);
+                  }, _callee15);
                 }));
-                return function (_x7) {
+                return function (_x9) {
                   return _ref12.apply(this, arguments);
                 };
               }()));
             case 2:
               if (!(seq !== rutaSeq || !capaRecorrido.value)) {
-                _context12.n = 3;
+                _context16.n = 3;
                 break;
               }
-              return _context12.a(2);
+              return _context16.a(2);
             case 3:
               avisoRuta.value = algunaRecta ? 'No se pudo calzar alguna ruta sobre las calles. Esa línea une los puntos en recta.' : '';
             case 4:
-              return _context12.a(2);
+              return _context16.a(2);
           }
-        }, _callee12);
+        }, _callee16);
       }));
       return _syncRecorridoFiguras.apply(this, arguments);
     }
@@ -22198,22 +22789,22 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _fetchRecorrido.apply(this, arguments);
     }
     function _fetchRecorrido() {
-      _fetchRecorrido = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-        var seq, url, res, data, payload, list, index, _t1;
-        return _regenerator().w(function (_context13) {
-          while (1) switch (_context13.p = _context13.n) {
+      _fetchRecorrido = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+        var seq, url, res, data, payload, list, index, _t11;
+        return _regenerator().w(function (_context17) {
+          while (1) switch (_context17.p = _context17.n) {
             case 0:
               if (props.urlRecorridos) {
-                _context13.n = 1;
+                _context17.n = 1;
                 break;
               }
               errorRecorrido.value = 'No está configurada la ruta de recorridos.';
-              return _context13.a(2);
+              return _context17.a(2);
             case 1:
               seq = ++recorridoSeq;
               url = "".concat(props.urlRecorridos, "?fecha=").concat(encodeURIComponent(fechaRecorrido.value));
-              _context13.p = 2;
-              _context13.n = 3;
+              _context17.p = 2;
+              _context17.n = 3;
               return fetch(url, {
                 headers: {
                   Accept: 'application/json',
@@ -22222,21 +22813,21 @@ var OFFLINE_MS = 5 * 60 * 1000;
                 credentials: 'same-origin'
               });
             case 3:
-              res = _context13.v;
-              _context13.n = 4;
+              res = _context17.v;
+              _context17.n = 4;
               return res.json().catch(function () {
                 return {};
               });
             case 4:
-              data = _context13.v;
+              data = _context17.v;
               if (!(seq !== recorridoSeq)) {
-                _context13.n = 5;
+                _context17.n = 5;
                 break;
               }
-              return _context13.a(2);
+              return _context17.a(2);
             case 5:
               if (!(!res.ok || data.success === false)) {
-                _context13.n = 6;
+                _context17.n = 6;
                 break;
               }
               throw new Error(data.message || 'No se pudo cargar el recorrido.');
@@ -22252,22 +22843,22 @@ var OFFLINE_MS = 5 * 60 * 1000;
               recorridoPorId = index;
               errorRecorrido.value = '';
               syncRecorridoFiguras();
-              _context13.n = 9;
+              _context17.n = 9;
               break;
             case 7:
-              _context13.p = 7;
-              _t1 = _context13.v;
+              _context17.p = 7;
+              _t11 = _context17.v;
               if (!(seq !== recorridoSeq)) {
-                _context13.n = 8;
+                _context17.n = 8;
                 break;
               }
-              return _context13.a(2);
+              return _context17.a(2);
             case 8:
-              errorRecorrido.value = _t1.message || 'No se pudo cargar el recorrido.';
+              errorRecorrido.value = _t11.message || 'No se pudo cargar el recorrido.';
             case 9:
-              return _context13.a(2);
+              return _context17.a(2);
           }
-        }, _callee13, null, [[2, 7]]);
+        }, _callee17, null, [[2, 7]]);
       }));
       return _fetchRecorrido.apply(this, arguments);
     }
@@ -22321,7 +22912,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee, null, [[1, 3]]);
       }));
-      return function (_x3) {
+      return function (_x5) {
         return _ref8.apply(this, arguments);
       };
     }());
@@ -22354,7 +22945,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee2, null, [[1, 3]]);
       }));
-      return function (_x4) {
+      return function (_x6) {
         return _ref9.apply(this, arguments);
       };
     }());
@@ -22387,7 +22978,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee3, null, [[1, 3]]);
       }));
-      return function (_x5) {
+      return function (_x7) {
         return _ref0.apply(this, arguments);
       };
     }());
@@ -22407,6 +22998,8 @@ var OFFLINE_MS = 5 * 60 * 1000;
               recorridoPorId = {};
               errorRecorrido.value = '';
               avisoRuta.value = '';
+              limpiarEdicion();
+              editando.value = null;
               syncRecorridoPoll();
               return _context4.a(2);
             case 1:
@@ -22419,7 +23012,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
           }
         }, _callee4);
       }));
-      return function (_x6) {
+      return function (_x8) {
         return _ref1.apply(this, arguments);
       };
     }());
@@ -22427,6 +23020,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.n) {
           case 0:
+            if (editando.value) cancelarEdicion();
             if (capaRecorrido.value) {
               _context5.n = 1;
               break;
@@ -22513,6 +23107,7 @@ var OFFLINE_MS = 5 * 60 * 1000;
         _iterator3.f();
       }
       markersTecnicos.clear();
+      limpiarEdicion();
       clearRecorridoFiguras();
       clearMarkers(markersClientes);
       clearMarkers(markersPedidos);
@@ -22540,6 +23135,10 @@ var OFFLINE_MS = 5 * 60 * 1000;
       avisoRuta: avisoRuta,
       filtroTecnico: filtroTecnico,
       recorridosOcultos: recorridosOcultos,
+      editando: editando,
+      verticeActivo: verticeActivo,
+      guardandoRuta: guardandoRuta,
+      errorEdicion: errorEdicion,
       satelite: satelite,
       COLORES_RECORRIDO: COLORES_RECORRIDO,
       tituloRecorrido: tituloRecorrido,
@@ -22658,6 +23257,36 @@ var OFFLINE_MS = 5 * 60 * 1000;
       set directionsService(v) {
         directionsService = v;
       },
+      get editLine() {
+        return editLine;
+      },
+      set editLine(v) {
+        editLine = v;
+      },
+      get editMarkers() {
+        return editMarkers;
+      },
+      set editMarkers(v) {
+        editMarkers = v;
+      },
+      get editClick() {
+        return editClick;
+      },
+      set editClick(v) {
+        editClick = v;
+      },
+      get editTimer() {
+        return editTimer;
+      },
+      set editTimer(v) {
+        editTimer = v;
+      },
+      get dibujoEdicion() {
+        return dibujoEdicion;
+      },
+      set dibujoEdicion(v) {
+        dibujoEdicion = v;
+      },
       cacheRutas: cacheRutas,
       OFFLINE_MS: OFFLINE_MS,
       colorTecnico: colorTecnico,
@@ -22693,10 +23322,31 @@ var OFFLINE_MS = 5 * 60 * 1000;
       clearRecorridoFiguras: clearRecorridoFiguras,
       distanciaMetros: distanciaMetros,
       muestrearRuta: muestrearRuta,
-      partirRuta: partirRuta,
+      largoTrazo: largoTrazo,
+      tramoRazonable: tramoRazonable,
+      esPuntaYRetorno: esPuntaYRetorno,
+      anexarCamino: anexarCamino,
+      caminoDeLegs: caminoDeLegs,
+      recortarTramo: recortarTramo,
+      pedirPar: pedirPar,
       pedirTramo: pedirTramo,
       rutaPorCalles: rutaPorCalles,
       dibujarTrazo: dibujarTrazo,
+      iconoVertice: iconoVertice,
+      distanciaASegmento: distanciaASegmento,
+      limpiarEdicion: limpiarEdicion,
+      tokenCsrf: tokenCsrf,
+      refrescarLineaEdicion: refrescarLineaEdicion,
+      syncMarcadoresEdicion: syncMarcadoresEdicion,
+      programarLineaEdicion: programarLineaEdicion,
+      empezarEdicion: empezarEdicion,
+      insertarVertice: insertarVertice,
+      quitarVertice: quitarVertice,
+      alternarCallesEdicion: alternarCallesEdicion,
+      cancelarEdicion: cancelarEdicion,
+      enviarAjuste: enviarAjuste,
+      guardarEdicion: guardarEdicion,
+      restaurarRuta: restaurarRuta,
       syncRecorridoFiguras: syncRecorridoFiguras,
       elegirTecnico: elegirTecnico,
       enfocarRecorrido: enfocarRecorrido,
@@ -22772,35 +23422,52 @@ var _hoisted_12 = {
 };
 var _hoisted_13 = {
   key: 0,
-  class: "absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200"
+  class: "absolute bottom-3 left-3 z-10 w-72 pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200"
 };
 var _hoisted_14 = {
   class: "font-semibold text-gray-900 dark:text-gray-100"
 };
 var _hoisted_15 = {
-  class: "mt-0.5 text-[11px] text-gray-500 dark:text-gray-400"
+  key: 0,
+  class: "mt-1 text-red-600 dark:text-red-300"
 };
 var _hoisted_16 = {
+  class: "mt-2 flex flex-wrap gap-1"
+};
+var _hoisted_17 = ["disabled"];
+var _hoisted_18 = ["disabled"];
+var _hoisted_19 = {
+  key: 1,
+  class: "absolute bottom-3 left-3 z-10 max-w-xs pointer-events-auto rounded-lg bg-white/95 dark:bg-gray-900/95 shadow border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200"
+};
+var _hoisted_20 = {
+  class: "font-semibold text-gray-900 dark:text-gray-100"
+};
+var _hoisted_21 = {
+  class: "mt-0.5 text-[11px] text-gray-500 dark:text-gray-400"
+};
+var _hoisted_22 = {
   key: 0,
   class: "mt-1 text-[11px] text-amber-700 dark:text-amber-300"
 };
-var _hoisted_17 = {
+var _hoisted_23 = {
   key: 1,
   class: "mt-1 text-red-600 dark:text-red-300"
 };
-var _hoisted_18 = {
+var _hoisted_24 = {
   key: 2,
   class: "mt-1 max-h-40 overflow-y-auto space-y-1"
 };
-var _hoisted_19 = {
+var _hoisted_25 = {
   key: 0
 };
-var _hoisted_20 = ["onClick"];
-var _hoisted_21 = {
+var _hoisted_26 = ["onClick"];
+var _hoisted_27 = {
   class: "truncate"
 };
-var _hoisted_22 = ["title", "onClick"];
-var _hoisted_23 = {
+var _hoisted_28 = ["onClick"];
+var _hoisted_29 = ["title", "onClick"];
+var _hoisted_30 = {
   key: 0,
   viewBox: "0 0 24 24",
   class: "w-3.5 h-3.5",
@@ -22809,7 +23476,7 @@ var _hoisted_23 = {
   "stroke-width": "2",
   "aria-hidden": "true"
 };
-var _hoisted_24 = {
+var _hoisted_31 = {
   key: 1,
   viewBox: "0 0 24 24",
   class: "w-3.5 h-3.5",
@@ -22818,20 +23485,20 @@ var _hoisted_24 = {
   "stroke-width": "2",
   "aria-hidden": "true"
 };
-var _hoisted_25 = {
+var _hoisted_32 = {
   key: 3,
   class: "mt-1 text-gray-500 dark:text-gray-400"
 };
-var _hoisted_26 = {
-  key: 1,
+var _hoisted_33 = {
+  key: 2,
   class: "absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 rounded-lg z-20"
 };
-var _hoisted_27 = {
-  key: 2,
+var _hoisted_34 = {
+  key: 3,
   class: "absolute bottom-3 left-3 right-3 z-20 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-200"
 };
-var _hoisted_28 = {
-  key: 3,
+var _hoisted_35 = {
+  key: 4,
   class: "absolute inset-0 flex items-center justify-center bg-amber-50/90 dark:bg-amber-900/20 rounded-lg z-20 p-4"
 };
 function render(_ctx, _cache, $props, $setup, $data, $options) {
@@ -22901,7 +23568,31 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     type: "button",
     class: "rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs shadow border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200",
     onClick: $setup.toggleSatelite
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.capaRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tituloRecorrido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.notaRecorrido), 1 /* TEXT */), $setup.avisoRuta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_16, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.avisoRuta), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_17, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorRecorrido), 1 /* TEXT */)) : $setup.recorridos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_18, [$setup.filtroTecnico ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", _hoisted_19, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.satelite ? 'Mapa' : 'Satélite'), 1 /* TEXT */)])]), $setup.capaRecorrido && $setup.editando ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_13, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_14, "Editar ruta · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.editando.nombre), 1 /* TEXT */), _cache[15] || (_cache[15] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    class: "mt-0.5 text-[11px] text-gray-500 dark:text-gray-400"
+  }, "Arrastrá un punto para corregir el desvío. Un clic en el mapa agrega un punto en el tramo más cercano.", -1 /* CACHED */)), $setup.errorEdicion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_15, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorEdicion), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_16, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1",
+    onClick: $setup.alternarCallesEdicion
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.editando.porCalles ? 'Por calles' : 'Línea recta'), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 disabled:opacity-40",
+    disabled: $setup.verticeActivo == null || $setup.editando.vertices.length <= 2,
+    onClick: $setup.quitarVertice
+  }, "Quitar punto", 8 /* PROPS */, _hoisted_17), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "rounded-md bg-emerald-600 text-white px-2 py-1 disabled:opacity-50",
+    disabled: $setup.guardandoRuta,
+    onClick: $setup.guardarEdicion
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.guardandoRuta ? 'Guardando…' : 'Guardar'), 9 /* TEXT, PROPS */, _hoisted_18), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1",
+    onClick: $setup.restaurarRuta
+  }, "Automático"), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    type: "button",
+    class: "rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1",
+    onClick: $setup.cancelarEdicion
+  }, "Cancelar")])])) : $setup.capaRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_19, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_20, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.tituloRecorrido), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_21, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.notaRecorrido), 1 /* TEXT */), $setup.avisoRuta ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_22, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.avisoRuta), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.errorRecorrido ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_23, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.errorRecorrido), 1 /* TEXT */)) : $setup.recorridos.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("ul", _hoisted_24, [$setup.filtroTecnico ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("li", _hoisted_25, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
     type: "button",
     class: "text-left text-sky-700 dark:text-sky-300 hover:underline",
     onClick: _cache[7] || (_cache[7] = function ($event) {
@@ -22922,22 +23613,40 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
         background: $setup.colorTecnico(t.tecnico_id)
       })
-    }, null, 4 /* STYLE */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_21, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatoDistancia(t.distancia_m)), 1 /* TEXT */), t.visitas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
+    }, null, 4 /* STYLE */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_27, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)((0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.nombre) + " · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.formatoDistancia(t.distancia_m)), 1 /* TEXT */), t.visitas ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: 0
-    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.visitas) + " visitas", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 10 /* CLASS, PROPS */, _hoisted_20), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" · " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(t.visitas) + " visitas", 1 /* TEXT */)], 64 /* STABLE_FRAGMENT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 10 /* CLASS, PROPS */, _hoisted_26), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+      type: "button",
+      class: "shrink-0 rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800",
+      title: "Editar ruta",
+      onClick: function onClick($event) {
+        return $setup.empezarEdicion(t);
+      }
+    }, _toConsumableArray(_cache[16] || (_cache[16] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", {
+      viewBox: "0 0 24 24",
+      class: "w-3.5 h-3.5",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "aria-hidden": "true"
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M12 20h9"
+    }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+      d: "M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z"
+    })], -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_28), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
       type: "button",
       class: "shrink-0 rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800",
       title: $setup.recorridoVisible(t.tecnico_id) ? 'Ocultar recorrido' : 'Mostrar recorrido',
       onClick: function onClick($event) {
         return $setup.alternarRecorrido(t.tecnico_id);
       }
-    }, [$setup.recorridoVisible(t.tecnico_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_23, _toConsumableArray(_cache[15] || (_cache[15] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    }, [$setup.recorridoVisible(t.tecnico_id) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_30, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
       d: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"
     }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("circle", {
       cx: "12",
       cy: "12",
       r: "3"
-    }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_24, _toConsumableArray(_cache[16] || (_cache[16] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
+    }, null, -1 /* CACHED */)])))) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("svg", _hoisted_31, _toConsumableArray(_cache[18] || (_cache[18] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
       d: "M3 3l18 18"
     }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
       d: "M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-4.1 4.7"
@@ -22945,10 +23654,10 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       d: "M6.2 6.2C3.6 8.1 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4-.8"
     }, null, -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", {
       d: "M9.9 9.9a3 3 0 0 0 4.2 4.2"
-    }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_22)]);
-  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_25, "Sin recorrido en esa fecha."))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_26, _toConsumableArray(_cache[17] || (_cache[17] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+    }, null, -1 /* CACHED */)]))))], 8 /* PROPS */, _hoisted_29)]);
+  }), 128 /* KEYED_FRAGMENT */))])) : ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_32, "Sin recorrido en esa fecha."))])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.loading ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_33, _toConsumableArray(_cache[19] || (_cache[19] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-gray-700 dark:text-gray-300 text-sm"
-  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_27, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_28, _toConsumableArray(_cache[18] || (_cache[18] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
+  }, "Cargando flota...", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), $setup.error ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_34, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.error), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), !$props.apiKey ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_35, _toConsumableArray(_cache[20] || (_cache[20] = [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", {
     class: "text-amber-800 dark:text-amber-200 text-center text-sm"
   }, "Falta configurar GOOGLE_MAPS_API_KEY en .env", -1 /* CACHED */)])))) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
 }
@@ -23013,6 +23722,7 @@ if (el) {
     apiKey: cfg.apiKey || '',
     urlUbicaciones: cfg.urlUbicaciones || '',
     urlRecorridos: cfg.urlRecorridos || '',
+    urlAjusteRecorrido: cfg.urlAjusteRecorrido || '',
     urlClientes: cfg.urlClientes || '',
     urlPedidos: cfg.urlPedidos || '',
     urlTickets: cfg.urlTickets || '',

@@ -9,7 +9,7 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Flota en vivo desde la app ISP Staff. Verde = reporte en los últimos 5 minutos; gris = offline.
             Cada técnico tiene un color propio en el pin y en el recorrido. El selector deja ver uno solo.
-            La capa Recorrido dibuja el trayecto del día siguiendo las calles entre los puntos. A la noche queda un resumen (kilómetros, horario y trazo) y se borran los puntos detallados.
+            La capa Recorrido dibuja el trayecto del día siguiendo las calles. Si Google se desvía, el lápiz deja corregir los puntos y guardar esa ruta.
         </p>
     </div>
 
@@ -24,6 +24,7 @@
         'apiKey' => $googleMapsApiKey ?? '',
         'urlUbicaciones' => $urlUbicaciones ?? '',
         'urlRecorridos' => $urlRecorridos ?? '',
+        'urlAjusteRecorrido' => $urlAjusteRecorrido ?? '',
         'urlClientes' => $urlClientes ?? '',
         'urlPedidos' => $urlPedidos ?? '',
         'urlTickets' => $urlTickets ?? '',

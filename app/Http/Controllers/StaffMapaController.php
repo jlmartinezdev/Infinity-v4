@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Throwable;
 
 class StaffMapaController extends Controller
@@ -29,6 +30,7 @@ class StaffMapaController extends Controller
             'googleMapsApiKey' => config('services.google.maps_key'),
             'urlUbicaciones' => route('staff.mapa-tecnicos.ubicaciones'),
             'urlRecorridos' => route('staff.mapa-tecnicos.recorridos'),
+            'urlAjusteRecorrido' => route('staff.mapa-tecnicos.recorridos.ajuste'),
             'urlClientes' => route('staff.mapa-tecnicos.clientes'),
             'urlPedidos' => route('staff.mapa-tecnicos.pedidos'),
             'urlTickets' => route('staff.mapa-tecnicos.tickets'),
@@ -100,6 +102,49 @@ class StaffMapaController extends Controller
                 'message' => 'No se pudo cargar el recorrido.',
             ], 500);
         }
+    }
+
+    public function guardarAjuste(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tecnico_id' => ['required', 'integer'],
+            'fecha' => ['required', 'date_format:Y-m-d'],
+            'traza' => ['required', 'array', 'min:2', 'max:800'],
+            'traza.*.lat' => ['required', 'numeric', 'between:-90,90'],
+            'traza.*.lng' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        try {
+            $this->recorridos->guardarAjuste((int) $data['tecnico_id'], $data['fecha'], $data['traza']);
+        } catch (InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            Log::error('mapa-tecnicos.ajuste', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'No se pudo guardar la ruta.'], 500);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function borrarAjuste(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tecnico_id' => ['required', 'integer'],
+            'fecha' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        try {
+            $this->recorridos->borrarAjuste((int) $data['tecnico_id'], $data['fecha']);
+        } catch (InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            Log::error('mapa-tecnicos.ajuste.borrar', ['error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'No se pudo restaurar la ruta.'], 500);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function clientes(): JsonResponse
