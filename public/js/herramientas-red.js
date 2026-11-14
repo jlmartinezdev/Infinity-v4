@@ -21797,18 +21797,22 @@ function _toPrimitive(t, e) { if ("object" != _typeof(t) || !t) return t; var r;
         x1 += 30 * 60 * 1000;
       }
       var xSpan = x1 - x0 || 1;
+      var xLeft = plotLeft + 6;
+      var xRight = plotRight - 6;
       var xOf = function xOf(ms) {
-        return plotLeft + 6 + (ms - x0) / xSpan * (plotW - 12);
+        return xLeft + (ms - x0) / xSpan * (xRight - xLeft);
       };
+      var llenarX = puntos.length <= 2;
       var nivelLabel = {
         ok: 'Buena',
         atencion: 'Atención',
         critica: 'Crítica'
       };
-      var dots = puntos.map(function (p) {
+      var dots = puntos.map(function (p, i) {
         var nivel = nivelSenal(p.dbm);
+        var x = llenarX ? puntos.length === 1 ? xRight : xLeft + i / (puntos.length - 1) * (xRight - xLeft) : xOf(p.ms);
         return {
-          x: xOf(p.ms),
+          x: x,
           y: clampY(yOf(Number(p.dbm))),
           dbm: fmtDbm(p.dbm),
           dbmNum: Number(p.dbm),
@@ -21823,7 +21827,11 @@ function _toPrimitive(t, e) { if ("object" != _typeof(t) || !t) return t; var r;
       });
       var path = curvaSenal(dots);
       var area = '';
-      if (dots.length >= 2) {
+      if (dots.length === 1) {
+        var y = dots[0].y.toFixed(2);
+        path = "M".concat(xLeft.toFixed(2), " ").concat(y, " L").concat(xRight.toFixed(2), " ").concat(y);
+        area = "".concat(path, " L").concat(xRight.toFixed(1), " ").concat(plotBottom.toFixed(1), " L").concat(xLeft.toFixed(1), " ").concat(plotBottom.toFixed(1), " Z");
+      } else if (dots.length >= 2) {
         var last = dots[dots.length - 1];
         var first = dots[0];
         area = "".concat(path, " L").concat(last.x.toFixed(1), " ").concat(plotBottom.toFixed(1), " L").concat(first.x.toFixed(1), " ").concat(plotBottom.toFixed(1), " Z");
@@ -21847,14 +21855,34 @@ function _toPrimitive(t, e) { if ("object" != _typeof(t) || !t) return t; var r;
         }
       }
       var conFecha = xSpan > 36 * 60 * 60 * 1000;
+      var modoEje = conFecha ? 'eje-fecha' : 'eje-hora';
       var xTicks = [];
-      for (var _i4 = 0; _i4 < 4; _i4 += 1) {
-        var ms = x0 + xSpan * _i4 / 3;
+      if (puntos.length === 1) {
         xTicks.push({
-          x: xOf(ms),
-          label: fmtFechaHora(ms, conFecha ? 'eje-fecha' : 'eje-hora'),
-          anchor: _i4 === 0 ? 'start' : _i4 === 3 ? 'end' : 'middle'
+          x: (xLeft + xRight) / 2,
+          label: fmtFechaHora(puntos[0].ms, modoEje),
+          anchor: 'middle'
         });
+      } else if (puntos.length === 2) {
+        xTicks.push({
+          x: xLeft,
+          label: fmtFechaHora(puntos[0].ms, modoEje),
+          anchor: 'start'
+        });
+        xTicks.push({
+          x: xRight,
+          label: fmtFechaHora(puntos[1].ms, modoEje),
+          anchor: 'end'
+        });
+      } else {
+        for (var _i4 = 0; _i4 < 4; _i4 += 1) {
+          var ms = x0 + xSpan * _i4 / 3;
+          xTicks.push({
+            x: xOf(ms),
+            label: fmtFechaHora(ms, modoEje),
+            anchor: _i4 === 0 ? 'start' : _i4 === 3 ? 'end' : 'middle'
+          });
+        }
       }
       var yAtencion = clampY(yOf(atencion));
       var yCritica = clampY(yOf(critica));

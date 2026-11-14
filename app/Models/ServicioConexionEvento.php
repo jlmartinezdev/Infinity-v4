@@ -149,7 +149,7 @@ class ServicioConexionEvento extends Model
      */
     public static function registrarSenalOptica(Servicio $servicio, array $datos, string $fuente = self::FUENTE_OLT_CONSULTA): self
     {
-        return self::create([
+        $evento = self::create([
             'servicio_id' => $servicio->servicio_id,
             'tipo' => self::TIPO_SENAL_OPTICA,
             'fuente' => $fuente,
@@ -164,6 +164,36 @@ class ServicioConexionEvento extends Model
             'onu_descripcion' => $datos['descripcion'] ?? null,
             'payload' => $datos['payload'] ?? null,
         ]);
+
+        self::copiarDescripcionAlInventario($datos);
+
+        return $evento;
+    }
+
+    /**
+     * La consulta en vivo trae la descripción de la ONU. El inventario a veces no la tiene
+     * y por eso el informe la deja como «no coincidió».
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private static function copiarDescripcionAlInventario(array $datos): void
+    {
+        $desc = trim((string) ($datos['descripcion'] ?? ''));
+        $oltId = (int) ($datos['olt_id'] ?? 0);
+        $pon = (int) ($datos['pon_port'] ?? 0);
+        $indice = (int) ($datos['onu_index'] ?? 0);
+        if ($desc === '' || $oltId < 1 || $pon < 1 || $indice < 1) {
+            return;
+        }
+
+        OltOnu::query()
+            ->where('olt_id', $oltId)
+            ->where('pon_port', $pon)
+            ->where('onu_index', $indice)
+            ->where(function ($q) {
+                $q->whereNull('descripcion')->orWhere('descripcion', '');
+            })
+            ->update(['descripcion' => mb_substr($desc, 0, 255)]);
     }
 
     /**

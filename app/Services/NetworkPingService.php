@@ -48,7 +48,7 @@ class NetworkPingService
         $exitCode = 1;
         @exec($cmd.' 2>&1', $output, $exitCode);
 
-        $text = trim(implode("\n", $output));
+        $text = $this->salidaUtf8(trim(implode("\n", $output)));
         $alive = $this->detectAlive($text, $isWindows) || $exitCode === 0;
         $stats = $this->parseEstadisticas($text, $packets, $alive);
         $muestras = $this->parseMuestras($text);
@@ -236,5 +236,32 @@ class NetworkPingService
         }
 
         return (bool) preg_match('/\d+\s+bytes from/i', $output);
+    }
+
+    /**
+     * ping.exe en Windows escribe en la página OEM (suele ser CP850), no en UTF-8.
+     */
+    private function salidaUtf8(string $text): string
+    {
+        if ($text === '' || mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+
+        $origen = 'CP850';
+        if (function_exists('sapi_windows_cp_get')) {
+            $cp = sapi_windows_cp_get('oem');
+            if (is_int($cp) && $cp > 0) {
+                $origen = 'CP'.$cp;
+            }
+        }
+
+        $convertido = @mb_convert_encoding($text, 'UTF-8', $origen);
+        if (is_string($convertido) && $convertido !== '' && mb_check_encoding($convertido, 'UTF-8')) {
+            return $convertido;
+        }
+
+        $plano = @iconv($origen, 'UTF-8//IGNORE', $text);
+
+        return is_string($plano) ? $plano : '';
     }
 }

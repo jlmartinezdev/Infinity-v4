@@ -15,8 +15,12 @@
                 Duración {{ $lectura->duracionHumana() }}.
             </p>
         </div>
-        <a href="{{ route('sistema.senal-lecturas.index') }}"
-            class="text-sm text-blue-600 dark:text-blue-400 hover:underline">← Informes</a>
+        <div class="flex flex-col items-end gap-2 text-sm">
+            <a href="{{ route('sistema.senal-lecturas.asociacion', $lectura) }}"
+                class="text-blue-600 dark:text-blue-400 hover:underline">Informe de asociación</a>
+            <a href="{{ route('sistema.senal-lecturas.index') }}"
+                class="text-gray-500 dark:text-gray-400 hover:underline">← Informes</a>
+        </div>
     </div>
 
     @if($lectura->nota)

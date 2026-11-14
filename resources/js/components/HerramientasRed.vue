@@ -1885,13 +1885,19 @@ function construirSenalGrafico() {
     x1 += 30 * 60 * 1000;
   }
   const xSpan = x1 - x0 || 1;
-  const xOf = (ms) => plotLeft + 6 + ((ms - x0) / xSpan) * (plotW - 12);
+  const xLeft = plotLeft + 6;
+  const xRight = plotRight - 6;
+  const xOf = (ms) => xLeft + ((ms - x0) / xSpan) * (xRight - xLeft);
+  const llenarX = puntos.length <= 2;
 
   const nivelLabel = { ok: 'Buena', atencion: 'Atención', critica: 'Crítica' };
-  const dots = puntos.map((p) => {
+  const dots = puntos.map((p, i) => {
     const nivel = nivelSenal(p.dbm);
+    const x = llenarX
+      ? (puntos.length === 1 ? xRight : xLeft + (i / (puntos.length - 1)) * (xRight - xLeft))
+      : xOf(p.ms);
     return {
-      x: xOf(p.ms),
+      x,
       y: clampY(yOf(Number(p.dbm))),
       dbm: fmtDbm(p.dbm),
       dbmNum: Number(p.dbm),
@@ -1905,9 +1911,13 @@ function construirSenalGrafico() {
     };
   });
 
-  const path = curvaSenal(dots);
+  let path = curvaSenal(dots);
   let area = '';
-  if (dots.length >= 2) {
+  if (dots.length === 1) {
+    const y = dots[0].y.toFixed(2);
+    path = `M${xLeft.toFixed(2)} ${y} L${xRight.toFixed(2)} ${y}`;
+    area = `${path} L${xRight.toFixed(1)} ${plotBottom.toFixed(1)} L${xLeft.toFixed(1)} ${plotBottom.toFixed(1)} Z`;
+  } else if (dots.length >= 2) {
     const last = dots[dots.length - 1];
     const first = dots[0];
     area = `${path} L${last.x.toFixed(1)} ${plotBottom.toFixed(1)} L${first.x.toFixed(1)} ${plotBottom.toFixed(1)} Z`;
@@ -1930,14 +1940,26 @@ function construirSenalGrafico() {
   }
 
   const conFecha = xSpan > 36 * 60 * 60 * 1000;
+  const modoEje = conFecha ? 'eje-fecha' : 'eje-hora';
   const xTicks = [];
-  for (let i = 0; i < 4; i += 1) {
-    const ms = x0 + (xSpan * i) / 3;
+  if (puntos.length === 1) {
     xTicks.push({
-      x: xOf(ms),
-      label: fmtFechaHora(ms, conFecha ? 'eje-fecha' : 'eje-hora'),
-      anchor: i === 0 ? 'start' : (i === 3 ? 'end' : 'middle'),
+      x: (xLeft + xRight) / 2,
+      label: fmtFechaHora(puntos[0].ms, modoEje),
+      anchor: 'middle',
     });
+  } else if (puntos.length === 2) {
+    xTicks.push({ x: xLeft, label: fmtFechaHora(puntos[0].ms, modoEje), anchor: 'start' });
+    xTicks.push({ x: xRight, label: fmtFechaHora(puntos[1].ms, modoEje), anchor: 'end' });
+  } else {
+    for (let i = 0; i < 4; i += 1) {
+      const ms = x0 + (xSpan * i) / 3;
+      xTicks.push({
+        x: xOf(ms),
+        label: fmtFechaHora(ms, modoEje),
+        anchor: i === 0 ? 'start' : (i === 3 ? 'end' : 'middle'),
+      });
+    }
   }
 
   const yAtencion = clampY(yOf(atencion));

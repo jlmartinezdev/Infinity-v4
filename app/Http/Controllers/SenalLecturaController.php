@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SenalLectura;
+use App\Services\Senal\InformeAsociacionOptica;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -28,5 +29,12 @@ class SenalLecturaController extends Controller
             ->withQueryString();
 
         return view('sistema.senal-lecturas.show', compact('lectura', 'fallos', 'tipo'));
+    }
+
+    public function asociacion(SenalLectura $lectura, InformeAsociacionOptica $informe): View
+    {
+        $grupos = $informe->armar($lectura);
+
+        return view('sistema.senal-lecturas.asociacion', compact('lectura', 'grupos'));
     }
 }

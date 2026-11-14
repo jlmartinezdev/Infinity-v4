@@ -13,6 +13,7 @@ use App\Services\Olt\VsolGponClient;
 use App\Services\Olt\VsolOnuOutputParser;
 use App\Services\PedidoNodoOpcionesService;
 use App\Services\Ubnt\UbntAntenaService;
+use App\Support\ClaveOnuDescripcion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -128,8 +129,15 @@ class LecturaSenalDiariaService
         foreach ($olts as $olt) {
             $etiqueta = $olt->codigo ?: $olt->ip;
             try {
-                $blob = $this->vsol->fetchOnuOpticalDiag($olt);
-                $filas = $this->parser->parseOptical($blob);
+                $items = OltOnu::query()
+                    ->where('olt_id', $olt->olt_id)
+                    ->get(['pon_port', 'onu_index'])
+                    ->map(fn (OltOnu $onu) => [
+                        'pon_port' => (int) $onu->pon_port,
+                        'onu_index' => (int) $onu->onu_index,
+                    ])
+                    ->all();
+                $filas = $this->vsol->fetchPotenciasOpticas($olt, $items);
                 $puestas = $this->aplicarPotenciaDelDia($olt, $filas, $catalogo);
                 $notas[] = "{$etiqueta}: {$puestas} potencias.";
             } catch (Throwable $e) {
@@ -171,7 +179,7 @@ class LecturaSenalDiariaService
                     'tx_power_dbm' => $onu['tx'],
                     'estado' => $onu['estado'],
                     'descripcion' => $onu['descripcion'] ?: null,
-                    'payload' => ['origen' => 'lectura_diaria', 'via' => 'olt_opm'],
+                    'payload' => ['origen' => 'lectura_diaria', 'via' => 'optical_info'],
                 ], ServicioConexionEvento::FUENTE_CRON);
                 if ($servicio->cajaNapPuertoActivo) {
                     $servicio->cajaNapPuertoActivo->update(['potencia_cliente' => $onu['rx']]);
@@ -287,8 +295,7 @@ class LecturaSenalDiariaService
             }
         }
 
-        $claveDesc = $this->normalizar((string) $servicio->usuario_pppoe);
-        $candidatas = $porDescripcion[$claveDesc] ?? [];
+        $candidatas = $this->candidatasPorNombre($servicio, $porDescripcion);
         $conPotencia = array_values(array_filter($candidatas, fn (array $onu) => ! empty($onu['leida_hoy'])));
         if (count($conPotencia) === 1) {
             return $this->aceptarOptica($conPotencia[0]);
@@ -527,10 +534,45 @@ class LecturaSenalDiariaService
         return $oltId.':'.$pon.':'.$indice;
     }
 
+    /**
+     * Primero el PPPoE. Si no hay ONU con ese texto, el nombre del cliente,
+     * que en el sistema suele ir sin guion bajo.
+     *
+     * @param  array<string, list<array<string, mixed>>>  $porDescripcion
+     * @return list<array<string, mixed>>
+     */
+    private function candidatasPorNombre(Servicio $servicio, array $porDescripcion): array
+    {
+        $porPppoe = $this->onusDeClaves($porDescripcion, ClaveOnuDescripcion::claves((string) $servicio->usuario_pppoe));
+        if ($porPppoe !== []) {
+            return $porPppoe;
+        }
+
+        $cliente = $servicio->cliente;
+        $nombre = trim(((string) ($cliente->nombre ?? '')).' '.((string) ($cliente->apellido ?? '')));
+
+        return $this->onusDeClaves($porDescripcion, ClaveOnuDescripcion::claves($nombre));
+    }
+
+    /**
+     * @param  array<string, list<array<string, mixed>>>  $porDescripcion
+     * @param  list<string>  $claves
+     * @return list<array<string, mixed>>
+     */
+    private function onusDeClaves(array $porDescripcion, array $claves): array
+    {
+        $mapa = [];
+        foreach ($claves as $clave) {
+            foreach ($porDescripcion[$clave] ?? [] as $onu) {
+                $mapa[$this->claveOnu((int) $onu['olt_id'], (int) $onu['pon_port'], (int) $onu['onu_index'])] = $onu;
+            }
+        }
+
+        return array_values($mapa);
+    }
+
     private function normalizar(string $valor): string
     {
-        $valor = mb_strtoupper(trim($valor));
-
-        return preg_replace('/[^A-Z0-9]+/u', '', $valor) ?? '';
+        return ClaveOnuDescripcion::de($valor);
     }
 }

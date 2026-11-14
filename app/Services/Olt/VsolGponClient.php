@@ -133,6 +133,145 @@ class VsolGponClient
         }
     }
 
+    /**
+     * Este firmware no entrega potencia con «show onu opm-diag».
+     * Dentro de la interfaz GPON responde «show onu optical-info N».
+     *
+     * @param  list<array{pon_port: int, onu_index: int}>  $onus
+     * @return list<array{pon_port: int, onu_index: int, rx_power_dbm: float, tx_power_dbm?: float}>
+     */
+    public function fetchPotenciasOpticas(Olt $olt, array $onus): array
+    {
+        $porPuerto = [];
+        foreach ($onus as $onu) {
+            $puerto = (int) ($onu['pon_port'] ?? 0);
+            $indice = (int) ($onu['onu_index'] ?? 0);
+            if ($puerto < 1 || $indice < 1) {
+                continue;
+            }
+            $porPuerto[$puerto][$indice] = $indice;
+        }
+        if ($porPuerto === []) {
+            return [];
+        }
+
+        $plantillas = [
+            'show onu optical-info %d',
+            'show onu optical_info %d',
+            'show onu %d optical-info',
+            'show onu %d optical_info',
+        ];
+        $parser = new VsolOnuOutputParser;
+        $session = $this->openSession($olt);
+        $resultados = [];
+        $plantillaOk = null;
+
+        try {
+            foreach ($porPuerto as $puerto => $indices) {
+                $session = $this->entrarPuertoGpon($session, $olt, $puerto);
+                $hechas = 0;
+                foreach ($indices as $indice) {
+                    if ($hechas > 0 && $hechas % 40 === 0) {
+                        $session->disconnect();
+                        $session = $this->openSession($olt);
+                        $session = $this->entrarPuertoGpon($session, $olt, $puerto);
+                    }
+                    $hechas++;
+
+                    $leida = $this->leerPotenciaOnu($session, $olt, $puerto, $indice, $plantillas, $plantillaOk, $parser);
+                    $session = $leida['session'];
+                    $plantillaOk = $leida['plantilla'];
+                    if ($leida['fila'] !== null) {
+                        $resultados[] = $leida['fila'];
+                    }
+                }
+                try {
+                    $session->exec('exit', 8);
+                } catch (RuntimeException) {
+                    $session->disconnect();
+                    $session = $this->openSession($olt);
+                }
+            }
+        } finally {
+            $session->disconnect();
+        }
+
+        return $resultados;
+    }
+
+    /**
+     * @param  list<string>  $plantillas
+     * @return array{session: VsolTelnetSession, plantilla: ?string, fila: ?array{pon_port: int, onu_index: int, rx_power_dbm: float, tx_power_dbm?: float}}
+     */
+    private function leerPotenciaOnu(
+        VsolTelnetSession $session,
+        Olt $olt,
+        int $puerto,
+        int $indice,
+        array $plantillas,
+        ?string $plantillaOk,
+        VsolOnuOutputParser $parser,
+    ): array {
+        $candidatas = $plantillaOk !== null ? [$plantillaOk] : $plantillas;
+        $intento = 0;
+
+        while (true) {
+            try {
+                foreach ($candidatas as $plantilla) {
+                    $salida = $session->exec(sprintf($plantilla, $indice), 12);
+                    if ($this->salidaInvalida($salida)) {
+                        continue;
+                    }
+                    $datos = $parser->parseOnuOpticalInfoOutput($salida);
+                    $pareceOptica = stripos($salida, 'optical') !== false || stripos($salida, 'rx') !== false;
+                    if (! isset($datos['rx_power_dbm']) && ! $pareceOptica) {
+                        continue;
+                    }
+
+                    $fila = null;
+                    if (isset($datos['rx_power_dbm'])) {
+                        $fila = [
+                            'pon_port' => $puerto,
+                            'onu_index' => $indice,
+                            'rx_power_dbm' => $datos['rx_power_dbm'],
+                        ];
+                        if (isset($datos['tx_power_dbm'])) {
+                            $fila['tx_power_dbm'] = $datos['tx_power_dbm'];
+                        }
+                    }
+
+                    return ['session' => $session, 'plantilla' => $plantilla, 'fila' => $fila];
+                }
+
+                return ['session' => $session, 'plantilla' => $plantillaOk, 'fila' => null];
+            } catch (RuntimeException $e) {
+                if ($intento >= 1 || ! $this->esCorteDeConexion($e)) {
+                    throw $e;
+                }
+                $intento++;
+                $session->disconnect();
+                $session = $this->openSession($olt);
+                $session = $this->entrarPuertoGpon($session, $olt, $puerto);
+            }
+        }
+    }
+
+    private function entrarPuertoGpon(VsolTelnetSession $session, Olt $olt, int $puerto): VsolTelnetSession
+    {
+        try {
+            $session->exec("interface gpon 0/{$puerto}", 15);
+        } catch (RuntimeException $e) {
+            if (! $this->esCorteDeConexion($e)) {
+                throw $e;
+            }
+            $session->disconnect();
+            $session = $this->openSession($olt);
+            $session->exec("interface gpon 0/{$puerto}", 15);
+        }
+
+        return $session;
+    }
+
     public function fetchOnuStates(Olt $olt): string
     {
         $session = $this->openSession($olt);
@@ -1046,6 +1185,7 @@ class VsolGponClient
         return $trim === ''
             || stripos($trim, 'invalid') !== false
             || stripos($trim, 'unknown command') !== false
-            || stripos($trim, 'ambiguous') !== false;
+            || stripos($trim, 'ambiguous') !== false
+            || stripos($trim, 'incomplete') !== false;
     }
 }

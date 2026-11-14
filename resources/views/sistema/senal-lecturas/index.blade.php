@@ -54,8 +54,10 @@
                             {{ $lectura->estado === 'lista' ? 'Lista' : ($lectura->estado === 'error' ? 'Interrumpida' : 'En curso') }}
                         </td>
                         <td class="px-4 py-3 text-right">
+                            <a href="{{ route('sistema.senal-lecturas.asociacion', $lectura) }}"
+                                class="text-blue-600 dark:text-blue-400 hover:underline">Asociación</a>
                             <a href="{{ route('sistema.senal-lecturas.show', $lectura) }}"
-                                class="text-blue-600 dark:text-blue-400 hover:underline">Ver fallos</a>
+                                class="ml-3 text-blue-600 dark:text-blue-400 hover:underline">Ver fallos</a>
                         </td>
                     </tr>
                 @empty

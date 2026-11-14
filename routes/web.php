@@ -992,6 +992,8 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
         ->middleware('permiso:sistema-red-monitoreo.ver');
     Route::get('senal-lecturas', [SenalLecturaController::class, 'index'])->name('senal-lecturas.index')
         ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('senal-lecturas/{lectura}/asociacion', [SenalLecturaController::class, 'asociacion'])->name('senal-lecturas.asociacion')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
     Route::get('senal-lecturas/{lectura}', [SenalLecturaController::class, 'show'])->name('senal-lecturas.show')
         ->middleware('permiso:sistema-red-monitoreo.ver');
     Route::get('red-monitoreo/datos', [RedMonitoreoController::class, 'datos'])->name('red-monitoreo.datos')
