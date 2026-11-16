@@ -239,6 +239,7 @@ Route::middleware(['auth', 'permiso:clientes.ver'])->group(function () {
     Route::get('/clientes/buscar-temp', [ClienteController::class, 'buscarTemp'])->name('clientes.buscar-temp');
     Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
     Route::get('/clientes/mapa-activos', [ClienteController::class, 'mapaActivos'])->name('clientes.mapa-activos');
+    Route::get('/clientes/mapa-activos/datos', [ClienteController::class, 'mapaActivosDatos'])->name('clientes.mapa-activos.datos');
     Route::get('/clientes/mapa-activos/ping-estados', [ClienteController::class, 'mapaActivosPingEstados'])->name('clientes.mapa-activos.ping-estados');
     Route::post('/clientes/mapa-activos/ejecutar-ping', [ClienteController::class, 'mapaActivosEjecutarPing'])->name('clientes.mapa-activos.ejecutar-ping');
     Route::get('/clientes/{cliente}/detalle', [ClienteController::class, 'detalle'])->name('clientes.detalle');

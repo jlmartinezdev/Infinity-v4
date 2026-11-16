@@ -24,26 +24,14 @@
                     Filtro PPPoE: <strong>{{ ($pingEstadoFiltroLabels ?? [])[$pingEstadoFiltro] ?? $pingEstadoFiltro }}</strong>
                 </p>
             @endif
-            @if(!empty($statsMapa))
-                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    @if(!empty($pingEstadoFiltro) && ($statsMapa['en_mapa_total'] ?? 0) > ($statsMapa['en_mapa'] ?? 0))
-                        Mostrando: <strong>{{ number_format($statsMapa['en_mapa'] ?? 0) }}</strong> de {{ number_format($statsMapa['en_mapa_total'] ?? 0) }} en mapa
-                    @else
-                        En mapa: <strong>{{ number_format($statsMapa['en_mapa'] ?? 0) }}</strong>
-                    @endif
-                    · Con servicio vigente y ubicación: {{ number_format($statsMapa['total_candidatos'] ?? 0) }}
-                    @if(($statsMapa['sin_coordenadas'] ?? 0) > 0)
-                        · Sin coordenadas parseables: {{ number_format($statsMapa['sin_coordenadas']) }}
-                    @endif
-                </p>
-                <div class="mt-2 flex flex-wrap gap-3 text-xs">
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-600"></span> Online ({{ number_format($statsMapa['ping_online'] ?? 0) }})</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-600"></span> PPPoE caído ({{ number_format($statsMapa['ping_offline'] ?? 0) }})</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Parcial ({{ number_format($statsMapa['ping_mixed'] ?? 0) }})</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-400"></span> Sin dato ({{ number_format($statsMapa['ping_unknown'] ?? 0) }})</span>
-                </div>
-                <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Consulta PPPoE en MikroTik cada 7 min · CLI: <code class="text-[10px]">php artisan monitoreo:ping-servicios --nodo=ID</code></p>
-            @endif
+            <p id="mapa-resumen" class="mt-2 text-xs text-gray-500 dark:text-gray-400">Cargando clientes…</p>
+            <div id="mapa-leyenda" class="mt-2 hidden flex-wrap gap-3 text-xs">
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-600"></span><span>Online (<span data-ping="online">0</span>)</span></span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-600"></span><span>PPPoE caído (<span data-ping="offline">0</span>)</span></span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-orange-500"></span><span>Parcial (<span data-ping="mixed">0</span>)</span></span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-400"></span><span>Sin dato (<span data-ping="unknown">0</span>)</span></span>
+            </div>
+            <p id="mapa-nota" class="mt-1 hidden text-[11px] text-gray-400 dark:text-gray-500">Consulta PPPoE en MikroTik cada 7 min · CLI: <code class="text-[10px]">php artisan monitoreo:ping-servicios --nodo=ID</code></p>
         </div>
         <div class="flex flex-col gap-2 shrink-0 w-full lg:w-auto">
             <form action="{{ route('clientes.mapa-activos') }}" method="GET" class="flex flex-wrap items-end gap-2">
@@ -92,40 +80,87 @@
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden flex-1 min-h-[300px]">
+    <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden flex-1 min-h-[300px]">
         <div id="mapa-clientes-activos-app" class="w-full h-full min-h-[300px]"></div>
+        <div id="mapa-espera" class="absolute inset-0 z-10 flex items-center justify-center bg-gray-100/90 dark:bg-gray-800/90">
+            <p class="text-sm text-gray-700 dark:text-gray-300">Consultando clientes…</p>
+        </div>
     </div>
 
-    @if (empty($puntos))
-        <div class="mt-4 px-4 py-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-            No hay clientes con servicio activo o suspendido y coordenadas válidas. Revisá que tengan URL de ubicación o GPS en el pedido (formato coordenadas o enlace de Google Maps).
-        </div>
-    @elseif(!empty($pingEstadoFiltro) && ($statsMapa['en_mapa'] ?? 0) === 0)
-        <div class="mt-4 px-4 py-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-            No hay clientes con estado «{{ ($pingEstadoFiltroLabels ?? [])[$pingEstadoFiltro] ?? $pingEstadoFiltro }}» en el mapa actual.
-            @if(($statsMapa['en_mapa_total'] ?? 0) > 0)
-                Hay {{ number_format($statsMapa['en_mapa_total']) }} cliente(s) con otro estado PPPoE.
-            @endif
-        </div>
-    @endif
+    <div id="mapa-vacio" class="hidden mt-4 px-4 py-6 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"></div>
 </div>
 
 @push('scripts')
-@php
-    $mapaConfig = [
-        'apiKey' => $googleMapsApiKey,
-        'puntos' => $puntos,
-        'urlDetalleClienteBase' => url('clientes') . '/__id__/detalle',
-        'urlPingEstados' => $urlPingEstados ?? '',
-        'pingRefrescoSegundos' => (int) ($pingRefrescoSegundos ?? 60),
-        'nodoId' => $nodoIdSeleccionado ?? null,
-        'pingEstadoFiltro' => $pingEstadoFiltro ?? null,
-    ];
-@endphp
 <script>
-    window.__MAPA_CLIENTES_ACTIVOS_CONFIG__ = @json($mapaConfig);
+(function () {
+    const resumen = document.getElementById('mapa-resumen');
+    const leyenda = document.getElementById('mapa-leyenda');
+    const nota = document.getElementById('mapa-nota');
+    const vacio = document.getElementById('mapa-vacio');
+    const espera = document.getElementById('mapa-espera');
+    const nf = new Intl.NumberFormat('es-PY');
+
+    function fallo(mensaje) {
+        if (resumen) resumen.textContent = mensaje;
+        if (espera) espera.querySelector('p').textContent = mensaje;
+    }
+
+    fetch(@json($urlMapaDatos), {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    }).then(function (response) {
+        if (!response.ok) throw new Error('No se pudieron cargar los clientes.');
+        return response.json();
+    }).then(function (data) {
+        const stats = data.stats || {};
+        const filtro = data.ping_estado_filtro || '';
+        const total = Number(stats.en_mapa_total || 0);
+        const visibles = Number(stats.en_mapa || 0);
+        let texto = filtro && total > visibles
+            ? 'Mostrando: ' + nf.format(visibles) + ' de ' + nf.format(total) + ' en mapa'
+            : 'En mapa: ' + nf.format(visibles);
+        texto += ' · Con servicio vigente y ubicación: ' + nf.format(Number(stats.total_candidatos || 0));
+        if (Number(stats.sin_coordenadas || 0) > 0) {
+            texto += ' · Sin coordenadas parseables: ' + nf.format(Number(stats.sin_coordenadas));
+        }
+        if (resumen) resumen.textContent = texto;
+        if (leyenda) {
+            leyenda.classList.remove('hidden');
+            leyenda.classList.add('flex');
+            leyenda.querySelectorAll('[data-ping]').forEach(function (el) {
+                el.textContent = nf.format(Number(stats['ping_' + el.dataset.ping] || 0));
+            });
+        }
+        nota?.classList.remove('hidden');
+
+        const puntos = Array.isArray(data.puntos) ? data.puntos : [];
+        if (puntos.length === 0 && vacio) {
+            vacio.textContent = 'No hay clientes con servicio activo o suspendido y coordenadas válidas. Revisá que tengan URL de ubicación o GPS en el pedido (formato coordenadas o enlace de Google Maps).';
+            vacio.classList.remove('hidden');
+        } else if (filtro && visibles === 0 && vacio) {
+            vacio.textContent = 'No hay clientes con estado «' + (data.ping_estado_label || filtro) + '» en el mapa actual.'
+                + (total > 0 ? ' Hay ' + nf.format(total) + ' cliente(s) con otro estado PPPoE.' : '');
+            vacio.classList.remove('hidden');
+        }
+
+        window.__MAPA_CLIENTES_ACTIVOS_CONFIG__ = {
+            apiKey: @json($googleMapsApiKey),
+            puntos: puntos,
+            urlDetalleClienteBase: @json(url('clientes') . '/__id__/detalle'),
+            urlPingEstados: @json($urlPingEstados ?? ''),
+            pingRefrescoSegundos: @json((int) ($pingRefrescoSegundos ?? 60)),
+            nodoId: data.nodo_id || null,
+            pingEstadoFiltro: filtro,
+        };
+        const script = document.createElement('script');
+        script.src = @json(asset(mix('js/mapa-clientes-activos.js')));
+        document.body.appendChild(script);
+        espera?.remove();
+    }).catch(function (err) {
+        fallo(err.message || 'No se pudieron cargar los clientes.');
+    });
+})();
 </script>
-<script src="{{ asset(mix('js/mapa-clientes-activos.js')) }}"></script>
 <script>
 (function () {
     const btn = document.getElementById('btn-ejecutar-ping-mapa');

@@ -41,7 +41,43 @@ class ClienteController extends Controller
     /**
      * Mapa de clientes vigentes (servicio activo o suspendido) con ubicación GPS válida.
      */
-    public function mapaActivos(Request $request, ServicioPingMonitoreoService $pingMonitoreo)
+    public function mapaActivos(Request $request)
+    {
+        [$nodoId, $pingEstadoFiltro] = $this->filtrosMapaActivos($request);
+        $nodos = Nodo::query()->orderBy('descripcion')->get(['nodo_id', 'descripcion']);
+        $nodoSeleccionado = $nodoId !== null
+            ? $nodos->firstWhere('nodo_id', $nodoId)
+            : null;
+
+        return view('clientes.mapa-activos', [
+            'nodos' => $nodos,
+            'nodoIdSeleccionado' => $nodoId,
+            'nodoSeleccionado' => $nodoSeleccionado,
+            'pingEstadoFiltro' => $pingEstadoFiltro !== '' ? $pingEstadoFiltro : null,
+            'pingEstadoFiltroLabels' => $this->etiquetasPingMapaActivos(),
+            'googleMapsApiKey' => config('services.google.maps_key'),
+            'urlMapaDatos' => route('clientes.mapa-activos.datos', array_filter([
+                'nodo_id' => $nodoId,
+                'ping_estado' => $pingEstadoFiltro !== '' ? $pingEstadoFiltro : null,
+            ])),
+            'urlPingEstados' => route('clientes.mapa-activos.ping-estados'),
+            'urlEjecutarPing' => route('clientes.mapa-activos.ejecutar-ping'),
+            'pingRefrescoSegundos' => (int) config('monitoreo.mapa_refresco_segundos', 60),
+        ]);
+    }
+
+    /**
+     * Clientes, planes y estado PPPoE del mapa. La página se abre antes y pinta esto al llegar.
+     */
+    public function mapaActivosDatos(Request $request, ServicioPingMonitoreoService $pingMonitoreo)
+    {
+        return response()->json($this->payloadMapaActivos($request, $pingMonitoreo));
+    }
+
+    /**
+     * @return array{0: ?int, 1: string}
+     */
+    private function filtrosMapaActivos(Request $request): array
     {
         $nodoId = $request->filled('nodo_id') ? (int) $request->input('nodo_id') : null;
         if ($nodoId !== null && $nodoId <= 0) {
@@ -49,11 +85,32 @@ class ClienteController extends Controller
         }
 
         $pingEstadoFiltro = (string) $request->input('ping_estado', '');
-        $pingEstadosValidos = ['online', 'offline', 'mixed', 'unknown'];
-        if (! in_array($pingEstadoFiltro, $pingEstadosValidos, true)) {
+        if (! array_key_exists($pingEstadoFiltro, $this->etiquetasPingMapaActivos())) {
             $pingEstadoFiltro = '';
         }
 
+        return [$nodoId, $pingEstadoFiltro];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function etiquetasPingMapaActivos(): array
+    {
+        return [
+            'online' => 'Online',
+            'offline' => 'PPPoE caído',
+            'mixed' => 'Parcial',
+            'unknown' => 'Sin dato',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payloadMapaActivos(Request $request, ServicioPingMonitoreoService $pingMonitoreo): array
+    {
+        [$nodoId, $pingEstadoFiltro] = $this->filtrosMapaActivos($request);
         $estadosMapa = $this->estadosServicioMapaActivos();
 
         $clientesQuery = Cliente::query()
@@ -160,14 +217,10 @@ class ClienteController extends Controller
                 fn (array $p) => ($p['ping_estado'] ?? 'unknown') === $pingEstadoFiltro
             ))
             : $totalEnMapa;
-        $nodos = Nodo::query()->orderBy('descripcion')->get(['nodo_id', 'descripcion']);
-        $nodoSeleccionado = $nodoId !== null
-            ? $nodos->firstWhere('nodo_id', $nodoId)
-            : null;
 
-        return view('clientes.mapa-activos', [
+        return [
             'puntos' => $puntos,
-            'statsMapa' => [
+            'stats' => [
                 'total_candidatos' => $clientes->count(),
                 'en_mapa' => $enMapaVisibles,
                 'en_mapa_total' => $totalEnMapa,
@@ -177,21 +230,12 @@ class ClienteController extends Controller
                 'ping_mixed' => $resumenPing['mixed'],
                 'ping_unknown' => $resumenPing['unknown'],
             ],
-            'nodos' => $nodos,
-            'nodoIdSeleccionado' => $nodoId,
-            'nodoSeleccionado' => $nodoSeleccionado,
-            'pingEstadoFiltro' => $pingEstadoFiltro !== '' ? $pingEstadoFiltro : null,
-            'pingEstadoFiltroLabels' => [
-                'online' => 'Online',
-                'offline' => 'PPPoE caído',
-                'mixed' => 'Parcial',
-                'unknown' => 'Sin dato',
-            ],
-            'googleMapsApiKey' => config('services.google.maps_key'),
-            'urlPingEstados' => route('clientes.mapa-activos.ping-estados'),
-            'urlEjecutarPing' => route('clientes.mapa-activos.ejecutar-ping'),
-            'pingRefrescoSegundos' => (int) config('monitoreo.mapa_refresco_segundos', 60),
-        ]);
+            'ping_estado_filtro' => $pingEstadoFiltro !== '' ? $pingEstadoFiltro : null,
+            'ping_estado_label' => $pingEstadoFiltro !== ''
+                ? ($this->etiquetasPingMapaActivos()[$pingEstadoFiltro] ?? $pingEstadoFiltro)
+                : null,
+            'nodo_id' => $nodoId,
+        ];
     }
 
     /**
