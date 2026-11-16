@@ -25385,14 +25385,16 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       onClick: function onClick($event) {
         return $options.hydrateMedia(m, true);
       }
-    }, "Reintentar", 8 /* PROPS */, _hoisted_77)]))])) : ['document', 'video'].includes(m.tipo) && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("button", {
+    }, "Reintentar", 8 /* PROPS */, _hoisted_77)]))])) : ['document', 'video'].includes(m.tipo) && m.media_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
       key: 6,
+      class: "my-1 max-w-full"
+    }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
       type: "button",
-      class: "my-1 inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20",
+      class: "inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20",
       onClick: function onClick($event) {
         return $options.abrirMediaAdjunto(m);
       }
-    }, " Abrir " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.tipo), 9 /* TEXT, PROPS */, _hoisted_78)) : m.tipo === 'location' && m.maps_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_79, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_80, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_nombre || 'Ubicación compartida'), 1 /* TEXT */), m.maps_direccion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_81, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_direccion), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_82, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_lng), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
+    }, " Abrir " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.tipo), 9 /* TEXT, PROPS */, _hoisted_78), $options.captionMedia(m) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_72, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.captionMedia(m)), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : m.tipo === 'location' && m.maps_url ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_79, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_80, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_nombre || 'Ubicación compartida'), 1 /* TEXT */), m.maps_direccion ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("p", _hoisted_81, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_direccion), 1 /* TEXT */)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("p", _hoisted_82, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_lat) + ", " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(m.maps_lng), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
       type: "button",
       class: "mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#00a884]/20 px-2.5 py-1.5 text-xs font-semibold text-[#008069] hover:bg-[#00a884]/30 dark:text-[#d1f4cc]",
       onClick: function onClick($event) {

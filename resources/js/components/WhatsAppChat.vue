@@ -431,14 +431,19 @@
                       <button type="button" class="ml-1 underline" @click="hydrateMedia(m, true)">Reintentar</button>
                     </p>
                   </div>
-                  <button
+                  <div
                     v-else-if="['document','video'].includes(m.tipo) && m.media_url"
-                    type="button"
-                    class="my-1 inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20"
-                    @click="abrirMediaAdjunto(m)"
+                    class="my-1 max-w-full"
                   >
-                    Abrir {{ m.tipo }}
-                  </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded bg-black/10 px-2 py-1 text-xs underline dark:bg-black/20"
+                      @click="abrirMediaAdjunto(m)"
+                    >
+                      Abrir {{ m.tipo }}
+                    </button>
+                    <p v-if="captionMedia(m)" class="mt-1 whitespace-pre-wrap break-words text-[14.2px] leading-[19px]">{{ captionMedia(m) }}</p>
+                  </div>
                   <div v-else-if="m.tipo === 'location' && m.maps_url" class="my-1 min-w-[200px] max-w-xs">
                     <p class="text-[14px] font-medium leading-snug">{{ m.maps_nombre || 'Ubicación compartida' }}</p>
                     <p v-if="m.maps_direccion" class="mt-0.5 text-[11px] opacity-80">{{ m.maps_direccion }}</p>
