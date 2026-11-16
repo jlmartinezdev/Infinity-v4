@@ -152,11 +152,12 @@ class LecturaSenalDiariaService
 
         $porDescripcion = [];
         foreach ($catalogo as $onu) {
-            $clave = $this->normalizar($onu['descripcion']);
-            if ($clave === '' || preg_match('/^PON\d+$/', $clave)) {
-                continue;
+            foreach (ClaveOnuDescripcion::claves((string) $onu['descripcion']) as $clave) {
+                if ($clave === '' || preg_match('/^PON\d+$/', $clave)) {
+                    continue;
+                }
+                $porDescripcion[$clave][] = $onu;
             }
-            $porDescripcion[$clave][] = $onu;
         }
 
         $leidas = 0;
@@ -569,10 +570,5 @@ class LecturaSenalDiariaService
         }
 
         return array_values($mapa);
-    }
-
-    private function normalizar(string $valor): string
-    {
-        return ClaveOnuDescripcion::de($valor);
     }
 }

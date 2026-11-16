@@ -4,7 +4,8 @@ namespace App\Support;
 
 /**
  * Iguala un usuario PPPoE con la descripción de la ONU.
- * Da lo mismo si uno lleva guion bajo y el otro no, o si hay tilde o ñ.
+ * Da lo mismo si uno lleva guion, guion bajo o espacio y el otro no, o si hay tilde o ñ.
+ * Un agregado final como -ESCUELA, _CASA o -Yuty tampoco separa al mismo cliente.
  */
 class ClaveOnuDescripcion
 {
@@ -19,7 +20,7 @@ class ClaveOnuDescripcion
     }
 
     /**
-     * La clave del texto y, si trae un _2 o _SERVICIO2 al final, también la clave sin esa marca.
+     * La clave del texto y, si trae una marca al final, también la clave sin esa marca.
      *
      * @return list<string>
      */
@@ -31,11 +32,37 @@ class ClaveOnuDescripcion
         }
 
         $claves = [self::de($valor)];
-        $sinMarca = preg_replace('/(?:[_\-\s]+SERVICIO\s*2|[_\-\s]+2)$/iu', '', $valor) ?? $valor;
-        if ($sinMarca !== $valor) {
-            $claves[] = self::de($sinMarca);
+        foreach (self::sinMarcaFinal($valor) as $variante) {
+            $clave = self::de($variante);
+            if (mb_strlen($clave) >= 10) {
+                $claves[] = $clave;
+            }
         }
 
         return array_values(array_unique(array_filter($claves)));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function sinMarcaFinal(string $valor): array
+    {
+        $variantes = [];
+        $sinServicio = preg_replace('/(?:[_\-\s]+SERVICIO\s*2|[_\-\s]+2)$/iu', '', $valor) ?? $valor;
+        if ($sinServicio !== $valor) {
+            $variantes[] = $sinServicio;
+        }
+
+        $sinGuion = preg_replace('/\s*-\s*[A-Za-z0-9]+$/u', '', $valor) ?? $valor;
+        if ($sinGuion !== $valor) {
+            $variantes[] = $sinGuion;
+        }
+
+        $sinLugar = preg_replace('/(?:[_\-\s]+)(?:ESCUELA|CASA|YUTY)$/iu', '', $valor) ?? $valor;
+        if ($sinLugar !== $valor) {
+            $variantes[] = $sinLugar;
+        }
+
+        return $variantes;
     }
 }

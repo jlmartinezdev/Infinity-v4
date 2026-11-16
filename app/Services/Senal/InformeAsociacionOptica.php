@@ -24,7 +24,13 @@ class InformeAsociacionOptica
         $fallos = $lectura->fallos()
             ->where('tipo', SenalLecturaFallo::TIPO_OPTICA)
             ->whereIn('motivo', ['sin_asociar', 'sin_rx', 'asociacion_ambigua'])
-            ->with(['servicio.cliente:cliente_id,nombre,apellido'])
+            ->with([
+                'servicio.cliente:cliente_id,nombre,apellido',
+                'servicio.pool.olt.nodo:nodo_id,descripcion',
+                'servicio.pool.router.nodo:nodo_id,descripcion',
+                'servicio.cajaNapPuertoActivo.cajaNap.nodo:nodo_id,descripcion',
+                'servicio.cajaNapPuertoActivo.cajaNap.salidaPon.olt.nodo:nodo_id,descripcion',
+            ])
             ->orderBy('id')
             ->get();
 
@@ -59,7 +65,7 @@ class InformeAsociacionOptica
                     continue;
                 }
                 $fila['onus'] = $porNombre;
-                $grupos['asociacion_ambigua'][] = $fila;
+                $grupos['asociacion_ambigua'][] = $this->conZona($fila, $servicio);
 
                 continue;
             }
@@ -76,11 +82,22 @@ class InformeAsociacionOptica
                 }
             }
 
-            $grupos[$fallo->motivo][] = $fila;
+            $grupos[$fallo->motivo][] = $this->conZona($fila, $servicio);
         }
 
         foreach ($grupos as &$filas) {
-            usort($filas, fn (array $a, array $b) => strnatcasecmp($a['cliente'], $b['cliente']));
+            usort($filas, function (array $a, array $b) {
+                $cmp = strnatcasecmp($this->ordenZona($a['nodo']), $this->ordenZona($b['nodo']));
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                $cmp = strnatcasecmp($this->ordenZona($a['olt']), $this->ordenZona($b['olt']));
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+
+                return strnatcasecmp($a['cliente'], $b['cliente']);
+            });
         }
 
         return $grupos;
@@ -98,6 +115,37 @@ class InformeAsociacionOptica
         }
 
         return 'Servicio #'.(int) ($servicio?->servicio_id ?? 0);
+    }
+
+    /**
+     * @param  array<string, mixed>  $fila
+     * @return array<string, mixed>
+     */
+    private function conZona(array $fila, ?Servicio $servicio): array
+    {
+        $onu = $fila['onus'][0] ?? null;
+        if (is_array($onu) && ($onu['olt'] ?? '') !== '') {
+            $fila['nodo'] = $onu['nodo'] ?? 'Sin nodo';
+            $fila['olt'] = $onu['olt'];
+
+            return $fila;
+        }
+
+        $olt = $servicio?->pool?->olt
+            ?? $servicio?->cajaNapPuertoActivo?->cajaNap?->salidaPon?->olt;
+        $nodo = $olt?->nodo
+            ?? $servicio?->pool?->router?->nodo
+            ?? $servicio?->cajaNapPuertoActivo?->cajaNap?->nodo;
+
+        $fila['nodo'] = $nodo?->descripcion ?: 'Sin nodo';
+        $fila['olt'] = $olt?->codigo ?: 'Sin OLT';
+
+        return $fila;
+    }
+
+    private function ordenZona(string $nombre): string
+    {
+        return str_starts_with($nombre, 'Sin ') ? 'zzz'.$nombre : $nombre;
     }
 
     /**
@@ -141,11 +189,12 @@ class InformeAsociacionOptica
         $catalogo = [];
         $porDescripcion = [];
 
-        $onus = OltOnu::query()->with('olt:olt_id,codigo')->get();
+        $onus = OltOnu::query()->with(['olt:olt_id,codigo,nodo_id', 'olt.nodo:nodo_id,descripcion'])->get();
         foreach ($onus as $onu) {
             $descripcion = trim((string) $onu->descripcion);
             $fila = [
                 'olt' => $onu->olt?->codigo ?: ('OLT '.$onu->olt_id),
+                'nodo' => $onu->olt?->nodo?->descripcion ?: 'Sin nodo',
                 'pon' => (int) $onu->pon_port,
                 'indice' => (int) $onu->onu_index,
                 'descripcion' => $descripcion !== '' ? $descripcion : '—',
@@ -156,11 +205,12 @@ class InformeAsociacionOptica
             $clave = (int) $onu->olt_id.':'.$fila['pon'].':'.$fila['indice'];
             $catalogo[$clave] = $fila;
 
-            $normal = $this->normalizar($descripcion);
-            if ($normal === '' || preg_match('/^PON\d+$/', $normal)) {
-                continue;
+            foreach (ClaveOnuDescripcion::claves($descripcion) as $normal) {
+                if ($normal === '' || preg_match('/^PON\d+$/', $normal)) {
+                    continue;
+                }
+                $porDescripcion[$normal][] = $fila;
             }
-            $porDescripcion[$normal][] = $fila;
         }
 
         return [$catalogo, $porDescripcion];
@@ -202,10 +252,5 @@ class InformeAsociacionOptica
         }
 
         return array_values($mapa);
-    }
-
-    private function normalizar(string $valor): string
-    {
-        return ClaveOnuDescripcion::de($valor);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ClaveOnuDescripcion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -165,35 +166,73 @@ class ServicioConexionEvento extends Model
             'payload' => $datos['payload'] ?? null,
         ]);
 
-        self::copiarDescripcionAlInventario($datos);
+        self::reflejarOnuEnInventario($datos);
 
         return $evento;
     }
 
     /**
-     * La consulta en vivo trae la descripción de la ONU. El inventario a veces no la tiene
-     * y por eso el informe la deja como «no coincidió».
+     * La consulta en vivo trae la descripción de la ONU. Si el inventario no tiene esa
+     * posición, la crea: si no, la lectura diaria la deja como «Sin ONU asociada».
      *
      * @param  array<string, mixed>  $datos
      */
-    private static function copiarDescripcionAlInventario(array $datos): void
+    public static function reflejarOnuEnInventario(array $datos): void
     {
         $desc = trim((string) ($datos['descripcion'] ?? ''));
         $oltId = (int) ($datos['olt_id'] ?? 0);
         $pon = (int) ($datos['pon_port'] ?? 0);
         $indice = (int) ($datos['onu_index'] ?? 0);
-        if ($desc === '' || $oltId < 1 || $pon < 1 || $indice < 1) {
+        if (! self::descripcionSirveDeNombre($desc) || $oltId < 1 || $pon < 1 || $indice < 1) {
             return;
         }
 
-        OltOnu::query()
+        $desc = mb_substr($desc, 0, 255);
+        $onu = OltOnu::query()
             ->where('olt_id', $oltId)
             ->where('pon_port', $pon)
             ->where('onu_index', $indice)
-            ->where(function ($q) {
-                $q->whereNull('descripcion')->orWhere('descripcion', '');
-            })
-            ->update(['descripcion' => mb_substr($desc, 0, 255)]);
+            ->first();
+
+        if ($onu) {
+            if (trim((string) $onu->descripcion) === '') {
+                $onu->descripcion = $desc;
+                $onu->save();
+            }
+
+            return;
+        }
+
+        $fila = [
+            'olt_id' => $oltId,
+            'pon_slot' => 0,
+            'pon_port' => $pon,
+            'pon_key' => '0/'.$pon,
+            'onu_index' => $indice,
+            'descripcion' => $desc,
+            'estado' => 'unknown',
+            'synced_at' => now(),
+        ];
+        if (isset($datos['rx_power_dbm']) && is_numeric($datos['rx_power_dbm'])) {
+            $fila['rx_power_dbm'] = $datos['rx_power_dbm'];
+        }
+        if (isset($datos['tx_power_dbm']) && is_numeric($datos['tx_power_dbm'])) {
+            $fila['tx_power_dbm'] = $datos['tx_power_dbm'];
+        }
+
+        OltOnu::query()->create($fila);
+    }
+
+    private static function descripcionSirveDeNombre(string $desc): bool
+    {
+        $desc = trim($desc);
+        if ($desc === '' || preg_match('/^(GPON|PON|EPON)\b/i', $desc)) {
+            return false;
+        }
+
+        $clave = ClaveOnuDescripcion::de($desc);
+
+        return $clave !== '' && ! preg_match('/^(GPON|PON|EPON)\d+$/', $clave);
     }
 
     /**
