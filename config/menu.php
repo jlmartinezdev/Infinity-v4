@@ -67,7 +67,7 @@ return [
             'label' => 'Inicio',
             'path' => '/',
             'icon' => 'home',
-            'permiso' => 'inicio.ver',
+            'staff' => true,
         ],
         [
             'name' => 'corte-servicio',

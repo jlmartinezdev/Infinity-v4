@@ -314,6 +314,9 @@ class MenuUsuario
         if (! empty($item['flota_staff']) && ! $user->puedeVerFlotaStaff()) {
             return false;
         }
+        if (! empty($item['staff']) && ! $user->esStaff()) {
+            return false;
+        }
 
         $permiso = $item['permiso'] ?? null;
         if ($permiso && ! $user->tienePermiso($permiso)) {
