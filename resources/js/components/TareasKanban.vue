@@ -94,7 +94,7 @@
 
     <!-- Modal -->
     <div v-show="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div class="absolute inset-0 bg-black/50" @click="cerrarModal"></div>
+      <div class="absolute inset-0 bg-black/50" @mousedown="cerrarModal"></div>
       <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full p-6 border border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{{ editando ? 'Editar tarea' : 'Nueva tarea' }}</h2>
         <form @submit.prevent="guardar">
@@ -157,7 +157,7 @@
         aria-modal="true"
         aria-labelledby="tarea-detalle-titulo"
       >
-        <div class="absolute inset-0 bg-black/50" @click="cerrarDetalle"></div>
+        <div class="absolute inset-0 bg-black/50" @mousedown="cerrarDetalle"></div>
         <div
           class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 border border-gray-200 dark:border-gray-700"
         >

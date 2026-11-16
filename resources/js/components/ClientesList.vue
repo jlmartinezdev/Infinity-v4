@@ -247,7 +247,7 @@
     <div
       v-if="modalTempVisible"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      @click.self="cerrarModalTemp"
+      @mousedown.self="cerrarModalTemp"
     >
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -315,7 +315,7 @@
     <div
       v-if="modalRucVisible"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      @click.self="cerrarModalRuc"
+      @mousedown.self="cerrarModalRuc"
     >
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">

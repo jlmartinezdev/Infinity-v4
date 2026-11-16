@@ -2,7 +2,7 @@
     <div>
         <!-- Modal Crear Usuario -->
         <div v-show="showModalCrear" 
-             @click.self="cerrarModalCrear"
+             @mousedown.self="cerrarModalCrear"
              class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black/60 overflow-y-auto h-full w-full z-50">
             <div @click.stop class="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between mb-4">
@@ -122,7 +122,7 @@
 
         <!-- Modal Editar Usuario -->
         <div v-show="showModalEditar" 
-             @click.self="cerrarModalEditar"
+             @mousedown.self="cerrarModalEditar"
              class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black/60 overflow-y-auto h-full w-full z-50">
             <div @click.stop class="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between mb-4">
@@ -244,7 +244,7 @@
 
         <!-- Modal Aprobar Usuario -->
         <div v-show="showModalAprobar" 
-             @click.self="cerrarModalAprobar"
+             @mousedown.self="cerrarModalAprobar"
              class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black/60 overflow-y-auto h-full w-full z-50">
             <div @click.stop class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-4">

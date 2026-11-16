@@ -592,7 +592,7 @@
       <div
         v-if="modalPppoeVisible"
         class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50"
-        @click.self="cerrarModalPppoe"
+        @mousedown.self="cerrarModalPppoe"
       >
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full overflow-hidden">
           <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">

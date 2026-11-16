@@ -28410,7 +28410,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }), 128 /* KEYED_FRAGMENT */)), $setup.formAbierto ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", {
     key: 3,
     class: "fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4",
-    onClick: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.cerrarFormulario, ["self"])
+    onMousedown: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.cerrarFormulario, ["self"])
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("form", {
     class: "w-full sm:max-w-md rounded-t-2xl sm:rounded-xl bg-white dark:bg-gray-800 shadow-xl p-5 space-y-3",
     onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($setup.guardar, ["prevent"])

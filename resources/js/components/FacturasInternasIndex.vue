@@ -312,7 +312,7 @@
       aria-labelledby="modal-nc-titulo"
     >
       <div class="flex min-h-full items-center justify-center p-4">
-        <div class="fixed inset-0 bg-black/40" aria-hidden="true" @click="cerrarModalNotaCredito" />
+        <div class="fixed inset-0 bg-black/40" aria-hidden="true" @mousedown="cerrarModalNotaCredito" />
         <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
           <h2 id="modal-nc-titulo" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Emitir nota de crédito</h2>
           <p v-if="notaCreditoFactura" class="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">

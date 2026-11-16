@@ -610,7 +610,7 @@
 
     <!-- Modal contacto cliente -->
     <div v-show="waMasivoAbierto" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarWaMasivo" />
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @mousedown="cerrarWaMasivo" />
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative w-full max-w-lg rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700" @click.stop>
           <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -650,7 +650,7 @@
     </div>
 
     <div v-show="modalContactoAbierto" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarModalContacto" />
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @mousedown="cerrarModalContacto" />
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative w-full max-w-md rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700" @click.stop>
           <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -700,7 +700,7 @@
 
     <!-- Modal facturas pendientes del cliente -->
     <div v-show="modalFacturasAbierto" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarModalFacturasCliente" />
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @mousedown="cerrarModalFacturasCliente" />
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative w-full max-w-3xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700" @click.stop>
           <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -774,7 +774,7 @@
 
     <!-- Modal WhatsApp: aviso de factura / reclamo de mora -->
     <div v-show="modalWaAbierto" class="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="pendientes-wa-titulo">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarModalWhatsapp" />
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @mousedown="cerrarModalWhatsapp" />
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative w-full max-w-3xl max-h-[92vh] flex flex-col rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden" @click.stop>
           <div class="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 shrink-0">
@@ -998,7 +998,7 @@
 
     <!-- Modal mapa Google: clientes con saldo pendiente (mismos filtros que la tabla) -->
     <div v-show="modalMapaAbierto" class="fixed inset-0 z-[55] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="pendientes-mapa-titulo">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @click="cerrarModalMapa" />
+      <div class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" @mousedown="cerrarModalMapa" />
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="relative w-full max-w-5xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden" @click.stop>
           <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">

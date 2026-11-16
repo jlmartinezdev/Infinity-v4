@@ -30832,7 +30832,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, "»", 8 /* PROPS */, _hoisted_135)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal contacto cliente "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_136, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-black/50 transition-opacity",
     "aria-hidden": "true",
-    onClick: $setup.cerrarWaMasivo
+    onMousedown: $setup.cerrarWaMasivo
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_137, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "relative w-full max-w-lg rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700",
     onClick: _cache[52] || (_cache[52] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {}, ["stop"]))
@@ -30875,7 +30875,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, " Cerrar ", 8 /* PROPS */, _hoisted_144)])])])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.waMasivoAbierto]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_145, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-black/50 transition-opacity",
     "aria-hidden": "true",
-    onClick: $setup.cerrarModalContacto
+    onMousedown: $setup.cerrarModalContacto
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_146, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "relative w-full max-w-md rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700",
     onClick: _cache[53] || (_cache[53] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {}, ["stop"]))
@@ -30929,7 +30929,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, "Cerrar")])])])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalContactoAbierto]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal facturas pendientes del cliente "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_158, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-black/50 transition-opacity",
     "aria-hidden": "true",
-    onClick: $setup.cerrarModalFacturasCliente
+    onMousedown: $setup.cerrarModalFacturasCliente
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_159, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "relative w-full max-w-3xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700",
     onClick: _cache[54] || (_cache[54] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {}, ["stop"]))
@@ -31055,7 +31055,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, "Cerrar")])])])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalFacturasAbierto]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal WhatsApp: aviso de factura / reclamo de mora "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_180, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-black/50 transition-opacity",
     "aria-hidden": "true",
-    onClick: $setup.cerrarModalWhatsapp
+    onMousedown: $setup.cerrarModalWhatsapp
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_181, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "relative w-full max-w-3xl max-h-[92vh] flex flex-col rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden",
     onClick: _cache[67] || (_cache[67] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {}, ["stop"]))
@@ -31274,7 +31274,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.waEnviando ? 'Enviando…' : 'Enviar reclamo'), 9 /* TEXT, PROPS */, _hoisted_232)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])])])], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vShow, $setup.modalWaAbierto]]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal mapa Google: clientes con saldo pendiente (mismos filtros que la tabla) "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_233, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-black/50 transition-opacity",
     "aria-hidden": "true",
-    onClick: $setup.cerrarModalMapa
+    onMousedown: $setup.cerrarModalMapa
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_234, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "relative w-full max-w-5xl rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden",
     onClick: _cache[68] || (_cache[68] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)(function () {}, ["stop"]))

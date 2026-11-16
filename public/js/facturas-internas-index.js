@@ -28236,7 +28236,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
   }, " Siguiente ", 8 /* PROPS */, _hoisted_57)])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Modal nota de crédito "), $setup.modalNotaCreditoAbierto ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_58, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_59, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
     class: "fixed inset-0 bg-black/40",
     "aria-hidden": "true",
-    onClick: $setup.cerrarModalNotaCredito
+    onMousedown: $setup.cerrarModalNotaCredito
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_60, [_cache[35] || (_cache[35] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h2", {
     id: "modal-nc-titulo",
     class: "text-lg font-semibold text-gray-900 dark:text-gray-100"

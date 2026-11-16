@@ -670,7 +670,7 @@
     <div
       v-if="modalImagen"
       class="fixed inset-0 z-[85] flex items-center justify-center bg-black/80 p-3"
-      @click.self="cerrarModalImagen"
+      @mousedown.self="cerrarModalImagen"
       @keydown.esc.prevent="cerrarModalImagen"
     >
       <div class="relative flex max-h-[94vh] w-full max-w-5xl flex-col items-center">
@@ -694,7 +694,7 @@
     <div
       v-if="modalMapa"
       class="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3"
-      @click.self="cerrarModalMapa"
+      @mousedown.self="cerrarModalMapa"
     >
       <div class="wa-app flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border shadow-2xl">
         <div class="wa-header flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -736,7 +736,7 @@
     <div
       v-if="modalContacto"
       class="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3"
-      @click.self="cerrarModalContacto"
+      @mousedown.self="cerrarModalContacto"
     >
       <div class="wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl">
         <div class="wa-header flex items-center justify-between border-b px-4 py-3">
@@ -809,7 +809,7 @@
     <div
       v-if="modalTicket"
       class="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3"
-      @click.self="cerrarModalTicket"
+      @mousedown.self="cerrarModalTicket"
     >
       <div class="wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl">
         <div class="wa-header flex items-center justify-between border-b px-4 py-3">
@@ -882,7 +882,7 @@
     <div
       v-if="modalCobro"
       class="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3"
-      @click.self="cerrarModalCobro"
+      @mousedown.self="cerrarModalCobro"
     >
       <div class="wa-app flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl">
         <div class="wa-header flex items-center justify-between border-b px-4 py-3">
@@ -997,7 +997,7 @@
         role="dialog"
         aria-modal="true"
       >
-        <div class="fixed inset-0 bg-gray-900/60 transition-opacity" aria-hidden="true" @click="cerrarModalPedido" />
+        <div class="fixed inset-0 bg-gray-900/60 transition-opacity" aria-hidden="true" @mousedown="cerrarModalPedido" />
         <div
           class="absolute max-h-[90vh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:w-[calc(100vw-2rem)]"
           style="top: 50%; left: 50%; transform: translate(-50%, -50%);"

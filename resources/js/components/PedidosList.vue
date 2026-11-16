@@ -674,7 +674,7 @@
     <!-- Modal crear pedido -->
     <Teleport to="body">
         <div v-show="modalPedidoOpen" class="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
-            <div class="fixed inset-0 bg-gray-900/60 transition-opacity" @click="closeModalPedido" aria-hidden="true"></div>
+            <div class="fixed inset-0 bg-gray-900/60 transition-opacity" @mousedown="closeModalPedido" aria-hidden="true"></div>
             <div ref="modalPedidoContentRef" class="absolute w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl"
                 style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
                 <div ref="modalPedidoHeaderRef" class="sticky top-0 z-10 flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-move select-none">
@@ -713,7 +713,7 @@
     <!-- Modal Análisis de Factibilidad -->
     <Teleport to="body">
         <div v-show="modalFactibilidadOpen" class="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
-            <div class="fixed inset-0 bg-gray-900/60 transition-opacity" @click="modalFactibilidadOpen = false" aria-hidden="true"></div>
+            <div class="fixed inset-0 bg-gray-900/60 transition-opacity" @mousedown="modalFactibilidadOpen = false" aria-hidden="true"></div>
             <div class="absolute w-full max-w-md border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-xl p-4" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Análisis de Factibilidad</h2>
@@ -766,7 +766,7 @@
     <!-- Modal resoluciones de hoy (aprobados / desaprobados) -->
     <Teleport to="body">
         <div v-show="modalResolucionesHoyOpen" class="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="modal-resoluciones-hoy-titulo">
-            <div class="fixed inset-0 bg-gray-900/60" aria-hidden="true" @click="modalResolucionesHoyOpen = false" />
+            <div class="fixed inset-0 bg-gray-900/60" aria-hidden="true" @mousedown="modalResolucionesHoyOpen = false" />
             <div class="relative min-h-full flex items-center justify-center p-4">
                 <div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl">
                     <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">

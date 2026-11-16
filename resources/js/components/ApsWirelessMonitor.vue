@@ -270,7 +270,7 @@
     <div
       v-if="formAbierto"
       class="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
-      @click.self="cerrarFormulario"
+      @mousedown.self="cerrarFormulario"
     >
       <form
         class="w-full sm:max-w-md rounded-t-2xl sm:rounded-xl bg-white dark:bg-gray-800 shadow-xl p-5 space-y-3"
