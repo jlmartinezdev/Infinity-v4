@@ -6,6 +6,7 @@ use App\Models\Auditoria;
 use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
+use App\Models\NodoApWireless;
 use App\Models\Olt;
 use App\Models\OltOnu;
 use App\Models\Pedido;
@@ -267,6 +268,7 @@ class HomeController extends Controller
 
         if ($tab === 'tecnico') {
             $datos['senal'] = $this->obtenerDashboardSenal();
+            $datos['infra'] = $this->obtenerEstadoInfra($user);
             $datos['atencion'] = app(ServicioPppoeEventoController::class)->lineasEnAtencion(Request::create('/', 'GET'));
         } elseif ($tab === 'cajero' || $tab === 'operativo') {
             $datos = array_merge($datos, $this->datosPanelInicio($user, $tab !== 'cajero'));
@@ -326,6 +328,72 @@ class HomeController extends Controller
         $rol = mb_strtolower(trim((string) ($user->rol?->descripcion ?? '')), 'UTF-8');
 
         return strtr($rol, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u']);
+    }
+
+    /**
+     * Routers, OLTs y APs según el último ping o la última sincronización.
+     *
+     * @return list<array{titulo: string, en_linea: int, total: int, caidos: list<string>, href: ?string}>
+     */
+    private function obtenerEstadoInfra(User $user): array
+    {
+        $routers = Router::query()->orderBy('nombre')->get(['router_id', 'nombre', 'ip', 'estado']);
+        $routersCaidos = $routers
+            ->filter(fn (Router $router) => ! $router->estaConectado())
+            ->map(fn (Router $router) => $router->nombre ?: ($router->ip ?: 'Router #'.$router->router_id))
+            ->values()
+            ->all();
+
+        $olts = Olt::query()->orderBy('codigo')->get(['olt_id', 'codigo', 'ip', 'estado', 'onus_sync_error']);
+        $oltsCaidos = $olts
+            ->filter(function (Olt $olt) {
+                $error = trim((string) $olt->onus_sync_error);
+
+                return strtolower((string) $olt->estado) !== 'activo' || $error !== '';
+            })
+            ->map(fn (Olt $olt) => $olt->codigo ?: ($olt->ip ?: 'OLT #'.$olt->olt_id))
+            ->values()
+            ->all();
+
+        $aps = NodoApWireless::query()->where('activo', true)->orderBy('nombre')->get(['ap_id', 'nombre', 'ip', 'ping_ok']);
+        $apsCaidos = $aps
+            ->filter(fn (NodoApWireless $ap) => $ap->ping_ok !== true)
+            ->map(fn (NodoApWireless $ap) => $ap->nombre ?: ($ap->ip ?: 'AP #'.$ap->ap_id))
+            ->values()
+            ->all();
+
+        return [
+            [
+                'titulo' => 'Routers',
+                'en_linea' => $routers->count() - count($routersCaidos),
+                'total' => $routers->count(),
+                'caidos' => $routersCaidos,
+                'href' => $this->enlaceInfra($user, 'sistema.ver', 'sistema.routers.index'),
+            ],
+            [
+                'titulo' => 'OLTs',
+                'en_linea' => $olts->count() - count($oltsCaidos),
+                'total' => $olts->count(),
+                'caidos' => $oltsCaidos,
+                'href' => $this->enlaceInfra($user, 'sistema.ver', 'sistema.olts.index'),
+            ],
+            [
+                'titulo' => 'APs',
+                'en_linea' => $aps->count() - count($apsCaidos),
+                'total' => $aps->count(),
+                'caidos' => $apsCaidos,
+                'href' => $this->enlaceInfra($user, 'sistema-aps-wireless.ver', 'sistema.aps-wireless.index'),
+            ],
+        ];
+    }
+
+    private function enlaceInfra(User $user, string $permiso, string $ruta): ?string
+    {
+        if (! $user->tienePermiso('sistema.ver') || ! $user->tienePermiso($permiso) || ! Route::has($ruta)) {
+            return null;
+        }
+
+        return route($ruta);
     }
 
     /**

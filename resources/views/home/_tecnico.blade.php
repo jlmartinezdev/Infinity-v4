@@ -12,6 +12,61 @@
 @endphp
 
 <div class="space-y-6">
+    @php $infra = $infra ?? []; @endphp
+    @if($infra !== [])
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            @foreach($infra as $grupo)
+                @php
+                    $caidosInfra = $grupo['caidos'] ?? [];
+                    $hayCaidos = $caidosInfra !== [];
+                    $nombresCaidos = array_slice($caidosInfra, 0, 3);
+                    $restoCaidos = count($caidosInfra) - count($nombresCaidos);
+                    $etiquetaCaidos = implode(', ', $nombresCaidos).($restoCaidos > 0 ? ' y '.$restoCaidos.' más' : '');
+                    $tagInfra = ! empty($grupo['href']) ? 'a' : 'div';
+                    $totalInfra = max(0, (int) $grupo['total']);
+                    $pctInfra = $totalInfra > 0 ? round((int) $grupo['en_linea'] / $totalInfra * 100, 1) : 0;
+                    $anilloInfra = 2 * M_PI * 42;
+                    $offsetInfra = $anilloInfra * (1 - ($pctInfra / 100));
+                    $gradInfra = 'infraGrad'.$loop->index;
+                @endphp
+                <{{ $tagInfra }}
+                    @if(! empty($grupo['href'])) href="{{ $grupo['href'] }}" @endif
+                    class="flex items-center justify-between gap-3 rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm {{ ! empty($grupo['href']) ? 'hover:border-violet-400/60 dark:hover:border-violet-500/40 transition-colors' : '' }}"
+                >
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ $grupo['titulo'] }}</p>
+                        <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums {{ $hayCaidos ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400' }}">{{ number_format((int) $grupo['en_linea']) }}</p>
+                        <p class="mt-2 text-[11px] text-gray-500 dark:text-gray-400">de {{ number_format($totalInfra) }} en línea</p>
+                        @if($hayCaidos)
+                            <p class="mt-1 text-[11px] leading-snug text-rose-600 dark:text-rose-400">{{ count($caidosInfra) === 1 ? 'Caído' : 'Caídos' }}: {{ $etiquetaCaidos }}</p>
+                        @endif
+                    </div>
+                    <div class="relative h-20 w-20 shrink-0">
+                        <svg class="h-20 w-20 -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="8" class="text-gray-100 dark:text-white/5"/>
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="url(#{{ $gradInfra }})" stroke-width="8" stroke-linecap="round"
+                                stroke-dasharray="{{ $anilloInfra }}" stroke-dashoffset="{{ $offsetInfra }}"/>
+                            <defs>
+                                <linearGradient id="{{ $gradInfra }}" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    @if($hayCaidos)
+                                        <stop offset="0%" stop-color="#f43f5e"/>
+                                        <stop offset="100%" stop-color="#fb7185"/>
+                                    @else
+                                        <stop offset="0%" stop-color="#10b981"/>
+                                        <stop offset="100%" stop-color="#2dd4bf"/>
+                                    @endif
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="text-sm font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($pctInfra, 1) }}%</span>
+                        </div>
+                    </div>
+                </{{ $tagInfra }}>
+            @endforeach
+        </div>
+    @endif
+
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
             <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Señales y potencias</h1>
