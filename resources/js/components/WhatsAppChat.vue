@@ -187,7 +187,7 @@
       <!-- Hilo -->
       <section
         class="wa-chat-pane relative flex min-h-0 min-w-0 flex-1 flex-col"
-        :class="telActivo ? 'flex' : 'hidden md:flex'"
+        :class="telActivo ? 'wa-chat-open flex' : 'hidden md:flex'"
       >
         <template v-if="telActivo">
           <header class="wa-header relative z-10 flex items-center gap-3 border-b px-4 py-2.5">
@@ -345,7 +345,10 @@
 
           <div
             ref="hiloEl"
-            class="wa-wallpaper relative z-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3 sm:px-12"
+            class="wa-wallpaper relative z-0 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3 sm:px-12"
+            @scroll.passive="onHiloScroll"
+            @wheel.passive="marcarScrollUsuario"
+            @touchmove.passive="marcarScrollUsuario"
           >
             <div v-if="loadingHilo && !mensajes.length" class="wa-muted py-16 text-center text-sm">Cargando...</div>
             <template v-for="(m, idx) in mensajes" :key="m.id">
@@ -402,6 +405,7 @@
                         :src="mediaSrc(m) || m.media_url"
                         alt="Imagen"
                         class="max-h-56 max-w-full rounded-md object-contain"
+                        @load="onMediaLoaded(m)"
                         @error="onMediaImgError(m)"
                       >
                     </button>
@@ -423,6 +427,7 @@
                         :src="mediaSrc(m) || m.media_url"
                         alt="Sticker"
                         class="wa-sticker object-contain"
+                        @load="onMediaLoaded(m)"
                         @error="onMediaImgError(m)"
                       >
                     </button>
@@ -1515,6 +1520,7 @@ export default {
       this.lastSyncAt = null;
       this.hiloMeta = { nombre: this.nombreDeLista(t) };
       this.texto = '';
+      this.stickBottom = true;
       this.sugerenciaAplicadaId = null;
       this.textoDesdeIa = false;
       this.quitarAdjunto();
@@ -1685,10 +1691,49 @@ export default {
         this.marcandoLeidos = false;
       }
     },
+    marcarScrollUsuario() {
+      this._userScroll = true;
+    },
+    onHiloScroll() {
+      if (this._pinScroll) return;
+      const box = this.$refs.hiloEl;
+      if (!box) return;
+      const cerca = box.scrollHeight - box.clientHeight - box.scrollTop < 48;
+      if (cerca) {
+        this.stickBottom = true;
+        this._userScroll = false;
+        return;
+      }
+      if (this._userScroll) this.stickBottom = false;
+    },
+    pinAlFinal() {
+      const box = this.$refs.hiloEl;
+      if (!box || !this.stickBottom) return;
+      this._pinScroll = true;
+      box.scrollTop = box.scrollHeight;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => { this._pinScroll = false; });
+      } else {
+        this._pinScroll = false;
+      }
+    },
     scrollHilo(force) {
-      const el = this.$refs.hiloEl;
-      if (!el) return;
-      if (force || this.stickBottom) el.scrollTop = el.scrollHeight;
+      if (!this.$refs.hiloEl) return;
+      if (force) {
+        this.stickBottom = true;
+        this._userScroll = false;
+      }
+      const ir = () => this.pinAlFinal();
+      ir();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          ir();
+          requestAnimationFrame(ir);
+        });
+      }
+      window.setTimeout(ir, 180);
+      window.setTimeout(ir, 600);
+      window.setTimeout(ir, 1200);
     },
     async poll() {
       if (this.loadingHilo || this.enviando || this.loadingLista) return;
@@ -2009,6 +2054,7 @@ export default {
         delete next[m.id];
         this.mediaFailed = next;
       }
+      this.pinAlFinal();
     },
     onMediaImgError(m) {
       if (!m?.id || this.mediaFailed[m.id]) return;

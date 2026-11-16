@@ -22378,6 +22378,7 @@ var WaAvatar = {
         nombre: this.nombreDeLista(t)
       };
       this.texto = '';
+      this.stickBottom = true;
       this.sugerenciaAplicadaId = null;
       this.textoDesdeIa = false;
       this.quitarAdjunto();
@@ -22672,10 +22673,55 @@ var WaAvatar = {
         }, _callee6, null, [[2, 4, 5, 6]]);
       }))();
     },
+    marcarScrollUsuario: function marcarScrollUsuario() {
+      this._userScroll = true;
+    },
+    onHiloScroll: function onHiloScroll() {
+      if (this._pinScroll) return;
+      var box = this.$refs.hiloEl;
+      if (!box) return;
+      var cerca = box.scrollHeight - box.clientHeight - box.scrollTop < 48;
+      if (cerca) {
+        this.stickBottom = true;
+        this._userScroll = false;
+        return;
+      }
+      if (this._userScroll) this.stickBottom = false;
+    },
+    pinAlFinal: function pinAlFinal() {
+      var box = this.$refs.hiloEl;
+      if (!box || !this.stickBottom) return;
+      var self = this;
+      this._pinScroll = true;
+      box.scrollTop = box.scrollHeight;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          self._pinScroll = false;
+        });
+      } else {
+        this._pinScroll = false;
+      }
+    },
     scrollHilo: function scrollHilo(force) {
-      var el = this.$refs.hiloEl;
-      if (!el) return;
-      if (force || this.stickBottom) el.scrollTop = el.scrollHeight;
+      var self = this;
+      if (!this.$refs.hiloEl) return;
+      if (force) {
+        this.stickBottom = true;
+        this._userScroll = false;
+      }
+      var ir = function ir() {
+        self.pinAlFinal();
+      };
+      ir();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          ir();
+          requestAnimationFrame(ir);
+        });
+      }
+      window.setTimeout(ir, 180);
+      window.setTimeout(ir, 600);
+      window.setTimeout(ir, 1200);
     },
     poll: function poll() {
       var _this10 = this;
@@ -23328,6 +23374,7 @@ var WaAvatar = {
         delete next[m.id];
         this.mediaFailed = next;
       }
+      this.pinAlFinal();
     },
     onMediaImgError: function onMediaImgError(m) {
       if (!(m !== null && m !== void 0 && m.id) || this.mediaFailed[m.id]) return;
@@ -24560,7 +24607,7 @@ var _hoisted_52 = {
 };
 var _hoisted_53 = {
   ref: "hiloEl",
-  class: "wa-wallpaper relative z-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3 sm:px-12"
+  class: "wa-wallpaper relative z-0 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3 sm:px-12"
 };
 var _hoisted_54 = {
   key: 0,
@@ -24611,7 +24658,7 @@ var _hoisted_67 = {
   class: "my-1 max-w-full"
 };
 var _hoisted_68 = ["onClick"];
-var _hoisted_69 = ["src", "onError"];
+var _hoisted_69 = ["src", "onLoad", "onError"];
 var _hoisted_70 = {
   key: 1,
   class: "rounded-md bg-black/10 px-2 py-1.5 text-xs opacity-80 dark:bg-black/20"
@@ -24626,7 +24673,7 @@ var _hoisted_73 = {
   class: "my-1"
 };
 var _hoisted_74 = ["onClick"];
-var _hoisted_75 = ["src", "onError"];
+var _hoisted_75 = ["src", "onLoad", "onError"];
 var _hoisted_76 = {
   key: 1,
   class: "rounded-md bg-black/10 px-2 py-1.5 text-xs opacity-80 dark:bg-black/20"
@@ -25132,7 +25179,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       return $options.cargarMas && $options.cargarMas.apply($options, arguments);
     })
   }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.loadingMas ? 'Cargando...' : 'Cargar más chats'), 9 /* TEXT, PROPS */, _hoisted_31)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)])], 2 /* CLASS */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Hilo "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("section", {
-    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["wa-chat-pane relative flex min-h-0 min-w-0 flex-1 flex-col", $data.telActivo ? 'flex' : 'hidden md:flex'])
+    class: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeClass)(["wa-chat-pane relative flex min-h-0 min-w-0 flex-1 flex-col", $data.telActivo ? 'wa-chat-open flex' : 'hidden md:flex'])
   }, [$data.telActivo ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
     key: 0
   }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("header", _hoisted_32, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("button", {
@@ -25318,7 +25365,19 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     style: (0,vue__WEBPACK_IMPORTED_MODULE_0__.normalizeStyle)({
       backgroundColor: $data.hiloMeta.asunto.color || '#64748b'
     })
-  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.asunto.nombre), 5 /* TEXT, STYLE */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_53, [$data.loadingHilo && !$data.mensajes.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_54, "Cargando...")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.mensajes, function (m, idx) {
+  }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($data.hiloMeta.asunto.nombre), 5 /* TEXT, STYLE */)])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", {
+    ref: "hiloEl",
+    class: "wa-wallpaper relative z-0 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3 sm:px-12",
+    onScroll: function onScroll() {
+      return $options.onHiloScroll();
+    },
+    onWheel: function onWheel() {
+      return $options.marcarScrollUsuario();
+    },
+    onTouchmove: function onTouchmove() {
+      return $options.marcarScrollUsuario();
+    }
+  }, [$data.loadingHilo && !$data.mensajes.length ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", _hoisted_54, "Cargando...")) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.mensajes, function (m, idx) {
     var _m$fallo;
     return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, {
       key: m.id
@@ -25355,6 +25414,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       src: $options.mediaSrc(m) || m.media_url,
       alt: "Imagen",
       class: "max-h-56 max-w-full rounded-md object-contain",
+      onLoad: function onLoad($event) {
+        return $options.onMediaLoaded(m);
+      },
       onError: function onError($event) {
         return $options.onMediaImgError(m);
       }
@@ -25376,6 +25438,9 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       src: $options.mediaSrc(m) || m.media_url,
       alt: "Sticker",
       class: "wa-sticker object-contain",
+      onLoad: function onLoad($event) {
+        return $options.onMediaLoaded(m);
+      },
       onError: function onError($event) {
         return $options.onMediaImgError(m);
       }

@@ -178,6 +178,19 @@ html.dark .wa-app .wa-wallpaper {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.035' stroke-width='1.2'%3E%3Cpath d='M40 30c12 0 18 10 18 18s-6 18-18 18-18-10-18-18 6-18 18-18z'/%3E%3Cpath d='M120 50l10 18h-20z'/%3E%3Cpath d='M190 40c8 4 12 14 8 22s-14 12-22 8-12-14-8-22 14-12 22-8z'/%3E%3Cpath d='M60 120h28v16H60z'/%3E%3Cpath d='M150 110c0 10-8 18-18 18s-18-8-18-18 8-18 18-18 18 8 18 18z'/%3E%3Cpath d='M220 130l14 8-14 8-14-8z'/%3E%3Cpath d='M40 200c10 0 18 6 18 14s-8 14-18 14-18-6-18-14 8-14 18-14z'/%3E%3Cpath d='M130 190l20 6-6 20-20-6z'/%3E%3Cpath d='M210 200c6 8 4 18-4 24s-18 4-24-4 4-18 12-22 10-4 16 2z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
+@media (max-width: 767px) {
+  html:not(.wa-fullscreen) .wa-chat-pane.wa-chat-open {
+    position: fixed;
+    z-index: 35;
+    top: 4rem;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    min-height: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 html.wa-ficha-abierta:not(.wa-ficha-overlay) .wa-chat-pane { padding-right: 340px; }
 html.wa-ficha-abierta .wa-chat-pane header button[title="Ficha del cliente"] {
   background: var(--wa-send-bg) !important;
