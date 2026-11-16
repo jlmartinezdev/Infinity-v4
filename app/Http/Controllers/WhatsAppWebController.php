@@ -1004,12 +1004,12 @@ class WhatsAppWebController extends Controller
             });
         }
 
-        $hilo = $query
-            ->with('usuario:usuario_id,name')
-            ->orderBy('id')
-            ->limit(300)
-            ->get()
-            ->map(fn (WhatsappMensaje $m) => $this->serializeMensaje($m));
+        $consulta = $query->with('usuario:usuario_id,name');
+        $filas = $incremental
+            ? $consulta->orderBy('id')->limit(300)->get()
+            : $consulta->orderByDesc('id')->limit(300)->get()->sortBy('id')->values();
+        $filas = $this->incorporarEdiciones($filas);
+        $hilo = $filas->map(fn (WhatsappMensaje $m) => $this->serializeMensaje($m));
 
         $contacto = WhatsappContacto::query()
             ->with(['cliente:cliente_id,nombre,apellido', 'asunto:id,nombre,color', 'encargado:usuario_id,name'])
@@ -1950,6 +1950,42 @@ class WhatsAppWebController extends Controller
         }
 
         return $set;
+    }
+
+    /**
+     * Aplica el texto editado sobre el mensaje original y oculta las filas type=edit.
+     *
+     * @param  Collection<int, WhatsappMensaje>  $filas
+     * @return Collection<int, WhatsappMensaje>
+     */
+    private function incorporarEdiciones(Collection $filas): Collection
+    {
+        $ediciones = $filas->filter(fn (WhatsappMensaje $m) => $m->tipo === 'edit')->sortBy('id');
+        if ($ediciones->isEmpty()) {
+            return $filas->values();
+        }
+
+        $actualizados = [];
+        foreach ($ediciones as $edit) {
+            $payload = is_array($edit->payload) ? $edit->payload : [];
+            $original = $this->whatsapp->aplicarEdicion($payload);
+            if (! $original) {
+                continue;
+            }
+            $actualizados[$original->id] = $original;
+        }
+
+        $visibles = $filas
+            ->reject(fn (WhatsappMensaje $m) => $m->tipo === 'edit')
+            ->map(fn (WhatsappMensaje $m) => $actualizados[$m->id] ?? $m);
+
+        foreach ($actualizados as $id => $mensaje) {
+            if (! $visibles->contains(fn (WhatsappMensaje $m) => (int) $m->id === (int) $id)) {
+                $visibles->push($mensaje);
+            }
+        }
+
+        return $visibles->sortBy('id')->values();
     }
 
     /**

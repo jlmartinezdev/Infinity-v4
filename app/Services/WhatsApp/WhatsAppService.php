@@ -994,6 +994,66 @@ class WhatsAppService
     }
 
     /**
+     * WhatsApp manda una edición como mensaje nuevo (type=edit) que apunta al original.
+     * El texto nuevo vive en edit.message, no en el cuerpo del evento.
+     *
+     * Devuelve el mensaje original ya actualizado, o null si todavía no está en el hilo.
+     *
+     * @param  array<string, mixed>  $message
+     */
+    public function aplicarEdicion(array $message): ?WhatsappMensaje
+    {
+        $originalId = trim((string) data_get($message, 'edit.original_message_id', ''));
+        $texto = $this->textoDeEdicion($message);
+        if ($originalId === '' || $texto === null) {
+            return null;
+        }
+
+        $original = WhatsappMensaje::query()->where('wamid', $originalId)->first();
+        if (! $original) {
+            return null;
+        }
+
+        if ((string) $original->cuerpo === $texto) {
+            return $original;
+        }
+
+        $payload = is_array($original->payload) ? $original->payload : [];
+        $tipo = (string) $original->tipo;
+        if ($tipo !== '' && isset($payload[$tipo]) && is_array($payload[$tipo])) {
+            $payload[$tipo]['caption'] = $texto;
+        }
+        $payload['_editado_en'] = now()->toIso8601String();
+        $original->cuerpo = $texto;
+        $original->payload = $payload;
+        $original->save();
+
+        return $original;
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     */
+    public function textoDeEdicion(array $message): ?string
+    {
+        $inner = data_get($message, 'edit.message');
+        if (! is_array($inner)) {
+            return null;
+        }
+
+        $tipo = (string) ($inner['type'] ?? '');
+        $texto = data_get($inner, 'text.body');
+        if (! is_string($texto) || trim($texto) === '') {
+            $caption = $tipo !== '' ? data_get($inner, $tipo.'.caption') : null;
+            $texto = is_string($caption) ? $caption : null;
+        }
+
+        $texto = is_string($texto) ? trim($texto) : '';
+
+        return $texto !== '' ? $texto : null;
+    }
+
+    /**
      * Registra un mensaje enviado desde la app WhatsApp Business (eco / smb_message_echoes).
      *
      * @param  array<string, mixed>  $rawMessage

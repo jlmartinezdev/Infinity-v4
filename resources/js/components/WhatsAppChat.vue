@@ -1545,6 +1545,7 @@ export default {
           added += 1;
         } else if (
           prev.estado !== m.estado
+          || prev.cuerpo !== m.cuerpo
           || prev.error_message !== m.error_message
           || prev.error_code !== m.error_code
           || JSON.stringify(prev.fallo) !== JSON.stringify(m.fallo)

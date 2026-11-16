@@ -118,6 +118,16 @@ class WhatsAppWebhookController extends ApiController
             $fromUserId = (string) ($message['from_user_id'] ?? '');
             $wamid = isset($message['id']) ? (string) $message['id'] : null;
             $tipo = (string) ($message['type'] ?? 'unknown');
+
+            // La edición no es un mensaje nuevo: el texto va al mensaje original.
+            if ($tipo === 'edit') {
+                if (! $this->whatsapp->aplicarEdicion($message) && ! ($wamid && \App\Models\WhatsappMensaje::query()->where('wamid', $wamid)->exists())) {
+                    $this->whatsapp->registrarEntrada($from ?: $fromUserId, $tipo, null, $message, $wamid);
+                }
+
+                continue;
+            }
+
             $cuerpo = $this->extraerCuerpo($message, $tipo);
             $contactoNombre = null;
             if ($from !== '' && isset($nombres[$from])) {
@@ -194,11 +204,16 @@ class WhatsAppWebhookController extends ApiController
             }
 
             $tipo = (string) ($echo['type'] ?? 'unknown');
-            if (in_array($tipo, ['revoke', 'edit'], true)) {
-                Log::info('[WhatsApp webhook] Eco revoke/edit (aún no aplicado)', [
-                    'type' => $tipo,
+            if ($tipo === 'edit') {
+                $this->whatsapp->aplicarEdicion($echo);
+
+                continue;
+            }
+
+            if ($tipo === 'revoke') {
+                Log::info('[WhatsApp webhook] Eco revoke (aún no aplicado)', [
                     'id' => $echo['id'] ?? null,
-                    'original' => data_get($echo, 'edit.original_message_id') ?? data_get($echo, 'revoke.original_message_id'),
+                    'original' => data_get($echo, 'revoke.original_message_id'),
                 ]);
 
                 continue;
