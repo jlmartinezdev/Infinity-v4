@@ -125,31 +125,29 @@ class WhatsAppWebController extends Controller
             ->where('created_at', '>=', now()->startOfDay());
         $ultimo = (int) (clone $hoy)->max('id');
         $nuevos = [];
+        $avisos = 0;
 
         if ($desde > 0 && $ultimo > $desde) {
-            $filas = (clone $hoy)
-                ->where('id', '>', $desde)
-                ->orderBy('id')
-                ->limit(8)
-                ->get(['id', 'telefono', 'contacto_nombre', 'cuerpo', 'tipo']);
-            $nuevos = $filas->map(function (WhatsappMensaje $mensaje) {
+            $pendientes = (clone $hoy)->where('id', '>', $desde);
+            $avisos = (int) (clone $pendientes)->count();
+            $mensaje = (clone $pendientes)
+                ->orderByDesc('id')
+                ->first(['id', 'telefono', 'contacto_nombre', 'cuerpo', 'tipo']);
+            if ($mensaje) {
                 $nombre = trim((string) $mensaje->contacto_nombre);
-
-                return [
+                $nuevos[] = [
                     'id' => (int) $mensaje->id,
                     'telefono' => (string) $mensaje->telefono,
                     'nombre' => $nombre !== '' ? $nombre : (string) $mensaje->telefono,
                     'cuerpo' => $this->avisoCuerpo($mensaje),
                 ];
-            })->all();
-            if ($filas->isNotEmpty()) {
-                $ultimo = (int) $filas->last()->id;
             }
         }
 
         return response()->json([
             'chats' => WhatsappMensaje::chatsSinLeer(),
             'ultimo_id' => $ultimo,
+            'avisos' => $avisos,
             'nuevos' => $nuevos,
             'transferencias' => $this->transferenciasPendientes($request),
         ]);

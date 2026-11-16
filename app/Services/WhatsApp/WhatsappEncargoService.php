@@ -80,6 +80,7 @@ class WhatsappEncargoService
     public function staff(User $user): array
     {
         return User::query()
+            ->with('rol')
             ->staff()
             ->activos()
             ->where('usuario_id', '!=', $user->usuario_id)
@@ -87,12 +88,14 @@ class WhatsappEncargoService
                 $rol->whereRaw('LOWER(descripcion) = ?', ['cliente app']);
             })
             ->orderBy('name')
-            ->get(['usuario_id', 'name', 'cargo'])
+            ->get()
+            ->filter(fn (User $otro) => $otro->tienePermiso('whatsapp.ver'))
             ->map(fn (User $otro) => [
                 'usuario_id' => (int) $otro->usuario_id,
                 'name' => $otro->name,
                 'cargo' => $otro->cargo,
             ])
+            ->values()
             ->all();
     }
 
@@ -152,9 +155,9 @@ class WhatsappEncargoService
             throw new WhatsappEncargoException('Elegí a otra persona.');
         }
 
-        $destino = User::query()->staff()->activos()->where('usuario_id', $destinoId)->first();
-        if (! $destino) {
-            throw new WhatsappEncargoException('Esa persona no está disponible.', 404);
+        $destino = User::query()->with('rol')->staff()->activos()->where('usuario_id', $destinoId)->first();
+        if (! $destino || ! $destino->tienePermiso('whatsapp.ver')) {
+            throw new WhatsappEncargoException('Esa persona no tiene permiso de WhatsApp.', 404);
         }
 
         $contacto = DB::transaction(function () use ($user, $tel, $destino) {

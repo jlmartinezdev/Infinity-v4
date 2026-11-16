@@ -254,6 +254,43 @@
             (function () {
                 var url = @json(route('whatsapp.sin-leer', [], false));
                 var mensajesUrl = @json(route('whatsapp.mensajes', [], false));
+                var audioCtx = null;
+                var sonidoTimer = 0;
+                function audioListo() {
+                    var AC = window.AudioContext || window.webkitAudioContext;
+                    if (!AC) return null;
+                    if (!audioCtx) audioCtx = new AC();
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    return audioCtx;
+                }
+                function tocarAviso() {
+                    var audio = audioListo();
+                    if (!audio) return;
+                    var ahora = audio.currentTime;
+                    [784, 1046].forEach(function (frecuencia, i) {
+                        var osc = audio.createOscillator();
+                        var gan = audio.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.value = frecuencia;
+                        var inicio = ahora + (i * 0.12);
+                        gan.gain.setValueAtTime(0.0001, inicio);
+                        gan.gain.exponentialRampToValueAtTime(0.15, inicio + 0.02);
+                        gan.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.16);
+                        osc.connect(gan);
+                        gan.connect(audio.destination);
+                        osc.start(inicio);
+                        osc.stop(inicio + 0.18);
+                    });
+                }
+                function pedirSonido() {
+                    if (sonidoTimer) return;
+                    sonidoTimer = setTimeout(function () {
+                        sonidoTimer = 0;
+                        tocarAviso();
+                    }, 40);
+                }
+                document.addEventListener('pointerdown', audioListo, { once: true });
+                document.addEventListener('keydown', audioListo, { once: true });
                 function toastWhatsapp(item) {
                     if (!window.toastr || !item) return;
                     var abierto = (new URLSearchParams(window.location.search).get('tel') || '').replace(/\D/g, '');
@@ -265,6 +302,17 @@
                             if (tel) window.location.href = mensajesUrl + '?tel=' + encodeURIComponent(item.telefono);
                         }
                     });
+                    pedirSonido();
+                }
+                function toastPendientes(cantidad) {
+                    if (!window.toastr || cantidad < 2) return;
+                    toastr.success(cantidad + ' notificaciones pendientes', 'WhatsApp', {
+                        iconClass: 'toast-success toast-wa',
+                        onclick: function () {
+                            window.location.href = mensajesUrl;
+                        }
+                    });
+                    pedirSonido();
                 }
                 function toastTransferencia(item) {
                     if (!window.toastr || !item) return;
@@ -274,6 +322,7 @@
                             if (item.url) window.location.href = item.url;
                         }
                     });
+                    pedirSonido();
                 }
                 function aplicar(chats) {
                     var el = document.getElementById('sidebar-app');
@@ -309,7 +358,11 @@
                     }).then(function (data) {
                         if (!data || typeof data.chats !== 'number') return;
                         if (!aplicar(data.chats)) setTimeout(function () { aplicar(data.chats); }, 500);
-                        if (desde > 0) (data.nuevos || []).forEach(toastWhatsapp);
+                        if (desde > 0) {
+                            var lista = data.nuevos || [];
+                            if (lista.length) toastWhatsapp(lista[lista.length - 1]);
+                            toastPendientes(Number(data.avisos || lista.length));
+                        }
                         if (data.ultimo_id) sessionStorage.setItem('wa_toast_desde', String(data.ultimo_id));
                         (data.transferencias || []).forEach(function (item) {
                             if (listo && item.id && !vistas[item.id]) toastTransferencia(item);

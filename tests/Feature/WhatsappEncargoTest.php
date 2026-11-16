@@ -224,10 +224,66 @@ class WhatsappEncargoTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->actingAs($ana)->getJson('/whatsapp/sin-leer?desde='.$ultimo)
+        $uno = $this->actingAs($ana)->getJson('/whatsapp/sin-leer?desde='.$ultimo)
             ->assertOk()
+            ->assertJsonPath('avisos', 1)
             ->assertJsonPath('nuevos.0.nombre', 'Laura')
             ->assertJsonPath('nuevos.0.cuerpo', 'Hola, hay internet?');
+        $this->assertSame((int) $uno->json('nuevos.0.id'), (int) $uno->json('ultimo_id'));
+
+        DB::table('whatsapp_mensajes')->insert([
+            [
+                'direccion' => 'entrada',
+                'telefono' => '595986666666',
+                'contacto_nombre' => 'Laura',
+                'cuerpo' => 'Sigue sin andar',
+                'estado' => 'recibido',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'direccion' => 'entrada',
+                'telefono' => '595987777777',
+                'contacto_nombre' => 'Pedro',
+                'cuerpo' => 'El ultimo aviso',
+                'estado' => 'recibido',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $resumen = $this->actingAs($ana)->getJson('/whatsapp/sin-leer?desde='.$ultimo)
+            ->assertOk()
+            ->assertJsonCount(1, 'nuevos')
+            ->assertJsonPath('avisos', 3)
+            ->assertJsonPath('nuevos.0.nombre', 'Pedro')
+            ->assertJsonPath('nuevos.0.cuerpo', 'El ultimo aviso');
+        $this->assertSame((int) $resumen->json('nuevos.0.id'), (int) $resumen->json('ultimo_id'));
+    }
+
+    public function test_el_aviso_y_la_transferencia_quedan_en_quien_tiene_permiso(): void
+    {
+        Notification::fake();
+        $ana = User::query()->find(1);
+
+        $this->actingAs(User::query()->find(3))->getJson('/whatsapp/sin-leer')->assertForbidden();
+
+        $lista = $this->actingAs($ana)->getJson('/whatsapp/encargo/staff');
+        $lista->assertOk();
+        $nombres = collect($lista->json('usuarios'))->pluck('name')->all();
+        $this->assertContains('Beto', $nombres);
+        $this->assertNotContains('Carla', $nombres);
+
+        $this->actingAs($ana)->postJson('/whatsapp/encargo/tomar', [
+            'telefono' => '0981111111',
+        ])->assertOk();
+
+        $this->actingAs($ana)->postJson('/whatsapp/encargo/transferir', [
+            'telefono' => '595981111111',
+            'usuario_id' => 3,
+        ])->assertNotFound();
+
+        Notification::assertNothingSent();
     }
 
     private function usuario(int $id, string $nombre, int $rolId, ?int $clienteId = null, array $permisos = []): void
