@@ -27,17 +27,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'wa.agent.secret' => \App\Http\Middleware\VerifyInterplusAgentSecret::class,
             'web.consulta' => \App\Http\Middleware\VerifyWebConsultaToken::class,
         ]);
-        // Usuario ya autenticado que visita /login → inicio según permisos
+        // Usuario ya autenticado que visita /login → su dashboard
         $middleware->redirectUsersTo(function () {
             $user = auth()->user();
             if ($user && $user->esClientePortal()) {
                 return '/login';
             }
-            if ($user && $user->tienePermiso('dashboard.ver')) {
-                return '/';
-            }
 
-            return '/inicio';
+            return '/';
         });
         $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {

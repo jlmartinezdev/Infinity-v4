@@ -9,13 +9,6 @@
 
     $menuItems = MenuUsuario::itemsFiltrados($user);
 
-    foreach ($menuItems as &$item) {
-        if (($item['name'] ?? '') === 'home') {
-            $item['path'] = $user && $user->tienePermiso('dashboard.ver') ? '/' : '/inicio';
-        }
-    }
-    unset($item);
-
     // Contar pedidos pendientes (no instalados y no descartados) para el badge
     $pedidosCount = $user && $user->tienePermiso('pedidos.ver')
         ? \App\Models\Pedido::where('estado_instalado', false)

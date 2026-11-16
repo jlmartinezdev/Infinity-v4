@@ -7,15 +7,21 @@ use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\Olt;
+use App\Models\OltOnu;
 use App\Models\Pedido;
 use App\Models\Router;
+use App\Models\SenalLectura;
 use App\Models\Servicio;
+use App\Models\ServicioConexionEvento;
 use App\Models\Tarea;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Support\CobrosMesVentana;
 use App\Support\MenuUsuario;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
@@ -57,29 +63,32 @@ class HomeController extends Controller
     ];
 
     /**
-     * Panel operativo para staff sin dashboard.ver (técnicos, cajeros, etc.).
+     * La dirección vieja /inicio abre el mismo dashboard del rol.
      */
-    public function inicio()
+    public function inicio(Request $request)
     {
-        $user = Auth::user();
-        if (! $user) {
+        if (! Auth::user() instanceof User) {
             return redirect()->route('login');
         }
-        if ($user->tienePermiso('dashboard.ver')) {
-            return redirect()->route('home');
-        }
 
+        return redirect()->route('home');
+    }
+
+    /**
+     * Datos del panel operativo (/inicio y pestaña Cajero).
+     *
+     * @return array{user: User, links: mixed, kpis: list<array<string, mixed>>, accionesRapidas: list<array<string, mixed>>}
+     */
+    private function datosPanelInicio(User $user, bool $conServicios = true): array
+    {
         $user->loadMissing('rol');
-        $links = MenuUsuario::enlacesPlanos($user);
-        $kpis = $this->obtenerKpisStaff($user);
-        $accionesRapidas = $this->obtenerAccionesRapidasStaff($user);
 
-        return view('inicio', [
+        return [
             'user' => $user,
-            'links' => $links,
-            'kpis' => $kpis,
-            'accionesRapidas' => $accionesRapidas,
-        ]);
+            'links' => MenuUsuario::enlacesPlanos($user),
+            'kpis' => $this->obtenerKpisStaff($user, $conServicios),
+            'accionesRapidas' => $this->obtenerAccionesRapidasStaff($user),
+        ];
     }
 
     /**
@@ -87,7 +96,7 @@ class HomeController extends Controller
      *
      * @return list<array{label: string, value: string, hint: string, href: string|null, tone: string}>
      */
-    private function obtenerKpisStaff(User $user): array
+    private function obtenerKpisStaff(User $user, bool $conServicios = true): array
     {
         $kpis = [];
 
@@ -163,7 +172,7 @@ class HomeController extends Controller
             ];
         }
 
-        if ($user->tienePermiso('servicios-lista.ver') || $user->tienePermiso('servicios.ver')) {
+        if ($conServicios && ($user->tienePermiso('servicios-lista.ver') || $user->tienePermiso('servicios.ver'))) {
             $activos = Servicio::where('estado', Servicio::ESTADO_ACTIVO)->count();
             $kpis[] = [
                 'label' => 'Servicios activos',
@@ -233,20 +242,225 @@ class HomeController extends Controller
      *
      * @return \Illuminate\View\View
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        if (! $user instanceof User || ! $user->tienePermiso('dashboard.ver')) {
-            return redirect()->route('inicio');
+        if (! $user instanceof User) {
+            return redirect()->route('login');
         }
 
-        $stats = $this->obtenerStats();
-        $systemStatus = $this->obtenerEstadoSistema($stats);
-        $ticketAvatares = $this->obtenerAvataresTicketsAbiertos();
-        $recentActivity = $this->obtenerActividadReciente();
-        $cobrosMesVentanaQuery = CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual());
+        return $this->respuestaPanel($request, $user);
+    }
 
-        return view('home', compact('user', 'stats', 'systemStatus', 'ticketAvatares', 'recentActivity', 'cobrosMesVentanaQuery'));
+    /**
+     * @return \Illuminate\View\View
+     */
+    private function respuestaPanel(Request $request, User $user)
+    {
+        $user->loadMissing('rol');
+        $tab = $this->tabDashboard($request, $user);
+        $datos = [
+            'user' => $user,
+            'tab' => $tab,
+            'puedeCambiarPanel' => $user->esAdministrador(),
+        ];
+
+        if ($tab === 'tecnico') {
+            $datos['senal'] = $this->obtenerDashboardSenal();
+            $datos['atencion'] = app(ServicioPppoeEventoController::class)->lineasEnAtencion(Request::create('/', 'GET'));
+        } elseif ($tab === 'cajero' || $tab === 'operativo') {
+            $datos = array_merge($datos, $this->datosPanelInicio($user, $tab !== 'cajero'));
+        } else {
+            $stats = $this->obtenerStats();
+            $datos['stats'] = $stats;
+            $datos['systemStatus'] = $this->obtenerEstadoSistema($stats);
+            $datos['ticketAvatares'] = $this->obtenerAvataresTicketsAbiertos();
+            $datos['recentActivity'] = $this->obtenerActividadReciente();
+            $datos['cobrosMesVentanaQuery'] = CobrosMesVentana::queryParamsDesdeRangos(CobrosMesVentana::rangosMesActual());
+        }
+
+        return view('home', $datos);
+    }
+
+    private function tabDashboard(Request $request, User $user): string
+    {
+        if (! $user->esAdministrador()) {
+            return $this->panelPropio($user);
+        }
+
+        $pedido = (string) $request->query('tab', '');
+        if (in_array($pedido, ['administrador', 'tecnico', 'cajero'], true)) {
+            return $pedido;
+        }
+
+        return 'administrador';
+    }
+
+    private function panelPropio(User $user): string
+    {
+        if ($this->esTecnico($user)) {
+            return 'tecnico';
+        }
+        if ($this->esCajero($user)) {
+            return 'cajero';
+        }
+        if ($user->tienePermiso('dashboard.ver')) {
+            return 'administrador';
+        }
+
+        return 'operativo';
+    }
+
+    private function esTecnico(User $user): bool
+    {
+        return str_contains($this->rolNormalizado($user), 'tecnico');
+    }
+
+    private function esCajero(User $user): bool
+    {
+        return str_contains($this->rolNormalizado($user), 'cajero');
+    }
+
+    private function rolNormalizado(User $user): string
+    {
+        $rol = mb_strtolower(trim((string) ($user->rol?->descripcion ?? '')), 'UTF-8');
+
+        return strtr($rol, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u']);
+    }
+
+    /**
+     * Potencias ópticas actuales y última señal de antena por servicio.
+     *
+     * @return array<string, mixed>
+     */
+    private function obtenerDashboardSenal(): array
+    {
+        $base = OltOnu::query()->registradas();
+        $total = (clone $base)->count();
+        $conRx = (clone $base)->whereNotNull('rx_power_dbm')->count();
+        $optima = (clone $base)->where('rx_power_dbm', '>=', -27)->where('rx_power_dbm', '<=', -8)->count();
+        $baja = (clone $base)->where('rx_power_dbm', '<', -27)->count();
+        $alta = (clone $base)->where('rx_power_dbm', '>', -8)->count();
+        $online = (clone $base)
+            ->whereRaw('LOWER(COALESCE(estado, "")) in (?, ?, ?, ?)', ['working', 'online', 'up', 'active'])
+            ->count();
+        $ultimaSyncRaw = (clone $base)->max('synced_at');
+        $ultimaSync = $ultimaSyncRaw ? Carbon::parse($ultimaSyncRaw)->diffForHumans() : null;
+
+        $onusConRx = OltOnu::query()
+            ->registradas()
+            ->whereNotNull('rx_power_dbm')
+            ->get(['descripcion', 'rx_power_dbm']);
+
+        $claves = $onusConRx
+            ->map(fn (OltOnu $onu) => trim((string) $onu->descripcion))
+            ->filter(fn (string $clave) => $clave !== '' && mb_strtolower($clave) !== 'unknown')
+            ->unique()
+            ->values();
+        $serviciosPorPppoe = $claves->isEmpty()
+            ? collect()
+            : Servicio::query()
+                ->with('cliente:cliente_id,nombre,apellido')
+                ->whereIn('usuario_pppoe', $claves->all())
+                ->get()
+                ->keyBy(fn (Servicio $servicio) => mb_strtolower(trim((string) $servicio->usuario_pppoe)));
+
+        $grupos = [];
+        foreach ($onusConRx as $onu) {
+            $dbm = (int) round((float) $onu->rx_power_dbm);
+            $descripcion = trim((string) $onu->descripcion);
+            $servicio = $descripcion !== ''
+                ? $serviciosPorPppoe->get(mb_strtolower($descripcion))
+                : null;
+            $cliente = $servicio?->cliente;
+            $nombre = trim(((string) ($cliente->nombre ?? '')).' '.((string) ($cliente->apellido ?? '')));
+            if ($nombre === '') {
+                $nombre = ($descripcion !== '' && mb_strtolower($descripcion) !== 'unknown')
+                    ? $descripcion
+                    : 'Sin identificar';
+            }
+            $grupos[$dbm][] = $nombre;
+        }
+
+        krsort($grupos);
+        $distribucionOptica = [];
+        foreach ($grupos as $dbm => $nombres) {
+            sort($nombres, SORT_NATURAL | SORT_FLAG_CASE);
+            $distribucionOptica[] = [
+                'dbm' => (int) $dbm,
+                'cantidad' => count($nombres),
+                'clientes' => array_values($nombres),
+            ];
+        }
+
+        $ultimosAntena = function () {
+            return DB::table('servicio_conexion_eventos')
+                ->selectRaw('servicio_id, MAX(servicio_conexion_evento_id) as id')
+                ->where('tipo', ServicioConexionEvento::TIPO_SENAL_ANTENA)
+                ->whereNotNull('antena_signal_dbm')
+                ->groupBy('servicio_id');
+        };
+
+        $resumenAntena = DB::table('servicio_conexion_eventos as e')
+            ->joinSub($ultimosAntena(), 'u', 'u.id', '=', 'e.servicio_conexion_evento_id')
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN e.antena_signal_dbm >= -65 THEN 1 ELSE 0 END) as buena,
+                SUM(CASE WHEN e.antena_signal_dbm < -65 AND e.antena_signal_dbm >= -75 THEN 1 ELSE 0 END) as regular,
+                SUM(CASE WHEN e.antena_signal_dbm < -75 THEN 1 ELSE 0 END) as debil
+            ')
+            ->first();
+
+        $filasAntena = DB::table('servicio_conexion_eventos as e')
+            ->joinSub($ultimosAntena(), 'u', 'u.id', '=', 'e.servicio_conexion_evento_id')
+            ->leftJoin('servicios as s', 's.servicio_id', '=', 'e.servicio_id')
+            ->leftJoin('clientes as c', 'c.cliente_id', '=', 's.cliente_id')
+            ->get(['e.servicio_id', 'e.antena_signal_dbm', 'c.nombre', 'c.apellido']);
+
+        $gruposAntena = [];
+        foreach ($filasAntena as $fila) {
+            if ($fila->antena_signal_dbm === null) {
+                continue;
+            }
+            $dbm = (int) round((float) $fila->antena_signal_dbm);
+            $nombre = trim(((string) ($fila->nombre ?? '')).' '.((string) ($fila->apellido ?? '')));
+            if ($nombre === '') {
+                $nombre = 'Servicio #'.(int) $fila->servicio_id;
+            }
+            $gruposAntena[$dbm][] = $nombre;
+        }
+
+        krsort($gruposAntena);
+        $distribucionAntena = [];
+        foreach ($gruposAntena as $dbm => $nombres) {
+            sort($nombres, SORT_NATURAL | SORT_FLAG_CASE);
+            $distribucionAntena[] = [
+                'dbm' => (int) $dbm,
+                'cantidad' => count($nombres),
+                'clientes' => array_values($nombres),
+            ];
+        }
+
+        return [
+            'optica' => [
+                'total' => $total,
+                'optima' => $optima,
+                'baja' => $baja,
+                'alta' => $alta,
+                'sin' => max(0, $total - $conRx),
+                'online' => $online,
+            ],
+            'antena' => [
+                'total' => (int) ($resumenAntena->total ?? 0),
+                'buena' => (int) ($resumenAntena->buena ?? 0),
+                'regular' => (int) ($resumenAntena->regular ?? 0),
+                'debil' => (int) ($resumenAntena->debil ?? 0),
+            ],
+            'distribucion_optica' => $distribucionOptica,
+            'distribucion_antena' => $distribucionAntena,
+            'lectura' => SenalLectura::query()->orderByDesc('id')->first(),
+            'ultima_sync' => $ultimaSync,
+        ];
     }
 
     /**

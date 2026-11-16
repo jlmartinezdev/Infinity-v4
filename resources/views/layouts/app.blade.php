@@ -62,7 +62,7 @@
                             </svg>
                         </button>
                         @endauth
-                        <a href="{{ auth()->user()?->tienePermiso('dashboard.ver') ? url('/') : route('inicio') }}" class="ml-2 lg:ml-0 text-xl font-bold text-gray-900 dark:text-gray-100">Infinity ISP</a>
+                        <a href="{{ url('/') }}" class="ml-2 lg:ml-0 text-xl font-bold text-gray-900 dark:text-gray-100">Infinity ISP</a>
                     </div>
                     @auth
                         @if(auth()->user()->esStaff() && auth()->user()->tienePermiso('clientes.ver') && ! request()->routeIs('hotspot.index') && ! (request()->routeIs('hotspot.dashboard') && request('vista') === 'usuarios'))

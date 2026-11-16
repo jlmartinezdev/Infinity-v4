@@ -21,11 +21,9 @@ class AuthController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
-            if ($user instanceof User && $user->tienePermiso('dashboard.ver')) {
+            if ($user instanceof User && ! $user->esClientePortal()) {
                 return redirect()->route('home');
             }
-
-            return redirect()->route('inicio');
         }
 
         return view('login');
@@ -121,9 +119,7 @@ class AuthController extends Controller
 
         // Si es una petición AJAX o espera JSON, devolver JSON
         if ($request->expectsJson() || $request->ajax()) {
-            $redirectAfter = $user->tienePermiso('dashboard.ver')
-                ? url('/')
-                : route('inicio');
+            $redirectAfter = url('/');
 
             return response()->json([
                 'success' => true,
@@ -135,12 +131,8 @@ class AuthController extends Controller
             ]);
         }
 
-        // Si es una petición web normal, redirigir al inicio según permisos
-        $defaultHome = $user->tienePermiso('dashboard.ver')
-            ? route('home', [], false)
-            : route('inicio', [], false);
-
-        return redirect()->intended($defaultHome);
+        // Si es una petición web normal, abrir el dashboard del rol
+        return redirect()->intended(route('home', [], false));
     }
 
     /**
@@ -170,9 +162,7 @@ class AuthController extends Controller
         Auth::login($user, true);
         $user->registrarAcceso($request->ip());
 
-        $redirectAfter = $user->tienePermiso('dashboard.ver')
-            ? url('/')
-            : route('inicio');
+        $redirectAfter = url('/');
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -187,11 +177,7 @@ class AuthController extends Controller
             ]);
         }
 
-        return redirect()->intended(
-            $user->tienePermiso('dashboard.ver')
-                ? route('home', [], false)
-                : route('inicio', [], false)
-        );
+        return redirect()->intended(route('home', [], false));
     }
 
     /**

@@ -218,6 +218,18 @@ class ServicioConexionEvento extends Model
         ]);
     }
 
+    public static function borrarSenalAntena(int $servicioId): int
+    {
+        if ($servicioId < 1) {
+            return 0;
+        }
+
+        return self::query()
+            ->where('servicio_id', $servicioId)
+            ->where('tipo', self::TIPO_SENAL_ANTENA)
+            ->delete();
+    }
+
     /**
      * Registra cambio de sesión PPPoE solo si cambió respecto al último evento up/down.
      *

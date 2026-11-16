@@ -3,6 +3,8 @@
 @section('title', 'Inicio')
 
 @php
+    $stats = $stats ?? [];
+    $tab = $tab ?? 'administrador';
     $salud = (float) ($stats['indice_salud'] ?? 100);
     $saludCirc = max(0, min(100, $salud));
     $saludDash = 2 * M_PI * 42;
@@ -14,113 +16,244 @@
 
 @section('content')
 <div class="max-w-[1400px] mx-auto min-w-0 space-y-6">
+    @if($puedeCambiarPanel ?? false)
+        @include('home._tabs')
+    @endif
+
+    @if($tab === 'tecnico')
+        @include('home._tecnico')
+    @elseif($tab === 'cajero' || $tab === 'operativo')
+        <div class="max-w-[1200px] mx-auto min-w-0">
+            @include('inicio._panel')
+        </div>
+    @else
     {{-- KPIs --}}
-    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        <a href="{{ route('clientes.index') }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-blue-400/60 dark:hover:border-blue-500/40 transition-all">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Clientes</p>
-            <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes']) }}</p>
-            <p class="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Activos</p>
-        </a>
+    <div id="home-kpis" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+        <div data-kpi="clientes" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm hover:border-blue-400/60 dark:hover:border-blue-500/40 transition-all">
+            <button type="button" data-kpi-ocultar class="absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="Ocultar" aria-label="Ocultar clientes">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+            </button>
+            <a href="{{ route('clientes.index') }}" class="block p-4 sm:p-5">
+                <p class="pr-6 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Clientes</p>
+                <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes']) }}</p>
+                <p class="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Activos</p>
+            </a>
+        </div>
 
-        <a href="{{ route('servicios.index') }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-emerald-400/60 dark:hover:border-emerald-500/40 transition-all">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Servicios activos</p>
-            <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['servicios']) }}</p>
-            <div class="mt-3">
-                <div class="flex items-center justify-between text-[10px] mb-1">
-                    <span class="text-gray-400 dark:text-gray-500">Índice de salud</span>
-                    <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ number_format($salud, 1) }}%</span>
-                </div>
-                <div class="h-1.5 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden">
-                    <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all" style="width: {{ $saludCirc }}%"></div>
-                </div>
-            </div>
-        </a>
-
-        <a href="{{ route('cobros.index', $cobrosMesVentanaQuery ?? []) }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/40 transition-all col-span-2 md:col-span-1">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cobros del mes</p>
-            <p class="mt-2 text-xl sm:text-2xl font-bold tabular-nums text-gray-900 dark:text-white leading-tight">
-                {{ number_format($stats['facturacion'], 0, ',', '.') }}
-                <span class="text-xs font-semibold text-gray-400">PYG</span>
-            </p>
-            <div class="mt-3 flex items-center gap-1.5">
-                <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span class="text-[11px] text-gray-500 dark:text-gray-400">Ciclo de cobro vigente</span>
-            </div>
-        </a>
-
-        <a href="{{ route('tickets.index') }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-rose-400/60 dark:hover:border-rose-500/40 transition-all">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tickets abiertos</p>
-            <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['tickets']) }}</p>
-            <div class="mt-3 flex items-center justify-between gap-2 min-w-0">
-                <span class="text-[11px] text-gray-500 dark:text-gray-400 truncate">Pendientes</span>
-                @php
-                    $avatares = $ticketAvatares['items'] ?? [];
-                    $avataresExtra = (int) ($ticketAvatares['extra'] ?? 0);
-                @endphp
-                @if(count($avatares) > 0)
-                    <div class="flex items-center -space-x-2 shrink-0" title="Asignados con más tickets abiertos">
-                        @foreach($avatares as $avatar)
-                            <span
-                                class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-white dark:ring-[#12161f] {{ $avatar['color'] }}"
-                                title="{{ $avatar['name'] }}"
-                            >{{ $avatar['iniciales'] }}</span>
-                        @endforeach
-                        @if($avataresExtra > 0)
-                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-white/10 ring-2 ring-white dark:ring-[#12161f]" title="+{{ $avataresExtra }} asignados más">
-                                +{{ $avataresExtra }}
-                            </span>
-                        @endif
+        <div data-kpi="servicios" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm hover:border-emerald-400/60 dark:hover:border-emerald-500/40 transition-all">
+            <button type="button" data-kpi-ocultar class="absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="Ocultar" aria-label="Ocultar servicios activos">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+            </button>
+            <a href="{{ route('servicios.index') }}" class="block p-4 sm:p-5">
+                <p class="pr-6 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Servicios activos</p>
+                <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['servicios']) }}</p>
+                <div class="mt-3">
+                    <div class="flex items-center justify-between text-[10px] mb-1">
+                        <span class="text-gray-400 dark:text-gray-500">Índice de salud</span>
+                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ number_format($salud, 1) }}%</span>
                     </div>
-                @else
-                    <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">Sin asignar</span>
-                @endif
-            </div>
-        </a>
+                    <div class="h-1.5 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all" style="width: {{ $saludCirc }}%"></div>
+                    </div>
+                </div>
+            </a>
+        </div>
 
-        <a href="{{ route('servicios.index', ['fecha_desde' => now()->toDateString(), 'fecha_hasta' => now()->toDateString()]) }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-cyan-400/60 dark:hover:border-cyan-500/40 transition-all">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Instalados hoy</p>
-            <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes_instalados_hoy']) }}</p>
-            <p class="mt-3 text-[11px] {{ $stats['clientes_instalados_hoy'] > 0 ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400 dark:text-gray-500' }}">
-                {{ $stats['clientes_instalados_hoy'] > 0 ? 'En curso' : 'En espera…' }}
-            </p>
-        </a>
+        <div data-kpi="cobros" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm hover:border-amber-400/60 dark:hover:border-amber-500/40 transition-all col-span-2 md:col-span-1">
+            <button type="button" data-kpi-ocultar class="absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="Ocultar" aria-label="Ocultar cobros del mes">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+            </button>
+            <a href="{{ route('cobros.index', $cobrosMesVentanaQuery ?? []) }}" class="block p-4 sm:p-5">
+                <p class="pr-6 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cobros del mes</p>
+                <p class="mt-2 text-xl sm:text-2xl font-bold tabular-nums text-gray-900 dark:text-white leading-tight">
+                    {{ number_format($stats['facturacion'], 0, ',', '.') }}
+                    <span class="text-xs font-semibold text-gray-400">PYG</span>
+                </p>
+                <div class="mt-3 flex items-center gap-1.5">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-[11px] text-gray-500 dark:text-gray-400">Ciclo de cobro vigente</span>
+                </div>
+            </a>
+        </div>
 
-        <a href="{{ route('servicios.index', ['fecha_desde' => now()->startOfMonth()->toDateString(), 'fecha_hasta' => now()->endOfMonth()->toDateString()]) }}" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] p-4 sm:p-5 shadow-sm hover:border-teal-400/60 dark:hover:border-teal-500/40 transition-all">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Instalados este mes</p>
-            <div class="mt-2 flex items-end gap-2">
-                <p class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes_instalados_mes']) }}</p>
-                @if($stats['clientes_instalados_mes'] > 0)
-                    <span class="mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-                    </span>
-                @endif
-            </div>
-            <div class="mt-3 flex items-center gap-1.5">
-                @if($variacionInstalados >= 0)
-                    <span class="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
-                        +{{ $variacionInstalados }}%
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-0.5 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
-                        {{ $variacionInstalados }}%
-                    </span>
-                @endif
-                <span class="text-[10px] text-gray-400 dark:text-gray-500">vs mes ant.</span>
-            </div>
-            <div
-                class="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden flex gap-0.5"
-                title="{{ $progresoInstalados }}% de la meta ({{ number_format($metaInstaladosMes) }} del mes anterior)"
-            >
-                @for($i = 0; $i < 5; $i++)
-                    <div class="flex-1 rounded-sm {{ $progresoInstalados > ($i * 20) ? 'bg-emerald-500' : 'bg-transparent' }}"></div>
-                @endfor
-            </div>
-        </a>
+        <div data-kpi="tickets" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm hover:border-rose-400/60 dark:hover:border-rose-500/40 transition-all">
+            <button type="button" data-kpi-ocultar class="absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="Ocultar" aria-label="Ocultar tickets abiertos">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+            </button>
+            <a href="{{ route('tickets.index') }}" class="block p-4 sm:p-5">
+                <p class="pr-6 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tickets abiertos</p>
+                <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['tickets']) }}</p>
+                <div class="mt-3 flex items-center justify-between gap-2 min-w-0">
+                    <span class="text-[11px] text-gray-500 dark:text-gray-400 truncate">Pendientes</span>
+                    @php
+                        $avatares = $ticketAvatares['items'] ?? [];
+                        $avataresExtra = (int) ($ticketAvatares['extra'] ?? 0);
+                    @endphp
+                    @if(count($avatares) > 0)
+                        <div class="flex items-center -space-x-2 shrink-0" title="Asignados con más tickets abiertos">
+                            @foreach($avatares as $avatar)
+                                <span
+                                    class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-white dark:ring-[#12161f] {{ $avatar['color'] }}"
+                                    title="{{ $avatar['name'] }}"
+                                >{{ $avatar['iniciales'] }}</span>
+                            @endforeach
+                            @if($avataresExtra > 0)
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-white/10 ring-2 ring-white dark:ring-[#12161f]" title="+{{ $avataresExtra }} asignados más">
+                                    +{{ $avataresExtra }}
+                                </span>
+                            @endif
+                        </div>
+                    @else
+                        <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">Sin asignar</span>
+                    @endif
+                </div>
+            </a>
+        </div>
+
+        <div data-kpi="instalados-hoy" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm hover:border-cyan-400/60 dark:hover:border-cyan-500/40 transition-all">
+            <button type="button" data-kpi-ocultar class="absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="Ocultar" aria-label="Ocultar instalados hoy">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+            </button>
+            <a href="{{ route('servicios.index', ['fecha_desde' => now()->toDateString(), 'fecha_hasta' => now()->toDateString()]) }}" class="block p-4 sm:p-5">
+                <p class="pr-6 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Instalados hoy</p>
+                <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes_instalados_hoy']) }}</p>
+                <p class="mt-3 text-[11px] {{ $stats['clientes_instalados_hoy'] > 0 ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400 dark:text-gray-500' }}">
+                    {{ $stats['clientes_instalados_hoy'] > 0 ? 'En curso' : 'En espera…' }}
+                </p>
+            </a>
+        </div>
+
+        <div data-kpi="instalados-mes" class="group relative overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm hover:border-teal-400/60 dark:hover:border-teal-500/40 transition-all">
+            <button type="button" data-kpi-ocultar class="absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="Ocultar" aria-label="Ocultar instalados este mes">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+            </button>
+            <a href="{{ route('servicios.index', ['fecha_desde' => now()->startOfMonth()->toDateString(), 'fecha_hasta' => now()->endOfMonth()->toDateString()]) }}" class="block p-4 sm:p-5">
+                <p class="pr-6 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Instalados este mes</p>
+                <div class="mt-2 flex items-end gap-2">
+                    <p class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($stats['clientes_instalados_mes']) }}</p>
+                    @if($stats['clientes_instalados_mes'] > 0)
+                        <span class="mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                        </span>
+                    @endif
+                </div>
+                <div class="mt-3 flex items-center gap-1.5">
+                    @if($variacionInstalados >= 0)
+                        <span class="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                            +{{ $variacionInstalados }}%
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-0.5 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                            {{ $variacionInstalados }}%
+                        </span>
+                    @endif
+                    <span class="text-[10px] text-gray-400 dark:text-gray-500">vs mes ant.</span>
+                </div>
+                <div
+                    class="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden flex gap-0.5"
+                    title="{{ $progresoInstalados }}% de la meta ({{ number_format($metaInstaladosMes) }} del mes anterior)"
+                >
+                    @for($i = 0; $i < 5; $i++)
+                        <div class="flex-1 rounded-sm {{ $progresoInstalados > ($i * 20) ? 'bg-emerald-500' : 'bg-transparent' }}"></div>
+                    @endfor
+                </div>
+            </a>
+        </div>
     </div>
+    <div id="home-kpis-restaurar" class="hidden flex flex-wrap items-center gap-2" aria-live="polite"></div>
+    <script>
+    (function () {
+        var KEY = 'infinity_home_kpis_ocultos';
+        var grid = document.getElementById('home-kpis');
+        var bar = document.getElementById('home-kpis-restaurar');
+        if (!grid || !bar) return;
+
+        var labels = {
+            clientes: 'Clientes',
+            servicios: 'Servicios activos',
+            cobros: 'Cobros del mes',
+            tickets: 'Tickets abiertos',
+            'instalados-hoy': 'Instalados hoy',
+            'instalados-mes': 'Instalados este mes'
+        };
+
+        function leer() {
+            try {
+                var raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+                if (!Array.isArray(raw)) return [];
+                return raw.filter(function (id, i) {
+                    return typeof id === 'string' && Object.prototype.hasOwnProperty.call(labels, id) && raw.indexOf(id) === i;
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function guardar(ids) {
+            try { localStorage.setItem(KEY, JSON.stringify(ids)); } catch (e) {}
+        }
+
+        function aplicar(ids) {
+            var oculto = {};
+            ids.forEach(function (id) { oculto[id] = true; });
+            grid.querySelectorAll('[data-kpi]').forEach(function (card) {
+                card.classList.toggle('hidden', !!oculto[card.getAttribute('data-kpi')]);
+            });
+            bar.textContent = '';
+            if (!ids.length) {
+                bar.classList.add('hidden');
+                return;
+            }
+            var nota = document.createElement('span');
+            nota.className = 'text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500';
+            nota.textContent = 'Ocultas';
+            bar.appendChild(nota);
+            ids.forEach(function (id) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.setAttribute('data-kpi-mostrar', id);
+                btn.className = 'inline-flex items-center rounded-full border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:border-blue-400/60 dark:hover:border-blue-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+                btn.textContent = 'Mostrar ' + labels[id];
+                bar.appendChild(btn);
+            });
+            bar.classList.remove('hidden');
+        }
+
+        grid.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-kpi-ocultar]');
+            if (!btn || !grid.contains(btn)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var card = btn.closest('[data-kpi]');
+            var id = card && card.getAttribute('data-kpi');
+            if (!id || !Object.prototype.hasOwnProperty.call(labels, id)) return;
+            var ids = leer();
+            if (ids.indexOf(id) === -1) ids.push(id);
+            guardar(ids);
+            aplicar(ids);
+            var mostrar = bar.querySelector('[data-kpi-mostrar="' + id + '"]');
+            if (mostrar) mostrar.focus();
+        });
+
+        bar.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-kpi-mostrar]');
+            if (!btn) return;
+            var id = btn.getAttribute('data-kpi-mostrar');
+            var ids = leer().filter(function (x) { return x !== id; });
+            guardar(ids);
+            aplicar(ids);
+            var card = grid.querySelector('[data-kpi="' + id + '"]');
+            var ocultar = card && card.querySelector('[data-kpi-ocultar]');
+            if (ocultar) ocultar.focus();
+        });
+
+        aplicar(leer());
+    })();
+    </script>
 
     {{-- Búsqueda + acciones rápidas --}}
     @if(auth()->user()?->tienePermiso('clientes.ver'))
@@ -450,5 +583,6 @@
             @endif
         </div>
     </div>
+    @endif
 </div>
 @endsection

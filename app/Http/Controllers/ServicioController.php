@@ -10,6 +10,7 @@ use App\Models\Plan;
 use App\Models\PoolIpAsignada;
 use App\Models\RouterIpPool;
 use App\Models\Servicio;
+use App\Models\ServicioConexionEvento;
 use App\Models\Ticket;
 use App\Models\TipoTecnologia;
 use App\Services\FacturacionService;
@@ -360,6 +361,15 @@ class ServicioController extends Controller
         }
 
         $servicio->update($validated);
+
+        $kindAnterior = $this->kindDeTecnologia($planAnterior?->tecnologia_id ? (int) $planAnterior->tecnologia_id : null);
+        $planNuevoId = (int) ($validated['plan_id'] ?? 0);
+        $tecnologiaNuevaId = $planNuevoId === (int) ($planAnterior?->plan_id ?? 0)
+            ? ($planAnterior?->tecnologia_id ? (int) $planAnterior->tecnologia_id : null)
+            : (Plan::query()->whereKey($planNuevoId)->value('tecnologia_id') ?: null);
+        if ($kindAnterior === 'wireless' && $this->kindDeTecnologia($tecnologiaNuevaId ? (int) $tecnologiaNuevaId : null) !== 'wireless') {
+            ServicioConexionEvento::borrarSenalAntena((int) $servicio->servicio_id);
+        }
 
         $servicio->refresh();
         $servicio->load(['pool.router', 'plan.perfilPppoe', 'cliente']);
@@ -2074,6 +2084,7 @@ class ServicioController extends Controller
         }
 
         $kindDestino = $this->kindDeTecnologia((int) $validated['tecnologia_id']);
+        $kindActual = $this->kindDeTecnologia($tecnologiaActualId);
         $mantenerNodo = (string) $validated['mantener_nodo'] === '1';
         $validated = $this->validarPlanDeTecnologia($validated);
 
@@ -2183,6 +2194,9 @@ class ServicioController extends Controller
         }
 
         $servicio->update($updateData);
+        if ($kindActual === 'wireless' && $kindDestino !== 'wireless') {
+            ServicioConexionEvento::borrarSenalAntena((int) $servicio->servicio_id);
+        }
         $servicio->refresh();
         $servicio->load(['pool.router', 'plan.perfilPppoe', 'cliente']);
 

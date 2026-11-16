@@ -76,7 +76,7 @@ class ChatInternoTest extends TestCase
         $this->app->instance(FcmPushService::class, $fcm);
 
         $ana = User::query()->find(1);
-        $this->actingAs($ana)->get('/')->assertRedirect(route('inicio'));
+        $this->actingAs($ana)->get('/')->assertOk();
         $this->assertContains('chat-interno.ver', $ana->permisos);
         $this->assertNotContains('chat-interno.ver', User::query()->find(4)->permisos ?? []);
 

@@ -227,6 +227,16 @@ class ServicioPppoeEventoController extends Controller
     }
 
     /**
+     * Líneas con desconexión continua en las últimas 24 h.
+     *
+     * @return Collection<int, object>
+     */
+    public function lineasEnAtencion(Request $request): Collection
+    {
+        return $this->atencion($request);
+    }
+
+    /**
      * Líneas con desconexión continua en las últimas 24 h, de la más grave a la menos grave.
      * Respeta la fuente y el router elegidos, pero no el período ni la búsqueda.
      *
