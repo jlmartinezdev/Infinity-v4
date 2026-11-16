@@ -51,6 +51,8 @@ if (cfg) {
     let mencionIndice = 0;
     let menuMensaje = null;
     let menuConfirma = false;
+    let enviando = false;
+    let envio = 0;
     const aceptaArchivo = archivo.getAttribute('accept') || '';
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     const colores = ['#2563eb', '#7c3aed', '#0f766e', '#c2410c', '#be185d', '#1d4ed8'];
@@ -435,6 +437,7 @@ if (cfg) {
         }
         const data = await res.json();
         actual = data.conversacion;
+        if (window.InfinityChat) window.InfinityChat.conversacionAbierta = actual.id;
         mensajesActuales = data.mensajes || [];
         titulo.textContent = actual.titulo;
         const otro = otroDe(actual);
@@ -532,7 +535,10 @@ if (cfg) {
     document.getElementById('chat-btn-directo').addEventListener('click', () => abrirModal('directo'));
     document.getElementById('chat-btn-grupo').addEventListener('click', () => abrirModal('grupo'));
 
-    document.getElementById('chat-volver').addEventListener('click', () => mostrarHilo(false));
+    document.getElementById('chat-volver').addEventListener('click', () => {
+        mostrarHilo(false);
+        if (window.InfinityChat) window.InfinityChat.conversacionAbierta = null;
+    });
     document.getElementById('chat-modal-cancelar').addEventListener('click', cerrarModal);
     modalBuscar.addEventListener('input', pintarModal);
     buscar.addEventListener('input', () => {
@@ -931,46 +937,69 @@ if (cfg) {
 
     composer.addEventListener('submit', async (evento) => {
         evento.preventDefault();
-        if (!actual) return;
+        if (!actual || enviando) return;
+        const cuerpo = texto.value;
+        const archivoEnviado = archivo.files && archivo.files[0];
+        if (!cuerpo.trim() && !archivoEnviado) return;
+        enviando = true;
+        const este = ++envio;
         errorBox.classList.add('hidden');
         const form = new FormData();
-        form.append('cuerpo', texto.value);
+        form.append('cuerpo', cuerpo);
         form.append('requiere_accion', accion.checked ? '1' : '0');
-        if (archivo.files && archivo.files[0]) form.append('archivo', archivo.files[0]);
+        if (archivoEnviado) form.append('archivo', archivoEnviado);
         if (accion.checked && actual.tipo === 'grupo') {
             asignadosBox.querySelectorAll('.chat-asignado:checked').forEach((input) => form.append('asignados[]', input.value));
         }
-        const res = await fetch(cfg.urls.mensajes + '/' + actual.id + '/mensajes', {
-            method: 'POST',
-            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
-            credentials: 'same-origin',
-            body: form,
-        });
-        if (!res.ok) {
-            errorBox.textContent = await leerError(res);
-            errorBox.classList.remove('hidden');
-            return;
-        }
-        const data = await res.json();
         texto.value = '';
         archivo.value = '';
         archivoNombre.classList.add('hidden');
         accion.checked = false;
         pintarAsignados();
-        agregarMensaje(data.mensaje);
-        const idx = conversaciones.findIndex((item) => Number(item.id) === Number(actual.id));
-        if (idx >= 0) {
-            conversaciones[idx].ultimo = {
-                id: data.mensaje.id,
-                cuerpo: data.mensaje.cuerpo,
-                adjunto_nombre: data.mensaje.adjunto ? data.mensaje.adjunto.nombre : null,
-                usuario_id: data.mensaje.usuario_id,
-                creado_at: data.mensaje.creado_at,
-            };
-            conversaciones[idx].no_leidos = 0;
-            const [item] = conversaciones.splice(idx, 1);
-            conversaciones.unshift(item);
-            pintarLista();
+        // El Enter a veces devuelve el texto al cuadro después de vaciarlo.
+        const limpiar = () => {
+            if (este !== envio) return;
+            if (texto.value === cuerpo) texto.value = '';
+        };
+        requestAnimationFrame(limpiar);
+        setTimeout(limpiar, 0);
+        try {
+            const res = await fetch(cfg.urls.mensajes + '/' + actual.id + '/mensajes', {
+                method: 'POST',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
+                credentials: 'same-origin',
+                body: form,
+            });
+            if (!res.ok) {
+                envio += 1;
+                if (!texto.value) texto.value = cuerpo;
+                errorBox.textContent = await leerError(res);
+                errorBox.classList.remove('hidden');
+                return;
+            }
+            const data = await res.json();
+            agregarMensaje(data.mensaje);
+            const idx = conversaciones.findIndex((item) => Number(item.id) === Number(actual.id));
+            if (idx >= 0) {
+                conversaciones[idx].ultimo = {
+                    id: data.mensaje.id,
+                    cuerpo: data.mensaje.cuerpo,
+                    adjunto_nombre: data.mensaje.adjunto ? data.mensaje.adjunto.nombre : null,
+                    usuario_id: data.mensaje.usuario_id,
+                    creado_at: data.mensaje.creado_at,
+                };
+                conversaciones[idx].no_leidos = 0;
+                const [item] = conversaciones.splice(idx, 1);
+                conversaciones.unshift(item);
+                pintarLista();
+            }
+        } catch (e) {
+            envio += 1;
+            if (!texto.value) texto.value = cuerpo;
+            errorBox.textContent = 'No se pudo enviar.';
+            errorBox.classList.remove('hidden');
+        } finally {
+            enviando = false;
         }
     });
 

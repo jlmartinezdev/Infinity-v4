@@ -31,6 +31,8 @@ class WhatsappMensaje extends Model
 
     public const TELEFONO_SANDBOX_PREFIX = '595000';
 
+    public const CACHE_CHATS_SIN_LEER = 'whatsapp.chats_sin_leer';
+
     protected $fillable = [
         'direccion',
         'telefono',
@@ -50,6 +52,15 @@ class WhatsappMensaje extends Model
         'contexto_id',
         'payload',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $mensaje): void {
+            if ($mensaje->direccion === self::DIRECCION_ENTRADA) {
+                self::olvidarChatsSinLeer();
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -186,5 +197,23 @@ class WhatsappMensaje extends Model
                 ? 'https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes/'
                 : null,
         ];
+    }
+
+    /** Chats con un mensaje entrante de hoy que todavía no se leyó. */
+    public static function chatsSinLeer(): int
+    {
+        return (int) Cache::remember(self::CACHE_CHATS_SIN_LEER, 15, function () {
+            return (int) static::query()
+                ->where('direccion', self::DIRECCION_ENTRADA)
+                ->where('estado', '!=', self::ESTADO_LEIDO)
+                ->where('created_at', '>=', now()->startOfDay())
+                ->distinct()
+                ->count('telefono');
+        });
+    }
+
+    public static function olvidarChatsSinLeer(): void
+    {
+        Cache::forget(self::CACHE_CHATS_SIN_LEER);
     }
 }

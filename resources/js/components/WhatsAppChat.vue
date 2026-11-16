@@ -112,6 +112,7 @@
             :key="conv.telefono"
             type="button"
             class="wa-row block w-full border-b px-3 py-3 text-left transition"
+            :data-telefono="conv.telefono"
             :class="telActivo === String(conv.telefono) ? 'wa-row-active' : ''"
             @click.prevent.stop="seleccionar(conv.telefono)"
           >
@@ -148,8 +149,18 @@
                     >{{ conv.sin_leer }}</span>
                   </div>
                 </div>
-                <p v-if="conv.cliente_id || conv.asunto" class="mt-0.5 truncate text-[11px]">
-                  <span v-if="conv.cliente_id" class="wa-muted">ID: #{{ conv.cliente_id }}</span><span v-if="conv.cliente_id && conv.asunto" class="wa-muted"> · </span><span v-if="conv.asunto" class="font-medium text-blue-500">{{ conv.asunto.nombre }}</span>
+                <p class="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[11px]">
+                  <span
+                    v-if="conv.encargado"
+                    aria-hidden="true"
+                    :title="conv.encargado.en_linea ? 'En línea' : 'Desconectado'"
+                    :style="{ width: '7px', height: '7px', borderRadius: '999px', flex: 'none', display: 'inline-block', background: conv.encargado.en_linea ? '#00a884' : '#8696a0' }"
+                  ></span>
+                  <span class="min-w-0 truncate" :class="conv.encargado ? 'font-medium' : 'wa-muted'" :style="conv.encargado ? { color: '#53bdeb' } : null">{{ conv.encargado ? (conv.encargado.mio ? 'Te encargás' : conv.encargado.nombre) : 'Nadie se encarga' }}</span>
+                  <template v-if="conv.asunto">
+                    <span class="wa-muted">·</span>
+                    <span class="truncate font-medium text-blue-500">{{ conv.asunto.nombre }}</span>
+                  </template>
                 </p>
               </div>
             </div>

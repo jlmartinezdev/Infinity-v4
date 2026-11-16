@@ -153,8 +153,173 @@
     <script src="{{ asset(mix('js/theme.js')) }}"></script>
     <script src="{{ asset(mix('js/app.js')) }}" defer></script>
     @auth
+    @if(auth()->user()->esStaff())
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.css" crossorigin="anonymous">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js" crossorigin="anonymous"></script>
+        <style>
+            #toast-container { z-index: 100000; }
+            #toast-container.toast-top-right { top: 4.5rem; right: 1rem; }
+        </style>
+        <script>
+            if (window.toastr) {
+                toastr.options = {
+                    closeButton: true,
+                    progressBar: true,
+                    positionClass: 'toast-top-right',
+                    timeOut: 8000,
+                    extendedTimeOut: 3000,
+                    newestOnTop: true,
+                    escapeHtml: true
+                };
+            }
+        </script>
+    @endif
     @if(auth()->user()->esStaff() && auth()->user()->tienePermiso('chat-interno.ver'))
         @include('partials.chat-interno-realtime')
+        <script>
+            (function () {
+                var url = @json(route('chat.avisos', [], false));
+                function vistos() {
+                    try { return JSON.parse(sessionStorage.getItem('chat_toast_vistos') || '{}'); } catch (e) { return {}; }
+                }
+                function marcarVisto(id) {
+                    if (!id) return false;
+                    var mapa = vistos();
+                    if (mapa[id]) return true;
+                    mapa[id] = 1;
+                    var claves = Object.keys(mapa);
+                    if (claves.length > 80) {
+                        var recorte = {};
+                        claves.slice(-40).forEach(function (clave) { recorte[clave] = 1; });
+                        mapa = recorte;
+                    }
+                    sessionStorage.setItem('chat_toast_vistos', JSON.stringify(mapa));
+                    return false;
+                }
+                function chatEnPantalla(conversacionId) {
+                    var path = (window.location.pathname || '').replace(/\/+$/, '');
+                    if (path !== '/chat' || !window.InfinityChat) return false;
+                    var abierta = window.InfinityChat.conversacionAbierta;
+                    if (abierta) return Number(abierta) === Number(conversacionId);
+                    var query = new URLSearchParams(window.location.search).get('c');
+                    return !!query && Number(query) === Number(conversacionId);
+                }
+                function toastChat(mensaje) {
+                    if (!window.toastr || !window.InfinityChat || !mensaje) return;
+                    if (Number(mensaje.usuario_id) === Number(window.InfinityChat.usuarioId)) return;
+                    if (marcarVisto(mensaje.id)) return;
+                    if (chatEnPantalla(mensaje.conversacion_id)) return;
+                    var texto = mensaje.cuerpo || (mensaje.adjunto && mensaje.adjunto.nombre ? 'Archivo: ' + mensaje.adjunto.nombre : 'Nuevo mensaje');
+                    toastr.info(texto, mensaje.autor || mensaje.titulo || 'Chat interno', {
+                        onclick: function () {
+                            if (mensaje.conversacion_id) {
+                                window.location.href = window.InfinityChat.chatUrl + '?c=' + mensaje.conversacion_id;
+                            }
+                        }
+                    });
+                }
+                window.addEventListener('chat:mensaje', function (evento) {
+                    toastChat(evento.detail || {});
+                });
+                function cargar() {
+                    var desde = 0;
+                    try { desde = Number(sessionStorage.getItem('chat_toast_desde') || 0); } catch (e) {}
+                    fetch(url + (url.indexOf('?') === -1 ? '?' : '&') + 'desde=' + encodeURIComponent(desde), {
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    }).then(function (res) {
+                        return res.ok ? res.json() : null;
+                    }).then(function (data) {
+                        if (!data) return;
+                        if (desde > 0) (data.nuevos || []).forEach(toastChat);
+                        if (data.ultimo_id) sessionStorage.setItem('chat_toast_desde', String(data.ultimo_id));
+                    }).catch(function () {});
+                }
+                cargar();
+                setInterval(cargar, 15000);
+                document.addEventListener('visibilitychange', function () {
+                    if (document.visibilityState === 'visible') cargar();
+                });
+            })();
+        </script>
+    @endif
+    @if(auth()->user()->esStaff() && auth()->user()->tienePermiso('whatsapp.ver'))
+        <script>
+            (function () {
+                var url = @json(route('whatsapp.sin-leer', [], false));
+                var mensajesUrl = @json(route('whatsapp.mensajes', [], false));
+                function toastWhatsapp(item) {
+                    if (!window.toastr || !item) return;
+                    var abierto = (new URLSearchParams(window.location.search).get('tel') || '').replace(/\D/g, '');
+                    var tel = String(item.telefono || '').replace(/\D/g, '');
+                    if (abierto && tel && abierto === tel) return;
+                    toastr.warning(item.cuerpo || 'Nuevo mensaje', item.nombre || 'WhatsApp', {
+                        onclick: function () {
+                            if (tel) window.location.href = mensajesUrl + '?tel=' + encodeURIComponent(item.telefono);
+                        }
+                    });
+                }
+                function toastTransferencia(item) {
+                    if (!window.toastr || !item) return;
+                    toastr.success(item.mensaje || 'Te pasaron un chat de WhatsApp.', 'WhatsApp', {
+                        onclick: function () {
+                            if (item.url) window.location.href = item.url;
+                        }
+                    });
+                }
+                function aplicar(chats) {
+                    var el = document.getElementById('sidebar-app');
+                    var vm = el && el.__vue_app__ && el.__vue_app__._instance && el.__vue_app__._instance.proxy;
+                    if (!vm || !Array.isArray(vm.menu)) return false;
+                    var texto = chats > 0 ? String(chats) : '';
+                    function marcar(item) {
+                        if (!item || typeof item !== 'object') return;
+                        if (item.name === 'whatsapp' || item.name === 'rapido-whatsapp') {
+                            item.badge = texto;
+                        }
+                        if (Array.isArray(item.submenu)) item.submenu.forEach(marcar);
+                    }
+                    vm.menu.forEach(marcar);
+                    return true;
+                }
+                function cargar() {
+                    var desde = 0;
+                    var vistas = {};
+                    var listo = false;
+                    try {
+                        desde = Number(sessionStorage.getItem('wa_toast_desde') || 0);
+                        vistas = JSON.parse(sessionStorage.getItem('wa_toast_transf') || '{}');
+                        listo = sessionStorage.getItem('wa_toast_transf_listo') === '1';
+                    } catch (e) {}
+                    var consulta = url + (url.indexOf('?') === -1 ? '?' : '&') + 'desde=' + encodeURIComponent(desde);
+                    fetch(consulta, {
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    }).then(function (res) {
+                        return res.ok ? res.json() : null;
+                    }).then(function (data) {
+                        if (!data || typeof data.chats !== 'number') return;
+                        if (!aplicar(data.chats)) setTimeout(function () { aplicar(data.chats); }, 500);
+                        if (desde > 0) (data.nuevos || []).forEach(toastWhatsapp);
+                        if (data.ultimo_id) sessionStorage.setItem('wa_toast_desde', String(data.ultimo_id));
+                        (data.transferencias || []).forEach(function (item) {
+                            if (listo && item.id && !vistas[item.id]) toastTransferencia(item);
+                            if (item.id) vistas[item.id] = 1;
+                        });
+                        sessionStorage.setItem('wa_toast_transf', JSON.stringify(vistas));
+                        sessionStorage.setItem('wa_toast_transf_listo', '1');
+                    }).catch(function () {});
+                }
+                cargar();
+                setInterval(cargar, 15000);
+                document.addEventListener('visibilitychange', function () {
+                    if (document.visibilityState === 'visible') cargar();
+                });
+            })();
+        </script>
     @endif
     <script>
         (function () {

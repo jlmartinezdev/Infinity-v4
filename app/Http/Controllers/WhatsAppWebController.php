@@ -22,10 +22,12 @@ use App\Models\WhatsappMensaje;
 use App\Services\FacturacionService;
 use App\Services\WhatsApp\WhatsAppAgentService;
 use App\Services\WhatsApp\WhatsAppService;
+use App\Notifications\WhatsappEncargoNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -115,6 +117,88 @@ class WhatsAppWebController extends Controller
         ]);
     }
 
+    public function sinLeerJson(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $desde = max(0, (int) $request->query('desde', 0));
+        $hoy = WhatsappMensaje::query()
+            ->where('direccion', WhatsappMensaje::DIRECCION_ENTRADA)
+            ->where('created_at', '>=', now()->startOfDay());
+        $ultimo = (int) (clone $hoy)->max('id');
+        $nuevos = [];
+
+        if ($desde > 0 && $ultimo > $desde) {
+            $filas = (clone $hoy)
+                ->where('id', '>', $desde)
+                ->orderBy('id')
+                ->limit(8)
+                ->get(['id', 'telefono', 'contacto_nombre', 'cuerpo', 'tipo']);
+            $nuevos = $filas->map(function (WhatsappMensaje $mensaje) {
+                $nombre = trim((string) $mensaje->contacto_nombre);
+
+                return [
+                    'id' => (int) $mensaje->id,
+                    'telefono' => (string) $mensaje->telefono,
+                    'nombre' => $nombre !== '' ? $nombre : (string) $mensaje->telefono,
+                    'cuerpo' => $this->avisoCuerpo($mensaje),
+                ];
+            })->all();
+            if ($filas->isNotEmpty()) {
+                $ultimo = (int) $filas->last()->id;
+            }
+        }
+
+        return response()->json([
+            'chats' => WhatsappMensaje::chatsSinLeer(),
+            'ultimo_id' => $ultimo,
+            'nuevos' => $nuevos,
+            'transferencias' => $this->transferenciasPendientes($request),
+        ]);
+    }
+
+    /**
+     * @return list<array{id: string, mensaje: string, url: ?string}>
+     */
+    private function transferenciasPendientes(Request $request): array
+    {
+        $user = $request->user();
+        if (! $user || ! Schema::hasTable('notifications')) {
+            return [];
+        }
+
+        return $user->unreadNotifications()
+            ->where('type', WhatsappEncargoNotification::class)
+            ->latest()
+            ->limit(8)
+            ->get()
+            ->map(function ($aviso) {
+                $data = is_array($aviso->data) ? $aviso->data : [];
+
+                return [
+                    'id' => (string) $aviso->id,
+                    'mensaje' => (string) ($data['mensaje'] ?? 'Te pasaron un chat de WhatsApp.'),
+                    'url' => isset($data['url']) ? (string) $data['url'] : null,
+                ];
+            })
+            ->all();
+    }
+
+    private function avisoCuerpo(WhatsappMensaje $mensaje): string
+    {
+        $texto = trim((string) $mensaje->cuerpo);
+        if ($texto === '') {
+            return match ($mensaje->tipo) {
+                'image' => 'Envió una imagen',
+                'audio' => 'Envió un audio',
+                'video' => 'Envió un video',
+                'document' => 'Envió un archivo',
+                'location' => 'Envió una ubicación',
+                default => 'Nuevo mensaje',
+            };
+        }
+
+        return mb_strlen($texto) > 140 ? mb_substr($texto, 0, 137).'…' : $texto;
+    }
+
     public function mensajes(Request $request): View
     {
         $tel = $this->normalizeTel($request->get('tel'));
@@ -187,6 +271,12 @@ class WhatsAppWebController extends Controller
                 'pedidoEditTpl' => url('/pedidos/__ID__/edit'),
                 'clienteDetalleTpl' => url('/clientes/__ID__/detalle'),
                 'ficha' => route('whatsapp.ficha'),
+                'encargo' => route('whatsapp.encargo.show'),
+                'encargos' => route('whatsapp.encargos'),
+                'encargoStaff' => route('whatsapp.encargo.staff'),
+                'encargoTomar' => route('whatsapp.encargo.tomar'),
+                'encargoSoltar' => route('whatsapp.encargo.soltar'),
+                'encargoTransferir' => route('whatsapp.encargo.transferir'),
                 'cobroShowTpl' => url('/cobros/__ID__'),
             ],
             'flash' => [
@@ -924,7 +1014,7 @@ class WhatsAppWebController extends Controller
             ->map(fn (WhatsappMensaje $m) => $this->serializeMensaje($m));
 
         $contacto = WhatsappContacto::query()
-            ->with(['cliente:cliente_id,nombre,apellido', 'asunto:id,nombre,color'])
+            ->with(['cliente:cliente_id,nombre,apellido', 'asunto:id,nombre,color', 'encargado:usuario_id,name'])
             ->where('telefono', $tel)
             ->first();
 
@@ -979,6 +1069,8 @@ class WhatsAppWebController extends Controller
             'clasificacion_label' => $clasif['label'],
             'clasificacion_color' => $clasif['color'],
             'pedido' => $this->pedidoAsociadoAlNumero($tel, $contacto?->cliente_id ? (int) $contacto->cliente_id : null),
+            'encargado' => app(\App\Services\WhatsApp\WhatsappEncargoService::class)
+                ->payload($contacto, (int) $request->user()->usuario_id),
             'fuera_ventana' => $fueraVentana,
             'sugerencia_ia' => app(\App\Services\WhatsApp\WhatsAppAgentService::class)
                 ->sugerenciaPendientePara($tel),
@@ -1630,7 +1722,7 @@ class WhatsAppWebController extends Controller
         $contactos = $telefonos === []
             ? collect()
             : WhatsappContacto::query()
-                ->with(['cliente:cliente_id,nombre,apellido', 'asunto:id,nombre,color'])
+                ->with(['cliente:cliente_id,nombre,apellido', 'asunto:id,nombre,color', 'encargado:usuario_id,name'])
                 ->whereIn('telefono', $telefonos)
                 ->get()
                 ->keyBy('telefono');
@@ -1681,6 +1773,8 @@ class WhatsAppWebController extends Controller
                 'clasificacion' => $clasif['tipo'],
                 'clasificacion_label' => $clasif['label'],
                 'clasificacion_color' => $clasif['color'],
+                'encargado' => app(\App\Services\WhatsApp\WhatsappEncargoService::class)
+                    ->payload($contacto, (int) auth()->id()),
                 'ultimo_id' => $ultimo?->id,
                 'ultimo_cuerpo' => $ultimo
                     ? $this->whatsapp->cuerpoVisibleMensaje($ultimo)

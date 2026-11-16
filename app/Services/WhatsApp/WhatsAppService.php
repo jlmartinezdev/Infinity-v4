@@ -1689,6 +1689,7 @@ class WhatsAppService
         WhatsappMensaje::query()
             ->whereIn('id', $ids)
             ->update(['estado' => WhatsappMensaje::ESTADO_LEIDO, 'updated_at' => now()]);
+        WhatsappMensaje::olvidarChatsSinLeer();
 
         return ['ok' => true, 'marcados' => count($ids)];
     }

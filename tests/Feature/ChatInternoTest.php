@@ -225,6 +225,52 @@ class ChatInternoTest extends TestCase
         $this->assertCount(1, Storage::disk('local')->allFiles('chat'));
     }
 
+    public function test_los_avisos_siguen_al_staff_en_otra_pantalla(): void
+    {
+        Event::fake([MensajeChatCreado::class]);
+        $this->app->instance(FcmPushService::class, \Mockery::mock(FcmPushService::class)->shouldIgnoreMissing());
+
+        $ana = User::query()->find(1);
+        $directo = $this->actingAs($ana)->postJson('/chat/directos', ['usuario_id' => 2]);
+        $directo->assertCreated();
+        $conversacionId = $directo->json('conversacion.id');
+
+        $this->actingAs($ana)->post('/chat/conversaciones/'.$conversacionId.'/mensajes', [
+            'cuerpo' => 'Hola Beto',
+        ])->assertCreated();
+
+        $beto = User::query()->find(2);
+        $primero = $this->actingAs($beto)->getJson('/chat/avisos');
+        $primero->assertOk()->assertJsonPath('nuevos', []);
+        $cursor = (int) $primero->json('ultimo_id');
+        $this->assertGreaterThan(0, $cursor);
+
+        $this->actingAs($ana)->post('/chat/conversaciones/'.$conversacionId.'/mensajes', [
+            'cuerpo' => 'Llegó otro',
+        ])->assertCreated();
+
+        $aviso = $this->actingAs($beto)->getJson('/chat/avisos?desde='.$cursor);
+        $aviso->assertOk();
+        $aviso->assertJsonPath('nuevos.0.cuerpo', 'Llegó otro');
+        $aviso->assertJsonPath('nuevos.0.autor', 'Ana');
+        $aviso->assertJsonPath('nuevos.0.titulo', 'Ana');
+        $aviso->assertJsonPath('nuevos.0.conversacion_id', $conversacionId);
+
+        $cursorAna = (int) $this->actingAs($ana)->getJson('/chat/avisos')->json('ultimo_id');
+        $this->actingAs($beto)->post('/chat/conversaciones/'.$conversacionId.'/mensajes', [
+            'cuerpo' => 'Respondo',
+        ])->assertCreated();
+        $this->actingAs($ana)->getJson('/chat/avisos?desde='.$cursorAna)
+            ->assertOk()
+            ->assertJsonPath('nuevos.0.cuerpo', 'Respondo')
+            ->assertJsonPath('nuevos.0.autor', 'Beto');
+
+        $this->actingAs(User::query()->find(3))->getJson('/chat/avisos?desde=1')
+            ->assertOk()
+            ->assertJsonPath('nuevos', [])
+            ->assertJsonPath('ultimo_id', 0);
+    }
+
     private function usuario(int $id, string $nombre, int $rolId, ?int $clienteId = null, array $permisos = []): void
     {
         DB::table('users')->insert([

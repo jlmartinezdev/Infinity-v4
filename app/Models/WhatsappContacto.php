@@ -14,6 +14,8 @@ class WhatsappContacto extends Model
         'nombre',
         'cliente_id',
         'whatsapp_asunto_id',
+        'encargado_usuario_id',
+        'encargado_at',
         'ultimo_visto_at',
         'mensajes_count',
     ];
@@ -22,6 +24,7 @@ class WhatsappContacto extends Model
     {
         return [
             'ultimo_visto_at' => 'datetime',
+            'encargado_at' => 'datetime',
         ];
     }
 
@@ -33,5 +36,10 @@ class WhatsappContacto extends Model
     public function asunto(): BelongsTo
     {
         return $this->belongsTo(WhatsappAsunto::class, 'whatsapp_asunto_id');
+    }
+
+    public function encargado(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'encargado_usuario_id', 'usuario_id');
     }
 }

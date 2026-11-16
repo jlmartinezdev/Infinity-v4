@@ -37,6 +37,10 @@
         ? \App\Models\TrabajoRed::whereIn('estado', \App\Models\TrabajoRed::estadosAbiertos())->count()
         : 0;
 
+    $whatsappSinLeer = $user && $user->tienePermiso('whatsapp.ver')
+        ? \App\Models\WhatsappMensaje::chatsSinLeer()
+        : 0;
+
     foreach ($menuItems as &$item) {
         if ($item['name'] === 'clientes' && isset($item['submenu'])) {
             foreach ($item['submenu'] as &$subItem) {
@@ -54,6 +58,16 @@
         }
         if (($item['name'] ?? '') === 'trabajos-red' && $trabajosRedAbiertosCount > 0) {
             $item['badge'] = (string) $trabajosRedAbiertosCount;
+        }
+        if (in_array($item['name'] ?? '', ['whatsapp', 'rapido-whatsapp'], true) && $whatsappSinLeer > 0) {
+            $item['badge'] = (string) $whatsappSinLeer;
+        }
+        if (($item['name'] ?? '') === 'acceso-rapido' && isset($item['submenu']) && $whatsappSinLeer > 0) {
+            foreach ($item['submenu'] as &$subItem) {
+                if (($subItem['name'] ?? '') === 'rapido-whatsapp') {
+                    $subItem['badge'] = (string) $whatsappSinLeer;
+                }
+            }
         }
     }
     unset($item, $subItem);

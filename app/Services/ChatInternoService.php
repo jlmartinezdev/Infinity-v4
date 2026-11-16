@@ -452,6 +452,63 @@ class ChatInternoService
     }
 
     /**
+     * Mensajes nuevos de otros, para avisar aunque el panel esté en otra pantalla.
+     *
+     * @return array{ultimo_id: int, nuevos: list<array<string, mixed>>}
+     */
+    public function avisos(User $user, int $desde): array
+    {
+        $this->asegurarStaff($user);
+        $yo = (int) $user->usuario_id;
+        $conversaciones = ChatParticipante::query()
+            ->where('usuario_id', $yo)
+            ->pluck('conversacion_id');
+
+        $base = ChatMensaje::query()->whereIn('conversacion_id', $conversaciones);
+        $ultimo = (int) (clone $base)->max('id');
+        $nuevos = [];
+
+        if ($desde > 0 && $ultimo > $desde) {
+            $filas = (clone $base)
+                ->with([
+                    'autor:usuario_id,name',
+                    'adjunto',
+                    'conversacion.participantes.usuario:usuario_id,name',
+                ])
+                ->where('id', '>', $desde)
+                ->where('usuario_id', '!=', $yo)
+                ->orderBy('id')
+                ->limit(8)
+                ->get();
+
+            $nuevos = $filas->map(function (ChatMensaje $mensaje) use ($user) {
+                $adjunto = $mensaje->adjunto;
+
+                return [
+                    'id' => (int) $mensaje->id,
+                    'conversacion_id' => (int) $mensaje->conversacion_id,
+                    'usuario_id' => (int) $mensaje->usuario_id,
+                    'autor' => $mensaje->autor->name ?? 'Staff',
+                    'titulo' => $mensaje->conversacion
+                        ? $this->tituloPara($mensaje->conversacion, $user)
+                        : 'Chat interno',
+                    'cuerpo' => $mensaje->cuerpo,
+                    'adjunto' => $adjunto ? ['nombre' => $adjunto->nombre_original] : null,
+                ];
+            })->all();
+
+            if ($filas->isNotEmpty()) {
+                $ultimo = (int) $filas->last()->id;
+            }
+        }
+
+        return [
+            'ultimo_id' => $ultimo,
+            'nuevos' => $nuevos,
+        ];
+    }
+
+    /**
      * @return array{no_leidos: int, acciones: list<array<string, mixed>>}
      */
     public function pendientes(User $user): array

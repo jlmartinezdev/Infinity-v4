@@ -109,7 +109,7 @@
                         var d = primera.data || {};
                         var msg = d.mensaje || 'Nueva actividad';
                         var tabla = (d.tabla || '').toLowerCase();
-                        var url = tabla === 'pedidos' ? PEDIDOS_URL : null;
+                        var url = d.url || (tabla === 'pedidos' ? PEDIDOS_URL : null);
                         showBrowserNotification('Nueva notificación', msg, url);
                     }
                 }
@@ -138,7 +138,7 @@
                             var circleBg = isRead ? 'bg-gray-200 dark:bg-gray-600' : 'bg-green-100 dark:bg-green-900/40';
                             var iconColor = isRead ? 'text-gray-500 dark:text-gray-400' : 'text-green-600 dark:text-green-400';
                             var bellSvg = '<svg class="w-4 h-4 ' + iconColor + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
-                            var detailJson = JSON.stringify({ mensaje: msg, tabla: d.tabla, accion: d.accion_label || d.accion, usuario: d.usuario_nombre, registro_id: d.registro_id, registro_key: d.registro_key, fecha: notif.created_at });
+                            var detailJson = JSON.stringify({ mensaje: msg, tabla: d.tabla, accion: d.accion_label || d.accion, usuario: d.usuario_nombre, registro_id: d.registro_id, registro_key: d.registro_key, fecha: notif.created_at, url: d.url || null });
                             var detailEscaped = detailJson.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             var msgEscaped = msg.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             return '<div class="notif-item flex gap-3 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 sm:px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer min-w-0 w-full touch-manipulation" data-id="' + notif.id + '" data-mensaje="' + msgEscaped + '" data-detail="' + detailEscaped + '">' +
@@ -214,6 +214,11 @@
             if (detail.registro_key) html += '<p><strong>Registro:</strong> ' + escapeHtml(detail.registro_key) + '</p>';
             if (detail.fecha) html += '<p><strong>Fecha:</strong> ' + escapeHtml(new Date(detail.fecha).toLocaleString('es')) + '</p>';
             html += '</div>';
+        }
+        if (detail.url && String(detail.url).charAt(0) === '/') {
+            markAsRead(id);
+            window.location.href = detail.url;
+            return;
         }
         if (typeof Swal !== 'undefined') {
             Swal.fire({

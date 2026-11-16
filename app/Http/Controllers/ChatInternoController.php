@@ -48,6 +48,13 @@ class ChatInternoController extends Controller
         return $this->responder(fn () => $this->chat->pendientes($request->user()));
     }
 
+    public function avisos(Request $request): JsonResponse
+    {
+        $desde = max(0, (int) $request->query('desde', 0));
+
+        return $this->responder(fn () => $this->chat->avisos($request->user(), $desde));
+    }
+
     public function directos(Request $request): JsonResponse
     {
         $datos = $request->validate([

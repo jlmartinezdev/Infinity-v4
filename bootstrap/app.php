@@ -150,6 +150,15 @@ return Application::configure(basePath: dirname(__DIR__))
                 Log::info('Tarea iniciado: senal:leer-diaria');
             });
 
+        // El encargo de un chat de WhatsApp dura solo el día. A la noche se suelta.
+        $schedule->command('whatsapp:soltar-encargos')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->when(fn () => \App\Support\ScheduleOnceAfter::due('whatsapp-soltar-encargos', '00:10'))
+            ->before(function () {
+                Log::info('Tarea iniciado: whatsapp:soltar-encargos');
+            });
+
         $schedule->command('staff:cerrar-recorridos')
             ->everyFifteenMinutes()
             ->withoutOverlapping()

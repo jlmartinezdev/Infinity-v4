@@ -91,6 +91,7 @@ use App\Http\Controllers\TvCuentaController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\UsuarioSesionController;
 use App\Http\Controllers\VentaController;
+use App\Http\Controllers\WhatsappEncargoController;
 use App\Http\Controllers\WhatsAppAsuntoController;
 use App\Http\Controllers\WhatsAppCasoController;
 use App\Http\Controllers\WhatsAppMemoriaController;
@@ -285,6 +286,7 @@ Route::middleware(['auth', 'permiso:solicitudes-acceso.editar'])->group(function
 Route::middleware(['auth', 'permiso:chat-interno.ver'])->prefix('chat')->name('chat.')->group(function () {
     Route::get('/', [ChatInternoController::class, 'index'])->name('index');
     Route::get('/pendientes', [ChatInternoController::class, 'pendientes'])->name('pendientes');
+    Route::get('/avisos', [ChatInternoController::class, 'avisos'])->name('avisos');
     Route::get('/usuarios', [ChatInternoController::class, 'usuarios'])->name('usuarios');
     Route::get('/conversaciones', [ChatInternoController::class, 'conversaciones'])->name('conversaciones');
     Route::post('/directos', [ChatInternoController::class, 'directos'])->name('directos');
@@ -343,7 +345,10 @@ Route::middleware(['auth', 'permiso:whatsapp.ver'])->group(function () {
     Route::post('/whatsapp/test-n8n/ubicacion-aprobada', [WhatsAppWebController::class, 'testN8nUbicacionAprobada'])->name('whatsapp.test-n8n.ubicacion-aprobada');
     Route::delete('/whatsapp/test-n8n/hilo', [WhatsAppWebController::class, 'testN8nBorrarHilo'])->name('whatsapp.test-n8n.hilo.destroy');
     Route::get('/whatsapp/conversaciones', [WhatsAppWebController::class, 'conversacionesJson'])->name('whatsapp.conversaciones');
+    Route::get('/whatsapp/sin-leer', [WhatsAppWebController::class, 'sinLeerJson'])->name('whatsapp.sin-leer');
     Route::get('/whatsapp/hilo', [WhatsAppWebController::class, 'hiloJson'])->name('whatsapp.hilo');
+    Route::get('/whatsapp/encargo', [WhatsappEncargoController::class, 'show'])->name('whatsapp.encargo.show');
+    Route::get('/whatsapp/encargos', [WhatsappEncargoController::class, 'index'])->name('whatsapp.encargos');
     Route::get('/whatsapp/ficha', [WhatsAppWebController::class, 'fichaCliente'])->name('whatsapp.ficha');
     Route::get('/whatsapp/mensajes/{mensaje}/media', [WhatsAppWebController::class, 'media'])->name('whatsapp.media');
     Route::get('/whatsapp/contactos', [WhatsAppWebController::class, 'contactos'])->name('whatsapp.contactos');
@@ -365,6 +370,10 @@ Route::middleware(['auth', 'permiso:whatsapp.editar'])->group(function () {
     Route::post('/whatsapp/sugerencia-ia/descartar', [WhatsAppWebController::class, 'descartarSugerenciaIa'])->name('whatsapp.sugerencia-ia.descartar');
     Route::post('/whatsapp/sugerencia-ia/regenerar', [WhatsAppWebController::class, 'regenerarSugerenciaIa'])->name('whatsapp.sugerencia-ia.regenerar');
     Route::post('/whatsapp/conversacion/asunto', [WhatsAppWebController::class, 'asignarAsunto'])->name('whatsapp.asignar-asunto');
+    Route::get('/whatsapp/encargo/staff', [WhatsappEncargoController::class, 'staff'])->name('whatsapp.encargo.staff');
+    Route::post('/whatsapp/encargo/tomar', [WhatsappEncargoController::class, 'tomar'])->name('whatsapp.encargo.tomar');
+    Route::post('/whatsapp/encargo/soltar', [WhatsappEncargoController::class, 'soltar'])->name('whatsapp.encargo.soltar');
+    Route::post('/whatsapp/encargo/transferir', [WhatsappEncargoController::class, 'transferir'])->name('whatsapp.encargo.transferir');
     Route::get('/whatsapp/conversacion/buscar-cliente', [WhatsAppWebController::class, 'buscarClientes'])->name('whatsapp.buscar-cliente');
     Route::post('/whatsapp/conversacion/contacto', [WhatsAppWebController::class, 'guardarContacto'])->name('whatsapp.guardar-contacto');
     Route::delete('/whatsapp/mensajes/{mensaje}', [WhatsAppWebController::class, 'eliminarMensaje'])->name('whatsapp.mensajes.destroy');
