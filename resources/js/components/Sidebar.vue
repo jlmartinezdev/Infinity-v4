@@ -2,7 +2,7 @@
   <!-- Desktop Sidebar (collapsible) - Siempre tema oscuro -->
   <aside
     :class="[
-      'fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-40 overflow-x-hidden',
+      'fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-40 overflow-x-hidden flex flex-col',
       'hidden lg:block',
       desktopExpanded ? 'w-64' : 'w-20'
     ]"
@@ -37,15 +37,55 @@
       </template>
     </div>
 
+    <div v-if="desktopExpanded" class="px-3 pt-3 pb-2">
+      <label class="relative block">
+        <span class="sr-only">Buscar en el menú</span>
+        <svg class="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+        </svg>
+        <input
+          ref="menuBusquedaEl"
+          v-model="menuBusqueda"
+          type="text"
+          autocomplete="off"
+          placeholder="Buscar menú…"
+          class="w-full rounded-lg border border-gray-700 bg-gray-800 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+          style="padding-left: 2rem; padding-right: 2rem"
+          @keydown.esc="menuBusqueda = ''"
+        />
+        <button
+          v-if="menuBusqueda"
+          type="button"
+          class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+          aria-label="Limpiar búsqueda"
+          @click="limpiarBusqueda"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </label>
+    </div>
+    <div v-else class="flex justify-center pt-3 pb-1">
+      <button
+        type="button"
+        class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+        aria-label="Buscar en el menú"
+        @click="abrirBusqueda"
+      >
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+        </svg>
+      </button>
+    </div>
+
     <!-- Navigation -->
     <nav
       ref="navEl"
-      :class="[
-        'px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden min-h-0',
-        desktopExpanded && user ? 'h-[calc(100vh-8rem)]' : 'h-[calc(100vh-4rem)]'
-      ]"
+      :class="'px-3 pb-4 space-y-1 overflow-y-auto overflow-x-hidden min-h-0 flex-1'"
       @scroll="onNavScroll"
     >
+      <p v-if="desktopExpanded && menuBusqueda && !filteredMenu.length" class="px-3 py-2 text-xs text-gray-500">Sin resultados</p>
       <template v-for="item in filteredMenu" :key="item.name">
         <!-- Item without submenu -->
         <a
@@ -101,7 +141,7 @@
     <!-- Footer usuario (solo desktop, cuando expandido) -->
     <div
       v-if="user && desktopExpanded"
-      class="absolute bottom-0 left-0 right-0 border-t border-gray-800 p-4 bg-gray-900"
+      class="flex-shrink-0 border-t border-gray-800 p-4 bg-gray-900"
     >
       <div class="flex items-center space-x-3">
         <div class="flex-shrink-0">
@@ -139,8 +179,27 @@
       </button>
     </div>
 
-    <nav class="px-3 py-4 space-y-1">
-      <template v-for="item in filteredMenu" :key="item.name">
+    <div class="sticky top-16 z-10 bg-gray-900 px-3 py-3">
+      <label class="relative block">
+        <span class="sr-only">Buscar en el menú</span>
+        <svg class="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+        </svg>
+        <input
+          v-model="menuBusqueda"
+          type="text"
+          autocomplete="off"
+          placeholder="Buscar menú…"
+          class="w-full rounded-lg border border-gray-700 bg-gray-800 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+          style="padding-left: 2rem"
+          @keydown.esc="menuBusqueda = ''"
+        />
+      </label>
+    </div>
+
+    <nav class="px-3 pb-4 space-y-1">
+      <p v-if="menuBusqueda && !filteredMenu.length" class="px-3 py-2 text-xs text-gray-500">Sin resultados</p>
+      <template v-for="item in filteredMenu" :key="'m-' + item.name">
         <a
           v-if="!item.submenu"
           :href="item.path"
@@ -213,7 +272,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 
 const STORAGE_KEY_MENU = 'infinity_sidebar_menu_expanded';
 const STORAGE_KEY_DESKTOP = 'infinity_sidebar_desktop_expanded';
@@ -261,14 +320,24 @@ const menuExpanded = ref(loadMenuExpanded());
 const desktopExpanded = ref(loadDesktopExpanded());
 const sidebarOpen = ref(false);
 const navEl = ref(null);
+const menuBusqueda = ref('');
+const menuBusquedaEl = ref(null);
 let navScrollTimeout = null;
 
 const isOpen = computed(() =>
   props.isOpen !== null && props.isOpen !== undefined ? props.isOpen : sidebarOpen.value
 );
 
+function normalizarMenu(texto) {
+  return String(texto || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 function isSubmenuExpanded(item) {
   if (!item.submenu) return false;
+  if (normalizarMenu(menuBusqueda.value).trim()) return true;
   const key = item.name;
   if (key in menuExpanded.value) return menuExpanded.value[key];
   if (item.defaultExpanded) return true;
@@ -372,12 +441,45 @@ const defaultMenu = [
   ]},
 ];
 
-const filteredMenu = computed(() => {
+const menuBase = computed(() => {
   // Siempre usar el menú del backend cuando viene definido (ya filtrado por permisos).
   // Solo usar menú por defecto si el backend no envió menú (ej. página sin auth).
   if (props.menu !== null && props.menu !== undefined && Array.isArray(props.menu)) return props.menu;
   return defaultMenu;
 });
+
+const filteredMenu = computed(() => {
+  const q = normalizarMenu(menuBusqueda.value).trim();
+  if (!q) return menuBase.value;
+  const resultado = [];
+  for (const item of menuBase.value) {
+    const padre = normalizarMenu(item.label).includes(q);
+    if (!item.submenu) {
+      if (padre) resultado.push(item);
+      continue;
+    }
+    const hijos = item.submenu.filter((sub) => padre || normalizarMenu(sub.label).includes(q));
+    if (padre || hijos.length) {
+      resultado.push({ ...item, submenu: padre ? item.submenu : hijos });
+    }
+  }
+  return resultado;
+});
+
+function limpiarBusqueda() {
+  menuBusqueda.value = '';
+  menuBusquedaEl.value?.focus();
+}
+
+function abrirBusqueda() {
+  if (!desktopExpanded.value) {
+    desktopExpanded.value = true;
+    saveDesktopExpanded(true);
+    emit('update:desktopExpanded', true);
+    notifyDesktopChange();
+  }
+  nextTick(() => menuBusquedaEl.value?.focus());
+}
 
 const userInitials = computed(() => {
   if (!props.user?.name) return 'U';
