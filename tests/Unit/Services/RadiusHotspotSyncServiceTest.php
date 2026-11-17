@@ -34,6 +34,10 @@ class RadiusHotspotSyncServiceTest extends TestCase
         $this->assertSame(5400, RadiusHotspotSyncService::timeoutASegundos('1h30m'));
         $this->assertNull(RadiusHotspotSyncService::timeoutASegundos('none'));
         $this->assertNull(RadiusHotspotSyncService::timeoutASegundos(''));
+        $this->assertSame(86400, RadiusHotspotSyncService::timeoutASegundos('1d'));
+        $this->assertSame(93600, RadiusHotspotSyncService::timeoutASegundos('1d2h'));
+        $this->assertNull(RadiusHotspotSyncService::timeoutASegundos('1x'));
+        $this->assertNull(RadiusHotspotSyncService::timeoutASegundos('0'));
     }
 
     public function test_tono_de_la_barra_de_cuota(): void

@@ -102,6 +102,18 @@
         font-size: 0.875rem;
     }
     .hsd-aviso[hidden] { display: none; }
+    .hsd-sync {
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .hsd-sync.is-ok { background: #dcfce7; color: #166534; }
+    .hsd-sync.is-off { background: #f3f4f6; color: #4b5563; }
+    .hsd-sync.is-error { background: #fee2e2; color: #991b1b; }
+    html.dark .hsd-sync.is-ok { background: rgba(20, 83, 45, 0.45); color: #bbf7d0; }
+    html.dark .hsd-sync.is-off { background: #374151; color: #d1d5db; }
+    html.dark .hsd-sync.is-error { background: rgba(127, 29, 29, 0.45); color: #fecaca; }
     .hsd-aviso.is-ok {
         border-color: #bbf7d0;
         background: #f0fdf4;
@@ -628,6 +640,25 @@
                 </div>
                 <p id="hotspot-buscar-status" class="sr-only" aria-live="polite"></p>
                 <p id="hotspot-find-help" class="sr-only">Enter filtra la lista. Las flechas eligen un cliente. Después tocá una cuenta para confirmar y sincronizar.</p>
+            </form>
+        @elseif($vista === 'perfiles')
+            @php
+                $buscarPerfiles = trim((string) request('buscar', ''));
+            @endphp
+            <form method="GET" action="{{ route('hotspot.dashboard') }}" role="search" class="flex items-center gap-2 pb-2 w-full sm:w-auto">
+                <input type="hidden" name="vista" value="perfiles">
+                @if($selectedRouter)
+                    <input type="hidden" name="router_id" value="{{ $selectedRouter->router_id }}">
+                @endif
+                <label class="hsd-search">
+                    {!! $lupa !!}
+                    <input type="search" name="buscar" value="{{ $buscarPerfiles }}" autocomplete="off"
+                        aria-label="Buscar perfil por nombre o velocidad"
+                        placeholder="Buscar perfil o velocidad">
+                    @if($buscarPerfiles !== '')
+                        <a href="{{ $menuHotspot('perfiles') }}" class="hsd-auto-btn" style="text-decoration: none">Limpiar</a>
+                    @endif
+                </label>
             </form>
         @endif
     </div>

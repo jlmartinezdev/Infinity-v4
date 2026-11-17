@@ -1326,6 +1326,50 @@ class MikroTikService
     }
 
     /**
+     * Deja los perfiles hotspot del router iguales a los de Infinity: crea los que faltan y corrige
+     * velocidad, tiempos y usuarios a la vez (también los que se vaciaron). No borra perfiles del router.
+     *
+     * @param  iterable<\App\Models\HotspotPerfil>  $perfiles
+     * @return array{
+     *     perfiles: list<array{nombre: string, accion: string, id: ?string, atributos: array<string, string>, cambios: list<string>, resultado: string, detalle: string}>,
+     *     sobrantes: list<string>
+     * }
+     */
+    public function sincronizarPerfilesHotspot(Router $router, iterable $perfiles): array
+    {
+        $client = $this->connect($router);
+        try {
+            $existentes = $client->query(new Query('/ip/hotspot/user/profile/print'))->read();
+            $plan = \App\Support\HotspotPerfilesMikrotik::plan($perfiles, is_array($existentes) ? $existentes : []);
+
+            foreach ($plan['perfiles'] as $i => $item) {
+                $plan['perfiles'][$i]['resultado'] = 'sin-cambios';
+                $plan['perfiles'][$i]['detalle'] = '';
+                if ($item['accion'] === 'igual') {
+                    continue;
+                }
+                try {
+                    $query = $item['accion'] === 'crear'
+                        ? (new Query('/ip/hotspot/user/profile/add'))->equal('name', $item['nombre'])
+                        : (new Query('/ip/hotspot/user/profile/set'))->equal('.id', (string) $item['id']);
+                    foreach ($item['atributos'] as $clave => $valor) {
+                        $query->equal($clave, $valor);
+                    }
+                    $this->assertRouterosOk($client->query($query)->read(), $item['nombre']);
+                    $plan['perfiles'][$i]['resultado'] = $item['accion'] === 'crear' ? 'creado' : 'actualizado';
+                } catch (Throwable $e) {
+                    $plan['perfiles'][$i]['resultado'] = 'error';
+                    $plan['perfiles'][$i]['detalle'] = $e->getMessage();
+                }
+            }
+        } finally {
+            $this->disconnect();
+        }
+
+        return $plan;
+    }
+
+    /**
      * Añade un perfil de usuario hotspot.
      */
     public function addHotspotUserProfile(Router $router, string $name, ?string $rateLimit = null, ?string $sharedUsers = null): array

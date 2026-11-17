@@ -758,9 +758,9 @@ class HotspotController extends Controller
 
     private function datosPerfiles(Request $request): LengthAwarePaginator
     {
-        $query = HotspotPerfil::query()->orderBy('nombre');
+        $query = HotspotPerfil::query()->withCount('servicioHotspots')->orderBy('nombre');
         if ($request->filled('buscar')) {
-            $q = (string) $request->input('buscar');
+            $q = trim((string) $request->input('buscar'));
             $query->where(function ($qry) use ($q) {
                 $qry->where('nombre', 'like', "%{$q}%")
                     ->orWhere('rate_limit', 'like', "%{$q}%");

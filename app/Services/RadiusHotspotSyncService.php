@@ -579,24 +579,10 @@ class RadiusHotspotSyncService
         if ($valor === '' || strcasecmp($valor, 'none') === 0) {
             return null;
         }
-        if (ctype_digit($valor)) {
-            return max(0, (int) $valor) ?: null;
-        }
-        if (preg_match('/^(\d+):(\d{2}):(\d{2})$/', $valor, $m)) {
-            $seg = ((int) $m[1]) * 3600 + ((int) $m[2]) * 60 + (int) $m[3];
+        // Mismo formato que MikroTik, incluidos días y semanas ("1d", "1w2d").
+        $seg = \App\Support\HotspotDuracion::segundos($valor);
 
-            return $seg > 0 ? $seg : null;
-        }
-        if (preg_match('/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i', $valor, $m)) {
-            $horas = (int) ($m[1] ?? 0);
-            $minutos = (int) ($m[2] ?? 0);
-            $segundos = (int) ($m[3] ?? 0);
-            $seg = $horas * 3600 + $minutos * 60 + $segundos;
-
-            return $seg > 0 ? $seg : null;
-        }
-
-        return null;
+        return $seg !== null && $seg > 0 ? $seg : null;
     }
 
     protected function servicioPermiteAcceso(?Servicio $servicio): bool
