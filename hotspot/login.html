@@ -13,6 +13,11 @@
       --color-success: #4CAF50;
       --color-danger: #f44336;
       --color-warning: #ff9800;
+      --ink: #1d2b45;
+      --ink-soft: #5b6b85;
+      --line: #dfe6f0;
+      --field: #f4f7fb;
+      --wa: #25D366;
     }
 
     * {
@@ -21,279 +26,339 @@
       padding: 0;
     }
 
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, var(--color-1), var(--color-2));
-    color: white;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    min-height: 100svh;
-    padding: 12px;
-    text-align: center;
-  }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(165deg, #3f5f9c 0%, #2a7db4 55%, #0097BD 100%);
+      background-attachment: fixed;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      min-height: 100svh;
+      padding: 16px 16px 28px;
+      text-align: center;
+      -webkit-font-smoothing: antialiased;
+    }
 
-  .container {
-      background: transparent;
-      backdrop-filter: none;
-      border-radius: 0;
-      padding: 20px 16px;
-      box-shadow: none;
+    .container {
       width: 100%;
       max-width: 420px;
-      margin-top: 8px;
-      animation: slideIn 0.5s ease;
+      animation: slideIn 0.45s ease;
     }
 
     @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(-16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cabecera */
+    .header {
+      padding: 4px 0 18px;
     }
 
     .logo {
-      width: 200px;
-      max-width: 90%;
-      margin-bottom: 12px;
-      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+      width: 170px;
+      max-width: 70%;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 4px 14px rgba(0,0,0,0.15));
     }
 
     h1 {
-      font-size: 1.8em;
-      margin-bottom: 12px;
-      color: #fff;
-      text-shadow: 0 3px 12px rgba(0,0,0,0.18);
+      font-size: 1.45em;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
     }
 
     .subtitle {
-      font-size: 0.95em;
-      margin-bottom: 24px;
-      color: rgba(255,255,255,0.9);
-      text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 0.92em;
+      color: rgba(255,255,255,0.85);
+    }
+
+    /* Tarjeta principal */
+    .card {
+      background: #fff;
+      color: var(--ink);
+      border-radius: 20px;
+      padding: 22px 18px 18px;
+      box-shadow: 0 12px 32px rgba(10, 30, 70, 0.22);
+      text-align: left;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-size: 1.15em;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .card-help {
+      font-size: 0.85em;
+      color: var(--ink-soft);
+      margin-bottom: 16px;
+      line-height: 1.4;
     }
 
     /* Alertas */
     .alert {
-      padding: 12px 16px;
+      padding: 12px 14px;
       border-radius: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       font-size: 0.9em;
+      line-height: 1.4;
       display: none;
       animation: fadeIn 0.3s ease;
       text-align: left;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15);
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
+      from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .alert-error {
-      background: rgba(244, 67, 54, 0.9);
-      border: 2px solid #c62828;
-      color: white;
-    }
-
-    .alert-warning {
-      background: rgba(255, 152, 0, 0.9);
-      border: 2px solid #f57c00;
-      color: white;
-    }
-
-    .alert-info {
-      background: rgba(33, 150, 243, 0.9);
-      border: 2px solid #1976d2;
-      color: white;
-    }
-
-    .alert i {
-      margin-right: 8px;
-    }
+    .alert-error { background: #d93a3a; color: #fff; }
+    .alert-warning { background: #e8890c; color: #fff; }
+    .alert-info { background: #1e88e5; color: #fff; }
 
     /* Bloqueo */
     .blocked-container {
       display: none;
-      background: rgba(244, 67, 54, 0.15);
-      border: 2px solid var(--color-danger);
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 20px;
+      background: rgba(0, 0, 0, 0.22);
+      border: 2px solid rgba(255, 120, 110, 0.9);
+      border-radius: 18px;
+      padding: 22px 18px;
+      margin-bottom: 14px;
     }
 
-    .blocked-container.active {
-      display: block;
-    }
+    .blocked-container.active { display: block; }
 
-    .blocked-container.trial-limit {
-      background: rgba(255, 152, 0, 0.15);
-      border-color: var(--color-warning);
-    }
+    .blocked-container.trial-limit { border-color: var(--color-warning); }
 
     .blocked-icon {
-      font-size: 48px;
-      margin-bottom: 12px;
+      width: 52px;
+      height: 52px;
+      line-height: 52px;
+      margin: 0 auto 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      font-size: 26px;
+      font-weight: 700;
     }
 
     .blocked-title {
-      font-size: 1.3em;
-      font-weight: bold;
-      margin-bottom: 8px;
-    }
-
-    .blocked-subtitle {
-      font-size: 0.95em;
-      margin-bottom: 16px;
-      opacity: 0.9;
+      font-size: 1.2em;
+      font-weight: 700;
+      margin-bottom: 6px;
     }
 
     .countdown {
-      font-size: 2em;
-      font-weight: bold;
-      color: var(--color-danger);
+      font-size: 2.2em;
+      font-weight: 700;
       margin: 12px 0;
-      font-family: monospace;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      letter-spacing: 0.05em;
     }
 
-    .countdown.trial {
-      color: var(--color-warning);
-    }
+    .countdown.trial { color: #ffd08a; }
 
     .time-info {
       background: rgba(0,0,0,0.2);
       border-radius: 10px;
       padding: 12px;
-      margin: 16px 0;
+      margin: 14px 0;
       font-size: 0.9em;
     }
 
-    .time-info strong {
-      color: var(--color-success);
-      font-size: 1.1em;
-    }
+    .time-info strong { color: #a5e3a8; font-size: 1.1em; }
 
     /* Formulario */
-    label {
-      display: block;
-      text-align: left;
-      margin-bottom: 8px;
-      font-weight: 600;
-      font-size: 0.9em;
-      color: rgba(255,255,255,0.95);
-      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .field {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .field svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      width: 20px;
+      height: 20px;
+      transform: translateY(-50%);
+      color: #8a98b0;
+      pointer-events: none;
     }
 
     input {
       width: 100%;
-      padding: 14px 16px;
-      margin-bottom: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 12px;
+      height: 52px;
+      padding: 0 14px 0 44px;
+      border: 1.5px solid var(--line);
+      border-radius: 14px;
       font-size: 1em;
-      background: rgba(255,255,255,0.95);
-      color: #333;
-      transition: all 0.3s;
+      font-family: inherit;
+      background: var(--field);
+      color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     }
 
     input:focus {
       outline: none;
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(0, 151, 189, 0.2);
-      background: white;
+      box-shadow: 0 0 0 4px rgba(0, 151, 189, 0.15);
+      background: #fff;
     }
 
-    input::placeholder {
-      color: #999;
-    }
+    .field:focus-within svg { color: var(--color-accent); }
+
+    input::placeholder { color: #95a1b5; }
 
     button[type="submit"] {
       width: 100%;
-      padding: 16px;
+      height: 54px;
       border: none;
-      border-radius: 12px;
-      background: var(--color-accent);
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--color-2), #0a7fb0);
       color: #fff;
-      font-size: 1.1em;
-      font-weight: bold;
+      font-size: 1.05em;
+      font-weight: 700;
+      font-family: inherit;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      transition: all 0.3s;
-      margin-top: 8px;
+      box-shadow: 0 6px 16px rgba(0, 120, 170, 0.32);
+      transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+      margin-top: 4px;
     }
 
     button[type="submit"]:hover:not(:disabled) {
-      background: var(--color-1);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.22);
-      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(0, 120, 170, 0.4);
+      transform: translateY(-1px);
     }
 
-    button[type="submit"]:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    button[type="submit"]:active:not(:disabled) { transform: translateY(1px); }
+
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .spinner {
       display: inline-block;
       width: 16px;
       height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin-right: 8px;
+      vertical-align: -2px;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .form-hint {
+      font-size: 0.8em;
+      color: var(--ink-soft);
+      margin-top: 10px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0 14px;
+      color: #9aa6ba;
+      font-size: 0.85em;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
     }
 
     /* Trial */
     .trial-btn {
-      display: block;
-      width: 75%;
-      padding: 12px;
-      margin: 16px auto;
-      border: none;
-      border-radius: 10px;
-      background: var(--color-success);
-      color: #fff;
-      font-size: 0.95em;
-      font-weight: bold;
-      text-decoration: none;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.13);
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .trial-btn:hover {
-      background: #388e3c;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.22);
-      transform: translateY(-2px);
-    }
-
-    .gigas-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       width: 100%;
-      margin: 8px auto 18px;
+      height: 50px;
+      border: 1.5px solid #bfe3c1;
+      border-radius: 14px;
+      background: #eef9ef;
+      color: #2e7d32;
+      font-size: 0.98em;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .trial-btn:hover { background: #e2f4e3; border-color: #9fd3a2; }
+
+    .trial-btn svg { width: 20px; height: 20px; }
+
+    /* Comprar gigas */
+    .gigas-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
       text-align: left;
     }
 
+    .gigas-icon {
+      flex: 0 0 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: #fff;
+      color: var(--color-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gigas-icon svg { width: 24px; height: 24px; }
+
+    .gigas-body { flex: 1; min-width: 0; }
+
     .gigas-title {
-      font-size: 1.05em;
-      font-weight: bold;
-      margin-bottom: 6px;
-      text-align: center;
+      font-size: 1.02em;
+      font-weight: 700;
+      margin-bottom: 2px;
     }
 
     .gigas-help {
-      font-size: 0.85em;
-      color: rgba(255,255,255,0.9);
-      text-align: center;
-      margin-bottom: 12px;
+      font-size: 0.82em;
+      color: rgba(255,255,255,0.88);
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+
+    .gigas-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      background: #fff;
+      color: #0b6f86;
+      font-weight: 700;
+      font-size: 0.9em;
+      border-radius: 999px;
+      padding: 9px 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    .gigas-link:focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 3px;
     }
 
     .gigas-plan {
@@ -308,10 +373,7 @@
       margin-bottom: 8px;
     }
 
-    .gigas-plan strong {
-      display: block;
-      font-size: 1em;
-    }
+    .gigas-plan strong { display: block; font-size: 1em; }
 
     .gigas-plan span {
       display: block;
@@ -331,10 +393,7 @@
       white-space: nowrap;
     }
 
-    .gigas-plan button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    .gigas-plan button:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .gigas-estado {
       background: rgba(255,255,255,0.16);
@@ -362,182 +421,131 @@
       cursor: pointer;
     }
 
-    /* Info Box - Cliente */
-    .promo-box {
-      background-color: rgba(0, 0, 0, 0.22);
-      border-radius: 14px;
-      padding: 18px;
-      margin-top: 28px;
-      font-size: 0.95em;
-      text-align: center;
-      color: #fff;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    /* Ya conectado */
+    .already-box {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
     }
 
-    .promo-title {
-      font-weight: bold;
-      margin-bottom: 16px;
-      text-align: center;
-      color: var(--color-1);
-      font-size: 1.2em;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.13);
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 8px;
-      padding: 10px;
+    .already-box p {
+      font-size: 0.88em;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.92);
+      margin-bottom: 12px;
     }
 
-    .client-info {
-      padding: 12px;
-      text-align: center;
-    }
-
-    .client-info p {
-      margin: 8px 0;
-      line-height: 1.5;
-    }
-
-    .help-box {
-      margin: 12px 0;
-      font-size: 0.9em;
-      line-height: 1.4;
-    }
-
-    .whatsapp-contact {
-      margin-top: 12px;
-      justify-content: center;
-    }
-
-    .whatsapp-item {
-      display: flex;
-      align-items: center;
+    .already-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
 
-    .whatsapp-icon {
-      width: 24px;
-      height: 24px;
-    }
-
-    .footer {
-      margin-top: 24px;
-      font-size: 0.8em;
-      color: rgba(255,255,255,0.7);
-      text-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    }
-
-    /* Intentos restantes */
-    .attempts-warning {
-      background: rgba(255, 152, 0, 0.2);
-      border: 2px solid var(--color-warning);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 16px;
-      font-size: 0.9em;
-      display: none;
-    }
-
-    .attempts-warning.active {
-      display: block;
-    }
-
-    .already-box {
-      background: rgba(0, 0, 0, 0.22);
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .already-box p {
-      margin: 0 0 14px;
-      line-height: 1.45;
-    }
-    .already-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
     .already-actions a {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 48px;
-      padding: 12px 16px;
+      min-height: 46px;
+      padding: 8px 10px;
       border-radius: 12px;
       text-decoration: none;
-      font-weight: bold;
+      font-weight: 700;
+      font-size: 0.88em;
+      line-height: 1.2;
       color: #fff;
     }
-    .already-status {
-      background: var(--color-success);
-    }
+
+    .already-status { background: var(--color-success); }
+
     .already-logout {
-      background: #dc3545;
+      background: rgba(255,255,255,0.12);
+      border: 1.5px solid rgba(255,255,255,0.55);
     }
 
-    /* Responsive */
-    @media (max-width: 480px) {
-      body {
-        padding: 16px 12px 24px;
-      }
-      .container {
-        padding: 20px 16px;
-        margin-top: 4px;
-      }
-      .logo {
-        width: 180px;
-        margin-top: -6px;
-        margin-bottom: 8px;
-      }
-      h1 {
-        font-size: 1.5em;
-        margin-bottom: 8px;
-      }
-      .subtitle {
-        font-size: 0.9em;
-        margin-bottom: 16px;
-      }
-      input {
-        padding: 12px 14px;
-        margin-bottom: 12px;
-      }
-      button[type="submit"] {
-        padding: 14px;
-        font-size: 1.05em;
-      }
-      .alert,
-      .attempts-warning,
-      .blocked-container {
-        font-size: 0.85em;
-      }
+    /* Ayuda para clientes */
+    .promo-box {
+      background: rgba(0, 0, 0, 0.16);
+      border-radius: 18px;
+      padding: 18px 16px;
+      font-size: 0.9em;
+      line-height: 1.5;
     }
 
-    @media (max-width: 480px) and (max-aspect-ratio: 9/16) {
-      .container {
-        padding-top: 16px;
-      }
-      .logo {
-        width: 170px;
-        margin-top: -8px;
-      }
-      .subtitle {
-        margin-bottom: 12px;
-      }
+    .promo-title {
+      font-weight: 700;
+      font-size: 1.05em;
+      margin-bottom: 6px;
+    }
+
+    .promo-box p {
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 12px;
+    }
+
+    .whatsapp-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: #fff;
+      background: var(--wa);
+      padding: 11px 20px;
+      border-radius: 999px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .whatsapp-icon { width: 20px; height: 20px; }
+
+    .footer {
+      margin-top: 20px;
+      font-size: 0.78em;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* Intentos restantes */
+    .attempts-warning {
+      background: #fff4e5;
+      color: #8a4b00;
+      border: 1.5px solid #ffc773;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.86em;
+      text-align: center;
+      display: none;
+    }
+
+    .attempts-warning.active { display: block; }
+
+    @media (max-width: 360px) {
+      body { padding: 12px 12px 24px; }
+      h1 { font-size: 1.3em; }
+      .card { padding: 18px 14px 14px; }
+      .already-actions { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <img class="logo" src="img/logo_blanco1.svg" alt="Logo Interplus">
-
-    <h1>¡Bienvenido a Wi-Fi Zone!</h1>
-    <div class="subtitle">Clientes Interplus con acceso gratis.</div>
+    <header class="header">
+      <img class="logo" src="img/logo_blanco1.svg" alt="Interplus">
+      <h1>¡Bienvenido a Wi-Fi Zone!</h1>
+      <p class="subtitle">Clientes Interplus navegan gratis.</p>
+    </header>
 
     $(if logged-in)
     <div class="already-box">
-      <p>Si ya navegás, podés ver el estado o cerrar sesión. Si no hay internet, volvé a entrar con tu documento y PIN.</p>
+      <p>Ya tenés una sesión abierta. Si no hay internet, cerrá sesión y volvé a entrar con tu documento y PIN.</p>
       <div class="already-actions">
         <a class="already-status" href="$(link-status)">Ver estado</a>
-        <a class="already-logout" href="$(link-logout)">Cerrar sesión y volver a entrar</a>
+        <a class="already-logout" href="$(link-logout)">Cerrar sesión</a>
       </div>
     </div>
     $(endif)
@@ -555,11 +563,6 @@
     <!-- Alertas -->
     <div id="alert-container"></div>
 
-    <!-- Advertencia de intentos -->
-    <div id="attempts-warning" class="attempts-warning">
-      Te quedan <strong id="attempts-count">5</strong> intentos antes del bloqueo
-    </div>
-
     <!-- Formulario oculto para CHAP -->
     $(if chap-id)
     <form name="sendin" action="$(link-login-only)" method="post" style="display:none">
@@ -570,79 +573,90 @@
     </form>
     $(endif)
 
-    <!-- Formulario visible -->
-    <form name="login" id="login-form" action="$(link-login-only)" method="post" 
-          $(if chap-id) onsubmit="return handleLogin(event)" $(endif)>
-      <input type="hidden" name="dst" value="$(link-status)" />
-      <input type="hidden" name="popup" value="false" />
-      
-            <input type="text" 
-              name="username" 
-              id="username" 
-              aria-label="Documento de Identidad"
-              placeholder="CI o RUC (ej. 1234567-2)"
-              required 
-              autocomplete="username"
-              inputmode="text"
-              enterkeyhint="next"
-              oninput="sanitizeIdInput(this)"
-              pattern="[0-9]+(-[0-9]+)?"
-              title="Documento. El 2.º y 3.er usuario van con guion, por ejemplo 1234567-2">
-      
-      <input type="password" 
-             name="password" 
-             id="password" 
-              aria-label="PIN"
-             placeholder="PIN de 4 dígitos"
-             required 
-             inputmode="numeric"
-             maxlength="6"
-             pattern="[0-9]{4,6}"
-             autocomplete="current-password">
-      
-      <button type="submit" id="btn-login">
-        Conectar
-      </button>
-    </form>
+    <main class="card">
+      <!-- Advertencia de intentos -->
+      <div id="attempts-warning" class="attempts-warning">
+        Te quedan <strong id="attempts-count">5</strong> intentos antes del bloqueo
+      </div>
 
-    <a href="trial_ads.html" class="trial-btn">
-      Acceso Gratuito (30 min)
-    </a>
+      <!-- Formulario visible -->
+      <form name="login" id="login-form" action="$(link-login-only)" method="post"
+            $(if chap-id) onsubmit="return handleLogin(event)" $(endif)>
+        <h2 class="card-title">Ingresá a internet</h2>
+        <p class="card-help">Con tu documento y PIN de cliente, o con el usuario de tu compra.</p>
 
-    <p id="hs-mac" hidden>$(mac)</p>
-    <section class="gigas-box" id="comprar-gigas" hidden aria-labelledby="comprar-gigas-titulo">
-      <h2 class="gigas-title" id="comprar-gigas-titulo">Comprá gigas</h2>
-      <p class="gigas-help">Pagás con TPago y te damos un usuario y un PIN para entrar.</p>
-      <div id="gigas-estado" class="gigas-estado" hidden></div>
-      <div id="gigas-planes"></div>
+        <input type="hidden" name="dst" value="$(link-status)" />
+        <input type="hidden" name="popup" value="false" />
+
+        <div class="field">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.4 1.7-2 3-2s2.4.6 3 2M15 10h3M15 13h3"/></svg>
+          <input type="text"
+                 name="username"
+                 id="username"
+                 aria-label="Documento de Identidad"
+                 placeholder="CI o RUC (ej. 1234567-2)"
+                 required
+                 autocomplete="username"
+                 inputmode="text"
+                 enterkeyhint="next"
+                 oninput="sanitizeIdInput(this)"
+                 pattern="[0-9]+(-[0-9]+)?"
+                 title="Documento. El 2.º y 3.er usuario van con guion, por ejemplo 1234567-2">
+        </div>
+
+        <div class="field">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <input type="password"
+                 name="password"
+                 id="password"
+                 aria-label="PIN"
+                 placeholder="PIN de 4 dígitos"
+                 required
+                 inputmode="numeric"
+                 maxlength="6"
+                 pattern="[0-9]{4,6}"
+                 enterkeyhint="go"
+                 autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="btn-login">Conectar</button>
+
+        <p class="form-hint">El 2.º y 3.er acceso van con guion: <b>1234567-2</b></p>
+
+        <div class="divider">o probá sin cuenta</div>
+      </form>
+
+      <a href="trial_ads.html" class="trial-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>
+        Probar gratis 30 minutos
+      </a>
+    </main>
+
+    <section class="gigas-box" id="comprar-gigas" aria-labelledby="comprar-gigas-titulo">
+      <div class="gigas-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0"/><circle cx="12" cy="19.5" r="1"/></svg>
+      </div>
+      <div class="gigas-body">
+        <h2 class="gigas-title" id="comprar-gigas-titulo">¿No sos cliente? Comprá gigas</h2>
+        <p class="gigas-help">Pagás con TPago y recibís un usuario y un PIN al instante.</p>
+        <a class="gigas-link" id="link-comprar-gigas" href="https://interplus.com.py/hotspot/">Ver planes y pagar <span aria-hidden="true">→</span></a>
+      </div>
     </section>
 
+    <p id="hs-mac" hidden>$(mac)</p>
+
     <div class="promo-box">
-      <div class="promo-title">
-        ¿Ya sos cliente de Interplus?
-      </div>
-      <div class="client-info">
-        <p style="margin: 12px 0;">
-          <b>¡Accedé a WiFi gratuito en nuestras zonas!</b>
-        </p>
-        <p style="margin: 8px 0; font-size: 0.9em;">
-          Ingresá con tu <b>documento</b> (CI/RUC) como usuario<br>
-          y tu <b>PIN de 4 dígitos</b>. El 2.º y 3.er acceso van<br>
-          con guion, por ejemplo <b>1234567-2</b>.
-        </p>
-        <div class="help-box">
-          <b>¿No recordás tus datos?</b><br>
-          Contactanos y te ayudamos:
-        </div>
-        <a href="tel:+595971714322" class="whatsapp-item whatsapp-contact" style="text-decoration: none; color: white; background: #25D366; padding: 12px 20px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; font-weight: bold;">
-          0971 714-322
-        </a>
-      </div>
+      <div class="promo-title">¿No recordás tu PIN?</div>
+      <p>Escribinos y te ayudamos a recuperar tus datos de acceso.</p>
+      <a href="tel:+595971714322" class="whatsapp-item">
+        <svg class="whatsapp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+        0971 714-322
+      </a>
     </div>
 
     <div class="footer">
       En el navegador: <b>wifi.interplus</b><br>
-      © 2025 Interplus – Todos los derechos reservados.
+      © 2026 Interplus – Todos los derechos reservados.
     </div>
   </div>
 
@@ -1062,7 +1076,7 @@
       $(endif)
 
       // El resultado lo manejará MikroTik
-      // Si falla, se recarga a login con $(if error)
+      // Si falla, MikroTik recarga login con el bloque de error
       return false;
     }
 
@@ -1315,23 +1329,12 @@
     }
 
     function iniciarVentaGigas() {
-      var base = ventaApiBase();
-      var seccion = document.getElementById('comprar-gigas');
-      if (!seccion || !base) return;
-      seccion.hidden = false;
-      var token = '';
-      try { token = localStorage.getItem('hotspot_venta_token') || ''; } catch (e) {}
-      if (token) {
-        mostrarEstadoGigas('Estamos confirmando tu pago… Si ya pagaste, el usuario aparece acá.');
-        seguirCompra(token);
-      }
-      fetch(base + '/api/hotspot/planes', { cache: 'no-store' })
-        .then(function (r) { return r.json(); })
-        .then(function (data) { pintarPlanes((data && data.planes) || []); })
-        .catch(function () {
-          var caja = document.getElementById('gigas-planes');
-          if (caja) caja.innerHTML = '<p class="gigas-help">No se pudieron cargar los planes.</p>';
-        });
+      var link = document.getElementById('link-comprar-gigas');
+      if (!link) return;
+      var mac = ventaMac();
+      if (!mac) return;
+      var href = String(link.getAttribute('href') || '').split('?')[0];
+      link.href = href + '?mac=' + encodeURIComponent(mac);
     }
 
     window.addEventListener('DOMContentLoaded', function() {

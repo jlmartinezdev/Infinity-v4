@@ -27,15 +27,14 @@ class HotspotPortalDeployService
             return ['success' => false, 'error' => 'La carpeta hotspot/ no tiene archivos del portal.'];
         }
 
-        $permitidos = trim((string) (config('radius.host') ?: '10.200.1.2'));
-        if ($permitidos !== '' && ! str_contains($permitidos, '/')) {
-            $permitidos .= '/32';
-        }
-
-        $client = $this->mikrotik->connect($router);
+        $permitidos = $this->direccionesFtp($router);
         $ftpHabilitado = false;
+        $ftpPrevio = null;
+        $client = null;
 
         try {
+            $client = $this->mikrotik->connect($router);
+            $ftpPrevio = $this->estadoFtp($client);
             $this->setFtp($client, true, $permitidos);
             $ftpHabilitado = true;
             usleep(400000);
@@ -64,11 +63,15 @@ class HotspotPortalDeployService
 
             return ['success' => false, 'error' => $e->getMessage()];
         } finally {
-            if ($ftpHabilitado) {
+            if ($ftpHabilitado && $client) {
                 try {
-                    $this->setFtp($client, false, '');
+                    $this->setFtp(
+                        $client,
+                        $ftpPrevio !== null && ! $ftpPrevio['disabled'],
+                        (string) ($ftpPrevio['address'] ?? '')
+                    );
                 } catch (Throwable $e) {
-                    Log::warning('[Hotspot] no se pudo volver a apagar FTP', [
+                    Log::warning('[Hotspot] no se pudo restaurar el FTP', [
                         'router' => $router->router_id,
                         'error' => $e->getMessage(),
                     ]);
@@ -139,6 +142,57 @@ class HotspotPortalDeployService
         if ($ok === false) {
             throw new \RuntimeException('FTP '.$remoto.': '.($err !== '' ? $err : 'falló (HTTP '.$code.')'));
         }
+    }
+
+    /**
+     * El FTP se abre solo durante la carga. Incluye el servidor RADIUS y la IP
+     * desde la que sale este proceso, para poder subirlo desde la red de gestión.
+     */
+    protected function direccionesFtp(Router $router): string
+    {
+        $lista = [];
+        foreach ([config('radius.host'), $this->ipOrigenHacia((string) $router->ip)] as $host) {
+            $host = trim((string) $host);
+            if ($host === '' || isset($lista[$host])) {
+                continue;
+            }
+            $lista[$host] = str_contains($host, '/') ? $host : $host.'/32';
+        }
+
+        return implode(',', $lista);
+    }
+
+    protected function ipOrigenHacia(string $destino): string
+    {
+        $socket = @stream_socket_client('udp://'.$destino.':9', $errno, $errstr, 2);
+        if ($socket === false) {
+            return '';
+        }
+        $nombre = stream_socket_get_name($socket, false);
+        fclose($socket);
+        $ip = explode(':', (string) $nombre)[0] ?? '';
+
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
+    }
+
+    /**
+     * @return array{disabled: bool, address: string}|null
+     */
+    protected function estadoFtp($client): ?array
+    {
+        $servicios = $client->query(new Query('/ip/service/print'))->read();
+        foreach (is_array($servicios) ? $servicios : [] as $servicio) {
+            if (! is_array($servicio) || ($servicio['name'] ?? '') !== 'ftp') {
+                continue;
+            }
+
+            return [
+                'disabled' => ($servicio['disabled'] ?? 'false') === 'true',
+                'address' => (string) ($servicio['address'] ?? ''),
+            ];
+        }
+
+        return null;
     }
 
     protected function setFtp($client, bool $habilitar, string $address): void

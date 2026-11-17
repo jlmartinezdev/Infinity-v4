@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comprá gigas — Interplus</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="venta.css">
+</head>
+<body>
+  <main class="pagina">
+    <header class="cabecera">
+      <img class="logo" src="logo.svg" alt="Interplus">
+      <h1>Comprá gigas</h1>
+      <p>Pagás con TPago. Cuando el pago se confirma, te mostramos el usuario y el PIN para entrar al Wi‑Fi.</p>
+    </header>
+
+    <section class="hoja" aria-live="polite">
+      <p id="estado" class="estado" hidden></p>
+      <div id="credenciales" class="credenciales" hidden></div>
+      <div id="planes" class="planes">
+        <p class="ayuda">Cargando planes…</p>
+      </div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="venta.js"></script>
+</body>
+</html>

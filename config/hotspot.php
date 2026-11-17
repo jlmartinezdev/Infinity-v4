@@ -25,7 +25,7 @@ return [
         'trim',
         explode(',', (string) env(
             'HOTSPOT_VENTA_JARDIN_HOSTS',
-            'comercios.bancard.com.py,vpos.infonet.com.py,*.bancard.com.py,*.infonet.com.py'
+            'comercios.bancard.com.py,vpos.infonet.com.py,*.bancard.com.py,*.infonet.com.py,interplus.com.py,www.interplus.com.py'
         ))
     ))),
 ];
