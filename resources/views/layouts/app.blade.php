@@ -324,6 +324,19 @@
                     });
                     pedirSonido();
                 }
+                var enCurso = false;
+                var repetir = false;
+                function reclamarAviso(firma) {
+                    try {
+                        var clave = 'wa_toast_ok_' + firma;
+                        if (sessionStorage.getItem(clave)) return false;
+                        var token = Date.now() + ':' + Math.random();
+                        sessionStorage.setItem(clave, token);
+                        return sessionStorage.getItem(clave) === token;
+                    } catch (e) {
+                        return true;
+                    }
+                }
                 function aplicar(chats) {
                     var el = document.getElementById('sidebar-app');
                     var vm = el && el.__vue_app__ && el.__vue_app__._instance && el.__vue_app__._instance.proxy;
@@ -340,6 +353,11 @@
                     return true;
                 }
                 function cargar() {
+                    if (enCurso) {
+                        repetir = true;
+                        return;
+                    }
+                    enCurso = true;
                     var desde = 0;
                     var vistas = {};
                     var listo = false;
@@ -360,17 +378,27 @@
                         if (!aplicar(data.chats)) setTimeout(function () { aplicar(data.chats); }, 500);
                         if (desde > 0) {
                             var lista = data.nuevos || [];
-                            if (lista.length) toastWhatsapp(lista[lista.length - 1]);
-                            toastPendientes(Number(data.avisos || lista.length));
+                            var ultimo = lista.length ? lista[lista.length - 1] : null;
+                            var avisos = Number(data.avisos || lista.length);
+                            var firma = String(data.ultimo_id || 0) + ':' + avisos + ':' + String(ultimo && ultimo.id || 0);
+                            if ((ultimo || avisos >= 2) && reclamarAviso(firma)) {
+                                if (ultimo) toastWhatsapp(ultimo);
+                                toastPendientes(avisos);
+                            }
                         }
                         if (data.ultimo_id) sessionStorage.setItem('wa_toast_desde', String(data.ultimo_id));
                         (data.transferencias || []).forEach(function (item) {
-                            if (listo && item.id && !vistas[item.id]) toastTransferencia(item);
+                            if (listo && item.id && !vistas[item.id] && reclamarAviso('transf-' + item.id)) toastTransferencia(item);
                             if (item.id) vistas[item.id] = 1;
                         });
                         sessionStorage.setItem('wa_toast_transf', JSON.stringify(vistas));
                         sessionStorage.setItem('wa_toast_transf_listo', '1');
-                    }).catch(function () {});
+                    }).catch(function () {}).then(function () {
+                        enCurso = false;
+                        if (!repetir) return;
+                        repetir = false;
+                        cargar();
+                    });
                 }
                 cargar();
                 setInterval(cargar, 15000);
