@@ -48,13 +48,16 @@ class PortalHotspotSlotsService
             ->get();
 
         $ocupados = $slots->pluck('slot_numero')->map(fn ($n) => (int) $n)->all();
-        $libres = ServicioHotspot::slotsLibresDe($ocupados);
+        $plan = $cliente->planHotspot();
+        $libres = ServicioHotspot::slotsLibresDe($ocupados, $plan['slots']);
 
         return [
-            'max' => ServicioHotspot::MAX_POR_CLIENTE,
+            'max' => $plan['slots'],
+            'max_absoluto' => ServicioHotspot::MAX_POR_CLIENTE,
+            'plan_nivel' => $plan['nivel'] !== '' ? $plan['nivel'] : null,
             'ocupados' => count($ocupados),
             'slots_libres' => $libres,
-            'slots' => $slots->map(fn (ServicioHotspot $s) => $this->slotPayload($s))->values()->all(),
+            'slots' => $slots->map(fn (ServicioHotspot $s) => $this->slotPayload($s, false, $plan['slots']))->values()->all(),
             'servicios' => $this->serviciosDisponibles($cliente),
         ];
     }
@@ -67,24 +70,19 @@ class PortalHotspotSlotsService
     {
         $this->assertFlag();
 
-        if ($cliente->servicioHotspots()->count() >= ServicioHotspot::MAX_POR_CLIENTE) {
-            throw ValidationException::withMessages([
-                'slot_numero' => ['Ya tenés el máximo de '.ServicioHotspot::MAX_POR_CLIENTE.' usuarios hotspot.'],
-            ]);
-        }
-
+        $permitidos = $cliente->slotsHotspotPermitidos();
         $ocupados = $cliente->servicioHotspots()->pluck('slot_numero')->map(fn ($n) => (int) $n)->all();
-        $libres = ServicioHotspot::slotsLibresDe($ocupados);
+        $libres = ServicioHotspot::slotsLibresDe($ocupados, $permitidos);
         if ($libres === []) {
             throw ValidationException::withMessages([
-                'slot_numero' => ['No hay slots libres.'],
+                'slot_numero' => ['Tu plan permite '.$permitidos.' '.($permitidos === 1 ? 'usuario' : 'usuarios').' hotspot y ya están en uso.'],
             ]);
         }
 
         $slotNumero = isset($input['slot_numero']) ? (int) $input['slot_numero'] : (int) $libres[0];
         if (! in_array($slotNumero, $libres, true)) {
             throw ValidationException::withMessages([
-                'slot_numero' => ['Ese slot ya está ocupado o no es válido (1–'.ServicioHotspot::MAX_POR_CLIENTE.').'],
+                'slot_numero' => ['Ese slot ya está ocupado o tu plan no lo incluye (1–'.$permitidos.').'],
             ]);
         }
 
@@ -228,11 +226,13 @@ class PortalHotspotSlotsService
     /**
      * @return array<string, mixed>
      */
-    private function slotPayload(ServicioHotspot $s, bool $incluirPassword = false): array
+    private function slotPayload(ServicioHotspot $s, bool $incluirPassword = false, ?int $permitidos = null): array
     {
         $payload = [
             'id' => (int) $s->getKey(),
             'slot_numero' => (int) $s->slot_numero,
+            // Ocupa un slot que el plan actual no incluye: no puede entrar al hotspot.
+            'fuera_del_plan' => $s->fueraDelPlan($permitidos),
             'username' => (string) $s->username,
             'password_masked' => ServicioHotspot::pinOculto($s->password),
             'servicio_id' => $s->servicio_id ? (int) $s->servicio_id : null,

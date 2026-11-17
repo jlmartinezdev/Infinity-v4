@@ -971,12 +971,14 @@
                 $hsMax = \App\Models\ServicioHotspot::MAX_POR_CLIENTE;
                 $hsPorSlot = ($cliente->servicioHotspots ?? collect())->keyBy(fn ($h) => (int) $h->slot_numero);
                 $hsEstados = \App\Models\Servicio::estadosDisponibles();
+                $hsPlan = $cliente->planHotspot();
+                $hsPermitidos = $hsPlan['slots'];
             @endphp
             <div class="cd-card">
                 <div class="cd-panel__head">
                     <h2>Usuarios Hotspot</h2>
                     <div class="cd-panel__actions">
-                        <a href="{{ route('hotspot.clientes.edit', $cliente) }}" class="cd-header-btn">Gestionar ({{ $hsPorSlot->count() }} / {{ $hsMax }})</a>
+                        <a href="{{ route('hotspot.clientes.edit', $cliente) }}" class="cd-header-btn">Gestionar ({{ $hsPorSlot->filter(fn ($h, $slot) => $slot <= $hsPermitidos)->count() }} / {{ $hsPermitidos }} · Plan {{ $hsPlan['etiqueta'] }})</a>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -987,6 +989,14 @@
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Slot {{ $hsSlot }}</p>
                                 <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 font-mono break-all">{{ $hs->username }}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">PIN {{ $hs->password }} · {{ $hsEstados[$hs->servicio?->estado] ?? ($hs->servicio?->estado ?: '—') }}</p>
+                                @if($hsSlot > $hsPermitidos)
+                                    <p class="text-xs font-medium text-red-700 dark:text-red-300 mt-0.5">Fuera del plan · suspendida</p>
+                                @endif
+                            </div>
+                        @elseif($hsSlot > $hsPermitidos)
+                            <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-3 min-h-[6.5rem] flex flex-col">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Slot {{ $hsSlot }}</p>
+                                <p class="flex-1 flex items-center justify-center text-center text-sm text-gray-500 dark:text-gray-400">Requiere plan {{ \App\Models\Plan::ETIQUETAS_NIVEL[\App\Models\Plan::nivelParaSlot($hsSlot)] }}</p>
                             </div>
                         @else
                             <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-3 min-h-[6.5rem] flex flex-col">

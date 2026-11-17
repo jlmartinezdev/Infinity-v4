@@ -56,6 +56,66 @@ class Plan extends Model
     ];
 
     /**
+     * Usuarios hotspot que da cada nivel de plan. Un plan sin nivel en el nombre cuenta como básico.
+     */
+    public const SLOTS_HOTSPOT = [
+        'basico' => 1,
+        'estandar' => 2,
+        'premium' => 3,
+    ];
+
+    public const ETIQUETAS_NIVEL = [
+        'basico' => 'Básico',
+        'estandar' => 'Estándar',
+        'premium' => 'Premium',
+    ];
+
+    /**
+     * Nivel según el nombre del plan, con la misma regla que el filtro de Pedidos.
+     *
+     * @return 'premium'|'estandar'|'basico'|''
+     */
+    public static function nivelDesdeNombre(?string $nombre): string
+    {
+        $n = mb_strtolower(\Illuminate\Support\Str::ascii((string) $nombre));
+        if (str_contains($n, 'premium')) {
+            return 'premium';
+        }
+        if (str_contains($n, 'estandar')) {
+            return 'estandar';
+        }
+        if (str_contains($n, 'basico')) {
+            return 'basico';
+        }
+
+        return '';
+    }
+
+    public static function slotsHotspotDeNivel(string $nivel): int
+    {
+        return self::SLOTS_HOTSPOT[$nivel] ?? self::SLOTS_HOTSPOT['basico'];
+    }
+
+    /**
+     * Nivel mínimo de plan que habilita ese slot (1 → básico, 2 → estándar, 3 → premium).
+     */
+    public static function nivelParaSlot(int $slot): string
+    {
+        foreach (self::SLOTS_HOTSPOT as $nivel => $slots) {
+            if ($slot <= $slots) {
+                return $nivel;
+            }
+        }
+
+        return 'premium';
+    }
+
+    public function nivel(): string
+    {
+        return self::nivelDesdeNombre($this->nombre);
+    }
+
+    /**
      * Perfil PPPoE asociado al plan (opcional).
      */
     public function perfilPppoe(): BelongsTo

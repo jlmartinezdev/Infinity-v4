@@ -5,6 +5,8 @@
 @php
     $estados = \App\Models\Servicio::estadosDisponibles();
     $maxSlots = \App\Models\ServicioHotspot::MAX_POR_CLIENTE;
+    $planHotspot = $planHotspot ?? $cliente->planHotspot();
+    $permitidos = $planHotspot['slots'];
     $puedeEditar = (bool) auth()->user()?->tienePermiso('servicios.editar');
     $nombre = trim($cliente->nombre.' '.$cliente->apellido);
     $usernamesPorSlot = $usernamesPorSlot ?? [];
@@ -79,7 +81,7 @@
         <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-2">{{ $nombre }}</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {{ $cliente->cedula }}
-            · {{ $cliente->servicioHotspots->count() }} / {{ $maxSlots }} usuarios
+            · Plan {{ $planHotspot['etiqueta'] }}: {{ $cliente->servicioHotspots->filter(fn ($h) => (int) $h->slot_numero <= $permitidos)->count() }} / {{ $permitidos }} {{ $permitidos === 1 ? 'usuario' : 'usuarios' }}
             · <a href="{{ route('clientes.detalle', $cliente) }}" class="text-gray-600 dark:text-gray-300 underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/20 rounded">Ficha del cliente</a>
         </p>
     </div>
@@ -101,7 +103,11 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">Slot {{ $i }}</p>
                         <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 font-mono break-all">{{ $sh->username }}</p>
                         <div class="mt-2 flex items-center justify-between gap-1 min-w-0">
-                            <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {{ $estadoBadge[$codigo] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ $estadoLabel }}</span>
+                            @if($sh->fueraDelPlan($permitidos))
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" title="El plan del cliente no incluye este slot">Fuera del plan · suspendida</span>
+                            @else
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {{ $estadoBadge[$codigo] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ $estadoLabel }}</span>
+                            @endif
                             <span class="hotspot-pin inline-flex items-center min-w-0">
                                 <span class="hotspot-pin-value font-mono text-sm text-gray-900 dark:text-gray-100" data-pin="{{ $sh->password }}">{{ \App\Models\ServicioHotspot::pinOculto($sh->password) }}</span>
                                 <button type="button" class="hotspot-pin-btn rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/20" title="Mostrar PIN" aria-label="Mostrar PIN de {{ $sh->username }}" aria-pressed="false">
@@ -111,6 +117,11 @@
                             </span>
                         </div>
                         @include('hotspot._perfil-form', ['sh' => $sh])
+                    </div>
+                @elseif($i > $permitidos)
+                    <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-3 min-h-11 flex flex-col">
+                        <p class="text-xs text-gray-400">Slot {{ $i }}</p>
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Requiere plan {{ \App\Models\Plan::ETIQUETAS_NIVEL[\App\Models\Plan::nivelParaSlot($i)] }}</p>
                     </div>
                 @else
                     <div class="hotspot-free-slot rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-3 min-h-11 flex flex-col{{ $slotInicial === $i ? ' is-selected' : '' }}" data-slot="{{ $i }}" aria-current="{{ $slotInicial === $i ? 'true' : 'false' }}">
@@ -133,7 +144,7 @@
             @endfor
         </div>
 
-        @if($cliente->servicioHotspots->count() < $maxSlots && $puedeEditar)
+        @if($slotsLibres !== [] && $puedeEditar)
             @if($cliente->servicios->isEmpty())
                 <p class="mb-6 text-sm text-amber-700 dark:text-amber-300">Este cliente no tiene servicios. Creá un servicio antes de asociar hotspot.</p>
             @elseif(! $usernamePreview)
@@ -193,8 +204,17 @@
                     </div>
                 </form>
             @endif
-        @elseif($cliente->servicioHotspots->count() >= $maxSlots)
-            <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">Los {{ $maxSlots }} slots están ocupados.</p>
+        @elseif($slotsLibres === [])
+            <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                @if($permitidos === 1)
+                    El plan {{ $planHotspot['etiqueta'] }} incluye 1 usuario y ya está en uso.
+                @else
+                    El plan {{ $planHotspot['etiqueta'] }} incluye {{ $permitidos }} usuarios y ya están en uso.
+                @endif
+                @if($permitidos < $maxSlots)
+                    Para sumar otro, el cliente necesita el plan {{ \App\Models\Plan::ETIQUETAS_NIVEL[\App\Models\Plan::nivelParaSlot($permitidos + 1)] }}.
+                @endif
+            </p>
         @endif
 
         <ul class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -204,6 +224,9 @@
                         <p class="font-medium text-gray-900 dark:text-gray-100 font-mono break-all">{{ $sh->username }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             Slot {{ $sh->slot_numero }}
+                            @if($sh->fueraDelPlan($permitidos))
+                                · <span class="text-red-700 dark:text-red-300">fuera del plan, suspendida</span>
+                            @endif
                             · Servicio #{{ $sh->servicio_id }} ({{ $estados[$sh->servicio?->estado] ?? ($sh->servicio?->estado ?: '—') }})
                             @if($sh->hotspotPerfil)
                                 · {{ $sh->hotspotPerfil->etiqueta() }}

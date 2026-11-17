@@ -418,7 +418,9 @@ class RadiusHotspotSyncService
             ['Cleartext-Password', ':=', (string) $sh->password],
         ];
 
-        if (! $this->servicioPermiteAcceso($sh->servicio) || $this->cuotaAgotada($sh, $bytesUsados)) {
+        if (! $this->servicioPermiteAcceso($sh->servicio)
+            || $this->cuotaAgotada($sh, $bytesUsados)
+            || $sh->fueraDelPlan()) {
             $check[] = ['Auth-Type', ':=', 'Reject'];
         }
 

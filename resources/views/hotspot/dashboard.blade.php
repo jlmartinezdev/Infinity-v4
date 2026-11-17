@@ -763,6 +763,10 @@
                                             ? 'Cuenta '.preg_replace('/o$/', 'a', mb_strtolower((string) ($estados[$estadoCodigo] ?? $estadoCodigo)))
                                             : '';
                                         $estadoTono = ['A' => 'ok', 'S' => 'warn'][$estadoCodigo] ?? 'off';
+                                        if ($esLocker && $fila['locker']?->fueraDelPlan()) {
+                                            $estadoTexto = 'Fuera del plan · suspendida';
+                                            $estadoTono = 'off';
+                                        }
                                         $puedeCortar = $puedeCrear && $macOk;
                                         $hayMenu = $macOk || $esLocker;
                                     @endphp
@@ -958,6 +962,10 @@
                                                 ? ucfirst((string) preg_replace('/o$/', 'a', mb_strtolower((string) ($estados[$codigo] ?? $codigo))))
                                                 : '';
                                             $estadoTono = ['A' => 'ok', 'S' => 'warn'][$codigo] ?? 'off';
+                                            if ($sh->fueraDelPlan()) {
+                                                $estadoTexto = 'Fuera del plan · suspendida';
+                                                $estadoTono = 'off';
+                                            }
                                         @endphp
                                         <tr class="hotspot-dash-fila border-t border-gray-200 dark:border-gray-700"
                                             data-cuota="{{ ! empty($cuotaVista['tiene_cuota']) ? 'cuota' : 'libre' }}"

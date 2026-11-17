@@ -39,6 +39,7 @@
             'slot' => (int) $sh->slot_numero,
             'estado' => (string) ($codigo ?? ''),
             'estadoLabel' => $codigo ? ($estados[$codigo] ?? $codigo) : 'Sin servicio',
+            'fueraDelPlan' => $sh->fueraDelPlan($cl->slotsHotspotPermitidos()),
             'servicioId' => $sh->servicio_id,
             'router' => $sh->router?->nombre ?: 'Sin router',
             'perfil' => $sh->hotspotPerfil?->nombre ?: 'default',
@@ -364,19 +365,23 @@
                 @php
                     $porSlot = $cl->servicioHotspots->keyBy(fn ($h) => (int) $h->slot_numero);
                     $nombre = trim($cl->nombre.' '.$cl->apellido);
+                    $planCl = $cl->planHotspot();
+                    $permitidos = $planCl['slots'];
+                    $enPlan = $cl->servicioHotspots->filter(fn ($h) => (int) $h->slot_numero <= $permitidos)->count();
                 @endphp
                 @php $articleFocused = $seleccionadoId && $cl->servicioHotspots->contains(fn ($h) => (int) $h->getKey() === (int) $seleccionadoId); @endphp
                 <article class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4{{ $articleFocused ? ' is-focused' : '' }}" data-cliente-id="{{ $cl->cliente_id }}">
                     <div class="flex flex-wrap items-baseline gap-2 mb-3 min-w-0">
-                        @if($cl->servicio_hotspots_count >= $maxSlots)
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">{{ $cl->servicio_hotspots_count }} / {{ $maxSlots }}</span>
+                        @if($enPlan >= $permitidos)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title="Usuarios del plan en uso">{{ $enPlan }} / {{ $permitidos }}</span>
                         @else
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200">{{ $cl->servicio_hotspots_count }} / {{ $maxSlots }}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200" title="Usuarios del plan en uso">{{ $enPlan }} / {{ $permitidos }}</span>
                         @endif
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">{!! $resaltar($nombre) !!}</h2>
                         @if($cl->cedula)
                             <p class="text-sm text-gray-500 dark:text-gray-400">{!! $resaltar($cl->cedula) !!}</p>
                         @endif
+                        <p class="text-sm text-gray-500 dark:text-gray-400" title="{{ $planCl['plan'] ?? 'Sin plan' }}">· Plan {{ $planCl['etiqueta'] }} · {{ $permitidos === 1 ? '1 usuario' : $permitidos.' usuarios' }}</p>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -404,9 +409,18 @@
                                             ])
                                         </span>
                                         <span class="hotspot-slot-meta">
-                                            <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {{ $estadoBadge[$codigo] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ $codigo ? ucfirst((string) preg_replace('/o$/', 'a', mb_strtolower($estadoLabel))) : $estadoLabel }}</span>
+                                            @if($payload['fueraDelPlan'])
+                                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" title="El plan del cliente no incluye este slot">Fuera del plan · suspendida</span>
+                                            @else
+                                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {{ $estadoBadge[$codigo] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ $codigo ? ucfirst((string) preg_replace('/o$/', 'a', mb_strtolower($estadoLabel))) : $estadoLabel }}</span>
+                                            @endif
                                         </span>
                                     </button>
+                                </div>
+                            @elseif($i > $permitidos)
+                                <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-2.5 min-h-11 flex flex-col justify-center gap-0.5">
+                                    <span class="text-xs text-gray-400">Slot {{ $i }}</span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Requiere plan {{ \App\Models\Plan::ETIQUETAS_NIVEL[\App\Models\Plan::nivelParaSlot($i)] }}</span>
                                 </div>
                             @else
                                 <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-2.5 min-h-11 flex items-center justify-between gap-2">
@@ -754,6 +768,9 @@
                 syncCopy.textContent = dest.text + ' El servicio está ' + currentEstadoLabel + '.';
             } else {
                 syncCopy.textContent = dest.text;
+            }
+            if (payload.fueraDelPlan) {
+                syncCopy.textContent += ' Esta cuenta ocupa un slot que el plan no incluye: queda suspendida.';
             }
         }
         if (syncBtn) {

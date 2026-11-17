@@ -97,7 +97,7 @@ class HotspotController extends Controller
 
         if ($vista === 'sesiones' && $selectedRouter) {
             $mapped = ServicioHotspot::query()
-                ->with(['servicio.cliente', 'cliente', 'hotspotPerfil', 'router'])
+                ->with(['servicio.cliente', 'cliente.servicios.plan', 'hotspotPerfil', 'router'])
                 ->where(function ($q) use ($selectedRouter) {
                     $q->where('router_id', $selectedRouter->router_id);
                     if (filled($selectedRouter->hotspot_servidor)) {
@@ -110,7 +110,7 @@ class HotspotController extends Controller
 
         if ($vista === 'sesiones') {
         $todosPorUsername = ServicioHotspot::query()
-            ->with(['servicio.cliente', 'cliente', 'hotspotPerfil', 'router'])
+            ->with(['servicio.cliente', 'cliente.servicios.plan', 'hotspotPerfil', 'router'])
             ->get()
             ->keyBy(fn (ServicioHotspot $h) => mb_strtolower((string) $h->username));
 
@@ -594,6 +594,7 @@ class HotspotController extends Controller
 
         $base = Cliente::query()
             ->with([
+                'servicios.plan',
                 'servicioHotspots' => fn ($q) => $q->with(['servicio', 'hotspotPerfil', 'router'])->orderBy('slot_numero'),
             ])
             ->withCount('servicioHotspots');
@@ -756,8 +757,8 @@ class HotspotController extends Controller
             return response()->json([]);
         }
 
-        $maxSlots = ServicioHotspot::MAX_POR_CLIENTE;
         $clientes = Cliente::query()
+            ->with('servicios.plan')
             ->whereHas('servicioHotspots')
             ->withCount('servicioHotspots')
             ->where(function ($query) use ($q) {
@@ -773,7 +774,8 @@ class HotspotController extends Controller
             ->limit(15)
             ->get(['cliente_id', 'nombre', 'apellido', 'cedula']);
 
-        return response()->json($clientes->map(static function (Cliente $c) use ($maxSlots) {
+
+        return response()->json($clientes->map(static function (Cliente $c) {
             $nombre = trim((string) ($c->nombre ?? ''));
             $apellido = trim((string) ($c->apellido ?? ''));
             $etiqueta = trim($nombre.' '.$apellido);
@@ -788,7 +790,7 @@ class HotspotController extends Controller
                 'etiqueta' => $etiqueta,
                 'cedula' => (string) ($c->cedula ?? ''),
                 'slots' => (int) $c->servicio_hotspots_count,
-                'max_slots' => $maxSlots,
+                'max_slots' => $c->slotsHotspotPermitidos(),
             ];
         })->values());
     }
@@ -836,15 +838,17 @@ class HotspotController extends Controller
         ]);
 
         $perfiles = HotspotPerfil::orderBy('nombre')->get();
+        $planHotspot = $cliente->planHotspot();
         $slotsLibres = ServicioHotspot::slotsLibresDe(
-            $cliente->servicioHotspots->pluck('slot_numero')->all()
+            $cliente->servicioHotspots->pluck('slot_numero')->all(),
+            $planHotspot['slots']
         );
         $usernamesPorSlot = [];
         foreach ($slotsLibres as $slot) {
             $usernamesPorSlot[$slot] = ServicioHotspot::usernameDesdeDocumento($cliente, (int) $slot);
         }
 
-        return view('hotspot.cliente', compact('cliente', 'perfiles', 'slotsLibres', 'usernamesPorSlot'));
+        return view('hotspot.cliente', compact('cliente', 'perfiles', 'slotsLibres', 'usernamesPorSlot', 'planHotspot'));
     }
 
     public function storeCliente(Request $request, Cliente $cliente): RedirectResponse
@@ -968,18 +972,32 @@ class HotspotController extends Controller
         return $this->redirectTrasSync($request, $servicioHotspot, $result['error'] ?? 'Error al sincronizar.', 'error');
     }
 
+    /**
+     * @param  array{etiqueta: string, slots: int, nivel: string}  $planHotspot
+     */
+    private static function mensajeTopePlan(array $planHotspot): string
+    {
+        $n = $planHotspot['slots'];
+        $plan = $planHotspot['nivel'] !== '' ? 'El plan '.$planHotspot['etiqueta'] : 'Su plan';
+
+        return $plan.' de este cliente permite '.$n.' '.($n === 1 ? 'usuario' : 'usuarios').' hotspot y ya están ocupados.';
+    }
+
     protected function guardarParaCliente(Request $request, Cliente $cliente): RedirectResponse
     {
-        if ($cliente->servicioHotspots()->count() >= ServicioHotspot::MAX_POR_CLIENTE) {
+        $planHotspot = $cliente->planHotspot();
+        $permitidos = $planHotspot['slots'];
+        if ($cliente->servicioHotspots()->where('slot_numero', '<=', $permitidos)->count() >= $permitidos) {
             return redirect()
                 ->route('hotspot.clientes.edit', $cliente)
-                ->withErrors(['slot_numero' => 'Este cliente ya tiene '.ServicioHotspot::MAX_POR_CLIENTE.' usuarios hotspot.'])
+                ->withErrors(['slot_numero' => self::mensajeTopePlan($planHotspot)])
                 ->withInput();
         }
 
         if (! $request->filled('slot_numero')) {
             $libre = ServicioHotspot::slotsLibresDe(
-                $cliente->servicioHotspots()->pluck('slot_numero')->all()
+                $cliente->servicioHotspots()->pluck('slot_numero')->all(),
+                $permitidos
             );
             if ($libre !== []) {
                 $request->merge(['slot_numero' => $libre[0]]);
@@ -997,7 +1015,7 @@ class HotspotController extends Controller
             'slot_numero' => [
                 'required',
                 'integer',
-                Rule::in(ServicioHotspot::slotsDisponibles()),
+                Rule::in(ServicioHotspot::slotsDisponibles($permitidos)),
                 Rule::unique('servicio_hotspot', 'slot_numero')->where(
                     fn ($q) => $q->where('cliente_id', $cliente->cliente_id)
                 ),
@@ -1005,6 +1023,7 @@ class HotspotController extends Controller
             'password' => ServicioHotspot::reglasPin(),
         ], [
             'password.digits' => ServicioHotspot::mensajePin(),
+            'slot_numero.in' => self::mensajeTopePlan($planHotspot),
         ]);
 
         $username = ServicioHotspot::usernameDesdeDocumento($cliente, (int) $validated['slot_numero']);

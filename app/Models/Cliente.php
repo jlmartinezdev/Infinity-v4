@@ -121,6 +121,50 @@ class Cliente extends Model
         return $this->hasMany(ServicioHotspot::class, 'cliente_id', 'cliente_id')->orderBy('slot_numero');
     }
 
+    /**
+     * Plan que manda en el hotspot: el de mayor nivel entre los servicios que no están cancelados.
+     * Básico da 1 usuario, Estándar 2 y Premium 3; sin servicio o sin nivel reconocible, 1.
+     *
+     * @return array{nivel: string, etiqueta: string, slots: int, plan: ?string}
+     */
+    public function planHotspot(): array
+    {
+        $servicios = $this->relationLoaded('servicios')
+            ? $this->servicios
+            : ($this->exists ? $this->servicios()->with('plan')->get() : collect());
+        if ($servicios instanceof \Illuminate\Database\Eloquent\Collection) {
+            $servicios->loadMissing('plan');
+        }
+
+        $mejor = null;
+        foreach ($servicios as $servicio) {
+            if ($servicio->estado === Servicio::ESTADO_CANCELADO) {
+                continue;
+            }
+            $nombre = $servicio->relationLoaded('plan') ? $servicio->plan?->nombre : null;
+            $nivel = Plan::nivelDesdeNombre($nombre);
+            $slots = Plan::slotsHotspotDeNivel($nivel);
+            if ($mejor === null || $slots > $mejor['slots']) {
+                $mejor = ['nivel' => $nivel, 'slots' => $slots, 'plan' => $nombre];
+            }
+        }
+        $mejor ??= ['nivel' => '', 'slots' => 1, 'plan' => null];
+
+        $slots = max(1, min(ServicioHotspot::MAX_POR_CLIENTE, $mejor['slots']));
+
+        return [
+            'nivel' => $mejor['nivel'],
+            'etiqueta' => Plan::ETIQUETAS_NIVEL[$mejor['nivel']] ?? 'Sin nivel',
+            'slots' => $slots,
+            'plan' => $mejor['plan'],
+        ];
+    }
+
+    public function slotsHotspotPermitidos(): int
+    {
+        return $this->planHotspot()['slots'];
+    }
+
     public static function cedulaSinSeparadores(?string $cedula): string
     {
         return str_replace(['.', '-', ' ', '/'], '', trim((string) $cedula));

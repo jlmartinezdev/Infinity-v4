@@ -54,18 +54,38 @@ class ServicioHotspot extends Model
     /**
      * @return list<int>
      */
-    public static function slotsDisponibles(): array
+    public static function slotsDisponibles(?int $permitidos = null): array
     {
-        return range(1, self::MAX_POR_CLIENTE);
+        $tope = $permitidos === null ? self::MAX_POR_CLIENTE : max(1, min(self::MAX_POR_CLIENTE, $permitidos));
+
+        return range(1, $tope);
     }
 
     /**
      * @param  list<int>  $ocupados
      * @return list<int>
      */
-    public static function slotsLibresDe(array $ocupados): array
+    public static function slotsLibresDe(array $ocupados, ?int $permitidos = null): array
     {
-        return array_values(array_diff(self::slotsDisponibles(), array_map('intval', $ocupados)));
+        return array_values(array_diff(self::slotsDisponibles($permitidos), array_map('intval', $ocupados)));
+    }
+
+    /**
+     * La cuenta ocupa un slot que el plan actual del cliente ya no incluye: queda suspendida.
+     */
+    public function fueraDelPlan(?int $permitidos = null): bool
+    {
+        if ($permitidos === null) {
+            $cliente = $this->relationLoaded('cliente')
+                ? $this->cliente
+                : ($this->cliente_id ? $this->cliente : null);
+            if (! $cliente) {
+                return false;
+            }
+            $permitidos = $cliente->slotsHotspotPermitidos();
+        }
+
+        return (int) $this->slot_numero > $permitidos;
     }
 
     public static function usernameDesdeDocumento(Cliente $cliente, int $slot): ?string

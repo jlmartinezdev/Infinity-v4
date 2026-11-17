@@ -150,7 +150,7 @@ Si el cliente destildó el switch, `push_enviado` será `false` y no se manda FC
 
 ---
 
-## 4. Slots Hotspot (máx. 3)
+## 4. Slots Hotspot (según el plan, máx. 3)
 
 Requiere flag `hotspot_slots = enabled`.
 
@@ -158,7 +158,10 @@ Modelo igual al panel web Hotspot:
 
 - Username = documento del cliente; slot 2/3 → `documento-2`, `documento-3`
 - PIN = **exactamente 4 dígitos**
-- Máximo **3** slots por cliente
+- Cantidad de slots según el plan del cliente: **Básico 1**, **Estándar 2**, **Premium 3**
+  - El nivel sale del nombre del plan (como el filtro de Pedidos); un plan sin “básico/estándar/premium” cuenta como básico
+  - Si el cliente tiene varios servicios, manda el de mayor nivel (los cancelados no cuentan)
+- Una cuenta en un slot que el plan ya no incluye (por ejemplo, después de bajar de plan) queda **suspendida**: RADIUS la rechaza y vuelve sola si el cliente sube de plan. Viene con `fuera_del_plan: true`
 - Al crear/editar/borrar, Infinity sincroniza RADIUS (observer)
 
 ### `GET /portal/v1/hotspot/slots`
@@ -167,13 +170,16 @@ Modelo igual al panel web Hotspot:
 {
   "success": true,
   "data": {
-    "max": 3,
+    "max": 2,
+    "max_absoluto": 3,
+    "plan_nivel": "estandar",
     "ocupados": 1,
-    "slots_libres": [2, 3],
+    "slots_libres": [2],
     "slots": [
       {
         "id": 88,
         "slot_numero": 1,
+        "fuera_del_plan": false,
         "username": "1234567",
         "password_masked": "••••",
         "servicio_id": 1020,
@@ -189,6 +195,9 @@ Modelo igual al panel web Hotspot:
   }
 }
 ```
+
+- `max`: slots que da el plan del cliente. `max_absoluto`: tope del sistema (3). `plan_nivel`: `basico`, `estandar`, `premium` o `null` si el plan no tiene nivel.
+- `slots_libres`: solo los que el plan permite usar.
 
 **Nota:** el listado **no** incluye el PIN en claro (`password_masked` solamente). El PIN en claro solo vuelve en la respuesta de **crear** o **cambiar PIN**.
 
@@ -237,7 +246,7 @@ Errores `403` si el flag no está `enabled`; `422` por cupo, PIN inválido, slot
    - Switch `push_cambio_clave` vía PATCH preferencias.
 3. Tras `POST /cambiar-clave` ok → refrescar preferencias; el ticket queda en historial de soporte (`GET /portal/tickets`).
 4. Si `hotspot_slots=enabled`:
-   - Lista slots + “Agregar” (máx. 3).
+   - Lista slots + “Agregar” (hasta `max`; ocultar “Agregar” si `slots_libres` está vacío y mostrar las cuentas con `fuera_del_plan` como suspendidas).
    - Crear / editar PIN / eliminar.
    - Mostrar username + PIN solo al crear o al regenerar.
 5. Push `tipo=seguridad` + `accion=cambio_clave_app` → deep-link opcional a Seguridad o al ticket.
