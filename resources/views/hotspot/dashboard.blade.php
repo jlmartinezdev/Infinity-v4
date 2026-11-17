@@ -32,6 +32,7 @@
         'sesiones' => ['Sesiones hotspot', 'Quién está en el Wi‑Fi de un router y qué cuentas no tienen sesión.'],
         'usuarios' => ['Usuarios hotspot', 'Cuentas de cada cliente: usuario por documento, PIN y hasta tres por cliente.'],
         'perfiles' => ['Perfiles hotspot', 'Velocidad y cuota que usa cada cuenta.'],
+        'planes' => ['Venta de gigas', 'Planes que se pagan con TPago desde el portal del Wi‑Fi.'],
     ];
     $tituloPagina = $titulosHotspot[$vista][0] ?? $titulosHotspot['sesiones'][0];
     $subtituloPagina = $titulosHotspot[$vista][1] ?? $titulosHotspot['sesiones'][1];
@@ -594,6 +595,7 @@
             @if($puedePerfiles)
                 <a href="{{ $menuHotspot('perfiles') }}" class="hsd-tab {{ $vista === 'perfiles' ? 'is-on' : '' }}" @if($vista === 'perfiles') aria-current="page" @endif>Perfiles</a>
             @endif
+            <a href="{{ $menuHotspot('planes') }}" class="hsd-tab {{ $vista === 'planes' ? 'is-on' : '' }}" @if($vista === 'planes') aria-current="page" @endif>Venta de gigas</a>
         </nav>
         @if($vista === 'sesiones' && $selectedRouter)
             <div class="flex flex-wrap items-center gap-2 pb-2 w-full sm:w-auto">
@@ -667,6 +669,8 @@
         @include('hotspot.paneles.usuarios')
     @elseif($vista === 'perfiles')
         @include('hotspot.paneles.perfiles')
+    @elseif($vista === 'planes')
+        @include('hotspot.paneles.planes')
     @elseif($selectedRouter)
         <div id="hotspot-dash-session-host"
             data-copy="Tu sesión se cerró. Entrá de nuevo para seguir las sesiones."

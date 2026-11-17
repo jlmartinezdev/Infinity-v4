@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\HotspotVentaController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ClienteController;
 use App\Http\Controllers\Api\V1\CobroController;
@@ -41,6 +42,16 @@ Broadcast::routes(['middleware' => ['auth:sanctum', 'api.staff']]);
 
 Route::get('/hotspot/cuenta-por-mac', \App\Http\Controllers\Api\HotspotCuentaMacController::class)
     ->middleware('throttle:30,1');
+
+Route::get('/hotspot/planes', [HotspotVentaController::class, 'planes'])->middleware('throttle:60,1');
+Route::post('/hotspot/comprar', [HotspotVentaController::class, 'comprar'])->middleware('throttle:12,1');
+Route::get('/hotspot/ventas/{token}', [HotspotVentaController::class, 'estado'])
+    ->where('token', '[A-Za-z0-9]{20,80}')
+    ->middleware('throttle:60,1');
+Route::options('/hotspot/planes', [HotspotVentaController::class, 'opciones']);
+Route::options('/hotspot/comprar', [HotspotVentaController::class, 'opciones']);
+Route::options('/hotspot/ventas/{token}', [HotspotVentaController::class, 'opciones'])
+    ->where('token', '[A-Za-z0-9]{20,80}');
 
 Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);

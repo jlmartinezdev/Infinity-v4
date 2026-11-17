@@ -276,6 +276,92 @@
       transform: translateY(-2px);
     }
 
+    .gigas-box {
+      width: 100%;
+      margin: 8px auto 18px;
+      text-align: left;
+    }
+
+    .gigas-title {
+      font-size: 1.05em;
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .gigas-help {
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.9);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .gigas-plan {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+
+    .gigas-plan strong {
+      display: block;
+      font-size: 1em;
+    }
+
+    .gigas-plan span {
+      display: block;
+      font-size: 0.82em;
+      color: rgba(255,255,255,0.85);
+      margin-top: 2px;
+    }
+
+    .gigas-plan button {
+      border: none;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--color-1);
+      font-weight: bold;
+      padding: 10px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .gigas-plan button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .gigas-estado {
+      background: rgba(255,255,255,0.16);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .gigas-cred {
+      font-size: 1.15em;
+      letter-spacing: 0.04em;
+      margin: 6px 0;
+    }
+
+    .gigas-usar {
+      display: inline-block;
+      margin-top: 8px;
+      border: none;
+      border-radius: 10px;
+      background: var(--color-success);
+      color: #fff;
+      font-weight: bold;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+
     /* Info Box - Cliente */
     .promo-box {
       background-color: rgba(0, 0, 0, 0.22);
@@ -523,6 +609,14 @@
       Acceso Gratuito (30 min)
     </a>
 
+    <p id="hs-mac" hidden>$(mac)</p>
+    <section class="gigas-box" id="comprar-gigas" hidden aria-labelledby="comprar-gigas-titulo">
+      <h2 class="gigas-title" id="comprar-gigas-titulo">Comprá gigas</h2>
+      <p class="gigas-help">Pagás con TPago y te damos un usuario y un PIN para entrar.</p>
+      <div id="gigas-estado" class="gigas-estado" hidden></div>
+      <div id="gigas-planes"></div>
+    </section>
+
     <div class="promo-box">
       <div class="promo-title">
         ¿Ya sos cliente de Interplus?
@@ -554,6 +648,7 @@
 
   <!-- MD5 para CHAP -->
   <script src="md5.js"></script>
+  <script src="gigas-api.js"></script>
 
   <script>
     // ========================================
@@ -1060,7 +1155,7 @@
         mostrarAlerta(
           `<strong>Límite de datos alcanzado</strong><br>
           Has consumido todo tu plan mensual.<br>
-          <small>Contáctanos para renovar: 0971 714-322</small>`,
+          <small>Comprá gigas en esta página o escribinos al 0971 714-322.</small>`,
           'warning'
         );
         return;
@@ -1074,7 +1169,173 @@
     // ========================================
     // INICIALIZACIÓN
     // ========================================
+    function ventaApiBase() {
+      return String(window.HOTSPOT_VENTA_API || '').replace(/\/$/, '');
+    }
+
+    function ventaMac() {
+      var el = document.getElementById('hs-mac');
+      var mac = el ? (el.textContent || '').trim() : '';
+      if (!/^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/.test(mac)) {
+        return '';
+      }
+      return mac;
+    }
+
+    function pintarPlanes(planes) {
+      var caja = document.getElementById('gigas-planes');
+      if (!caja) return;
+      caja.innerHTML = '';
+      if (!planes || !planes.length) {
+        caja.innerHTML = '<p class="gigas-help">No hay planes a la venta en este momento.</p>';
+        return;
+      }
+      planes.forEach(function (plan) {
+        var fila = document.createElement('div');
+        fila.className = 'gigas-plan';
+        var texto = document.createElement('div');
+        var titulo = document.createElement('strong');
+        titulo.textContent = plan.nombre + ' · ' + plan.gigas + ' GB';
+        var detalle = document.createElement('span');
+        detalle.textContent = plan.vigencia || '';
+        texto.appendChild(titulo);
+        texto.appendChild(detalle);
+        var boton = document.createElement('button');
+        boton.type = 'button';
+        boton.textContent = plan.precio_texto || 'Pagar';
+        boton.addEventListener('click', function () {
+          comprarPlan(plan, boton);
+        });
+        fila.appendChild(texto);
+        fila.appendChild(boton);
+        caja.appendChild(fila);
+      });
+    }
+
+    function mostrarEstadoGigas(html) {
+      var caja = document.getElementById('gigas-estado');
+      if (!caja) return;
+      caja.hidden = false;
+      caja.innerHTML = html;
+    }
+
+    function usarVoucher(usuario, pin) {
+      var user = document.getElementById('username');
+      var pass = document.getElementById('password');
+      if (!user || !pass) return;
+      user.value = usuario;
+      pass.value = pin;
+      var form = document.getElementById('login-form');
+      if (form && form.requestSubmit) {
+        form.requestSubmit();
+      } else if (form) {
+        form.submit();
+      }
+    }
+
+    function pintarCredenciales(data) {
+      var usuario = data.username || '';
+      var pin = data.password || '';
+      var caja = document.getElementById('gigas-estado');
+      if (!caja) return;
+      caja.hidden = false;
+      caja.innerHTML = '';
+      var titulo = document.createElement('strong');
+      titulo.textContent = 'Pago confirmado';
+      var lineaUsuario = document.createElement('p');
+      lineaUsuario.className = 'gigas-cred';
+      lineaUsuario.textContent = 'Usuario: ' + usuario;
+      var lineaPin = document.createElement('p');
+      lineaPin.className = 'gigas-cred';
+      lineaPin.textContent = 'PIN: ' + pin;
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'gigas-usar';
+      boton.textContent = 'Conectar';
+      boton.addEventListener('click', function () {
+        usarVoucher(usuario, pin);
+      });
+      caja.appendChild(titulo);
+      caja.appendChild(lineaUsuario);
+      caja.appendChild(lineaPin);
+      caja.appendChild(boton);
+      try { localStorage.removeItem('hotspot_venta_token'); } catch (e) {}
+    }
+
+    function seguirCompra(token) {
+      var base = ventaApiBase();
+      if (!base || !token) return;
+      var intentos = 0;
+      var timer = setInterval(function () {
+        intentos += 1;
+        if (intentos > 45) {
+          clearInterval(timer);
+          return;
+        }
+        fetch(base + '/api/hotspot/ventas/' + encodeURIComponent(token), { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.estado === 'pagado' && data.username) {
+              clearInterval(timer);
+              pintarCredenciales(data);
+            } else if (data && data.estado === 'rechazado') {
+              clearInterval(timer);
+              mostrarEstadoGigas('El pago no se confirmó. Podés elegir un plan de nuevo.');
+              try { localStorage.removeItem('hotspot_venta_token'); } catch (e) {}
+            }
+          })
+          .catch(function () {});
+      }, 4000);
+    }
+
+    function comprarPlan(plan, boton) {
+      var base = ventaApiBase();
+      boton.disabled = true;
+      mostrarEstadoGigas('Abriendo el pago…');
+      fetch(base + '/api/hotspot/comprar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ plan_id: plan.id, mac: ventaMac() })
+      })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.data || !res.data.checkout_url) {
+            boton.disabled = false;
+            mostrarEstadoGigas((res.data && res.data.mensaje) || 'No se pudo abrir el pago.');
+            return;
+          }
+          try { localStorage.setItem('hotspot_venta_token', res.data.token); } catch (e) {}
+          seguirCompra(res.data.token);
+          window.location.href = res.data.checkout_url;
+        })
+        .catch(function () {
+          boton.disabled = false;
+          mostrarEstadoGigas('No se pudo abrir el pago. Revisá que este Wi‑Fi llegue al sistema.');
+        });
+    }
+
+    function iniciarVentaGigas() {
+      var base = ventaApiBase();
+      var seccion = document.getElementById('comprar-gigas');
+      if (!seccion || !base) return;
+      seccion.hidden = false;
+      var token = '';
+      try { token = localStorage.getItem('hotspot_venta_token') || ''; } catch (e) {}
+      if (token) {
+        mostrarEstadoGigas('Estamos confirmando tu pago… Si ya pagaste, el usuario aparece acá.');
+        seguirCompra(token);
+      }
+      fetch(base + '/api/hotspot/planes', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { pintarPlanes((data && data.planes) || []); })
+        .catch(function () {
+          var caja = document.getElementById('gigas-planes');
+          if (caja) caja.innerHTML = '<p class="gigas-help">No se pudieron cargar los planes.</p>';
+        });
+    }
+
     window.addEventListener('DOMContentLoaded', function() {
+      iniciarVentaGigas();
       const usernameInput = document.getElementById('username');
       if (!usernameInput) {
         return;

@@ -4,6 +4,7 @@ namespace App\Services\Tpago;
 
 use App\Models\Cliente;
 use App\Models\FacturaInterna;
+use App\Models\HotspotVenta;
 use App\Models\TpagoPaymentLink;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -249,6 +250,97 @@ class TpagoPaymentLinkService
         $payload['purpose'] = 'saldo_favor';
 
         return $payload;
+    }
+
+    /**
+     * Link TPago de una venta de gigas en el portal hotspot, sin cliente.
+     *
+     * @return array{
+     *   link: TpagoPaymentLink,
+     *   checkout_url: string,
+     *   link_alias: string|null,
+     *   amount: int,
+     *   reused: bool,
+     *   provider: string,
+     *   expires_at: string|null
+     * }
+     */
+    public function paraVentaHotspot(HotspotVenta $venta): array
+    {
+        if (! $this->client->enabled()) {
+            throw ValidationException::withMessages([
+                'tpago' => ['TPago no está configurado (keys / commerce_code / branch_code).'],
+            ]);
+        }
+
+        $amount = (int) $venta->monto;
+        if ($amount < 1) {
+            throw ValidationException::withMessages([
+                'amount' => ['El monto debe ser al menos 1 Gs.'],
+            ]);
+        }
+
+        $venta->loadMissing('plan');
+        $nombre = trim((string) ($venta->plan?->nombre ?? ''));
+        $descripcion = \Illuminate\Support\Str::limit(
+            'WiFi '.(int) $venta->gigas.' GB'.($nombre !== '' ? ' - '.$nombre : ''),
+            120,
+            ''
+        );
+        $referenceId = 'HS-'.$venta->id.'-'.now()->format('YmdHis');
+        $requestPayload = [
+            'amount' => $amount,
+            'description' => $descripcion,
+            'reference_id' => $referenceId,
+            'require_user_data' => false,
+        ];
+
+        $link = TpagoPaymentLink::create([
+            'factura_interna_id' => null,
+            'cliente_id' => null,
+            'amount' => $amount,
+            'description' => $descripcion,
+            'reference_id' => $referenceId,
+            'status' => 'creating',
+            'request_payload' => $requestPayload,
+        ]);
+
+        try {
+            $response = $this->client->generatePaymentLink($requestPayload);
+            $pl = $response['payment_link'] ?? [];
+
+            $expiresAt = null;
+            if (! empty($pl['expiration_datetime'])) {
+                try {
+                    $expiresAt = Carbon::parse($pl['expiration_datetime']);
+                } catch (Throwable) {
+                    $expiresAt = null;
+                }
+            }
+
+            $link->fill([
+                'tpago_link_id' => isset($pl['id']) ? (int) $pl['id'] : null,
+                'link_alias' => $pl['link_alias'] ?? null,
+                'link_url' => $pl['link_url'] ?? null,
+                'status' => ! empty($pl['available']) || ! empty($pl['link_url']) ? 'pending' : 'unavailable',
+                'expires_at' => $expiresAt,
+            ]);
+            $link->save();
+        } catch (Throwable $e) {
+            $link->status = 'error';
+            $link->save();
+            Log::error('[TPago] generate link venta hotspot: '.$e->getMessage(), [
+                'venta_id' => $venta->id,
+                'link_id' => $link->id,
+            ]);
+            throw new RuntimeException('No se pudo generar el link de pago TPago: '.$e->getMessage(), 0, $e);
+        }
+
+        if (empty($link->link_url)) {
+            throw new RuntimeException('TPago no devolvió link_url.');
+        }
+
+        return $this->payload($link, false);
     }
 
     /**

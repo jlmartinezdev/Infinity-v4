@@ -38,6 +38,9 @@ class HotspotPortalMikrotikCommand extends Command
             $result = $portal->desplegar($router, null, (string) $this->option('trial'));
             if (! empty($result['success'])) {
                 $this->info('  '.$result['subidos'].' archivos en hotspot/');
+                if (! empty($result['jardin'])) {
+                    $this->line('  '.$result['jardin']);
+                }
                 $dns = $mikrotik->configurarDnsPortalHotspot($router);
                 if (! empty($dns['success'])) {
                     $this->info('  DNS '.$dns['url'].' → '.$dns['address']);

@@ -47,8 +47,15 @@ class HotspotPortalDeployService
             }
 
             $this->aplicarPerfilPortal($client, $trialUptime);
+            $api = $this->subirApiVenta($router);
+            $jardin = $this->abrirJardinVenta($client);
 
-            return ['success' => true, 'subidos' => count($subidos), 'archivos' => $subidos];
+            return [
+                'success' => true,
+                'subidos' => count($subidos),
+                'archivos' => $subidos,
+                'jardin' => trim($api.' '.$jardin),
+            ];
         } catch (Throwable $e) {
             Log::error('[Hotspot] no se pudo cargar el portal cautivo', [
                 'router' => $router->router_id,
@@ -151,6 +158,136 @@ class HotspotPortalDeployService
         }
 
         throw new \RuntimeException('El router no tiene el servicio FTP.');
+    }
+
+    /**
+     * Hosts que el cliente puede abrir sin sesión: la API y el checkout de TPago.
+     *
+     * @return list<string>
+     */
+    public static function hostsJardinVenta(): array
+    {
+        $hosts = config('hotspot.venta_jardin_hosts', []);
+        if (! is_array($hosts)) {
+            $hosts = [];
+        }
+        $api = parse_url((string) config('hotspot.venta_api_url'), PHP_URL_HOST);
+        if (is_string($api) && $api !== '') {
+            $hosts[] = $api;
+        }
+
+        $out = [];
+        foreach ($hosts as $host) {
+            $host = strtolower(trim((string) $host));
+            if ($host === '' || in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                continue;
+            }
+            $out[$host] = $host;
+        }
+
+        return array_values($out);
+    }
+
+    protected function subirApiVenta(Router $router): string
+    {
+        $url = rtrim((string) config('hotspot.venta_api_url'), '/');
+        $js = 'window.HOTSPOT_VENTA_API='.json_encode($url, JSON_UNESCAPED_SLASHES).";\n";
+        $tmp = tempnam(sys_get_temp_dir(), 'gigas');
+        if ($tmp === false) {
+            return 'No se pudo preparar la dirección de venta.';
+        }
+
+        try {
+            file_put_contents($tmp, $js);
+            $this->subirPorFtp($router, $tmp, 'hotspot/gigas-api.js');
+
+            return $url !== '' ? 'Venta apuntando a '.$url.'.' : 'Venta sin URL de la API.';
+        } catch (Throwable $e) {
+            Log::warning('[Hotspot] no se pudo publicar gigas-api.js', [
+                'router' => $router->router_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 'No se publicó la dirección de venta.';
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    /**
+     * @param  mixed  $client
+     */
+    protected function abrirJardinVenta($client): string
+    {
+        $hosts = self::hostsJardinVenta();
+        if ($hosts === []) {
+            return 'Sin hosts para el pago.';
+        }
+
+        try {
+            $http = $this->hostsYaAbiertos($client, '/ip/hotspot/walled-garden/print', 'dst-host');
+            $ip = $this->hostsYaAbiertos($client, '/ip/hotspot/walled-garden/ip/print', 'dst-host');
+            $ipAddress = $this->hostsYaAbiertos($client, '/ip/hotspot/walled-garden/ip/print', 'dst-address');
+
+            foreach ($hosts as $host) {
+                try {
+                    $esIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
+                    $esComodin = str_contains($host, '*');
+                    if (! $esIp && ! isset($http[$host])) {
+                        $this->agregarJardin($client, '/ip/hotspot/walled-garden/add', 'dst-host', $host, false);
+                    }
+                    if ($esIp && ! isset($ipAddress[$host])) {
+                        $this->agregarJardin($client, '/ip/hotspot/walled-garden/ip/add', 'dst-address', $host, true);
+                    } elseif (! $esIp && ! $esComodin && ! isset($ip[$host])) {
+                        $this->agregarJardin($client, '/ip/hotspot/walled-garden/ip/add', 'dst-host', $host, true);
+                    }
+                } catch (Throwable $e) {
+                    Log::warning('[Hotspot] host de pago no agregado', [
+                        'host' => $host,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            return 'Acceso de pago abierto.';
+        } catch (Throwable $e) {
+            Log::warning('[Hotspot] no se pudo abrir el acceso a TPago', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return 'No se pudo abrir el acceso a TPago.';
+        }
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    protected function hostsYaAbiertos($client, string $path, string $campo): array
+    {
+        $filas = $client->query(new Query($path))->read();
+        $out = [];
+        foreach (is_array($filas) ? $filas : [] as $fila) {
+            if (! is_array($fila)) {
+                continue;
+            }
+            $valor = strtolower(trim((string) ($fila[$campo] ?? '')));
+            if ($valor !== '') {
+                $out[$valor] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    protected function agregarJardin($client, string $path, string $campo, string $host, bool $conAccion): void
+    {
+        $add = (new Query($path))
+            ->equal($campo, $host)
+            ->equal('comment', 'Infinity venta gigas');
+        if ($conAccion) {
+            $add->equal('action', 'accept');
+        }
+        $client->query($add)->read();
     }
 
     protected function aplicarPerfilPortal($client, string $trialUptime): void

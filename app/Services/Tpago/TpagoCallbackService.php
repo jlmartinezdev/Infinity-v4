@@ -6,6 +6,7 @@ use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\TpagoPaymentLink;
 use App\Services\FacturacionService;
+use App\Services\Hotspot\HotspotVentaService;
 use App\Services\WhatsApp\WhatsAppOutboundNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -76,6 +77,7 @@ class TpagoCallbackService
         if (! $approved) {
             $link->status = $status !== '' ? $status : 'rejected';
             $link->save();
+            app(HotspotVentaService::class)->marcarRechazada($link);
 
             return [
                 'handled' => true,
@@ -124,9 +126,10 @@ class TpagoCallbackService
         }
 
         $creado = false;
+        $esVentaHotspot = false;
 
         try {
-            $cobroId = DB::transaction(function () use ($link, $payload, $campos, $amount, $ticket, $authCode, &$creado) {
+            $cobroId = DB::transaction(function () use ($link, $payload, $campos, $amount, $ticket, $authCode, &$creado, &$esVentaHotspot) {
                 $locked = TpagoPaymentLink::query()->lockForUpdate()->findOrFail($link->id);
                 $this->aplicarCallback($locked, $payload, $campos);
 
@@ -136,6 +139,16 @@ class TpagoCallbackService
                     $locked->save();
 
                     return $locked->cobro_id;
+                }
+
+                if (HotspotVentaService::esLinkDeVenta($locked)) {
+                    app(HotspotVentaService::class)->confirmarPago($locked);
+                    $locked->status = 'confirmed';
+                    $locked->paid_at = $locked->paid_at ?? now();
+                    $locked->save();
+                    $esVentaHotspot = true;
+
+                    return null;
                 }
 
                 $factura = $locked->factura_interna_id
@@ -206,7 +219,9 @@ class TpagoCallbackService
             'handled' => true,
             'link_id' => $link->id,
             'cobro_id' => $cobroId,
-            'message' => 'Pago confirmado y cobro registrado.',
+            'message' => $esVentaHotspot
+                ? 'Pago de gigas confirmado.'
+                : 'Pago confirmado y cobro registrado.',
         ];
     }
 

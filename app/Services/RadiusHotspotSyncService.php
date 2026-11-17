@@ -590,6 +590,75 @@ class RadiusHotspotSyncService
         return $servicio?->estado === Servicio::ESTADO_ACTIVO;
     }
 
+    /**
+     * Usuario de una venta de gigas: clave, un equipo, cuota y vencimiento.
+     *
+     * @return array{check: list<array{0: string, 1: string, 2: string}>, reply: list<array{0: string, 1: string, 2: string}>}
+     */
+    public static function atributosVoucher(string $password, int $gigas, ?string $rateLimit, ?\DateTimeInterface $vence): array
+    {
+        $check = [
+            ['Cleartext-Password', ':=', $password],
+            ['Simultaneous-Use', ':=', '1'],
+        ];
+        $bytes = self::cuotaGbABytes($gigas);
+        if ($bytes !== null) {
+            $check[] = ['Max-Data', ':=', (string) $bytes];
+        }
+        if ($vence !== null) {
+            $check[] = ['Expiration', ':=', $vence->format('M j Y H:i:s')];
+        }
+
+        $reply = [
+            ['Acct-Interim-Interval', '=', '60'],
+        ];
+        $rate = trim((string) $rateLimit);
+        if ($rate !== '') {
+            $reply[] = ['Mikrotik-Rate-Limit', '=', $rate];
+        }
+        if ($bytes !== null) {
+            foreach (self::mikrotikAtributosVolumen($bytes) as $fila) {
+                $reply[] = $fila;
+            }
+        }
+
+        return ['check' => $check, 'reply' => $reply];
+    }
+
+    /**
+     * @return array{success: bool, skipped?: bool, error?: string}
+     */
+    public function publicarVoucher(string $username, string $password, int $gigas, ?string $rateLimit, ?\DateTimeInterface $vence): array
+    {
+        $username = trim($username);
+        if ($username === '' || $password === '') {
+            return ['success' => false, 'error' => 'El voucher no tiene usuario o PIN.'];
+        }
+
+        if (! $this->enabled()) {
+            return ['success' => true, 'skipped' => true];
+        }
+
+        if (! $this->conexionAlcanzable()) {
+            return ['success' => false, 'error' => 'No hay conexión a la base RADIUS.'];
+        }
+
+        try {
+            $atributos = self::atributosVoucher($password, $gigas, $rateLimit, $vence);
+            $this->reemplazarAtributos('radcheck', $username, $atributos['check']);
+            $this->reemplazarAtributos('radreply', $username, $atributos['reply']);
+
+            return ['success' => true];
+        } catch (Throwable $e) {
+            Log::error('[RADIUS] voucher hotspot', [
+                'username' => $username,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     protected function escribirUsuario(ServicioHotspot $sh, bool $incluirSesionViva = true): void
     {
         $username = trim((string) $sh->username);

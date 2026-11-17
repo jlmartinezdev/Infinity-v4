@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Helpers\MapsUrlHelper;
 use App\Models\Cliente;
 use App\Models\HotspotPerfil;
+use App\Models\HotspotPlan;
+use App\Models\HotspotVenta;
 use App\Models\MikrotikOperacionPendiente;
 use App\Models\Router;
 use App\Models\Servicio;
@@ -70,6 +72,9 @@ class HotspotController extends Controller
         $verTodas = false;
         $totalClientes = 0;
         $perfiles = null;
+        $planesVenta = collect();
+        $ventasGigas = collect();
+        $planEditar = null;
 
         if ($vista === 'usuarios') {
             [
@@ -82,6 +87,11 @@ class HotspotController extends Controller
             ] = $this->datosUsuarios($request, $radius, $mikrotik);
         } elseif ($vista === 'perfiles') {
             $perfiles = $this->datosPerfiles($request);
+        } elseif ($vista === 'planes') {
+            $planesVenta = HotspotPlan::query()->withCount('ventas')->orderBy('orden')->orderBy('precio')->orderBy('gigas')->get();
+            $ventasGigas = HotspotVenta::query()->with('plan')->orderByDesc('id')->limit(30)->get();
+            $planId = (int) $request->query('plan', 0);
+            $planEditar = $planId > 0 ? $planesVenta->first(fn (HotspotPlan $plan) => (int) $plan->getKey() === $planId) : null;
         } elseif ($selectedRouter) {
             $consultadoEn = now();
             try {
@@ -250,6 +260,9 @@ class HotspotController extends Controller
             'verTodas' => $verTodas,
             'totalClientes' => $totalClientes,
             'perfiles' => $perfiles,
+            'planesVenta' => $planesVenta,
+            'ventasGigas' => $ventasGigas,
+            'planEditar' => $planEditar,
         ]);
     }
 
@@ -744,7 +757,7 @@ class HotspotController extends Controller
     private function vistaHotspot(Request $request): string
     {
         $vista = (string) $request->query('vista', 'sesiones');
-        if (! in_array($vista, ['sesiones', 'usuarios', 'perfiles'], true)) {
+        if (! in_array($vista, ['sesiones', 'usuarios', 'perfiles', 'planes'], true)) {
             $vista = 'sesiones';
         }
         $user = $request->user();

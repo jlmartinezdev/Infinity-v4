@@ -35,6 +35,7 @@ use App\Http\Controllers\GastoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\HotspotPerfilController;
+use App\Http\Controllers\HotspotPlanController;
 use App\Http\Controllers\ImportarCsvClientesController;
 use App\Http\Controllers\IspFailoverController;
 use App\Http\Controllers\LineaCableController;
@@ -902,6 +903,9 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->prefix('hotspot')->name('h
         Route::get('/perfiles/{perfil}/edit', [HotspotPerfilController::class, 'edit'])->name('perfiles.edit');
         Route::put('/perfiles/{perfil}', [HotspotPerfilController::class, 'update'])->name('perfiles.update');
         Route::delete('/perfiles/{perfil}', [HotspotPerfilController::class, 'destroy'])->name('perfiles.destroy');
+        Route::post('/planes', [HotspotPlanController::class, 'store'])->name('planes.store');
+        Route::put('/planes/{plan}', [HotspotPlanController::class, 'update'])->name('planes.update');
+        Route::delete('/planes/{plan}', [HotspotPlanController::class, 'destroy'])->name('planes.destroy');
     });
     // Reenvía datos ya guardados a RADIUS/MikroTik; lo usa caja/técnico con solo "ver".
     Route::post('/{servicioHotspot}/sync', [HotspotController::class, 'sync'])->name('sync');
