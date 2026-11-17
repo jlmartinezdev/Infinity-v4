@@ -45,20 +45,6 @@
     $offline = $offline ?? collect();
     $puedeCrear = (bool) auth()->user()?->tienePermiso('servicios.editar');
     $macsBloqueadas = $macsBloqueadas ?? [];
-    $nVivas = count($sesiones);
-    $nLocker = 0;
-    $nPortal = 0;
-    $nSinLocker = 0;
-    foreach ($sesiones as $filaConteo) {
-        $origenConteo = (string) ($filaConteo['origen'] ?? '');
-        if ($origenConteo === 'locker') {
-            $nLocker++;
-        } elseif (in_array($origenConteo, ['sin-sesion', 'sin-usuario', 'trial'], true)) {
-            $nPortal++;
-        } else {
-            $nSinLocker++;
-        }
-    }
 @endphp
 
 @section('title', $tituloPagina)
@@ -109,6 +95,34 @@
         font-weight: 600;
         line-height: 1.2;
     }
+    .hsd-aviso {
+        padding: 0.625rem 0.875rem;
+        border: 1px solid;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+    }
+    .hsd-aviso[hidden] { display: none; }
+    .hsd-aviso.is-ok {
+        border-color: #bbf7d0;
+        background: #f0fdf4;
+        color: #166534;
+    }
+    .hsd-aviso.is-error {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+    html.dark .hsd-aviso.is-ok {
+        border-color: rgba(34, 197, 94, 0.35);
+        background: rgba(20, 83, 45, 0.3);
+        color: #bbf7d0;
+    }
+    html.dark .hsd-aviso.is-error {
+        border-color: rgba(239, 68, 68, 0.35);
+        background: rgba(127, 29, 29, 0.3);
+        color: #fecaca;
+    }
+    #hotspot-dash-bloqueadas:empty { display: none; }
     .hsd-grupo[hidden] { display: none; }
     .hsd-grupo-titulo th {
         background: #f9fafb;
@@ -511,10 +525,10 @@
                         @php
                             [$estadoClase, $estadoTexto] = $estadoRouter($selectedRouter);
                         @endphp
-                        <span class="hsd-dot {{ $estadoClase }}" aria-hidden="true"></span>
+                        <span id="hotspot-dash-router-dot" class="hsd-dot {{ $estadoClase }}" aria-hidden="true"></span>
                         <span class="flex flex-col min-w-0">
                             <span class="text-sm font-semibold truncate">{{ $selectedRouter->nombre }}</span>
-                            <span class="hsd-opt-meta truncate">{{ $selectedRouter->ip }}@if($nodoSeleccionado !== '') · {{ $nodoSeleccionado }}@endif · {{ $estadoTexto }}</span>
+                            <span class="hsd-opt-meta truncate">{{ $selectedRouter->ip }}@if($nodoSeleccionado !== '') · {{ $nodoSeleccionado }}@endif · <span id="hotspot-dash-router-estado">{{ $estadoTexto }}</span></span>
                         </span>
                     @else
                         <span class="text-sm text-gray-600 dark:text-gray-300">Elegí un router</span>
@@ -627,408 +641,12 @@
             data-copy="Tu sesión se cerró. Entrá de nuevo para seguir las sesiones."
             data-entrar="{{ route('login') }}"></div>
 
-        <div id="hotspot-dash-kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            @php
-                $nConCuenta = $nLocker + $nSinLocker;
-                $offlineVistas = [];
-                $nCuota80 = 0;
-                foreach ($offline as $shVista) {
-                    $vistaOff = \App\Services\RadiusHotspotSyncService::consumoVista(
-                        (int) ($consumo[$shVista->username] ?? 0),
-                        $shVista->hotspotPerfil?->cuota_gb
-                    );
-                    $offlineVistas[$shVista->getKey()] = $vistaOff;
-                    if (! empty($vistaOff['tiene_cuota']) && (float) ($vistaOff['porcentaje'] ?? 0) >= 80) {
-                        $nCuota80++;
-                    }
-                }
-                foreach ($sesiones as $filaCuota) {
-                    if (($filaCuota['origen'] ?? '') === 'locker'
-                        && ! empty($filaCuota['cuota']['tiene_cuota'])
-                        && (float) ($filaCuota['cuota']['porcentaje'] ?? 0) >= 80) {
-                        $nCuota80++;
-                    }
-                }
-                $nClientesOffline = $offline->pluck('cliente_id')->filter()->unique()->count();
-                $kpis = [
-                    [
-                        'filtro' => 'en-linea',
-                        'titulo' => 'En línea ahora',
-                        'valor' => $routerError ? '—' : (string) $nVivas,
-                        'detalle' => $routerError
-                            ? 'No pude leer el router'
-                            : $nConCuenta.' con cuenta · '.$nPortal.' en portal (trial)',
-                        'alerta' => false,
-                    ],
-                    [
-                        'filtro' => 'trial',
-                        'titulo' => 'Sin cuenta (trial)',
-                        'valor' => $routerError ? '—' : (string) $nPortal,
-                        'detalle' => 'Conectado al portal, sin login',
-                        'alerta' => ! $routerError && $nPortal > 0,
-                    ],
-                    [
-                        'filtro' => 'sin-sesion',
-                        'titulo' => 'Cuentas sin sesión',
-                        'valor' => (string) $offline->count(),
-                        'detalle' => $nClientesOffline === 1 ? 'De 1 cliente' : 'De '.$nClientesOffline.' clientes',
-                        'alerta' => false,
-                    ],
-                    [
-                        'filtro' => 'cuota80',
-                        'titulo' => 'Cuota sobre 80 %',
-                        'valor' => (string) $nCuota80,
-                        'detalle' => 'Cuentas por agotar su plan',
-                        'alerta' => $nCuota80 > 0,
-                    ],
-                ];
-            @endphp
-            @foreach($kpis as $kpi)
-                <button type="button" class="hsd-kpi {{ $card }} px-4 py-3" data-tarjeta="{{ $kpi['filtro'] }}" aria-pressed="false">
-                    <span class="hsd-kpi-titulo block text-sm text-gray-600 dark:text-gray-300">{{ $kpi['titulo'] }}</span>
-                    <span class="block mt-1 text-2xl font-bold tabular-nums {{ $kpi['alerta'] ? 'hsd-kpi-alerta' : 'text-gray-900 dark:text-gray-100' }}">{{ $kpi['valor'] }}</span>
-                    <span class="block mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $kpi['detalle'] }}</span>
-                </button>
-            @endforeach
-        </div>
+        <div id="hotspot-dash-aviso" class="hsd-aviso" role="status" aria-live="polite" hidden></div>
 
-        <div id="hotspot-dash-watch" class="relative space-y-4">
-            <div id="hotspot-dash-skel" class="{{ $card }} px-4 py-6 space-y-3" style="display: none;" aria-hidden="true">
-                <div class="h-8 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse"></div>
-                <div class="h-8 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse"></div>
-                <div class="h-8 w-2/3 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse"></div>
-            </div>
+        @include('hotspot.paneles.sesiones')
 
-            <section id="hotspot-dash-vivos" class="relative {{ $card }} overflow-hidden" aria-labelledby="hotspot-dash-vivos-title">
-                @if($routerError)
-                    <div id="hotspot-dash-stale" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-4" style="display:flex;background:rgba(17,24,39,0.8)" role="alert">
-                        <p class="max-w-md text-center text-sm font-medium text-white">No pude leer las sesiones de {{ $selectedRouter->nombre }}.</p>
-                        <details class="hotspot-dash-tech max-w-md text-center">
-                            <summary class="text-sm text-gray-200 underline underline-offset-2">Detalle técnico</summary>
-                            <p class="mt-2 text-sm text-gray-200 break-words">{{ $routerError }}</p>
-                        </details>
-                        <a href="{{ route('hotspot.dashboard', ['router_id' => $selectedRouter->router_id]) }}" class="{{ $btnPrimary }}" data-dash-refresh>Reintentar</a>
-                    </div>
-                @endif
-                <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <h2 id="hotspot-dash-vivos-title" class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2" aria-live="polite">
-                            @unless($routerError)
-                                <span class="inline-block h-2 w-2 rounded-full bg-green-500" aria-hidden="true"></span>
-                            @endunless
-                            Sesiones en línea
-                            @unless($routerError)
-                                <span class="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 tabular-nums">{{ count($sesiones) }}</span>
-                            @endunless
-                        </h2>
-                    </div>
-                    @if($consultadoEn)
-                        <p id="hotspot-dash-pulse" class="text-xs text-gray-500 dark:text-gray-400 tabular-nums"
-                            data-consultado="{{ $consultadoEn->toIso8601String() }}">Actualizado ahora</p>
-                    @endif
-                </div>
-
-                @if($routerError)
-                    <div class="px-4 py-16" aria-hidden="true"></div>
-                @elseif(count($sesiones) === 0)
-                    <div class="px-4 py-8 text-center" role="status">
-                        <p class="text-sm text-gray-700 dark:text-gray-200">Nadie conectado en {{ $selectedRouter->nombre }}.</p>
-                    </div>
-                @else
-                    <div id="hotspot-dash-vivos-scroll" class="overflow-x-auto max-h-[28rem] overflow-y-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                            <thead class="bg-gray-50 dark:bg-gray-900/40 sticky top-0">
-                                <tr>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Usuario / equipo</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Cliente</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Consumo del plan</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Tráfico ahora</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">En línea</th>
-                                    <th scope="col" class="px-4 py-2 text-right font-medium text-gray-600 dark:text-gray-300">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                                @foreach($sesiones as $fila)
-                                    @php
-                                        $esPortal = in_array($fila['origen'], ['sin-sesion', 'sin-usuario', 'trial'], true);
-                                        $esLocker = $fila['origen'] === 'locker';
-                                        $pctFila = $esLocker && ! empty($fila['cuota']['tiene_cuota'])
-                                            ? (float) ($fila['cuota']['porcentaje'] ?? 0)
-                                            : null;
-                                        $macOk = preg_match('/^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/', (string) $fila['mac']) === 1;
-                                        $etiquetaPortal = $fila['origen'] === 'trial' ? 'TRIAL' : 'PORTAL';
-                                        $quien = $esPortal ? 'Invitado '.$fila['mac'] : $fila['username'];
-                                        $estadoCodigo = (string) $fila['estado'];
-                                        $estadoTexto = $estadoCodigo !== ''
-                                            ? 'Cuenta '.preg_replace('/o$/', 'a', mb_strtolower((string) ($estados[$estadoCodigo] ?? $estadoCodigo)))
-                                            : '';
-                                        $estadoTono = ['A' => 'ok', 'S' => 'warn'][$estadoCodigo] ?? 'off';
-                                        if ($esLocker && $fila['locker']?->fueraDelPlan()) {
-                                            $estadoTexto = 'Fuera del plan · suspendida';
-                                            $estadoTono = 'off';
-                                        }
-                                        $puedeCortar = $puedeCrear && $macOk;
-                                        $hayMenu = $macOk || $esLocker;
-                                    @endphp
-                                    <tr class="hotspot-dash-fila {{ $esLocker ? '' : 'bg-amber-50/60 dark:bg-amber-950/20' }}"
-                                        data-grupo="{{ $esPortal ? 'trial' : 'cuenta' }}"
-                                        data-pct="{{ $pctFila ?? '' }}"
-                                        data-buscar="{{ mb_strtolower($fila['username'].' '.$fila['ip'].' '.$fila['mac'].' '.$fila['cliente'].' '.$fila['perfil'].($esPortal ? ' invitado '.$etiquetaPortal : '')) }}">
-                                        <td class="px-4 py-3">
-                                            @if($esPortal)
-                                                <span class="flex items-center gap-2">
-                                                    <span class="font-semibold text-gray-900 dark:text-gray-100">Invitado</span>
-                                                    <span class="hsd-tag">{{ $etiquetaPortal }}</span>
-                                                </span>
-                                            @elseif($esLocker && $fila['username'] !== '—')
-                                                <a href="{{ $menuHotspot('usuarios', ['buscar' => $fila['username']]) }}" class="font-semibold {{ $linkUser }}">{{ $fila['username'] }}</a>
-                                            @else
-                                                <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $fila['username'] }}</span>
-                                            @endif
-                                            <span class="block mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ $fila['ip'] }} · {{ $fila['mac'] }}</span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            @if($esLocker)
-                                                <span class="block max-w-[14rem] truncate text-gray-900 dark:text-gray-100" title="{{ $fila['cliente'] }}">{{ $fila['cliente'] !== '' ? $fila['cliente'] : '—' }}</span>
-                                                @if($estadoTexto !== '')
-                                                    <span class="block text-xs hsd-estado is-{{ $estadoTono }}">{{ $estadoTexto }}</span>
-                                                @endif
-                                            @elseif($esPortal)
-                                                <span class="text-gray-500 dark:text-gray-400">Sin cuenta asignada</span>
-                                            @else
-                                                <span class="text-gray-500 dark:text-gray-400">Usuario que no está en Infinity</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                            @include('hotspot._cuota-barra', [
-                                                'perfil' => $fila['origen'] === 'trial' ? '' : $fila['perfil'],
-                                                'vista' => $fila['cuota'] ?? null,
-                                                'trial' => $fila['origen'] === 'trial',
-                                                'trialResta' => ! empty($fila['trial_tiempo']) ? ($fila['cuota']['etiqueta'] ?? '') : '',
-                                            ])
-                                        </td>
-                                        <td class="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap"
-                                            data-trafico="{{ $fila['mac'] }}"
-                                            data-subida="{{ $fila['bytes_subida'] ?? '' }}"
-                                            data-bajada="{{ $fila['bytes_bajada'] ?? '' }}"
-                                            title="Promedio desde la actualización anterior">—</td>
-                                        <td class="px-4 py-3 whitespace-nowrap tabular-nums text-gray-900 dark:text-gray-100">{{ $fila['uptime_legible'] ?? $fila['uptime'] }}</td>
-                                        <td class="px-4 py-3 text-right whitespace-nowrap">
-                                            <div class="inline-flex items-center gap-1">
-                                                @if($esPortal)
-                                                    <a href="{{ $menuHotspot('usuarios') }}" class="hsd-btn hsd-btn-primary">Asignar cuenta</a>
-                                                @elseif($puedeCortar)
-                                                    <form method="POST" action="{{ route('hotspot.dashboard.desconectar', $selectedRouter) }}" class="inline" onsubmit="return confirm(@json('¿Desconectar a '.$quien.'? Si entró con la cuenta del celular, no vuelve a entrar solo.'))">
-                                                        @csrf
-                                                        <input type="hidden" name="mac" value="{{ $fila['mac'] }}">
-                                                        <button type="submit" class="hsd-btn hsd-btn-danger">Desconectar</button>
-                                                    </form>
-                                                @endif
-                                                @if($hayMenu)
-                                                    <div class="hsd-menu-wrap">
-                                                        <button type="button" class="hsd-btn hsd-btn-icon" data-menu-btn aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de {{ $quien }}">⋯</button>
-                                                        <div class="hsd-menu" role="menu" hidden>
-                                                            @if($macOk)
-                                                                <button type="button" role="menuitem" class="hsd-menu-item" data-copiar="{{ $fila['mac'] }}" data-copiar-texto>Copiar MAC</button>
-                                                            @endif
-                                                            @if($esLocker && $fila['username'] !== '—')
-                                                                <a role="menuitem" class="hsd-menu-item" href="{{ $menuHotspot('usuarios', ['buscar' => $fila['username']]) }}">Ver usuario</a>
-                                                            @endif
-                                                            @if($esLocker && $fila['cliente_id'] && $puedeCrear)
-                                                                <a role="menuitem" class="hsd-menu-item" href="{{ route('hotspot.clientes.edit', $fila['cliente_id']) }}">Editar cuenta</a>
-                                                            @endif
-                                                            @if($puedeCortar)
-                                                                @if($esPortal)
-                                                                    <form method="POST" action="{{ route('hotspot.dashboard.desconectar', $selectedRouter) }}" onsubmit="return confirm(@json('¿Desconectar a '.$quien.'?'))">
-                                                                        @csrf
-                                                                        <input type="hidden" name="mac" value="{{ $fila['mac'] }}">
-                                                                        <button type="submit" role="menuitem" class="hsd-menu-item is-danger">Desconectar</button>
-                                                                    </form>
-                                                                @endif
-                                                                <form method="POST" action="{{ route('hotspot.dashboard.bloquear', $selectedRouter) }}" onsubmit="return confirm(@json('¿Bloquear '.$fila['mac'].'? No va a poder entrar al hotspot hasta que la desbloquees.'))">
-                                                                    @csrf
-                                                                    <input type="hidden" name="mac" value="{{ $fila['mac'] }}">
-                                                                    <button type="submit" role="menuitem" class="hsd-menu-item is-danger">Bloquear MAC</button>
-                                                                </form>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <p id="hotspot-dash-vivos-vacio" class="px-4 py-6 text-sm text-gray-600 dark:text-gray-300" style="display:none" role="status">Ninguna sesión coincide con el filtro.</p>
-                @endif
-                @if(! $routerError && count($macsBloqueadas) > 0)
-                    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">MACs bloqueadas</p>
-                        <ul class="mt-2 flex flex-col gap-2">
-                            @foreach($macsBloqueadas as $macBloqueada)
-                                <li class="flex flex-wrap items-center gap-2">
-                                    <span class="font-mono text-sm text-gray-800 dark:text-gray-100">{{ $macBloqueada }}</span>
-                                    @if($puedeCrear)
-                                        <form method="POST" action="{{ route('hotspot.dashboard.desbloquear', $selectedRouter) }}" class="inline" onsubmit="return confirm(@json('¿Desbloquear '.$macBloqueada.'?'))">
-                                            @csrf
-                                            <input type="hidden" name="mac" value="{{ $macBloqueada }}">
-                                            <button type="submit" class="hsd-btn" aria-label="Desbloquear {{ $macBloqueada }}">Desbloquear</button>
-                                        </form>
-                                    @endif
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-            </section>
-
-            <section id="hotspot-dash-offline" class="{{ $card }} overflow-hidden" aria-labelledby="hotspot-dash-offline-title">
-                <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 id="hotspot-dash-offline-title" class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                            Cuentas sin sesión
-                            <span class="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 tabular-nums">{{ $offline->count() }}</span>
-                        </h2>
-                        <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">Cuentas de este router que ahora no están en línea.</p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 text-sm" role="group" aria-label="Filtrar por cuota">
-                            <button type="button" data-cuota-filtro="todos" class="px-2.5 py-1 rounded-md font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700" aria-pressed="true">Todos</button>
-                            <button type="button" data-cuota-filtro="cuota" class="px-2.5 py-1 rounded-md text-gray-600 dark:text-gray-300" aria-pressed="false">Con cuota</button>
-                            <button type="button" data-cuota-filtro="libre" class="px-2.5 py-1 rounded-md text-gray-600 dark:text-gray-300" aria-pressed="false">Ilimitadas</button>
-                        </div>
-                        @if($puedeCrear)
-                            <a href="{{ route('hotspot.create') }}" class="{{ $btnPrimary }}">+ Nuevo usuario</a>
-                        @endif
-                    </div>
-                </div>
-                @if($offline->isEmpty())
-                    <p class="px-4 py-6 text-sm text-gray-600 dark:text-gray-300">
-                        @if($mappedCount === 0)
-                            Este router no tiene cuentas.
-                        @else
-                            Todas las cuentas de este router están en Sesiones en línea.
-                        @endif
-                    </p>
-                @else
-                    @php
-                        $nombreClienteDe = function ($sh): string {
-                            $cliente = $sh->cliente ?? $sh->servicio?->cliente;
-
-                            return trim(($cliente?->nombre ?? '').' '.($cliente?->apellido ?? ''));
-                        };
-                        $gruposOffline = $offline
-                            ->groupBy(fn ($sh) => $sh->cliente_id ? 'c'.$sh->cliente_id : 'u'.$sh->getKey())
-                            ->sortBy(fn ($cuentas) => mb_strtolower($nombreClienteDe($cuentas->first())));
-                        $ultimasConexiones = $ultimasConexiones ?? [];
-                    @endphp
-                    <div id="hotspot-dash-offline-scroll" class="overflow-x-auto max-h-[28rem] overflow-y-auto">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-gray-50 dark:bg-gray-900/40 sticky top-0">
-                                <tr>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Usuario</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Consumo del plan</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Última conexión</th>
-                                    <th scope="col" class="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Cuenta</th>
-                                    <th scope="col" class="px-4 py-2 text-right font-medium text-gray-600 dark:text-gray-300">Acciones</th>
-                                </tr>
-                            </thead>
-                            @foreach($gruposOffline as $grupoId => $cuentas)
-                                @php
-                                    $nombre = $nombreClienteDe($cuentas->first());
-                                    $clienteId = $cuentas->first()->cliente_id;
-                                    $nCuentas = $cuentas->count();
-                                @endphp
-                                <tbody class="hsd-grupo" data-grupo-offline="{{ $grupoId }}">
-                                    <tr class="hsd-grupo-titulo">
-                                        <th scope="rowgroup" colspan="5" class="px-4 py-2 text-left text-sm font-normal">
-                                            @if($clienteId)
-                                                <a href="{{ route('hotspot.clientes.edit', $clienteId) }}" class="font-semibold {{ $linkUser }}">{{ $nombre !== '' ? $nombre : 'Cliente sin nombre' }}</a>
-                                            @else
-                                                <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $nombre !== '' ? $nombre : 'Sin cliente' }}</span>
-                                            @endif
-                                            <span class="text-gray-500 dark:text-gray-400"> · {{ $nCuentas === 1 ? '1 cuenta' : $nCuentas.' cuentas' }}</span>
-                                        </th>
-                                    </tr>
-                                    @foreach($cuentas as $sh)
-                                        @php
-                                            $codigo = (string) ($sh->servicio?->estado ?? '');
-                                            $cuotaVista = $offlineVistas[$sh->getKey()];
-                                            $perfilNombre = $sh->hotspotPerfil?->nombreDistintoDeCuota() ?? '';
-                                            $ultima = $ultimasConexiones[$sh->username] ?? null;
-                                            $estadoTexto = $codigo !== ''
-                                                ? ucfirst((string) preg_replace('/o$/', 'a', mb_strtolower((string) ($estados[$codigo] ?? $codigo))))
-                                                : '';
-                                            $estadoTono = ['A' => 'ok', 'S' => 'warn'][$codigo] ?? 'off';
-                                            if ($sh->fueraDelPlan()) {
-                                                $estadoTexto = 'Fuera del plan · suspendida';
-                                                $estadoTono = 'off';
-                                            }
-                                        @endphp
-                                        <tr class="hotspot-dash-fila border-t border-gray-200 dark:border-gray-700"
-                                            data-cuota="{{ ! empty($cuotaVista['tiene_cuota']) ? 'cuota' : 'libre' }}"
-                                            data-pct="{{ ! empty($cuotaVista['tiene_cuota']) ? (float) ($cuotaVista['porcentaje'] ?? 0) : '' }}"
-                                            data-buscar="{{ mb_strtolower($sh->username.' '.$nombre.' '.$perfilNombre.' '.($ultima['mac'] ?? '')) }}">
-                                            <td class="px-4 py-3">
-                                                <a href="{{ $menuHotspot('usuarios', ['buscar' => $sh->username]) }}" class="font-semibold {{ $linkUser }}">{{ $sh->username }}</a>
-                                            </td>
-                                            <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                                @include('hotspot._cuota-barra', [
-                                                    'perfil' => $perfilNombre,
-                                                    'vista' => $cuotaVista,
-                                                ])
-                                            </td>
-                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                @if($ultima)
-                                                    <span class="text-gray-700 dark:text-gray-200" title="{{ $ultima['fecha'] }}">{{ $ultima['texto'] }}</span>@if($ultima['mac'] !== '')<span class="font-mono text-xs text-gray-500 dark:text-gray-400"> · {{ $ultima['mac'] }}</span>@endif
-                                                @else
-                                                    <span class="text-gray-500 dark:text-gray-400">Nunca se conectó</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                @if($estadoTexto !== '')
-                                                    <span class="hsd-estado is-{{ $estadoTono }}">{{ $estadoTexto }}</span>
-                                                @else
-                                                    <span class="text-gray-500 dark:text-gray-400">Sin servicio</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                                <div class="inline-flex items-center gap-1">
-                                                    <form method="POST" action="{{ route('hotspot.sync', $sh) }}" class="inline">
-                                                        @csrf
-                                                        <input type="hidden" name="from_dashboard" value="1">
-                                                        <input type="hidden" name="router_id" value="{{ $selectedRouter->router_id }}">
-                                                        <button type="submit" class="hsd-btn">Sincronizar</button>
-                                                    </form>
-                                                    <div class="hsd-menu-wrap">
-                                                        <button type="button" class="hsd-btn hsd-btn-icon" data-menu-btn aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de {{ $sh->username }}">⋯</button>
-                                                        <div class="hsd-menu" role="menu" hidden>
-                                                            <a role="menuitem" class="hsd-menu-item" href="{{ $menuHotspot('usuarios', ['buscar' => $sh->username]) }}">Ver usuario</a>
-                                                            @if($sh->cliente_id && $puedeCrear)
-                                                                <a role="menuitem" class="hsd-menu-item" href="{{ route('hotspot.clientes.edit', $sh->cliente_id) }}">Editar cuenta</a>
-                                                                <form method="POST" action="{{ route('hotspot.clientes.destroy', [$sh->cliente_id, $sh]) }}" onsubmit="return confirm(@json('¿Quitar la cuenta '.$sh->username.'? Deja de poder entrar al hotspot.'))">
-                                                                    @csrf
-                                                                    @method('DELETE')
-                                                                    <input type="hidden" name="from_dashboard" value="1">
-                                                                    <input type="hidden" name="router_id" value="{{ $selectedRouter->router_id }}">
-                                                                    <button type="submit" role="menuitem" class="hsd-menu-item is-danger">Quitar cuenta</button>
-                                                                </form>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            @endforeach
-                        </table>
-                    </div>
-                    <p id="hotspot-dash-offline-vacio" class="px-4 py-6 text-sm text-gray-600 dark:text-gray-300" style="display:none" role="status">Ninguna cuenta coincide con el filtro.</p>
-                @endif
-            </section>
+        <div id="hotspot-dash-bloqueadas">
+            @include('hotspot.paneles._macs-bloqueadas')
         </div>
     @else
         <div class="{{ $card }} px-4 py-10 text-center">
@@ -1071,7 +689,6 @@
     var REFRESH_S = 30;
     var PAUSA_KEY = 'hotspotDashPausa';
     var remain = REFRESH_S;
-    var pingUrl = @json(route('sesion.ping', [], false));
     var btnPrimaryClass = @json($btnPrimary);
     var filtroOn = 'px-2.5 py-1 rounded-md font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700';
     var filtroOff = 'px-2.5 py-1 rounded-md text-gray-600 dark:text-gray-300';
@@ -1299,9 +916,13 @@
         var no = scrollWrap('hotspot-dash-offline-scroll');
         if (nv) nv.scrollTop = topV;
         if (no) no.scrollTop = topO;
-        var nuevoActual = doc.getElementById('hotspot-dash-router-actual');
-        var actual = document.getElementById('hotspot-dash-router-actual');
-        if (nuevoActual && actual) actual.replaceWith(nuevoActual);
+        var estadoNuevo = doc.getElementById('hotspot-dash-router-estado-nuevo');
+        var dot = document.getElementById('hotspot-dash-router-dot');
+        var estadoTxt = document.getElementById('hotspot-dash-router-estado');
+        if (estadoNuevo) {
+            if (dot) dot.className = 'hsd-dot ' + (estadoNuevo.getAttribute('data-clase') || '');
+            if (estadoTxt) estadoTxt.textContent = estadoNuevo.getAttribute('data-texto') || '';
+        }
         menuAbierto = null;
         remain = REFRESH_S;
         pintarTrafico();
@@ -1315,29 +936,29 @@
         if (refreshBtn) refreshBtn.classList.toggle('is-busy', on);
     }
 
+    var refrescoPendiente = false;
     function tryRefresh(force) {
-        if (leaving || dead || busy) return;
+        if (leaving || dead) return;
+        if (busy) {
+            if (force) refrescoPendiente = true;
+            return;
+        }
         if (!force && isPaused()) return;
         setBusy(true);
-        fetch(pingUrl, {
+        // Una sola consulta: el servidor devuelve solo tarjetas y tablas (sin menú ni MACs bloqueadas).
+        var url = new URL(window.location.href);
+        url.searchParams.set('parcial', '1');
+        fetch(url.toString(), {
             credentials: 'same-origin',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
             cache: 'no-store'
         }).then(function (r) {
-            var json = (r.headers.get('content-type') || '').indexOf('json') !== -1;
-            if (!r.ok || r.redirected || !json) {
+            if (r.redirected || r.status === 401 || r.status === 403 || r.status === 419) {
                 showSessionDead();
                 return null;
             }
-            return fetch(window.location.pathname + window.location.search, {
-                credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                cache: 'no-store'
-            });
-        }).then(function (r) {
-            if (!r) return null;
-            if (!r.ok || r.redirected) {
-                showSessionDead();
+            if (!r.ok) {
+                avisar('error', 'No se pudo actualizar. Reintento en ' + REFRESH_S + ' s.');
                 return null;
             }
             return r.text();
@@ -1345,14 +966,86 @@
             if (!html) return;
             var doc = new DOMParser().parseFromString(html, 'text/html');
             if (!applyWatch(doc)) {
-                showSessionDead();
+                avisar('error', 'No se pudo actualizar. Reintento en ' + REFRESH_S + ' s.');
             }
         }).catch(function () {
-            showSessionDead();
+            avisar('error', 'Sin conexión con el servidor. Reintento en ' + REFRESH_S + ' s.');
         }).then(function () {
+            remain = REFRESH_S;
             setBusy(false);
+            if (refrescoPendiente) {
+                refrescoPendiente = false;
+                tryRefresh(true);
+            }
         });
     }
+
+    var avisoTimer = null;
+    function avisar(tipo, texto) {
+        var aviso = document.getElementById('hotspot-dash-aviso');
+        if (!aviso) return;
+        if (avisoTimer) clearTimeout(avisoTimer);
+        aviso.className = 'hsd-aviso ' + (tipo === 'success' ? 'is-ok' : 'is-error');
+        aviso.textContent = texto;
+        aviso.hidden = false;
+        avisoTimer = setTimeout(function () { aviso.hidden = true; }, tipo === 'success' ? 6000 : 10000);
+    }
+
+    // Acciones (desconectar, bloquear, sincronizar, quitar, desbloquear) sin recargar la página.
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form || !form.matches || !form.matches('form[data-accion], form[data-confirmar]')) return;
+        if (e.defaultPrevented) return;
+        var pregunta = form.getAttribute('data-confirmar');
+        if (pregunta && !window.confirm(pregunta)) {
+            e.preventDefault();
+            return;
+        }
+        if (!form.hasAttribute('data-accion')) return;
+        if (typeof window.fetch !== 'function' || typeof window.FormData !== 'function') return;
+        e.preventDefault();
+        cerrarMenu(false);
+        var accion = form.getAttribute('data-accion') || '';
+        var boton = form.querySelector('button[type="submit"]');
+        var textoBoton = boton ? boton.textContent : '';
+        if (boton) {
+            boton.disabled = true;
+            boton.textContent = '…';
+        }
+        fetch(form.action, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form)
+        }).then(function (r) {
+            if (r.status === 401 || r.status === 403) {
+                showSessionDead();
+                return null;
+            }
+            if (r.status === 419) {
+                avisar('error', 'La página quedó vieja. Recargala y probá de nuevo.');
+                return null;
+            }
+            return r.json().catch(function () { return { ok: false }; });
+        }).then(function (data) {
+            if (!data) return;
+            var ok = data.ok === true || data.success === true;
+            var texto = data.mensaje || data.error || (ok ? 'Listo.' : 'No se pudo completar la acción.');
+            avisar(ok ? 'success' : 'error', texto);
+            if (typeof data.bloqueadas_html === 'string') {
+                var lista = document.getElementById('hotspot-dash-bloqueadas');
+                if (lista) lista.innerHTML = data.bloqueadas_html;
+            }
+            if (accion !== 'desbloquear' || ok) tryRefresh(true);
+        }).catch(function () {
+            avisar('error', 'Sin conexión con el servidor. La acción no se completó.');
+        }).then(function () {
+            if (boton && document.body.contains(boton)) {
+                boton.disabled = false;
+                boton.textContent = textoBoton;
+            }
+        });
+    });
 
     function opciones() {
         return list ? Array.prototype.slice.call(list.querySelectorAll('.hsd-opt')) : [];

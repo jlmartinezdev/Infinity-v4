@@ -109,11 +109,6 @@ class HotspotController extends Controller
         }
 
         if ($vista === 'sesiones') {
-        $todosPorUsername = ServicioHotspot::query()
-            ->with(['servicio.cliente', 'cliente.servicios.plan', 'hotspotPerfil', 'router'])
-            ->get()
-            ->keyBy(fn (ServicioHotspot $h) => mb_strtolower((string) $h->username));
-
         $vivosKeys = [];
         $sesiones = [];
         $vivoBytes = [];
@@ -132,14 +127,22 @@ class HotspotController extends Controller
         }
 
         $cuentaPorMac = $radius->usuariosRealesPorMacs($macsVivas);
-
-        foreach ($hostsVivos as [$host, $user]) {
+        foreach ($hostsVivos as $i => [$host, $user]) {
             if (HotspotSesionOrigen::esMac($user)) {
                 $real = $cuentaPorMac[HotspotSesionOrigen::macNormalizada($user)] ?? null;
                 if (is_string($real) && $real !== '') {
-                    $user = $real;
+                    $hostsVivos[$i][1] = $real;
                 }
             }
+        }
+
+        // Solo las cuentas que están en línea: las del router ya vienen en $mapped.
+        $todosPorUsername = $this->cuentasPorUsername(
+            $mapped,
+            array_map(fn (array $par) => (string) $par[1], $hostsVivos)
+        );
+
+        foreach ($hostsVivos as [$host, $user]) {
             $key = mb_strtolower($user);
             $match = $key !== '' ? $todosPorUsername->get($key) : null;
             if ($key !== '') {
@@ -208,7 +211,27 @@ class HotspotController extends Controller
         }
         }
 
+        $estadoRouterActual = $selectedRouter ? self::estadoRouterVista($selectedRouter) : null;
+
+        // Refresco de cada 30 s: solo tarjetas y tablas, sin el resto de la página ni las MACs bloqueadas.
+        if ($vista === 'sesiones' && $selectedRouter && $request->boolean('parcial')) {
+            return response()
+                ->view('hotspot.paneles.sesiones', [
+                    'ultimasConexiones' => $ultimasConexiones,
+                    'selectedRouter' => $selectedRouter,
+                    'sesiones' => $sesiones,
+                    'offline' => $offline,
+                    'mappedCount' => $mapped->count(),
+                    'consumo' => $consumo,
+                    'routerError' => $routerError,
+                    'consultadoEn' => $consultadoEn,
+                    'estadoRouterActual' => $estadoRouterActual,
+                ])
+                ->header('Cache-Control', 'no-store');
+        }
+
         return view('hotspot.dashboard', [
+            'estadoRouterActual' => $estadoRouterActual,
             'ultimasConexiones' => $ultimasConexiones,
             'routers' => $routers,
             'routersPorNodo' => $routersPorNodo,
@@ -230,10 +253,56 @@ class HotspotController extends Controller
         ]);
     }
 
-    public function desconectar(Request $request, Router $router, MikroTikService $mikrotik, RadiusHotspotSyncService $radius): RedirectResponse
+    /**
+     * Cuentas indexadas por usuario en minúsculas: las del router más las que están en línea y no son de él.
+     *
+     * @param  \Illuminate\Support\Collection<int, ServicioHotspot>  $delRouter
+     * @param  list<string>  $usuariosVivos
+     * @return \Illuminate\Support\Collection<string, ServicioHotspot>
+     */
+    private function cuentasPorUsername($delRouter, array $usuariosVivos)
+    {
+        $porUsername = $delRouter->keyBy(fn (ServicioHotspot $h) => mb_strtolower((string) $h->username));
+
+        $faltan = collect($usuariosVivos)
+            ->map(fn ($u) => trim((string) $u))
+            ->filter(fn (string $u) => $u !== '' && ! $porUsername->has(mb_strtolower($u)))
+            ->unique()
+            ->values()
+            ->all();
+        if ($faltan === []) {
+            return $porUsername;
+        }
+
+        $extra = ServicioHotspot::query()
+            ->with(['servicio.cliente', 'cliente.servicios.plan', 'hotspotPerfil', 'router'])
+            ->whereIn('username', $faltan)
+            ->get()
+            ->keyBy(fn (ServicioHotspot $h) => mb_strtolower((string) $h->username));
+
+        return $porUsername->union($extra);
+    }
+
+    /**
+     * @return array{clase: string, texto: string}
+     */
+    public static function estadoRouterVista(Router $router): array
+    {
+        $estado = strtolower((string) ($router->estado ?? ''));
+        if ($estado === Router::ESTADO_CONECTADO) {
+            return ['clase' => 'is-ok', 'texto' => 'En línea'];
+        }
+        if ($estado === Router::ESTADO_DESCONECTADO) {
+            return ['clase' => 'is-down', 'texto' => 'Caído'];
+        }
+
+        return ['clase' => '', 'texto' => 'Sin datos'];
+    }
+
+    public function desconectar(Request $request, Router $router, MikroTikService $mikrotik, RadiusHotspotSyncService $radius): RedirectResponse|JsonResponse
     {
         $mac = $this->macAccion($request);
-        if ($mac instanceof RedirectResponse) {
+        if (! is_string($mac)) {
             return $mac;
         }
 
@@ -255,10 +324,10 @@ class HotspotController extends Controller
         return $this->volverAlDashboard($router, 'success', 'Sesión de '.$mac.' cerrada.');
     }
 
-    public function bloquear(Request $request, Router $router, MikroTikService $mikrotik): RedirectResponse
+    public function bloquear(Request $request, Router $router, MikroTikService $mikrotik): RedirectResponse|JsonResponse
     {
         $mac = $this->macAccion($request);
-        if ($mac instanceof RedirectResponse) {
+        if (! is_string($mac)) {
             return $mac;
         }
 
@@ -266,33 +335,34 @@ class HotspotController extends Controller
             $resultado = $mikrotik->bloquearMacHotspot($router, $mac);
             $mikrotik->cerrarSesionHotspotPorMac($router, $mac);
         } catch (\Throwable $e) {
-            return $this->volverAlDashboard($router, 'error', 'No pude bloquear '.$mac.'.');
+            return $this->volverAlDashboard($router, 'error', 'No pude bloquear '.$mac.'.', $mikrotik);
         }
 
         $aviso = ! empty($resultado['ya'])
             ? $mac.' ya estaba bloqueada.'
             : $mac.' bloqueada. No entra al hotspot hasta que la desbloquees.';
 
-        return $this->volverAlDashboard($router, 'success', $aviso);
+        return $this->volverAlDashboard($router, 'success', $aviso, $mikrotik);
     }
 
-    public function desbloquear(Request $request, Router $router, MikroTikService $mikrotik): RedirectResponse
+    public function desbloquear(Request $request, Router $router, MikroTikService $mikrotik): RedirectResponse|JsonResponse
     {
         $mac = $this->macAccion($request);
-        if ($mac instanceof RedirectResponse) {
+        if (! is_string($mac)) {
             return $mac;
         }
 
         try {
             $quito = $mikrotik->desbloquearMacHotspot($router, $mac);
         } catch (\Throwable $e) {
-            return $this->volverAlDashboard($router, 'error', 'No pude desbloquear '.$mac.'.');
+            return $this->volverAlDashboard($router, 'error', 'No pude desbloquear '.$mac.'.', $mikrotik);
         }
 
         return $this->volverAlDashboard(
             $router,
             $quito ? 'success' : 'error',
-            $quito ? $mac.' desbloqueada.' : $mac.' no tenía un bloqueo.'
+            $quito ? $mac.' desbloqueada.' : $mac.' no tenía un bloqueo.',
+            $mikrotik
         );
     }
 
@@ -887,7 +957,7 @@ class HotspotController extends Controller
             ->with('success', $aviso);
     }
 
-    public function destroy(Request $request, Cliente $cliente, ServicioHotspot $servicioHotspot): RedirectResponse
+    public function destroy(Request $request, Cliente $cliente, ServicioHotspot $servicioHotspot): RedirectResponse|JsonResponse
     {
         if ((int) $servicioHotspot->cliente_id !== (int) $cliente->cliente_id) {
             abort(404);
@@ -895,6 +965,10 @@ class HotspotController extends Controller
 
         $username = $servicioHotspot->username;
         $servicioHotspot->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'tipo' => 'success', 'mensaje' => 'Cuenta '.$username.' quitada.']);
+        }
 
         if ($request->boolean('from_dashboard')) {
             $routerId = (int) $request->input('router_id', 0);
@@ -926,17 +1000,20 @@ class HotspotController extends Controller
      */
     public function sync(Request $request, ServicioHotspot $servicioHotspot, MikroTikService $mikrotik, RadiusHotspotSyncService $radius)
     {
+        // Desde Sesiones la respuesta JSON trae el mensaje (redirectTrasSync); el JSON corto queda para otros usos.
+        $jsonCorto = $request->wantsJson() && ! $request->boolean('from_dashboard');
+
         if ($radius->enabled()) {
             $radiusResult = $radius->sync($servicioHotspot);
             if (! $radiusResult['success']) {
-                if ($request->wantsJson()) {
+                if ($jsonCorto) {
                     return response()->json($radiusResult);
                 }
 
                 return $this->redirectTrasSync($request, $servicioHotspot, 'RADIUS: '.($radiusResult['error'] ?? 'Error al sincronizar.'), 'error');
             }
             if (! config('radius.also_sync_mikrotik') || ! $servicioHotspot->router_id) {
-                if ($request->wantsJson()) {
+                if ($jsonCorto) {
                     return response()->json(['success' => true]);
                 }
 
@@ -945,7 +1022,7 @@ class HotspotController extends Controller
         }
 
         if (! $servicioHotspot->router_id) {
-            if ($request->wantsJson()) {
+            if ($jsonCorto) {
                 return response()->json(['success' => false, 'error' => 'RADIUS deshabilitado y el usuario no tiene router.']);
             }
 
@@ -954,7 +1031,7 @@ class HotspotController extends Controller
 
         $result = $mikrotik->syncHotspotServicio($servicioHotspot);
 
-        if ($request->wantsJson()) {
+        if ($jsonCorto) {
             return response()->json($result);
         }
 
@@ -1060,6 +1137,10 @@ class HotspotController extends Controller
 
     protected function redirectTrasSync(Request $request, ServicioHotspot $servicioHotspot, string $mensaje, string $tipo = 'success')
     {
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => $tipo === 'success', 'tipo' => $tipo, 'mensaje' => $mensaje]);
+        }
+
         if ($request->boolean('from_dashboard')) {
             $routerId = (int) $request->input('router_id', 0);
             if ($routerId <= 0) {
@@ -1115,18 +1196,37 @@ class HotspotController extends Controller
         }
     }
 
-    private function macAccion(Request $request): string|RedirectResponse
+    private function macAccion(Request $request): string|RedirectResponse|JsonResponse
     {
         $mac = strtoupper(str_replace('-', ':', trim((string) $request->input('mac', ''))));
         if (! preg_match('/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/', $mac)) {
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'tipo' => 'error', 'mensaje' => 'La MAC no es válida.'], 422);
+            }
+
             return back()->with('error', 'La MAC no es válida.');
         }
 
         return $mac;
     }
 
-    private function volverAlDashboard(Router $router, string $tipo, string $mensaje): RedirectResponse
+    /**
+     * Sin recargar (fetch) responde JSON; si se pasa el MikroTik, también la lista de MACs bloqueadas.
+     */
+    private function volverAlDashboard(Router $router, string $tipo, string $mensaje, ?MikroTikService $mikrotik = null): RedirectResponse|JsonResponse
     {
+        if (request()->expectsJson()) {
+            $datos = ['ok' => $tipo === 'success', 'tipo' => $tipo, 'mensaje' => $mensaje];
+            if ($mikrotik) {
+                $datos['bloqueadas_html'] = view('hotspot.paneles._macs-bloqueadas', [
+                    'macsBloqueadas' => $this->macsBloqueadas($router, null, $mikrotik),
+                    'selectedRouter' => $router,
+                ])->render();
+            }
+
+            return response()->json($datos);
+        }
+
         return redirect()
             ->route('hotspot.dashboard', ['router_id' => $router->router_id])
             ->with($tipo, $mensaje);
