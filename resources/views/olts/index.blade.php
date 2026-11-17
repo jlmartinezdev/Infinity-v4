@@ -96,21 +96,38 @@
                             @endif
                         </a>
 
-                        <div class="mt-auto pt-4 flex flex-wrap gap-2">
-                            <a href="{{ route('sistema.olts.show', $o) }}"
-                                class="rounded-md px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300">
-                                Ver
+                        @php
+                            $ipWeb = trim((string) ($o->ip ?? ''));
+                            $urlWeb = $ipWeb !== '' ? 'http://'.preg_replace('#^https?://#i', '', $ipWeb) : null;
+                            $btnIcon = 'inline-flex h-9 w-full items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-gray-800';
+                        @endphp
+                        <div class="mt-auto grid grid-cols-4 gap-2 pt-4">
+                            @if($urlWeb)
+                                <a href="{{ $urlWeb }}" target="_blank" rel="noopener noreferrer" title="Interfaz web" aria-label="Abrir interfaz web"
+                                    class="{{ $btnIcon }} text-sky-700 bg-sky-50 hover:bg-sky-100 focus:ring-sky-500 dark:bg-sky-900/30 dark:text-sky-300">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </a>
+                            @else
+                                <span title="Sin IP" aria-label="Sin IP para la interfaz web"
+                                    class="{{ $btnIcon }} cursor-not-allowed text-gray-400 bg-gray-100 dark:bg-gray-700/40 dark:text-gray-500">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </span>
+                            @endif
+                            <a href="{{ route('sistema.olts.show', $o) }}" title="Ver" aria-label="Ver"
+                                class="{{ $btnIcon }} text-purple-700 bg-purple-50 hover:bg-purple-100 focus:ring-purple-500 dark:bg-purple-900/30 dark:text-purple-300">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.6 9h16.8M3.6 15h16.8M12 3c2.2 2.4 3.4 5.5 3.4 9s-1.2 6.6-3.4 9c-2.2-2.4-3.4-5.5-3.4-9s1.2-6.6 3.4-9z"/></svg>
                             </a>
-                            <a href="{{ route('sistema.olts.edit', $o) }}"
-                                class="rounded-md px-2 py-1 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/40 dark:text-slate-300">
-                                Editar
+                            <a href="{{ route('sistema.olts.edit', $o) }}" title="Editar" aria-label="Editar"
+                                class="{{ $btnIcon }} text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-gray-400 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             </a>
-                            <form action="{{ route('sistema.olts.destroy', $o) }}" method="POST" class="inline"
+                            <form action="{{ route('sistema.olts.destroy', $o) }}" method="POST" class="min-w-0"
                                 onsubmit="return confirm('¿Eliminar este OLT?');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="rounded-md px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">
-                                    Eliminar
+                                <button type="submit" title="Eliminar" aria-label="Eliminar"
+                                    class="{{ $btnIcon }} text-red-700 bg-red-50 hover:bg-red-100 focus:ring-red-500 dark:bg-red-900/30 dark:text-red-300">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 </button>
                             </form>
                         </div>
