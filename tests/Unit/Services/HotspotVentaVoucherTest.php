@@ -25,6 +25,16 @@ class HotspotVentaVoucherTest extends TestCase
         $this->assertSame('Mikrotik-Total-Limit', $reply[2][0]);
     }
 
+    public function test_el_voucher_ilimitado_no_lleva_cuota(): void
+    {
+        $atributos = RadiusHotspotSyncService::atributosVoucher('4821', 0, null, null);
+        $nombres = array_map(static fn (array $fila) => $fila[0], array_merge($atributos['check'], $atributos['reply']));
+
+        $this->assertNotContains('Max-Data', $nombres);
+        $this->assertNotContains('Mikrotik-Total-Limit', $nombres);
+        $this->assertContains('Cleartext-Password', $nombres);
+    }
+
     public function test_el_jardin_incluye_bancard_y_omite_localhost(): void
     {
         config([

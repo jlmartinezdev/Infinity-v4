@@ -70,7 +70,7 @@ class HotspotVentaService
             'token' => Str::random(40),
             'mac' => $mac,
             'monto' => (int) $plan->precio,
-            'gigas' => (int) $plan->gigas,
+            'gigas' => $plan->esIlimitado() ? null : (int) $plan->gigas,
             'vigencia_horas' => (int) $plan->vigencia_horas,
             'rate_limit' => $plan->rate_limit,
             'estado' => HotspotVenta::PENDIENTE,
@@ -170,7 +170,8 @@ class HotspotVentaService
         return $this->planesActivos()->map(fn (HotspotPlan $plan) => [
             'id' => (int) $plan->getKey(),
             'nombre' => (string) $plan->nombre,
-            'gigas' => (int) $plan->gigas,
+            'gigas' => $plan->esIlimitado() ? null : (int) $plan->gigas,
+            'ilimitado' => $plan->esIlimitado(),
             'precio' => (int) $plan->precio,
             'precio_texto' => $plan->precioTexto(),
             'vigencia' => $plan->vigenciaTexto(),
@@ -241,7 +242,7 @@ class HotspotVentaService
             ->where('mac', $mac)
             ->where('estado', HotspotVenta::PENDIENTE)
             ->where('monto', (int) $plan->precio)
-            ->where('gigas', (int) $plan->gigas)
+            ->where('gigas', $plan->esIlimitado() ? null : (int) $plan->gigas)
             ->whereNotNull('checkout_url')
             ->where('created_at', '>=', now()->subMinutes(20))
             ->orderByDesc('id')

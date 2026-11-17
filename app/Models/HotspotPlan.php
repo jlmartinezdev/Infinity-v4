@@ -40,6 +40,16 @@ class HotspotPlan extends Model
         return $this->hasMany(HotspotVenta::class, 'hotspot_plan_id', 'hotspot_plan_id');
     }
 
+    public function esIlimitado(): bool
+    {
+        return (int) $this->gigas <= 0;
+    }
+
+    public function gigasTexto(): string
+    {
+        return $this->esIlimitado() ? 'Ilimitado' : ((int) $this->gigas).' GB';
+    }
+
     public function precioTexto(): string
     {
         return number_format((int) $this->precio, 0, ',', '.').' Gs.';
@@ -49,7 +59,7 @@ class HotspotPlan extends Model
     {
         $horas = (int) $this->vigencia_horas;
         if ($horas <= 0) {
-            return 'Hasta agotar los gigas';
+            return $this->esIlimitado() ? 'Sin vencimiento' : 'Hasta agotar los gigas';
         }
         if ($horas % 24 === 0) {
             $dias = (int) ($horas / 24);

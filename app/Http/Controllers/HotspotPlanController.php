@@ -40,27 +40,33 @@ class HotspotPlanController extends Controller
      */
     private function validar(Request $request): array
     {
+        // Un plan ilimitado se corta por tiempo: sin horas sería acceso gratis para siempre.
+        $horasMinimas = $request->boolean('ilimitado') ? 1 : 0;
+
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:80'],
-            'gigas' => ['required', 'integer', 'min:1', 'max:10240'],
+            'ilimitado' => ['nullable', 'boolean'],
+            'gigas' => ['required_unless:ilimitado,1', 'nullable', 'integer', 'min:1', 'max:10240'],
             'precio' => ['required', 'integer', 'min:1000', 'max:50000000'],
-            'vigencia_horas' => ['required', 'integer', 'min:0', 'max:8760'],
+            'vigencia_horas' => ['required', 'integer', 'min:'.$horasMinimas, 'max:8760'],
             'rate_limit' => ['nullable', 'string', 'max:50'],
             'orden' => ['nullable', 'integer', 'min:0', 'max:999'],
         ], [
             'nombre.required' => 'Poné un nombre para el plan.',
-            'gigas.required' => 'Indicá cuántos gigas incluye.',
-            'gigas.min' => 'El plan tiene que incluir al menos 1 GB.',
+            'gigas.required_unless' => 'Indicá cuántos gigas incluye, o marcá el plan como ilimitado.',
+            'gigas.min' => 'El plan tiene que incluir al menos 1 GB, o ser ilimitado.',
             'precio.required' => 'Indicá el precio.',
             'precio.min' => 'El precio mínimo es 1.000 Gs.',
-            'vigencia_horas.required' => 'Indicá cuántas horas dura el acceso. Usá 0 si dura hasta agotar los gigas.',
+            'vigencia_horas.required' => 'Indicá cuántas horas dura el acceso.',
+            'vigencia_horas.min' => 'Un plan ilimitado necesita una duración: al menos 1 hora.',
         ]);
 
         $rate = trim((string) ($datos['rate_limit'] ?? ''));
+        $ilimitado = $request->boolean('ilimitado');
 
         return [
             'nombre' => trim($datos['nombre']),
-            'gigas' => (int) $datos['gigas'],
+            'gigas' => $ilimitado ? null : (int) $datos['gigas'],
             'precio' => (int) $datos['precio'],
             'vigencia_horas' => (int) $datos['vigencia_horas'],
             'rate_limit' => $rate !== '' ? $rate : null,

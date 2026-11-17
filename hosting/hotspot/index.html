@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#3f5f9c">
   <title>Comprá gigas — Interplus</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="venta.css">
@@ -12,16 +13,34 @@
     <header class="cabecera">
       <img class="logo" src="logo.svg" alt="Interplus">
       <h1>Comprá gigas</h1>
-      <p>Pagás con TPago. Cuando el pago se confirma, te mostramos el usuario y el PIN para entrar al Wi‑Fi.</p>
+      <p>Internet en las zonas Wi‑Fi de Interplus, sin ser cliente.</p>
     </header>
 
-    <section class="hoja" aria-live="polite">
+    <ol class="pasos" aria-label="Cómo funciona">
+      <li><span>1</span>Elegí un plan</li>
+      <li><span>2</span>Pagá con TPago</li>
+      <li><span>3</span>Recibí usuario y PIN</li>
+    </ol>
+
+    <div aria-live="polite">
       <p id="estado" class="estado" hidden></p>
-      <div id="credenciales" class="credenciales" hidden></div>
-      <div id="planes" class="planes">
-        <p class="ayuda">Cargando planes…</p>
+      <section id="espera" class="tarjeta espera" hidden></section>
+      <section id="credenciales" class="tarjeta credenciales" hidden></section>
+    </div>
+
+    <section id="catalogo" class="tarjeta" aria-labelledby="titulo-planes">
+      <h2 id="titulo-planes" class="tarjeta-titulo">Elegí tu plan</h2>
+      <div id="planes" class="planes" aria-busy="true">
+        <div class="plan esqueleto"></div>
+        <div class="plan esqueleto"></div>
+        <div class="plan esqueleto"></div>
       </div>
     </section>
+
+    <footer class="pie">
+      <p>El pago se hace en la página segura de TPago.<br>
+      ¿Problemas con tu compra? Llamanos al <a href="tel:+595971714322">0971 714-322</a>.</p>
+    </footer>
   </main>
   <script src="config.js"></script>
   <script src="venta.js"></script>

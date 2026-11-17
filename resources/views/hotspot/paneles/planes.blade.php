@@ -7,13 +7,14 @@
     $campo = 'w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none';
     $etiqueta = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
     $valor = fn (string $campo, mixed $defecto = '') => old($campo, $planEditar?->{$campo} ?? $defecto);
+    $ilimitado = (string) old('ilimitado', ($planEditar?->esIlimitado() ?? false) ? '1' : '0') === '1';
     $estadosVenta = \App\Models\HotspotVenta::estados();
 @endphp
 
 <div id="hotspot-planes" class="space-y-4">
     <section class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4" aria-labelledby="hotspot-planes-ayuda">
         <h2 id="hotspot-planes-ayuda" class="text-base font-semibold text-gray-900 dark:text-gray-100">Cómo se vende</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">En el portal del Wi‑Fi la persona elige un plan, paga con TPago y recibe un usuario con PIN. La cuota es la de los gigas del plan. El cobro queda en esta lista, no en la cuenta de un cliente.</p>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">En el portal del Wi‑Fi la persona elige un plan, paga con TPago y recibe un usuario con PIN. Si el plan tiene gigas, esa es la cuota. Si es ilimitado, no hay tope de datos y el acceso se corta cuando pasan las horas del plan. El cobro queda en esta lista, no en la cuenta de un cliente.</p>
         <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Para que el portal muestre los planes, volvé a cargarlo en el router con <span class="font-mono text-xs">php artisan hotspot:portal-mikrotik</span>. Ese paso también abre el acceso a TPago antes del login.</p>
     </section>
 
@@ -37,7 +38,12 @@
                 </div>
                 <div>
                     <label for="plan-gigas" class="{{ $etiqueta }}">Gigas</label>
-                    <input type="number" name="gigas" id="plan-gigas" value="{{ $valor('gigas') }}" required min="1" max="10240" step="1" inputmode="numeric" class="{{ $campo }}" placeholder="2">
+                    <input type="number" name="gigas" id="plan-gigas" value="{{ $ilimitado ? '' : $valor('gigas') }}" @unless($ilimitado) required @endunless min="1" max="10240" step="1" inputmode="numeric" class="{{ $campo }}" placeholder="2" @disabled($ilimitado)>
+                    <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-800 dark:text-gray-100">
+                        <input type="hidden" name="ilimitado" value="0">
+                        <input type="checkbox" name="ilimitado" id="plan-ilimitado" value="1" class="rounded border-gray-300 dark:border-gray-600" @checked($ilimitado)>
+                        Ilimitado (se corta por tiempo)
+                    </label>
                     @error('gigas')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
                 <div>
@@ -47,8 +53,8 @@
                 </div>
                 <div>
                     <label for="plan-vigencia" class="{{ $etiqueta }}">Duración (horas)</label>
-                    <input type="number" name="vigencia_horas" id="plan-vigencia" value="{{ $valor('vigencia_horas', 24) }}" required min="0" max="8760" step="1" inputmode="numeric" class="{{ $campo }}">
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">0 = hasta que se acaben los gigas. 24 = un día desde el pago.</p>
+                    <input type="number" name="vigencia_horas" id="plan-vigencia" value="{{ $valor('vigencia_horas', 24) }}" required min="{{ $ilimitado ? 1 : 0 }}" max="8760" step="1" inputmode="numeric" class="{{ $campo }}">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">24 = un día desde el pago. 0 = hasta agotar los gigas (no vale para planes ilimitados).</p>
                     @error('vigencia_horas')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
                 <div>
@@ -104,7 +110,7 @@
                         @foreach($planesVenta as $plan)
                             <tr>
                                 <td class="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">{{ $plan->nombre }}</td>
-                                <td class="px-4 py-3 tabular-nums text-gray-900 dark:text-gray-100">{{ (int) $plan->gigas }} GB</td>
+                                <td class="px-4 py-3 tabular-nums text-gray-900 dark:text-gray-100">{{ $plan->gigasTexto() }}</td>
                                 <td class="px-4 py-3 tabular-nums text-gray-900 dark:text-gray-100">{{ $plan->precioTexto() }}</td>
                                 <td class="px-4 py-3 text-gray-700 dark:text-gray-200">{{ $plan->vigenciaTexto() }}</td>
                                 <td class="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-200">{{ $plan->rate_limit ?: 'Sin tope' }}</td>
@@ -163,7 +169,7 @@
                         @foreach($ventasGigas as $venta)
                             <tr>
                                 <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200">{{ $venta->created_at?->timezone(config('app.timezone'))->format('d/m H:i') }}</td>
-                                <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $venta->plan?->nombre ?? ((int) $venta->gigas.' GB') }}</td>
+                                <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $venta->plan?->nombre ?? ((int) $venta->gigas > 0 ? (int) $venta->gigas.' GB' : 'Ilimitado') }}</td>
                                 <td class="px-4 py-3 tabular-nums text-gray-900 dark:text-gray-100">{{ number_format((int) $venta->monto, 0, ',', '.') }} Gs.</td>
                                 <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $estadosVenta[$venta->estado] ?? $venta->estado }}</td>
                                 <td class="px-4 py-3 font-mono text-gray-900 dark:text-gray-100">{{ $venta->username ?: '—' }}</td>
@@ -176,3 +182,21 @@
         @endif
     </section>
 </div>
+<script>
+(function () {
+    var ilimitado = document.getElementById('plan-ilimitado');
+    var gigas = document.getElementById('plan-gigas');
+    var vigencia = document.getElementById('plan-vigencia');
+    if (!ilimitado || !gigas) return;
+    function sincronizar() {
+        gigas.disabled = ilimitado.checked;
+        gigas.required = !ilimitado.checked;
+        if (ilimitado.checked) gigas.value = '';
+        if (vigencia) {
+            vigencia.min = ilimitado.checked ? '1' : '0';
+            if (ilimitado.checked && Number(vigencia.value) < 1) vigencia.value = '24';
+        }
+    }
+    ilimitado.addEventListener('change', sincronizar);
+})();
+</script>

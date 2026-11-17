@@ -283,7 +283,7 @@ class TpagoPaymentLinkService
         $venta->loadMissing('plan');
         $nombre = trim((string) ($venta->plan?->nombre ?? ''));
         $descripcion = \Illuminate\Support\Str::limit(
-            'WiFi '.(int) $venta->gigas.' GB'.($nombre !== '' ? ' - '.$nombre : ''),
+            'WiFi '.((int) $venta->gigas > 0 ? (int) $venta->gigas.' GB' : 'ilimitado').($nombre !== '' ? ' - '.$nombre : ''),
             120,
             ''
         );
