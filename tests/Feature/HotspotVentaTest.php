@@ -30,7 +30,7 @@ class HotspotVentaTest extends TestCase
         Schema::create('hotspot_planes', function (Blueprint $table) {
             $table->id('hotspot_plan_id');
             $table->string('nombre', 80);
-            $table->unsignedInteger('gigas');
+            $table->unsignedInteger('gigas')->nullable();
             $table->unsignedInteger('precio');
             $table->unsignedSmallInteger('vigencia_horas')->default(24);
             $table->string('rate_limit', 50)->nullable();
@@ -45,7 +45,7 @@ class HotspotVentaTest extends TestCase
             $table->string('token', 64)->unique();
             $table->string('mac', 32)->nullable();
             $table->unsignedInteger('monto');
-            $table->unsignedInteger('gigas');
+            $table->unsignedInteger('gigas')->nullable();
             $table->unsignedSmallInteger('vigencia_horas')->default(24);
             $table->string('rate_limit', 50)->nullable();
             $table->string('estado', 20)->default('pendiente');
@@ -148,6 +148,59 @@ class HotspotVentaTest extends TestCase
         $usuario = $pagada->json('username');
         $this->assertMatchesRegularExpression('/^9\d{9}$/', (string) $usuario);
         $this->assertMatchesRegularExpression('/^\d{4}$/', (string) $pagada->json('password'));
+    }
+
+    public function test_un_plan_ilimitado_se_vende_sin_cuota_y_vence_por_tiempo(): void
+    {
+        $plan = HotspotPlan::query()->create([
+            'nombre' => 'Día libre',
+            'gigas' => null,
+            'precio' => 15000,
+            'vigencia_horas' => 24,
+            'activo' => true,
+        ]);
+
+        $this->getJson('/api/hotspot/planes')
+            ->assertOk()
+            ->assertJsonPath('planes.0.ilimitado', true)
+            ->assertJsonPath('planes.0.gigas', null)
+            ->assertJsonPath('planes.0.vigencia', '1 día');
+
+        $link = new TpagoPaymentLink;
+        $link->id = 16;
+        $link->link_url = 'https://comercios.bancard.com.py/links?alias=XYZ';
+
+        $mock = \Mockery::mock(TpagoPaymentLinkService::class);
+        $mock->shouldReceive('disponible')->andReturn(true);
+        $mock->shouldReceive('paraVentaHotspot')->once()->andReturn([
+            'link' => $link,
+            'checkout_url' => $link->link_url,
+            'link_alias' => 'XYZ',
+            'amount' => 15000,
+            'reused' => false,
+            'provider' => 'tpago',
+            'expires_at' => null,
+        ]);
+        $this->app->instance(TpagoPaymentLinkService::class, $mock);
+
+        $token = $this->postJson('/api/hotspot/comprar', ['plan_id' => $plan->getKey()])
+            ->assertOk()
+            ->json('token');
+
+        $venta = HotspotVenta::query()->where('token', $token)->firstOrFail();
+        $this->assertNull($venta->gigas);
+
+        $link->reference_id = 'HS-'.$venta->id.'-20261117120000';
+        app(HotspotVentaService::class)->confirmarPago($link);
+
+        $venta->refresh();
+        $this->assertNotNull($venta->vence_at);
+        $this->assertEqualsWithDelta(24 * 3600, now()->diffInSeconds($venta->vence_at, false), 120);
+
+        $this->getJson('/api/hotspot/ventas/'.$token)
+            ->assertOk()
+            ->assertJsonPath('estado', 'pagado')
+            ->assertJsonPath('gigas', 0);
     }
 
     public function test_un_plan_inexistente_no_abre_pago(): void
