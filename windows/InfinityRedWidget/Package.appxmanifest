@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap uap3 rescap com">
+
+  <Identity
+    Name="Infinity.RedWidget"
+    Publisher="CN=Infinity"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>Infinity Red</DisplayName>
+    <PublisherDisplayName>Infinity</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="es-ES" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="Infinity Red"
+        Description="Estado de AP, routers y OLTs"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="InfinityRedWidget.exe" Arguments="-RegisterProcessAsComServer" DisplayName="Infinity Red Widget">
+              <com:Class Id="B7E4C1A2-6F38-4D0E-9A55-1C8F0E2D4A77" DisplayName="Infinity Red Widget Provider" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets" DisplayName="Infinity Red" Id="Infinity.RedWidget" PublicFolder="Public">
+            <uap3:Properties>
+              <WidgetProvider>
+                <ProviderIcons>
+                  <Icon Path="ProviderAssets\RedIcon.png" />
+                </ProviderIcons>
+                <Activation>
+                  <CreateInstance ClassId="B7E4C1A2-6F38-4D0E-9A55-1C8F0E2D4A77" />
+                </Activation>
+                <Definitions>
+                  <Definition Id="Infinity_Red_Estado"
+                    DisplayName="Red Infinity"
+                    Description="AP, routers y OLTs en vivo"
+                    AllowMultiple="true">
+                    <Capabilities>
+                      <Capability>
+                        <Size Name="small" />
+                        <Size Name="medium" />
+                        <Size Name="large" />
+                      </Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons>
+                        <Icon Path="ProviderAssets\RedIcon.png" />
+                      </Icons>
+                      <Screenshots>
+                        <Screenshot Path="ProviderAssets\RedScreenshot.png" DisplayAltText="Estado de AP, routers y OLTs" />
+                      </Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                </Definitions>
+              </WidgetProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

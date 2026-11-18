@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.cliente' => \App\Http\Middleware\EnsureClientePortalApi::class,
             'wa.agent.secret' => \App\Http\Middleware\VerifyInterplusAgentSecret::class,
             'web.consulta' => \App\Http\Middleware\VerifyWebConsultaToken::class,
+            'widget.red' => \App\Http\Middleware\VerifyWidgetRedToken::class,
         ]);
         // Usuario ya autenticado que visita /login → su dashboard
         $middleware->redirectUsersTo(function () {

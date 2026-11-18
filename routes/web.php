@@ -63,6 +63,7 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\PromesaPagoController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RedMonitoreoController;
+use App\Http\Controllers\WidgetRedPreviewController;
 use App\Http\Controllers\SenalLecturaController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\RouterCaidaAvisoController;
@@ -1004,6 +1005,10 @@ Route::middleware(['auth', 'permiso:usuarios.ver'])->group(function () {
 // Sistema (routers, pools de IP, IPs asignadas, importar WispHub)
 Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema.ver'])->group(function () {
     Route::get('red-monitoreo', [RedMonitoreoController::class, 'index'])->name('red-monitoreo.index')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('widget-red', [WidgetRedPreviewController::class, 'index'])->name('widget-red.index')
+        ->middleware('permiso:sistema-red-monitoreo.ver');
+    Route::get('widget-red/datos', [WidgetRedPreviewController::class, 'datos'])->name('widget-red.datos')
         ->middleware('permiso:sistema-red-monitoreo.ver');
     Route::get('senal-lecturas', [SenalLecturaController::class, 'index'])->name('senal-lecturas.index')
         ->middleware('permiso:sistema-red-monitoreo.ver');
