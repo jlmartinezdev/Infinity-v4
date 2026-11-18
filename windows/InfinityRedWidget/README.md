@@ -40,3 +40,5 @@ Hace falta Windows 11, Visual Studio 2022 con la carga de trabajo de aplicacione
 `AllowMultiple` está en true para tener las dos tarjetas a la vez en el tablero.
 
 La vista previa en el panel, sin Windows, está en **Sistema → Widget de red** (`/sistema/widget-red`), con el permiso de monitoreo de red.
+
+Para tenerlo siempre a la vista en una esquina del escritorio (Win+W no lo permite), está la ventana flotante en `windows/InfinityRedFlotante`.

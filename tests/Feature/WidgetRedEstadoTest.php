@@ -291,7 +291,7 @@ class WidgetRedEstadoTest extends TestCase
         $html = $this->actingAs(User::query()->find(1))
             ->get('/sistema/widget-red');
         $html->assertOk();
-        $html->assertSee('Caídas de red');
+        $html->assertSee('Equipos caídos');
         $html->assertSee('Torre Norte');
         $html->assertSee('MK-N6');
         $html->assertSee('sin dato');
@@ -307,6 +307,45 @@ class WidgetRedEstadoTest extends TestCase
         $datos->assertJsonPath('counts.olt.online', 0);
         $datos->assertJsonPath('counts.olt.offline', 0);
         $datos->assertJsonPath('caidas.1.name', 'Torre Norte');
+    }
+
+    public function test_latencia_de_equipos_en_linea(): void
+    {
+        $response = $this->getJson('/api/v1/widget/red', ['Authorization' => 'Bearer '.self::TOKEN]);
+        $response->assertOk();
+        $response->assertJsonPath('latencia', [
+            'ap' => ['promedio' => null, 'max' => null],
+            'router' => ['promedio' => null, 'max' => null],
+            'lentos' => [],
+        ]);
+
+        Schema::table('routers', fn (Blueprint $table) => $table->unsignedInteger('ping_latencia_ms')->nullable());
+        Schema::table('nodo_aps_wireless', fn (Blueprint $table) => $table->unsignedInteger('ping_latencia_ms')->nullable());
+
+        $fila = fn (array $datos) => $datos + ['created_at' => now(), 'updated_at' => now()];
+        DB::table('routers')->insert([
+            $fila(['router_id' => 1, 'nombre' => 'MK-A', 'ip' => '10.0.0.1', 'estado' => 'conectado', 'ping_latencia_ms' => 4]),
+            $fila(['router_id' => 2, 'nombre' => 'MK-B', 'ip' => '10.0.0.2', 'estado' => 'conectado', 'ping_latencia_ms' => 9]),
+            $fila(['router_id' => 3, 'nombre' => 'MK-CAIDO', 'ip' => '10.0.0.3', 'estado' => 'desconectado', 'ping_latencia_ms' => 999]),
+        ]);
+        DB::table('nodo_aps_wireless')->insert([
+            $fila(['ap_id' => 1, 'nombre' => 'AP-1', 'ip' => '10.1.0.1', 'activo' => 1, 'ping_ok' => 1, 'ping_latencia_ms' => 30]),
+            $fila(['ap_id' => 2, 'nombre' => 'AP-2', 'ip' => '10.1.0.2', 'activo' => 1, 'ping_ok' => 1, 'ping_latencia_ms' => 11]),
+            $fila(['ap_id' => 3, 'nombre' => 'AP-SIN-MEDIDA', 'ip' => '10.1.0.3', 'activo' => 1, 'ping_ok' => 1, 'ping_latencia_ms' => null]),
+            $fila(['ap_id' => 4, 'nombre' => 'AP-BAJA', 'ip' => '10.1.0.4', 'activo' => 0, 'ping_ok' => 1, 'ping_latencia_ms' => 500]),
+        ]);
+
+        $response = $this->getJson('/api/v1/widget/red', ['Authorization' => 'Bearer '.self::TOKEN]);
+        $response->assertOk();
+        $response->assertJsonPath('latencia.ap', ['promedio' => 21, 'max' => 30]);
+        $response->assertJsonPath('latencia.router', ['promedio' => 7, 'max' => 9]);
+        $response->assertJsonPath('latencia.lentos', [
+            ['type' => 'ap', 'name' => 'AP-1', 'ms' => 30],
+            ['type' => 'ap', 'name' => 'AP-2', 'ms' => 11],
+            ['type' => 'router', 'name' => 'MK-B', 'ms' => 9],
+            ['type' => 'router', 'name' => 'MK-A', 'ms' => 4],
+        ]);
+        $this->assertStringNotContainsString('10.1.0.1', $response->getContent());
     }
 
     private function sembrarEquiposMinimos(): void

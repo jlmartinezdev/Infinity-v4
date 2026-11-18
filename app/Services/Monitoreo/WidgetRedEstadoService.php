@@ -18,7 +18,8 @@ class WidgetRedEstadoService
      * @return array{
      *     generated_at: string,
      *     counts: array{ap: array{online: int, offline: int, unknown: int}, router: array{online: int, offline: int, unknown: int}, olt: array{online: int, offline: int, unknown: int}},
-     *     caidas: list<array{type: string, name: string, nodo: ?string, since: ?string}>
+     *     caidas: list<array{type: string, name: string, nodo: ?string, since: ?string}>,
+     *     latencia: array{ap: array{promedio: ?int, max: ?int}, router: array{promedio: ?int, max: ?int}, lentos: list<array{type: string, name: string, ms: int}>}
      * }
      */
     public function payload(): array
@@ -52,21 +53,55 @@ class WidgetRedEstadoService
                 'olt' => $olt['counts'],
             ],
             'caidas' => array_values($caidas),
+            'latencia' => $this->latencia($ap['latencias'], $router['latencias']),
         ];
     }
 
     /**
-     * @return array{counts: array{online: int, offline: int, unknown: int}, caidas: list<array{type: string, name: string, nodo: ?string, since: ?string}>}
+     * Última latencia de ping guardada de los equipos en línea. Sin IPs.
+     *
+     * @param  list<array{type: string, name: string, ms: int}>  $aps
+     * @param  list<array{type: string, name: string, ms: int}>  $routers
+     * @return array{ap: array{promedio: ?int, max: ?int}, router: array{promedio: ?int, max: ?int}, lentos: list<array{type: string, name: string, ms: int}>}
+     */
+    private function latencia(array $aps, array $routers): array
+    {
+        $resumen = function (array $items): array {
+            $valores = array_column($items, 'ms');
+            if ($valores === []) {
+                return ['promedio' => null, 'max' => null];
+            }
+
+            return [
+                'promedio' => (int) round(array_sum($valores) / count($valores)),
+                'max' => max($valores),
+            ];
+        };
+
+        $todos = array_merge($aps, $routers);
+        usort($todos, fn (array $a, array $b): int => $b['ms'] <=> $a['ms'] ?: strcmp($a['name'], $b['name']));
+
+        return [
+            'ap' => $resumen($aps),
+            'router' => $resumen($routers),
+            'lentos' => array_slice($todos, 0, 5),
+        ];
+    }
+
+    /**
+     * @return array{counts: array{online: int, offline: int, unknown: int}, caidas: list<array{type: string, name: string, nodo: ?string, since: ?string}>, latencias: list<array{type: string, name: string, ms: int}>}
      */
     private function resumenAps(): array
     {
         $counts = $this->countsVacios();
         $caidas = [];
+        $latencias = [];
         if (! Schema::hasTable('nodo_aps_wireless')) {
-            return ['counts' => $counts, 'caidas' => $caidas];
+            return ['counts' => $counts, 'caidas' => $caidas, 'latencias' => $latencias];
         }
 
         $tieneDesde = Schema::hasColumn('nodo_aps_wireless', 'ping_caido_desde');
+        $tieneLatencia = Schema::hasColumn('nodo_aps_wireless', 'ping_latencia_ms');
         $query = NodoApWireless::query()->with('nodo')->orderBy('nombre');
         if (Schema::hasColumn('nodo_aps_wireless', 'activo')) {
             $query->where('activo', true);
@@ -75,6 +110,9 @@ class WidgetRedEstadoService
         foreach ($query->get() as $ap) {
             if ($ap->ping_ok === true) {
                 $counts['online']++;
+                if ($tieneLatencia && $ap->ping_latencia_ms !== null) {
+                    $latencias[] = $this->medida('ap', (string) $ap->nombre, (int) $ap->ping_latencia_ms);
+                }
 
                 continue;
             }
@@ -92,27 +130,32 @@ class WidgetRedEstadoService
             $counts['unknown']++;
         }
 
-        return ['counts' => $counts, 'caidas' => $caidas];
+        return ['counts' => $counts, 'caidas' => $caidas, 'latencias' => $latencias];
     }
 
     /**
-     * @return array{counts: array{online: int, offline: int, unknown: int}, caidas: list<array{type: string, name: string, nodo: ?string, since: ?string}>}
+     * @return array{counts: array{online: int, offline: int, unknown: int}, caidas: list<array{type: string, name: string, nodo: ?string, since: ?string}>, latencias: list<array{type: string, name: string, ms: int}>}
      */
     private function resumenRouters(): array
     {
         $counts = $this->countsVacios();
         $caidas = [];
+        $latencias = [];
         if (! Schema::hasTable('routers')) {
-            return ['counts' => $counts, 'caidas' => $caidas];
+            return ['counts' => $counts, 'caidas' => $caidas, 'latencias' => $latencias];
         }
 
         $tieneDesde = Schema::hasColumn('routers', 'ping_caido_desde');
+        $tieneLatencia = Schema::hasColumn('routers', 'ping_latencia_ms');
         $routers = Router::query()->with('nodo')->orderBy('nombre')->get();
 
         foreach ($routers as $router) {
             $estado = strtolower(trim((string) $router->estado));
             if ($estado === Router::ESTADO_CONECTADO) {
                 $counts['online']++;
+                if ($tieneLatencia && $router->ping_latencia_ms !== null) {
+                    $latencias[] = $this->medida('router', (string) $router->nombre, (int) $router->ping_latencia_ms);
+                }
 
                 continue;
             }
@@ -130,7 +173,7 @@ class WidgetRedEstadoService
             $counts['unknown']++;
         }
 
-        return ['counts' => $counts, 'caidas' => $caidas];
+        return ['counts' => $counts, 'caidas' => $caidas, 'latencias' => $latencias];
     }
 
     /**
@@ -159,6 +202,20 @@ class WidgetRedEstadoService
     private function countsVacios(): array
     {
         return ['online' => 0, 'offline' => 0, 'unknown' => 0];
+    }
+
+    /**
+     * @return array{type: string, name: string, ms: int}
+     */
+    private function medida(string $type, string $name, int $ms): array
+    {
+        $nombre = trim($name);
+
+        return [
+            'type' => $type,
+            'name' => $nombre !== '' ? $nombre : strtoupper($type),
+            'ms' => max(0, $ms),
+        ];
     }
 
     /**

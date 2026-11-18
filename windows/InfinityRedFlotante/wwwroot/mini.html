@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red Infinity</title>
+<style>
+    :root {
+        --bg: #202024;
+        --bg-2: rgba(255, 255, 255, 0.05);
+        --line: rgba(255, 255, 255, 0.08);
+        --text: #f4f4f5;
+        --muted: #a1a1aa;
+        --faint: #52525b;
+        --good: #6ccb5f;
+        --warn: #f5c542;
+        --bad: #ff8a95;
+        --track: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+        font: 12px/1.35 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        user-select: none;
+        overflow: hidden;
+    }
+    p { margin: 0; }
+    .w { padding: 0 12px 12px; }
+
+    .top { display: flex; align-items: center; gap: 6px; height: 30px; cursor: default; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+    .dot.good { background: var(--good); }
+    .dot.bad { background: var(--bad); animation: pulso 1.6s ease-in-out infinite; }
+    .dot.warn { background: var(--warn); }
+    @keyframes pulso { 50% { opacity: .35; } }
+    .titulo { font-weight: 600; flex: 1; }
+    .hora { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .btn {
+        width: 22px; height: 22px; border: 0; border-radius: 5px; background: transparent;
+        color: var(--muted); font: 14px/1 "Segoe UI Symbol", "Segoe UI", sans-serif; cursor: pointer;
+        display: grid; place-items: center; padding: 0;
+    }
+    .btn:hover { background: var(--bg-2); color: var(--text); }
+
+    .hero { display: flex; align-items: center; gap: 12px; }
+    .dona { flex: none; }
+    .dona text { font: 600 15px "Segoe UI Variable Display", "Segoe UI", sans-serif; fill: var(--text); }
+    .dona .sub { font: 10px "Segoe UI", sans-serif; fill: var(--muted); }
+    .estado { font-size: 15px; font-weight: 650; line-height: 1.2; }
+    .estado.good { color: var(--good); }
+    .estado.bad { color: var(--bad); }
+    .estado.warn { color: var(--warn); }
+    .detalle { color: var(--muted); margin-top: 2px; }
+
+    .seccion { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+    .seccion-t { color: var(--muted); font-size: 11px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+
+    .barra { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; }
+    .barra + .barra { margin-top: 6px; }
+    .pista { height: 6px; border-radius: 3px; background: var(--track); display: flex; overflow: hidden; }
+    .pista i { display: block; height: 100%; }
+    .pista .on { background: var(--good); }
+    .pista .off { background: var(--bad); }
+    .pista .nd { background: var(--faint); }
+    .num { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; min-width: 44px; white-space: nowrap; }
+    .num .off { color: var(--bad); }
+    .num .tot { color: var(--muted); font-weight: 400; }
+    .num.muted { color: var(--muted); font-weight: 400; }
+
+    .lat { display: grid; grid-template-columns: minmax(0, 1fr) 70px 38px; align-items: center; gap: 8px; }
+    .lat + .lat { margin-top: 5px; }
+    .lat .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lat .n small { color: var(--muted); font-size: 10px; margin-left: 4px; }
+    .lat .ms { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .chips { display: flex; gap: 6px; }
+    .chip { flex: 1; background: var(--bg-2); border-radius: 6px; padding: 5px 8px; }
+    .chip b { font-size: 14px; font-variant-numeric: tabular-nums; }
+    .chip span { color: var(--muted); font-size: 11px; }
+    .good-t { color: var(--good); }
+    .warn-t { color: var(--warn); }
+    .bad-t { color: var(--bad); }
+
+    .caida { display: flex; align-items: baseline; gap: 8px; }
+    .caida + .caida { margin-top: 4px; }
+    .caida .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .caida .n small { color: var(--muted); margin-left: 4px; }
+    .caida .h { color: var(--bad); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .mas { color: var(--muted); margin-top: 4px; }
+
+    body.compacto .extra { display: none; }
+</style>
+</head>
+<body>
+<div class="w" id="w">
+    <div class="top" id="top">
+        <span class="dot" id="dot"></span>
+        <span class="titulo">Red</span>
+        <span class="hora" id="hora"></span>
+        <button class="btn" id="b-compacto" title="Achicar">–</button>
+        <button class="btn" id="b-cerrar" title="Ocultar">×</button>
+    </div>
+    <div id="contenido">
+        <div class="hero">
+            <svg class="dona" width="58" height="58" viewBox="0 0 58 58" aria-hidden="true"></svg>
+            <div>
+                <p class="estado">Cargando…</p>
+                <p class="detalle"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var ETIQUETAS = { ap: 'AP', router: 'Router', olt: 'OLT' };
+    var MAX_CAIDAS = 3;
+    var MAX_LENTOS = 4;
+    var host = window.chrome && window.chrome.webview ? window.chrome.webview : null;
+    var ultimo = null;
+
+    function enviar(msg) { if (host) host.postMessage(msg); }
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function hace(since) {
+        if (!since) return '—';
+        var t = new Date(since).getTime();
+        if (!isFinite(t)) return '—';
+        var s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+        if (s < 60) return '< 1 min';
+        var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+        if (d > 0) return d + 'd ' + h + 'h';
+        if (h > 0) return h + 'h ' + m + 'm';
+        return m + 'm';
+    }
+
+    function nivel(ms) { return ms < 50 ? 'good' : (ms < 150 ? 'warn' : 'bad'); }
+
+    function dona(on, off, nd) {
+        var total = on + off + nd;
+        var r = 24, c = 2 * Math.PI * r, html = '<circle cx="29" cy="29" r="' + r + '" fill="none" stroke="var(--track)" stroke-width="6"/>';
+        var partes = [[on, 'var(--good)'], [off, 'var(--bad)'], [nd, 'var(--faint)']];
+        var offset = 0;
+        if (total > 0) {
+            partes.forEach(function (p) {
+                if (p[0] <= 0) return;
+                var largo = c * p[0] / total;
+                var hueco = (p[0] < total) ? Math.min(2, largo / 2) : 0;
+                html += '<circle cx="29" cy="29" r="' + r + '" fill="none" stroke="' + p[1] + '" stroke-width="6"' +
+                    ' stroke-dasharray="' + (largo - hueco).toFixed(2) + ' ' + (c - largo + hueco).toFixed(2) + '"' +
+                    ' stroke-dashoffset="' + (-offset).toFixed(2) + '" transform="rotate(-90 29 29)"/>';
+                offset += largo;
+            });
+        }
+        var medidos = on + off;
+        html += '<text x="29" y="31" text-anchor="middle">' + (medidos > 0 ? Math.round(on * 100 / medidos) + '%' : '—') + '</text>';
+        html += '<text class="sub" x="29" y="43" text-anchor="middle">arriba</text>';
+        return html;
+    }
+
+    function barra(clave, c) {
+        var on = c.online || 0, off = c.offline || 0, nd = c.unknown || 0, total = on + off + nd;
+        var pct = function (n) { return total > 0 ? (n * 100 / total).toFixed(1) + '%' : '0'; };
+        var num;
+        if (on === 0 && off === 0) {
+            num = '<span class="num muted">' + (nd > 0 ? nd + ' sin dato' : 'sin dato') + '</span>';
+        } else {
+            num = '<span class="num">' + on + (off > 0 ? ' <span class="off">· ' + off + '↓</span>' : '<span class="tot"> / ' + on + '</span>') + '</span>';
+        }
+        return '<div class="barra"><span>' + ETIQUETAS[clave] + '</span>' +
+            '<div class="pista" title="' + on + ' en línea, ' + off + ' caídos, ' + nd + ' sin dato">' +
+            '<i class="on" style="width:' + pct(on) + '"></i><i class="off" style="width:' + pct(off) + '"></i><i class="nd" style="width:' + pct(nd) + '"></i>' +
+            '</div>' + num + '</div>';
+    }
+
+    function latencia(lat) {
+        if (!lat) return '';
+        var lentos = (lat.lentos || []).slice(0, MAX_LENTOS);
+        var chips = ['ap', 'router'].map(function (k) {
+            var v = lat[k] || {};
+            if (v.promedio == null) return '<div class="chip"><span>' + ETIQUETAS[k] + '</span> <b style="color:var(--muted)">—</b></div>';
+            return '<div class="chip"><span>' + ETIQUETAS[k] + ' prom.</span> <b class="' + nivel(v.promedio) + '-t">' + v.promedio + '</b><span> ms</span></div>';
+        }).join('');
+        if (lentos.length === 0 && chips.indexOf('prom.') === -1) return '';
+        var escala = Math.max(100, lentos.length ? lentos[0].ms : 0);
+        var filas = lentos.map(function (l) {
+            var n = nivel(l.ms);
+            return '<div class="lat"><span class="n">' + esc(l.name) + '<small>' + ETIQUETAS[l.type] + '</small></span>' +
+                '<div class="pista"><i style="width:' + Math.max(4, l.ms * 100 / escala).toFixed(1) + '%;background:var(--' + n + ')"></i></div>' +
+                '<span class="ms ' + n + '-t">' + l.ms + '</span></div>';
+        }).join('');
+        return '<div class="seccion extra"><div class="seccion-t"><span>Latencia (ms)</span>' + (lentos.length ? '<span>más lentos</span>' : '') + '</div>' +
+            '<div class="chips">' + chips + '</div>' + (filas ? '<div style="margin-top:8px">' + filas + '</div>' : '') + '</div>';
+    }
+
+    function caidas(lista) {
+        if (!lista.length) return '';
+        var html = '<div class="seccion extra"><div class="seccion-t"><span>Equipos caídos</span></div>';
+        lista.slice(0, MAX_CAIDAS).forEach(function (c) {
+            html += '<div class="caida"><span class="n">' + esc(c.name) + '<small>' + esc(ETIQUETAS[c.type] || c.type) + (c.nodo ? ' · ' + esc(c.nodo) : '') + '</small></span>' +
+                '<span class="h" data-since="' + esc(c.since || '') + '">' + esc(hace(c.since)) + '</span></div>';
+        });
+        if (lista.length > MAX_CAIDAS) html += '<p class="mas">y ' + (lista.length - MAX_CAIDAS) + ' más</p>';
+        return html + '</div>';
+    }
+
+    function informarAlto() {
+        enviar({ accion: 'alto', alto: Math.ceil(document.getElementById('w').getBoundingClientRect().height) });
+    }
+
+    function pintar(data) {
+        ultimo = data;
+        var cont = document.getElementById('contenido');
+        var dot = document.getElementById('dot');
+        var hora = document.getElementById('hora');
+
+        if (data && data.error) {
+            dot.className = 'dot warn';
+            hora.textContent = '';
+            cont.innerHTML = '<div class="hero"><svg class="dona" width="58" height="58" viewBox="0 0 58 58">' + dona(0, 0, 0) + '</svg>' +
+                '<div><p class="estado warn">' + esc(data.error) + '</p><p class="detalle">Se reintenta en un minuto</p></div></div>';
+            informarAlto();
+            return;
+        }
+
+        var counts = data.counts || {};
+        var lista = data.caidas || [];
+        var on = 0, off = 0, nd = 0;
+        ['ap', 'router', 'olt'].forEach(function (k) {
+            var c = counts[k] || {};
+            on += c.online || 0; off += c.offline || 0; nd += c.unknown || 0;
+        });
+        var total = lista.length;
+        var cls = total === 0 ? 'good' : 'bad';
+        dot.className = 'dot ' + cls;
+
+        hora.textContent = '';
+        if (data.generated_at) {
+            var f = new Date(data.generated_at);
+            if (isFinite(f.getTime())) hora.textContent = f.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
+        cont.innerHTML =
+            '<div class="hero"><svg class="dona" width="58" height="58" viewBox="0 0 58 58" role="img" aria-label="' + on + ' en línea, ' + off + ' caídos">' + dona(on, off, nd) + '</svg>' +
+            '<div><p class="estado ' + cls + '">' + (total === 0 ? 'Todo en línea' : (total === 1 ? '1 equipo caído' : total + ' equipos caídos')) + '</p>' +
+            '<p class="detalle">' + on + ' de ' + (on + off) + ' responden' + (nd > 0 ? ' · ' + nd + ' sin dato' : '') + '</p></div></div>' +
+            '<div class="seccion extra">' + barra('ap', counts.ap || {}) + barra('router', counts.router || {}) + barra('olt', counts.olt || {}) + '</div>' +
+            caidas(lista) +
+            latencia(data.latencia);
+        informarAlto();
+    }
+
+    document.getElementById('top').addEventListener('mousedown', function (e) {
+        if (e.button === 0 && !e.target.closest('.btn')) enviar({ accion: 'arrastrar' });
+    });
+    document.getElementById('b-cerrar').addEventListener('click', function () { enviar({ accion: 'ocultar' }); });
+    document.getElementById('b-compacto').addEventListener('click', function () {
+        var compacto = document.body.classList.toggle('compacto');
+        this.textContent = compacto ? '+' : '–';
+        this.title = compacto ? 'Agrandar' : 'Achicar';
+        enviar({ accion: 'compacto', valor: compacto });
+        informarAlto();
+    });
+
+    setInterval(function () {
+        document.querySelectorAll('[data-since]').forEach(function (el) {
+            var s = el.getAttribute('data-since');
+            if (s) el.textContent = hace(s);
+        });
+    }, 30000);
+
+    window.addEventListener('resize', informarAlto);
+    window.pintar = pintar;
+    window.ponerCompacto = function (valor) {
+        document.body.classList.toggle('compacto', !!valor);
+        var b = document.getElementById('b-compacto');
+        b.textContent = valor ? '+' : '–';
+        b.title = valor ? 'Agrandar' : 'Achicar';
+        informarAlto();
+    };
+
+    if (host) {
+        host.addEventListener('message', function (e) {
+            var m = e.data;
+            if (m && m.compacto !== undefined) window.ponerCompacto(m.compacto);
+            if (m && m.datos) pintar(m.datos);
+        });
+        enviar({ accion: 'listo' });
+    } else if (window.DEMO) {
+        pintar(window.DEMO);
+    }
+})();
+</script>
+</body>
+</html>

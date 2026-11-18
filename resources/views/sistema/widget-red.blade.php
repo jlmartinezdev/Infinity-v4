@@ -3,39 +3,6 @@
 @section('title', 'Widget de red')
 
 @section('content')
-@php
-    $etiquetas = ['ap' => 'AP', 'router' => 'Router', 'olt' => 'OLT'];
-
-    $lineaTipo = function (array $counts): array {
-        $online = (int) ($counts['online'] ?? 0);
-        $offline = (int) ($counts['offline'] ?? 0);
-        $unknown = (int) ($counts['unknown'] ?? 0);
-        if ($online === 0 && $offline === 0) {
-            return [
-                'modo' => 'sindato',
-                'texto' => $unknown > 0 ? $unknown.' sin dato' : 'sin dato',
-            ];
-        }
-
-        return [
-            'modo' => 'conteo',
-            'online' => $online,
-            'offline' => $offline,
-            'extra' => $unknown > 0 ? $unknown.' sin dato' : '',
-        ];
-    };
-
-    $hace = function (?string $since): string {
-        if ($since === null || $since === '') {
-            return '—';
-        }
-
-        return \App\Support\MonitoreoDuracion::formatear(\Illuminate\Support\Carbon::parse($since)) ?? '—';
-    };
-
-    $generado = \Illuminate\Support\Carbon::parse($payload['generated_at'] ?? now())->timezone(config('app.timezone'))->format('H:i');
-    $totalCaidas = count($payload['caidas'] ?? []);
-@endphp
 <div class="max-w-5xl mx-auto space-y-4">
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -48,150 +15,69 @@
         <a href="{{ route('sistema.red-monitoreo.index') }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">Monitoreo de red</a>
     </div>
 
-    <div id="widget-board" class="widget-board" data-url="{{ $urlDatos }}">
-        <article class="widget-card widget-card--small" aria-label="Red, resumen">
-            <p class="widget-kicker">Red</p>
-            <p class="widget-sub">en vivo</p>
-            <ul class="widget-rows">
-                @foreach($etiquetas as $clave => $etiqueta)
-                    @php $linea = $lineaTipo($payload['counts'][$clave] ?? []); @endphp
-                    <li>
-                        <span>{{ $etiqueta }}</span>
-                        @if($linea['modo'] === 'sindato')
-                            <span class="widget-sindato">{{ $linea['texto'] }}</span>
-                        @else
-                            <span class="widget-nums">
-                                <span class="up">{{ $linea['online'] }}</span>
-                                <span class="down">{{ $linea['offline'] }}</span>
-                            </span>
-                        @endif
-                    </li>
-                @endforeach
-            </ul>
-            <p class="widget-foot {{ $totalCaidas === 0 ? 'up' : 'down' }}">
-                {{ $totalCaidas === 0 ? 'Sin caídas' : ($totalCaidas === 1 ? '1 caída' : $totalCaidas.' caídas') }}
-            </p>
-        </article>
-
-        <article class="widget-card widget-card--large" aria-label="Caídas de red">
-            <header class="widget-head">
-                <div>
-                    <p class="widget-kicker">Caídas de red</p>
-                    <p class="widget-sub">Actualizado {{ $generado }}</p>
-                </div>
-            </header>
-            <div class="widget-pills">
-                @foreach($etiquetas as $clave => $etiqueta)
-                    @php $linea = $lineaTipo($payload['counts'][$clave] ?? []); @endphp
-                    <div class="widget-pill">
-                        <p class="widget-pill-label">{{ $etiqueta }}</p>
-                        @if($linea['modo'] === 'sindato')
-                            <p class="widget-sindato">{{ $linea['texto'] }}</p>
-                        @else
-                            <p>
-                                <span class="up">{{ $linea['online'] }} en línea</span>
-                                <span class="down">{{ $linea['offline'] }} {{ $linea['offline'] === 1 ? 'caída' : 'caídas' }}</span>
-                            </p>
-                            @if($linea['extra'] !== '')
-                                <p class="widget-sindato">{{ $linea['extra'] }}</p>
-                            @endif
-                        @endif
-                    </div>
-                @endforeach
-            </div>
-            <h2 class="widget-list-title">Caídas</h2>
-            @if($totalCaidas === 0)
-                <p class="up widget-empty">Sin caídas</p>
-            @else
-                <ul class="widget-list">
-                    @foreach(array_slice($payload['caidas'], 0, 8) as $caida)
-                        <li>
-                            <span class="down widget-tipo">{{ $etiquetas[$caida['type']] ?? $caida['type'] }}</span>
-                            <span class="widget-nombre">{{ $caida['name'] }}</span>
-                            <span class="widget-nodo">{{ $caida['nodo'] ?: '—' }}</span>
-                            <span class="down widget-hace">{{ $hace($caida['since'] ?? null) }}</span>
-                        </li>
-                    @endforeach
-                </ul>
-                @if($totalCaidas > 8)
-                    <p class="widget-sub">y {{ $totalCaidas - 8 }} más</p>
-                @endif
-            @endif
-        </article>
-    </div>
+    <div id="widget-board" class="widget-board" data-url="{{ $urlDatos }}"></div>
     <p id="widget-estado" class="text-xs text-gray-500 dark:text-gray-400"></p>
 </div>
 
 <style>
     .widget-board {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        align-items: stretch;
-        padding: 22px;
-        border-radius: 28px;
+        display: grid;
+        grid-template-columns: 180px minmax(0, 1fr);
+        grid-template-areas: "small medium" "large large";
+        gap: 14px;
+        padding: 20px;
+        border-radius: 24px;
         background:
-            radial-gradient(900px 280px at 0% 0%, rgba(255,255,255,0.06), transparent 55%),
-            linear-gradient(180deg, #1a1a1e 0%, #101012 100%);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+            radial-gradient(800px 260px at 0% 0%, rgba(96, 165, 250, 0.10), transparent 60%),
+            linear-gradient(180deg, #1c1c21 0%, #121215 100%);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
     }
-    .widget-card {
-        background: rgba(43, 43, 48, 0.94);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
+    .widget-board p { margin: 0; }
+    @media (max-width: 640px) {
+        .widget-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "small" "medium" "large"; padding: 14px; }
+    }
+    .wc {
+        background: rgba(44, 44, 50, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 14px;
         color: #f4f4f5;
-        box-shadow: 0 10px 28px rgba(0,0,0,0.35);
-    }
-    .widget-card--small {
-        width: 200px;
-        min-height: 210px;
-        padding: 14px 14px 12px;
+        padding: 14px 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.30);
         display: flex;
         flex-direction: column;
+        min-width: 0;
     }
-    .widget-card--large {
-        flex: 1 1 340px;
-        min-width: 280px;
-        padding: 16px 18px 14px;
-    }
-    .widget-kicker {
-        font-size: 18px;
-        font-weight: 650;
-        letter-spacing: -0.02em;
-        line-height: 1.1;
-    }
-    .widget-sub { color: #a1a1aa; font-size: 12px; margin-top: 2px; }
-    .widget-rows { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
-    .widget-rows li, .widget-list li {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px;
-        font-size: 13px;
-    }
-    .widget-nums { display: flex; gap: 10px; font-variant-numeric: tabular-nums; font-weight: 650; }
-    .up { color: #4ade80; }
-    .down { color: #f87171; }
-    .widget-sindato { color: #a1a1aa; font-size: 12px; }
-    .widget-foot { margin-top: auto; padding-top: 12px; font-size: 13px; font-weight: 650; }
-    .widget-head { display: flex; justify-content: space-between; gap: 12px; }
-    .widget-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-    .widget-pill {
-        flex: 1 1 120px;
-        background: rgba(255,255,255,0.04);
-        border-radius: 12px;
-        padding: 10px 12px;
-        font-size: 13px;
-    }
-    .widget-pill p + p { margin-top: 2px; }
-    .widget-pill-label { color: #e4e4e7; font-weight: 650; }
-    .widget-list-title { margin: 16px 0 8px; font-size: 13px; font-weight: 650; color: #e4e4e7; }
-    .widget-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-    .widget-tipo { width: 4.5rem; flex: none; font-size: 12px; font-weight: 650; }
-    .widget-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .widget-nodo, .widget-hace { color: #a1a1aa; font-size: 12px; font-variant-numeric: tabular-nums; }
-    .widget-hace.down { color: #f87171; }
-    .widget-empty { font-size: 13px; font-weight: 650; }
+    .wc--small { grid-area: small; min-height: 180px; }
+    .wc--medium { grid-area: medium; min-height: 180px; }
+    .wc--large { grid-area: large; min-height: 260px; }
+    .wc-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #a1a1aa; }
+    .wc-top b { font-weight: 600; color: #d4d4d8; }
+    .wc-estado { margin-top: 6px; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.2; }
+    .wc-estado-detalle { font-size: 12px; color: #a1a1aa; margin-top: 2px; }
+    .good { color: #6ccb5f; }
+    .bad { color: #ff99a4; }
+    .warn { color: #fce100; }
+    .muted { color: #a1a1aa; }
+    .wc-rows { list-style: none; margin: auto 0 0; padding: 12px 0 0; border-top: 1px solid rgba(255, 255, 255, 0.08); display: grid; gap: 7px; }
+    .wc-rows li { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+    .wc-rows li > span:first-child { flex: 1; }
+    .wc-rows .num { font-weight: 650; font-variant-numeric: tabular-nums; font-size: 13px; }
+    .wc-rows .num.zero { color: #71717a; }
+    .wc-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .wc-tile { background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 9px 11px; min-width: 0; }
+    .wc-tile-label { font-size: 12px; color: #a1a1aa; }
+    .wc-tile-num { font-size: 26px; font-weight: 650; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .wc-tile-det { font-size: 12px; }
+    .wc-list-title { margin: 14px 0 6px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 12px; font-weight: 600; color: #a1a1aa; }
+    .wc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .wc-list li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .wc-list .info { flex: 1; min-width: 0; }
+    .wc-list .nombre, .wc-list .det { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wc-list .nombre { font-size: 13px; font-weight: 600; }
+    .wc-list .det { font-size: 12px; color: #a1a1aa; }
+    .wc-list .hace { font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; color: #ff99a4; }
+    .wc-mas { margin-top: 6px; font-size: 12px; color: #a1a1aa; }
 </style>
 
 <script>
@@ -201,6 +87,13 @@
         if (!board) return;
         var url = board.getAttribute('data-url');
         var etiquetas = { ap: 'AP', router: 'Router', olt: 'OLT' };
+        var MAX_MEDIUM = 2;
+        var MAX_LARGE = 6;
+
+        function esc(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
 
         function hace(since) {
             if (!since) return '—';
@@ -218,64 +111,86 @@
             return partes.join(' ');
         }
 
-        function linea(counts) {
+        // Misma lógica que WidgetRedClient.Tipo del proveedor de Windows.
+        function tipo(clave, counts) {
             var online = counts.online || 0;
             var offline = counts.offline || 0;
             var unknown = counts.unknown || 0;
+            var sinDato = unknown > 0 ? unknown + ' sin dato' : 'sin dato';
             if (online === 0 && offline === 0) {
-                return { modo: 'sindato', texto: unknown > 0 ? (unknown + ' sin dato') : 'sin dato' };
+                return { etiqueta: etiquetas[clave], modo: 'sindato', texto: sinDato, grande: '—', grandeCls: 'muted', detalle: sinDato, detalleCls: 'muted' };
             }
-            return { modo: 'conteo', online: online, offline: offline, extra: unknown > 0 ? (unknown + ' sin dato') : '' };
+            var detalle = offline === 0 ? 'en línea' : (offline === 1 ? '1 caído' : offline + ' caídos');
+            if (unknown > 0) detalle += ' · ' + sinDato;
+            return {
+                etiqueta: etiquetas[clave], modo: 'conteo', online: online, offline: offline,
+                grande: online, grandeCls: offline > 0 ? '' : 'good',
+                detalle: detalle, detalleCls: offline > 0 ? 'bad' : 'muted'
+            };
         }
 
-        function esc(value) {
-            return String(value == null ? '' : value)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        function cabecera(hora, est) {
+            return '<div class="wc-top"><b>Red</b><span>' + esc(hora) + '</span></div>' +
+                '<p class="wc-estado ' + est.cls + '">' + esc(est.texto) + '</p>';
+        }
+
+        function filas(tipos) {
+            return '<ul class="wc-rows">' + tipos.map(function (t) {
+                if (t.modo === 'sindato') {
+                    return '<li><span>' + t.etiqueta + '</span><span class="muted">' + esc(t.texto) + '</span></li>';
+                }
+                return '<li><span>' + t.etiqueta + '</span>' +
+                    '<span class="num good">↑ ' + t.online + '</span>' +
+                    '<span class="num ' + (t.offline > 0 ? 'bad' : 'zero') + '">↓ ' + t.offline + '</span></li>';
+            }).join('') + '</ul>';
+        }
+
+        function tiles(tipos) {
+            return '<div class="wc-tiles">' + tipos.map(function (t) {
+                return '<div class="wc-tile"><p class="wc-tile-label">' + t.etiqueta + '</p>' +
+                    '<p class="wc-tile-num ' + t.grandeCls + '">' + esc(t.grande) + '</p>' +
+                    '<p class="wc-tile-det ' + t.detalleCls + '">' + esc(t.detalle) + '</p></div>';
+            }).join('') + '</div>';
+        }
+
+        function lista(caidas, max) {
+            if (caidas.length === 0) return '';
+            var html = '<p class="wc-list-title">Equipos caídos</p><ul class="wc-list">';
+            caidas.slice(0, max).forEach(function (c) {
+                var etiqueta = etiquetas[c.type] || c.type;
+                html += '<li><div class="info"><p class="nombre">' + esc(c.name || etiqueta) + '</p>' +
+                    '<p class="det">' + esc(c.nodo ? etiqueta + ' · ' + c.nodo : etiqueta) + '</p></div>' +
+                    '<span class="hace" data-since="' + esc(c.since || '') + '">' + esc(hace(c.since)) + '</span></li>';
+            });
+            html += '</ul>';
+            if (caidas.length > max) html += '<p class="wc-mas">y ' + (caidas.length - max) + ' más</p>';
+            return html;
         }
 
         function pintar(payload) {
             var counts = payload.counts || {};
             var caidas = payload.caidas || [];
             var total = caidas.length;
-            var filas = '';
-            var pills = '';
-            ['ap', 'router', 'olt'].forEach(function (clave) {
-                var item = linea(counts[clave] || {});
-                var etiqueta = etiquetas[clave];
-                if (item.modo === 'sindato') {
-                    filas += '<li><span>' + etiqueta + '</span><span class="widget-sindato">' + esc(item.texto) + '</span></li>';
-                    pills += '<div class="widget-pill"><p class="widget-pill-label">' + etiqueta + '</p><p class="widget-sindato">' + esc(item.texto) + '</p></div>';
-                } else {
-                    filas += '<li><span>' + etiqueta + '</span><span class="widget-nums"><span class="up">' + item.online + '</span><span class="down">' + item.offline + '</span></span></li>';
-                    pills += '<div class="widget-pill"><p class="widget-pill-label">' + etiqueta + '</p><p><span class="up">' + item.online + ' en línea</span> <span class="down">' + item.offline + (item.offline === 1 ? ' caída' : ' caídas') + '</span></p>' + (item.extra ? '<p class="widget-sindato">' + esc(item.extra) + '</p>' : '') + '</div>';
-                }
-            });
-            var resumen = total === 0 ? 'Sin caídas' : (total === 1 ? '1 caída' : total + ' caídas');
-            var lista = '';
-            if (total === 0) {
-                lista = '<p class="up widget-empty">Sin caídas</p>';
-            } else {
-                lista = '<ul class="widget-list">';
-                caidas.slice(0, 8).forEach(function (caida) {
-                    lista += '<li><span class="down widget-tipo">' + esc(etiquetas[caida.type] || caida.type) + '</span><span class="widget-nombre">' + esc(caida.name) + '</span><span class="widget-nodo">' + esc(caida.nodo || '—') + '</span><span class="down widget-hace">' + esc(hace(caida.since)) + '</span></li>';
-                });
-                lista += '</ul>';
-                if (total > 8) lista += '<p class="widget-sub">y ' + (total - 8) + ' más</p>';
-            }
+            var tipos = ['ap', 'router', 'olt'].map(function (clave) { return tipo(clave, counts[clave] || {}); });
+            var est = {
+                texto: total === 0 ? 'Todo en línea' : (total === 1 ? '1 equipo caído' : total + ' equipos caídos'),
+                cls: total === 0 ? 'good' : 'bad'
+            };
             var hora = '';
             if (payload.generated_at) {
                 var fecha = new Date(payload.generated_at);
                 if (isFinite(fecha.getTime())) {
-                    hora = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                    hora = fecha.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false });
                 }
             }
             board.innerHTML =
-                '<article class="widget-card widget-card--small" aria-label="Red, resumen"><p class="widget-kicker">Red</p><p class="widget-sub">en vivo</p><ul class="widget-rows">' + filas + '</ul><p class="widget-foot ' + (total === 0 ? 'up' : 'down') + '">' + resumen + '</p></article>' +
-                '<article class="widget-card widget-card--large" aria-label="Caídas de red"><header class="widget-head"><div><p class="widget-kicker">Caídas de red</p><p class="widget-sub">Actualizado ' + esc(hora) + '</p></div></header><div class="widget-pills">' + pills + '</div><h2 class="widget-list-title">Caídas</h2>' + lista + '</article>';
+                '<article class="wc wc--small" aria-label="Widget chico">' + cabecera(hora, est) + filas(tipos) + '</article>' +
+                '<article class="wc wc--medium" aria-label="Widget mediano">' + cabecera(hora, est) + tiles(tipos) + lista(caidas, MAX_MEDIUM) + '</article>' +
+                '<article class="wc wc--large" aria-label="Widget grande">' + cabecera(hora, est) + tiles(tipos) + lista(caidas, MAX_LARGE) + '</article>';
         }
 
         function tick() {
-            board.querySelectorAll('.widget-hace').forEach(function (el) {
+            board.querySelectorAll('.hace[data-since]').forEach(function (el) {
                 var since = el.getAttribute('data-since');
                 if (since) el.textContent = hace(since);
             });
@@ -298,6 +213,7 @@
             }
         }
 
+        pintar(@json($payload));
         setInterval(refrescar, 60000);
         setInterval(tick, 30000);
     })();

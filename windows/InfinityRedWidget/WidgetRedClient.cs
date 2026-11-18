@@ -53,95 +53,146 @@ internal static class WidgetRedClient
         }
     }
 
+    private const int MaxCaidasLarge = 6;
+    private const int MaxCaidasMedium = 2;
+
+    private static readonly string[] Claves = { "ap", "router", "olt" };
+
     private static JsonObject Map(JsonObject root)
     {
-        var counts = root["counts"]?.AsObject();
-        var ap = counts?["ap"]?.AsObject();
-        var router = counts?["router"]?.AsObject();
-        var olt = counts?["olt"]?.AsObject();
-        var caidas = root["caidas"]?.AsArray();
+        var counts = root["counts"] as JsonObject;
+        var caidas = root["caidas"] as JsonArray;
         var total = caidas?.Count ?? 0;
 
-        var data = Base(total == 0 ? "Sin caídas" : total == 1 ? "1 caída" : total + " caídas", "en vivo", "");
-        FillTipo(data, "ap", ReadInt(ap, "online"), ReadInt(ap, "offline"), ReadInt(ap, "unknown"));
-        FillTipo(data, "router", ReadInt(router, "online"), ReadInt(router, "offline"), ReadInt(router, "unknown"));
-        FillTipo(data, "olt", ReadInt(olt, "online"), ReadInt(olt, "offline"), ReadInt(olt, "unknown"));
-        data["sinCaidas"] = total == 0 ? "si" : "no";
+        var data = Base(
+            total == 0 ? "Todo en línea" : total == 1 ? "1 equipo caído" : total + " equipos caídos",
+            total == 0 ? "Good" : "Attention",
+            "",
+            Hora(Str(root, "generated_at")));
+
+        var tipos = new JsonArray();
+        foreach (var clave in Claves)
+        {
+            var tipo = counts?[clave] as JsonObject;
+            tipos.Add(Tipo(clave, ReadInt(tipo, "online"), ReadInt(tipo, "offline"), ReadInt(tipo, "unknown")));
+        }
+
+        data["tipos"] = tipos;
+        data["hayCaidas"] = total > 0 ? "si" : "no";
 
         var lista = new JsonArray();
-        var shown = 0;
         if (caidas != null)
         {
             foreach (var item in caidas)
             {
-                if (shown >= 8)
+                if (lista.Count >= MaxCaidasLarge)
                 {
                     break;
                 }
 
-                if (item is not JsonObject)
+                if (item is not JsonObject row)
                 {
                     continue;
                 }
 
-                var row = item.AsObject();
+                var etiqueta = Etiqueta(Str(row, "type"));
+                var nodo = Str(row, "nodo");
                 lista.Add(new JsonObject
                 {
-                    ["tipo"] = Etiqueta(Str(row, "type")),
-                    ["nombre"] = Str(row, "name") ?? "",
-                    ["nodo"] = Str(row, "nodo") ?? "",
+                    ["nombre"] = Str(row, "name") ?? etiqueta,
+                    ["detalle"] = string.IsNullOrWhiteSpace(nodo) ? etiqueta : etiqueta + " · " + nodo,
                     ["hace"] = Hace(Str(row, "since")),
                 });
-                shown++;
             }
         }
 
         data["caidas"] = lista;
-        data["masCaidas"] = total > shown ? "y " + (total - shown) + " más" : "";
+        data["masMedium"] = total > MaxCaidasMedium ? "y " + (total - MaxCaidasMedium) + " más" : "";
+        data["masLarge"] = total > MaxCaidasLarge ? "y " + (total - MaxCaidasLarge) + " más" : "";
         return data;
     }
 
-    private static void FillTipo(JsonObject data, string prefix, int online, int offline, int unknown)
+    private static JsonObject Tipo(string clave, int online, int offline, int unknown)
     {
-        var sindato = online == 0 && offline == 0;
-        data[prefix + "Modo"] = sindato ? "sindato" : "conteo";
-        data[prefix + "Online"] = online.ToString();
-        data[prefix + "Offline"] = offline.ToString();
-        data[prefix + "Texto"] = unknown > 0 ? unknown + " sin dato" : "sin dato";
+        var sinDato = unknown > 0 ? unknown + " sin dato" : "sin dato";
+        if (online == 0 && offline == 0)
+        {
+            return SinDato(clave, sinDato);
+        }
+
+        var detalle = offline == 0 ? "en línea" : offline == 1 ? "1 caído" : offline + " caídos";
+        if (unknown > 0)
+        {
+            detalle += " · " + sinDato;
+        }
+
+        return new JsonObject
+        {
+            ["etiqueta"] = Etiqueta(clave),
+            ["modo"] = "conteo",
+            ["texto"] = "",
+            ["online"] = online.ToString(),
+            ["offline"] = offline.ToString(),
+            ["offlineColor"] = offline > 0 ? "Attention" : "Default",
+            ["grande"] = online.ToString(),
+            ["grandeColor"] = offline > 0 ? "Default" : "Good",
+            ["detalle"] = detalle,
+            ["detalleColor"] = offline > 0 ? "Attention" : "Default",
+        };
     }
 
-    private static JsonObject Base(string resumen, string subtitulo, string aviso)
+    private static JsonObject SinDato(string clave, string texto)
     {
         return new JsonObject
         {
-            ["subtitulo"] = subtitulo,
-            ["aviso"] = aviso,
-            ["resumenCaidas"] = resumen,
-            ["sinCaidas"] = aviso == "" ? "si" : "no",
+            ["etiqueta"] = Etiqueta(clave),
+            ["modo"] = "sindato",
+            ["texto"] = texto,
+            ["online"] = "0",
+            ["offline"] = "0",
+            ["offlineColor"] = "Default",
+            ["grande"] = "—",
+            ["grandeColor"] = "Default",
+            ["detalle"] = texto,
+            ["detalleColor"] = "Default",
+        };
+    }
+
+    private static JsonObject Base(string estado, string color, string detalle, string actualizado)
+    {
+        var tipos = new JsonArray();
+        foreach (var clave in Claves)
+        {
+            tipos.Add(SinDato(clave, "sin dato"));
+        }
+
+        return new JsonObject
+        {
+            ["estadoTexto"] = estado,
+            ["estadoColor"] = color,
+            ["estadoDetalle"] = detalle,
+            ["actualizado"] = actualizado,
+            ["tipos"] = tipos,
+            ["hayCaidas"] = "no",
             ["caidas"] = new JsonArray(),
-            ["masCaidas"] = "",
-            ["apModo"] = "sindato",
-            ["apOnline"] = "0",
-            ["apOffline"] = "0",
-            ["apTexto"] = "sin dato",
-            ["routerModo"] = "sindato",
-            ["routerOnline"] = "0",
-            ["routerOffline"] = "0",
-            ["routerTexto"] = "sin dato",
-            ["oltModo"] = "sindato",
-            ["oltOnline"] = "0",
-            ["oltOffline"] = "0",
-            ["oltTexto"] = "sin dato",
+            ["masMedium"] = "",
+            ["masLarge"] = "",
         };
     }
 
     private static string ErrorData(string mensaje)
     {
-        var data = Base(mensaje, mensaje, mensaje);
-        data["apTexto"] = "—";
-        data["routerTexto"] = "—";
-        data["oltTexto"] = "sin dato";
-        return data.ToJsonString();
+        return Base(mensaje, "Warning", "Se reintenta en un minuto", "").ToJsonString();
+    }
+
+    private static string Hora(string? iso)
+    {
+        if (string.IsNullOrWhiteSpace(iso) || !DateTimeOffset.TryParse(iso, out var fecha))
+        {
+            return "";
+        }
+
+        return fecha.ToLocalTime().ToString("HH:mm");
     }
 
     private static int ReadInt(JsonObject? parent, string key)
