@@ -17,7 +17,7 @@ Artisan::command('crear-factura-internas', function () {
     return $this->call('facturas:crear-internas-automaticas', [
         '--force' => true,
     ]);
-})->purpose('Alias: crea facturas internas automáticas para clientes activos con servicio asociado; factura A/S/C (mes actual, --force).');
+})->purpose('Alias: crea facturas internas del mes anterior (emisión el día 1, --force).');
 
 Artisan::command('verificar-facturas-mes-pasado', function () {
     return $this->call('facturas:auditar-internas-mes-pasado', [

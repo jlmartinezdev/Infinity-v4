@@ -413,17 +413,48 @@
             e.preventDefault();
             var modo = cfg.modoCambioPlan || 'prorratear';
             var hidden = document.getElementById('generar_factura_prorrateo_cambio_plan');
-            if (modo === 'pagada') {
+            if (modo === 'dia1') {
                 Swal.fire({
                     icon: 'info',
-                    title: 'El mes ya está pagado',
-                    text: 'No se genera factura prorrateada. El plan nuevo se factura al iniciar el mes siguiente.',
+                    title: 'Cambio el día 1',
+                    text: 'No se genera factura prorrateada. El mes en curso se factura completo con el plan nuevo el día 1 del mes siguiente.',
                     showCancelButton: true,
                     confirmButtonText: 'Guardar cambio',
                     cancelButtonText: 'Cancelar'
                 }).then(function (r) {
                     if (!r.isConfirmed) return;
                     hidden.value = '0';
+                    HTMLFormElement.prototype.submit.call(form);
+                });
+                return;
+            }
+            if (modo === 'mes_pagado') {
+                if (newPrecio < oldPrecio) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'El mes ya está pago',
+                        text: 'El plan nuevo es más bajo y el mes completo ya está pago por adelantado. No se genera factura prorrateada.',
+                        showCancelButton: true,
+                        confirmButtonText: 'Guardar cambio',
+                        cancelButtonText: 'Cancelar'
+                    }).then(function (r) {
+                        if (!r.isConfirmed) return;
+                        hidden.value = '0';
+                        HTMLFormElement.prototype.submit.call(form);
+                    });
+                    return;
+                }
+                Swal.fire({
+                    icon: 'question',
+                    title: 'Suba de plan con el mes pago',
+                    text: 'El mes completo ya está pago. Se genera una factura solo por la diferencia de los días que faltan.',
+                    showDenyButton: true,
+                    confirmButtonText: 'Sí, facturar la diferencia',
+                    denyButtonText: 'No, guardar sin factura',
+                    reverseButtons: true
+                }).then(function (r) {
+                    if (r.isDismissed) return;
+                    hidden.value = r.isConfirmed ? '1' : '0';
                     HTMLFormElement.prototype.submit.call(form);
                 });
                 return;

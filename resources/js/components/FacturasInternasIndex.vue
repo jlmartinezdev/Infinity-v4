@@ -482,7 +482,7 @@ async function cargar(page = 1) {
 function onEjecutarCrear() {
   const Swal = typeof window !== 'undefined' ? window.Swal : null;
   const msg =
-    '¿Ejecutar la tarea crear-factura-internas? Se crearán facturas del mes actual para clientes activos con al menos un servicio asociado; se facturan servicios activos, suspendidos o cortados (omite si ya existe factura del período).';
+    '¿Ejecutar la tarea crear-factura-internas? Se crearán facturas del mes anterior, con emisión el día 1, para clientes activos. Se omiten los servicios que ya tienen factura de ese período (instalación o cambio de plan).';
   const run = () => ejecutarFormRef.value?.submit();
   if (Swal) {
     Swal.fire({

@@ -27531,7 +27531,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     }
     function onEjecutarCrear() {
       var Swal = typeof window !== 'undefined' ? window.Swal : null;
-      var msg = '¿Ejecutar la tarea crear-factura-internas? Se crearán facturas del mes actual para clientes activos con al menos un servicio asociado; se facturan servicios activos, suspendidos o cortados (omite si ya existe factura del período).';
+      var msg = '¿Ejecutar la tarea crear-factura-internas? Se crearán facturas del mes anterior, con emisión el día 1, para clientes activos. Se omiten los servicios que ya tienen factura de ese período (instalación o cambio de plan).';
       var run = function run() {
         var _ejecutarFormRef$valu;
         return (_ejecutarFormRef$valu = ejecutarFormRef.value) === null || _ejecutarFormRef$valu === void 0 ? void 0 : _ejecutarFormRef$valu.submit();

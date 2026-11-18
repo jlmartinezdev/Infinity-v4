@@ -247,18 +247,27 @@ class ServicioController extends Controller
 
     private function modoCambioPlanDe(Servicio $servicio): string
     {
-        $accion = app(FacturacionService::class)->decidirFacturaCambioPlan(
+        $hoy = now()->startOfDay();
+        $facturacion = app(FacturacionService::class);
+        if ($hoy->day < FacturacionService::DIA_PRORRATEO_CAMBIO_PLAN) {
+            return 'dia1';
+        }
+        if ($facturacion->mesCompletoDelServicioEstaPagado(
             (int) $servicio->cliente_id,
             (int) $servicio->servicio_id,
-            now()
-        )['accion'];
+            $hoy
+        )) {
+            return 'mes_pagado';
+        }
+        if ($facturacion->buscarFacturaMesServicioSinCobros(
+            (int) $servicio->cliente_id,
+            (int) $servicio->servicio_id,
+            $hoy
+        )) {
+            return 'editar';
+        }
 
-        return match ($accion) {
-            'crear' => 'prorratear',
-            'editar' => 'editar',
-            'omitir_pagada' => 'pagada',
-            default => 'ninguna',
-        };
+        return 'prorratear';
     }
 
     public function edit($servicio_id)

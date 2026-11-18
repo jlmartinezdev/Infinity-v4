@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\Cliente;
 use App\Models\FacturacionParametro;
-use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Services\FacturacionService;
 use App\Services\HotspotCuotaResetService;
@@ -24,7 +23,7 @@ class CrearFacturasInternasAutomaticasCommand extends Command
                             {--dry-run : Solo mostrar qué facturas se crearían, sin ejecutar}
                             {--force : Ejecutar aunque no sea el día configurado}';
 
-    protected $description = 'Crea facturas internas automáticamente para clientes en estado activo con al menos un servicio asociado. Factura líneas de servicios activos, suspendidos o cortados (no cancelados). Se ejecuta el día configurado en dia_creacion_factura_automatica (Configuración > Facturación). Factura el mes actual.';
+    protected $description = 'Crea facturas internas el día configurado (el 1) por el período del mes anterior. Omite servicios que ya tienen factura de ese período (instalación o cambio de plan). Factura servicios activos, suspendidos o cortados.';
 
     public function handle(FacturacionService $facturacionService): int
     {
@@ -40,16 +39,22 @@ class CrearFacturasInternasAutomaticasCommand extends Command
             return self::SUCCESS;
         }
 
-        $periodoDesde = Carbon::now()->startOfMonth();
-        $periodoHasta = Carbon::now()->endOfMonth();
+        $emision = Carbon::now()->startOfMonth();
+        $periodoDesde = $emision->copy()->subMonthNoOverflow()->startOfMonth();
+        $periodoHasta = $emision->copy()->subMonthNoOverflow()->endOfMonth();
 
         $diaVencimiento = FacturacionParametro::diaVencimiento();
-        $fechaVencimiento = FacturacionParametro::fechaVencimientoMesSiguiente();
+        $fechaVencimiento = FacturacionParametro::fechaVencimientoMesSiguiente($periodoHasta);
 
         if ($dryRun) {
             $this->info('Modo dry-run: no se crearán facturas.');
-            $this->info(sprintf('Período a facturar: %s a %s', $periodoDesde->format('d/m/Y'), $periodoHasta->format('d/m/Y')));
-            $this->info(sprintf('Vencimiento: %s (día %d del mes siguiente)', $fechaVencimiento, $diaVencimiento));
+            $this->info(sprintf(
+                'Emisión: %s. Período a facturar: %s a %s',
+                $emision->format('d/m/Y'),
+                $periodoDesde->format('d/m/Y'),
+                $periodoHasta->format('d/m/Y')
+            ));
+            $this->info(sprintf('Vencimiento: %s (día %d)', $fechaVencimiento, $diaVencimiento));
         }
 
         $clientesConServicios = Cliente::query()
@@ -63,14 +68,20 @@ class CrearFacturasInternasAutomaticasCommand extends Command
         $errores = 0;
 
         foreach ($clientesConServicios as $cliente) {
-            $yaTiene = FacturaInterna::where('cliente_id', $cliente->cliente_id)
-                ->where('periodo_hasta', $periodoHasta->toDateString())
-                ->exists();
+            $servicioIds = Servicio::query()
+                ->where('cliente_id', $cliente->cliente_id)
+                ->whereIn('estado', self::ESTADOS_SERVICIO_FACTURA_AUTOMATICA)
+                ->pluck('servicio_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
 
-            if ($yaTiene) {
+            $yaFacturados = $facturacionService->servicioIdsConFacturaEnPeriodo($servicioIds, $periodoDesde, $periodoHasta);
+            $pendientes = array_values(array_diff($servicioIds, $yaFacturados));
+
+            if ($pendientes === []) {
                 $omitidos++;
                 if ($dryRun) {
-                    $this->line("  - Omitido: Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido}) ya tiene factura para el período.");
+                    $this->line("  - Omitido: Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido}) ya tiene factura del período en sus servicios.");
                 }
 
                 continue;
@@ -78,7 +89,7 @@ class CrearFacturasInternasAutomaticasCommand extends Command
 
             try {
                 if ($dryRun) {
-                    $this->line("  - Crearía factura para: Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido})");
+                    $this->line("  - Crearía factura para: Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido}) — ".count($pendientes).' servicio(s)');
                     $creadas++;
 
                     continue;
@@ -91,9 +102,10 @@ class CrearFacturasInternasAutomaticasCommand extends Command
                     null,
                     'pendiente',
                     $fechaVencimiento,
-                    null,
+                    $emision->toDateString(),
                     self::ESTADOS_SERVICIO_FACTURA_AUTOMATICA,
                     enviarWhatsApp: false,
+                    soloServicioIds: $pendientes,
                 );
                 $creadas++;
                 $this->line("  ✓ Factura creada para Cliente {$cliente->cliente_id} ({$cliente->nombre} {$cliente->apellido})");
@@ -112,13 +124,13 @@ class CrearFacturasInternasAutomaticasCommand extends Command
         ));
 
         if (! $dryRun) {
-            $cuota = app(HotspotCuotaResetService::class)->resetear($periodoDesde->format('Y-m'));
+            $cuota = app(HotspotCuotaResetService::class)->resetear($emision->format('Y-m'));
             if ($cuota['skipped']) {
                 $this->info('Cuota hotspot: '.($cuota['motivo'] ?? 'sin cambios.'));
             } else {
                 $this->info(sprintf(
                     'Cuota hotspot %s: %d contadores en cero, %d ya estaban en cero, %d sesiones cerradas, %d errores.',
-                    $periodoDesde->format('Y-m'),
+                    $emision->format('Y-m'),
                     $cuota['reseteados'],
                     $cuota['ya_reseteados'],
                     $cuota['sesiones'],
