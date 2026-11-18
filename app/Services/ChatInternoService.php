@@ -477,6 +477,16 @@ class ChatInternoService
                 ])
                 ->where('id', '>', $desde)
                 ->where('usuario_id', '!=', $yo)
+                ->whereExists(function ($q) use ($yo) {
+                    $q->selectRaw('1')
+                        ->from('chat_participantes as p')
+                        ->whereColumn('p.conversacion_id', 'chat_mensajes.conversacion_id')
+                        ->where('p.usuario_id', $yo)
+                        ->where(function ($q) {
+                            $q->whereNull('p.ultimo_leido_mensaje_id')
+                                ->orWhereColumn('chat_mensajes.id', '>', 'p.ultimo_leido_mensaje_id');
+                        });
+                })
                 ->orderBy('id')
                 ->limit(8)
                 ->get();

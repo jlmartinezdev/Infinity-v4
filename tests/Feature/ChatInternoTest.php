@@ -256,6 +256,11 @@ class ChatInternoTest extends TestCase
         $aviso->assertJsonPath('nuevos.0.titulo', 'Ana');
         $aviso->assertJsonPath('nuevos.0.conversacion_id', $conversacionId);
 
+        $this->actingAs($beto)->getJson('/chat/conversaciones/'.$conversacionId.'/mensajes')->assertOk();
+        $leido = $this->actingAs($beto)->getJson('/chat/avisos?desde='.$cursor);
+        $leido->assertOk()->assertJsonPath('nuevos', []);
+        $this->assertGreaterThan($cursor, (int) $leido->json('ultimo_id'));
+
         $cursorAna = (int) $this->actingAs($ana)->getJson('/chat/avisos')->json('ultimo_id');
         $this->actingAs($beto)->post('/chat/conversaciones/'.$conversacionId.'/mensajes', [
             'cuerpo' => 'Respondo',
