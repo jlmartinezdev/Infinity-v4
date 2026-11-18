@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FinCategoria;
 use App\Models\FinCierre;
 use App\Models\FinConciliacion;
+use App\Models\FinControlGastoMes;
 use App\Models\FinCuenta;
 use App\Models\FinEgreso;
 use App\Models\FinEgresoPlantilla;
@@ -20,6 +21,7 @@ use App\Support\FinanzasParametros;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -60,21 +62,14 @@ class FinanzasOperacionController extends Controller
         }, 'finanzas.transferencias', 'Transferencia registrada. El saldo consolidado no cambia.');
     }
 
-    public function egresos(): View
+    public function egresos(Request $request): View
     {
-        $inicioMes = now()->startOfMonth()->toDateString();
-        $finMes = now()->endOfMonth()->toDateString();
+        $filtros = $this->filtrosEgresos($request);
+        $mes = $filtros['mes_fecha'];
+        $mesAnterior = $mes->copy()->subMonthNoOverflow();
 
-        $totalesMes = FinEgreso::query()
-            ->join('fin_categorias', 'fin_categorias.id', '=', 'fin_egresos.categoria_id')
-            ->where('fin_egresos.estado', 'contabilizado')
-            ->whereDate('fin_egresos.fecha', '>=', $inicioMes)
-            ->whereDate('fin_egresos.fecha', '<=', $finMes)
-            ->selectRaw('COUNT(*) as cantidad')
-            ->selectRaw('COALESCE(SUM(fin_egresos.importe), 0) as total')
-            ->selectRaw("COALESCE(SUM(CASE WHEN fin_categorias.clase = 'opex' THEN fin_egresos.importe ELSE 0 END), 0) as opex")
-            ->selectRaw("COALESCE(SUM(CASE WHEN fin_categorias.clase = 'capex' THEN fin_egresos.importe ELSE 0 END), 0) as capex")
-            ->first();
+        $totalesMes = $this->totalesEgresos($filtros, $mes);
+        $totalesAnterior = $this->totalesEgresos($filtros, $mesAnterior);
 
         $plantillas = FinEgresoPlantilla::query()->with('staff')->where('activa', true)->orderBy('orden')->get();
 
@@ -83,11 +78,26 @@ class FinanzasOperacionController extends Controller
             'total_mes' => round((float) ($totalesMes->total ?? 0), 2),
             'opex_mes' => round((float) ($totalesMes->opex ?? 0), 2),
             'capex_mes' => round((float) ($totalesMes->capex ?? 0), 2),
+            'total_mes_anterior' => round((float) ($totalesAnterior->total ?? 0), 2),
             'plantillas_count' => $plantillas->count(),
             'plantillas_total' => round((float) $plantillas->sum('monto'), 2),
         ];
 
+        $filas = $this->consultaEgresos($filtros, $mes)
+            ->with(['cuenta', 'categoria', 'proveedor', 'plantilla', 'staff', 'usuario', 'movimiento.reverso.usuario'])
+            ->orderByDesc('fecha')
+            ->orderByDesc('id')
+            ->paginate(30)
+            ->withQueryString();
+
         return view('finanzas.egresos', [
+            'filtros' => $filtros,
+            'mesFecha' => $mes,
+            'mesAnteriorFecha' => $mesAnterior,
+            'cuentasFiltro' => FinCuenta::query()->orderBy('orden')->orderBy('nombre')->get(['id', 'nombre']),
+            'categoriasFiltro' => FinCategoria::query()->whereIn('clase', ['opex', 'capex'])->orderBy('nombre')->get(['id', 'nombre', 'clase']),
+            'puedeAnular' => (bool) $request->user()?->tienePermiso('finanzas.editar'),
+            'egresosControlGasto' => FinControlGastoMes::query()->whereNotNull('fin_egreso_id')->pluck('fin_egreso_id')->map(fn ($id) => (int) $id)->all(),
             'cuentas' => $this->cuentasActivas(),
             'categorias' => FinCategoria::query()->whereIn('clase', ['opex', 'capex'])->where('activa', true)->orderBy('nombre')->get(),
             'proveedores' => Proveedor::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -98,9 +108,83 @@ class FinanzasOperacionController extends Controller
                 ->whereHas('rol', fn ($q) => $q->whereRaw('LOWER(descripcion) not in (?, ?)', ['cliente app', 'cliente']))
                 ->orderBy('name')
                 ->get(['usuario_id', 'name']),
-            'filas' => FinEgreso::query()->with(['cuenta', 'categoria', 'proveedor', 'plantilla', 'staff', 'usuario', 'movimiento'])->where('estado', 'contabilizado')->orderByDesc('fecha')->orderByDesc('id')->limit(30)->get(),
+            'filas' => $filas,
             'resumenEgresos' => $resumenEgresos,
         ]);
+    }
+
+    /**
+     * @return array{mes: string, mes_fecha: Carbon, estado: string, clase: string, categoria_id: ?int, cuenta_id: ?int, proveedor_id: ?int, q: string}
+     */
+    private function filtrosEgresos(Request $request): array
+    {
+        $mesTexto = (string) $request->query('mes', '');
+        $mes = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $mesTexto)
+            ? Carbon::createFromFormat('Y-m-d', $mesTexto.'-01')->startOfMonth()
+            : now()->startOfMonth();
+        $estado = (string) $request->query('estado', 'vigentes');
+        $clase = (string) $request->query('clase', '');
+        $entero = fn (string $clave) => ctype_digit((string) $request->query($clave, '')) ? (int) $request->query($clave) : null;
+
+        return [
+            'mes' => $mes->format('Y-m'),
+            'mes_fecha' => $mes,
+            'estado' => in_array($estado, ['vigentes', 'anulados', 'todos'], true) ? $estado : 'vigentes',
+            'clase' => in_array($clase, ['opex', 'capex'], true) ? $clase : '',
+            'categoria_id' => $entero('categoria_id'),
+            'cuenta_id' => $entero('cuenta_id'),
+            'proveedor_id' => $entero('proveedor_id'),
+            'q' => mb_substr(trim((string) $request->query('q', '')), 0, 100),
+        ];
+    }
+
+    /**
+     * Egresos del mes con los filtros de la pantalla. El estado lo aplica cada uso.
+     */
+    private function consultaEgresos(array $filtros, Carbon $mes, bool $conEstado = true)
+    {
+        $consulta = FinEgreso::query()
+            ->whereDate('fin_egresos.fecha', '>=', $mes->copy()->startOfMonth()->toDateString())
+            ->whereDate('fin_egresos.fecha', '<=', $mes->copy()->endOfMonth()->toDateString())
+            ->when($filtros['categoria_id'], fn ($q, $id) => $q->where('fin_egresos.categoria_id', $id))
+            ->when($filtros['cuenta_id'], fn ($q, $id) => $q->where('fin_egresos.cuenta_id', $id))
+            ->when($filtros['proveedor_id'], fn ($q, $id) => $q->where('fin_egresos.proveedor_id', $id))
+            ->when($filtros['clase'], fn ($q, $clase) => $q->whereHas('categoria', fn ($c) => $c->where('clase', $clase)))
+            ->when($filtros['q'] !== '', function ($q) use ($filtros) {
+                $texto = '%'.$filtros['q'].'%';
+                $q->where(function ($w) use ($texto) {
+                    $w->where('fin_egresos.comprobante', 'like', $texto)
+                        ->orWhere('fin_egresos.observaciones', 'like', $texto)
+                        ->orWhereHas('movimiento', fn ($m) => $m->where('concepto', 'like', $texto))
+                        ->orWhereHas('plantilla', fn ($p) => $p->where('nombre', 'like', $texto));
+                });
+            });
+
+        if ($conEstado) {
+            match ($filtros['estado']) {
+                'anulados' => $consulta->whereIn('fin_egresos.estado', ['anulado', 'revertido']),
+                'todos' => null,
+                default => $consulta->where('fin_egresos.estado', 'contabilizado'),
+            };
+        }
+
+        return $consulta;
+    }
+
+    /**
+     * Los totales cuentan solo egresos vigentes, sin importar el filtro de estado.
+     */
+    private function totalesEgresos(array $filtros, Carbon $mes): ?object
+    {
+        return $this->consultaEgresos($filtros, $mes, false)
+            ->join('fin_categorias', 'fin_categorias.id', '=', 'fin_egresos.categoria_id')
+            ->where('fin_egresos.estado', 'contabilizado')
+            ->selectRaw('COUNT(*) as cantidad')
+            ->selectRaw('COALESCE(SUM(fin_egresos.importe), 0) as total')
+            ->selectRaw("COALESCE(SUM(CASE WHEN fin_categorias.clase = 'opex' THEN fin_egresos.importe ELSE 0 END), 0) as opex")
+            ->selectRaw("COALESCE(SUM(CASE WHEN fin_categorias.clase = 'capex' THEN fin_egresos.importe ELSE 0 END), 0) as capex")
+            ->toBase()
+            ->first();
     }
 
     public function guardarPlantilla(Request $request, FinEgresoPlantilla $plantilla): RedirectResponse
@@ -213,30 +297,24 @@ class FinanzasOperacionController extends Controller
         if ($plantilla && $plantilla->es_sueldo && empty($datos['usuario_staff_id'])) {
             return back()->withInput()->withErrors(['usuario_staff_id' => 'El sueldo tiene que indicar la persona del staff.']);
         }
-        $categoriaId = (int) $datos['categoria_id'];
-        if ($plantilla) {
-            $categoriaId = (int) FinCategoria::query()->where('nombre', 'Gasto operativo')->value('id') ?: $categoriaId;
-        }
-        if (trim((string) ($datos['nueva_categoria'] ?? '')) !== '') {
-            $categoria = FinCategoria::query()->create([
-                'nombre' => trim($datos['nueva_categoria']),
-                'clase' => $datos['nueva_clase'] ?? 'opex',
-                'activa' => true,
-            ]);
-            $categoriaId = $categoria->id;
-        }
+        $nuevaCategoria = trim((string) ($datos['nueva_categoria'] ?? ''));
 
         $documento = $request->file('documento');
         $factura = $request->file('factura_archivo');
         $documentoPath = $documento ? $documento->store('finanzas/egresos', 'local') : null;
         $facturaPath = $factura ? $factura->store('finanzas/egresos', 'local') : null;
 
-        $respuesta = $this->ejecutar(function () use ($libro, $datos, $categoriaId, $plantilla, $documentoPath, $facturaPath) {
+        $respuesta = $this->ejecutar(fn () => DB::transaction(function () use ($libro, $datos, $nuevaCategoria, $plantilla, $documentoPath, $facturaPath) {
+            $importe = $this->importe($datos['importe']);
+            $categoriaId = (int) $datos['categoria_id'];
+            if ($nuevaCategoria !== '') {
+                $categoriaId = $this->categoriaEgreso($nuevaCategoria, $datos['nueva_clase'] ?? 'opex')->id;
+            }
             $libro->registrarEgreso(
                 (int) $datos['cuenta_id'],
                 $categoriaId,
                 Carbon::parse($datos['fecha']),
-                $this->importe($datos['importe']),
+                $importe,
                 $datos['proveedor_id'] ?? null,
                 $datos['comprobante'] ?? null,
                 $datos['observaciones'] ?? null,
@@ -249,12 +327,45 @@ class FinanzasOperacionController extends Controller
                     'concepto' => $plantilla?->nombre ?: ($datos['descripcion'] ?? null),
                 ],
             );
-        }, 'finanzas.egresos', 'Egreso registrado.');
+        }), 'finanzas.egresos', 'Egreso registrado.');
         if (session()->has('errors')) {
             Storage::disk('local')->delete(array_values(array_filter([$documentoPath, $facturaPath])));
         }
 
         return $respuesta;
+    }
+
+    public function anularEgreso(Request $request, FinEgreso $egreso, FinanzasLibroService $libro): RedirectResponse
+    {
+        $datos = $request->validate([
+            'motivo' => ['required', 'string', 'max:500'],
+        ], [
+            'motivo.required' => 'Escribí el motivo de la anulación.',
+        ]);
+
+        try {
+            $libro->anularEgreso($egreso, $datos['motivo'], auth()->id());
+        } catch (PeriodoCerradoException|InvalidArgumentException $e) {
+            return back()->withErrors(['anular' => $e->getMessage()]);
+        }
+
+        return redirect()->back()->with('success', 'Egreso anulado. Se registró un reverso en el libro y el saldo de la cuenta se corrigió.');
+    }
+
+    /**
+     * Reusa la categoría si ya existe con ese nombre; si no, la crea.
+     */
+    private function categoriaEgreso(string $nombre, string $clase): FinCategoria
+    {
+        $existente = FinCategoria::query()
+            ->whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])
+            ->first();
+
+        return $existente ?? FinCategoria::query()->create([
+            'nombre' => $nombre,
+            'clase' => $clase,
+            'activa' => true,
+        ]);
     }
 
     public function retiros(): View

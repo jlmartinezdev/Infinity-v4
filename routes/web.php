@@ -654,6 +654,7 @@ Route::middleware(['auth', 'permiso:finanzas.crear'])->group(function () {
 });
 Route::middleware(['auth', 'permiso:finanzas.editar'])->group(function () {
     Route::post('/finanzas/conciliacion', [FinanzasOperacionController::class, 'guardarConciliacion'])->name('finanzas.conciliacion.store');
+    Route::post('/finanzas/egresos/{egreso}/anular', [FinanzasOperacionController::class, 'anularEgreso'])->name('finanzas.egresos.anular');
     Route::post('/finanzas/cierres', [FinanzasOperacionController::class, 'guardarCierre'])->name('finanzas.cierres.store');
 });
 Route::get('/facturacion/cobros-saldo-favor', [FacturacionDashboardController::class, 'cobrosSaldoFavor'])

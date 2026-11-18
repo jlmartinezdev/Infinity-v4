@@ -27,7 +27,7 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
                 Gastos e inversiones
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
-                    {{ $fmt($resumen['cantidad_mes']) }} en el mes
+                    {{ $fmt($resumen['cantidad_mes']) }} en {{ $mesFecha->translatedFormat('F') }}
                 </span>
             </h1>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-3xl">
@@ -59,7 +59,7 @@
         </div>
     </div>
 
-    @if($errors->any())
+    @if($errors->any() && ! $errors->has('anular'))
         <div class="mb-6 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-sm flex items-center gap-2.5">
             <svg class="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>{{ $errors->first() }}</span>
@@ -76,7 +76,18 @@
                 </span>
             </div>
             <p class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-2 font-mono">{{ $fmt($resumen['total_mes']) }} <span class="text-xs font-semibold text-gray-500">PYG</span></p>
-            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 capitalize">{{ now()->translatedFormat('F Y') }} · {{ $fmt($resumen['cantidad_mes']) }} pago{{ $resumen['cantidad_mes'] === 1 ? '' : 's' }}</p>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5"><span class="capitalize">{{ $mesFecha->translatedFormat('F Y') }}</span> · {{ $fmt($resumen['cantidad_mes']) }} pago{{ $resumen['cantidad_mes'] === 1 ? '' : 's' }}</p>
+            @php
+                $anterior = (float) ($resumen['total_mes_anterior'] ?? 0);
+                $variacion = $anterior > 0 ? (($resumen['total_mes'] - $anterior) / $anterior) * 100 : null;
+            @endphp
+            <p class="text-[11px] mt-0.5 {{ $variacion === null ? 'text-gray-400 dark:text-gray-500' : ($variacion > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400') }}">
+                @if($variacion === null)
+                    Sin egresos en <span class="capitalize">{{ $mesAnteriorFecha->translatedFormat('F') }}</span>
+                @else
+                    {{ $variacion > 0 ? '+' : '' }}{{ number_format($variacion, 0, ',', '.') }}% vs <span class="capitalize">{{ $mesAnteriorFecha->translatedFormat('F') }}</span> ({{ $fmt($anterior) }})
+                @endif
+            </p>
         </div>
 
         <div class="rounded-xl border border-sky-200/80 dark:border-sky-800/50 bg-white dark:bg-gray-800 p-4 shadow-sm">
@@ -115,7 +126,7 @@
 
 @php
     $abrirHabituales = $errors->has('nombre') || $errors->has('monto');
-    $abrirPago = $errors->any() && ! $abrirHabituales;
+    $abrirPago = $errors->any() && ! $abrirHabituales && ! $errors->has('anular');
 @endphp
 <div id="modal-pago" class="{{ $abrirPago ? '' : 'hidden' }} fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto bg-black/60 backdrop-blur-sm p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="modal-pago-titulo">
     <div class="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl" id="bloque-pago">
@@ -380,17 +391,100 @@
     </div>
 </div>
 
-    {{-- Historial de Egresos Contabilizados --}}
+    {{-- Historial de Egresos del mes elegido --}}
+    @php
+        $hayFiltros = $filtros['clase'] !== '' || $filtros['categoria_id'] || $filtros['cuenta_id'] || $filtros['proveedor_id'] || $filtros['q'] !== '' || $filtros['estado'] !== 'vigentes';
+        $irMes = fn ($fecha) => route('finanzas.egresos', array_filter(array_merge(request()->except(['mes', 'page']), ['mes' => $fecha->format('Y-m')])));
+        $esMesActual = $mesFecha->isSameMonth(now());
+    @endphp
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-700/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-                <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Últimos egresos registrados</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Los 30 pagos más recientes contabilizados con sus respaldos adjuntos</p>
+                <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Egresos de <span class="capitalize">{{ $mesFecha->translatedFormat('F Y') }}</span></h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ $fmt($filas->total()) }} {{ $filtros['estado'] === 'anulados' ? 'anulado' : 'pago' }}{{ $filas->total() === 1 ? '' : 's' }}{{ $hayFiltros ? ' con los filtros elegidos' : '' }}. Los indicadores de arriba suman solo los vigentes.
+                </p>
             </div>
-            <a href="{{ route('finanzas.libro', ['tipo' => 'egreso']) }}" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
-                Buscar o exportar todos en el Libro →
-            </a>
+            <div class="flex items-center gap-1.5">
+                <a href="{{ $irMes($mesAnteriorFecha) }}" class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" aria-label="Mes anterior">←</a>
+                <span class="px-2 text-xs font-semibold text-gray-700 dark:text-gray-200 capitalize">{{ $mesFecha->translatedFormat('M Y') }}</span>
+                @if(! $esMesActual)
+                    <a href="{{ $irMes($mesFecha->copy()->addMonthNoOverflow()) }}" class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" aria-label="Mes siguiente">→</a>
+                    <a href="{{ $irMes(now()) }}" class="ml-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Este mes</a>
+                @endif
+            </div>
         </div>
+
+        <form method="get" action="{{ route('finanzas.egresos') }}" class="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+            <div>
+                <label class="{{ $lbl }}" for="f-mes">Mes</label>
+                <input type="month" id="f-mes" name="mes" value="{{ $filtros['mes'] }}" max="{{ now()->format('Y-m') }}" class="{{ $cls }}">
+            </div>
+            <div>
+                <label class="{{ $lbl }}" for="f-clase">Tipo</label>
+                <select id="f-clase" name="clase" class="{{ $cls }}">
+                    <option value="">Todos</option>
+                    <option value="opex" @selected($filtros['clase'] === 'opex')>OPEX (gasto)</option>
+                    <option value="capex" @selected($filtros['clase'] === 'capex')>CAPEX (inversión)</option>
+                </select>
+            </div>
+            <div>
+                <label class="{{ $lbl }}" for="f-categoria">Categoría</label>
+                <select id="f-categoria" name="categoria_id" class="{{ $cls }}">
+                    <option value="">Todas</option>
+                    @foreach($categoriasFiltro as $c)
+                        <option value="{{ $c->id }}" @selected($filtros['categoria_id'] === $c->id)>{{ $c->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="{{ $lbl }}" for="f-cuenta">Cuenta</label>
+                <select id="f-cuenta" name="cuenta_id" class="{{ $cls }}">
+                    <option value="">Todas</option>
+                    @foreach($cuentasFiltro as $c)
+                        <option value="{{ $c->id }}" @selected($filtros['cuenta_id'] === $c->id)>{{ $c->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="{{ $lbl }}" for="f-proveedor">Proveedor</label>
+                <select id="f-proveedor" name="proveedor_id" class="{{ $cls }}">
+                    <option value="">Todos</option>
+                    @foreach($proveedores as $p)
+                        <option value="{{ $p->id }}" @selected($filtros['proveedor_id'] === $p->id)>{{ $p->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="{{ $lbl }}" for="f-estado">Estado</label>
+                <select id="f-estado" name="estado" class="{{ $cls }}">
+                    <option value="vigentes" @selected($filtros['estado'] === 'vigentes')>Vigentes</option>
+                    <option value="anulados" @selected($filtros['estado'] === 'anulados')>Anulados</option>
+                    <option value="todos" @selected($filtros['estado'] === 'todos')>Todos</option>
+                </select>
+            </div>
+            <div class="col-span-2">
+                <label class="{{ $lbl }}" for="f-q">Buscar</label>
+                <input type="search" id="f-q" name="q" value="{{ $filtros['q'] }}" maxlength="100" placeholder="Concepto, comprobante…" class="{{ $cls }}">
+            </div>
+            </div>
+            <div class="mt-2 flex flex-wrap items-center justify-end gap-3">
+                @if($hayFiltros)
+                    <a href="{{ route('finanzas.egresos', ['mes' => $filtros['mes']]) }}" class="text-xs font-semibold text-gray-600 dark:text-gray-300 hover:underline">Quitar filtros</a>
+                @endif
+                <a href="{{ route('finanzas.libro', ['tipo' => 'egreso']) }}" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Exportar en el Libro →</a>
+                <button type="submit" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-semibold text-white">Filtrar</button>
+            </div>
+        </form>
+
+        @if($errors->has('anular'))
+            <div class="px-5 pt-3">
+                <div class="p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs">
+                    No se anuló: {{ $errors->first('anular') }}
+                </div>
+            </div>
+        @endif
 
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
@@ -434,6 +528,8 @@
                                 ];
                             }
                             $nombreGasto = $fila->plantilla?->nombre ?: ($fila->movimiento?->concepto ?: $fila->categoria?->nombre);
+                            $vigente = $fila->estado === 'contabilizado';
+                            $reverso = $fila->movimiento?->reverso;
                             $detalle = [
                                 'titulo' => $nombreGasto ?? 'Gasto',
                                 'campos' => array_values(array_filter([
@@ -447,11 +543,17 @@
                                     ['Comprobante', $fila->comprobante],
                                     ['Registró', $fila->usuario?->name],
                                     ['Observaciones', $fila->observaciones],
+                                    ['Estado', $vigente ? null : ($fila->estado === 'revertido' ? 'Revertido (reapertura de Control de gastos)' : 'Anulado')],
+                                    ['Anulado el', $reverso ? $reverso->created_at?->format('d/m/Y H:i').($reverso->usuario ? ' por '.$reverso->usuario->name : '') : null],
+                                    ['Motivo de anulación', $reverso ? \Illuminate\Support\Str::after((string) $reverso->observaciones, 'Anulación: ') : null],
                                 ], fn ($par) => filled($par[1]))),
                                 'archivos' => $archivos,
+                                'anular' => $puedeAnular && $vigente && ! in_array($fila->id, $egresosControlGasto, true)
+                                    ? route('finanzas.egresos.anular', $fila)
+                                    : null,
                             ];
                         @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors {{ $vigente ? '' : 'opacity-60' }}">
                             {{-- Fecha --}}
                             <td class="px-4 py-3 text-xs font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                                 {{ $fila->fecha?->format('d/m/Y') }}
@@ -459,7 +561,12 @@
 
                             {{-- Concepto + Staff / Proveedor / Comprobante --}}
                             <td class="px-4 py-3 text-xs text-gray-900 dark:text-gray-100">
-                                <div class="font-semibold">{{ $nombreGasto }}</div>
+                                <div class="font-semibold">
+                                    {{ $nombreGasto }}
+                                    @unless($vigente)
+                                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">{{ $fila->estado === 'revertido' ? 'Revertido' : 'Anulado' }}</span>
+                                    @endunless
+                                </div>
                                 @if($fila->staff || $fila->proveedor || $fila->comprobante)
                                     <div class="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                                         @if($fila->staff)
@@ -515,7 +622,7 @@
                             </td>
 
                             {{-- Importe --}}
-                            <td class="px-4 py-3 text-sm text-right font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                            <td class="px-4 py-3 text-sm text-right font-mono font-bold whitespace-nowrap {{ $vigente ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400' }}" @unless($vigente) style="text-decoration: line-through" @endunless>
                                 {{ $fmt($fila->importe) }}
                             </td>
 
@@ -531,13 +638,18 @@
                     @empty
                         <tr>
                             <td colspan="7" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
-                                Todavía no hay egresos registrados.
+                                {{ $hayFiltros ? 'No hay egresos con esos filtros en este mes.' : 'No hay egresos registrados en este mes.' }}
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+        @if($filas->hasPages())
+            <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700">
+                {{ $filas->links() }}
+            </div>
+        @endif
     </div>
 </div>
 
@@ -550,6 +662,16 @@
         </div>
         <dl id="detalle-campos" class="grid gap-3.5 p-5 text-sm sm:grid-cols-2"></dl>
         <div id="detalle-archivos" class="space-y-4 px-5 pb-5"></div>
+        <form id="detalle-anular" method="post" action="" class="hidden border-t border-gray-200 dark:border-gray-700 px-5 py-4 bg-rose-50/40 dark:bg-rose-900/20"
+            onsubmit="return confirm('Se anula el egreso y se registra un reverso en el libro. El registro original queda visible como anulado. ¿Continuar?');">
+            @csrf
+            <label class="{{ $lbl }}" for="motivo-anular">Anular este egreso</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Usalo si se cargó mal (importe, cuenta, fecha o duplicado). Después registralo de nuevo con los datos correctos.</p>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <input id="motivo-anular" name="motivo" required maxlength="500" class="{{ $cls }}" placeholder="Motivo (ej. importe mal cargado, pago duplicado)">
+                <button type="submit" class="shrink-0 rounded-lg bg-rose-600 hover:bg-rose-700 px-4 py-2 text-sm font-semibold text-white">Anular egreso</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -741,6 +863,10 @@
             }
             detalleArchivos.append(bloque);
         });
+        const formAnular = document.getElementById('detalle-anular');
+        formAnular.classList.toggle('hidden', !datos.anular);
+        formAnular.action = datos.anular || '';
+        formAnular.reset();
         detalle.classList.remove('hidden');
     }
 

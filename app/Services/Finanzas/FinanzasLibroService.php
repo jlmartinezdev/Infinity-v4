@@ -5,6 +5,7 @@ namespace App\Services\Finanzas;
 use App\Models\FinCategoria;
 use App\Models\FinCierre;
 use App\Models\FinConciliacion;
+use App\Models\FinControlGastoMes;
 use App\Models\FinCuenta;
 use App\Models\FinEgreso;
 use App\Models\FinLiquidacion;
@@ -118,18 +119,18 @@ class FinanzasLibroService
         ]);
     }
 
-    public function revertir(FinMovimiento $movimiento, string $motivo, ?int $usuarioId, bool $forzar = true): FinMovimiento
+    public function revertir(FinMovimiento $movimiento, string $motivo, ?int $usuarioId, bool $forzar = true, ?Carbon $fecha = null): FinMovimiento
     {
         if ($movimiento->revertido_por_id) {
             return FinMovimiento::query()->findOrFail($movimiento->revertido_por_id);
         }
 
-        return DB::transaction(function () use ($movimiento, $motivo, $usuarioId, $forzar) {
+        return DB::transaction(function () use ($movimiento, $motivo, $usuarioId, $forzar, $fecha) {
             $reverso = $this->registrar([
                 'cuenta_id' => $movimiento->cuenta_id,
                 'tipo' => 'ajuste',
                 'signo' => -1 * (int) $movimiento->signo,
-                'fecha' => $movimiento->fecha_efectiva,
+                'fecha' => $fecha ?? $movimiento->fecha_efectiva,
                 'importe' => $movimiento->importe,
                 'concepto' => 'Reverso: '.$movimiento->concepto,
                 'categoria_id' => $movimiento->categoria_id,
@@ -263,6 +264,47 @@ class FinanzasLibroService
             ]);
 
             return $egreso;
+        });
+    }
+
+    /**
+     * Anula un egreso cargado por error: el movimiento original queda y se
+     * compensa con un reverso. Si la fecha del egreso cae en un período
+     * cerrado, el reverso se registra hoy para no tocar ese cierre.
+     */
+    public function anularEgreso(FinEgreso $egreso, string $motivo, ?int $usuarioId): FinMovimiento
+    {
+        $motivo = trim($motivo);
+        if ($motivo === '') {
+            throw new InvalidArgumentException('Escribí el motivo de la anulación.');
+        }
+
+        return DB::transaction(function () use ($egreso, $motivo, $usuarioId) {
+            $egreso = FinEgreso::query()->whereKey($egreso->id)->lockForUpdate()->firstOrFail();
+            if ($egreso->estado !== 'contabilizado') {
+                throw new InvalidArgumentException('Ese egreso ya no está vigente.');
+            }
+            if (FinControlGastoMes::query()->where('fin_egreso_id', $egreso->id)->exists()) {
+                throw new InvalidArgumentException('Ese egreso es el resumen de Control de gastos: se anula reabriendo el mes allí.');
+            }
+            $movimiento = FinMovimiento::query()
+                ->where('referencia_tipo', 'egreso')
+                ->where('referencia_id', $egreso->id)
+                ->where('tipo', 'egreso')
+                ->whereNull('revertido_por_id')
+                ->lockForUpdate()
+                ->first();
+            if (! $movimiento) {
+                throw new InvalidArgumentException('No se encontró el movimiento del egreso en el libro.');
+            }
+
+            $fecha = $this->periodoCerrado($movimiento->cuenta_id, Carbon::parse($movimiento->fecha_efectiva))
+                ? now()->startOfDay()
+                : null;
+            $reverso = $this->revertir($movimiento, 'Anulación: '.$motivo, $usuarioId, false, $fecha);
+            $egreso->update(['estado' => 'anulado']);
+
+            return $reverso;
         });
     }
 

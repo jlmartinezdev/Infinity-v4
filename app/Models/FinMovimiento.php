@@ -41,6 +41,11 @@ class FinMovimiento extends Model
         return $this->belongsTo(FinCategoria::class, 'categoria_id');
     }
 
+    public function reverso(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'revertido_por_id');
+    }
+
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usuario_id', 'usuario_id');
