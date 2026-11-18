@@ -1,0 +1,136 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Red",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "${subtitulo}",
+      "spacing": "None",
+      "isSubtle": true,
+      "size": "Small",
+      "wrap": true
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Medium",
+      "$when": "${apModo==\"conteo\"}",
+      "columns": [
+        { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "AP", "size": "Small" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${apOnline}", "color": "Good", "size": "Small", "horizontalAlignment": "Right" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${apOffline}", "color": "Attention", "size": "Small", "horizontalAlignment": "Right" }] }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Medium",
+      "$when": "${apModo==\"sindato\"}",
+      "columns": [
+        { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "AP", "size": "Small" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${apTexto}", "isSubtle": true, "size": "Small" }] }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Small",
+      "$when": "${routerModo==\"conteo\"}",
+      "columns": [
+        { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "Router", "size": "Small" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${routerOnline}", "color": "Good", "size": "Small", "horizontalAlignment": "Right" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${routerOffline}", "color": "Attention", "size": "Small", "horizontalAlignment": "Right" }] }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Small",
+      "$when": "${routerModo==\"sindato\"}",
+      "columns": [
+        { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "Router", "size": "Small" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${routerTexto}", "isSubtle": true, "size": "Small" }] }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Small",
+      "$when": "${oltModo==\"conteo\"}",
+      "columns": [
+        { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "OLT", "size": "Small" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${oltOnline}", "color": "Good", "size": "Small", "horizontalAlignment": "Right" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${oltOffline}", "color": "Attention", "size": "Small", "horizontalAlignment": "Right" }] }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Small",
+      "$when": "${oltModo==\"sindato\"}",
+      "columns": [
+        { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "OLT", "size": "Small" }] },
+        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${oltTexto}", "isSubtle": true, "size": "Small" }] }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${resumenCaidas}",
+      "spacing": "Medium",
+      "weight": "Bolder",
+      "size": "Small",
+      "wrap": true,
+      "$when": "${$host.widgetSize==\"small\"}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Caídas",
+      "weight": "Bolder",
+      "spacing": "Large",
+      "size": "Medium",
+      "$when": "${$host.widgetSize!=\"small\"}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${aviso}",
+      "color": "Attention",
+      "wrap": true,
+      "spacing": "Small",
+      "$when": "${aviso!=\"\" && $host.widgetSize!=\"small\"}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Sin caídas",
+      "color": "Good",
+      "spacing": "Small",
+      "$when": "${sinCaidas==\"si\" && $host.widgetSize!=\"small\"}"
+    },
+    {
+      "type": "Container",
+      "$data": "${caidas}",
+      "spacing": "Small",
+      "$when": "${$host.widgetSize!=\"small\"}",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${tipo}", "color": "Attention", "size": "Small" }] },
+            { "type": "Column", "width": "stretch", "items": [{ "type": "TextBlock", "text": "${nombre}", "size": "Small", "wrap": true }] },
+            { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${nodo}", "isSubtle": true, "size": "Small" }] },
+            { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": "${hace}", "color": "Attention", "size": "Small" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${masCaidas}",
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "Small",
+      "$when": "${masCaidas!=\"\" && $host.widgetSize!=\"small\"}"
+    }
+  ]
+}

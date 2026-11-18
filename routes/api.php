@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\WaAgentToolsController;
 use App\Http\Controllers\Api\V1\WebConsultaController;
 use App\Http\Controllers\Api\V1\WhatsAppAgentController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
+use App\Http\Controllers\Api\V1\WidgetRedController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -73,6 +74,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/cuenta', [WebConsultaController::class, 'cuenta']);
         Route::post('/pago', [WebConsultaController::class, 'pago']);
     });
+
+    // Widget de Windows (Authorization: Bearer WIDGET_RED_TOKEN). Solo lectura.
+    Route::middleware('widget.red')->get('/widget/red', [WidgetRedController::class, 'show'])
+        ->name('widget.red');
 
     // Confirmación de pagos TPago / Bancard (URL a configurar en el portal TPago)
     Route::match(['get', 'post', 'head'], '/webhooks/tpago', [TpagoWebhookController::class, 'handle']);
