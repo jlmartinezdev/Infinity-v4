@@ -33,14 +33,22 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        @foreach(['Ingresos del mes' => $ingresos, 'OPEX' => $opex, 'CAPEX' => $capex, 'Retiros' => $retiros, 'Resultado' => $resultado] as $titulo => $valor)
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-2">
+        @foreach([
+            ['Ingresos del mes', $ingresos, '+'],
+            ['OPEX', $opex, '−'],
+            ['CAPEX', $capex, '−'],
+            ['Comisiones Bancard', $comisiones, '−'],
+            ['Retiros', $retiros, '−'],
+            ['Resultado', $resultado, '='],
+        ] as [$titulo, $valor, $signo])
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $titulo }}</p>
-                <p class="text-lg font-semibold mt-1 {{ $titulo === 'Resultado' ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-100' }}">{{ $fmt($valor) }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400"><span class="font-mono">{{ $signo }}</span> {{ $titulo }}</p>
+                <p class="text-lg font-semibold mt-1 {{ $titulo === 'Resultado' ? ($valor < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400') : 'text-gray-900 dark:text-gray-100' }}">{{ $fmt($valor) }}</p>
             </div>
         @endforeach
     </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-6">Resultado = ingresos − OPEX − CAPEX − comisiones − retiros del mes. No cuenta recibos ni gastos anulados.</p>
     <p class="text-xs text-gray-500 dark:text-gray-400 mb-6">Efectivo todavía no rendido por los cobradores: {{ $fmt($efectivoSinRendir) }} PYG. Ya está dentro del saldo de efectivo si el recibo entró al libro. La rendición no lo vuelve a sumar.</p>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
@@ -70,7 +78,8 @@
             labels: meses.map(m => m.mes),
             datasets: [
                 { label: 'Ingresos', data: meses.map(m => m.ingresos), backgroundColor: 'rgba(22, 163, 74, 0.75)' },
-                { label: 'Egresos', data: meses.map(m => m.egresos), backgroundColor: 'rgba(220, 38, 38, 0.7)' },
+                { label: 'Gastos e inversiones', data: meses.map(m => m.egresos), backgroundColor: 'rgba(220, 38, 38, 0.7)' },
+                { label: 'Retiros', data: meses.map(m => m.retiros), backgroundColor: 'rgba(217, 119, 6, 0.7)' },
                 { label: 'Saldo consolidado', type: 'line', data: meses.map(m => m.saldo), borderColor: 'rgba(37, 99, 235, 1)', backgroundColor: 'transparent' }
             ]
         },

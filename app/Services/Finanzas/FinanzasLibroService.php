@@ -491,6 +491,9 @@ class FinanzasLibroService
             $desde = $fecha->copy()->startOfDay();
             $hasta = $fecha->copy()->startOfDay();
         }
+        if ($hasta->copy()->startOfDay()->gte(now()->startOfDay())) {
+            throw new InvalidArgumentException('Ese período todavía no terminó. Se puede cerrar desde el '.$hasta->copy()->addDay()->format('d/m/Y').'.');
+        }
 
         DB::transaction(function () use ($tipo, $desde, $hasta, $saldosReales, $usuarioId) {
             $cuentas = FinCuenta::query()->where('activa', true)->orderBy('orden')->get();
@@ -579,6 +582,27 @@ class FinanzasLibroService
                 ], true);
             }
         });
+    }
+
+    /**
+     * Suma movimientos vigentes (sin los revertidos) del período.
+     * 'ingreso' son cobros; 'egreso' son gastos, inversiones y comisiones;
+     * 'retiro' son los retiros, que van aparte.
+     */
+    public function sumaVigente(string $clase, Carbon $desde, Carbon $hasta): float
+    {
+        $consulta = FinMovimiento::query()
+            ->whereNull('revertido_por_id')
+            ->whereDate('fecha_efectiva', '>=', $desde->toDateString())
+            ->whereDate('fecha_efectiva', '<=', $hasta->toDateString());
+
+        match ($clase) {
+            'ingreso' => $consulta->where('tipo', 'ingreso'),
+            'retiro' => $consulta->where('tipo', 'egreso')->where('referencia_tipo', 'retiro'),
+            'egreso' => $consulta->where('tipo', 'egreso')->where(fn ($q) => $q->whereNull('referencia_tipo')->orWhere('referencia_tipo', '!=', 'retiro')),
+        };
+
+        return round((float) $consulta->sum('importe'), 2);
     }
 
     public function sumaClase(string $clase, Carbon $desde, Carbon $hasta): float

@@ -30,11 +30,62 @@ use InvalidArgumentException;
 
 class FinanzasOperacionController extends Controller
 {
-    public function transferencias(): View
+    /**
+     * Mensajes de validación en español: el proyecto no tiene archivos de idioma
+     * y sin esto salen en inglés.
+     */
+    private const ATRIBUTOS = [
+        'cuenta_origen_id' => 'la cuenta de origen',
+        'cuenta_destino_id' => 'la cuenta de destino',
+        'cuenta_id' => 'la cuenta',
+        'importe' => 'el importe',
+        'fecha' => 'la fecha',
+        'fecha_liquidacion' => 'la fecha de liquidación',
+        'numero_referencia' => 'la referencia',
+        'referencia' => 'la referencia',
+        'observaciones' => 'las observaciones',
+        'persona' => 'la persona',
+        'motivo' => 'el motivo',
+        'autorizacion' => 'la autorización',
+        'comprobante' => 'el comprobante',
+        'comision' => 'la comisión',
+        'saldo_real' => 'el saldo real',
+        'nombre' => 'el nombre',
+        'tipo' => 'el tipo',
+    ];
+
+    private function mensajes(): array
+    {
+        return [
+            'required' => 'Completá :attribute.',
+            'date' => 'Revisá :attribute: no es una fecha válida.',
+            'exists' => 'Elegí :attribute de la lista.',
+            'in' => 'Elegí :attribute de la lista.',
+            'integer' => 'Elegí :attribute de la lista.',
+            'max' => 'Acortá :attribute (máximo :max caracteres).',
+            'cuenta_destino_id.different' => 'La cuenta de destino tiene que ser distinta de la de origen.',
+            'cobro_ids.required' => 'Elegí al menos un cobro para liquidar.',
+            'cobro_ids.min' => 'Elegí al menos un cobro para liquidar.',
+            'observaciones.required_if' => 'Explicá en observaciones por qué se ajusta la diferencia.',
+        ];
+    }
+
+    /**
+     * @return array<int, float>
+     */
+    private function saldosActuales(FinanzasLibroService $libro): array
+    {
+        return $this->cuentasActivas()
+            ->mapWithKeys(fn (FinCuenta $cuenta) => [$cuenta->id => $libro->saldoActual($cuenta->id)])
+            ->all();
+    }
+
+    public function transferencias(FinanzasLibroService $libro): View
     {
         return view('finanzas.transferencias', [
             'cuentas' => $this->cuentasActivas(),
-            'filas' => FinTransferencia::query()->with(['origen', 'destino'])->orderByDesc('id')->limit(30)->get(),
+            'saldos' => $this->saldosActuales($libro),
+            'filas' => FinTransferencia::query()->with(['origen', 'destino'])->orderByDesc('fecha')->orderByDesc('id')->limit(30)->get(),
         ]);
     }
 
@@ -47,7 +98,7 @@ class FinanzasOperacionController extends Controller
             'fecha' => ['required', 'date'],
             'numero_referencia' => ['nullable', 'string', 'max:80'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
-        ]);
+        ], $this->mensajes(), self::ATRIBUTOS);
 
         return $this->ejecutar(function () use ($libro, $datos) {
             $libro->transferir(
@@ -368,11 +419,17 @@ class FinanzasOperacionController extends Controller
         ]);
     }
 
-    public function retiros(): View
+    public function retiros(FinanzasLibroService $libro): View
     {
         return view('finanzas.retiros', [
             'cuentas' => $this->cuentasActivas(),
-            'filas' => FinRetiro::query()->with('cuenta')->orderByDesc('id')->limit(30)->get(),
+            'saldos' => $this->saldosActuales($libro),
+            'filas' => FinRetiro::query()->with('cuenta')->orderByDesc('fecha')->orderByDesc('id')->limit(30)->get(),
+            'totalMes' => round((float) FinRetiro::query()
+                ->where('estado', 'contabilizado')
+                ->whereDate('fecha', '>=', now()->startOfMonth()->toDateString())
+                ->whereDate('fecha', '<=', now()->endOfMonth()->toDateString())
+                ->sum('importe'), 2),
         ]);
     }
 
@@ -386,7 +443,7 @@ class FinanzasOperacionController extends Controller
             'motivo' => ['required', 'string', 'max:180'],
             'autorizacion' => ['nullable', 'string', 'max:160'],
             'comprobante' => ['nullable', 'string', 'max:80'],
-        ]);
+        ], $this->mensajes(), self::ATRIBUTOS);
 
         return $this->ejecutar(function () use ($libro, $datos) {
             $libro->registrarRetiro(
@@ -436,7 +493,7 @@ class FinanzasOperacionController extends Controller
             'fecha_liquidacion' => ['required', 'date'],
             'referencia' => ['required', 'string', 'max:80'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
-        ]);
+        ], $this->mensajes(), self::ATRIBUTOS);
         $comision = trim((string) ($datos['comision'] ?? ''));
 
         return $this->ejecutar(function () use ($libro, $datos, $comision) {
@@ -473,9 +530,9 @@ class FinanzasOperacionController extends Controller
             'cuenta_id' => ['required', 'integer', 'exists:fin_cuentas,id'],
             'fecha' => ['required', 'date'],
             'saldo_real' => ['required', 'string', 'max:30'],
-            'observaciones' => ['nullable', 'string', 'max:1000'],
+            'observaciones' => ['nullable', 'required_if:ajustar,1', 'string', 'max:1000'],
             'ajustar' => ['nullable', 'in:1'],
-        ]);
+        ], $this->mensajes(), self::ATRIBUTOS);
 
         return $this->ejecutar(function () use ($libro, $datos) {
             $libro->conciliar(
@@ -509,6 +566,9 @@ class FinanzasOperacionController extends Controller
         return view('finanzas.cierres', [
             'tipo' => $tipo,
             'fecha' => $fecha->toDateString(),
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'periodoTerminado' => $hasta->copy()->startOfDay()->lt(now()->startOfDay()),
             'preview' => $preview,
             'filas' => FinCierre::query()->with('cuenta')->orderByDesc('id')->limit(40)->get(),
         ]);
@@ -521,7 +581,7 @@ class FinanzasOperacionController extends Controller
             'fecha' => ['required', 'date'],
             'saldo_real' => ['required', 'array'],
             'saldo_real.*' => ['nullable', 'string', 'max:30'],
-        ]);
+        ], $this->mensajes(), self::ATRIBUTOS);
         return $this->ejecutar(function () use ($libro, $datos) {
             $reales = [];
             foreach ($datos['saldo_real'] as $cuentaId => $valor) {
@@ -531,10 +591,13 @@ class FinanzasOperacionController extends Controller
         }, 'finanzas.cierres', 'Cierre registrado. El período queda protegido.');
     }
 
-    public function cuentas(): View
+    public function cuentas(FinanzasLibroService $libro): View
     {
+        $cuentas = FinCuenta::query()->orderBy('orden')->orderBy('nombre')->get();
+
         return view('finanzas.cuentas', [
-            'cuentas' => FinCuenta::query()->orderBy('orden')->orderBy('nombre')->get(),
+            'cuentas' => $cuentas,
+            'saldos' => $cuentas->mapWithKeys(fn (FinCuenta $cuenta) => [$cuenta->id => $libro->saldoActual($cuenta->id)])->all(),
             'categorias' => FinCategoria::query()->orderBy('clase')->orderBy('nombre')->get(),
         ]);
     }
@@ -544,7 +607,7 @@ class FinanzasOperacionController extends Controller
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:120'],
             'tipo' => ['required', 'in:efectivo,banco,pasarela,otra'],
-        ]);
+        ], $this->mensajes(), self::ATRIBUTOS);
         $base = Str::slug($datos['nombre'], '_');
         $codigo = $base !== '' ? $base : 'cuenta';
         $i = 2;

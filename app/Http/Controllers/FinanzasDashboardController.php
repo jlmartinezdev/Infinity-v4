@@ -25,11 +25,7 @@ class FinanzasDashboardController extends Controller
         $consolidado = round((float) $saldos->sum('saldo'), 2);
         $desde = now()->startOfMonth();
         $hasta = now()->endOfMonth();
-        $ingresos = round((float) FinMovimiento::query()
-            ->where('tipo', 'ingreso')
-            ->whereDate('fecha_efectiva', '>=', $desde)
-            ->whereDate('fecha_efectiva', '<=', $hasta)
-            ->sum('importe'), 2);
+        $ingresos = $libro->sumaVigente('ingreso', $desde, $hasta);
         $opex = $libro->sumaClase('opex', $desde, $hasta);
         $capex = $libro->sumaClase('capex', $desde, $hasta);
         $comisiones = $libro->sumaClase('comision', $desde, $hasta);
@@ -38,16 +34,9 @@ class FinanzasDashboardController extends Controller
         $meses = collect(range(5, 0))->map(function (int $atras) use ($libro) {
             $mes = now()->startOfMonth()->subMonths($atras);
             $fin = $mes->copy()->endOfMonth();
-            $ingresosMes = (float) FinMovimiento::query()
-                ->where('tipo', 'ingreso')
-                ->whereDate('fecha_efectiva', '>=', $mes)
-                ->whereDate('fecha_efectiva', '<=', $fin)
-                ->sum('importe');
-            $egresosMes = (float) FinMovimiento::query()
-                ->where('tipo', 'egreso')
-                ->whereDate('fecha_efectiva', '>=', $mes)
-                ->whereDate('fecha_efectiva', '<=', $fin)
-                ->sum('importe');
+            $ingresosMes = $libro->sumaVigente('ingreso', $mes, $fin);
+            $egresosMes = $libro->sumaVigente('egreso', $mes, $fin);
+            $retirosMes = $libro->sumaVigente('retiro', $mes, $fin);
             $saldo = 0.0;
             foreach (FinCuenta::query()->where('activa', true)->pluck('id') as $cuentaId) {
                 $saldo += $libro->saldoHasta((int) $cuentaId, $fin);
@@ -57,6 +46,7 @@ class FinanzasDashboardController extends Controller
                 'mes' => $mes->translatedFormat('M Y'),
                 'ingresos' => round($ingresosMes, 2),
                 'egresos' => round($egresosMes, 2),
+                'retiros' => round($retirosMes, 2),
                 'saldo' => round($saldo, 2),
             ];
         })->values();
