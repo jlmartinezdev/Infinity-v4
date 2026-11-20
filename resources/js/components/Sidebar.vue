@@ -323,6 +323,7 @@ const navEl = ref(null);
 const menuBusqueda = ref('');
 const menuBusquedaEl = ref(null);
 let navScrollTimeout = null;
+let navScrollListo = false;
 
 const isOpen = computed(() =>
   props.isOpen !== null && props.isOpen !== undefined ? props.isOpen : sidebarOpen.value
@@ -510,8 +511,34 @@ function isSubmenuActive(item) {
   return item.submenu && item.submenu.some((s) => isActive(s.path));
 }
 
+function elementoMenuVisible() {
+  const root = typeof document !== 'undefined' ? document.getElementById('sidebar-app') : null;
+  if (!root) return navEl.value;
+  const asides = root.querySelectorAll('aside');
+  for (const el of asides) {
+    if (window.getComputedStyle(el).display === 'none') continue;
+    if (el.scrollHeight > el.clientHeight + 1) return el;
+    const nav = el.querySelector('nav');
+    if (nav && nav.scrollHeight > nav.clientHeight + 1) return nav;
+  }
+  for (const el of asides) {
+    if (window.getComputedStyle(el).display !== 'none') return el;
+  }
+  return navEl.value;
+}
+
+function guardarScrollMenu(forzar = false) {
+  if (!navScrollListo && !forzar) return;
+  const el = elementoMenuVisible();
+  if (!el) return;
+  try {
+    localStorage.setItem(STORAGE_KEY_NAV_SCROLL, String(el.scrollTop || 0));
+  } catch (_) {}
+}
+
 function handleMenuClick(item) {
   emit('menu-click', item);
+  guardarScrollMenu(true);
   if (typeof window !== 'undefined' && window.innerWidth < 1024) closeSidebar();
   if (item.path && item.path !== '#') window.location.href = item.path;
 }
@@ -522,29 +549,43 @@ function onToggleSidebar() {
 }
 
 function onNavScroll() {
-  if (navScrollTimeout) clearTimeout(navScrollTimeout);
-  navScrollTimeout = setTimeout(() => {
-    try {
-      if (navEl.value) localStorage.setItem(STORAGE_KEY_NAV_SCROLL, String(navEl.value.scrollTop));
-    } catch (_) {}
-  }, 100);
+  guardarScrollMenu();
 }
 
 function restoreNavScroll() {
+  const el = elementoMenuVisible();
   try {
     const y = parseInt(localStorage.getItem(STORAGE_KEY_NAV_SCROLL), 10);
-    if (navEl.value && !isNaN(y) && y > 0) navEl.value.scrollTop = y;
+    if (el && !isNaN(y) && y > 0) el.scrollTop = y;
   } catch (_) {}
+}
+
+function onPageHideMenu() {
+  guardarScrollMenu(true);
 }
 
 onMounted(() => {
   window.addEventListener('toggle-sidebar', onToggleSidebar);
+  window.addEventListener('pagehide', onPageHideMenu);
   notifyDesktopChange();
-  setTimeout(restoreNavScroll, 100);
+  const root = document.getElementById('sidebar-app');
+  if (root) {
+    root.querySelectorAll('aside').forEach((el) => {
+      el.addEventListener('scroll', onNavScroll, { passive: true });
+    });
+  }
+  nextTick(() => {
+    restoreNavScroll();
+    requestAnimationFrame(() => {
+      restoreNavScroll();
+      navScrollListo = true;
+    });
+  });
 });
 
 onUnmounted(() => {
   window.removeEventListener('toggle-sidebar', onToggleSidebar);
+  window.removeEventListener('pagehide', onPageHideMenu);
   if (navScrollTimeout) clearTimeout(navScrollTimeout);
 });
 </script>
