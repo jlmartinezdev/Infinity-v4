@@ -148,103 +148,81 @@
         <table class="min-w-full text-sm">
           <thead class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
             <tr>
-              <th class="px-3 py-2 font-medium">Estado</th>
               <th class="px-3 py-2 font-medium">AP</th>
               <th class="px-3 py-2 font-medium">SSID</th>
-              <th class="px-3 py-2 font-medium hidden md:table-cell">Radio</th>
-              <th class="px-3 py-2 font-medium hidden lg:table-cell">Est.</th>
-              <th class="px-3 py-2 font-medium hidden lg:table-cell">Uptime</th>
-              <th class="px-3 py-2 font-medium hidden xl:table-cell">Firmware</th>
-              <th class="px-3 py-2 font-medium text-right">Acciones</th>
+              <th class="px-3 py-2 font-medium text-right w-px">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <template v-for="ap in grupo.aps" :key="ap.ap_id">
-              <tr class="border-t border-gray-100 dark:border-gray-700/80 align-top">
-                <td class="px-3 py-2 whitespace-nowrap">
-                  <span class="inline-flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-full" :class="clasePunto(ap)"></span>
-                    <span class="font-medium" :class="claseTextoPing(ap)">{{ etiquetaPing(ap) }}</span>
-                  </span>
-                  <p v-if="ap.ping_ok === false && ap.ping_caido_desde" class="text-[11px] text-rose-500 mt-0.5 tabular-nums" :title="ap.caido_desde || ''">
-                    {{ caidoHace(ap) }}
-                  </p>
-                  <p v-if="ap.ping_error && ap.ping_ok === false" class="text-[11px] text-rose-500 mt-0.5 max-w-[9rem] truncate" :title="ap.ping_error">{{ ap.ping_error }}</p>
+              <tr class="border-t border-gray-100 dark:border-gray-700/80">
+                <td class="px-3 py-2 cursor-pointer" @click="toggleDetalle(ap.ap_id)">
+                  <div class="flex items-start gap-2.5 min-w-0">
+                    <span class="mt-1.5 h-2 w-2 rounded-full shrink-0" :class="clasePunto(ap)"></span>
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <p class="flex items-center gap-1.5 min-w-0 font-medium text-gray-900 dark:text-gray-100">
+                          <span
+                            class="h-2.5 w-2.5 rounded-sm shrink-0"
+                            :style="{ background: colorAp(ap.ap_id) }"
+                            title="Color en espectro 5 GHz"
+                          ></span>
+                          {{ ap.nombre }}
+                        </p>
+                        <span class="text-xs font-medium tabular-nums" :class="claseTextoPing(ap)">{{ etiquetaPing(ap) }}</span>
+                        <span v-if="ap.ping_ok === false && ap.ping_caido_desde" class="text-[11px] text-rose-500 tabular-nums" :title="ap.caido_desde || ''">{{ caidoHace(ap) }}</span>
+                      </div>
+                      <p class="mt-0.5 text-[11px] text-gray-400">
+                        <a
+                          v-if="ap.ip"
+                          :href="'http://' + ap.ip"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                          :title="'Abrir ' + ap.ip + ' en una pestaña'"
+                          @click.stop
+                        >{{ ap.ip }}</a>
+                        <template v-if="ap.hostname && ap.hostname !== ap.nombre"><span v-if="ap.ip"> · </span>{{ ap.hostname }}</template>
+                        <template v-if="ap.modo"><span v-if="ap.ip || (ap.hostname && ap.hostname !== ap.nombre)"> · </span>{{ ap.modo }}</template>
+                        <span v-if="!ap.activo" class="text-amber-600"> · Inactivo</span>
+                      </p>
+                      <p v-if="ap.ping_error && ap.ping_ok === false" class="text-[11px] text-rose-500 truncate" :title="ap.ping_error">{{ ap.ping_error }}</p>
+                      <p v-if="ap.ssh_error" class="text-[11px] text-rose-500 truncate" :title="ap.ssh_error">{{ ap.ssh_error }}</p>
+                    </div>
+                  </div>
                 </td>
-                <td class="px-3 py-2">
-                  <p class="flex items-center gap-1.5 font-medium text-gray-900 dark:text-gray-100">
-                    <span
-                      class="h-2.5 w-2.5 rounded-sm shrink-0"
-                      :style="{ background: colorAp(ap.ap_id) }"
-                      :title="'Color en espectro 5 GHz'"
-                    ></span>
-                    {{ ap.nombre }}
-                  </p>
-                  <a
-                    v-if="ap.ip"
-                    :href="'http://' + ap.ip"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="mt-0.5 block font-mono text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                    :title="'Abrir ' + ap.ip + ' en una pestaña'"
-                  >{{ ap.ip }}</a>
-                  <p v-if="ap.hostname && ap.hostname !== ap.nombre" class="text-[11px] text-gray-400">{{ ap.hostname }}</p>
-                  <p v-if="!ap.activo" class="text-[11px] text-amber-600">Inactivo (no se pingea)</p>
-                </td>
-                <td class="px-3 py-2">
-                  <p class="text-gray-900 dark:text-gray-100">{{ ap.ssid || '—' }}</p>
-                  <p class="text-[11px] text-gray-400">{{ ap.modo || '' }}</p>
-                  <p v-if="ap.ssh_error" class="text-[11px] text-rose-500 max-w-[12rem] truncate" :title="ap.ssh_error">{{ ap.ssh_error }}</p>
-                </td>
-                <td class="px-3 py-2 hidden md:table-cell text-gray-700 dark:text-gray-300">
-                  <template v-if="ap.frecuencia || ap.canal || ap.chanbw">
-                    <span v-if="ap.frecuencia">{{ ap.frecuencia }}{{ /mhz/i.test(String(ap.frecuencia)) ? '' : ' MHz' }}</span>
-                    <span v-if="ap.canal" class="text-gray-400"> · ch {{ ap.canal }}</span>
-                    <span v-if="ap.chanbw" class="text-gray-400"> · {{ ap.chanbw }}{{ /mhz/i.test(String(ap.chanbw)) ? '' : ' MHz' }}</span>
-                  </template>
-                  <span v-else class="text-gray-400">—</span>
-                </td>
-                <td class="px-3 py-2 hidden lg:table-cell text-gray-700 dark:text-gray-300">{{ ap.estaciones ?? '—' }}</td>
-                <td class="px-3 py-2 hidden lg:table-cell text-gray-700 dark:text-gray-300">{{ ap.uptime || '—' }}</td>
-                <td class="px-3 py-2 hidden xl:table-cell text-xs text-gray-500 dark:text-gray-400 max-w-[10rem] truncate" :title="ap.firmware || ''">{{ ap.firmware || '—' }}</td>
-                <td class="px-3 py-2">
-                  <div class="flex justify-end flex-wrap gap-1">
-                    <button
-                      type="button"
-                      class="px-2 py-1 rounded border border-cyan-400/60 text-cyan-700 dark:text-cyan-300 text-xs hover:bg-cyan-50 dark:hover:bg-cyan-900/20 disabled:opacity-50"
-                      :disabled="ocupadoId === ap.ap_id"
-                      @click="pingUno(ap)"
-                    >Ping</button>
-                    <button
-                      type="button"
-                      class="px-2 py-1 rounded border border-violet-400/60 text-violet-700 dark:text-violet-300 text-xs hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
-                      :disabled="ocupadoId === ap.ap_id"
-                      @click="sshUno(ap)"
-                    >SSH</button>
-                    <button
-                      v-if="ap.extra || ap.mac || ap.modelo"
-                      type="button"
-                      class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xs"
-                      @click="toggleDetalle(ap.ap_id)"
-                    >{{ detalleId === ap.ap_id ? 'Ocultar' : 'Datos' }}</button>
-                    <button
-                      v-if="canEditar"
-                      type="button"
-                      class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-xs"
-                      @click="abrirFormulario(ap)"
-                    >Editar</button>
-                    <button
-                      v-if="canEliminar"
-                      type="button"
-                      class="px-2 py-1 rounded border border-rose-300 text-rose-600 dark:text-rose-400 text-xs"
-                      @click="eliminar(ap)"
-                    >Borrar</button>
+                <td class="px-3 py-2 whitespace-nowrap align-middle text-gray-700 dark:text-gray-200">{{ ap.ssid || '—' }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap align-middle">
+                  <div class="inline-flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    title="Datos"
+                    :aria-expanded="detalleId === ap.ap_id"
+                    @click.stop="toggleDetalle(ap.ap_id)"
+                  >
+                    <svg class="w-4 h-4 transition-transform" :class="detalleId === ap.ap_id ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    data-menu-ap
+                    title="Acciones"
+                    aria-label="Acciones"
+                    :aria-expanded="menuAccionesId === ap.ap_id"
+                    @click.stop="toggleMenuAcciones(ap.ap_id, $event)"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+                  </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="detalleId === ap.ap_id" class="bg-gray-50 dark:bg-gray-900/40">
-                <td colspan="8" class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
+                <td colspan="3" class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div><span class="text-gray-400">Radio</span><br>{{ textoRadio(ap) }}</div>
+                    <div><span class="text-gray-400">Estaciones</span><br>{{ ap.estaciones ?? '—' }}</div>
+                    <div><span class="text-gray-400">Uptime</span><br>{{ ap.uptime || '—' }}</div>
                     <div><span class="text-gray-400">Modelo</span><br>{{ ap.modelo || '—' }}</div>
                     <div><span class="text-gray-400">MAC</span><br><span class="font-mono">{{ ap.mac || '—' }}</span></div>
                     <div><span class="text-gray-400">Noise</span><br>{{ extraVal(ap, 'noise') }}</div>
@@ -309,11 +287,49 @@
         </div>
       </form>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="apMenu && menuPos"
+        ref="menuAccionesEl"
+        class="fixed z-[9999] min-w-[10.5rem] py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg"
+        :style="{ top: menuPos.top + 'px', left: menuPos.left + 'px' }"
+      >
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-cyan-700 dark:text-cyan-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          :disabled="ocupadoId === apMenu.ap_id"
+            @click="elegirMenu((ap) => pingUno(ap))"
+        ><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Ping</button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-violet-700 dark:text-violet-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          :disabled="ocupadoId === apMenu.ap_id"
+          @click="elegirMenu((ap) => sshUno(ap))"
+        ><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3M13 15h3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16v12H4z"/></svg>SSH</button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          @click="elegirMenu((ap) => toggleDetalle(ap.ap_id))"
+        ><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>{{ detalleId === apMenu.ap_id ? 'Ocultar' : 'Datos' }}</button>
+        <button
+          v-if="canEditar"
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          @click="elegirMenu((ap) => abrirFormulario(ap))"
+        ><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Editar</button>
+        <button
+          v-if="canEliminar"
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+          @click="elegirMenu((ap) => eliminar(ap))"
+        ><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>Borrar</button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
 import Espectro5GhzNodo from '@/components/Espectro5GhzNodo.vue';
 import { colorAp } from '@/espectro5ghz';
 import { formatearCaidoHace } from '@/monitoreo-duracion';
@@ -341,6 +357,9 @@ const sshTodosActivo = ref(false);
 const progresoPing = ref('Pingeando…');
 const progresoSsh = ref('SSH…');
 const detalleId = ref(null);
+const menuAccionesId = ref(null);
+const menuPos = ref(null);
+const menuAccionesEl = ref(null);
 const ahora = ref(Date.now());
 let tickCaido = null;
 const formAbierto = ref(false);
@@ -356,6 +375,7 @@ const form = reactive({
 });
 
 const ocupado = computed(() => pingeandoTodos.value || sshTodosActivo.value || ocupadoId.value != null || guardando.value);
+const apMenu = computed(() => aps.value.find((a) => a.ap_id === menuAccionesId.value) || null);
 const apsActivos = computed(() => aps.value.filter((a) => a.activo !== false));
 
 const resumen = computed(() => {
@@ -436,6 +456,18 @@ function caidoHace(ap) {
   return formatearCaidoHace(ap?.ping_caido_desde, ahora.value) || ap?.caido_hace || null;
 }
 
+function textoRadio(ap) {
+  const partes = [];
+  if (ap.frecuencia) {
+    partes.push(String(ap.frecuencia) + (/mhz/i.test(String(ap.frecuencia)) ? '' : ' MHz'));
+  }
+  if (ap.canal) partes.push('ch ' + ap.canal);
+  if (ap.chanbw) {
+    partes.push(String(ap.chanbw) + (/mhz/i.test(String(ap.chanbw)) ? '' : ' MHz'));
+  }
+  return partes.length ? partes.join(' · ') : '—';
+}
+
 function extraVal(ap, key) {
   const extra = ap.extra || {};
   return extra[key] || '—';
@@ -450,6 +482,64 @@ function formatearFecha(iso) {
 
 function toggleDetalle(id) {
   detalleId.value = detalleId.value === id ? null : id;
+}
+
+let menuAncla = null;
+
+function cerrarMenuAcciones() {
+  menuAccionesId.value = null;
+  menuPos.value = null;
+  menuAncla = null;
+}
+
+function ubicarMenuAcciones() {
+  const btn = menuAncla;
+  if (!btn || typeof btn.getBoundingClientRect !== 'function') return;
+  const rect = btn.getBoundingClientRect();
+  const menu = menuAccionesEl.value;
+  const ancho = menu?.offsetWidth || 168;
+  const alto = menu?.offsetHeight || 0;
+  const margen = 4;
+  let top = rect.bottom + margen;
+  if (alto > 0 && top + alto > window.innerHeight - 8) {
+    top = rect.top - alto - margen;
+  }
+  if (top < 8) top = 8;
+  let left = rect.right - ancho;
+  if (left < 8) left = 8;
+  if (left + ancho > window.innerWidth - 8) left = Math.max(8, window.innerWidth - ancho - 8);
+  menuPos.value = { top, left };
+}
+
+function toggleMenuAcciones(id, ev) {
+  if (menuAccionesId.value === id) {
+    cerrarMenuAcciones();
+    return;
+  }
+  const origen = ev?.target?.closest?.('[data-menu-ap]')
+    || ev?.currentTarget?.closest?.('[data-menu-ap]')
+    || ev?.currentTarget;
+  menuAncla = origen && typeof origen.getBoundingClientRect === 'function' ? origen : null;
+  menuAccionesId.value = id;
+  ubicarMenuAcciones();
+  nextTick(() => ubicarMenuAcciones());
+}
+
+function elegirMenu(accion) {
+  const ap = apMenu.value;
+  cerrarMenuAcciones();
+  if (ap) accion(ap);
+}
+
+function onClickFueraMenu(ev) {
+  if (menuAccionesId.value == null) return;
+  if (ev.target?.closest?.('[data-menu-ap]')) return;
+  if (menuAccionesEl.value?.contains(ev.target)) return;
+  cerrarMenuAcciones();
+}
+
+function onScrollMenu() {
+  if (menuAccionesId.value != null) cerrarMenuAcciones();
 }
 
 function reemplazarAp(actualizado) {
@@ -589,9 +679,15 @@ onMounted(() => {
   tickCaido = setInterval(() => {
     ahora.value = Date.now();
   }, 30000);
+  document.addEventListener('click', onClickFueraMenu);
+  window.addEventListener('scroll', onScrollMenu, true);
+  window.addEventListener('resize', onScrollMenu);
 });
 
 onUnmounted(() => {
   if (tickCaido) clearInterval(tickCaido);
+  document.removeEventListener('click', onClickFueraMenu);
+  window.removeEventListener('scroll', onScrollMenu, true);
+  window.removeEventListener('resize', onScrollMenu);
 });
 </script>

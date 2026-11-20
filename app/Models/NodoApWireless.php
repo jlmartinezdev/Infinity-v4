@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Support\ApWirelessCaidaVentana;
 use App\Support\MonitoreoDuracion;
 use App\Traits\Auditable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NodoApWireless extends Model
 {
@@ -80,6 +83,8 @@ class NodoApWireless extends Model
      */
     public function aplicarResultadoPing(array $result): void
     {
+        $inicioPrevio = $this->ping_caido_desde?->copy();
+        $yaCaido = $inicioPrevio !== null;
         $fallos = (int) $this->ping_fallos_seguidos;
         $this->ping_ok = $result['ok'];
         $this->ping_latencia_ms = $result['latency_ms'];
@@ -101,6 +106,82 @@ class NodoApWireless extends Model
             $this->ping_fallos_seguidos = min(65535, $fallos + 1);
         }
         $this->saveQuietly();
+
+        if ($result['ok']) {
+            if ($yaCaido) {
+                $this->cerrarCaida($inicioPrevio);
+            }
+        } else {
+            $this->abrirCaida();
+        }
+    }
+
+    public function caidasRecientes(): HasMany
+    {
+        $desde = now()->subDay();
+
+        return $this->hasMany(NodoApWirelessCaida::class, 'ap_id', 'ap_id')
+            ->where(function ($query) use ($desde) {
+                $query->whereNull('fin')->orWhere('fin', '>', $desde);
+            })
+            ->orderBy('inicio');
+    }
+
+    /**
+     * @return list<array{inicio: string, fin: string}>
+     */
+    public function caidas24hVista(): array
+    {
+        $filas = ($this->relationLoaded('caidasRecientes')
+            ? $this->caidasRecientes
+            : $this->caidasRecientes()->get())
+            ->map(fn (NodoApWirelessCaida $caida) => [
+                'inicio' => $caida->inicio,
+                'fin' => $caida->fin,
+            ])
+            ->all();
+
+        return ApWirelessCaidaVentana::recortar(
+            $filas,
+            now(),
+            $this->ping_caido_desde,
+            $this->ping_ok === false,
+        );
+    }
+
+    private function abrirCaida(): void
+    {
+        $abierta = NodoApWirelessCaida::query()
+            ->where('ap_id', $this->ap_id)
+            ->whereNull('fin')
+            ->exists();
+        if ($abierta) {
+            return;
+        }
+
+        NodoApWirelessCaida::query()->create([
+            'ap_id' => $this->ap_id,
+            'inicio' => $this->ping_caido_desde ?? now(),
+            'fin' => null,
+        ]);
+    }
+
+    private function cerrarCaida(?CarbonInterface $inicioPrevio = null): void
+    {
+        $cerradas = NodoApWirelessCaida::query()
+            ->where('ap_id', $this->ap_id)
+            ->whereNull('fin')
+            ->update(['fin' => now()]);
+
+        if ($cerradas > 0 || $inicioPrevio === null) {
+            return;
+        }
+
+        NodoApWirelessCaida::query()->create([
+            'ap_id' => $this->ap_id,
+            'inicio' => $inicioPrevio,
+            'fin' => now(),
+        ]);
     }
 
     public static function formatearUptime(?int $segundos): ?string
@@ -162,6 +243,7 @@ class NodoApWireless extends Model
             'ssh_at' => $this->ssh_at?->toIso8601String(),
             'ssh_error' => $this->ssh_error,
             'extra' => $this->extra ?: null,
+            'caidas_24h' => $this->caidas24hVista(),
         ];
     }
 }

@@ -101,7 +101,7 @@ class NodoApWirelessController extends Controller
     {
         $user = $request->user();
         $aps = NodoApWireless::query()
-            ->with('nodo')
+            ->with(['nodo', 'caidasRecientes'])
             ->orderBy('nodo_id')
             ->orderBy('nombre')
             ->get()

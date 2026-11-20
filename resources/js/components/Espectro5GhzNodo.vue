@@ -56,8 +56,8 @@
       </div>
 
       <div
-        v-if="bloques.length > 1"
-        class="mt-2 space-y-1"
+        v-if="bloques.length"
+        class="mt-2 space-y-1.5"
       >
         <div
           v-for="b in bloques"
@@ -65,13 +65,34 @@
           class="flex items-center gap-2"
         >
           <span class="w-28 sm:w-36 shrink-0 text-[11px] text-gray-600 dark:text-gray-300 truncate" :title="b.ap.nombre">{{ b.ap.nombre }}</span>
-          <div class="relative flex-1 h-3 rounded-sm bg-gray-200 dark:bg-gray-700 overflow-hidden">
+          <div
+            class="relative flex-1 h-3 rounded-sm overflow-hidden"
+            style="background: #4fc3f7"
+            :title="'Últimas 24 horas. ' + textoCaidas(b) + '. El celeste es el tiempo en línea y el rojo es una caída.'"
+          >
+            <div class="absolute top-0 bottom-0 border-l" style="left: 25%; border-color: rgba(8, 47, 73, 0.28)"></div>
+            <div class="absolute top-0 bottom-0 border-l" style="left: 50%; border-color: rgba(8, 47, 73, 0.28)"></div>
+            <div class="absolute top-0 bottom-0 border-l" style="left: 75%; border-color: rgba(8, 47, 73, 0.28)"></div>
             <div
-              class="absolute top-0 bottom-0 rounded-sm"
-              :style="{ left: b.left + '%', width: Math.max(b.width, 0.6) + '%', background: b.color }"
+              v-for="(raya, i) in rayas24h(b)"
+              :key="'raya-' + b.ap.ap_id + '-' + i"
+              class="absolute top-0 bottom-0"
+              :style="{ left: raya.left + '%', width: raya.width + '%', background: '#ef4444' }"
+              :title="raya.titulo"
             ></div>
           </div>
-          <span class="w-28 shrink-0 text-right text-[11px] font-mono text-gray-500 dark:text-gray-400">{{ b.center }} / {{ b.bw }}</span>
+          <span class="w-40 shrink-0 text-right text-[11px] font-mono text-gray-500 dark:text-gray-400">
+            {{ b.center }} / {{ b.bw }}<span v-if="rayas24h(b).length" class="text-red-400"> · {{ textoCaidas(b) }}</span>
+          </span>
+        </div>
+        <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
+          <span class="w-28 sm:w-36 shrink-0"></span>
+          <div class="relative flex-1 h-3">
+            <span class="absolute left-0">−24 h</span>
+            <span class="absolute left-1/2 -translate-x-1/2">−12 h</span>
+            <span class="absolute right-0">ahora</span>
+          </div>
+          <span class="w-40 shrink-0"></span>
         </div>
       </div>
 
@@ -146,5 +167,47 @@ function tituloBloque(b) {
 
 function etiquetaCorta(b) {
   return String(b.center);
+}
+
+const VENTANA_MS = 24 * 60 * 60 * 1000;
+
+function rayas24h(b) {
+  const ahora = Date.now();
+  const desde = ahora - VENTANA_MS;
+  const lista = Array.isArray(b.ap?.caidas_24h) ? b.ap.caidas_24h : [];
+  const rayas = [];
+  for (const item of lista) {
+    const ini = Date.parse(item.inicio);
+    const fin = Date.parse(item.fin);
+    if (!Number.isFinite(ini) || !Number.isFinite(fin) || fin <= desde || ini >= ahora) continue;
+    const a = Math.max(ini, desde);
+    const z = Math.min(fin, ahora);
+    let left = ((a - desde) / VENTANA_MS) * 100;
+    let width = Math.max(((z - a) / VENTANA_MS) * 100, 0.45);
+    if (left + width > 100) width = Math.max(100 - left, 0.45);
+    rayas.push({
+      left,
+      width,
+      titulo: tituloRaya(a, z),
+    });
+  }
+  return rayas;
+}
+
+function textoCaidas(b) {
+  const n = rayas24h(b).length;
+  if (!n) return 'sin caídas';
+  return n === 1 ? '1 caída' : `${n} caídas`;
+}
+
+function tituloRaya(inicio, fin) {
+  const minutos = Math.max(1, Math.round((fin - inicio) / 60000));
+  return `Caída ${horaCorta(inicio)} – ${horaCorta(fin)} (${minutos} min)`;
+}
+
+function horaCorta(ms) {
+  const fecha = new Date(ms);
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${dos(fecha.getDate())}/${dos(fecha.getMonth() + 1)} ${dos(fecha.getHours())}:${dos(fecha.getMinutes())}`;
 }
 </script>
