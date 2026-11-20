@@ -3,12 +3,7 @@
 @section('title', 'Nuevo Cable de Fibra Óptica')
 
 @section('content')
-<div class="max-w-4xl mx-auto space-y-6 pb-12" x-data="{
-    origenTipo: '{{ old('origen_tipo', 'nodo') }}',
-    destinoTipo: '{{ old('destino_tipo', 'caja_nap') }}',
-    capacidad: {{ old('cantidad_hilos', 12) }},
-    get tubos() { return Math.ceil(this.capacidad / 12); }
-}">
+<div class="max-w-4xl mx-auto space-y-6 pb-12">
     <div class="flex items-center justify-between">
         <div>
             <a href="{{ route('sistema.lineas-cable.index') }}" class="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1">
@@ -72,7 +67,7 @@
                     <label for="cantidad_hilos" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                         Capacidad (Pelos / Hilos) *
                     </label>
-                    <select name="cantidad_hilos" id="cantidad_hilos" x-model.number="capacidad" required
+                    <select name="cantidad_hilos" id="cantidad_hilos" required
                         class="w-full h-11 px-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
                         @foreach ($capacidades as $cap)
                             <option value="{{ $cap }}" @selected((int)old('cantidad_hilos', 12) === $cap)>
@@ -80,7 +75,7 @@
                             </option>
                         @endforeach
                     </select>
-                    <p class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1 font-semibold" x-text="capacidad + ' pelos distribuidos en ' + tubos + (tubos === 1 ? ' tubo buffer' : ' tubos buffer')"></p>
+                    <p id="capacidad-tubos" class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1 font-semibold"></p>
                 </div>
 
                 {{-- Color de Chaqueta / Buffer --}}
@@ -143,7 +138,7 @@
 
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Tipo de Elemento</label>
-                        <select name="origen_tipo" x-model="origenTipo" required
+                        <select name="origen_tipo" data-extremo-tipo="origen" required
                             class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 font-semibold">
                             <option value="nodo">Nodo / Central</option>
                             <option value="salida_pon">Salida PON</option>
@@ -158,8 +153,8 @@
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Elemento Seleccionado</label>
                         
                         {{-- Select para Nodo --}}
-                        <div x-show="origenTipo === 'nodo'">
-                            <select :disabled="origenTipo !== 'nodo'" name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="origen" data-tipo="nodo" hidden>
+                            <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($nodos as $n)
                                     <option value="{{ $n->nodo_id }}" @selected(old('origen_id') == $n->nodo_id)>
                                         Nodo: {{ $n->descripcion }}
@@ -169,8 +164,8 @@
                         </div>
 
                         {{-- Select para Salida PON --}}
-                        <div x-show="origenTipo === 'salida_pon'">
-                            <select :disabled="origenTipo !== 'salida_pon'" name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="origen" data-tipo="salida_pon" hidden>
+                            <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($salidaPons as $sp)
                                     <option value="{{ $sp->salida_pon_id }}" @selected(old('origen_id') == $sp->salida_pon_id)>
                                         PON: {{ $sp->codigo }} ({{ $sp->nodo?->descripcion }})
@@ -180,8 +175,8 @@
                         </div>
 
                         {{-- Select para Caja NAP --}}
-                        <div x-show="origenTipo === 'caja_nap'">
-                            <select :disabled="origenTipo !== 'caja_nap'" name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="origen" data-tipo="caja_nap" hidden>
+                            <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($cajas as $c)
                                     <option value="{{ $c->caja_nap_id }}" @selected(old('origen_id') == $c->caja_nap_id)>
                                         NAP: {{ $c->codigo }} ({{ $c->nodo?->descripcion }})
@@ -191,8 +186,8 @@
                         </div>
 
                         {{-- Select para Splitters Primarios --}}
-                        <div x-show="origenTipo === 'splitter_primario'">
-                            <select :disabled="origenTipo !== 'splitter_primario'" name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="origen" data-tipo="splitter_primario" hidden>
+                            <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersPrimarios as $spr)
                                     <option value="{{ $spr->splitter_primario_id }}" @selected(old('origen_id') == $spr->splitter_primario_id)>
                                         Splitter 1º: {{ $spr->codigo }} ({{ $spr->cajaNap?->codigo }})
@@ -202,8 +197,8 @@
                         </div>
 
                         {{-- Select para Splitters Secundarios --}}
-                        <div x-show="origenTipo === 'splitter_secundario'">
-                            <select :disabled="origenTipo !== 'splitter_secundario'" name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="origen" data-tipo="splitter_secundario" hidden>
+                            <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersSecundarios as $ssec)
                                     <option value="{{ $ssec->splitter_secundario_id }}" @selected(old('origen_id') == $ssec->splitter_secundario_id)>
                                         Splitter 2º: {{ $ssec->codigo }} ({{ $ssec->cajaNap?->codigo }})
@@ -223,7 +218,7 @@
 
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Tipo de Elemento</label>
-                        <select name="destino_tipo" x-model="destinoTipo" required
+                        <select name="destino_tipo" data-extremo-tipo="destino" required
                             class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 font-semibold">
                             <option value="caja_nap">Caja NAP</option>
                             <option value="nodo">Nodo / Central</option>
@@ -238,8 +233,8 @@
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Elemento Seleccionado</label>
                         
                         {{-- Select para Caja NAP --}}
-                        <div x-show="destinoTipo === 'caja_nap'">
-                            <select :disabled="destinoTipo !== 'caja_nap'" name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="destino" data-tipo="caja_nap" hidden>
+                            <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($cajas as $c)
                                     <option value="{{ $c->caja_nap_id }}" @selected(old('destino_id') == $c->caja_nap_id)>
                                         NAP: {{ $c->codigo }} ({{ $c->nodo?->descripcion }})
@@ -249,8 +244,8 @@
                         </div>
 
                         {{-- Select para Nodo --}}
-                        <div x-show="destinoTipo === 'nodo'">
-                            <select :disabled="destinoTipo !== 'nodo'" name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="destino" data-tipo="nodo" hidden>
+                            <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($nodos as $n)
                                     <option value="{{ $n->nodo_id }}" @selected(old('destino_id') == $n->nodo_id)>
                                         Nodo: {{ $n->descripcion }}
@@ -260,8 +255,8 @@
                         </div>
 
                         {{-- Select para Salida PON --}}
-                        <div x-show="destinoTipo === 'salida_pon'">
-                            <select :disabled="destinoTipo !== 'salida_pon'" name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="destino" data-tipo="salida_pon" hidden>
+                            <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($salidaPons as $sp)
                                     <option value="{{ $sp->salida_pon_id }}" @selected(old('destino_id') == $sp->salida_pon_id)>
                                         PON: {{ $sp->codigo }} ({{ $sp->nodo?->descripcion }})
@@ -271,8 +266,8 @@
                         </div>
 
                         {{-- Select para Splitters Primarios --}}
-                        <div x-show="destinoTipo === 'splitter_primario'">
-                            <select :disabled="destinoTipo !== 'splitter_primario'" name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="destino" data-tipo="splitter_primario" hidden>
+                            <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersPrimarios as $spr)
                                     <option value="{{ $spr->splitter_primario_id }}" @selected(old('destino_id') == $spr->splitter_primario_id)>
                                         Splitter 1º: {{ $spr->codigo }} ({{ $spr->cajaNap?->codigo }})
@@ -282,8 +277,8 @@
                         </div>
 
                         {{-- Select para Splitters Secundarios --}}
-                        <div x-show="destinoTipo === 'splitter_secundario'">
-                            <select :disabled="destinoTipo !== 'splitter_secundario'" name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        <div data-extremo-panel="destino" data-tipo="splitter_secundario" hidden>
+                            <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersSecundarios as $ssec)
                                     <option value="{{ $ssec->splitter_secundario_id }}" @selected(old('destino_id') == $ssec->splitter_secundario_id)>
                                         Splitter 2º: {{ $ssec->codigo }} ({{ $ssec->cajaNap?->codigo }})
@@ -319,4 +314,5 @@
         </div>
     </form>
 </div>
+@include('lineas-cable._extremos-script')
 @endsection

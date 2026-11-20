@@ -11,10 +11,10 @@ class DedicadoSalidaConfigTest extends TestCase
     {
         $this->assertSame('tigo', DedicadoSalidaConfig::MODO_TIGO);
         $this->assertSame('ufinet', DedicadoSalidaConfig::MODO_UFINET);
-        $this->assertSame('10.200.3.4', DedicadoSalidaConfig::PRIVADA);
+        $this->assertSame('10.200.4.2', DedicadoSalidaConfig::PRIVADA);
         $this->assertSame('200.26.179.93', DedicadoSalidaConfig::PUBLICA);
         $this->assertSame('to_tigo', DedicadoSalidaConfig::TABLA_TIGO);
-        $this->assertSame('Dedicado N1 1:1 Tigo', DedicadoSalidaConfig::RULE_COMMENT);
+        $this->assertSame('Dedicado 250M 1:1 Tigo', DedicadoSalidaConfig::RULE_COMMENT);
     }
 
     public function test_perfil_server_usa_la_94(): void

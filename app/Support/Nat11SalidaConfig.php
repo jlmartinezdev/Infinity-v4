@@ -75,7 +75,7 @@ class Nat11SalidaConfig
 
         return [
             'clave' => self::DEDICADO,
-            'nombre' => 'Dedicado N1',
+            'nombre' => 'Dedicado 250M',
             'privada' => DedicadoSalidaConfig::PRIVADA,
             'publica' => DedicadoSalidaConfig::PUBLICA,
             'tabla_tigo' => DedicadoSalidaConfig::TABLA_TIGO,

@@ -5,7 +5,7 @@ namespace App\Support;
 use App\Models\FacturacionParametro;
 
 /**
- * Salida del enlace dedicado N1 (10.200.3.4 ↔ 200.26.179.93).
+ * Salida del dedicado 250M (10.200.4.2 ↔ 200.26.179.93).
  */
 class DedicadoSalidaConfig
 {
@@ -13,17 +13,17 @@ class DedicadoSalidaConfig
 
     public const MODO_UFINET = 'ufinet';
 
-    public const PRIVADA = '10.200.3.4';
+    public const PRIVADA = '10.200.4.2';
 
     public const PUBLICA = '200.26.179.93';
 
     public const TABLA_TIGO = 'to_tigo';
 
-    public const NAT_SALIDA = 'NAT 1:1 Dedicado N1 100M - SALIDA';
+    public const NAT_SALIDA = 'NAT 1:1 Dedicado 250M - SALIDA';
 
-    public const NAT_ENTRADA = 'NAT 1:1 Dedicado N1 100M - ENTRADA';
+    public const NAT_ENTRADA = 'NAT 1:1 Dedicado 250M - ENTRADA';
 
-    public const RULE_COMMENT = 'Dedicado N1 1:1 Tigo';
+    public const RULE_COMMENT = 'Dedicado 250M 1:1 Tigo';
 
     public static function modo(): string
     {
@@ -37,7 +37,7 @@ class DedicadoSalidaConfig
         FacturacionParametro::establecer(
             'dedicado_salida_modo',
             $modo === self::MODO_UFINET ? self::MODO_UFINET : self::MODO_TIGO,
-            'Salida del dedicado N1: tigo (NAT 1:1) o ufinet (sin IP pública)'
+            'Salida del dedicado 250M: tigo (NAT 1:1) o ufinet (sin IP pública)'
         );
     }
 }

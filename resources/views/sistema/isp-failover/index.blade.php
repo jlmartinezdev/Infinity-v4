@@ -104,7 +104,7 @@
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
                 <p class="text-xs uppercase tracking-wide font-medium {{ $dedicadoTigo ? 'text-sky-700 dark:text-sky-300' : 'text-violet-700 dark:text-violet-300' }}">
-                    Dedicado N1 150 Mbps
+                    Dedicado 250 Mbps
                 </p>
                 <p class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     {{ $dedicadoTigo ? 'Tigo · NAT 1:1' : 'Ufinet · sin IP pública' }}
@@ -113,7 +113,7 @@
                     {{ $dedicado['mensaje'] ?? '' }}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 font-mono">
-                    {{ $dedicado['privada'] ?? '10.200.3.4' }}
+                    {{ $dedicado['privada'] ?? '10.200.4.2' }}
                     ↔
                     {{ $dedicado['publica'] ?? '200.26.179.93' }}
                     · regla to_tigo {{ !empty($dedicado['regla']) ? 'ON' : 'OFF' }}
