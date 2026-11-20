@@ -143,8 +143,11 @@ class WhatsAppAgentService
         $clasificacion = $this->clasificarImagenSiCorresponde($mensaje);
         $this->aplicarVisionAlMensaje($mensaje, $clasificacion);
 
+        // Guía del asesor en el panel: forzar LLM (n8n/LangGraph) y no cortar con canned.
+        $conGuiaAsesor = $this->guiaAsesorDesdeMensaje($mensaje) !== null;
+
         // Comprobante: frase formal fija. No dejar que el LLM diga "tu comprobante" / "Te saluda".
-        if ($this->esComprobanteDetectado($mensaje, $clasificacion)) {
+        if (! $conGuiaAsesor && $this->esComprobanteDetectado($mensaje, $clasificacion)) {
             return $this->cerrarConSoporte(
                 $mensaje,
                 $this->soporte->paqueteComprobante($mensaje),
@@ -154,7 +157,7 @@ class WhatsAppAgentService
         }
 
         $backend = $this->backendActivo($sandbox);
-        if ($backend !== 'langgraph') {
+        if (! $conGuiaAsesor && $backend !== 'langgraph') {
             $soporte = $this->soporte->intentar($mensaje, $sandbox);
             if ($soporte !== null) {
                 return $this->cerrarConSoporte($mensaje, $soporte, $enviar, $sandbox);
@@ -386,69 +389,9 @@ class WhatsAppAgentService
             return $vacio;
         }
 
-        $timestamp = data_get($mensaje->payload, 'timestamp');
-        $timestamp = is_numeric($timestamp) ? (int) $timestamp : (int) ($mensaje->created_at?->timestamp ?? time());
-
-        $hilo = $this->hiloParaTelefono(
-            (string) $mensaje->telefono,
-            $mensaje->id ? (int) $mensaje->id : null,
-        );
-        $catalogo = $this->catalogoPlanes();
-        $clasificacion ??= $this->clasificarImagenSiCorresponde($mensaje);
-        $tipoImagen = (string) ($clasificacion['tipo'] ?? '');
-        $cuerpo = self::captionUtil((string) $mensaje->cuerpo);
-        if ($cuerpo === '' && $mensaje->tipo === 'image') {
-            $cuerpo = match ($tipoImagen) {
-                WhatsAppImagenClasificadorService::TIPO_MAPA => 'Te envié una captura de mapa',
-                WhatsAppImagenClasificadorService::TIPO_COMPROBANTE => 'Te envié un comprobante de transferencia',
-                WhatsAppImagenClasificadorService::TIPO_WIFI_FALLA => 'No me anda el internet. Estoy en WiFi sin conexión a Internet.',
-                WhatsAppImagenClasificadorService::TIPO_ONU => 'No me anda el internet. Le mando foto del equipo.',
-                default => 'Te envié una foto',
-            };
-        }
-        $rafaga = $this->rafagaClienteReciente(
-            (string) $mensaje->telefono,
-            $mensaje->id ? (int) $mensaje->id : null,
-            120,
-        );
-        $cuerpoAnalisis = $rafaga['unido'] !== '' ? $rafaga['unido'] : $cuerpo;
-        $pareceComprobante = self::detectarComprobante(
-            (string) $mensaje->tipo,
-            (string) $mensaje->cuerpo,
-            $hilo['historial'],
-            $tipoImagen,
-        );
-        $pareceMapa = self::detectarUbicacion(
-            (string) $mensaje->tipo,
-            (string) $mensaje->cuerpo,
-            $hilo['historial'],
-            $tipoImagen,
-        );
-        $horarioLaboral = self::horarioLaboral();
-        $pareceDatosTransferencia = self::textoPareceDatosTransferencia($cuerpoAnalisis);
-        $parecePagoTexto = ! $pareceComprobante && ! $pareceMapa && ! $pareceDatosTransferencia && self::textoParecePago($cuerpoAnalisis);
-        $pareceBaja = self::textoPareceBajaServicio($cuerpoAnalisis);
-        $primeraVez = $this->esPrimeraConversacion((string) $mensaje->telefono, $mensaje->id ? (int) $mensaje->id : null);
-        $pareceCedula = self::textoPareceCedula($cuerpo);
-        $pareceBeneficios = self::textoPareceBeneficiosPlanes($cuerpoAnalisis);
-        $pareceCondiciones = self::textoPareceCondicionesServicio($cuerpoAnalisis);
-        $canned = self::textosCanned();
-        $pareceInstalacion = ! $pareceBaja && (
-            self::textoPareceInstalacion($cuerpoAnalisis)
-            || ($primeraVez && self::textoPareceWifi($cuerpoAnalisis))
-        );
-        $nombreCorto = '';
-        try {
-            $cli = $this->whatsapp->findClienteByPhone($mensaje->telefono);
-            if ($cli) {
-                $nombreCorto = self::nombreCortoSaludo((string) ($cli->nombre ?? ''));
-            }
-        } catch (\Throwable) {
-            // lookup opcional
-        }
-
-        $ctxN8n = $this->soporte->contextoParaN8n($mensaje);
-        $vacio['hechos'] = is_array($ctxN8n['hechos'] ?? null) ? $ctxN8n['hechos'] : [];
+        // Mismo armado que LangGraph (incluye guía del asesor si viene del panel).
+        $base = $this->consultarN8nPayload($mensaje, $clasificacion);
+        $vacio['hechos'] = $base['hechos'] ?? [];
 
         try {
             $response = Http::timeout($timeoutSec)
@@ -457,44 +400,7 @@ class WhatsAppAgentService
                 ->withHeaders(array_filter([
                     'X-Interplus-Secret' => $secret !== '' ? $secret : null,
                 ]))
-                ->post($url, [
-                    'wa_id' => $mensaje->telefono,
-                    'nombre_perfil' => null,
-                    'mensaje' => $cuerpo,
-                    'mensaje_hilo_reciente' => $cuerpoAnalisis,
-                    'message_id' => (string) ($mensaje->wamid ?: 'local-'.$mensaje->id),
-                    'timestamp' => $timestamp,
-                    'tipo' => (string) ($mensaje->tipo ?: 'text'),
-                    'historial' => $hilo['historial'],
-                    'historial_texto' => $hilo['historial_texto'],
-                    'planes_fibra' => $catalogo['fibra'],
-                    'planes_antena' => $catalogo['antena'],
-                    'planes_texto' => $catalogo['planes_texto'],
-                    'planes_prompt' => $catalogo['planes_prompt'] ?? '',
-                    'texto_beneficios' => $canned['beneficios'],
-                    'texto_transferencia' => $canned['transferencia'],
-                    'texto_condiciones' => $canned['condiciones'],
-                    'horario_laboral' => $horarioLaboral,
-                    'parece_comprobante' => $pareceComprobante,
-                    'parece_pago_texto' => $parecePagoTexto,
-                    'parece_datos_transferencia' => $pareceDatosTransferencia,
-                    'parece_beneficios' => $pareceBeneficios,
-                    'parece_condiciones' => $pareceCondiciones,
-                    'parece_mapa' => $pareceMapa,
-                    'parece_cedula' => $pareceCedula,
-                    'cobertura_aprobada' => $this->telefonoTieneCoberturaAprobada(
-                        (string) $mensaje->telefono,
-                        $mensaje->id ? (int) $mensaje->id : null,
-                        $cuerpoAnalisis,
-                        is_array($mensaje->payload) ? $mensaje->payload : [],
-                    ),
-                    'parece_baja' => $pareceBaja,
-                    'parece_instalacion' => $pareceInstalacion,
-                    'primera_vez' => $primeraVez && $hilo['historial'] === [],
-                    'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
-                    'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
-                    'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
-                ] + $ctxN8n);
+                ->post($url, $base['body']);
         } catch (\Throwable $e) {
             $vacio['n8n_latency_ms'] = (int) round((microtime(true) - $started) * 1000);
             $vacio['error'] = 'n8n_excepcion: '.$e->getMessage();
@@ -785,9 +691,92 @@ class WhatsAppAgentService
             'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
             'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
             'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
-        ] + $ctxN8n;
+        ] + $ctxN8n + $this->camposGuiaAsesorParaN8n($mensaje);
 
         return ['body' => $body, 'hechos' => $hechos];
+    }
+
+    /**
+     * Guía opcional del asesor (panel WhatsApp) para regenerar la sugerencia.
+     *
+     * @param  array<string, mixed>|null  $guia
+     * @return array{tema: string, contexto: string, indicacion: string}|null
+     */
+    public static function normalizarGuiaAsesor(?array $guia): ?array
+    {
+        if (! is_array($guia)) {
+            return null;
+        }
+
+        $tema = trim((string) ($guia['tema'] ?? ''));
+        $contexto = trim((string) ($guia['contexto'] ?? ''));
+        $indicacion = trim((string) ($guia['indicacion'] ?? $guia['que_responder'] ?? ''));
+
+        $tema = mb_substr($tema, 0, 200);
+        $contexto = mb_substr($contexto, 0, 2000);
+        $indicacion = mb_substr($indicacion, 0, 2000);
+
+        if ($tema === '' && $contexto === '' && $indicacion === '') {
+            return null;
+        }
+
+        return [
+            'tema' => $tema,
+            'contexto' => $contexto,
+            'indicacion' => $indicacion,
+        ];
+    }
+
+    /**
+     * @return array{tema: string, contexto: string, indicacion: string}|null
+     */
+    public function guiaAsesorDesdeMensaje(WhatsappMensaje $mensaje): ?array
+    {
+        $raw = data_get($mensaje->payload, 'wa_guia_asesor');
+        if (! is_array($raw)) {
+            $raw = data_get($mensaje->payload, 'wa_agent.guia_asesor');
+        }
+
+        return self::normalizarGuiaAsesor(is_array($raw) ? $raw : null);
+    }
+
+    /**
+     * Campos extra para el webhook n8n / LangGraph.
+     *
+     * @return array<string, mixed>
+     */
+    private function camposGuiaAsesorParaN8n(WhatsappMensaje $mensaje): array
+    {
+        $guia = $this->guiaAsesorDesdeMensaje($mensaje);
+        if ($guia === null) {
+            return [
+                'guia_asesor_tema' => null,
+                'guia_asesor_contexto' => null,
+                'guia_asesor_indicacion' => null,
+                'instruccion_guia_asesor' => null,
+            ];
+        }
+
+        $lineas = [
+            'INDICACIÓN DEL ASESOR (prioridad alta; redactar el reply siguiendo esto; no pegar este bloque al cliente):',
+        ];
+        if ($guia['tema'] !== '') {
+            $lineas[] = 'Tema: '.$guia['tema'];
+        }
+        if ($guia['contexto'] !== '') {
+            $lineas[] = 'Contexto: '.$guia['contexto'];
+        }
+        if ($guia['indicacion'] !== '') {
+            $lineas[] = 'Qué debe decir / dirección: '.$guia['indicacion'];
+        }
+        $lineas[] = 'Mantener tono formal de usted Interplus. No inventar datos fuera de hechos / catálogo / canned.';
+
+        return [
+            'guia_asesor_tema' => $guia['tema'] !== '' ? $guia['tema'] : null,
+            'guia_asesor_contexto' => $guia['contexto'] !== '' ? $guia['contexto'] : null,
+            'guia_asesor_indicacion' => $guia['indicacion'] !== '' ? $guia['indicacion'] : null,
+            'instruccion_guia_asesor' => implode("\n", $lineas),
+        ];
     }
 
     /**
@@ -2100,9 +2089,10 @@ class WhatsAppAgentService
     /**
      * Vuelve a correr el agente sobre el último inbound (borrador panel, sin auto-send).
      *
+     * @param  array{tema?: string, contexto?: string, indicacion?: string, que_responder?: string}|null  $guia
      * @return array{ok: bool, sugerencia: ?array{mensaje_id:int,reply:string,escalate:bool,motivo_escalado:?string,error:?string}, error: ?string, modo: ?string}
      */
-    public function regenerarSugerencia(string $telefono): array
+    public function regenerarSugerencia(string $telefono, ?array $guia = null): array
     {
         $tel = preg_replace('/\D+/', '', $telefono) ?: '';
         if ($tel === '') {
@@ -2121,6 +2111,12 @@ class WhatsAppAgentService
 
         $payload = is_array($entrada->payload) ? $entrada->payload : [];
         unset($payload['wa_agent']);
+        $guiaNorm = self::normalizarGuiaAsesor($guia);
+        if ($guiaNorm !== null) {
+            $payload['wa_guia_asesor'] = $guiaNorm;
+        } else {
+            unset($payload['wa_guia_asesor']);
+        }
         $entrada->payload = $payload;
         $entrada->save();
 
@@ -2307,6 +2303,9 @@ class WhatsAppAgentService
         ?int $ticketId,
     ): void {
         $payload = is_array($mensaje->payload) ? $mensaje->payload : [];
+        $guiaAsesor = self::normalizarGuiaAsesor(
+            is_array($payload['wa_guia_asesor'] ?? null) ? $payload['wa_guia_asesor'] : null
+        );
         $payload['wa_agent'] = [
             'reply' => $reply,
             'escalate' => $escalate,
@@ -2333,7 +2332,10 @@ class WhatsAppAgentService
             'resumen_admin' => $consulta['resumen_admin'] ?? null,
             'caso_id' => isset($consulta['caso_id']) ? (int) $consulta['caso_id'] : null,
             'hechos' => is_array($consulta['hechos'] ?? null) ? $consulta['hechos'] : null,
+            'guia_asesor' => $guiaAsesor,
         ];
+        // La guía del panel ya quedó auditada en wa_agent; no reutilizar en jobs posteriores.
+        unset($payload['wa_guia_asesor']);
         $mensaje->payload = $payload;
         $mensaje->save();
 

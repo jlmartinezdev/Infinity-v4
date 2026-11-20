@@ -1339,7 +1339,13 @@ class WhatsAppWebController extends Controller
             return response()->json(['ok' => false, 'error' => 'Teléfono requerido'], 422);
         }
 
-        $out = app(\App\Services\WhatsApp\WhatsAppAgentService::class)->regenerarSugerencia($tel);
+        $guia = \App\Services\WhatsApp\WhatsAppAgentService::normalizarGuiaAsesor([
+            'tema' => $request->input('tema'),
+            'contexto' => $request->input('contexto'),
+            'indicacion' => $request->input('indicacion') ?: $request->input('que_responder'),
+        ]);
+
+        $out = app(\App\Services\WhatsApp\WhatsAppAgentService::class)->regenerarSugerencia($tel, $guia);
 
         return response()->json([
             'ok' => (bool) ($out['ok'] ?? false),

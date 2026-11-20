@@ -303,4 +303,22 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $this->assertTrue(WhatsAppAgentService::textoPareceConsultaCobertura('hay cobertura en mi zona?'));
         $this->assertFalse(WhatsAppAgentService::textoPareceConsultaCobertura('ubicación aprobada'));
     }
+
+    public function test_normalizar_guia_asesor(): void
+    {
+        $this->assertNull(WhatsAppAgentService::normalizarGuiaAsesor(null));
+        $this->assertNull(WhatsAppAgentService::normalizarGuiaAsesor(['tema' => '  ', 'contexto' => '', 'indicacion' => '']));
+
+        $guia = WhatsAppAgentService::normalizarGuiaAsesor([
+            'tema' => '  Corte  ',
+            'contexto' => 'Técnico en camino',
+            'que_responder' => 'Avisar que llega entre 14 y 16',
+        ]);
+
+        $this->assertSame([
+            'tema' => 'Corte',
+            'contexto' => 'Técnico en camino',
+            'indicacion' => 'Avisar que llega entre 14 y 16',
+        ], $guia);
+    }
 }

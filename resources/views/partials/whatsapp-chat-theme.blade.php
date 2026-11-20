@@ -152,6 +152,12 @@ html.dark .wa-app, html.dark .wa-ficha, html.dark .wa-chat-menu {
 .wa-app .wa-sugerencia-enviar { background: #16a34a; color: #ffffff; }
 .wa-app .wa-sugerencia-sec { background: rgba(255, 255, 255, 0.8); color: #064e3b; }
 .wa-app .wa-sugerencia-error { color: #b91c1c; }
+.wa-app .wa-sugerencia-guia .wa-input {
+  background: rgba(255, 255, 255, 0.9);
+  color: #022c22;
+  border: 1px solid rgba(6, 95, 70, 0.18);
+}
+.wa-app .wa-sugerencia-guia .wa-input::placeholder { color: #6b7280; }
 html.dark .wa-app .wa-sugerencia,
 html.dark .wa-app .wa-sugerencia-espera {
   background: #102923;
@@ -166,6 +172,12 @@ html.dark .wa-app .wa-sugerencia-texto {
 html.dark .wa-app .wa-sugerencia-enviar { background: #00a884; color: #111b21; }
 html.dark .wa-app .wa-sugerencia-sec { background: #1a3330; color: #d1fae5; }
 html.dark .wa-app .wa-sugerencia-error { color: #fecaca; }
+html.dark .wa-app .wa-sugerencia-guia .wa-input {
+  background: #0b141a;
+  color: #e9edef;
+  border-color: #1f3d36;
+}
+html.dark .wa-app .wa-sugerencia-guia .wa-input::placeholder { color: #8696a0; }
 .wa-app .wa-toast-ok { background: rgba(0,168,132,.18); color: var(--wa-accent); border-color: var(--wa-border); }
 .wa-app .wa-toast-err { background: rgba(234,0,56,.12); color: #b42318; border-color: var(--wa-border); }
 html.dark .wa-app .wa-toast-err { color: #fecaca; }

@@ -303,7 +303,7 @@ class FraseCliente
         }
 
         return (bool) preg_match(
-            '/venta suave|planes vigentes\s*\(|salida whatsapp|enrutado:|cotice solo|no invente precios|estilo interplus|obligatorio:|reglas fijas|historial_texto|instruccion_|·\s*prioridad\s*\d|gancho por conversaci|menosprecie|mensaje_hilo_reciente|planes_prompt|hechos\s*\(solo/u',
+            '/venta suave|planes vigentes\s*\(|salida whatsapp|enrutado:|cotice solo|no invente precios|estilo interplus|obligatorio:|reglas fijas|historial_texto|instruccion_|indicaci[oó]n del asesor|guia_asesor|·\s*prioridad\s*\d|gancho por conversaci|menosprecie|mensaje_hilo_reciente|planes_prompt|hechos\s*\(solo/u',
             $t
         );
     }

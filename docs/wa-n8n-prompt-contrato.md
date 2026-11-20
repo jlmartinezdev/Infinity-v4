@@ -22,6 +22,7 @@ Además del payload previo (`historial_texto`, flags `parece_*`):
 - `plan_nombre`, `plan_precio`, `cedula`, `es_antena`, `ticket_abierto`, `contexto_cuenta`
 - `estilo_interplus`, `instruccion_hechos`, `instruccion_hilo`
 - `texto_beneficios` / `texto_transferencia` / `texto_condiciones`: canned literales
+- Guía del asesor (panel, al regenerar con formulario): `guia_asesor_tema`, `guia_asesor_contexto`, `guia_asesor_indicacion`, `instruccion_guia_asesor` (bloque listo para el LLM; prioridad alta; no pegar al reply)
 
 ## Reglas del system prompt (Basic LLM Chain)
 
@@ -54,6 +55,10 @@ LISTA CLIENTE (formato permitido al cotizar):
 
 {{ $json.instruccion_hechos }}
 {{ $json.instruccion_hilo }}
+
+{{ $json.instruccion_guia_asesor }}
 ```
+
+Si `instruccion_guia_asesor` viene con texto, el asesor del panel pidió tema/contexto/dirección: priorizar eso al redactar el `reply` (sin copiar el bloque al cliente).
 
 Laravel corta alucinaciones y fugas de prompt con `ValidadorHechos` + `FraseCliente::filtrar` después del webhook. No confiar solo en el LLM.

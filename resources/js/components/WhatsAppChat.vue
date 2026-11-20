@@ -574,7 +574,57 @@
                   :disabled="regenerandoSugerencia"
                   @click="descartarSugerencia"
                 >Descartar</button>
+                <button
+                  type="button"
+                  class="wa-sugerencia-sec rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
+                  :disabled="regenerandoSugerencia"
+                  @click="mostrarGuiaSugerencia = !mostrarGuiaSugerencia"
+                >{{ mostrarGuiaSugerencia ? 'Ocultar guía' : 'Guiar respuesta' }}</button>
               </div>
+              <form
+                v-if="mostrarGuiaSugerencia"
+                class="wa-sugerencia-guia mt-2 space-y-1.5"
+                @submit.prevent="regenerarSugerencia"
+              >
+                <p class="font-medium opacity-90">Decile a la IA qué querés responder</p>
+                <input
+                  v-model="guiaSugerencia.tema"
+                  type="text"
+                  maxlength="200"
+                  class="wa-input w-full rounded-md px-2 py-1.5 text-[12px]"
+                  placeholder="Tema (ej. corte, pago, cambio de plan)"
+                  :disabled="regenerandoSugerencia"
+                >
+                <textarea
+                  v-model="guiaSugerencia.contexto"
+                  rows="2"
+                  maxlength="2000"
+                  class="wa-input w-full resize-y rounded-md px-2 py-1.5 text-[12px] leading-snug"
+                  placeholder="Contexto (datos que la IA no ve: visita hoy, ya hablamos con el técnico…)"
+                  :disabled="regenerandoSugerencia"
+                ></textarea>
+                <textarea
+                  v-model="guiaSugerencia.indicacion"
+                  rows="2"
+                  maxlength="2000"
+                  class="wa-input w-full resize-y rounded-md px-2 py-1.5 text-[12px] leading-snug"
+                  placeholder="Qué queremos que diga / dirección de la respuesta"
+                  :disabled="regenerandoSugerencia"
+                ></textarea>
+                <div class="flex flex-wrap gap-2 pt-0.5">
+                  <button
+                    type="submit"
+                    class="wa-sugerencia-enviar rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
+                    :disabled="regenerandoSugerencia || !urls.regenerarSugerenciaIa || !guiaSugerenciaTieneDatos"
+                  >{{ regenerandoSugerencia ? 'Generando…' : 'Generar con esta guía' }}</button>
+                  <button
+                    type="button"
+                    class="wa-sugerencia-sec rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
+                    :disabled="regenerandoSugerencia"
+                    @click="limpiarGuiaSugerencia"
+                  >Limpiar</button>
+                </div>
+              </form>
               <p v-if="errorRegenerarSugerencia" class="wa-sugerencia-error mt-1.5 text-[11px] font-medium">{{ errorRegenerarSugerencia }}</p>
             </div>
             <div
@@ -583,6 +633,54 @@
             >
               <p class="font-semibold">{{ regenerandoSugerencia ? 'Regenerando sugerencia…' : 'Generando sugerencia…' }}</p>
               <p class="mt-0.5 opacity-80">El borrador aparece acá en unos segundos. No hace falta refrescar.</p>
+            </div>
+            <div
+              v-else-if="puedeEditar && urls.regenerarSugerenciaIa && !hiloMeta.fuera_ventana"
+              class="wa-sugerencia relative z-10 border-t px-3 py-2 text-xs"
+            >
+              <button
+                type="button"
+                class="font-semibold underline-offset-2 hover:underline disabled:opacity-40"
+                :disabled="regenerandoSugerencia"
+                @click="mostrarGuiaSugerencia = !mostrarGuiaSugerencia"
+              >{{ mostrarGuiaSugerencia ? 'Ocultar guía IA' : 'Pedir sugerencia IA con guía' }}</button>
+              <form
+                v-if="mostrarGuiaSugerencia"
+                class="wa-sugerencia-guia mt-2 space-y-1.5"
+                @submit.prevent="regenerarSugerencia"
+              >
+                <p class="opacity-90">Tema, contexto y qué querés que responda. Se genera un borrador; no se envía solo.</p>
+                <input
+                  v-model="guiaSugerencia.tema"
+                  type="text"
+                  maxlength="200"
+                  class="wa-input w-full rounded-md px-2 py-1.5 text-[12px]"
+                  placeholder="Tema (ej. corte, pago, cambio de plan)"
+                  :disabled="regenerandoSugerencia"
+                >
+                <textarea
+                  v-model="guiaSugerencia.contexto"
+                  rows="2"
+                  maxlength="2000"
+                  class="wa-input w-full resize-y rounded-md px-2 py-1.5 text-[12px] leading-snug"
+                  placeholder="Contexto (datos que la IA no ve)"
+                  :disabled="regenerandoSugerencia"
+                ></textarea>
+                <textarea
+                  v-model="guiaSugerencia.indicacion"
+                  rows="2"
+                  maxlength="2000"
+                  class="wa-input w-full resize-y rounded-md px-2 py-1.5 text-[12px] leading-snug"
+                  placeholder="Qué queremos que diga / dirección de la respuesta"
+                  :disabled="regenerandoSugerencia"
+                ></textarea>
+                <button
+                  type="submit"
+                  class="wa-sugerencia-enviar rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-40"
+                  :disabled="regenerandoSugerencia || !guiaSugerenciaTieneDatos"
+                >{{ regenerandoSugerencia ? 'Generando…' : 'Generar sugerencia' }}</button>
+                <p v-if="errorRegenerarSugerencia" class="wa-sugerencia-error text-[11px] font-medium">{{ errorRegenerarSugerencia }}</p>
+              </form>
             </div>
             <form class="wa-composer relative z-10 border-t px-3 py-2.5" @submit.prevent="enviarTexto">
               <div
@@ -1220,6 +1318,12 @@ export default {
       textoDesdeIa: false,
       regenerandoSugerencia: false,
       errorRegenerarSugerencia: '',
+      mostrarGuiaSugerencia: false,
+      guiaSugerencia: {
+        tema: '',
+        contexto: '',
+        indicacion: '',
+      },
       toast: null,
       pollTimer: null,
       pollIntervalMs: 8000,
@@ -1345,6 +1449,10 @@ export default {
     },
     puedeEnviarSugerencia() {
       return !!(this.sugerenciaIa?.reply && (this.texto || '').trim() && !this.hiloMeta.fuera_ventana && !this.enviando);
+    },
+    guiaSugerenciaTieneDatos() {
+      const g = this.guiaSugerencia || {};
+      return !!(String(g.tema || '').trim() || String(g.contexto || '').trim() || String(g.indicacion || '').trim());
     },
     /** Último mensaje del cliente sin sugerencia aún → estamos esperando el borrador. */
     esperandoSugerenciaIa() {
@@ -1523,6 +1631,9 @@ export default {
       this.stickBottom = true;
       this.sugerenciaAplicadaId = null;
       this.textoDesdeIa = false;
+      this.errorRegenerarSugerencia = '';
+      this.mostrarGuiaSugerencia = false;
+      this.limpiarGuiaSugerencia();
       this.quitarAdjunto();
       this.syncUrl();
       this.cargarHilo(t, false, this.hiloSeq);
@@ -1818,6 +1929,16 @@ export default {
       this.sugerenciaAplicadaId = null;
       this.errorRegenerarSugerencia = '';
     },
+    limpiarGuiaSugerencia() {
+      this.guiaSugerencia = { tema: '', contexto: '', indicacion: '' };
+    },
+    payloadGuiaSugerencia() {
+      const tema = String(this.guiaSugerencia?.tema || '').trim();
+      const contexto = String(this.guiaSugerencia?.contexto || '').trim();
+      const indicacion = String(this.guiaSugerencia?.indicacion || '').trim();
+      if (!tema && !contexto && !indicacion) return {};
+      return { tema, contexto, indicacion };
+    },
     async regenerarSugerencia() {
       const tel = this.telActivo;
       if (!tel || !this.urls.regenerarSugerenciaIa || this.regenerandoSugerencia) return;
@@ -1831,7 +1952,7 @@ export default {
       try {
         const { data } = await window.axios.post(
           this.urls.regenerarSugerenciaIa,
-          { telefono: tel },
+          { telefono: tel, ...this.payloadGuiaSugerencia() },
           { headers: { Accept: 'application/json' }, timeout: 90000 },
         );
         if (data?.sugerencia_ia?.reply) {
