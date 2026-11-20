@@ -1134,8 +1134,14 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::get('splitters-secundarios/{splitterSecundario}/edit', [SplitterSecundarioController::class, 'edit'])->name('splitters-secundarios.edit');
     Route::put('splitters-secundarios/{splitterSecundario}', [SplitterSecundarioController::class, 'update'])->name('splitters-secundarios.update');
     Route::delete('splitters-secundarios/{splitterSecundario}', [SplitterSecundarioController::class, 'destroy'])->name('splitters-secundarios.destroy');
-    Route::post('lineas-cable/{lineas_cable}/pelos', [LineaCableController::class, 'guardarPelos'])->name('lineas-cable.pelos.guardar');
-    Route::resource('lineas-cable', LineaCableController::class);
+    Route::post('lineas-cable/{lineas_cable}/pelos', [LineaCableController::class, 'guardarPelos'])
+        ->name('lineas-cable.pelos.guardar')
+        ->middleware('permiso:ftth-lineas-cable.editar');
+    Route::resource('lineas-cable', LineaCableController::class)
+        ->middlewareFor(['index', 'show'], 'permiso:ftth-lineas-cable.ver')
+        ->middlewareFor(['create', 'store'], 'permiso:ftth-lineas-cable.crear')
+        ->middlewareFor(['edit', 'update'], 'permiso:ftth-lineas-cable.editar')
+        ->middlewareFor('destroy', 'permiso:ftth-lineas-cable.eliminar');
     Route::resource('salida-pons', SalidaPonController::class)->except(['show']);
     Route::resource('olt-marcas', OltMarcaController::class);
     Route::resource('olt-modelos', OltModeloController::class)->except(['show']);

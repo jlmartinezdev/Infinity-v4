@@ -487,6 +487,7 @@ class CajaNapController extends Controller
                 });
             })
             ->get();
+        LineaCable::precargarExtremos($lineas->filter(fn ($l) => ! $l->coordenadas));
 
         $lineasData = [];
         foreach ($lineas as $l) {

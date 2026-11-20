@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 class LineaCable extends Model
 {
@@ -43,6 +44,19 @@ class LineaCable extends Model
 
     public const CAPACIDADES_ESTANDAR = [2, 4, 6, 12, 24, 48, 72, 96, 144];
 
+    public const ESTADOS_PELO = ['libre', 'iluminado', 'reservado', 'danado'];
+
+    /**
+     * Tipos de punto que pueden ser origen o destino del cable, con su modelo.
+     */
+    public const EXTREMOS = [
+        'nodo'                => Nodo::class,
+        'caja_nap'            => CajaNap::class,
+        'splitter_primario'   => SplitterPrimario::class,
+        'splitter_secundario' => SplitterSecundario::class,
+        'salida_pon'          => SalidaPon::class,
+    ];
+
     protected $table = 'linea_cables';
 
     protected $primaryKey = 'linea_cable_id';
@@ -62,6 +76,14 @@ class LineaCable extends Model
         'hilos_detalle',
         'notas',
     ];
+
+    /** Pelos ya armados y la clave de los datos con los que se armaron. */
+    protected ?array $pelosCache = null;
+
+    protected ?string $pelosCacheKey = null;
+
+    /** Origen/destino ya buscados (o precargados): prefijo => [tipo, id, modelo]. */
+    protected array $extremosCache = [];
 
     protected function casts(): array
     {
@@ -85,6 +107,11 @@ class LineaCable extends Model
      */
     public function getPelosAttribute(): array
     {
+        $cacheKey = $this->cantidad_hilos.'|'.($this->attributes['hilos_detalle'] ?? '');
+        if ($this->pelosCache !== null && $this->pelosCacheKey === $cacheKey) {
+            return $this->pelosCache;
+        }
+
         $guardados = $this->hilos_detalle;
         $total = $this->cantidad_hilos > 0 ? (int) $this->cantidad_hilos : 12;
 
@@ -107,6 +134,7 @@ class LineaCable extends Model
             $colorPeloInfo = self::COLORES_TIA598[$posPelo] ?? self::COLORES_TIA598[1];
 
             $saved = $indexados[$i] ?? null;
+            $estado = $saved['estado'] ?? 'libre';
 
             $pelos[] = [
                 'numero'          => $i,
@@ -118,41 +146,92 @@ class LineaCable extends Model
                 'color_pelo_hex'  => $colorPeloInfo['hex'],
                 'clase_bg'        => $colorPeloInfo['clase_bg'],
                 'texto'           => $colorPeloInfo['texto'],
-                'estado'          => $saved['estado'] ?? 'libre', // 'iluminado', 'libre', 'reservado', 'danado'
+                'estado'          => in_array($estado, self::ESTADOS_PELO, true) ? $estado : 'libre',
                 'uso'             => $saved['uso'] ?? '',
                 'destino_detalle' => $saved['destino_detalle'] ?? '',
                 'atenuacion_db'   => $saved['atenuacion_db'] ?? null,
             ];
         }
 
-        return $pelos;
+        $this->pelosCacheKey = $cacheKey;
+
+        return $this->pelosCache = $pelos;
+    }
+
+    /**
+     * Cantidad de pelos por estado: ['libre' => n, 'iluminado' => n, 'reservado' => n, 'danado' => n].
+     */
+    public function conteoPelos(): array
+    {
+        $conteo = array_fill_keys(self::ESTADOS_PELO, 0);
+        foreach ($this->pelos as $p) {
+            $conteo[$p['estado']]++;
+        }
+
+        return $conteo;
     }
 
     public function pelosIluminadosCount(): int
     {
-        return count(array_filter($this->pelos, fn ($p) => ($p['estado'] ?? '') === 'iluminado'));
+        return $this->conteoPelos()['iluminado'];
     }
 
     public function pelosLibresCount(): int
     {
-        return count(array_filter($this->pelos, fn ($p) => in_array($p['estado'] ?? '', ['libre', ''])));
+        return $this->conteoPelos()['libre'];
     }
 
     public function pelosReservadosCount(): int
     {
-        return count(array_filter($this->pelos, fn ($p) => ($p['estado'] ?? '') === 'reservado'));
+        return $this->conteoPelos()['reservado'];
     }
 
     public function pelosDanadosCount(): int
     {
-        return count(array_filter($this->pelos, fn ($p) => ($p['estado'] ?? '') === 'danado'));
+        return $this->conteoPelos()['danado'];
     }
 
     public function porcentajeOcupacion(): float
     {
         $total = $this->cantidad_hilos > 0 ? (int) $this->cantidad_hilos : 12;
-        if ($total === 0) return 0.0;
+
         return round(($this->pelosIluminadosCount() / $total) * 100, 1);
+    }
+
+    /**
+     * Busca de una vez los orígenes y destinos de varios cables (una consulta por tipo)
+     * para no hacer dos consultas por cada fila del listado o del mapa.
+     */
+    public static function precargarExtremos(iterable $lineas): void
+    {
+        $lineas = Collection::make($lineas);
+
+        $idsPorTipo = [];
+        foreach ($lineas as $l) {
+            foreach (['origen', 'destino'] as $prefix) {
+                $tipo = $l->{"{$prefix}_tipo"};
+                $id = (int) $l->{"{$prefix}_id"};
+                if (isset(self::EXTREMOS[$tipo]) && $id > 0) {
+                    $idsPorTipo[$tipo][$id] = $id;
+                }
+            }
+        }
+
+        $encontrados = [];
+        foreach ($idsPorTipo as $tipo => $ids) {
+            $class = self::EXTREMOS[$tipo];
+            $encontrados[$tipo] = $class::whereIn((new $class)->getKeyName(), array_values($ids))
+                ->get()
+                ->keyBy(fn ($m) => (int) $m->getKey());
+        }
+
+        foreach ($lineas as $l) {
+            foreach (['origen', 'destino'] as $prefix) {
+                $tipo = $l->{"{$prefix}_tipo"};
+                $id = (int) $l->{"{$prefix}_id"};
+                $l->extremosCache[$prefix] = [$tipo, $id, $encontrados[$tipo][$id] ?? null];
+            }
+        }
     }
 
     public function getOrigenModelAttribute()
@@ -214,20 +293,21 @@ class LineaCable extends Model
     protected function resolvePolymorphic(string $prefix)
     {
         $tipo = $this->{"{$prefix}_tipo"};
-        $id = $this->{"{$prefix}_id"};
+        $id = (int) $this->{"{$prefix}_id"};
         if (! $tipo || ! $id) {
             return null;
         }
-        $classMap = [
-            'nodo'                => Nodo::class,
-            'caja_nap'            => CajaNap::class,
-            'splitter_primario'   => SplitterPrimario::class,
-            'splitter_secundario' => SplitterSecundario::class,
-            'salida_pon'          => SalidaPon::class,
-        ];
-        $class = $classMap[$tipo] ?? null;
 
-        return $class ? $class::find($id) : null;
+        $cache = $this->extremosCache[$prefix] ?? null;
+        if ($cache && $cache[0] === $tipo && $cache[1] === $id) {
+            return $cache[2];
+        }
+
+        $class = self::EXTREMOS[$tipo] ?? null;
+        $model = $class ? $class::find($id) : null;
+        $this->extremosCache[$prefix] = [$tipo, $id, $model];
+
+        return $model;
     }
 
     public function getRouteKeyName(): string

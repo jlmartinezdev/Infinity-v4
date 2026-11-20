@@ -301,6 +301,7 @@
                         <option value="15" @selected($perPage == 15)>15 / pág</option>
                         <option value="25" @selected($perPage == 25)>25 / pág</option>
                         <option value="50" @selected($perPage == 50)>50 / pág</option>
+                        <option value="100" @selected($perPage == 100)>100 / pág</option>
                     </select>
                 </div>
             </div>
@@ -548,7 +549,7 @@
                                     @if($puedeEliminar)
                                         {{-- Botón Eliminar --}}
                                         <form action="{{ route('sistema.lineas-cable.destroy', $l) }}" method="POST" class="inline"
-                                            onsubmit="return confirm('¿Está seguro de eliminar el cable {{ $nombreCable }}?');">
+                                            onsubmit="return confirm({{ Js::from('¿Está seguro de eliminar el cable '.$nombreCable.'?') }});">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit"
@@ -683,7 +684,7 @@
 
         document.getElementById('modal-cable-nombre').innerText = cable.nombre;
         document.getElementById('modal-cable-info').innerText = cable.cantidad_hilos + ' hilos totales';
-        document.getElementById('form-guardar-pelos').action = '/sistema/lineas-cable/' + cable.linea_cable_id + '/pelos';
+        document.getElementById('form-guardar-pelos').action = @js(route('sistema.lineas-cable.pelos.guardar', '__ID__')).replace('__ID__', cable.linea_cable_id);
 
         const tbody = document.getElementById('modal-pelos-tbody');
         tbody.innerHTML = '';

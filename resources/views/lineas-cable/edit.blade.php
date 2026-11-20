@@ -158,7 +158,7 @@
                         <div data-extremo-panel="origen" data-tipo="nodo" hidden>
                             <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($nodos as $n)
-                                    <option value="{{ $n->nodo_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $n->nodo_id && $lineaCable->origen_tipo === 'nodo')>
+                                    <option value="{{ $n->nodo_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $n->nodo_id && old('origen_tipo', $lineaCable->origen_tipo) === 'nodo')>
                                         Nodo: {{ $n->descripcion }}
                                     </option>
                                 @endforeach
@@ -169,7 +169,7 @@
                         <div data-extremo-panel="origen" data-tipo="salida_pon" hidden>
                             <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($salidaPons as $sp)
-                                    <option value="{{ $sp->salida_pon_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $sp->salida_pon_id && $lineaCable->origen_tipo === 'salida_pon')>
+                                    <option value="{{ $sp->salida_pon_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $sp->salida_pon_id && old('origen_tipo', $lineaCable->origen_tipo) === 'salida_pon')>
                                         PON: {{ $sp->codigo }} ({{ $sp->nodo?->descripcion }})
                                     </option>
                                 @endforeach
@@ -180,7 +180,7 @@
                         <div data-extremo-panel="origen" data-tipo="caja_nap" hidden>
                             <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($cajas as $c)
-                                    <option value="{{ $c->caja_nap_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $c->caja_nap_id && $lineaCable->origen_tipo === 'caja_nap')>
+                                    <option value="{{ $c->caja_nap_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $c->caja_nap_id && old('origen_tipo', $lineaCable->origen_tipo) === 'caja_nap')>
                                         NAP: {{ $c->codigo }} ({{ $c->nodo?->descripcion }})
                                     </option>
                                 @endforeach
@@ -191,7 +191,7 @@
                         <div data-extremo-panel="origen" data-tipo="splitter_primario" hidden>
                             <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersPrimarios as $spr)
-                                    <option value="{{ $spr->splitter_primario_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $spr->splitter_primario_id && $lineaCable->origen_tipo === 'splitter_primario')>
+                                    <option value="{{ $spr->splitter_primario_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $spr->splitter_primario_id && old('origen_tipo', $lineaCable->origen_tipo) === 'splitter_primario')>
                                         Splitter 1º: {{ $spr->codigo }} ({{ $spr->cajaNap?->codigo }})
                                     </option>
                                 @endforeach
@@ -202,7 +202,7 @@
                         <div data-extremo-panel="origen" data-tipo="splitter_secundario" hidden>
                             <select name="origen_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersSecundarios as $ssec)
-                                    <option value="{{ $ssec->splitter_secundario_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $ssec->splitter_secundario_id && $lineaCable->origen_tipo === 'splitter_secundario')>
+                                    <option value="{{ $ssec->splitter_secundario_id }}" @selected(old('origen_id', $lineaCable->origen_id) == $ssec->splitter_secundario_id && old('origen_tipo', $lineaCable->origen_tipo) === 'splitter_secundario')>
                                         Splitter 2º: {{ $ssec->codigo }} ({{ $ssec->cajaNap?->codigo }})
                                     </option>
                                 @endforeach
@@ -238,7 +238,7 @@
                         <div data-extremo-panel="destino" data-tipo="caja_nap" hidden>
                             <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($cajas as $c)
-                                    <option value="{{ $c->caja_nap_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $c->caja_nap_id && $lineaCable->destino_tipo === 'caja_nap')>
+                                    <option value="{{ $c->caja_nap_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $c->caja_nap_id && old('destino_tipo', $lineaCable->destino_tipo) === 'caja_nap')>
                                         NAP: {{ $c->codigo }} ({{ $c->nodo?->descripcion }})
                                     </option>
                                 @endforeach
@@ -249,7 +249,7 @@
                         <div data-extremo-panel="destino" data-tipo="nodo" hidden>
                             <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($nodos as $n)
-                                    <option value="{{ $n->nodo_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $n->nodo_id && $lineaCable->destino_tipo === 'nodo')>
+                                    <option value="{{ $n->nodo_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $n->nodo_id && old('destino_tipo', $lineaCable->destino_tipo) === 'nodo')>
                                         Nodo: {{ $n->descripcion }}
                                     </option>
                                 @endforeach
@@ -260,7 +260,7 @@
                         <div data-extremo-panel="destino" data-tipo="salida_pon" hidden>
                             <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($salidaPons as $sp)
-                                    <option value="{{ $sp->salida_pon_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $sp->salida_pon_id && $lineaCable->destino_tipo === 'salida_pon')>
+                                    <option value="{{ $sp->salida_pon_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $sp->salida_pon_id && old('destino_tipo', $lineaCable->destino_tipo) === 'salida_pon')>
                                         PON: {{ $sp->codigo }} ({{ $sp->nodo?->descripcion }})
                                     </option>
                                 @endforeach
@@ -271,7 +271,7 @@
                         <div data-extremo-panel="destino" data-tipo="splitter_primario" hidden>
                             <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersPrimarios as $spr)
-                                    <option value="{{ $spr->splitter_primario_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $spr->splitter_primario_id && $lineaCable->destino_tipo === 'splitter_primario')>
+                                    <option value="{{ $spr->splitter_primario_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $spr->splitter_primario_id && old('destino_tipo', $lineaCable->destino_tipo) === 'splitter_primario')>
                                         Splitter 1º: {{ $spr->codigo }} ({{ $spr->cajaNap?->codigo }})
                                     </option>
                                 @endforeach
@@ -282,7 +282,7 @@
                         <div data-extremo-panel="destino" data-tipo="splitter_secundario" hidden>
                             <select name="destino_id" class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
                                 @foreach($splittersSecundarios as $ssec)
-                                    <option value="{{ $ssec->splitter_secundario_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $ssec->splitter_secundario_id && $lineaCable->destino_tipo === 'splitter_secundario')>
+                                    <option value="{{ $ssec->splitter_secundario_id }}" @selected(old('destino_id', $lineaCable->destino_id) == $ssec->splitter_secundario_id && old('destino_tipo', $lineaCable->destino_tipo) === 'splitter_secundario')>
                                         Splitter 2º: {{ $ssec->codigo }} ({{ $ssec->cajaNap?->codigo }})
                                     </option>
                                 @endforeach
