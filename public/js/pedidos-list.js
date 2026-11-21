@@ -37424,7 +37424,8 @@ function buildHtmlAcciones(acciones, nodos, planes, tiposTecnologia) {
   var tecnologiaIdSeleccionado = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : null;
   var html = '';
   var tieneSeleccionNodo = acciones.includes(ACCION_SELECCIONAR_NODO);
-  var nodosSelect = nodosFiltradosPorTecnologia(nodos, tecnologiaIdSeleccionado, tiposTecnologia);
+  var tecnologiaParaNodos = tieneSeleccionNodo ? null : tecnologiaIdSeleccionado;
+  var nodosSelect = nodosFiltradosPorTecnologia(nodos, tecnologiaParaNodos, tiposTecnologia);
   if (tieneSeleccionNodo && nodosSelect.length) {
     html += "\n            <div class=\"mb-3\">\n                <label class=\"block text-sm font-medium text-gray-700 mb-1\">Nodo</label>\n                <select id=\"swal-select-nodo\" class=\"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500\">\n                    <option value=\"\">-- Seleccionar nodo --</option>\n                    ".concat(nodosSelect.map(function (n) {
       return "<option value=\"".concat(n.nodo_id, "\">").concat(etiquetaNodoSelect(n), "</option>");

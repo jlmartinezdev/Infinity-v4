@@ -227,7 +227,9 @@ async function aplicarOpcionesNodoEnSwal(nodoId, planes, acciones, urlOpcionesNo
 function buildHtmlAcciones(acciones, nodos, planes, tiposTecnologia, tecnologiaIdSeleccionado = null) {
     let html = '';
     const tieneSeleccionNodo = acciones.includes(ACCION_SELECCIONAR_NODO);
-    const nodosSelect = nodosFiltradosPorTecnologia(nodos, tecnologiaIdSeleccionado, tiposTecnologia);
+    // Reabrir factibilidad debe poder pasar de antena a fibra: el nodo nuevo define la tecnología.
+    const tecnologiaParaNodos = tieneSeleccionNodo ? null : tecnologiaIdSeleccionado;
+    const nodosSelect = nodosFiltradosPorTecnologia(nodos, tecnologiaParaNodos, tiposTecnologia);
     if (tieneSeleccionNodo && nodosSelect.length) {
         html += `
             <div class="mb-3">
