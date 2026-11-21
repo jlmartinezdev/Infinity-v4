@@ -34,7 +34,7 @@ class ApWirelessCaidaVentanaTest extends TestCase
         $salida = ApWirelessCaidaVentana::recortar([], $ahora, $desde, true);
 
         $this->assertSame([
-            ['inicio' => $desde->toIso8601String(), 'fin' => $ahora->toIso8601String()],
+            ['inicio' => $desde->toIso8601String(), 'fin' => $ahora->toIso8601String(), 'abierta' => true],
         ], $salida);
     }
 }

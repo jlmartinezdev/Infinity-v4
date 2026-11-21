@@ -10,7 +10,7 @@ class ApWirelessCaidaVentana
      * Recorta los episodios de caída a las últimas 24 horas.
      *
      * @param  iterable<int, array{inicio: CarbonInterface, fin: ?CarbonInterface}>  $filas
-     * @return list<array{inicio: string, fin: string}>
+     * @return list<array{inicio: string, fin: string, abierta: bool}>
      */
     public static function recortar(iterable $filas, CarbonInterface $ahora, ?CarbonInterface $caidoDesde, bool $sigueCaido): array
     {
@@ -18,6 +18,7 @@ class ApWirelessCaidaVentana
         $salida = [];
 
         foreach ($filas as $fila) {
+            $abierta = ($fila['fin'] ?? null) === null;
             $inicio = $fila['inicio'];
             $fin = $fila['fin'] ?? $ahora;
             if ($fin->lessThanOrEqualTo($desde) || $inicio->greaterThanOrEqualTo($ahora)) {
@@ -35,6 +36,7 @@ class ApWirelessCaidaVentana
             $salida[] = [
                 'inicio' => $inicio->toIso8601String(),
                 'fin' => $fin->toIso8601String(),
+                'abierta' => $abierta,
             ];
         }
 
@@ -43,6 +45,7 @@ class ApWirelessCaidaVentana
             $salida[] = [
                 'inicio' => $inicio->toIso8601String(),
                 'fin' => $ahora->toIso8601String(),
+                'abierta' => true,
             ];
         }
 

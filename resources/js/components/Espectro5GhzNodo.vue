@@ -68,17 +68,18 @@
           <div
             class="relative flex-1 h-3 rounded-sm overflow-hidden"
             style="background: #4fc3f7"
-            :title="'Últimas 24 horas. ' + textoCaidas(b) + '. El celeste es el tiempo en línea y el rojo es una caída.'"
           >
-            <div class="absolute top-0 bottom-0 border-l" style="left: 25%; border-color: rgba(8, 47, 73, 0.28)"></div>
-            <div class="absolute top-0 bottom-0 border-l" style="left: 50%; border-color: rgba(8, 47, 73, 0.28)"></div>
-            <div class="absolute top-0 bottom-0 border-l" style="left: 75%; border-color: rgba(8, 47, 73, 0.28)"></div>
+            <div class="pointer-events-none absolute top-0 bottom-0 border-l" style="left: 25%; border-color: rgba(8, 47, 73, 0.28)"></div>
+            <div class="pointer-events-none absolute top-0 bottom-0 border-l" style="left: 50%; border-color: rgba(8, 47, 73, 0.28)"></div>
+            <div class="pointer-events-none absolute top-0 bottom-0 border-l" style="left: 75%; border-color: rgba(8, 47, 73, 0.28)"></div>
             <div
               v-for="(raya, i) in rayas24h(b)"
               :key="'raya-' + b.ap.ap_id + '-' + i"
-              class="absolute top-0 bottom-0"
-              :style="{ left: raya.left + '%', width: raya.width + '%', background: '#ef4444' }"
-              :title="raya.titulo"
+              class="absolute top-0 bottom-0 cursor-help"
+              :style="{ left: raya.left + '%', width: raya.width + '%', minWidth: '6px', background: '#ef4444' }"
+              :title="tituloRayaVisible(raya)"
+              @mouseenter="mostrarDuracion($event, raya)"
+              @mouseleave="ocultarDuracion"
             ></div>
           </div>
           <span class="w-40 shrink-0 text-right text-[11px] font-mono text-gray-500 dark:text-gray-400">
@@ -132,10 +133,20 @@
       </p>
     </template>
   </div>
+  <Teleport to="body">
+    <div
+      v-if="rayaHover"
+      class="pointer-events-none fixed z-[9999] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-[11px] text-gray-800 dark:text-gray-100 shadow-lg"
+      :style="{ left: rayaHover.x + 'px', top: (rayaHover.y - 6) + 'px', transform: 'translate(-50%, -100%)' }"
+    >
+      <span class="font-medium text-red-500">{{ rayaHover.duracion }}</span><span v-if="rayaHover.abierta"> · en curso</span>
+      <span class="block text-gray-500 dark:text-gray-400">{{ rayaHover.rango }}</span>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
   BANDA_5G_MIN,
   BANDA_5G_SPAN,
@@ -188,7 +199,9 @@ function rayas24h(b) {
     rayas.push({
       left,
       width,
-      titulo: tituloRaya(a, z),
+      duracion: textoDuracion(z - a),
+      rango: `${horaCorta(a)} – ${horaCorta(z)}`,
+      abierta: item.abierta === true,
     });
   }
   return rayas;
@@ -200,9 +213,34 @@ function textoCaidas(b) {
   return n === 1 ? '1 caída' : `${n} caídas`;
 }
 
-function tituloRaya(inicio, fin) {
-  const minutos = Math.max(1, Math.round((fin - inicio) / 60000));
-  return `Caída ${horaCorta(inicio)} – ${horaCorta(fin)} (${minutos} min)`;
+const rayaHover = ref(null);
+
+function textoDuracion(ms) {
+  const totalMin = Math.max(1, Math.round(ms / 60000));
+  const horas = Math.floor(totalMin / 60);
+  const minutos = totalMin % 60;
+  if (horas > 0 && minutos > 0) return `${horas} h ${minutos} min`;
+  if (horas > 0) return `${horas} h`;
+  return `${totalMin} min`;
+}
+
+function tituloRayaVisible(raya) {
+  return `${raya.duracion}${raya.abierta ? ' · en curso' : ''} · ${raya.rango}`;
+}
+
+function mostrarDuracion(ev, raya) {
+  const rect = ev.currentTarget.getBoundingClientRect();
+  rayaHover.value = {
+    duracion: raya.duracion,
+    rango: raya.rango,
+    abierta: raya.abierta,
+    x: rect.left + rect.width / 2,
+    y: rect.top,
+  };
+}
+
+function ocultarDuracion() {
+  rayaHover.value = null;
 }
 
 function horaCorta(ms) {
