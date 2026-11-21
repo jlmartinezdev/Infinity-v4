@@ -321,4 +321,42 @@ class WhatsAppAgentComprobanteTest extends TestCase
             'indicacion' => 'Avisar que llega entre 14 y 16',
         ], $guia);
     }
+
+    public function test_montos_guia_asesor_y_validador_los_acepta(): void
+    {
+        $guia = [
+            'tema' => 'instalacion antena',
+            'contexto' => '',
+            'indicacion' => 'La instalacion por antena tiene costo 50.000 gs hasta 6 metros y 150.000 gs si se requiere mas altura',
+        ];
+        $montos = WhatsAppAgentService::montosDesdeGuiaAsesor($guia);
+        $this->assertContains(50000, $montos);
+        $this->assertContains(150000, $montos);
+        $this->assertNotContains(6, $montos);
+
+        $catalogo = [
+            'fibra' => [['precio' => 100000]],
+            'antena' => [['precio' => 120000]],
+            'otros' => [],
+            'planes_texto' => 'Fibra 100 — Gs. 100.000',
+        ];
+        $sinGuia = (new ValidadorHechos)->validar(
+            'La instalación antena tiene un valor de Gs. 50.000 hasta 6 metros y Gs. 150.000 si requiere más altura.',
+            [],
+            $catalogo,
+            FraseCliente::ESCALADO,
+        );
+        $this->assertTrue($sinGuia['filtrado']);
+        $this->assertSame('n8n_catalogo', $sinGuia['modo']);
+
+        $conGuia = (new ValidadorHechos)->validar(
+            'La instalación antena tiene un valor de Gs. 50.000 hasta 6 metros y Gs. 150.000 si requiere más altura.',
+            ['precios_autorizados_guia' => $montos],
+            $catalogo,
+            FraseCliente::ESCALADO,
+        );
+        $this->assertFalse($conGuia['filtrado']);
+        $this->assertStringContainsString('50.000', $conGuia['reply']);
+        $this->assertStringContainsString('150.000', $conGuia['reply']);
+    }
 }

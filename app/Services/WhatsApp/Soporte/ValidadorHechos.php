@@ -110,7 +110,7 @@ class ValidadorHechos
             ];
         }
 
-        if ($this->precioFueraDeCatalogo($reply, $catalogo)) {
+        if ($this->precioFueraDeCatalogo($reply, $catalogo, $hechos)) {
             return [
                 'reply' => $fallbackVentas,
                 'modo' => 'n8n_catalogo',
@@ -158,8 +158,9 @@ class ValidadorHechos
 
     /**
      * @param  array{fibra?: list<array<string, mixed>>, antena?: list<array<string, mixed>>, otros?: list<array<string, mixed>>}  $catalogo
+     * @param  array<string, mixed>  $hechos
      */
-    private function precioFueraDeCatalogo(string $reply, array $catalogo): bool
+    private function precioFueraDeCatalogo(string $reply, array $catalogo, array $hechos = []): bool
     {
         // Solo montos que parecen precio (Gs. / guaraníes), no cédulas ni cuentas.
         if (! preg_match_all('/Gs\.?\s*(\d{1,3}(?:[.\s]\d{3})+|\d{5,7})|(\d{1,3}(?:[.\s]\d{3})+|\d{5,7})\s*(?:Gs\.?|guaran)/iu', $reply, $m, PREG_SET_ORDER)) {
@@ -177,6 +178,13 @@ class ValidadorHechos
                 }
             }
         }
+        // Montos que el asesor autorizó en la guía del panel (instalación antena, etc.).
+        foreach ($hechos['precios_autorizados_guia'] ?? [] as $extra) {
+            if (is_numeric($extra)) {
+                $precios[] = (int) $extra;
+            }
+        }
+        $precios = array_values(array_unique($precios));
         if ($precios === []) {
             return false;
         }

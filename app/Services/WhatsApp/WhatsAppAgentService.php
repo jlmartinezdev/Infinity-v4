@@ -190,6 +190,13 @@ class WhatsAppAgentService
         $validadorMotivo = null;
         if (filled($reply)) {
             $hechos = is_array($consulta['hechos'] ?? null) ? $consulta['hechos'] : [];
+            $guia = $this->guiaAsesorDesdeMensaje($mensaje);
+            if ($guia !== null) {
+                $montosGuia = self::montosDesdeGuiaAsesor($guia);
+                if ($montosGuia !== []) {
+                    $hechos['precios_autorizados_guia'] = $montosGuia;
+                }
+            }
             $catalogo = $this->catalogoPlanes();
             $validado = app(\App\Services\WhatsApp\Soporte\ValidadorHechos::class)->validar(
                 (string) $reply,
@@ -635,9 +642,18 @@ class WhatsAppAgentService
 
         $ctxN8n = $this->soporte->contextoParaN8n($mensaje);
         $hechos = is_array($ctxN8n['hechos'] ?? null) ? $ctxN8n['hechos'] : [];
+        $guiaCampos = $this->camposGuiaAsesorParaN8n($mensaje);
+        $montosGuia = is_array($guiaCampos['guia_asesor_montos'] ?? null) ? $guiaCampos['guia_asesor_montos'] : [];
+        if ($montosGuia !== []) {
+            $hechos['precios_autorizados_guia'] = array_values(array_map('intval', $montosGuia));
+            $ctxN8n['hechos'] = $hechos;
+        }
         $estilo = '';
         try {
-            $estilo = trim(app(\App\Services\WhatsApp\Soporte\EstiloInterplus::class)->texto());
+            // Con guía del panel no empujar el corpus de “instalación bonificada” del estilo.
+            if (($guiaCampos['instruccion_guia_asesor'] ?? null) === null) {
+                $estilo = trim(app(\App\Services\WhatsApp\Soporte\EstiloInterplus::class)->texto());
+            }
         } catch (\Throwable) {
             $estilo = '';
         }
@@ -691,7 +707,7 @@ class WhatsAppAgentService
             'nombre_corto' => $nombreCorto !== '' ? $nombreCorto : null,
             'tipo_imagen' => $tipoImagen !== '' ? $tipoImagen : null,
             'ocr_texto' => (string) ($clasificacion['ocr'] ?? ''),
-        ] + $ctxN8n + $this->camposGuiaAsesorParaN8n($mensaje);
+        ] + $ctxN8n + $guiaCampos;
 
         return ['body' => $body, 'hechos' => $hechos];
     }
@@ -757,8 +773,10 @@ class WhatsAppAgentService
             ];
         }
 
+        $montos = self::montosDesdeGuiaAsesor($guia);
         $lineas = [
-            'INDICACIÓN DEL ASESOR (prioridad alta; redactar el reply siguiendo esto; no pegar este bloque al cliente):',
+            'INDICACIÓN DEL ASESOR (PRIORIDAD MÁXIMA — prevalece sobre estilo Interplus, corpus, ejemplos y “instalación bonificada” del prompt; no pegar este bloque al cliente):',
+            'Redacte el reply siguiendo esta indicación. Si contradice el resto del prompt (p. ej. instalación gratis/bonificada), gana la indicación del asesor.',
         ];
         if ($guia['tema'] !== '') {
             $lineas[] = 'Tema: '.$guia['tema'];
@@ -769,14 +787,55 @@ class WhatsAppAgentService
         if ($guia['indicacion'] !== '') {
             $lineas[] = 'Qué debe decir / dirección: '.$guia['indicacion'];
         }
-        $lineas[] = 'Mantener tono formal de usted Interplus. No inventar datos fuera de hechos / catálogo / canned.';
+        if ($montos !== []) {
+            $lineas[] = 'Montos autorizados por el asesor para este reply (hechos válidos): Gs. '.implode(', Gs. ', array_map(
+                static fn (int $n) => number_format($n, 0, ',', '.'),
+                $montos
+            )).'.';
+        }
+        $lineas[] = 'Tono formal de usted Interplus. Use “valor” en lugar de “costo”. No diga instalación bonificada/gratis si la indicación fija un valor.';
 
         return [
             'guia_asesor_tema' => $guia['tema'] !== '' ? $guia['tema'] : null,
             'guia_asesor_contexto' => $guia['contexto'] !== '' ? $guia['contexto'] : null,
             'guia_asesor_indicacion' => $guia['indicacion'] !== '' ? $guia['indicacion'] : null,
+            'guia_asesor_montos' => $montos !== [] ? $montos : null,
             'instruccion_guia_asesor' => implode("\n", $lineas),
         ];
+    }
+
+    /**
+     * Extrae montos en guaraníes de la guía del asesor (para hechos + validador).
+     *
+     * @param  array{tema: string, contexto: string, indicacion: string}  $guia
+     * @return list<int>
+     */
+    public static function montosDesdeGuiaAsesor(array $guia): array
+    {
+        $texto = trim(implode(' ', [
+            (string) ($guia['tema'] ?? ''),
+            (string) ($guia['contexto'] ?? ''),
+            (string) ($guia['indicacion'] ?? ''),
+        ]));
+        if ($texto === '') {
+            return [];
+        }
+
+        if (! preg_match_all('/\b(\d{1,3}(?:[.\s]\d{3})+|\d{4,7})\b/u', $texto, $m)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($m[1] as $raw) {
+            $n = (int) preg_replace('/\D+/', '', (string) $raw);
+            // Montos de instalación / cargos típicos; evita años o alturas sueltas (p. ej. 6).
+            if ($n < 10000 || $n > 50000000) {
+                continue;
+            }
+            $out[$n] = $n;
+        }
+
+        return array_values($out);
     }
 
     /**
