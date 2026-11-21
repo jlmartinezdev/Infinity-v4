@@ -144,6 +144,73 @@ _RETOMAR_RE = re.compile(
     r"lo de (antes|la falla|el corte)|retom",
     re.I,
 )
+_HANDOFF_RE = re.compile(
+    r"asesor se comunic|en breve un asesor|un asesor (le |se )?(comunica|contin[uú]a|atiende)|"
+    r"tomamos nota.{0,40}asesor|derivar",
+    re.I,
+)
+_MONTO_RE = re.compile(r"\b(\d{1,3}(?:[.\s]\d{3})+|\d{4,7})\b")
+
+
+def _montos_desde_texto(texto: str) -> list[int]:
+    out: list[int] = []
+    for raw in _MONTO_RE.findall(texto or ""):
+        n = int(re.sub(r"\D+", "", str(raw)) or "0")
+        if 10000 <= n <= 50_000_000:
+            out.append(n)
+    return sorted(set(out))
+
+
+def _reply_respeta_guia(reply: str, guia: str, payload: dict[str, Any]) -> bool:
+    """True si el reply usa montos de la guía o no parece un handoff vacío."""
+    txt = (reply or "").strip()
+    if not txt:
+        return False
+    raw_montos = payload.get("guia_asesor_montos") or []
+    montos = [int(m) for m in raw_montos if str(m).isdigit() or isinstance(m, int)]
+    if not montos:
+        montos = _montos_desde_texto(guia)
+    digits = re.sub(r"\D+", "", txt)
+    if montos:
+        if any(str(m) in digits for m in montos):
+            return True
+        return False
+    return not bool(_HANDOFF_RE.search(txt))
+
+
+def _reply_desde_guia(guia: str, payload: dict[str, Any]) -> str:
+    """Borrador formal a partir de la indicación del asesor."""
+    indicacion = str(payload.get("guia_asesor_indicacion") or "").strip()
+    if not indicacion:
+        # Quitar encabezados del bloque de instrucción.
+        lines = []
+        for line in (guia or "").splitlines():
+            s = line.strip()
+            if not s or s.upper().startswith("INDICACIÓN") or s.upper().startswith("PRIORIDAD"):
+                continue
+            if s.lower().startswith("tema:") or s.lower().startswith("contexto:"):
+                continue
+            if s.lower().startswith("qué debe") or s.lower().startswith("que debe"):
+                s = re.sub(r"(?i)^qu[eé] debe decir\s*/\s*direcci[oó]n:\s*", "", s).strip()
+            if s.lower().startswith("montos autorizados") or s.lower().startswith("tono formal"):
+                continue
+            if s.lower().startswith("redacte el reply"):
+                continue
+            lines.append(s)
+        indicacion = " ".join(lines).strip()
+    indicacion = re.sub(r"\bcosto\b", "valor", indicacion, flags=re.I)
+    indicacion = re.sub(r"\bcostos\b", "valores", indicacion, flags=re.I)
+    if not indicacion:
+        return (
+            "Le confirmamos el valor de la instalación según lo indicado por nuestro equipo. "
+            "Quedamos a las órdenes."
+        )
+    if not re.search(r"[.!?]$", indicacion):
+        indicacion += "."
+    return (
+        f"Le confirmamos: {indicacion[0].upper() + indicacion[1:]} "
+        "Si desea, coordinamos la visita."
+    ).strip()
 
 
 class AgentState(TypedDict, total=False):
@@ -456,7 +523,13 @@ def build_graph():
         elif intent == "cobertura_con_dato":
             facts["nota"] = "ubicacion_recibida"
             facts["conocimiento"] = tools.conocimiento(mensaje, "cobertura")
-            facts["needs_human_sugerido"] = True
+            # Guía del panel: el asesor ya dio la respuesta (p. ej. valor instalación antena).
+            guia = str(payload.get("instruccion_guia_asesor") or "").strip()
+            if guia:
+                facts["instruccion_guia_asesor"] = guia
+                facts["needs_human_sugerido"] = False
+            else:
+                facts["needs_human_sugerido"] = True
         elif intent == "cobertura":
             facts["nota"] = "pedir_ubicacion_cobertura"
             facts["conocimiento"] = tools.conocimiento(mensaje, "cobertura")
@@ -538,6 +611,15 @@ def build_graph():
         payload = state.get("payload") or {}
         estilo = str(payload.get("estilo_interplus") or "")
         memoria = str(payload.get("memoria_instrucciones") or "")
+        guia_asesor = str(
+            facts.get("instruccion_guia_asesor")
+            or payload.get("instruccion_guia_asesor")
+            or ""
+        ).strip()
+        if guia_asesor:
+            facts = {**facts, "instruccion_guia_asesor": guia_asesor, "needs_human_sugerido": False}
+            # No empujar corpus de “instalación bonificada” si el asesor fijó valores.
+            estilo = ""
         catalogo = facts.get("catalogo") or {}
         planes = catalogo.get("planes_texto") or ""
         planes_prompt = catalogo.get("planes_prompt") or payload.get("planes_prompt") or ""
@@ -547,6 +629,9 @@ def build_graph():
         pidio_precios = bool(_PIDIO_PRECIOS_RE.search(mensaje))
         apertura_del_dia = bool(payload.get("apertura_del_dia") or payload.get("primera_vez"))
         sector = str(state.get("sector") or "meta")
+        needs_human_flag = bool(state.get("needs_human") or facts.get("needs_human_sugerido"))
+        if guia_asesor:
+            needs_human_flag = False
         user = (
             f"intent={intent}\n"
             f"sector={sector}\n"
@@ -558,7 +643,8 @@ def build_graph():
             f"apertura_del_dia={apertura_del_dia}\n"
             f"uso_conocido={uso_conocido}\n"
             f"pidio_precios={pidio_precios}\n"
-            f"needs_human={bool(state.get('needs_human') or facts.get('needs_human_sugerido'))}\n"
+            f"needs_human={needs_human_flag}\n"
+            f"instruccion_guia_asesor={guia_asesor[:2500]}\n"
             f"mensaje_cliente={mensaje}\n"
             f"historial_reciente={historial[:2500]}\n"
             f"planes_texto={str(planes)[:2000]}\n"
@@ -679,10 +765,19 @@ def build_graph():
             if gemini_err:
                 print(f"[wa-langgraph] compose gemini_fail intent={intent} err={gemini_err}", flush=True)
 
+        # Guía del asesor del panel: ya hay respuesta autorizada → no escalar.
+        if guia_asesor:
+            facts = {**facts, "needs_human_sugerido": False}
         escalate = bool(state.get("needs_human") or facts.get("needs_human_sugerido") or intent == "handoff")
+        if guia_asesor and intent != "handoff":
+            escalate = False
         motivo = None
         if escalate:
             motivo = "needs_human" if intent == "handoff" else (str(state.get("motivo_escalado") or intent))
+
+        # Si la guía trae montos y el LLM igual escaló sin decirlos, forzar borrador útil.
+        if guia_asesor and not _reply_respeta_guia(text, guia_asesor, payload):
+            text = _reply_desde_guia(guia_asesor, payload)
 
         modo = "langgraph"
         if not gemini_ok:

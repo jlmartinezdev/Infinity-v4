@@ -359,4 +359,32 @@ class WhatsAppAgentComprobanteTest extends TestCase
         $this->assertStringContainsString('50.000', $conGuia['reply']);
         $this->assertStringContainsString('150.000', $conGuia['reply']);
     }
+
+    public function test_aplicar_guia_asesor_reemplaza_handoff_sin_montos(): void
+    {
+        $agent = app(WhatsAppAgentService::class);
+        $guia = [
+            'tema' => '',
+            'contexto' => '',
+            'indicacion' => 'La instalacion normal hasta 6 metros tiene valor 50.000 pero si necesita mas altura 150.000',
+        ];
+
+        $out = $agent->aplicarGuiaAsesorAlReply(
+            'Comprendemos su consulta con respecto al valor de la instalación. Tomamos nota de su mensaje y en breve un asesor se comunicará con usted.',
+            $guia,
+            true,
+        );
+        $this->assertNotNull($out);
+        $this->assertFalse($out['escalate']);
+        $this->assertStringContainsString('50.000', $out['reply']);
+        $this->assertStringContainsString('150.000', $out['reply']);
+        $this->assertStringNotContainsString('asesor se comunicará', mb_strtolower($out['reply']));
+
+        $ok = $agent->aplicarGuiaAsesorAlReply(
+            'La instalación antena tiene un valor de Gs. 50.000 hasta 6 metros y Gs. 150.000 si requiere más altura.',
+            $guia,
+            false,
+        );
+        $this->assertNull($ok);
+    }
 }

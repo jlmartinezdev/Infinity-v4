@@ -178,6 +178,28 @@ class WhatsAppAgentService
         $escalate = $consulta['escalate'];
         $error = $consulta['error'];
 
+        // Guía del panel: si el LLM escala sin usar los montos, forzar borrador útil.
+        if ($conGuiaAsesor) {
+            $guiaForce = $this->guiaAsesorDesdeMensaje($mensaje);
+            if ($guiaForce !== null) {
+                $forzado = $this->aplicarGuiaAsesorAlReply(
+                    is_string($reply) ? $reply : null,
+                    $guiaForce,
+                    (bool) $escalate,
+                );
+                if ($forzado !== null) {
+                    $reply = $forzado['reply'];
+                    $escalate = $forzado['escalate'];
+                    $consulta['reply'] = $reply;
+                    $consulta['escalate'] = $escalate;
+                    if (! $escalate) {
+                        $consulta['motivo_escalado'] = null;
+                    }
+                    $consulta['modo'] = ($consulta['modo'] ?? 'guia').'_guia_asesor';
+                }
+            }
+        }
+
         if ($this->replyPareceComprobanteInformal($reply)) {
             $fijo = $this->soporte->paqueteComprobante($mensaje);
             $consulta = array_merge($consulta, $fijo);
@@ -836,6 +858,57 @@ class WhatsAppAgentService
         }
 
         return array_values($out);
+    }
+
+    /**
+     * Si el reply ignora la guía (handoff / sin montos), arma un borrador usable.
+     *
+     * @param  array{tema: string, contexto: string, indicacion: string}  $guia
+     * @return array{reply: string, escalate: bool}|null
+     */
+    public function aplicarGuiaAsesorAlReply(?string $reply, array $guia, bool $escalate): ?array
+    {
+        $reply = trim((string) $reply);
+        $montos = self::montosDesdeGuiaAsesor($guia);
+        $digits = preg_replace('/\D+/', '', $reply) ?: '';
+        $usaMontos = false;
+        foreach ($montos as $m) {
+            if ($m > 0 && str_contains($digits, (string) $m)) {
+                $usaMontos = true;
+                break;
+            }
+        }
+        $pareceHandoff = (bool) preg_match(
+            '/asesor se comunic|en breve un asesor|un asesor (le |se )?(comunica|contin[uú]a|atiende)|tomamos nota.{0,40}asesor/iu',
+            $reply
+        );
+        $ok = $reply !== '' && (($montos !== [] && $usaMontos) || ($montos === [] && ! $pareceHandoff && ! $escalate));
+        if ($ok) {
+            if ($escalate && $usaMontos) {
+                return ['reply' => \App\Services\WhatsApp\Soporte\FraseCliente::valorEnVezDeCosto($reply), 'escalate' => false];
+            }
+
+            return null;
+        }
+
+        $indicacion = trim((string) ($guia['indicacion'] ?? ''));
+        if ($indicacion === '') {
+            $indicacion = trim(implode('. ', array_filter([
+                trim((string) ($guia['tema'] ?? '')),
+                trim((string) ($guia['contexto'] ?? '')),
+            ])));
+        }
+        if ($indicacion === '') {
+            return null;
+        }
+        $indicacion = \App\Services\WhatsApp\Soporte\FraseCliente::valorEnVezDeCosto($indicacion);
+        if (! preg_match('/[.!?…]$/u', $indicacion)) {
+            $indicacion .= '.';
+        }
+        $draft = 'Le confirmamos: '.mb_strtoupper(mb_substr($indicacion, 0, 1)).mb_substr($indicacion, 1)
+            .' Si desea, coordinamos la visita.';
+
+        return ['reply' => $draft, 'escalate' => false];
     }
 
     /**
