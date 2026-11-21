@@ -37,6 +37,8 @@
                 @foreach ($clientes as $cliente)
                     <option value="{{ $cliente->cliente_id }}"
                         data-telefono="{{ e($cliente->telefono ?? '') }}"
+                        data-nombre="{{ e($cliente->nombre) }}"
+                        data-apellido="{{ e($cliente->apellido) }}"
                         {{ old('cliente_id', $pedido?->cliente_id) == $cliente->cliente_id ? 'selected' : '' }}>
                         {{ $cliente->nombre }} {{ $cliente->apellido }} ({{ $cliente->cedula }})
                     </option>
@@ -46,6 +48,28 @@
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
             @enderror
         </div>
+
+        @if($pedido)
+        <div>
+            <label for="nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
+            <input type="text" name="nombre" id="nombre" value="{{ old('nombre', $pedido->cliente?->nombre) }}"
+                maxlength="100" required
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            @error('nombre')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+        <div>
+            <label for="apellido" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apellido</label>
+            <input type="text" name="apellido" id="apellido" value="{{ old('apellido', $pedido->cliente?->apellido) }}"
+                maxlength="100"
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se guarda en el cliente de este pedido. La cédula no cambia acá.</p>
+            @error('apellido')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+        @endif
 
         @if(isset($estados) && isset($estadoActual))
         <div>
@@ -211,14 +235,24 @@
     var btnToggleSatelite = document.getElementById('btn-toggle-satelite');
     if (!selectCliente || !inputCelular) return;
 
-    function syncCelularFromSelect() {
+    var inputNombre = document.getElementById('nombre');
+    var inputApellido = document.getElementById('apellido');
+
+    function syncClienteFromSelect() {
         var opt = selectCliente.options[selectCliente.selectedIndex];
-        if (opt && opt.value && opt.dataset.telefono !== undefined) {
+        if (!opt || !opt.value) return;
+        if (opt.dataset.telefono !== undefined) {
             inputCelular.value = opt.dataset.telefono || '';
+        }
+        if (inputNombre && opt.dataset.nombre !== undefined) {
+            inputNombre.value = opt.dataset.nombre || '';
+        }
+        if (inputApellido && opt.dataset.apellido !== undefined) {
+            inputApellido.value = opt.dataset.apellido || '';
         }
     }
 
-    selectCliente.addEventListener('change', syncCelularFromSelect);
+    selectCliente.addEventListener('change', syncClienteFromSelect);
 
     function parseCoordsFromText(texto) {
         var t = String(texto || '').trim();

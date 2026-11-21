@@ -73,10 +73,33 @@
             </div>
         @else
             <input type="hidden" name="cliente_id" value="{{ $servicio->cliente_id }}">
-            <p class="text-sm text-gray-600 dark:text-gray-300">
-                <span class="font-medium text-gray-700 dark:text-gray-300">Cliente:</span>
-                {{ $servicio->cliente->cedula }} — {{ $servicio->cliente->nombre }} {{ $servicio->cliente->apellido }}
-            </p>
+            <div>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">Cédula:</span>
+                    {{ $servicio->cliente->cedula ?: '—' }}
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
+                        <input type="text" name="nombre" id="nombre" value="{{ old('nombre', $servicio->cliente->nombre) }}"
+                            maxlength="100" required
+                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        @error('nombre')
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="apellido" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apellido</label>
+                        <input type="text" name="apellido" id="apellido" value="{{ old('apellido', $servicio->cliente->apellido) }}"
+                            maxlength="100"
+                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        @error('apellido')
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Cambia el nombre del cliente de este servicio. La cédula no se modifica acá.</p>
+            </div>
         @endif
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

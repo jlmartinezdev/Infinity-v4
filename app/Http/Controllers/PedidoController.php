@@ -16,6 +16,7 @@ use App\Models\PoolIpAsignada;
 use App\Models\RouterIpPool;
 use App\Models\Servicio;
 use App\Models\TipoTecnologia;
+use App\Services\ClientePortalUserService;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\N7PoolIpGuard;
@@ -412,6 +413,8 @@ class PedidoController extends Controller
     {
         $validated = $request->validate([
             'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
+            'nombre' => ['required', 'string', 'max:100'],
+            'apellido' => ['nullable', 'string', 'max:100'],
             'fecha_pedido' => ['required', 'date'],
             'ubicacion' => ['nullable', 'string', 'max:500'],
             'maps_gps' => ['nullable', 'string', 'max:500'],
@@ -432,6 +435,9 @@ class PedidoController extends Controller
         }
         $validated['lat'] = $lat;
         $validated['lon'] = $lon;
+        $nombreCliente = trim($validated['nombre']);
+        $apellidoCliente = trim((string) ($validated['apellido'] ?? ''));
+        unset($validated['nombre'], $validated['apellido']);
 
         if (array_key_exists('celular', $validated)) {
             $celNorm = TelefonoParaguayHelper::normalize($validated['celular'] ?? null);
@@ -447,11 +453,28 @@ class PedidoController extends Controller
 
         $pedido->update($validated);
 
-        // Actualizar celular del cliente si se envió
-        if (array_key_exists('celular', $validated)) {
-            $cliente = Cliente::find($validated['cliente_id']);
-            if ($cliente) {
-                $cliente->update(['telefono' => $validated['celular'] ?? '']);
+        $cliente = Cliente::find($validated['cliente_id']);
+        if ($cliente) {
+            $cambios = [];
+            if (array_key_exists('celular', $validated)) {
+                $cambios['telefono'] = $validated['celular'] ?? '';
+            }
+            $apellidoNuevo = $apellidoCliente !== '' ? $apellidoCliente : null;
+            $nombreCambio = trim((string) $cliente->nombre) !== $nombreCliente
+                || trim((string) ($cliente->apellido ?? '')) !== trim((string) ($apellidoNuevo ?? ''));
+            if ($nombreCambio) {
+                $cambios['nombre'] = $nombreCliente;
+                $cambios['apellido'] = $apellidoNuevo;
+            }
+            if ($cambios !== []) {
+                $cliente->update($cambios);
+                if ($nombreCambio) {
+                    try {
+                        app(ClientePortalUserService::class)->syncParaCliente($cliente->fresh(), false);
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
             }
         }
 

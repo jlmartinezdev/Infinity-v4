@@ -13,6 +13,7 @@ use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
 use App\Models\Ticket;
 use App\Models\TipoTecnologia;
+use App\Services\ClientePortalUserService;
 use App\Services\FacturacionService;
 use App\Services\MikroTikService;
 use App\Services\N7PoolIpGuard;
@@ -292,6 +293,8 @@ class ServicioController extends Controller
         $planAnterior = $servicio->plan ?? Plan::find($planIdAnterior);
 
         $validated = $request->validate([
+            'nombre' => ['required', 'string', 'max:100'],
+            'apellido' => ['nullable', 'string', 'max:100'],
             'pool_id' => ['required', 'integer', 'exists:router_ip_pools,pool_id'],
             'tecnologia_id' => ['required', 'integer', 'exists:tipos_tecnologias,tecnologia_id'],
             'plan_id' => ['required', 'integer', 'exists:planes,plan_id'],
@@ -326,6 +329,10 @@ class ServicioController extends Controller
         ]);
         $validated = $this->normalizarCpeInventario($validated);
         $validated = $this->validarPlanDeTecnologia($validated);
+        $nombreCliente = trim($validated['nombre']);
+        $apellidoCliente = trim((string) ($validated['apellido'] ?? ''));
+        unset($validated['nombre'], $validated['apellido']);
+        $this->guardarNombreCliente($servicio->cliente, $nombreCliente, $apellidoCliente !== '' ? $apellidoCliente : null);
         $validated['alias'] = trim((string) ($validated['alias'] ?? '')) ?: null;
         $validated['url_ubicacion'] = trim((string) ($validated['url_ubicacion'] ?? '')) ?: null;
         $validated['ipv6_configurado'] = $request->boolean('ipv6_configurado');
@@ -2294,6 +2301,31 @@ class ServicioController extends Controller
         $pools = RouterIpPool::with(['router.nodo', 'olt'])->where('activo', true)->orderBy('pool_id')->get();
 
         return compact('planes', 'pools', 'tecnologias', 'tecnologiaKinds');
+    }
+
+    private function guardarNombreCliente(?Cliente $cliente, string $nombre, ?string $apellido): void
+    {
+        if (! $cliente) {
+            return;
+        }
+
+        $nombreActual = trim((string) $cliente->nombre);
+        $apellidoActual = trim((string) ($cliente->apellido ?? ''));
+        $apellidoNuevo = trim((string) ($apellido ?? ''));
+        if ($nombreActual === $nombre && $apellidoActual === $apellidoNuevo) {
+            return;
+        }
+
+        $cliente->update([
+            'nombre' => $nombre,
+            'apellido' => $apellidoNuevo !== '' ? $apellidoNuevo : null,
+        ]);
+
+        try {
+            app(ClientePortalUserService::class)->syncParaCliente($cliente->fresh(), false);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function validarPlanDeTecnologia(array $validated): array

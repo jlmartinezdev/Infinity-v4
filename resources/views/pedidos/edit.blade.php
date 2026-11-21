@@ -47,9 +47,12 @@
             var label = [cliente.nombre, cliente.apellido].filter(Boolean).join(' ') + ' (' + (cliente.cedula || '') + ')';
             opt = new Option(label, cliente.cliente_id, false, true);
             opt.setAttribute('data-telefono', cliente.telefono || '');
+            opt.setAttribute('data-nombre', cliente.nombre || '');
+            opt.setAttribute('data-apellido', cliente.apellido || '');
             selectCliente.appendChild(opt);
         }
         selectCliente.value = String(cliente.cliente_id);
+        selectCliente.dispatchEvent(new Event('change'));
         var celularInput = document.getElementById('celular');
         if (celularInput && cliente.telefono !== undefined) celularInput.value = cliente.telefono || '';
     }
