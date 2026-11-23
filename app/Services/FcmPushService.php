@@ -67,6 +67,10 @@ class FcmPushService
             return false;
         }
 
+        if ($user->esClientePortal()) {
+            $data = $this->dataCliente($data);
+        }
+
         return $this->notifyToken(
             $token,
             $title,
@@ -151,6 +155,21 @@ class FcmPushService
         }
 
         return [$projectId, $accessToken];
+    }
+
+    /**
+     * El toque abre el historial de la app cliente aunque el proceso estuviera cerrado.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function dataCliente(array $data): array
+    {
+        if (! isset($data['click_action']) || $data['click_action'] === '') {
+            $data['click_action'] = 'com.isp.clientes.OPEN_NOTIFICATION';
+        }
+
+        return $data;
     }
 
     /**

@@ -20,6 +20,8 @@ class Novedad extends Model
         'tipo',
         'orden',
         'activa',
+        'mostrar_al_abrir',
+        'segundos_al_abrir',
         'vigente_desde',
         'vigente_hasta',
     ];
@@ -28,6 +30,8 @@ class Novedad extends Model
     {
         return [
             'activa' => 'boolean',
+            'mostrar_al_abrir' => 'boolean',
+            'segundos_al_abrir' => 'integer',
             'orden' => 'integer',
             'vigente_desde' => 'date',
             'vigente_hasta' => 'date',
@@ -70,6 +74,8 @@ class Novedad extends Model
 
     public function toPortalArray(): array
     {
+        $segundos = max(1, min(60, (int) ($this->segundos_al_abrir ?: 5)));
+
         return [
             'id' => $this->id,
             'titulo' => $this->titulo,
@@ -79,6 +85,11 @@ class Novedad extends Model
             'tipo' => $this->tipo,
             'orden' => (int) $this->orden,
             'activa' => (bool) $this->activa,
+            'mostrar_al_abrir' => (bool) $this->mostrar_al_abrir,
+            'segundos_al_abrir' => $segundos,
+            'tiempo_muestra_seg' => $segundos,
+            'segundos_muestra' => $segundos,
+            'duracion_seg' => $segundos,
         ];
     }
 }

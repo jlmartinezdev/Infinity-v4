@@ -35,8 +35,7 @@ class NovedadController extends Controller
     public function store(Request $request)
     {
         $data = $this->validar($request);
-        $data['activa'] = $request->boolean('activa', true);
-        $data['orden'] = (int) ($data['orden'] ?? 0);
+        $data = $this->normalizar($request, $data);
         $data['imagen'] = LoyaltyImageUploader::guardar($request, 'novedades');
 
         Novedad::create($data);
@@ -52,8 +51,7 @@ class NovedadController extends Controller
     public function update(Request $request, Novedad $novedad)
     {
         $data = $this->validar($request);
-        $data['activa'] = $request->boolean('activa', true);
-        $data['orden'] = (int) ($data['orden'] ?? 0);
+        $data = $this->normalizar($request, $data);
         $data['imagen'] = LoyaltyImageUploader::guardar($request, 'novedades', $novedad->imagen);
 
         $novedad->update($data);
@@ -69,6 +67,20 @@ class NovedadController extends Controller
         return redirect()->route('loyalty.novedades.index')->with('success', 'Novedad eliminada.');
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizar(Request $request, array $data): array
+    {
+        $data['activa'] = $request->boolean('activa');
+        $data['mostrar_al_abrir'] = $request->boolean('mostrar_al_abrir');
+        $data['orden'] = (int) ($data['orden'] ?? 0);
+        $data['segundos_al_abrir'] = max(1, min(60, (int) $request->input('segundos_al_abrir', 5)));
+
+        return $data;
+    }
+
     private function validar(Request $request): array
     {
         return $request->validate([
@@ -78,6 +90,8 @@ class NovedadController extends Controller
             'tipo' => ['required', Rule::in(Novedad::TIPOS)],
             'orden' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'activa' => ['nullable', 'boolean'],
+            'mostrar_al_abrir' => ['nullable', 'boolean'],
+            'segundos_al_abrir' => ['nullable', 'integer', 'min:1', 'max:60'],
             'vigente_desde' => ['nullable', 'date'],
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
             'imagen' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:4096'],

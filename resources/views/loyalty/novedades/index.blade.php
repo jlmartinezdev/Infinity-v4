@@ -29,6 +29,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orden</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Activa</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Al abrir</th>
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
@@ -49,6 +50,7 @@
                             <td class="px-4 py-3 text-sm">{{ $n->tipo }}</td>
                             <td class="px-4 py-3 text-sm">{{ $n->orden }}</td>
                             <td class="px-4 py-3 text-sm">{{ $n->activa ? 'Sí' : 'No' }}</td>
+                            <td class="px-4 py-3 text-sm">{{ $n->mostrar_al_abrir ? ($n->segundos_al_abrir ?: 5).' s' : 'No' }}</td>
                             <td class="px-4 py-3 text-right text-sm space-x-2">
                                 <a href="{{ route('loyalty.novedades.edit', $n) }}" class="text-purple-600 hover:underline">Editar</a>
                                 <form action="{{ route('loyalty.novedades.destroy', $n) }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar?')">
@@ -58,7 +60,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Sin novedades.</td></tr>
+                        <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">Sin novedades.</td></tr>
                     @endforelse
                 </tbody>
             </table>

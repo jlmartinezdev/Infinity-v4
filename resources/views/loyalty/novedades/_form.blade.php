@@ -48,10 +48,24 @@
                 class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
         </div>
     </div>
-    <label class="inline-flex items-center gap-2">
-        <input type="checkbox" name="activa" value="1" @checked(old('activa', $novedad?->activa ?? true))>
-        <span class="text-sm">Activa</span>
-    </label>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="activa" value="0">
+            <input type="checkbox" name="activa" value="1" @checked(old('activa', $novedad?->activa ?? true))>
+            <span class="text-sm">Activa</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="mostrar_al_abrir" value="0">
+            <input type="checkbox" name="mostrar_al_abrir" value="1" @checked(old('mostrar_al_abrir', $novedad?->mostrar_al_abrir ?? false))>
+            <span class="text-sm">Mostrar al abrir la app</span>
+        </label>
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">Segundos del aviso al abrir</label>
+        <input type="number" name="segundos_al_abrir" min="1" max="60" value="{{ old('segundos_al_abrir', $novedad?->segundos_al_abrir ?? 5) }}"
+            class="w-full md:w-40 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+        <p class="text-xs text-gray-500 mt-1">Entre 1 y 60. Si no se marca «Mostrar al abrir», la app no usa este aviso al entrar.</p>
+    </div>
     <div>
         <label class="block text-sm font-medium mb-1">Imagen</label>
         @if($novedad?->imagenUrl())

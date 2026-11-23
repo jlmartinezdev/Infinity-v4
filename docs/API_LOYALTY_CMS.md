@@ -13,7 +13,8 @@ La app **ya consume** estos endpoints (404 = vacío / 0 pts, no rompe).
 
 ### Panel Infinity
 - CRUD novedades + upload imagen a storage Infinity
-- Campos: título, subtítulo, imagen, URL acción, tipo, orden, activa, vigencia (opcional)
+- Campos: título, subtítulo, imagen, URL acción, tipo, orden, activa, vigencia, aviso al abrir
+- `vigente_desde` y `vigente_hasta` quedan en el panel. `GET /portal/novedades` no las incluye y omite la novedad fuera de esa ventana. Fecha sola: desde las 00:00 y hasta inclusive las 23:59:59.
 - Tipos: `promo` | `aviso` | `upsell` | `referi`
 
 ### Cliente
@@ -31,11 +32,20 @@ La app **ya consume** estos endpoints (404 = vacío / 0 pts, no rompe).
       "accion_url": "https://...",
       "tipo": "promo",
       "orden": 1,
-      "activa": true
+      "activa": true,
+      "mostrar_al_abrir": true,
+      "segundos_al_abrir": 5,
+      "tiempo_muestra_seg": 5,
+      "segundos_muestra": 5,
+      "duracion_seg": 5
     }
   ]
 }
 ```
+
+`mostrar_al_abrir: true` sale arriba al abrir. Si ninguna lo trae, la app usa la de menor `orden`. Si todas vienen en `false`, no hay aviso al abrir. `segundos_al_abrir` va de 1 a 60; sin valor, 5. Alias: `tiempo_muestra_seg`, `segundos_muestra`, `duracion_seg`.
+
+El push al cliente incluye en `data` `title`, `body`, `titulo`, `mensaje` y `click_action` `com.isp.clientes.OPEN_NOTIFICATION`.
 
 ---
 
@@ -280,5 +290,7 @@ o
 - [x] `GET /portal/puntos` con vencimiento / bono / siguiente premio
 - [x] FIFO lotes (`puntos_lotes`) + `loyalty:expirar-puntos`
 - [x] Toggle rápido deshabilitar premio sin borrar canjes
+- [x] Novedades: fechas de campaña solo en el panel; `mostrar_al_abrir` y `segundos_al_abrir` van en el JSON
+- [x] Push del cliente con `title`/`body` en `data` y `click_action` `com.isp.clientes.OPEN_NOTIFICATION`
 
 Ver también: `INFINITY_PREMIOS_CMS.md` (requerimiento app).
