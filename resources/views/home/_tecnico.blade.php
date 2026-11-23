@@ -374,8 +374,8 @@
     @php
         $tabsSenal = function (string $activa): string {
             $base = 'inline-flex items-center rounded-md px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ';
-            $on = $base.'bg-white dark:bg-[#232a3a] text-gray-900 dark:text-white shadow-sm';
-            $off = $base.'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white';
+            $on = $base.'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm';
+            $off = $base.'text-gray-500 dark:text-gray-400';
             $html = '<div class="inline-flex rounded-lg bg-gray-100 dark:bg-white/5 p-0.5" role="tablist" aria-label="Gráficos de señal">';
             foreach (['optica' => 'Potencia óptica', 'antena' => 'Señal de antena'] as $clave => $etiqueta) {
                 $html .= '<button type="button" role="tab" data-senal-tab="'.$clave.'" aria-selected="'.($clave === $activa ? 'true' : 'false').'" class="'.($clave === $activa ? $on : $off).'">'.e($etiqueta).'</button>';
@@ -462,8 +462,8 @@
             }
 
             var baseTab = 'inline-flex items-center rounded-md px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ';
-            var tabOn = baseTab + 'bg-white dark:bg-[#232a3a] text-gray-900 dark:text-white shadow-sm';
-            var tabOff = baseTab + 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white';
+            var tabOn = baseTab + 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm';
+            var tabOff = baseTab + 'text-gray-500 dark:text-gray-400';
 
             function mostrarSenal(clave) {
                 document.querySelectorAll('[data-senal-tab]').forEach(function (boton) {
