@@ -82,22 +82,17 @@
                 <tr class="border-t border-gray-100 dark:border-gray-700">
                     <td class="px-3 py-2">{{ $fila['nombre'] }} <span class="text-gray-400">#{{ $fila['cliente_id'] }}</span></td>
                     <td class="px-3 py-2">{{ $fila['cedula'] }}</td>
-                    <td class="px-3 py-2">
-                        @if($fila['nivel'] === 'no')
-                            {{ $fila['motivo'] === 'sin_app' ? 'Sin app' : ($fila['motivo'] === 'pago_tarde' ? 'Pagó tarde' : 'Sin pago') }}
-                        @else
-                            {{ $fila['nivel'] === '100' ? 'Apto 100%' : ($fila['nivel'] === '50' ? 'Apto 50%' : 'Apto') }}
-                        @endif
-                    </td>
+                    <td class="px-3 py-2">{{ $fila['etiqueta'] }}</td>
                     <td class="px-3 py-2">{{ $fila['ticket'] ?? '—' }} @if($fila['extra']) / extra {{ $fila['extra'] }} @endif</td>
                     <td class="px-3 py-2">
+                        @php $telOk = $fila['telefono'] === null || $fila['telefono'] === '' || \App\Helpers\TelefonoParaguayHelper::esMovilParaguay($fila['telefono']); @endphp
                         @if($fila['resena'])
-                            Sí · {{ $fila['telefono'] }}
+                            Sí · <span class="{{ $telOk ? '' : 'text-red-600 font-medium' }}">{{ $fila['telefono'] }}</span>
                         @else
                         <form method="POST" action="{{ route('loyalty.sorteo.resena', $campana) }}" class="flex gap-1">
                             @csrf
                             <input type="hidden" name="cliente_id" value="{{ $fila['cliente_id'] }}">
-                            <input name="telefono" value="{{ $fila['telefono'] }}" placeholder="Celular" class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-xs w-28 bg-white dark:bg-gray-700">
+                            <input name="telefono" value="{{ $fila['telefono'] }}" placeholder="Celular" class="px-2 py-1 rounded border text-xs w-36 bg-white dark:bg-gray-700 {{ $telOk ? 'border-gray-300 dark:border-gray-600' : 'border-red-500 text-red-600' }}">
                             <button class="text-xs px-2 py-1 rounded bg-amber-600 text-white">Marcar</button>
                         </form>
                         @endif
@@ -137,6 +132,7 @@
             <label class="text-sm">Zona<input name="timezone" value="{{ $campana->timezone }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Uso desde<input type="date" name="periodo_uso_desde" value="{{ $campana->periodo_uso_desde?->format('Y-m-d') }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Uso hasta<input type="date" name="periodo_uso_hasta" value="{{ $campana->periodo_uso_hasta?->format('Y-m-d') }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"></label>
+            <p class="md:col-span-2 text-xs text-gray-500">Período de uso que el cliente tiene que tener pagado. Si esa factura todavía no existe, un pago o un saldo a favor desde «Uso desde» y hasta el corte cuenta como pago anticipado.</p>
             <label class="text-sm">Corte de pago<input type="datetime-local" name="pago_limite" value="{{ $campana->pago_limite?->format('Y-m-d\TH:i') }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Puntualidad
                 <select name="criterio_puntualidad" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
@@ -174,6 +170,7 @@
             <label class="text-sm">Zona<input name="timezone" value="America/Asuncion" required class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Uso desde<input type="date" name="periodo_uso_desde" required class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Uso hasta<input type="date" name="periodo_uso_hasta" required class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700"></label>
+            <p class="md:col-span-2 text-xs text-gray-500">Período de uso que el cliente tiene que tener pagado. Si esa factura todavía no existe, un pago o un saldo a favor desde «Uso desde» y hasta el corte cuenta como pago anticipado.</p>
             <label class="text-sm">Corte de pago<input type="datetime-local" name="pago_limite" required class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Puntualidad
                 <select name="criterio_puntualidad" class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700">

@@ -33,9 +33,10 @@ class SorteoBackfillCommand extends Command
 
         $this->info($campana->nombre.($this->option('dry-run') ? ' (dry-run)' : ''));
         if ($tickets) {
+            $this->line('Aptos: '.$preview['aptos']);
+            $this->line('Pagaron anticipado: '.$preview['anticipados']);
             $this->line('Tickets nuevos: '.$preview['tickets']);
             $this->line('Tickets que ya estaban: '.$preview['ya']);
-            $this->line('Anticipos en saldo a favor, a confirmar cuando exista la factura del período: '.$preview['anticipos']);
         }
         if ($bienvenida) {
             $this->line('Cupones de bienvenida: '.$preview['bienvenida']);

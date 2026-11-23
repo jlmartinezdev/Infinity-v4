@@ -41,6 +41,22 @@ class SorteoNavidadTest extends TestCase
             $this->fail('Esta prueba solo puede correr sobre sqlite en memoria.');
         }
 
+        Schema::create('users', function (Blueprint $table) {
+            $table->increments('usuario_id');
+            $table->unsignedInteger('cliente_id')->nullable();
+            $table->string('estado')->default('activo');
+            $table->string('push_token')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('servicios', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedInteger('cliente_id');
+            $table->decimal('saldo_a_favor', 15, 2)->default(0);
+            $table->string('estado')->default('A');
+            $table->timestamps();
+        });
+
         Schema::create('clientes', function (Blueprint $table) {
             $table->increments('cliente_id');
             $table->string('cedula')->nullable();
@@ -187,6 +203,7 @@ class SorteoNavidadTest extends TestCase
     {
         [$cliente, $factura] = $this->clienteConFacturaNoviembre();
         $cliente->update(['app_activa' => false, 'fecha_activacion_app' => null]);
+        DB::table('users')->where('cliente_id', $cliente->cliente_id)->update(['push_token' => null]);
         $cobro = $this->cobro($cliente, $factura, '2026-12-04 12:00:00');
 
         $this->sorteo->evaluarCobro($cobro);
@@ -328,7 +345,7 @@ class SorteoNavidadTest extends TestCase
         $this->sorteo->guardarResena(SorteoCampana::activa(), $cliente->fresh(), '0981123456', 1, $cobro->id);
         $this->sorteo->evaluarCobro($cobro->fresh());
 
-        $this->assertSame('0981123456', $cliente->fresh()->telefono);
+        $this->assertSame('+595981123456', $cliente->fresh()->telefono);
         $this->assertSame(2, SorteoTicket::query()->where('estado', 'activo')->count());
 
         $cliente = $cliente->fresh();
@@ -340,8 +357,99 @@ class SorteoNavidadTest extends TestCase
         $this->assertStringContainsString('TICKET NRO', $html);
         $this->assertStringContainsString('TICKET EXTRA', $html);
         $this->assertStringContainsString('CORTE Y RETENER EN CAJA', $html);
-        $this->assertStringContainsString('0981123456', $html);
+        $this->assertStringContainsString('+595981123456', $html);
         $this->assertStringContainsString('8&lt;', $html);
+    }
+
+    public function test_listado_incluye_todos_los_clientes_activos(): void
+    {
+        $uno = $this->clienteApp();
+        $dos = $this->clienteApp();
+        $dos->update(['nombre' => 'Ana']);
+        $fuera = $this->clienteApp();
+        $fuera->update(['estado' => 'inactivo']);
+
+        $ids = array_column($this->sorteo->listado(SorteoCampana::activa(), null, '')['filas'], 'cliente_id');
+
+        $this->assertEqualsCanonicalizing([(int) $uno->cliente_id, (int) $dos->cliente_id], $ids);
+    }
+
+    public function test_exige_app_usa_el_criterio_de_avisos_push(): void
+    {
+        [$conToken, $factura] = $this->clienteConFacturaNoviembre();
+        $conToken->update(['app_activa' => false]);
+        $this->cobro($conToken, $factura, '2026-12-04 10:00:00');
+        $clase = $this->sorteo->clasificar(SorteoCampana::activa(), $conToken->fresh());
+        $this->assertNotSame('no', $clase['nivel']);
+        $this->assertNotSame('sin_app', $clase['motivo']);
+
+        [$soloBandera, $facturaBandera] = $this->clienteConFacturaNoviembre();
+        DB::table('users')->where('cliente_id', $soloBandera->cliente_id)->update(['push_token' => '']);
+        $soloBandera->update(['app_activa' => true]);
+        $this->cobro($soloBandera, $facturaBandera, '2026-12-04 10:00:00');
+        $this->assertSame('sin_app', $this->sorteo->clasificar(SorteoCampana::activa(), $soloBandera->fresh())['motivo']);
+
+        [$usuarioInactivo, $facturaInactiva] = $this->clienteConFacturaNoviembre();
+        DB::table('users')->where('cliente_id', $usuarioInactivo->cliente_id)->update(['estado' => 'inactivo']);
+        $this->cobro($usuarioInactivo, $facturaInactiva, '2026-12-04 10:00:00');
+        $this->assertSame('sin_app', $this->sorteo->clasificar(SorteoCampana::activa(), $usuarioInactivo->fresh())['motivo']);
+    }
+
+    public function test_pago_anticipado_sin_factura_cuenta_como_puntual(): void
+    {
+        $cliente = $this->clienteApp();
+        Cobro::withoutEvents(fn () => Cobro::create([
+            'cliente_id' => $cliente->cliente_id,
+            'monto' => 100000,
+            'fecha_pago' => '2026-11-15 09:00:00',
+            'forma_pago' => 'efectivo',
+            'numero_recibo' => 'R-anticipo',
+        ]));
+
+        $clase = $this->sorteo->clasificar(SorteoCampana::activa(), $cliente->fresh());
+        $this->assertSame('anticipado', $clase['nivel']);
+        $this->assertStringContainsString('Pagó anticipado', $clase['etiqueta']);
+        $this->assertStringContainsString('Falta octubre 2026 para 100%', $clase['etiqueta']);
+
+        $viejo = $this->clienteApp();
+        Cobro::withoutEvents(fn () => Cobro::create([
+            'cliente_id' => $viejo->cliente_id,
+            'monto' => 100000,
+            'fecha_pago' => '2026-10-20 09:00:00',
+            'forma_pago' => 'efectivo',
+            'numero_recibo' => 'R-viejo',
+        ]));
+        $this->assertSame('sin_pago', $this->sorteo->clasificar(SorteoCampana::activa(), $viejo->fresh())['motivo']);
+        $this->assertSame('Sin pago', $this->sorteo->clasificar(SorteoCampana::activa(), $viejo->fresh())['etiqueta']);
+
+        $conSaldo = $this->clienteApp();
+        $this->pagarMes($conSaldo, '2026-10-01', '2026-10-31', '2026-11-01', '2026-11-05', '2026-11-03 10:00:00');
+        DB::table('servicios')->insert([
+            'cliente_id' => $conSaldo->cliente_id,
+            'saldo_a_favor' => 50000,
+            'estado' => 'A',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->assertSame('anticipado', $this->sorteo->clasificar(SorteoCampana::activa(), $conSaldo->fresh())['nivel']);
+
+        $campana = SorteoCampana::activa();
+        $this->sorteo->guardarResena($campana, $viejo->fresh(), '+595981111111', null);
+        $this->assertSame(0, SorteoTicket::query()->where('origen', 'resena')->where('estado', 'activo')->count());
+
+        $cobroNuevo = Cobro::withoutEvents(fn () => Cobro::create([
+            'cliente_id' => $viejo->cliente_id,
+            'monto' => 80000,
+            'fecha_pago' => '2026-11-20 11:00:00',
+            'forma_pago' => 'efectivo',
+            'numero_recibo' => 'R-nuevo',
+        ]));
+        $this->sorteo->evaluarCobro($cobroNuevo);
+        $this->assertSame(1, SorteoTicket::query()->where('cliente_id', $viejo->cliente_id)->where('origen', 'resena')->where('estado', 'activo')->count());
+
+        $preview = $this->sorteo->previsualizar($campana, true, false);
+        $this->assertSame(3, $preview['aptos']);
+        $this->assertSame(3, $preview['anticipados']);
     }
 
     public function test_backfill_dry_run_cuenta_sin_escribir(): void
@@ -372,7 +480,7 @@ class SorteoNavidadTest extends TestCase
 
     private function clienteApp(): Cliente
     {
-        return Cliente::withoutEvents(fn () => Cliente::create([
+        $cliente = Cliente::withoutEvents(fn () => Cliente::create([
             'cedula' => (string) random_int(1000000, 9999999),
             'nombre' => 'Juan',
             'apellido' => 'Perez',
@@ -380,6 +488,15 @@ class SorteoNavidadTest extends TestCase
             'app_activa' => true,
             'fecha_activacion_app' => '2026-11-01 08:00:00',
         ]));
+        DB::table('users')->insert([
+            'cliente_id' => $cliente->cliente_id,
+            'estado' => 'activo',
+            'push_token' => 'push-'.$cliente->cliente_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $cliente;
     }
 
     /**

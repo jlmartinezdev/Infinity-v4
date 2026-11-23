@@ -509,10 +509,6 @@ class ClienteAvisoPushService
 
     private function queryConPush()
     {
-        return User::query()
-            ->whereNotNull('cliente_id')
-            ->activos()
-            ->whereNotNull('push_token')
-            ->where('push_token', '!=', '');
+        return User::query()->conAppPush();
     }
 }

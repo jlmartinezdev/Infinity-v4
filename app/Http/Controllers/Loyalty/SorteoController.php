@@ -115,16 +115,21 @@ class SorteoController extends Controller
             'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
             'telefono' => ['required', 'string', 'max:40'],
         ]);
-        $tel = TelefonoParaguayHelper::normalize($data['telefono']);
-        if (! $tel) {
-            return back()->with('error', 'El celular no es válido.');
+        $tel = TelefonoParaguayHelper::paraGuardar($data['telefono']);
+        if ($tel === '') {
+            return back()->with('error', 'Anotá el celular.');
         }
         $cliente = Cliente::findOrFail($data['cliente_id']);
         $cliente->telefono = $tel;
         $cliente->save();
         $this->sorteo->guardarResena($campana, $cliente, $tel, $request->user()?->usuario_id);
+        $clase = $this->sorteo->clasificar($campana, $cliente->fresh());
+        $nombre = trim($cliente->nombre.' '.$cliente->apellido);
+        if ($clase['nivel'] === 'no') {
+            return back()->with('success', 'Reseña guardada para '.$nombre.'. El ticket extra se crea cuando quede apto.');
+        }
 
-        return back()->with('success', 'Reseña marcada para '.trim($cliente->nombre.' '.$cliente->apellido).'.');
+        return back()->with('success', 'Reseña marcada para '.$nombre.'. Quedó el ticket extra.');
     }
 
     public function ganadores(Request $request, SorteoCampana $campana)
@@ -166,7 +171,7 @@ class SorteoController extends Controller
                     $fila['nombre'],
                     $fila['cedula'],
                     $fila['telefono'],
-                    $fila['nivel'],
+                    $fila['etiqueta'],
                     $this->motivo($fila['motivo']),
                     $fila['ticket'],
                     $fila['extra'],
@@ -187,7 +192,7 @@ class SorteoController extends Controller
                 $fila['nombre'],
                 (string) $fila['cedula'],
                 (string) $fila['telefono'],
-                $fila['nivel'],
+                $fila['etiqueta'],
                 $this->motivo($fila['motivo']),
                 (string) $fila['ticket'],
                 (string) $fila['extra'],

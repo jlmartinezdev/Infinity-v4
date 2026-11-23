@@ -149,6 +149,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Mismo universo que /avisos-push, destino «Todos con app»:
+     * usuario de cliente activo, con token de push cargado.
+     */
+    public function scopeConAppPush(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('cliente_id')
+            ->where('estado', 'activo')
+            ->whereNotNull('push_token')
+            ->where('push_token', '!=', '');
+    }
+
+    /**
      * Obtener permisos como array
      */
     public function getPermisosAttribute($value)

@@ -2,11 +2,11 @@
 
 namespace App\Services\Sorteo;
 
+use App\Helpers\TelefonoParaguayHelper;
 use App\Models\Auditoria;
 use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\Cupon;
-use App\Models\Dispositivo;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
 use App\Models\PromoAjuste;
@@ -16,6 +16,7 @@ use App\Models\SorteoGanador;
 use App\Models\SorteoPremioCategoria;
 use App\Models\SorteoResena;
 use App\Models\SorteoTicket;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,9 @@ use Illuminate\Support\Str;
 
 class SorteoService
 {
+    /** @var array<string, mixed>|null */
+    private ?array $lote = null;
+
     public function evaluarCobro(Cobro $cobro, ?int $usuarioId = null): void
     {
         $campana = SorteoCampana::activa();
@@ -83,6 +87,11 @@ class SorteoService
 
     public function guardarResena(SorteoCampana $campana, Cliente $cliente, string $telefono, ?int $usuarioId, ?int $cobroId = null): SorteoResena
     {
+        $telefono = TelefonoParaguayHelper::paraGuardar($telefono);
+        if ($telefono !== '' && $cliente->telefono !== $telefono) {
+            $cliente->telefono = $telefono;
+            $cliente->save();
+        }
         $resena = SorteoResena::query()->firstOrNew([
             'campana_id' => $campana->id,
             'cliente_id' => $cliente->cliente_id,
@@ -267,30 +276,44 @@ class SorteoService
     {
         $nuevos = 0;
         $ya = 0;
+        $anticipados = 0;
+        $aptos = 0;
         if ($tickets) {
-            foreach ($this->clientesDelPeriodo($campana) as $cliente) {
-                $fila = $this->clasificar($campana, $cliente);
-                if ($fila['nivel'] === 'no') {
-                    continue;
+            $clientes = $this->clientesActivos();
+            $this->prepararLote($campana, $clientes->pluck('cliente_id')->all());
+            try {
+                foreach ($clientes as $cliente) {
+                    $fila = $this->clasificar($campana, $cliente);
+                    if ($fila['nivel'] === 'no') {
+                        continue;
+                    }
+                    $aptos++;
+                    if ($fila['anticipado']) {
+                        $anticipados++;
+                    }
+                    $activo = SorteoTicket::query()
+                        ->where('campana_id', $campana->id)
+                        ->where('cliente_id', $cliente->cliente_id)
+                        ->where('origen', SorteoTicket::ORIGEN_PAGO)
+                        ->where('estado', SorteoTicket::ACTIVO)
+                        ->exists();
+                    if ($activo) {
+                        $ya++;
+                    } else {
+                        $nuevos++;
+                    }
                 }
-                $activo = SorteoTicket::query()
-                    ->where('campana_id', $campana->id)
-                    ->where('cliente_id', $cliente->cliente_id)
-                    ->where('origen', SorteoTicket::ORIGEN_PAGO)
-                    ->where('estado', SorteoTicket::ACTIVO)
-                    ->exists();
-                if ($activo) {
-                    $ya++;
-                } else {
-                    $nuevos++;
-                }
+            } finally {
+                $this->lote = null;
             }
         }
 
         return [
             'tickets' => $nuevos,
             'ya' => $ya,
-            'anticipos' => $tickets ? $this->contarAnticiposEnEspera($campana) : 0,
+            'aptos' => $aptos,
+            'anticipados' => $anticipados,
+            'anticipos' => $anticipados,
             'bienvenida' => $bienvenida ? $this->contarBienvenidaNueva() : 0,
         ];
     }
@@ -302,7 +325,9 @@ class SorteoService
     {
         $creados = 0;
         if ($tickets && $campana->activa) {
-            foreach ($this->clientesDelPeriodo($campana) as $cliente) {
+            $clientes = $this->clientesActivos();
+            $this->prepararLote($campana, $clientes->pluck('cliente_id')->all());
+            foreach ($clientes as $cliente) {
                 $antes = SorteoTicket::query()
                     ->where('campana_id', $campana->id)
                     ->where('cliente_id', $cliente->cliente_id)
@@ -320,6 +345,7 @@ class SorteoService
                     $creados++;
                 }
             }
+            $this->lote = null;
         }
         $bien = 0;
         if ($bienvenida) {
@@ -336,55 +362,77 @@ class SorteoService
     }
 
     /**
-     * @return array{nivel: string, motivo: ?string, puntual_participacion: bool, puntual_100: bool}
+     * @return array{nivel: string, motivo: ?string, puntual_participacion: bool, puntual_100: bool, anticipado: bool, mes_faltante: ?string, etiqueta: string}
      */
     public function clasificar(SorteoCampana $campana, Cliente $cliente, ?int $excluirCobroId = null): array
     {
         $facturasPeriodo = $this->facturasDelPeriodo($campana, $cliente->cliente_id);
         $app = $this->appATiempo($campana, $cliente);
-        $cobertura = $this->cobertura($cliente->cliente_id, $facturasPeriodo, $campana->limite(), $excluirCobroId);
-        $cubiertas = $facturasPeriodo->isNotEmpty() && $facturasPeriodo->every(
-            fn (FacturaInterna $f) => (bool) ($cobertura[$f->id]['cubierta'] ?? false)
-        );
-        $coberturaSinTope = $this->cobertura($cliente->cliente_id, $facturasPeriodo, null, $excluirCobroId);
-        $cubiertasAlgunaVez = $facturasPeriodo->isNotEmpty() && $facturasPeriodo->every(
-            fn (FacturaInterna $f) => (bool) ($coberturaSinTope[$f->id]['cubierta'] ?? false)
-        );
+        $anticipado = false;
+        if ($facturasPeriodo->isEmpty()) {
+            $anticipado = $this->pagoAnticipado($campana, $cliente->cliente_id, $excluirCobroId);
+            $cubiertas = $anticipado;
+            $cubiertasAlgunaVez = $anticipado;
+            $puntualParticipacion = $anticipado;
+            $cobertura = [];
+        } else {
+            $cobertura = $this->cobertura($cliente->cliente_id, $facturasPeriodo, $campana->limite(), $excluirCobroId);
+            $cubiertas = $facturasPeriodo->every(
+                fn (FacturaInterna $f) => (bool) ($cobertura[$f->id]['cubierta'] ?? false)
+            );
+            $coberturaSinTope = $this->cobertura($cliente->cliente_id, $facturasPeriodo, null, $excluirCobroId);
+            $cubiertasAlgunaVez = $facturasPeriodo->every(
+                fn (FacturaInterna $f) => (bool) ($coberturaSinTope[$f->id]['cubierta'] ?? false)
+            );
+            $puntualParticipacion = false;
+        }
 
         $motivo = null;
         $apto = $app && $cubiertas;
         if (! $apto) {
             if ($campana->exige_app && ! $app) {
                 $motivo = 'sin_app';
-            } elseif ($facturasPeriodo->isEmpty() || ! $cubiertasAlgunaVez) {
+            } elseif (! $cubiertasAlgunaVez) {
                 $motivo = 'sin_pago';
             } else {
                 $motivo = 'pago_tarde';
             }
         }
 
-        $puntualParticipacion = $apto && $facturasPeriodo->every(function (FacturaInterna $f) use ($campana, $cobertura) {
-            $fecha = $cobertura[$f->id]['fecha'] ?? null;
+        if (! $anticipado) {
+            $puntualParticipacion = $apto && $facturasPeriodo->every(function (FacturaInterna $f) use ($campana, $cobertura) {
+                $fecha = $cobertura[$f->id]['fecha'] ?? null;
 
-            return $fecha instanceof Carbon && $this->esPuntual($campana, $f, $fecha);
-        });
-        $puntual100 = $puntualParticipacion && $this->mesesPuntuales($campana, $cliente->cliente_id);
+                return $fecha instanceof Carbon && $this->esPuntual($campana, $f, $fecha);
+            });
+        }
+        $mesFaltante = $puntualParticipacion
+            ? $this->mesQueFalta($campana, $cliente->cliente_id, $anticipado)
+            : null;
+        $puntual100 = $puntualParticipacion && $mesFaltante === null && ($campana->meses_puntualidad_100 ?? []) !== [];
 
         $nivel = 'no';
         if ($apto && $puntual100) {
             $nivel = '100';
+        } elseif ($apto && $anticipado) {
+            $nivel = 'anticipado';
         } elseif ($apto && $puntualParticipacion) {
             $nivel = '50';
         } elseif ($apto) {
             $nivel = 'apto';
         }
 
-        return [
+        $clase = [
             'nivel' => $nivel,
             'motivo' => $motivo,
             'puntual_participacion' => $puntualParticipacion,
             'puntual_100' => $puntual100,
+            'anticipado' => $anticipado && $apto,
+            'mes_faltante' => $nivel !== 'no' && $nivel !== '100' ? $mesFaltante : null,
         ];
+        $clase['etiqueta'] = $this->etiqueta($clase);
+
+        return $clase;
     }
 
     /**
@@ -393,6 +441,7 @@ class SorteoService
     public function listado(SorteoCampana $campana, ?string $buscar, string $filtro): array
     {
         $ids = $this->idsListado($campana, $buscar);
+        $this->prepararLote($campana, $ids);
         $clientes = Cliente::query()->whereIn('cliente_id', $ids)->orderBy('nombre')->orderBy('apellido')->get();
         $tickets = SorteoTicket::query()->where('campana_id', $campana->id)->whereIn('cliente_id', $ids)->get()->groupBy('cliente_id');
         $resenas = SorteoResena::query()->where('campana_id', $campana->id)->whereIn('cliente_id', $ids)->get()->keyBy('cliente_id');
@@ -405,7 +454,7 @@ class SorteoService
                 $totales['100']++;
                 $totales['50']++;
                 $totales['aptos']++;
-            } elseif ($clase['nivel'] === '50') {
+            } elseif ($clase['nivel'] === '50' || $clase['nivel'] === 'anticipado') {
                 $totales['50']++;
                 $totales['aptos']++;
             } elseif ($clase['nivel'] === 'apto') {
@@ -427,11 +476,14 @@ class SorteoService
                 'telefono' => $resena->telefono ?? $cliente->telefono,
                 'nivel' => $clase['nivel'],
                 'motivo' => $clase['motivo'],
+                'etiqueta' => $clase['etiqueta'],
+                'mes_faltante' => $clase['mes_faltante'],
                 'ticket' => $pago?->numeroFormateado(),
                 'extra' => $extra?->numeroFormateado(),
                 'resena' => $resena !== null,
             ];
         }
+        $this->lote = null;
 
         return ['filas' => $filas, 'totales' => $totales];
     }
@@ -634,6 +686,10 @@ class SorteoService
      */
     private function facturasDelPeriodo(SorteoCampana $campana, int $clienteId): Collection
     {
+        if ($this->lote !== null) {
+            return $this->lote['periodo'][$clienteId] ?? collect();
+        }
+
         return FacturaInterna::query()
             ->where('cliente_id', $clienteId)
             ->where('tipo_factura', FacturaInterna::TIPO_SERVICIO)
@@ -664,16 +720,27 @@ class SorteoService
             return [];
         }
         $ids = $facturas->pluck('id')->all();
-        $lineas = FacturaInternaDetalle::query()
-            ->whereIn('factura_interna_id', $ids)
-            ->where('descripcion', 'Saldo a favor aplicado')
-            ->get()
-            ->groupBy('factura_interna_id');
-        $pivotes = DB::table('cobro_factura_interna as p')
-            ->join('cobros as c', 'c.id', '=', 'p.cobro_id')
-            ->whereIn('p.factura_interna_id', $ids)
-            ->when($excluirCobroId, fn ($q) => $q->where('p.cobro_id', '!=', $excluirCobroId))
-            ->get(['p.factura_interna_id', 'p.monto', 'c.fecha_pago', 'c.id as cobro_id']);
+        if ($this->lote !== null && $excluirCobroId === null) {
+            $lineas = collect();
+            $pivotes = collect();
+            foreach ($ids as $id) {
+                if (isset($this->lote['lineas'][$id])) {
+                    $lineas[$id] = collect([(object) ['total' => $this->lote['lineas'][$id]]]);
+                }
+                $pivotes = $pivotes->concat(collect($this->lote['pivotes'][$id] ?? []));
+            }
+        } else {
+            $lineas = FacturaInternaDetalle::query()
+                ->whereIn('factura_interna_id', $ids)
+                ->where('descripcion', 'Saldo a favor aplicado')
+                ->get()
+                ->groupBy('factura_interna_id');
+            $pivotes = DB::table('cobro_factura_interna as p')
+                ->join('cobros as c', 'c.id', '=', 'p.cobro_id')
+                ->whereIn('p.factura_interna_id', $ids)
+                ->when($excluirCobroId, fn ($q) => $q->where('p.cobro_id', '!=', $excluirCobroId))
+                ->get(['p.factura_interna_id', 'p.monto', 'c.fecha_pago', 'c.id as cobro_id']);
+        }
 
         $pool = $this->excesosCliente($clienteId, $excluirCobroId);
         $resultado = [];
@@ -728,6 +795,12 @@ class SorteoService
      */
     private function excesosCliente(int $clienteId, ?int $excluirCobroId): array
     {
+        if ($this->lote !== null && $excluirCobroId === null) {
+            return array_map(
+                fn (array $exceso) => ['fecha' => $exceso['fecha'], 'monto' => $exceso['monto']],
+                $this->lote['excesos'][$clienteId] ?? []
+            );
+        }
         $cobros = Cobro::query()
             ->where('cliente_id', $clienteId)
             ->when($excluirCobroId, fn ($q) => $q->where('id', '!=', $excluirCobroId))
@@ -749,24 +822,52 @@ class SorteoService
         return $excesos;
     }
 
+    private function pagoAnticipado(SorteoCampana $campana, int $clienteId, ?int $excluirCobroId): bool
+    {
+        if ($this->lote !== null && $excluirCobroId === null) {
+            if (isset($this->lote['cobro_en_ventana'][$clienteId])) {
+                return true;
+            }
+            $saldo = (float) ($this->lote['saldos'][$clienteId] ?? 0);
+
+            return $saldo > 0.009;
+        }
+        $inicio = $campana->periodo_uso_desde->copy()->timezone($campana->timezone)->startOfDay();
+        $limite = $campana->limite();
+        if (Cobro::query()
+            ->where('cliente_id', $clienteId)
+            ->when($excluirCobroId, fn ($q) => $q->where('id', '!=', $excluirCobroId))
+            ->where('fecha_pago', '>=', $inicio->format('Y-m-d H:i:s'))
+            ->where('fecha_pago', '<=', $limite->format('Y-m-d H:i:s'))
+            ->exists()) {
+            return true;
+        }
+
+        return $this->saldoAFavor($clienteId) > 0.009;
+    }
+
+    private function saldoAFavor(int $clienteId): float
+    {
+        if (! Schema::hasTable('servicios')) {
+            return 0;
+        }
+
+        return (float) Servicio::query()->where('cliente_id', $clienteId)->sum('saldo_a_favor');
+    }
+
     private function appATiempo(SorteoCampana $campana, Cliente $cliente): bool
     {
         if (! $campana->exige_app) {
             return true;
         }
-        if (! $cliente->app_activa) {
+        if ($this->lote !== null) {
+            return isset($this->lote['app'][$cliente->cliente_id]);
+        }
+        if (! Schema::hasTable('users')) {
             return false;
         }
-        $cuando = $cliente->fecha_activacion_app;
-        if (! $cuando && Schema::hasTable('dispositivos')) {
-            $login = Dispositivo::query()->where('cliente_id', $cliente->cliente_id)->min('last_login');
-            $cuando = $login ? Carbon::parse($login) : null;
-        }
-        if (! $cuando) {
-            return true;
-        }
 
-        return Carbon::parse($cuando)->timezone($campana->timezone)->lte($campana->limite());
+        return User::query()->conAppPush()->where('cliente_id', $cliente->cliente_id)->exists();
     }
 
     private function esPuntual(SorteoCampana $campana, FacturaInterna $factura, Carbon $fechaPago): bool
@@ -786,38 +887,93 @@ class SorteoService
         return $pago->lte($venc);
     }
 
-    private function mesesPuntuales(SorteoCampana $campana, int $clienteId): bool
+    private function mesQueFalta(SorteoCampana $campana, int $clienteId, bool $anticipado): ?string
     {
         $meses = $campana->meses_puntualidad_100 ?? [];
-        if ($meses === []) {
-            return false;
-        }
+        $mesDelAnticipo = $anticipado ? $campana->limite()->format('Y-m') : null;
         foreach ($meses as $mes) {
-            if (! preg_match('/^(\d{4})-(\d{2})$/', (string) $mes, $m)) {
-                return false;
+            $mes = (string) $mes;
+            if ($mes === $mesDelAnticipo) {
+                continue;
+            }
+            if (! preg_match('/^(\d{4})-(\d{2})$/', $mes, $m)) {
+                return $mes;
             }
             $inicio = Carbon::create((int) $m[1], (int) $m[2], 1, 0, 0, 0, $campana->timezone)->startOfMonth();
             $fin = $inicio->copy()->endOfMonth();
-            $facturas = FacturaInterna::query()
-                ->where('cliente_id', $clienteId)
-                ->where('tipo_factura', FacturaInterna::TIPO_SERVICIO)
-                ->whereDate('fecha_vencimiento', '>=', $inicio->toDateString())
-                ->whereDate('fecha_vencimiento', '<=', $fin->toDateString())
-                ->get();
+            $facturas = $this->facturasDelMes($clienteId, $mes, $inicio, $fin);
             if ($facturas->isEmpty()) {
-                return false;
+                return $this->nombreMes($mes);
             }
             $cobertura = $this->cobertura($clienteId, $facturas, null, null);
             foreach ($facturas as $factura) {
                 $fecha = $cobertura[$factura->id]['fecha'] ?? null;
                 $cubierta = (bool) ($cobertura[$factura->id]['cubierta'] ?? false);
                 if (! $cubierta || ! $fecha instanceof Carbon || ! $this->esPuntual($campana, $factura, $fecha)) {
-                    return false;
+                    return $this->nombreMes($mes);
                 }
             }
         }
 
-        return true;
+        return null;
+    }
+
+    /**
+     * @return Collection<int, FacturaInterna>
+     */
+    private function facturasDelMes(int $clienteId, string $mes, Carbon $inicio, Carbon $fin): Collection
+    {
+        if ($this->lote !== null) {
+            return $this->lote['meses'][$clienteId][$mes] ?? collect();
+        }
+
+        return FacturaInterna::query()
+            ->where('cliente_id', $clienteId)
+            ->where('tipo_factura', FacturaInterna::TIPO_SERVICIO)
+            ->whereDate('fecha_vencimiento', '>=', $inicio->toDateString())
+            ->whereDate('fecha_vencimiento', '<=', $fin->toDateString())
+            ->get();
+    }
+
+    private function nombreMes(string $ym): string
+    {
+        $nombres = [1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril', 5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto', 9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'];
+        if (! preg_match('/^(\d{4})-(\d{2})$/', $ym, $m)) {
+            return $ym;
+        }
+
+        return ($nombres[(int) $m[2]] ?? $ym).' '.$m[1];
+    }
+
+    /**
+     * @param  array{nivel: string, motivo: ?string, anticipado: bool, mes_faltante: ?string}  $clase
+     */
+    private function etiqueta(array $clase): string
+    {
+        if ($clase['nivel'] === 'no') {
+            $base = match ($clase['motivo']) {
+                'sin_app' => 'Sin app',
+                'pago_tarde' => 'Pagó tarde',
+                default => 'Sin pago',
+            };
+            if (! empty($clase['mes_faltante'])) {
+                $base .= ' · Falta '.$clase['mes_faltante'].' para 100%';
+            }
+
+            return $base;
+        }
+
+        $base = match ($clase['nivel']) {
+            '100' => $clase['anticipado'] ? 'Apto 100% · Pagó anticipado' : 'Apto 100%',
+            'anticipado' => 'Pagó anticipado',
+            '50' => 'Apto 50%',
+            default => 'Apto',
+        };
+        if (! empty($clase['mes_faltante'])) {
+            $base .= ' · Falta '.$clase['mes_faltante'].' para 100%';
+        }
+
+        return $base;
     }
 
     private function cobroQueCubre(SorteoCampana $campana, int $clienteId, ?int $excluirCobroId): ?int
@@ -891,33 +1047,175 @@ class SorteoService
      */
     private function idsListado(SorteoCampana $campana, ?string $buscar): array
     {
-        $periodo = FacturaInterna::query()
-            ->where('tipo_factura', FacturaInterna::TIPO_SERVICIO)
-            ->whereDate('periodo_desde', '>=', $campana->periodo_uso_desde->toDateString())
-            ->whereDate('periodo_desde', '<=', $campana->periodo_uso_hasta->toDateString())
-            ->distinct()
-            ->pluck('cliente_id');
+        $q = Cliente::query()->where('estado', 'activo');
         $buscar = trim((string) $buscar);
-        if ($buscar === '') {
-            return $periodo->map(fn ($id) => (int) $id)->all();
+        if ($buscar !== '') {
+            $q->where(function ($query) use ($buscar) {
+                $query->where('nombre', 'like', '%'.$buscar.'%')
+                    ->orWhere('apellido', 'like', '%'.$buscar.'%')
+                    ->orWhere('cedula', 'like', '%'.$buscar.'%');
+                if (ctype_digit($buscar)) {
+                    $query->orWhere('cliente_id', (int) $buscar);
+                }
+            });
         }
-        $q = Cliente::query()->where(function ($query) use ($buscar) {
-            $query->where('nombre', 'like', '%'.$buscar.'%')
-                ->orWhere('apellido', 'like', '%'.$buscar.'%')
-                ->orWhere('cedula', 'like', '%'.$buscar.'%');
-            if (ctype_digit($buscar)) {
-                $query->orWhere('cliente_id', (int) $buscar);
-            }
-        });
 
-        return $q->limit(300)->pluck('cliente_id')->map(fn ($id) => (int) $id)->all();
+        return $q->pluck('cliente_id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /**
+     * @return Collection<int, Cliente>
+     */
+    private function clientesActivos(): Collection
+    {
+        return Cliente::query()->where('estado', 'activo')->orderBy('cliente_id')->get();
+    }
+
+    /**
+     * @param  list<int>  $clienteIds
+     */
+    private function prepararLote(SorteoCampana $campana, array $clienteIds): void
+    {
+        $vacio = [
+            'app' => [],
+            'periodo' => [],
+            'meses' => [],
+            'lineas' => [],
+            'pivotes' => [],
+            'excesos' => [],
+            'saldos' => [],
+            'cobro_en_ventana' => [],
+        ];
+        if ($clienteIds === []) {
+            $this->lote = $vacio;
+
+            return;
+        }
+
+        $app = [];
+        if (Schema::hasTable('users')) {
+            foreach (User::query()->conAppPush()->whereIn('cliente_id', $clienteIds)->pluck('cliente_id') as $id) {
+                $app[(int) $id] = true;
+            }
+        }
+
+        $meses = [];
+        foreach ($campana->meses_puntualidad_100 ?? [] as $mes) {
+            if (preg_match('/^(\d{4})-(\d{2})$/', (string) $mes, $m)) {
+                $meses[(string) $mes] = Carbon::create((int) $m[1], (int) $m[2], 1, 0, 0, 0, $campana->timezone);
+            }
+        }
+        $facturas = FacturaInterna::query()
+            ->whereIn('cliente_id', $clienteIds)
+            ->where('tipo_factura', FacturaInterna::TIPO_SERVICIO)
+            ->where(function ($q) use ($campana, $meses) {
+                $q->where(function ($p) use ($campana) {
+                    $p->whereDate('periodo_desde', '>=', $campana->periodo_uso_desde->toDateString())
+                        ->whereDate('periodo_desde', '<=', $campana->periodo_uso_hasta->toDateString());
+                });
+                foreach ($meses as $inicio) {
+                    $q->orWhere(function ($m) use ($inicio) {
+                        $m->whereDate('fecha_vencimiento', '>=', $inicio->toDateString())
+                            ->whereDate('fecha_vencimiento', '<=', $inicio->copy()->endOfMonth()->toDateString());
+                    });
+                }
+            })
+            ->get();
+
+        $periodo = [];
+        $porMes = [];
+        $desde = $campana->periodo_uso_desde->toDateString();
+        $hasta = $campana->periodo_uso_hasta->toDateString();
+        foreach ($facturas as $factura) {
+            $cid = (int) $factura->cliente_id;
+            $periodoDesde = $factura->periodo_desde?->toDateString();
+            if ($periodoDesde && $periodoDesde >= $desde && $periodoDesde <= $hasta) {
+                $periodo[$cid] ??= collect();
+                $periodo[$cid]->push($factura);
+            }
+            if ($factura->fecha_vencimiento) {
+                $clave = $factura->fecha_vencimiento->timezone($campana->timezone)->format('Y-m');
+                if (isset($meses[$clave])) {
+                    $porMes[$cid][$clave] ??= collect();
+                    $porMes[$cid][$clave]->push($factura);
+                }
+            }
+        }
+
+        $facturaIds = $facturas->pluck('id')->all();
+        $lineas = [];
+        $pivotes = [];
+        if ($facturaIds !== []) {
+            $sumas = FacturaInternaDetalle::query()
+                ->whereIn('factura_interna_id', $facturaIds)
+                ->where('descripcion', 'Saldo a favor aplicado')
+                ->get(['factura_interna_id', 'total']);
+            foreach ($sumas as $detalle) {
+                $lineas[$detalle->factura_interna_id] = ($lineas[$detalle->factura_interna_id] ?? 0) + abs((float) $detalle->total);
+            }
+            $filas = DB::table('cobro_factura_interna as p')
+                ->join('cobros as c', 'c.id', '=', 'p.cobro_id')
+                ->whereIn('p.factura_interna_id', $facturaIds)
+                ->get(['p.factura_interna_id', 'p.monto', 'c.fecha_pago', 'c.id as cobro_id']);
+            foreach ($filas as $fila) {
+                $pivotes[$fila->factura_interna_id][] = $fila;
+            }
+        }
+
+        $cobros = DB::table('cobros')->whereIn('cliente_id', $clienteIds)->get(['id', 'cliente_id', 'monto', 'fecha_pago']);
+        $aplicado = $cobros->isEmpty()
+            ? collect()
+            : DB::table('cobro_factura_interna')
+                ->whereIn('cobro_id', $cobros->pluck('id'))
+                ->select('cobro_id', DB::raw('SUM(monto) as aplicado'))
+                ->groupBy('cobro_id')
+                ->pluck('aplicado', 'cobro_id');
+        $inicio = $campana->periodo_uso_desde->copy()->timezone($campana->timezone)->startOfDay();
+        $limite = $campana->limite();
+        $excesos = [];
+        $enVentana = [];
+        foreach ($cobros as $cobro) {
+            $cid = (int) $cobro->cliente_id;
+            $fecha = Carbon::parse($cobro->fecha_pago);
+            $monto = round((float) $cobro->monto - (float) ($aplicado[$cobro->id] ?? 0), 2);
+            if ($monto > 0.009) {
+                $excesos[$cid][] = ['fecha' => $fecha, 'monto' => $monto];
+            }
+            $local = $fecha->copy()->timezone($campana->timezone);
+            if ($local->gte($inicio) && $local->lte($limite)) {
+                $enVentana[$cid] = true;
+            }
+        }
+
+        $saldos = [];
+        if (Schema::hasTable('servicios')) {
+            $filasSaldo = DB::table('servicios')
+                ->whereIn('cliente_id', $clienteIds)
+                ->select('cliente_id', DB::raw('SUM(saldo_a_favor) as saldo'))
+                ->groupBy('cliente_id')
+                ->get();
+            foreach ($filasSaldo as $fila) {
+                $saldos[(int) $fila->cliente_id] = (float) $fila->saldo;
+            }
+        }
+
+        $this->lote = [
+            'app' => $app,
+            'periodo' => $periodo,
+            'meses' => $porMes,
+            'lineas' => $lineas,
+            'pivotes' => $pivotes,
+            'excesos' => $excesos,
+            'saldos' => $saldos,
+            'cobro_en_ventana' => $enVentana,
+        ];
     }
 
     private function pasaFiltro(string $filtro, string $nivel): bool
     {
         return match ($filtro) {
             '100' => $nivel === '100',
-            '50' => in_array($nivel, ['100', '50'], true),
+            '50' => in_array($nivel, ['100', '50', 'anticipado'], true),
             'aptos' => $nivel !== 'no',
             'no' => $nivel === 'no',
             default => true,

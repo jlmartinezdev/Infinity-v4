@@ -740,8 +740,8 @@ class CobroController extends Controller
         if (! $campana) {
             return;
         }
-        $tel = TelefonoParaguayHelper::normalize((string) $request->input('telefono_premio'));
-        if (! $tel) {
+        $tel = TelefonoParaguayHelper::paraGuardar((string) $request->input('telefono_premio'));
+        if ($tel === '') {
             throw ValidationException::withMessages([
                 'telefono_premio' => 'Anotá el celular para la doble chance.',
             ]);

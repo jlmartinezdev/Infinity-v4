@@ -46,6 +46,34 @@ class TelefonoParaguayHelper
     }
 
     /**
+     * Móvil paraguayo en formato +595XXXXXXXXX (9 dígitos, sin el 0).
+     */
+    public static function e164(?string $raw): ?string
+    {
+        $norm = self::normalize($raw);
+        if ($norm !== null && str_starts_with($norm, '09') && strlen($norm) === 10) {
+            return '+595'.substr($norm, 1);
+        }
+
+        return null;
+    }
+
+    public static function esMovilParaguay(?string $raw): bool
+    {
+        return self::e164($raw) !== null;
+    }
+
+    /**
+     * Guarda +595XXXXXXXXX si es móvil paraguayo. Si no, deja el texto tal cual.
+     */
+    public static function paraGuardar(?string $raw): string
+    {
+        $texto = trim((string) $raw);
+
+        return self::e164($texto) ?? $texto;
+    }
+
+    /**
      * Muestra un móvil paraguayo como 595 9XX XXXXXX (ej. 595 984 995239).
      */
     public static function formatear(?string $raw): string
