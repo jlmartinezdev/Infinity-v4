@@ -360,11 +360,10 @@ class SorteoNavidadTest extends TestCase
         $cobro->setRelation('facturaInternas', collect());
         $cobro->setRelation('usuario', null);
         $html = view('cobros._recibo-contenido', ['cobro' => $cobro, 'ajustes' => null])->render();
-        $this->assertStringContainsString('TICKET NRO', $html);
-        $this->assertStringContainsString('TICKET EXTRA', $html);
-        $this->assertStringContainsString('CORTE Y RETENER EN CAJA', $html);
-        $this->assertStringContainsString('+595981123456', $html);
-        $this->assertStringContainsString('8&lt;', $html);
+        $this->assertStringNotContainsString('TICKET NRO', $html);
+        $this->assertStringNotContainsString('TICKET EXTRA', $html);
+        $this->assertStringNotContainsString('CORTE Y RETENER EN CAJA', $html);
+        $this->assertStringContainsString('interplus.com.py/sorteo/'.$cliente->cliente_id, $html);
     }
 
     public function test_listado_incluye_todos_los_clientes_activos(): void

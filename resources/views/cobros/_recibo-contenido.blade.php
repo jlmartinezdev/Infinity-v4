@@ -3,7 +3,6 @@
     use Illuminate\Support\Str;
     $ascii = fn (?string $s): string => Str::ascii($s ?? '');
     $facturas = $cobro->facturaInternas ?? collect();
-    $sorteo = app(\App\Services\Sorteo\SorteoService::class)->bloqueRecibo($cobro);
     $saldoAFavorTotal = 0.0;
     if ($cobro->cliente) {
         if ($cobro->cliente->relationLoaded('servicios')) {
@@ -233,10 +232,9 @@
     {{-- Pie --}}
     <div class="text-center recibo-mono text-xs text-gray-800 recibo-pie">
         <p class="font-semibold uppercase">GRACIAS POR SU PAGO</p>
-        <p class="mt-1 uppercase">VALIDO COMO COMPROBANTE</p>
-        <p class="mt-3 text-gray-500">#{{ $cobro->numero_recibo }}</p>
+        <div class="recibo-linea border-t recibo-linea-din my-3"></div>
     </div>
-    @include('cobros._sorteo-cupon', ['sorteo' => $sorteo, 'sorteoModo' => 'ambos'])
+    @include('cobros._recibo-qr')
 </div>
 </div>
 
@@ -301,8 +299,8 @@
     <br>
     <br>
     <p >GRACIAS POR SU PAGO</p>
-    <p >VALIDO COMO COMPROBANTE</p>
-    @include('cobros._sorteo-cupon', ['sorteo' => $sorteo, 'sorteoModo' => 'ascii'])
+    <div class="recibo-linea border-t border-gray-400 my-3"></div>
+    @include('cobros._recibo-qr')
 </div>
 
 </div>

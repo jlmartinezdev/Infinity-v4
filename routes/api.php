@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\TpagoWebhookController;
 use App\Http\Controllers\Api\V1\WaAgentToolsController;
+use App\Http\Controllers\Api\V1\SorteoWebController;
 use App\Http\Controllers\Api\V1\WebConsultaController;
 use App\Http\Controllers\Api\V1\WhatsAppAgentController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
@@ -73,6 +74,8 @@ Route::prefix('v1')->group(function () {
     Route::middleware('web.consulta')->prefix('web')->group(function () {
         Route::post('/cuenta', [WebConsultaController::class, 'cuenta']);
         Route::post('/pago', [WebConsultaController::class, 'pago']);
+        Route::post('/sorteo', [SorteoWebController::class, 'ficha']);
+        Route::post('/sorteo/celular', [SorteoWebController::class, 'celular']);
     });
 
     // Widget de Windows (Authorization: Bearer WIDGET_RED_TOKEN). Solo lectura.

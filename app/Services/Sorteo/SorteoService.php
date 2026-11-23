@@ -18,6 +18,7 @@ use App\Models\SorteoResena;
 use App\Models\SorteoTicket;
 use App\Models\User;
 use Carbon\Carbon;
+use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -101,7 +102,7 @@ class SorteoService
         if ($cobroId) {
             $resena->cobro_id = $cobroId;
         }
-        if ($nueva) {
+        if ($resena->marcada_at === null && ($nueva || $usuarioId !== null)) {
             $resena->marcada_por = $usuarioId;
             $resena->marcada_at = now();
         }
@@ -469,6 +470,9 @@ class SorteoService
                 'app' => $appTicket?->numeroFormateado(),
                 'extra' => $extra?->numeroFormateado(),
                 'resena' => $resena !== null,
+                'nombre_google' => $resena?->nombre_google,
+                'enviada_at' => $resena?->enviada_at?->timezone($campana->timezone)->format('d/m/Y H:i'),
+                'acreditada' => $resena?->marcada_at !== null,
             ];
         }
         $this->lote = null;
@@ -524,6 +528,133 @@ class SorteoService
         ];
     }
 
+    /**
+     * Datos que ve el cliente en interplus.com.py/sorteo/{id}. Sin cédula, deuda ni celular completo.
+     *
+     * @return array<string, mixed>
+     */
+    public function fichaPublica(Cliente $cliente): array
+    {
+        $campana = SorteoCampana::activa();
+        $clase = $campana ? $this->clasificar($campana, $cliente) : null;
+        $participa = $clase !== null && $clase['nivel'] !== 'no';
+        $cupones = 0;
+        $resena = null;
+        if ($campana) {
+            $cupones = SorteoTicket::query()
+                ->where('campana_id', $campana->id)
+                ->where('cliente_id', $cliente->cliente_id)
+                ->where('estado', SorteoTicket::ACTIVO)
+                ->count();
+            $resena = SorteoResena::query()
+                ->where('campana_id', $campana->id)
+                ->where('cliente_id', $cliente->cliente_id)
+                ->first();
+        }
+
+        return [
+            'nombre' => $this->nombrePublico($cliente),
+            'participa' => $participa,
+            'etiqueta' => $clase['etiqueta'] ?? null,
+            'cupones' => $cupones,
+            'falta_celular' => ! $this->datosEnviados($resena),
+            'pide_cedula' => ! $this->datosEnviados($resena) && $this->digitosCedula($cliente) !== null,
+            'celular_oculto' => $this->datosEnviados($resena) ? $this->celularOculto($resena->telefono ?: $cliente->telefono) : null,
+            'google_usuario' => $this->datosEnviados($resena) ? $resena->nombre_google : null,
+            'campana' => $campana ? $this->campanaPublica($campana) : null,
+        ];
+    }
+
+    /**
+     * Un solo envío del cliente: celular y nombre de Google. No acredita el cupón de reseña.
+     *
+     * @return array<string, mixed>
+     */
+    public function guardarCelularPublico(Cliente $cliente, string $telefono, ?string $cedulaUltimos, string $nombreGoogle): array
+    {
+        $campana = SorteoCampana::activa();
+        if (! $campana) {
+            throw new DomainException('No hay un sorteo activo en este momento.');
+        }
+        $nombre = trim(preg_replace('/\s+/', ' ', $nombreGoogle) ?? '');
+        if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 80) {
+            throw new DomainException('Escribí el nombre que aparece en tu reseña de Google.');
+        }
+        if (! TelefonoParaguayHelper::esMovilParaguay($telefono)) {
+            throw new DomainException('Escribí un celular de Paraguay, por ejemplo 0981123456.');
+        }
+        $digitos = $this->digitosCedula($cliente);
+        if ($digitos !== null) {
+            $dados = preg_replace('/\D/', '', (string) $cedulaUltimos) ?? '';
+            if (strlen($dados) !== 4 || ! hash_equals($digitos, $dados)) {
+                throw new DomainException('Los últimos 4 números de la cédula no coinciden.');
+            }
+        }
+
+        $guardado = TelefonoParaguayHelper::paraGuardar($telefono);
+        DB::transaction(function () use ($campana, $cliente, $guardado, $nombre) {
+            $resena = SorteoResena::query()
+                ->where('campana_id', $campana->id)
+                ->where('cliente_id', $cliente->cliente_id)
+                ->lockForUpdate()
+                ->first();
+            if ($this->datosEnviados($resena)) {
+                throw new DomainException('Ya enviaste tus datos para este sorteo.');
+            }
+            if (! $resena) {
+                $resena = new SorteoResena([
+                    'campana_id' => $campana->id,
+                    'cliente_id' => $cliente->cliente_id,
+                ]);
+            }
+            $resena->telefono = $guardado;
+            $resena->nombre_google = $nombre;
+            $resena->enviada_at = now();
+            $resena->save();
+            if (! TelefonoParaguayHelper::esMovilParaguay($cliente->telefono)) {
+                $cliente->telefono = $guardado;
+                $cliente->save();
+            }
+            $this->auditar(null, 'sorteo_resenas', 'enviada', (int) $resena->id, [
+                'cliente_id' => $cliente->cliente_id,
+                'nombre_google' => $nombre,
+            ]);
+        });
+
+        return $this->fichaPublica($cliente->fresh());
+    }
+
+    /**
+     * El operador verificó la reseña. Acredita el cupón extra una sola vez.
+     */
+    public function acreditarResena(SorteoCampana $campana, Cliente $cliente, ?int $usuarioId): void
+    {
+        $resena = SorteoResena::query()
+            ->where('campana_id', $campana->id)
+            ->where('cliente_id', $cliente->cliente_id)
+            ->first();
+        if (! $this->datosEnviados($resena)) {
+            throw new DomainException('Este cliente todavía no envió sus datos.');
+        }
+        if ($resena->marcada_at !== null) {
+            throw new DomainException('El cupón de reseña ya fue acreditado.');
+        }
+        $resena->marcada_por = $usuarioId;
+        $resena->marcada_at = now();
+        $resena->save();
+        $this->auditar($usuarioId, 'sorteo_resenas', 'acreditada', (int) $resena->id, [
+            'cliente_id' => $cliente->cliente_id,
+        ]);
+        if ($campana->activa) {
+            $this->sincronizarTickets($campana, $cliente->fresh(), $usuarioId);
+        }
+    }
+
+    private function datosEnviados(?SorteoResena $resena): bool
+    {
+        return $resena !== null && $resena->enviada_at !== null;
+    }
+
     private function sincronizarTickets(SorteoCampana $campana, Cliente $cliente, ?int $usuarioId, ?int $cobroId = null, ?int $excluirCobroId = null): void
     {
         if (! $campana->activa) {
@@ -538,11 +669,12 @@ class SorteoService
         $this->asegurarTicket($campana, $cliente->cliente_id, SorteoTicket::ORIGEN_PAGO, $apto, $usuarioId, $cobroReferencia);
         $conApp = $apto && $campana->exige_app && $this->appATiempo($campana, $cliente);
         $this->asegurarTicket($campana, $cliente->cliente_id, SorteoTicket::ORIGEN_APP, $conApp, $usuarioId, null);
-        $tieneResena = SorteoResena::query()
+        $resenaVerificada = SorteoResena::query()
             ->where('campana_id', $campana->id)
             ->where('cliente_id', $cliente->cliente_id)
+            ->whereNotNull('marcada_at')
             ->exists();
-        $this->asegurarTicket($campana, $cliente->cliente_id, SorteoTicket::ORIGEN_RESENA, $apto && $tieneResena, $usuarioId, null);
+        $this->asegurarTicket($campana, $cliente->cliente_id, SorteoTicket::ORIGEN_RESENA, $apto && $resenaVerificada, $usuarioId, null);
     }
 
     private function asegurarTicket(SorteoCampana $campana, int $clienteId, string $origen, bool $activo, ?int $usuarioId, ?int $cobroId): void
@@ -1036,6 +1168,69 @@ class SorteoService
         }
 
         return $deuda;
+    }
+
+    /**
+     * @param  array{nivel: string, motivo: ?string, anticipado: bool, mes_faltante: ?string}  $clase
+     */
+    private function nombrePublico(Cliente $cliente): string
+    {
+        $partes = preg_split('/\s+/', trim($cliente->nombre.' '.$cliente->apellido)) ?: [];
+        $partes = array_values(array_filter($partes, fn ($p) => $p !== ''));
+        $primero = array_shift($partes) ?: 'Cliente';
+        $primero = mb_convert_case(mb_strtolower($primero), MB_CASE_TITLE, 'UTF-8');
+        $resto = array_map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)).'.', $partes);
+
+        return trim($primero.' '.implode(' ', $resto));
+    }
+
+    private function digitosCedula(Cliente $cliente): ?string
+    {
+        $digitos = preg_replace('/\D/', '', (string) $cliente->cedula) ?? '';
+
+        return strlen($digitos) >= 4 ? substr($digitos, -4) : null;
+    }
+
+    private function celularOculto(?string $telefono): ?string
+    {
+        if (! TelefonoParaguayHelper::esMovilParaguay($telefono)) {
+            return null;
+        }
+        $local = TelefonoParaguayHelper::normalize($telefono) ?? '';
+        if (strlen($local) < 7) {
+            return null;
+        }
+
+        return substr($local, 0, 4).' *** '.substr($local, -3);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function campanaPublica(SorteoCampana $campana): array
+    {
+        $limite = $campana->limite()->timezone($campana->timezone);
+        $premios = $campana->categorias()->orderBy('orden')->get()->map(function (SorteoPremioCategoria $categoria) {
+            $texto = $categoria->cupo.' ganadores: '.$categoria->nombre;
+            if ($categoria->tieneDescuento()) {
+                $texto .= ' ('.rtrim(rtrim(number_format((float) $categoria->porcentaje, 2, '.', ''), '0'), '.').'% en la factura de enero y febrero)';
+            }
+
+            return $texto;
+        })->values()->all();
+
+        return [
+            'nombre' => $campana->nombre,
+            'fecha_sorteo' => $campana->fecha_sorteo?->format('d/m/Y'),
+            'pago_hasta' => $limite->format('d/m/Y H:i'),
+            'reglas' => [
+                'Participás si pagaste hasta el '.$limite->format('d/m/Y').' a las '.$limite->format('H:i').' y no tenés saldo pendiente.',
+                'Con la app activa se generan dos cupones. Sin la app, uno.',
+                'Si dejás tu celular, sumamos un cupón más.',
+                'El sorteo es el '.($campana->fecha_sorteo?->format('d/m/Y') ?? 'día anunciado').'.',
+            ],
+            'premios' => $premios,
+        ];
     }
 
     /**

@@ -144,6 +144,26 @@ class SorteoController extends Controller
         return back()->with('success', 'Reseña marcada para '.$nombre.'. Quedó el ticket extra.');
     }
 
+    public function acreditar(Request $request, SorteoCampana $campana)
+    {
+        $data = $request->validate([
+            'cliente_id' => ['required', 'integer', 'exists:clientes,cliente_id'],
+        ]);
+        $cliente = Cliente::findOrFail($data['cliente_id']);
+        try {
+            $this->sorteo->acreditarResena($campana, $cliente, $request->user()?->usuario_id);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        $clase = $this->sorteo->clasificar($campana, $cliente->fresh());
+        $nombre = trim($cliente->nombre.' '.$cliente->apellido);
+        if ($clase['nivel'] === 'no') {
+            return back()->with('success', 'Reseña verificada para '.$nombre.'. El ticket extra se crea cuando quede apto.');
+        }
+
+        return back()->with('success', 'Cupón de reseña acreditado para '.$nombre.'.');
+    }
+
     public function ganadores(Request $request, SorteoCampana $campana)
     {
         $data = $request->validate([
@@ -176,13 +196,16 @@ class SorteoController extends Controller
 
         return response()->streamDownload(function () use ($filas) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['ID', 'Nombre', 'CI', 'Celular', 'Nivel', 'Motivo', 'Ticket', 'Extra']);
+            fputcsv($out, ['ID', 'Nombre', 'CI', 'Celular', 'Google', 'Envio', 'Acreditada', 'Nivel', 'Motivo', 'Ticket', 'Extra']);
             foreach ($filas as $fila) {
                 fputcsv($out, [
                     $fila['cliente_id'],
                     $fila['nombre'],
                     $fila['cedula'],
                     $fila['telefono'],
+                    $fila['nombre_google'],
+                    $fila['enviada_at'],
+                    $fila['acreditada'] ? 'si' : '',
                     $fila['etiqueta'],
                     $this->motivo($fila['motivo']),
                     $this->numerosTicket($fila),
@@ -197,13 +220,16 @@ class SorteoController extends Controller
     {
         $filas = $this->sorteo->listado($campana, (string) $request->input('q', ''), (string) $request->input('filtro', ''))['filas'];
         $libro = new XlsxWriter;
-        $hoja = $libro->hoja('Sorteo', ['ID', 'Nombre', 'CI', 'Celular', 'Nivel', 'Motivo', 'Ticket', 'Extra'], ['i', 's', 's', 's', 's', 's', 's', 's']);
+        $hoja = $libro->hoja('Sorteo', ['ID', 'Nombre', 'CI', 'Celular', 'Google', 'Envio', 'Acreditada', 'Nivel', 'Motivo', 'Ticket', 'Extra'], ['i', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's']);
         foreach ($filas as $fila) {
             $hoja->agregar([
                 $fila['cliente_id'],
                 $fila['nombre'],
                 (string) $fila['cedula'],
                 (string) $fila['telefono'],
+                (string) $fila['nombre_google'],
+                (string) $fila['enviada_at'],
+                $fila['acreditada'] ? 'si' : '',
                 $fila['etiqueta'],
                 $this->motivo($fila['motivo']),
                 $this->numerosTicket($fila),

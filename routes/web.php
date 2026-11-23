@@ -470,6 +470,7 @@ Route::middleware(['auth', 'permiso:sorteo.ver'])->prefix('loyalty')->name('loya
     Route::post('/sorteo/{campana}/imprimir', [LoyaltySorteoController::class, 'imprimir'])->name('sorteo.imprimir')->middleware('permiso:sorteo.editar');
     Route::post('/sorteo/bienvenida', [LoyaltySorteoController::class, 'bienvenida'])->name('sorteo.bienvenida')->middleware('permiso:sorteo.editar');
     Route::post('/sorteo/{campana}/resena', [LoyaltySorteoController::class, 'resena'])->name('sorteo.resena')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/{campana}/acreditar', [LoyaltySorteoController::class, 'acreditar'])->name('sorteo.acreditar')->middleware('permiso:sorteo.editar');
     Route::post('/sorteo/{campana}/ganadores', [LoyaltySorteoController::class, 'ganadores'])->name('sorteo.ganadores')->middleware('permiso:sorteo.editar');
 });
 

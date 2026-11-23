@@ -94,8 +94,20 @@
                     <td class="px-3 py-2">{{ $fila['ticket'] ?? '—' }} @if($fila['app'] ?? null) / app {{ $fila['app'] }} @endif @if($fila['extra']) / extra {{ $fila['extra'] }} @endif</td>
                     <td class="px-3 py-2">
                         @php $telOk = $fila['telefono'] === null || $fila['telefono'] === '' || \App\Helpers\TelefonoParaguayHelper::esMovilParaguay($fila['telefono']); @endphp
-                        @if($fila['resena'])
-                            Sí · <span class="{{ $telOk ? '' : 'text-red-600 font-medium' }}">{{ $fila['telefono'] }}</span>
+                        @if($fila['enviada_at'])
+                            <p>{{ $fila['nombre_google'] }}</p>
+                            <p class="text-xs text-gray-500">Envió {{ $fila['enviada_at'] }} · <span class="{{ $telOk ? '' : 'text-red-600 font-medium' }}">{{ $fila['telefono'] }}</span></p>
+                            @if($fila['acreditada'])
+                                <p class="text-xs text-green-700">Cupón acreditado</p>
+                            @else
+                            <form method="POST" action="{{ route('loyalty.sorteo.acreditar', $campana) }}" class="mt-1">
+                                @csrf
+                                <input type="hidden" name="cliente_id" value="{{ $fila['cliente_id'] }}">
+                                <button class="text-xs px-2 py-1 rounded bg-amber-600 text-white">Acreditar cupón</button>
+                            </form>
+                            @endif
+                        @elseif($fila['acreditada'])
+                            Cupón acreditado · <span class="{{ $telOk ? '' : 'text-red-600 font-medium' }}">{{ $fila['telefono'] }}</span>
                         @else
                         <form method="POST" action="{{ route('loyalty.sorteo.resena', $campana) }}" class="flex gap-1">
                             @csrf

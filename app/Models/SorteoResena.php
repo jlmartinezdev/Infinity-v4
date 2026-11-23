@@ -14,6 +14,8 @@ class SorteoResena extends Model
         'cliente_id',
         'cobro_id',
         'telefono',
+        'nombre_google',
+        'enviada_at',
         'marcada_por',
         'marcada_at',
     ];
@@ -21,6 +23,7 @@ class SorteoResena extends Model
     protected function casts(): array
     {
         return [
+            'enviada_at' => 'datetime',
             'marcada_at' => 'datetime',
         ];
     }

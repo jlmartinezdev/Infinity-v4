@@ -5,7 +5,6 @@
     $facturas = $cobro->facturaInternas ?? collect();
     $reciboLineaSimple = !empty($reciboLineaSimple);
     $reciboSinGrafico = !empty($reciboSinGrafico);
-    $sorteo = app(\App\Services\Sorteo\SorteoService::class)->bloqueRecibo($cobro);
     $saldoAFavorTotal = 0.0;
     if ($cobro->cliente) {
         if ($cobro->cliente->relationLoaded('servicios')) {
@@ -85,10 +84,9 @@
         @endif
         <div class="pie">
             <p class="bold" style="margin:12px 0 0 0;">GRACIAS POR SU PAGO</p>
-            <p style="margin:6px 0 0 0;">VALIDO COMO COMPROBANTE</p>
-            <p class="muted" style="margin:8px 0 0 0;">#{{ $cobro->numero_recibo }}</p>
+            <div class="linea"></div>
         </div>
-        @include('cobros._sorteo-cupon', ['sorteo' => $sorteo, 'sorteoModo' => 'ascii'])
+        @include('cobros._recibo-qr')
     </div>
 @else
     <div class="center">
@@ -198,10 +196,9 @@
 
     <div class="pie">
         <p class="bold" style="margin:0;">GRACIAS POR SU PAGO</p>
-        <p style="margin:6px 0 0 0;">VALIDO COMO COMPROBANTE</p>
-        <p class="muted" style="margin:8px 0 0 0;">#{{ $cobro->numero_recibo }}</p>
+        <div class="linea"></div>
     </div>
-    @include('cobros._sorteo-cupon', ['sorteo' => $sorteo, 'sorteoModo' => 'ascii'])
+    @include('cobros._recibo-qr')
 @endif
 </body>
 </html>
