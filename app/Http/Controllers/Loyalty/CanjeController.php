@@ -77,12 +77,12 @@ class CanjeController extends Controller
     public function aplicar(Canje $canje)
     {
         try {
-            $this->service->marcarAplicado($canje, auth()->user()?->usuario_id);
+            $this->service->aprobarDescuento($canje, auth()->user()?->usuario_id);
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Descuento marcado como aplicado.');
+        return back()->with('success', 'Aprobado. El descuento entra en la próxima factura.');
     }
 
     public function cancelar(Request $request, Canje $canje)

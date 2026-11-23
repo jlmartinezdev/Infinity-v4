@@ -2,6 +2,8 @@
 
 namespace App\Services\Portal;
 
+use App\Services\Loyalty\CatalogoPremiosPortal;
+use App\Services\Loyalty\PuntosService;
 use App\Services\Tpago\TpagoClient;
 use App\Support\LoyaltyImageUploader;
 
@@ -18,12 +20,14 @@ class PortalFeatureFlagsService
     public function __construct(
         private readonly PortalAppConfigService $config,
         private readonly TpagoClient $tpago,
+        private readonly CatalogoPremiosPortal $catalogo,
+        private readonly PuntosService $puntos,
     ) {}
 
     /**
      * @return list<array{key: string, state: string, label: string|null, metadata: mixed}>
      */
-    public function flags(): array
+    public function flags(?int $clienteId = null): array
     {
         $cfg = $this->config->flagsRaw();
         $labels = config('portal_app.flag_labels', []);
@@ -61,6 +65,21 @@ class PortalFeatureFlagsService
             }
 
             $out[] = $item;
+        }
+
+        if ($clienteId) {
+            foreach ($out as $i => $item) {
+                if ($item['key'] === 'premios' && $item['state'] !== 'hidden') {
+                    $out[$i]['metadata'] = [
+                        'destacado' => $this->catalogo->destacado($clienteId),
+                    ];
+                }
+                if ($item['key'] === 'puntos' && $item['state'] !== 'hidden') {
+                    $out[$i]['metadata'] = [
+                        'saldo' => $this->puntos->saldo($clienteId),
+                    ];
+                }
+            }
         }
 
         $wa = $this->config->whatsapp();

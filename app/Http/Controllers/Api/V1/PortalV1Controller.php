@@ -39,10 +39,12 @@ class PortalV1Controller extends ApiController
         private readonly TpagoClient $tpago,
     ) {}
 
-    public function featureFlags(): JsonResponse
+    public function featureFlags(Request $request): JsonResponse
     {
+        $clienteId = $request->user()?->cliente_id;
+
         return $this->ok([
-            'flags' => $this->flags->flags(),
+            'flags' => $this->flags->flags($clienteId ? (int) $clienteId : null),
         ]);
     }
 

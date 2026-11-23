@@ -49,22 +49,29 @@
                         <td class="px-3 py-3 text-sm">{{ $c->premio?->nombre }}</td>
                         <td class="px-3 py-3 text-sm">{{ $c->puntos_usados }}</td>
                         <td class="px-3 py-3 text-sm">{{ \App\Models\Canje::modalidades()[$c->modalidad] ?? $c->modalidad }}</td>
-                        <td class="px-3 py-3 text-sm font-medium">{{ $estados[$c->estado] ?? $c->estado }}</td>
+                        <td class="px-3 py-3 text-sm font-medium">
+                            {{ $estados[$c->estado] ?? $c->estado }}
+                            @if($c->factura_interna_id)
+                                <div class="text-xs text-gray-500">Factura #{{ $c->factura_interna_id }}</div>
+                            @endif
+                        </td>
                         <td class="px-3 py-3 text-sm">{{ $c->created_at?->format('d/m/Y H:i') }}</td>
                         <td class="px-3 py-3 text-sm">
                             <div class="flex flex-wrap gap-1">
                                 @if($c->estaAbierto())
-                                    @if($c->estado === 'PENDIENTE')
+                                    @if($c->modalidad !== 'descuento_factura' && $c->estado === 'PENDIENTE')
                                         <form method="POST" action="{{ route('loyalty.canjes.preparar', $c) }}">@csrf<button class="px-2 py-1 bg-blue-600 text-white rounded text-xs">Preparar</button></form>
                                     @endif
-                                    @if(in_array($c->estado, ['PENDIENTE','EN_PREPARACION']))
+                                    @if($c->modalidad !== 'descuento_factura' && in_array($c->estado, ['PENDIENTE','EN_PREPARACION']))
                                         <form method="POST" action="{{ route('loyalty.canjes.listo', $c) }}">@csrf<button class="px-2 py-1 bg-indigo-600 text-white rounded text-xs">Listo</button></form>
                                     @endif
                                     @if($c->modalidad === 'retiro_oficina' && $c->estado !== 'ENTREGADO')
                                         <form method="POST" action="{{ route('loyalty.canjes.entregar', $c) }}">@csrf<button class="px-2 py-1 bg-green-600 text-white rounded text-xs">Entregar</button></form>
                                     @endif
-                                    @if($c->modalidad === 'descuento_factura' && $c->estado !== 'APLICADO')
-                                        <form method="POST" action="{{ route('loyalty.canjes.aplicar', $c) }}">@csrf<button class="px-2 py-1 bg-green-600 text-white rounded text-xs">Aplicar dto.</button></form>
+                                    @if($c->modalidad === 'descuento_factura' && $c->premio?->necesitaAprobacion() && $c->estado === 'PENDIENTE')
+                                        <form method="POST" action="{{ route('loyalty.canjes.aplicar', $c) }}">@csrf<button class="px-2 py-1 bg-green-600 text-white rounded text-xs">Aprobar</button></form>
+                                    @elseif($c->modalidad === 'descuento_factura' && in_array($c->estado, ['PENDIENTE','APROBADO']))
+                                        <span class="text-xs text-gray-500">Entra en la próxima factura</span>
                                     @endif
                                     <form method="POST" action="{{ route('loyalty.canjes.cancelar', $c) }}" onsubmit="return confirm('¿Cancelar y devolver puntos?')">
                                         @csrf

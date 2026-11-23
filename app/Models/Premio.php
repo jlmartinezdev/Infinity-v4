@@ -201,6 +201,8 @@ class Premio extends Model
             'orden' => (int) $this->orden,
             'destacado' => (bool) $this->destacado,
             'etiqueta' => $this->etiqueta,
+            'badge' => $this->etiqueta,
+            'label' => $this->etiqueta,
             'tier' => $this->tier !== null ? (int) $this->tier : null,
             'requiere_aprobacion' => $this->necesitaAprobacion(),
             'tope_anual_por_cliente' => $this->tope_anual_por_cliente !== null

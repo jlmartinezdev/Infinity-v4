@@ -14,6 +14,8 @@ return [
         'push_notifications' => env('PORTAL_FLAG_PUSH', 'enabled'),
         'interplus_ia' => env('PORTAL_FLAG_INTERPLUS_IA', 'enabled'),
         'referidos' => env('PORTAL_FLAG_REFERIDOS', 'enabled'),
+        'premios' => env('PORTAL_FLAG_PREMIOS', 'enabled'),
+        'puntos' => env('PORTAL_FLAG_PUNTOS', 'enabled'),
         // auto → enabled si TPago/URL listo.
         'pago_online' => env('PORTAL_FLAG_PAGO_ONLINE', 'auto'),
         'pago_tigo_money' => env('PORTAL_FLAG_PAGO_TIGO', 'coming_soon'),

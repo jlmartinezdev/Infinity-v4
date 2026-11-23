@@ -3,6 +3,8 @@
 namespace App\Services\Loyalty;
 
 use App\Models\Canje;
+use App\Models\FacturaInterna;
+use App\Models\FacturaInternaDetalle;
 use App\Models\Premio;
 use Illuminate\Support\Facades\DB;
 
@@ -138,6 +140,121 @@ class CanjeService
         ]);
     }
 
+    /**
+     * El staff habilita un descuento que pedía aprobación. El monto entra en la próxima factura.
+     */
+    public function aprobarDescuento(Canje $canje, ?int $staffId = null): Canje
+    {
+        $canje->loadMissing('premio');
+        if ($canje->modalidad !== Canje::MOD_DESCUENTO) {
+            throw new \InvalidArgumentException('Solo se aprueba un descuento en factura.');
+        }
+        if (! $canje->premio?->necesitaAprobacion()) {
+            throw new \InvalidArgumentException('Este descuento no requiere aprobación. Entra solo en la próxima factura.');
+        }
+        if ($canje->estado !== Canje::ESTADO_PENDIENTE) {
+            throw new \InvalidArgumentException('Este canje no está pendiente de aprobación.');
+        }
+
+        return $this->transicionar($canje, Canje::ESTADO_APROBADO, $staffId);
+    }
+
+    /**
+     * Descuenta en la factura que se está emitiendo los canjes de descuento ya habilitados.
+     * Un solo canje de cada premio por factura. Los que piden aprobación esperan estado APROBADO.
+     */
+    public function aplicarDescuentosEnFactura(
+        FacturaInterna $factura,
+        float &$subtotal,
+        float &$totalImpuestos,
+        float &$total,
+        ?int $impuestoId
+    ): void {
+        if (($factura->tipo_factura ?? FacturaInterna::TIPO_SERVICIO) !== FacturaInterna::TIPO_SERVICIO) {
+            return;
+        }
+        if ($total <= 0.009) {
+            return;
+        }
+
+        $canjes = Canje::query()
+            ->with('premio')
+            ->where('cliente_id', $factura->cliente_id)
+            ->where('modalidad', Canje::MOD_DESCUENTO)
+            ->whereNull('factura_interna_id')
+            ->whereIn('estado', [Canje::ESTADO_PENDIENTE, Canje::ESTADO_APROBADO])
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        $premiosEnFactura = Canje::query()
+            ->where('factura_interna_id', $factura->id)
+            ->pluck('premio_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $aplico = false;
+
+        foreach ($canjes as $canje) {
+            if ($total <= 0.009) {
+                break;
+            }
+            $premio = $canje->premio;
+            if (! $premio || ! $premio->esDescuentoFactura()) {
+                continue;
+            }
+            if (in_array((int) $premio->id, $premiosEnFactura, true)) {
+                continue;
+            }
+            $habilitado = $premio->necesitaAprobacion()
+                ? $canje->estado === Canje::ESTADO_APROBADO
+                : in_array($canje->estado, [Canje::ESTADO_PENDIENTE, Canje::ESTADO_APROBADO], true);
+            if (! $habilitado) {
+                continue;
+            }
+
+            $monto = $this->montoDescuento($premio, $total);
+            if ($monto <= 0.009) {
+                continue;
+            }
+
+            [$descSubtotal, $descImpuesto] = $this->partirDescuento($monto, $subtotal, $totalImpuestos, $total);
+            FacturaInternaDetalle::create([
+                'factura_interna_id' => $factura->id,
+                'impuesto_id' => $impuestoId,
+                'servicio_id' => null,
+                'descripcion' => $this->descripcionDescuento($premio),
+                'cantidad' => 1,
+                'precio_unitario' => -$monto,
+                'subtotal' => -$descSubtotal,
+                'porcentaje_impuesto' => 0,
+                'monto_impuesto' => -$descImpuesto,
+                'total' => -$monto,
+            ]);
+
+            $subtotal = max(0, round($subtotal - $descSubtotal, 2));
+            $totalImpuestos = max(0, round($totalImpuestos - $descImpuesto, 2));
+            $total = max(0, round($total - $monto, 2));
+            $premiosEnFactura[] = (int) $premio->id;
+            $aplico = true;
+
+            $nota = 'Aplicado en factura #'.$factura->id;
+            $canje->update([
+                'estado' => Canje::ESTADO_APLICADO,
+                'factura_interna_id' => $factura->id,
+                'completed_at' => now(),
+                'notas' => trim(($canje->notas ? $canje->notas."\n" : '').$nota),
+            ]);
+        }
+
+        if ($aplico) {
+            $factura->update([
+                'subtotal' => $subtotal,
+                'total_impuestos' => $totalImpuestos,
+                'total' => $total,
+            ]);
+        }
+    }
+
     public function marcarAplicado(Canje $canje, ?int $staffId = null): Canje
     {
         if (! in_array($canje->modalidad, [
@@ -214,5 +331,56 @@ class CanjeService
         ]));
 
         return $canje->fresh(['premio', 'cliente']);
+    }
+
+    private function montoDescuento(Premio $premio, float $total): float
+    {
+        $monto = 0.0;
+        $porcentaje = (float) ($premio->descuento_porcentaje ?? 0);
+        $fijo = (float) ($premio->descuento_monto ?? 0);
+        if ($porcentaje > 0) {
+            $monto += round($total * $porcentaje / 100, 2);
+        }
+        if ($fijo > 0) {
+            $monto += round($fijo, 2);
+        }
+
+        return min(round($monto, 2), round($total, 2));
+    }
+
+    /**
+     * @return array{0: float, 1: float}
+     */
+    private function partirDescuento(float $monto, float $subtotal, float $totalImpuestos, float $total): array
+    {
+        if ($monto >= $total - 0.009) {
+            return [round($subtotal, 2), round($totalImpuestos, 2)];
+        }
+
+        $ratio = $total > 0 ? $monto / $total : 0;
+        $descSubtotal = round($subtotal * $ratio, 2);
+        $descImpuesto = round($totalImpuestos * $ratio, 2);
+        $ajuste = round($monto - ($descSubtotal + $descImpuesto), 2);
+        if (abs($ajuste) >= 0.01) {
+            $descImpuesto = round($descImpuesto + $ajuste, 2);
+        }
+
+        return [$descSubtotal, $descImpuesto];
+    }
+
+    private function descripcionDescuento(Premio $premio): string
+    {
+        $partes = [];
+        $porcentaje = (float) ($premio->descuento_porcentaje ?? 0);
+        $fijo = (float) ($premio->descuento_monto ?? 0);
+        if ($porcentaje > 0) {
+            $partes[] = rtrim(rtrim(number_format($porcentaje, 2, '.', ''), '0'), '.').'%';
+        }
+        if ($fijo > 0) {
+            $partes[] = number_format($fijo, 0, ',', '.').' Gs.';
+        }
+        $detalle = $partes !== [] ? ' ('.implode(' + ', $partes).')' : '';
+
+        return 'Descuento '.$premio->nombre.$detalle;
     }
 }

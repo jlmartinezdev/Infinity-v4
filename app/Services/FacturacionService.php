@@ -352,6 +352,7 @@ class FacturacionService
                     'factura_interna_id' => $factura->id,
                 ]);
             }
+            $this->aplicarCanjesLoyaltyEnEmision($factura, $subtotal, $totalImpuestos, $total, $impuestoExento?->id);
             $this->aplicarSaldoAFavorEnFactura($factura, $servicios, $subtotal, $totalImpuestos, $total, $impuestoExento);
             $this->finalizarTotalesTrasSaldoFavor($factura, $subtotal, $totalImpuestos, $total);
 
@@ -518,6 +519,7 @@ class FacturacionService
                     }
                 }
 
+                $this->aplicarCanjesLoyaltyEnEmision($factura, $subtotal, $totalImpuestos, $total, $impuestoExento?->id);
                 $this->aplicarSaldoAFavorEnFactura($factura, $serviciosCliente, $subtotal, $totalImpuestos, $total, $impuestoExento);
                 $this->finalizarTotalesTrasSaldoFavor($factura, $subtotal, $totalImpuestos, $total);
 
@@ -650,6 +652,7 @@ class FacturacionService
                 $total += $calc['total'];
             }
 
+            $this->aplicarCanjesLoyaltyEnEmision($factura, $subtotal, $totalImpuestos, $total, $impuestoExento?->id);
             $totalFinal = max(0, $total - $descuento);
 
             $factura->update([
@@ -848,6 +851,22 @@ class FacturacionService
     /**
      * Persiste totales tras aplicar saldo a favor; si el total queda en cero, marca la factura cobrada.
      */
+    private function aplicarCanjesLoyaltyEnEmision(
+        FacturaInterna $factura,
+        float &$subtotal,
+        float &$totalImpuestos,
+        float &$total,
+        ?int $impuestoId
+    ): void {
+        app(\App\Services\Loyalty\CanjeService::class)->aplicarDescuentosEnFactura(
+            $factura,
+            $subtotal,
+            $totalImpuestos,
+            $total,
+            $impuestoId
+        );
+    }
+
     private function finalizarTotalesTrasSaldoFavor(FacturaInterna $factura, float $subtotal, float $totalImpuestos, float $total): void
     {
         $pagada = $total <= 0.009;

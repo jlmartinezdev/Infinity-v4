@@ -47,6 +47,8 @@
         'push_notifications' => ['Notificaciones push', 'Avisos en el celular'],
         'interplus_ia' => ['Interplus IA', 'Insights y tips en Home'],
         'referidos' => ['Referidos', 'Código y puntos por traer amigos'],
+        'premios' => ['Premios', 'Catálogo, destacado y canje'],
+        'puntos' => ['Puntos', 'Saldo de puntos en la app'],
         'speed_test_screen' => ['Test de velocidad', 'Pantalla de speed test'],
         'chat_ia' => ['Chat IA', 'Asistente conversacional'],
         'iptv' => ['IPTV', 'Módulo TV en app'],
@@ -474,7 +476,7 @@
                 </span>
                 <div class="min-w-0 flex-1">
                     <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Módulos de la app</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Home, tickets, IA, IPTV, referidos y más.</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Home, tickets, premios, puntos, IA, IPTV y más.</p>
                 </div>
                 <span class="text-[11px] font-medium px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200">{{ $modulosActivos }} on</span>
             </summary>

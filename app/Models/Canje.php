@@ -30,6 +30,8 @@ class Canje extends Model
 
     public const ESTADO_APLICADO = 'APLICADO';
 
+    public const ESTADO_APROBADO = 'APROBADO';
+
     public const ESTADO_CANCELADO = 'CANCELADO';
 
     protected $fillable = [
@@ -44,6 +46,7 @@ class Canje extends Model
         'ready_at',
         'completed_at',
         'cancelled_at',
+        'factura_interna_id',
     ];
 
     protected function casts(): array
@@ -70,6 +73,11 @@ class Canje extends Model
     public function staff(): BelongsTo
     {
         return $this->belongsTo(User::class, 'staff_user_id', 'usuario_id');
+    }
+
+    public function facturaInterna(): BelongsTo
+    {
+        return $this->belongsTo(FacturaInterna::class, 'factura_interna_id');
     }
 
     public function scopeDelMesActual(Builder $query, int $clienteId): Builder
@@ -103,9 +111,39 @@ class Canje extends Model
             self::ESTADO_EN_PREPARACION => 'En preparación',
             self::ESTADO_LISTO => 'Listo para retirar',
             self::ESTADO_ENTREGADO => 'Entregado',
-            self::ESTADO_APLICADO => 'Descuento aplicado',
+            self::ESTADO_APLICADO => 'Aplicado en factura',
+            self::ESTADO_APROBADO => 'Aprobado (próxima factura)',
             self::ESTADO_CANCELADO => 'Cancelado',
         ];
+    }
+
+    /**
+     * @return array{estado_portal: string, estado_label: string}
+     */
+    public function estadoPortal(): array
+    {
+        if ($this->estado === self::ESTADO_CANCELADO) {
+            return ['estado_portal' => 'cancelado', 'estado_label' => 'Cancelado'];
+        }
+
+        if (in_array($this->estado, [self::ESTADO_APLICADO, self::ESTADO_ENTREGADO], true)) {
+            $enFactura = $this->modalidad === self::MOD_DESCUENTO
+                || $this->premio?->esDescuentoFactura();
+
+            $label = 'Aplicado';
+            if ($enFactura) {
+                $label = $this->factura_interna_id
+                    ? 'Aplicado en factura #'.$this->factura_interna_id
+                    : 'Aplicado en factura';
+            }
+
+            return [
+                'estado_portal' => 'aplicado',
+                'estado_label' => $label,
+            ];
+        }
+
+        return ['estado_portal' => 'pendiente', 'estado_label' => 'Pendiente'];
     }
 
     public function toPortalArray(): array
@@ -124,6 +162,12 @@ class Canje extends Model
                 ? (float) $this->premio->descuento_monto
                 : null,
             'estado' => $this->estado,
+            'estado_portal' => $this->estadoPortal()['estado_portal'],
+            'estado_label' => $this->estadoPortal()['estado_label'],
+            'imagen_url' => $this->premio?->imagenUrl(),
+            'gratis' => (int) $this->puntos_usados === 0,
+            'factura_interna_id' => $this->factura_interna_id ? (int) $this->factura_interna_id : null,
+            'factura_numero' => $this->factura_interna_id ? (string) $this->factura_interna_id : null,
             'notas' => $this->notas,
             'created_at' => optional($this->created_at)?->toIso8601String(),
             'completed_at' => optional($this->completed_at)?->toIso8601String(),

@@ -7,6 +7,7 @@ use App\Models\FacturaInterna;
 use App\Models\Servicio;
 use App\Models\Ticket;
 use App\Models\TicketAsunto;
+use App\Services\Portal\PortalFeatureFlagsService;
 use App\Support\PortalReciboPresenter;
 use Illuminate\Http\Request;
 
@@ -57,6 +58,10 @@ class PortalController extends ApiController
                 : round(90 + (10 * ($activos / $totalSvc)), 1);
         }
 
+        $modulos = collect(app(PortalFeatureFlagsService::class)->flags((int) $cliente->cliente_id))->keyBy('key');
+        $premiosOn = (string) ($modulos->get('premios')['state'] ?? 'hidden');
+        $puntosOn = (string) ($modulos->get('puntos')['state'] ?? 'hidden');
+
         return $this->ok([
             'cliente' => [
                 'cliente_id' => $cliente->cliente_id,
@@ -90,6 +95,16 @@ class PortalController extends ApiController
                 'precio' => $s->plan?->precio,
                 'ip' => $s->ip,
             ]),
+            'modulos' => [
+                'premios' => $premiosOn,
+                'puntos' => $puntosOn,
+            ],
+            'saldo_puntos' => $puntosOn === 'hidden'
+                ? null
+                : ($modulos->get('puntos')['metadata']['saldo'] ?? 0),
+            'premio_destacado' => $premiosOn === 'hidden'
+                ? null
+                : ($modulos->get('premios')['metadata']['destacado'] ?? null),
         ]);
     }
 

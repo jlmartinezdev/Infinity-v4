@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Canje;
 use App\Models\LoyaltyRegla;
 use App\Models\Novedad;
-use App\Models\Premio;
 use App\Services\Loyalty\CanjeService;
+use App\Services\Loyalty\CatalogoPremiosPortal;
 use App\Services\Loyalty\PuntosService;
 use App\Services\Loyalty\UpsellService;
 use Illuminate\Http\Request;
@@ -20,6 +20,7 @@ class PortalLoyaltyController extends ApiController
         private readonly PuntosService $puntos,
         private readonly CanjeService $canjes,
         private readonly UpsellService $upsell,
+        private readonly CatalogoPremiosPortal $catalogo,
     ) {}
 
     public function novedades()
@@ -49,16 +50,9 @@ class PortalLoyaltyController extends ApiController
         return $this->ok($items);
     }
 
-    public function premios()
+    public function premios(Request $request)
     {
-        $items = Premio::disponiblesPortal()
-            ->orderBy('orden')
-            ->orderBy('nombre')
-            ->get()
-            ->map(fn (Premio $p) => $p->toPortalArray())
-            ->values();
-
-        return $this->ok($items);
+        return $this->ok($this->catalogo->listar((int) $request->user()->cliente_id));
     }
 
     public function canjesIndex(Request $request)
