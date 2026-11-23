@@ -65,14 +65,19 @@
                         </div>
                     </div>
                     @if($facturasPendientes->isEmpty())
-                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No hay facturas pendientes para este cliente.</p>
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                            No hay facturas pendientes para este cliente.
+                            @if(($montoPlan ?? 0) > 0)
+                                El monto se completa con el plan: {{ number_format($montoPlan, 0, ',', '.') }} PYG.
+                            @endif
+                        </p>
                     @endif
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="monto" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Monto (PYG) *</label>
-                        <input type="number" name="monto" id="monto" step="0.01" min="0.01" value="{{ old('monto') }}" required placeholder="Se rellena con el saldo al elegir factura"
+                        <input type="number" name="monto" id="monto" step="0.01" min="0.01" value="{{ old('monto', ($facturasPendientes->isEmpty() && ($montoPlan ?? 0) > 0) ? number_format($montoPlan, 2, '.', '') : '') }}" required placeholder="{{ $facturasPendientes->isEmpty() ? 'Monto del plan' : 'Se rellena con el saldo al elegir factura' }}"
                                class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500">
                         @error('monto')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                     </div>
@@ -150,6 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var totalEl = document.getElementById('total-seleccionado');
     var conceptoYaCargado = {{ old('concepto') ? 'true' : 'false' }};
     var montoYaCargado = {{ old('monto') ? 'true' : 'false' }};
+    var montoPlan = {{ json_encode((float) ($montoPlan ?? 0)) }};
 
     function formatMonto(n) {
         return Number(n || 0).toLocaleString('es-PY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -171,7 +177,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         if (totalEl) totalEl.textContent = formatMonto(total);
-        if (montoInput && !montoYaCargado) montoInput.value = total > 0 ? total.toFixed(2) : '';
+        if (montoInput && !montoYaCargado) {
+            if (total > 0) {
+                montoInput.value = total.toFixed(2);
+            } else if (checkboxes().length === 0 && montoPlan > 0) {
+                montoInput.value = Number(montoPlan).toFixed(2);
+            } else {
+                montoInput.value = '';
+            }
+        }
         if (conceptoInput && !conceptoYaCargado) conceptoInput.value = conceptos.join(' | ').substring(0, 500);
     }
 

@@ -188,12 +188,16 @@ class CobroController extends Controller
         $facturasPendientes = $cliente
             ? $this->facturasPendientesDeCliente($cliente)
             : collect();
+        $montoPlan = $cliente && $facturasPendientes->isEmpty()
+            ? $this->montoPlanDeCliente($cliente)
+            : 0.0;
 
         return view('cobros.create', [
             'cliente' => $cliente,
             'facturaInternaId' => $facturaInternaId,
             'facturaInternaIdsPreseleccionados' => $idsPreseleccionados,
             'facturasPendientes' => $facturasPendientes,
+            'montoPlan' => $montoPlan,
             'formasPago' => Cobro::formasPago(),
         ]);
     }
@@ -237,6 +241,19 @@ class CobroController extends Controller
                 ];
             })
             ->values();
+    }
+
+    /**
+     * Suma del precio mensual de los planes de los servicios activos.
+     * Se usa como monto sugerido cuando el cliente no tiene facturas pendientes.
+     */
+    private function montoPlanDeCliente(Cliente $cliente): float
+    {
+        return round((float) $cliente->servicios()
+            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->with('plan:plan_id,precio')
+            ->get()
+            ->sum(fn (Servicio $servicio) => (float) ($servicio->plan->precio ?? 0)), 2);
     }
 
     public function store(Request $request)
