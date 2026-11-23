@@ -11,7 +11,7 @@
             @if(!empty($resumen))
             <p class="mt-2 text-sm font-medium text-gray-800 dark:text-gray-100">
                 {{ number_format($resumen['clientes'], 0, ',', '.') }} clientes activos.
-                {{ number_format($resumen['con_app'], 0, ',', '.') }} con app, el mismo criterio que avisos push.
+                {{ number_format($resumen['con_app'], 0, ',', '.') }} con app (dos cupones), el mismo criterio que avisos push.
                 {{ number_format($resumen['aptos'], 0, ',', '.') }} aptos, {{ number_format($resumen['al_100'], 0, ',', '.') }} al 100%.
             </p>
             @endif
@@ -91,7 +91,7 @@
                     <td class="px-3 py-2">{{ $fila['nombre'] }} <span class="text-gray-400">#{{ $fila['cliente_id'] }}</span></td>
                     <td class="px-3 py-2">{{ $fila['cedula'] }}</td>
                     <td class="px-3 py-2">{{ $fila['etiqueta'] }}</td>
-                    <td class="px-3 py-2">{{ $fila['ticket'] ?? '—' }} @if($fila['extra']) / extra {{ $fila['extra'] }} @endif</td>
+                    <td class="px-3 py-2">{{ $fila['ticket'] ?? '—' }} @if($fila['app'] ?? null) / app {{ $fila['app'] }} @endif @if($fila['extra']) / extra {{ $fila['extra'] }} @endif</td>
                     <td class="px-3 py-2">
                         @php $telOk = $fila['telefono'] === null || $fila['telefono'] === '' || \App\Helpers\TelefonoParaguayHelper::esMovilParaguay($fila['telefono']); @endphp
                         @if($fila['resena'])
@@ -150,7 +150,7 @@
             </label>
             <label class="text-sm">Día fijo<input type="number" name="dia_puntualidad" min="1" max="28" value="{{ $campana->dia_puntualidad }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Meses del 100% (vencimiento)<input name="meses_puntualidad_100" value="{{ implode(',', $campana->meses_puntualidad_100 ?? []) }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"></label>
-            <label class="text-sm flex items-center gap-2"><input type="checkbox" name="exige_app" value="1" @checked($campana->exige_app)> Exige app</label>
+            <label class="text-sm flex items-center gap-2"><input type="checkbox" name="exige_app" value="1" @checked($campana->exige_app)> Cupón extra si tiene la app</label>
             <label class="text-sm flex items-center gap-2"><input type="checkbox" name="permite_multiples_premios" value="1" @checked($campana->permite_multiples_premios)> Puede ganar más de un premio</label>
             @foreach($campana->categorias as $i => $categoria)
                 <div class="md:col-span-2 grid grid-cols-2 md:grid-cols-5 gap-2 border-t border-gray-100 dark:border-gray-700 pt-2">
@@ -188,7 +188,7 @@
             </label>
             <label class="text-sm">Día fijo<input type="number" name="dia_puntualidad" value="5" min="1" max="28" class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700"></label>
             <label class="text-sm">Meses del 100%<input name="meses_puntualidad_100" placeholder="2026-10,2026-11,2026-12" class="mt-1 w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700"></label>
-            <label class="text-sm flex items-center gap-2"><input type="checkbox" name="exige_app" value="1" checked> Exige app</label>
+            <label class="text-sm flex items-center gap-2"><input type="checkbox" name="exige_app" value="1" checked> Cupón extra si tiene la app</label>
             <div class="md:col-span-2"><button class="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm">Crear sin activar</button></div>
         </form>
     </details>

@@ -31,6 +31,9 @@
     <p class="titulo">{{ $sorteo['texto'] }}</p>
     <p>{{ $sorteo['fecha_sorteo'] }}</p>
     <p class="numero">TICKET NRO {{ $sorteo['numero'] }}</p>
+    @if(!empty($sorteo['app']))
+        <p class="numero">TICKET NRO {{ $sorteo['app'] }}</p>
+    @endif
     @if(!empty($sorteo['extra']))
         <p class="numero">TICKET EXTRA {{ $sorteo['extra'] }}</p>
     @endif
@@ -56,7 +59,7 @@
         <p>CI: {{ $sorteo['cedula'] !== '' ? $sorteo['cedula'] : '—' }}</p>
         <p>CEL: {{ $sorteo['telefono'] }}</p>
         <p>NOMBRE: {{ $sorteo['nombre'] }}</p>
-        <p>TICKET: {{ $sorteo['numero'] }}</p>
+        <p>TICKET: {{ $sorteo['numero'] }}@if(!empty($sorteo['app'])) / {{ $sorteo['app'] }}@endif</p>
         <p>EXTRA: {{ $sorteo['extra'] }}</p>
     @endif
 </div>

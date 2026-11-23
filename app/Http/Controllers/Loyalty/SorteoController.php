@@ -185,7 +185,7 @@ class SorteoController extends Controller
                     $fila['telefono'],
                     $fila['etiqueta'],
                     $this->motivo($fila['motivo']),
-                    $fila['ticket'],
+                    $this->numerosTicket($fila),
                     $fila['extra'],
                 ]);
             }
@@ -206,7 +206,7 @@ class SorteoController extends Controller
                 (string) $fila['telefono'],
                 $fila['etiqueta'],
                 $this->motivo($fila['motivo']),
-                (string) $fila['ticket'],
+                $this->numerosTicket($fila),
                 (string) $fila['extra'],
             ]);
         }
@@ -224,6 +224,9 @@ class SorteoController extends Controller
         foreach ($filas as $fila) {
             if ($fila['ticket']) {
                 $tickets[] = $fila + ['numero' => $fila['ticket'], 'extra_nro' => null];
+            }
+            if ($fila['app'] ?? null) {
+                $tickets[] = $fila + ['numero' => $fila['app'], 'extra_nro' => null];
             }
             if ($fila['extra']) {
                 $tickets[] = $fila + ['numero' => $fila['extra'], 'extra_nro' => $fila['extra']];
@@ -327,10 +330,19 @@ class SorteoController extends Controller
         return array_values(array_unique($ids));
     }
 
+    /**
+     * @param  array<string, mixed>  $fila
+     */
+    private function numerosTicket(array $fila): string
+    {
+        return implode(' / ', array_filter([(string) ($fila['ticket'] ?? ''), (string) ($fila['app'] ?? '')]));
+    }
+
     private function motivo(?string $motivo): string
     {
         return match ($motivo) {
             'sin_app' => 'Sin app',
+            'con_saldo' => 'Con saldo pendiente',
             'sin_pago' => 'Sin pago',
             'pago_tarde' => 'Pagó tarde',
             default => '',

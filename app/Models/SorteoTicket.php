@@ -9,6 +9,8 @@ class SorteoTicket extends Model
 {
     public const ORIGEN_PAGO = 'pago';
 
+    public const ORIGEN_APP = 'app';
+
     public const ORIGEN_RESENA = 'resena';
 
     public const ACTIVO = 'activo';

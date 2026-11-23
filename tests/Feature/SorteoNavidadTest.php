@@ -160,7 +160,8 @@ class SorteoNavidadTest extends TestCase
 
         $this->sorteo->evaluarCobro($cobro);
 
-        $this->assertSame(1, SorteoTicket::query()->where('estado', 'activo')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'pago')->where('estado', 'activo')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'app')->where('estado', 'activo')->count());
     }
 
     public function test_anticipo_en_saldo_a_favor_cubre_la_factura(): void
@@ -195,7 +196,8 @@ class SorteoNavidadTest extends TestCase
 
         $this->sorteo->evaluarFacturaRecienEmitida($factura->fresh());
 
-        $this->assertSame(1, SorteoTicket::query()->where('estado', 'activo')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'pago')->where('estado', 'activo')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'app')->where('estado', 'activo')->count());
         $this->assertNotNull($cobro->id);
     }
 
@@ -208,8 +210,9 @@ class SorteoNavidadTest extends TestCase
 
         $this->sorteo->evaluarCobro($cobro);
 
-        $this->assertSame(0, SorteoTicket::query()->count());
-        $this->assertSame('sin_app', $this->sorteo->clasificar(SorteoCampana::activa(), $cliente->fresh())['motivo']);
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'pago')->where('estado', 'activo')->count());
+        $this->assertSame(0, SorteoTicket::query()->where('origen', 'app')->count());
+        $this->assertNotSame('no', $this->sorteo->clasificar(SorteoCampana::activa(), $cliente->fresh())['nivel']);
     }
 
     public function test_reprocesar_el_mismo_pago_no_duplica_el_ticket(): void
@@ -220,7 +223,9 @@ class SorteoNavidadTest extends TestCase
         $this->sorteo->evaluarCobro($cobro);
         $this->sorteo->evaluarCobro($cobro->fresh());
 
-        $this->assertSame(1, SorteoTicket::query()->count());
+        $this->assertSame(2, SorteoTicket::query()->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'pago')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'app')->count());
     }
 
     public function test_anular_y_volver_a_cobrar_reactiva_el_mismo_numero(): void
@@ -228,18 +233,18 @@ class SorteoNavidadTest extends TestCase
         [$cliente, $factura] = $this->clienteConFacturaNoviembre();
         $cobro = $this->cobro($cliente, $factura, '2026-12-03 11:00:00');
         $this->sorteo->evaluarCobro($cobro);
-        $numero = SorteoTicket::query()->value('numero');
+        $numero = SorteoTicket::query()->where('origen', 'pago')->value('numero');
 
         $this->sorteo->anularPorCobro($cobro);
-        $this->assertSame('anulado', SorteoTicket::query()->value('estado'));
+        $this->assertSame(2, SorteoTicket::query()->where('estado', 'anulado')->count());
 
         DB::table('cobro_factura_interna')->where('cobro_id', $cobro->id)->delete();
         $otro = $this->cobro($cliente, $factura, '2026-12-04 11:00:00');
         $this->sorteo->evaluarCobro($otro);
 
-        $this->assertSame(1, SorteoTicket::query()->count());
-        $this->assertSame($numero, SorteoTicket::query()->value('numero'));
-        $this->assertSame('activo', SorteoTicket::query()->value('estado'));
+        $this->assertSame(2, SorteoTicket::query()->count());
+        $this->assertSame($numero, SorteoTicket::query()->where('origen', 'pago')->value('numero'));
+        $this->assertSame(2, SorteoTicket::query()->where('estado', 'activo')->count());
     }
 
     public function test_cupon_de_bienvenida_no_se_canjea_dos_veces(): void
@@ -303,7 +308,7 @@ class SorteoNavidadTest extends TestCase
 
         $campana->update(['activa' => true, 'imprimir_en_recibo' => false]);
         $this->sorteo->evaluarCobro($cobro->fresh());
-        $this->assertSame(1, SorteoTicket::query()->where('estado', 'activo')->count());
+        $this->assertSame(2, SorteoTicket::query()->where('estado', 'activo')->count());
         $this->assertNull($this->sorteo->bloqueRecibo($cobro->fresh()));
     }
 
@@ -333,8 +338,8 @@ class SorteoNavidadTest extends TestCase
         $this->sorteo->evaluarCobro($diciembre['cobro']);
 
         $this->assertSame('100', $this->sorteo->clasificar($otra->fresh(), $cliente->fresh())['nivel']);
-        $this->assertSame('sin_pago', $this->sorteo->clasificar($vigente->fresh(), $cliente->fresh())['motivo']);
-        $this->assertSame(1, SorteoTicket::query()->where('campana_id', $otra->id)->count());
+        $this->assertSame('pago_tarde', $this->sorteo->clasificar($vigente->fresh(), $cliente->fresh())['motivo']);
+        $this->assertSame(2, SorteoTicket::query()->where('campana_id', $otra->id)->count());
     }
 
     public function test_resena_actualiza_celular_y_el_recibo_trae_el_talon(): void
@@ -346,7 +351,8 @@ class SorteoNavidadTest extends TestCase
         $this->sorteo->evaluarCobro($cobro->fresh());
 
         $this->assertSame('+595981123456', $cliente->fresh()->telefono);
-        $this->assertSame(2, SorteoTicket::query()->where('estado', 'activo')->count());
+        $this->assertSame(3, SorteoTicket::query()->where('estado', 'activo')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'app')->where('estado', 'activo')->count());
 
         $cliente = $cliente->fresh();
         $cliente->setRelation('servicios', collect());
@@ -381,18 +387,47 @@ class SorteoNavidadTest extends TestCase
         $this->cobro($conToken, $factura, '2026-12-04 10:00:00');
         $clase = $this->sorteo->clasificar(SorteoCampana::activa(), $conToken->fresh());
         $this->assertNotSame('no', $clase['nivel']);
-        $this->assertNotSame('sin_app', $clase['motivo']);
+        $this->sorteo->evaluarCobro($this->cobro($conToken->fresh(), $factura, '2026-12-04 11:00:00'));
+        $this->assertSame(1, SorteoTicket::query()->where('cliente_id', $conToken->cliente_id)->where('origen', 'app')->where('estado', 'activo')->count());
 
         [$soloBandera, $facturaBandera] = $this->clienteConFacturaNoviembre();
         DB::table('users')->where('cliente_id', $soloBandera->cliente_id)->update(['push_token' => '']);
         $soloBandera->update(['app_activa' => true]);
-        $this->cobro($soloBandera, $facturaBandera, '2026-12-04 10:00:00');
-        $this->assertSame('sin_app', $this->sorteo->clasificar(SorteoCampana::activa(), $soloBandera->fresh())['motivo']);
+        $this->sorteo->evaluarCobro($this->cobro($soloBandera, $facturaBandera, '2026-12-04 10:00:00'));
+        $this->assertNotSame('no', $this->sorteo->clasificar(SorteoCampana::activa(), $soloBandera->fresh())['nivel']);
+        $this->assertSame(0, SorteoTicket::query()->where('cliente_id', $soloBandera->cliente_id)->where('origen', 'app')->count());
 
         [$usuarioInactivo, $facturaInactiva] = $this->clienteConFacturaNoviembre();
         DB::table('users')->where('cliente_id', $usuarioInactivo->cliente_id)->update(['estado' => 'inactivo']);
-        $this->cobro($usuarioInactivo, $facturaInactiva, '2026-12-04 10:00:00');
-        $this->assertSame('sin_app', $this->sorteo->clasificar(SorteoCampana::activa(), $usuarioInactivo->fresh())['motivo']);
+        $this->sorteo->evaluarCobro($this->cobro($usuarioInactivo, $facturaInactiva, '2026-12-04 10:00:00'));
+        $this->assertNotSame('no', $this->sorteo->clasificar(SorteoCampana::activa(), $usuarioInactivo->fresh())['nivel']);
+        $this->assertSame(0, SorteoTicket::query()->where('cliente_id', $usuarioInactivo->cliente_id)->where('origen', 'app')->count());
+    }
+
+    public function test_saldo_pendiente_deja_afuera_aunque_haya_pagado_antes_del_corte(): void
+    {
+        [$cliente, $factura] = $this->clienteConFacturaNoviembre();
+        $cobro = $this->cobro($cliente, $factura, '2026-12-04 10:00:00');
+        FacturaInterna::withoutEvents(fn () => FacturaInterna::create([
+            'cliente_id' => $cliente->cliente_id,
+            'tipo_factura' => 'servicio',
+            'periodo_desde' => '2026-10-01',
+            'periodo_hasta' => '2026-10-31',
+            'fecha_emision' => '2026-11-01',
+            'fecha_vencimiento' => '2026-11-05',
+            'estado' => 'emitida',
+            'subtotal' => 50000,
+            'total_impuestos' => 0,
+            'total' => 50000,
+        ]));
+
+        $this->sorteo->evaluarCobro($cobro);
+
+        $clase = $this->sorteo->clasificar(SorteoCampana::activa(), $cliente->fresh());
+        $this->assertSame('no', $clase['nivel']);
+        $this->assertSame('con_saldo', $clase['motivo']);
+        $this->assertSame('Con saldo pendiente', $clase['etiqueta']);
+        $this->assertSame(0, SorteoTicket::query()->where('estado', 'activo')->count());
     }
 
     public function test_pago_anticipado_sin_factura_cuenta_como_puntual(): void
@@ -419,8 +454,7 @@ class SorteoNavidadTest extends TestCase
             'forma_pago' => 'efectivo',
             'numero_recibo' => 'R-viejo',
         ]));
-        $this->assertSame('sin_pago', $this->sorteo->clasificar(SorteoCampana::activa(), $viejo->fresh())['motivo']);
-        $this->assertSame('Sin pago', $this->sorteo->clasificar(SorteoCampana::activa(), $viejo->fresh())['etiqueta']);
+        $this->assertSame('apto', $this->sorteo->clasificar(SorteoCampana::activa(), $viejo->fresh())['nivel']);
 
         $conSaldo = $this->clienteApp();
         $this->pagarMes($conSaldo, '2026-10-01', '2026-10-31', '2026-11-01', '2026-11-05', '2026-11-03 10:00:00');
@@ -435,7 +469,7 @@ class SorteoNavidadTest extends TestCase
 
         $campana = SorteoCampana::activa();
         $this->sorteo->guardarResena($campana, $viejo->fresh(), '+595981111111', null);
-        $this->assertSame(0, SorteoTicket::query()->where('origen', 'resena')->where('estado', 'activo')->count());
+        $this->assertSame(1, SorteoTicket::query()->where('origen', 'resena')->where('estado', 'activo')->count());
 
         $cobroNuevo = Cobro::withoutEvents(fn () => Cobro::create([
             'cliente_id' => $viejo->cliente_id,
