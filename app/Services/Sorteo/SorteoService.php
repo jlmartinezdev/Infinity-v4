@@ -447,9 +447,13 @@ class SorteoService
         $resenas = SorteoResena::query()->where('campana_id', $campana->id)->whereIn('cliente_id', $ids)->get()->keyBy('cliente_id');
 
         $filas = [];
-        $totales = ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0];
+        $totales = ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0, 'clientes' => 0, 'con_app' => 0];
         foreach ($clientes as $cliente) {
             $clase = $this->clasificar($campana, $cliente);
+            $totales['clientes']++;
+            if ($clase['motivo'] !== 'sin_app') {
+                $totales['con_app']++;
+            }
             if ($clase['nivel'] === '100') {
                 $totales['100']++;
                 $totales['50']++;

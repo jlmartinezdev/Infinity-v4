@@ -8,6 +8,13 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Sorteo</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400">La campaña activa imprime el cupón en el recibo. Al desactivarla, el comprobante vuelve a ser el de siempre.</p>
+            @if(!empty($resumen))
+            <p class="mt-2 text-sm font-medium text-gray-800 dark:text-gray-100">
+                {{ number_format($resumen['clientes'], 0, ',', '.') }} clientes activos.
+                {{ number_format($resumen['con_app'], 0, ',', '.') }} con app, el mismo criterio que avisos push.
+                {{ number_format($resumen['aptos'], 0, ',', '.') }} aptos, {{ number_format($resumen['al_100'], 0, ',', '.') }} al 100%.
+            </p>
+            @endif
         </div>
         @if($campanas->isNotEmpty())
         <form method="GET" action="{{ route('loyalty.sorteo.index') }}">
@@ -66,6 +73,7 @@
         <a href="{{ route('loyalty.sorteo.urna', ['campana' => $campana, 'filtro' => $filtro, 'q' => $buscar]) }}" class="px-3 py-2 rounded-lg border text-sm">PDF urna</a>
     </form>
 
+    <p class="text-xs text-gray-500">Los aptos aparecen primero. Esta página muestra {{ $filas->count() }} de {{ $filas->total() }}.</p>
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
         <table class="min-w-full text-sm">
             <thead class="text-left text-gray-500">

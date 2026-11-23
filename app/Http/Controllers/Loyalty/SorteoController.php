@@ -27,9 +27,20 @@ class SorteoController extends Controller
         $buscar = trim((string) $request->input('q', ''));
         $resultado = $campana
             ? $this->sorteo->listado($campana, $buscar, $filtro)
-            : ['filas' => [], 'totales' => ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0]];
+            : ['filas' => [], 'totales' => ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0, 'clientes' => 0, 'con_app' => 0]];
         $page = max(1, (int) $request->input('page', 1));
-        $filas = collect($resultado['filas']);
+        $orden = ['100' => 0, 'anticipado' => 1, '50' => 2, 'apto' => 3, 'no' => 4];
+        $filas = collect($resultado['filas'])->sortBy(fn (array $fila) => sprintf(
+            '%d-%s',
+            $orden[$fila['nivel']] ?? 9,
+            $fila['nombre']
+        ))->values();
+        $resumen = [
+            'clientes' => $resultado['totales']['clientes'] ?? $filas->count(),
+            'con_app' => $resultado['totales']['con_app'] ?? 0,
+            'aptos' => $resultado['totales']['aptos'] ?? 0,
+            'al_100' => $resultado['totales']['100'] ?? 0,
+        ];
         $paginadas = new LengthAwarePaginator(
             $filas->forPage($page, 40)->values(),
             $filas->count(),
@@ -42,6 +53,7 @@ class SorteoController extends Controller
             'campanas' => $campanas,
             'campana' => $campana?->load('categorias'),
             'filas' => $paginadas,
+            'resumen' => $resumen,
             'totales' => $resultado['totales'],
             'filtro' => $filtro,
             'buscar' => $buscar,
