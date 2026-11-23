@@ -66,6 +66,7 @@
                 value="{{ old('stock', $premio?->stock) }}"
                 class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
             <label class="inline-flex items-center gap-2 text-xs text-gray-500 mt-1">
+                <input type="hidden" name="stock_ilimitado" value="0">
                 <input type="checkbox" name="stock_ilimitado" id="premio-stock-ilimitado" value="1" @checked($stockIlimitado)>
                 Sin límite (null)
             </label>
@@ -92,18 +93,25 @@
         </div>
         <div class="flex items-end">
             <label class="inline-flex items-center gap-2 text-sm">
+                <input type="hidden" name="una_vez_por_cliente" value="0">
                 <input type="checkbox" name="una_vez_por_cliente" value="1" @checked(old('una_vez_por_cliente', $premio?->una_vez_por_cliente ?? false))>
                 Una sola vez por cliente (de por vida)
             </label>
         </div>
     </div>
     <div class="flex flex-col sm:flex-row gap-3 sm:gap-6 flex-wrap">
-        <label class="inline-flex items-center gap-2"><input type="checkbox" name="activo" value="1" @checked(old('activo', $premio?->activo ?? true))> Activo</label>
         <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="activo" value="0">
+            <input type="checkbox" name="activo" value="1" @checked(old('activo', $premio?->activo ?? true))>
+            Activo
+        </label>
+        <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="destacado" value="0">
             <input type="checkbox" name="destacado" value="1" @checked(old('destacado', $premio?->destacado ?? false))>
             Premio destacado
         </label>
         <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="requiere_aprobacion" value="0">
             <input type="checkbox" name="requiere_aprobacion" value="1" @checked(old('requiere_aprobacion', $premio?->requiere_aprobacion ?? false))>
             Requiere aprobación staff
         </label>

@@ -136,8 +136,8 @@ class PremioController extends Controller
      */
     private function normalizar(Request $request, array $data): array
     {
-        $data['activo'] = $request->boolean('activo', true);
-        $data['destacado'] = $request->boolean('destacado', false);
+        $data['activo'] = $request->boolean('activo');
+        $data['destacado'] = $request->boolean('destacado');
         $data['orden'] = (int) ($data['orden'] ?? 0);
         $data['puntos_requeridos'] = (int) $data['puntos_requeridos'];
         $data['tipo'] = $data['tipo'] ?? Premio::TIPO_FISICO;
@@ -154,11 +154,11 @@ class PremioController extends Controller
         $data['requiere_aprobacion'] = $request->boolean('requiere_aprobacion')
             || $data['tipo'] === Premio::TIPO_APROBACION;
 
-        // stock_ilimitado o vacío → null (sin límite); 0 = agotado (oculto en app).
-        if ($request->boolean('stock_ilimitado') || ! $request->filled('stock')) {
+        // stock_ilimitado explícito → null. Destildado, aunque el número venga vacío, deja de ser ilimitado.
+        if ($request->boolean('stock_ilimitado')) {
             $data['stock'] = null;
         } else {
-            $data['stock'] = (int) $request->input('stock');
+            $data['stock'] = $request->filled('stock') ? (int) $request->input('stock') : 0;
         }
 
         if ($data['tipo'] === Premio::TIPO_DESCUENTO) {
