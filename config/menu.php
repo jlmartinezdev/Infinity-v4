@@ -274,6 +274,7 @@ return [
             'permiso_any' => [
                 'loyalty-novedades.ver',
                 'loyalty-premios.ver',
+                'sorteo.ver',
                 'loyalty-canjes.ver',
                 'loyalty-puntos.ver',
                 'loyalty-upsell.ver',
@@ -287,6 +288,7 @@ return [
                     'permiso_any' => [
                         'loyalty-novedades.ver',
                         'loyalty-premios.ver',
+                        'sorteo.ver',
                         'loyalty-canjes.ver',
                         'loyalty-puntos.ver',
                         'loyalty-upsell.ver',
@@ -295,6 +297,7 @@ return [
                 ],
                 ['name' => 'loyalty-novedades', 'label' => 'Novedades', 'path' => '/loyalty/novedades', 'permiso' => 'loyalty-novedades.ver'],
                 ['name' => 'loyalty-premios', 'label' => 'Premios', 'path' => '/loyalty/premios', 'permiso' => 'loyalty-premios.ver'],
+                ['name' => 'loyalty-sorteo', 'label' => 'Sorteo', 'path' => '/loyalty/sorteo', 'permiso' => 'sorteo.ver'],
                 ['name' => 'loyalty-canjes', 'label' => 'Cola de canjes', 'path' => '/loyalty/canjes', 'permiso' => 'loyalty-canjes.ver'],
                 ['name' => 'loyalty-puntos', 'label' => 'Puntos y reglas', 'path' => '/loyalty/puntos', 'permiso' => 'loyalty-puntos.ver'],
                 ['name' => 'loyalty-upsell', 'label' => 'Planes upsell', 'path' => '/loyalty/upsell', 'permiso' => 'loyalty-upsell.ver'],

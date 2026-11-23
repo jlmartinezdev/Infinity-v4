@@ -344,6 +344,7 @@ return [
                 ['label' => 'Avisos push', 'base' => 'avisos-push', 'acciones' => ['ver', 'editar']],
                 ['label' => 'Novedades', 'base' => 'loyalty-novedades', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Premios', 'base' => 'loyalty-premios', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
+                ['label' => 'Sorteo', 'base' => 'sorteo', 'acciones' => ['ver', 'editar']],
                 ['label' => 'Canjes (cola)', 'base' => 'loyalty-canjes', 'acciones' => ['ver', 'editar']],
                 ['label' => 'Puntos y reglas', 'base' => 'loyalty-puntos', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],
                 ['label' => 'Planes upsell', 'base' => 'loyalty-upsell', 'acciones' => ['ver', 'crear', 'editar', 'eliminar']],

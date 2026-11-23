@@ -339,6 +339,19 @@ class FacturacionService
                 }
             }
 
+            try {
+                app(\App\Services\Sorteo\SorteoService::class)->aplicarCuponesEnEmision(
+                    $factura,
+                    $subtotal,
+                    $totalImpuestos,
+                    $total,
+                    $impuestoExento?->id
+                );
+            } catch (\Throwable $e) {
+                Log::warning('[Sorteo] Cupón no aplicado en la emisión: '.$e->getMessage(), [
+                    'factura_interna_id' => $factura->id,
+                ]);
+            }
             $this->aplicarSaldoAFavorEnFactura($factura, $servicios, $subtotal, $totalImpuestos, $total, $impuestoExento);
             $this->finalizarTotalesTrasSaldoFavor($factura, $subtotal, $totalImpuestos, $total);
 
@@ -346,6 +359,14 @@ class FacturacionService
         });
 
         $this->sincronizarResumenPorFactura($factura);
+
+        try {
+            app(\App\Services\Sorteo\SorteoService::class)->evaluarFacturaRecienEmitida($factura, $usuarioId);
+        } catch (\Throwable $e) {
+            Log::info('[Sorteo] Ticket por factura omitido: '.$e->getMessage(), [
+                'factura_interna_id' => $factura->id,
+            ]);
+        }
 
         $this->avisarWhatsAppFactura($factura, $enviarWhatsApp);
 
@@ -1379,6 +1400,14 @@ class FacturacionService
         }
 
         try {
+            app(\App\Services\Sorteo\SorteoService::class)->evaluarCobro($cobro, $usuarioId);
+        } catch (\Throwable $e) {
+            Log::info('[Sorteo] Ticket por cobro omitido: '.$e->getMessage(), [
+                'cobro_id' => $cobro->id,
+            ]);
+        }
+
+        try {
             app(\App\Services\WhatsApp\WhatsAppOutboundNotifier::class)->reciboPago($cobro);
         } catch (\Throwable $e) {
             Log::info('[WhatsApp] Recibo automático omitido: '.$e->getMessage(), [
@@ -1972,6 +2001,13 @@ class FacturacionService
             }
 
             $cobro->delete();
+            try {
+                app(\App\Services\Sorteo\SorteoService::class)->anularPorCobro($cobro, null);
+            } catch (\Throwable $e) {
+                Log::info('[Sorteo] Anulación de ticket omitida: '.$e->getMessage(), [
+                    'cobro_id' => $cobro->id,
+                ]);
+            }
             app(CobrosResumenService::class)->sincronizarCobradoPorFechaPago($fechaPagoCobro);
 
             foreach ($facturaIds as $fid) {

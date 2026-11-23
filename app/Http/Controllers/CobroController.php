@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TelefonoParaguayHelper;
 use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\FacturaInterna;
 use App\Models\Servicio;
+use App\Models\SorteoCampana;
+use App\Models\SorteoResena;
 use App\Models\User;
 use App\Services\FacturacionService;
+use App\Services\Sorteo\SorteoService;
 use App\Support\CobrosMesVentana;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -256,7 +261,11 @@ class CobroController extends Controller
             'referencia' => ['nullable', 'string', 'max:100'],
             'concepto' => ['nullable', 'string', 'max:500'],
             'observaciones' => ['nullable', 'string'],
+            'resena_redes' => ['nullable', 'boolean'],
+            'telefono_premio' => ['nullable', 'string', 'max:40'],
         ]);
+
+        $this->prepararResenaCaja($request, (int) $validated['cliente_id']);
 
         $cliente = Cliente::findOrFail($validated['cliente_id']);
         $monto = (float) $validated['monto'];
@@ -272,6 +281,7 @@ class CobroController extends Controller
         }
 
         $cobro = $this->facturacionService->registrarCobro($validated, $request->user()?->usuario_id);
+        $this->vincularResenaCobro((int) $validated['cliente_id'], (int) $cobro->id);
 
         $registroSaldoAFavor = false;
         if ($saldoAntes !== null && $facturaOrigenId !== null) {
@@ -313,7 +323,11 @@ class CobroController extends Controller
             'referencia' => ['nullable', 'string', 'max:100'],
             'concepto' => ['nullable', 'string', 'max:500'],
             'observaciones' => ['nullable', 'string'],
+            'resena_redes' => ['nullable', 'boolean'],
+            'telefono_premio' => ['nullable', 'string', 'max:40'],
         ]);
+
+        $this->prepararResenaCaja($request, (int) $validated['cliente_id']);
 
         $facturas = FacturaInterna::with('cliente')
             ->whereIn('id', $ids)
@@ -347,6 +361,7 @@ class CobroController extends Controller
             'observaciones' => $validated['observaciones'] ?? null,
             'factura_interna_items' => $items,
         ], $usuarioId);
+        $this->vincularResenaCobro((int) $validated['cliente_id'], (int) $cobro->id);
 
         $mensaje = 'Cobro registrado. Recibo: '.$cobro->numero_recibo;
 
@@ -714,6 +729,40 @@ class CobroController extends Controller
         $ajustes = \App\Models\AjustesGenerales::obtener();
 
         return view('cobros.multicobro-result', compact('cobros', 'ajustes'));
+    }
+
+    private function prepararResenaCaja(Request $request, int $clienteId): void
+    {
+        if (! $request->boolean('resena_redes')) {
+            return;
+        }
+        $campana = SorteoCampana::activa();
+        if (! $campana) {
+            return;
+        }
+        $tel = TelefonoParaguayHelper::normalize((string) $request->input('telefono_premio'));
+        if (! $tel) {
+            throw ValidationException::withMessages([
+                'telefono_premio' => 'Anotá el celular para la doble chance.',
+            ]);
+        }
+        $cliente = Cliente::findOrFail($clienteId);
+        $cliente->telefono = $tel;
+        $cliente->save();
+        app(SorteoService::class)->guardarResena($campana, $cliente, $tel, $request->user()?->usuario_id);
+    }
+
+    private function vincularResenaCobro(int $clienteId, int $cobroId): void
+    {
+        $campana = SorteoCampana::activa();
+        if (! $campana) {
+            return;
+        }
+        SorteoResena::query()
+            ->where('campana_id', $campana->id)
+            ->where('cliente_id', $clienteId)
+            ->whereNull('cobro_id')
+            ->update(['cobro_id' => $cobroId]);
     }
 
     /**

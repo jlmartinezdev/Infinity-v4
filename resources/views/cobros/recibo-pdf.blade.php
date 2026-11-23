@@ -5,6 +5,7 @@
     $facturas = $cobro->facturaInternas ?? collect();
     $reciboLineaSimple = !empty($reciboLineaSimple);
     $reciboSinGrafico = !empty($reciboSinGrafico);
+    $sorteo = app(\App\Services\Sorteo\SorteoService::class)->bloqueRecibo($cobro);
     $saldoAFavorTotal = 0.0;
     if ($cobro->cliente) {
         if ($cobro->cliente->relationLoaded('servicios')) {
@@ -87,6 +88,7 @@
             <p style="margin:6px 0 0 0;">VALIDO COMO COMPROBANTE</p>
             <p class="muted" style="margin:8px 0 0 0;">#{{ $cobro->numero_recibo }}</p>
         </div>
+        @include('cobros._sorteo-cupon', ['sorteo' => $sorteo, 'sorteoModo' => 'ascii'])
     </div>
 @else
     <div class="center">
@@ -199,6 +201,7 @@
         <p style="margin:6px 0 0 0;">VALIDO COMO COMPROBANTE</p>
         <p class="muted" style="margin:8px 0 0 0;">#{{ $cobro->numero_recibo }}</p>
     </div>
+    @include('cobros._sorteo-cupon', ['sorteo' => $sorteo, 'sorteoModo' => 'ascii'])
 @endif
 </body>
 </html>

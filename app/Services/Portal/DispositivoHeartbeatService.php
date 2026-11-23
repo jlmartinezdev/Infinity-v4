@@ -21,6 +21,7 @@ class DispositivoHeartbeatService
         ]);
 
         $now = now();
+        $appYaActiva = (bool) $cliente->app_activa;
         if ($deviceName) {
             $dispositivo->nombre = Str::limit($deviceName, 120, '');
         }
@@ -44,6 +45,16 @@ class DispositivoHeartbeatService
             $clienteData['fecha_activacion_app'] = $cliente->fecha_activacion_app ?? $now;
         }
         $cliente->update($clienteData);
+
+        if (! $appYaActiva) {
+            try {
+                app(\App\Services\Sorteo\SorteoService::class)->alActivarApp($cliente->fresh());
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::info('[Sorteo] Alta de app omitida: '.$e->getMessage(), [
+                    'cliente_id' => $cliente->cliente_id,
+                ]);
+            }
+        }
 
         return $dispositivo;
     }
@@ -118,13 +129,16 @@ class DispositivoHeartbeatService
             // Sync liviano del legacy ultimo_ingreso solo si está atrasado > 5 min
             $cliente = Cliente::query()
                 ->where('cliente_id', $clienteId)
-                ->first(['cliente_id', 'ultimo_ingreso', 'app_activa', 'app_version']);
+                ->first(['cliente_id', 'ultimo_ingreso', 'app_activa', 'app_version', 'fecha_activacion_app']);
             if ($cliente) {
                 if ($cliente->ultimo_ingreso === null || $cliente->ultimo_ingreso->lt($now->copy()->subMinutes(5))) {
                     $clienteUpdate['ultimo_ingreso'] = $now;
                 }
                 if (! $cliente->app_activa) {
                     $clienteUpdate['app_activa'] = true;
+                    if (! $cliente->fecha_activacion_app) {
+                        $clienteUpdate['fecha_activacion_app'] = $now;
+                    }
                 }
                 if ($version !== null && (string) $cliente->app_version !== $version) {
                     $clienteUpdate['app_version'] = $version;
@@ -142,6 +156,18 @@ class DispositivoHeartbeatService
 
         if ($clienteUpdate !== []) {
             Cliente::query()->where('cliente_id', $clienteId)->update($clienteUpdate);
+        }
+        if (! empty($clienteUpdate['app_activa'])) {
+            try {
+                $fresco = Cliente::query()->find($clienteId);
+                if ($fresco) {
+                    app(\App\Services\Sorteo\SorteoService::class)->alActivarApp($fresco);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::info('[Sorteo] Alta de app omitida: '.$e->getMessage(), [
+                    'cliente_id' => $clienteId,
+                ]);
+            }
         }
     }
 

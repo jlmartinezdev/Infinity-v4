@@ -112,6 +112,23 @@
                 </div>
             </div>
 
+            @php $campanaSorteo = \App\Models\SorteoCampana::activa(); @endphp
+            @if($campanaSorteo)
+            <div class="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4 space-y-3">
+                <p class="text-sm text-amber-950 dark:text-amber-100">{{ $campanaSorteo->texto_invitacion }}</p>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-100">
+                    <input type="checkbox" name="resena_redes" value="1" class="rounded border-gray-300 text-green-600 focus:ring-green-500" {{ old('resena_redes') ? 'checked' : '' }}>
+                    Dejó reseña en redes (doble chance)
+                </label>
+                <div>
+                    <label for="telefono_premio" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Celular para llamarlo si gana</label>
+                    <input type="text" name="telefono_premio" id="telefono_premio" maxlength="40" value="{{ old('telefono_premio', $cliente->telefono) }}"
+                           class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    @error('telefono_premio')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                </div>
+            </div>
+            @endif
+
             <div class="mt-6 flex gap-3">
                 <button type="submit" id="btn-registrar-cobro" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-70 disabled:cursor-not-allowed">
                     Registrar cobro

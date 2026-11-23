@@ -45,6 +45,7 @@ use App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboardControll
 use App\Http\Controllers\Loyalty\NovedadController as LoyaltyNovedadController;
 use App\Http\Controllers\Loyalty\PlanUpsellController as LoyaltyPlanUpsellController;
 use App\Http\Controllers\Loyalty\PremioController as LoyaltyPremioController;
+use App\Http\Controllers\Loyalty\SorteoController as LoyaltySorteoController;
 use App\Http\Controllers\Loyalty\PuntosController as LoyaltyPuntosController;
 use App\Http\Controllers\MikrotikPendienteController;
 use App\Http\Controllers\NodoApWirelessController;
@@ -428,7 +429,7 @@ Route::middleware(['auth', 'permiso:avisos-push.editar'])->group(function () {
 // Loyalty / CMS App
 Route::middleware([
     'auth',
-    'permiso:loyalty-novedades.ver,loyalty-premios.ver,loyalty-canjes.ver,loyalty-puntos.ver,loyalty-upsell.ver,loyalty-app-config.ver',
+    'permiso:loyalty-novedades.ver,loyalty-premios.ver,loyalty-canjes.ver,loyalty-puntos.ver,loyalty-upsell.ver,loyalty-app-config.ver,sorteo.ver',
 ])->prefix('loyalty')->name('loyalty.')->group(function () {
     Route::get('/', [LoyaltyDashboardController::class, 'index'])->name('dashboard');
 });
@@ -455,6 +456,21 @@ Route::middleware(['auth', 'permiso:loyalty-premios.ver'])->prefix('loyalty')->n
     Route::put('/premios/{premio}', [LoyaltyPremioController::class, 'update'])->name('premios.update')->middleware('permiso:loyalty-premios.editar');
     Route::post('/premios/{premio}/toggle', [LoyaltyPremioController::class, 'toggle'])->name('premios.toggle')->middleware('permiso:loyalty-premios.editar');
     Route::delete('/premios/{premio}', [LoyaltyPremioController::class, 'destroy'])->name('premios.destroy')->middleware('permiso:loyalty-premios.eliminar');
+});
+
+Route::middleware(['auth', 'permiso:sorteo.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
+    Route::get('/sorteo', [LoyaltySorteoController::class, 'index'])->name('sorteo.index');
+    Route::get('/sorteo/{campana}/csv', [LoyaltySorteoController::class, 'csv'])->name('sorteo.csv');
+    Route::get('/sorteo/{campana}/excel', [LoyaltySorteoController::class, 'excel'])->name('sorteo.excel');
+    Route::get('/sorteo/{campana}/urna', [LoyaltySorteoController::class, 'urna'])->name('sorteo.urna');
+    Route::put('/sorteo/{campana}', [LoyaltySorteoController::class, 'actualizar'])->name('sorteo.actualizar')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo', [LoyaltySorteoController::class, 'crear'])->name('sorteo.crear')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/{campana}/activar', [LoyaltySorteoController::class, 'activar'])->name('sorteo.activar')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/{campana}/desactivar', [LoyaltySorteoController::class, 'desactivar'])->name('sorteo.desactivar')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/{campana}/imprimir', [LoyaltySorteoController::class, 'imprimir'])->name('sorteo.imprimir')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/bienvenida', [LoyaltySorteoController::class, 'bienvenida'])->name('sorteo.bienvenida')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/{campana}/resena', [LoyaltySorteoController::class, 'resena'])->name('sorteo.resena')->middleware('permiso:sorteo.editar');
+    Route::post('/sorteo/{campana}/ganadores', [LoyaltySorteoController::class, 'ganadores'])->name('sorteo.ganadores')->middleware('permiso:sorteo.editar');
 });
 
 Route::middleware(['auth', 'permiso:loyalty-canjes.ver'])->prefix('loyalty')->name('loyalty.')->group(function () {
