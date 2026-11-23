@@ -8,6 +8,7 @@ use App\Models\Cupon;
 use App\Models\FacturaInterna;
 use App\Models\FacturaInternaDetalle;
 use App\Models\SorteoCampana;
+use App\Models\SorteoResena;
 use App\Models\SorteoTicket;
 use App\Services\Sorteo\SorteoService;
 use Carbon\Carbon;
@@ -245,6 +246,21 @@ class SorteoNavidadTest extends TestCase
         $this->assertSame(2, SorteoTicket::query()->count());
         $this->assertSame($numero, SorteoTicket::query()->where('origen', 'pago')->value('numero'));
         $this->assertSame(2, SorteoTicket::query()->where('estado', 'activo')->count());
+    }
+
+    public function test_eliminar_cobro_quita_la_resena_de_caja_y_anula_los_cupones(): void
+    {
+        [$cliente, $factura] = $this->clienteConFacturaNoviembre();
+        $cobro = $this->cobro($cliente, $factura, '2026-12-03 11:00:00');
+        $this->sorteo->evaluarCobro($cobro);
+        $this->sorteo->guardarResena(SorteoCampana::activa(), $cliente->fresh(), '0981123456', 1, $cobro->id);
+
+        $this->assertSame(3, SorteoTicket::query()->where('estado', 'activo')->count());
+
+        $this->sorteo->anularPorCobro($cobro);
+
+        $this->assertSame(0, SorteoResena::query()->count());
+        $this->assertSame(0, SorteoTicket::query()->where('estado', 'activo')->count());
     }
 
     public function test_cupon_de_bienvenida_no_se_canjea_dos_veces(): void

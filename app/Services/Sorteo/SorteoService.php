@@ -57,7 +57,31 @@ class SorteoService
         if (! $cliente) {
             return;
         }
+        $this->quitarResenaDelCobro($campana, (int) $cliente->cliente_id, (int) $cobro->id);
         $this->sincronizarTickets($campana, $cliente, $usuarioId, null, (int) $cobro->id);
+    }
+
+    /**
+     * La reseña marcada en caja pertenece a ese cobro. Al eliminarlo, el cupón extra se va.
+     * La que el cliente envió por la web se conserva.
+     */
+    private function quitarResenaDelCobro(SorteoCampana $campana, int $clienteId, int $cobroId): void
+    {
+        $resena = SorteoResena::query()
+            ->where('campana_id', $campana->id)
+            ->where('cliente_id', $clienteId)
+            ->where('cobro_id', $cobroId)
+            ->first();
+        if (! $resena) {
+            return;
+        }
+        if ($resena->enviada_at !== null) {
+            $resena->cobro_id = null;
+            $resena->save();
+
+            return;
+        }
+        $resena->delete();
     }
 
     public function evaluarFacturaRecienEmitida(FacturaInterna $factura, ?int $usuarioId = null): void
