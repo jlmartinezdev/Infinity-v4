@@ -101,7 +101,18 @@ class PremioController extends Controller
             'nombre' => ['required', 'string', 'max:200'],
             'descripcion' => ['nullable', 'string'],
             'tipo' => ['required', Rule::in(array_keys(Premio::tipos()))],
-            'puntos_requeridos' => ['required', 'integer', 'min:1'],
+            'puntos_requeridos' => [
+                'required',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                    $minimo = $request->input('tipo') === Premio::TIPO_DESCUENTO ? 0 : 1;
+                    if ((int) $value < $minimo) {
+                        $fail($minimo === 0
+                            ? 'Los puntos no pueden ser negativos.'
+                            : 'Los puntos requeridos deben ser al menos 1.');
+                    }
+                },
+            ],
             'descuento_porcentaje' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'descuento_monto' => ['nullable', 'numeric', 'min:0'],
             'stock' => ['nullable', 'integer', 'min:0'],
@@ -113,6 +124,7 @@ class PremioController extends Controller
             'tier' => ['nullable', 'integer', 'min:1', 'max:5'],
             'requiere_aprobacion' => ['nullable', 'boolean'],
             'tope_anual_por_cliente' => ['nullable', 'integer', 'min:1'],
+            'una_vez_por_cliente' => ['nullable', 'boolean'],
             'imagen' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:4096'],
             'eliminar_imagen' => ['nullable', 'boolean'],
         ]);
@@ -134,6 +146,10 @@ class PremioController extends Controller
         $data['tope_anual_por_cliente'] = filled($data['tope_anual_por_cliente'] ?? null)
             ? (int) $data['tope_anual_por_cliente']
             : null;
+        $data['una_vez_por_cliente'] = $request->boolean('una_vez_por_cliente');
+        if ($data['tipo'] !== Premio::TIPO_DESCUENTO && $data['puntos_requeridos'] < 1) {
+            $data['puntos_requeridos'] = 1;
+        }
 
         $data['requiere_aprobacion'] = $request->boolean('requiere_aprobacion')
             || $data['tipo'] === Premio::TIPO_APROBACION;

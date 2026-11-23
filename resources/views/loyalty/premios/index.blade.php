@@ -42,7 +42,7 @@
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-sm">{{ $p->puntos_requeridos }}</td>
+                            <td class="px-4 py-3 text-sm">{{ (int) $p->puntos_requeridos === 0 ? 'GRATIS' : $p->puntos_requeridos }}</td>
                             <td class="px-4 py-3 text-sm">{{ $p->stock === null ? '∞' : $p->stock }}</td>
                             <td class="px-4 py-3 text-sm">
                                 @if($p->destacado)

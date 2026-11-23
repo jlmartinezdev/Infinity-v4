@@ -31,13 +31,15 @@ class CanjeService
                 throw new \InvalidArgumentException('Sin stock para este premio.');
             }
 
+            $canjesDelPremio = Canje::query()
+                ->where('cliente_id', $clienteId)
+                ->where('premio_id', $premio->id)
+                ->where('estado', '!=', Canje::ESTADO_CANCELADO);
+            if ($premio->una_vez_por_cliente && (clone $canjesDelPremio)->exists()) {
+                throw new \InvalidArgumentException('Este premio solo se puede canjear una vez.');
+            }
             if ($premio->tope_anual_por_cliente !== null) {
-                $usados = Canje::query()
-                    ->where('cliente_id', $clienteId)
-                    ->where('premio_id', $premio->id)
-                    ->where('estado', '!=', Canje::ESTADO_CANCELADO)
-                    ->whereYear('created_at', now()->year)
-                    ->count();
+                $usados = (clone $canjesDelPremio)->whereYear('created_at', now()->year)->count();
                 if ($usados >= (int) $premio->tope_anual_por_cliente) {
                     throw new \InvalidArgumentException('Alcanzaste el tope anual de canjes para este premio.');
                 }
@@ -64,7 +66,10 @@ class CanjeService
             }
 
             $requeridos = (int) $premio->puntos_requeridos;
-            if ($this->puntos->saldo($clienteId) < $requeridos) {
+            if ($requeridos < 1 && ! $premio->esDescuentoFactura()) {
+                throw new \InvalidArgumentException('Este premio no se puede canjear sin puntos.');
+            }
+            if ($requeridos > 0 && $this->puntos->saldo($clienteId) < $requeridos) {
                 throw new \InvalidArgumentException('No tenés puntos suficientes para este canje.');
             }
 
@@ -90,17 +95,19 @@ class CanjeService
                 'estado' => $estado,
             ], $extra));
 
-            $this->puntos->debitar($clienteId, $requeridos, 'Canje: '.$premio->nombre, 'canje', [
-                'referencia_tipo' => 'canje',
-                'referencia_id' => $canje->id,
-                'meta' => [
-                    'premio_tipo' => $premio->tipo,
-                    'descuento_porcentaje' => $premio->descuento_porcentaje,
-                    'descuento_monto' => $premio->descuento_monto,
-                    'etiqueta' => $premio->etiqueta,
-                    'tier' => $premio->tier,
-                ],
-            ]);
+            if ($requeridos > 0) {
+                $this->puntos->debitar($clienteId, $requeridos, 'Canje: '.$premio->nombre, 'canje', [
+                    'referencia_tipo' => 'canje',
+                    'referencia_id' => $canje->id,
+                    'meta' => [
+                        'premio_tipo' => $premio->tipo,
+                        'descuento_porcentaje' => $premio->descuento_porcentaje,
+                        'descuento_monto' => $premio->descuento_monto,
+                        'etiqueta' => $premio->etiqueta,
+                        'tier' => $premio->tier,
+                    ],
+                ]);
+            }
 
             return $canje->load('premio');
         });
@@ -165,19 +172,21 @@ class CanjeService
                 $premio->save();
             }
 
-            $this->puntos->acreditar(
-                (int) $canje->cliente_id,
-                (int) $canje->puntos_usados,
-                'Reversa canje #'.$canje->id,
-                'reversa',
-                [
-                    'referencia_tipo' => 'canje',
-                    'referencia_id' => $canje->id,
-                    'created_by' => $staffId,
-                    'origen_lote' => \App\Models\PuntosLote::ORIGEN_REVERSA,
-                    'dias_vencimiento' => null,
-                ]
-            );
+            if ((int) $canje->puntos_usados > 0) {
+                $this->puntos->acreditar(
+                    (int) $canje->cliente_id,
+                    (int) $canje->puntos_usados,
+                    'Reversa canje #'.$canje->id,
+                    'reversa',
+                    [
+                        'referencia_tipo' => 'canje',
+                        'referencia_id' => $canje->id,
+                        'created_by' => $staffId,
+                        'origen_lote' => \App\Models\PuntosLote::ORIGEN_REVERSA,
+                        'dias_vencimiento' => null,
+                    ]
+                );
+            }
 
             $canje->update([
                 'estado' => Canje::ESTADO_CANCELADO,

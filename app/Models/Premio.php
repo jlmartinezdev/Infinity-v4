@@ -43,6 +43,7 @@ class Premio extends Model
         'tier',
         'requiere_aprobacion',
         'tope_anual_por_cliente',
+        'una_vez_por_cliente',
     ];
 
     protected function casts(): array
@@ -58,6 +59,7 @@ class Premio extends Model
             'tier' => 'integer',
             'requiere_aprobacion' => 'boolean',
             'tope_anual_por_cliente' => 'integer',
+            'una_vez_por_cliente' => 'boolean',
         ];
     }
 
@@ -204,6 +206,8 @@ class Premio extends Model
             'tope_anual_por_cliente' => $this->tope_anual_por_cliente !== null
                 ? (int) $this->tope_anual_por_cliente
                 : null,
+            'una_vez_por_cliente' => (bool) $this->una_vez_por_cliente,
+            'gratis' => (int) $this->puntos_requeridos === 0,
         ];
     }
 }

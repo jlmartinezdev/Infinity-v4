@@ -56,8 +56,9 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
             <label class="block text-sm font-medium mb-1">Puntos requeridos *</label>
-            <input type="number" name="puntos_requeridos" min="1" value="{{ old('puntos_requeridos', $premio?->puntos_requeridos ?? 100) }}" required
+            <input type="number" name="puntos_requeridos" id="premio-puntos" min="1" value="{{ old('puntos_requeridos', $premio?->puntos_requeridos ?? 100) }}" required
                 class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100">
+            <p id="premio-puntos-ayuda" class="text-xs text-gray-500 mt-1 hidden">En descuento de factura, 0 se muestra en la app como GRATIS y se canjea con saldo 0.</p>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Stock</label>
@@ -87,6 +88,13 @@
                 value="{{ old('tope_anual_por_cliente', $premio?->tope_anual_por_cliente) }}"
                 class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100"
                 placeholder="Vacío = sin tope">
+            <p class="text-xs text-gray-500 mt-1">Cuántas veces puede canjearlo en el año. Vacío = sin tope anual.</p>
+        </div>
+        <div class="flex items-end">
+            <label class="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" name="una_vez_por_cliente" value="1" @checked(old('una_vez_por_cliente', $premio?->una_vez_por_cliente ?? false))>
+                Una sola vez por cliente (de por vida)
+            </label>
         </div>
     </div>
     <div class="flex flex-col sm:flex-row gap-3 sm:gap-6 flex-wrap">
@@ -118,10 +126,17 @@
 (function () {
     const sel = document.getElementById('premio-tipo');
     const box = document.getElementById('premio-descuento-fields');
+    const puntos = document.getElementById('premio-puntos');
+    const ayuda = document.getElementById('premio-puntos-ayuda');
     const stock = document.getElementById('premio-stock');
     const ilim = document.getElementById('premio-stock-ilimitado');
     if (sel && box) {
-        const sync = () => box.classList.toggle('hidden', sel.value !== 'descuento_factura');
+        const sync = () => {
+            const descuento = sel.value === 'descuento_factura';
+            box.classList.toggle('hidden', !descuento);
+            if (puntos) puntos.min = descuento ? '0' : '1';
+            if (ayuda) ayuda.classList.toggle('hidden', !descuento);
+        };
         sel.addEventListener('change', sync);
         sync();
     }
