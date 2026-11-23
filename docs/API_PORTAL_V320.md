@@ -23,9 +23,26 @@ Contrato alineado a `API_BACKEND_COMPLETO_V320.md`.
 
 ## Ya existentes (sin breaking)
 
-`portal/resumen` ahora también puede incluir: `saldo_favor`, `proxima_vencimiento`, `disponibilidad_pct`, `cliente_desde`.
+`portal/resumen` ahora también puede incluir: `saldo_favor`, `proxima_vencimiento`, `disponibilidad_pct`, `cliente_desde`, y para Loyalty:
 
-Loyalty / tickets / facturas / cobros: sin cambios de contrato.
+| Campo | Cuándo |
+|-------|--------|
+| `modulos.premios` / `modulos.puntos` | `enabled` \| `coming_soon` \| `hidden` |
+| `saldo_puntos` | número, o `null` si puntos está `hidden` |
+| `premio_destacado` | premio del Home, o `null` si premios está `hidden` o no hay |
+
+Flags nuevos en `GET /portal/v1/feature-flags` (mismo catálogo que el resto: `enabled` / `coming_soon` / `hidden`):
+
+| Key | `enabled` | `coming_soon` | `hidden` o ausente |
+|-----|-----------|---------------|--------------------|
+| `premios` | Pantalla Premios + tarjeta del destacado en el Home | Entrada “Pronto”, sin canje | No mostrar |
+| `puntos` | Saldo en Home y en Premios | “Pronto”, sin saldo accionable | No mostrar saldo |
+
+`premios.metadata.destacado` = misma ficha que `premio_destacado`. `puntos.metadata.saldo` = saldo.
+
+La app **no** filtra `puntos_requeridos > 0` ni `tier`. Un premio de 0 puntos llega con `gratis: true` y `etiqueta_puntos: "GRATIS"` y se puede canjear con saldo 0 si `puede_canjear` es true.
+
+Contrato de pantalla, canje y cupones: `docs/API_LOYALTY_CMS.md`.
 
 ## Panel Infinity (UI)
 

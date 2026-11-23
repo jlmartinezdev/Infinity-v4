@@ -110,35 +110,54 @@ Motor: créditos generan lotes FIFO (`puntos_lotes`); débitos consumen el lote 
   - `requiere_aprobacion` → cola staff
   - `sorteo` → entrada a sorteo (APLICADO)
 
-`GET /portal/premios` — solo `activo=true` y stock `null` o `> 0`
+`GET /portal/premios` — catálogo del cliente logueado. Solo `activo=true` y stock `null` o `> 0`. Incluye `puntos_requeridos = 0`. No oculta por tier. Si `una_vez_por_cliente` y ya lo canjeó, no viene en esta lista (sigue en `GET /portal/canjes`).
+
+La pantalla Premios y la tarjeta del Home solo se muestran si el flag `premios` está `enabled`. El saldo, si `puntos` está `enabled`. Ver `docs/API_PORTAL_V320.md`.
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": 10,
-      "nombre": "Boost de velocidad 48hs",
-      "descripcion": "Subí tu velocidad por 2 días",
-      "imagen_url": "https://.../premios/boost.jpg",
-      "puntos_requeridos": 300,
-      "descuento_porcentaje": null,
+      "id": 7,
+      "nombre": "Bienvenida App 10%",
+      "descripcion": null,
+      "tipo": "descuento_factura",
+      "imagen_url": "https://infinityisppro.net/storage/premios/bienvenida.jpg",
+      "puntos_requeridos": 0,
+      "gratis": true,
+      "etiqueta_puntos": "GRATIS",
+      "puede_canjear": true,
+      "motivo": null,
+      "descuento_porcentaje": 10,
       "descuento_monto": null,
       "stock": null,
       "activo": true,
       "orden": 1,
       "destacado": true,
-      "tipo": "automatico",
       "etiqueta": "nuevo",
+      "badge": "nuevo",
+      "label": "nuevo",
       "tier": 1,
       "requiere_aprobacion": false,
-      "tope_anual_por_cliente": null
+      "tope_anual_por_cliente": 1,
+      "una_vez_por_cliente": true
     }
   ]
 }
 ```
 
-> Sin `destacado`, la app elige un fallback (alcanzable / con stock). Con imágenes buenas en `imagen_url` el layout se ve como el mockup.
+Pantalla:
+
+- Saldo arriba (`GET /portal/puntos` → `saldo`).
+- El `destacado: true` va arriba, con `imagen_url` y badge (`etiqueta`).
+- Botón **Canjear** si `puede_canjear`. Si es false, botón apagado y texto `motivo`.
+- Si `gratis` o `etiqueta_puntos` es `GRATIS`, el precio se muestra **GRATIS** (también con saldo 0).
+- `POST /portal/canjes` `{ "premio_id": 7 }`. El descuento lo aplica el servidor en la próxima factura. La app no lo calcula.
+
+Home: `GET /portal/resumen` → `premio_destacado` (misma ficha). Tap abre Premios.
+
+Mis cupones: `GET /portal/canjes`. Mostrar `estado_label` (`Pendiente` o `Aplicado en factura #123`). `factura_numero` cuando ya se aplicó. `estado_portal`: `pendiente` | `aplicado` | `cancelado`.
 
 ---
 
@@ -252,6 +271,9 @@ o
 - [x] Upload storage imágenes
 - [x] Premios tipados (`tipo`, descuento %/monto) + `POST /canjes` solo con `premio_id`
 - [x] Campo `destacado` en premios (CMS toggle + JSON portal)
+- [x] Premio de 0 puntos (`gratis`, `etiqueta_puntos: GRATIS`) solo en descuento de factura
+- [x] Flags `premios` y `puntos` (`enabled` / `coming_soon` / `hidden`) + tarjeta en `GET /portal/resumen`
+- [x] Canje de descuento aplicado en la próxima factura (`estado_label`, `factura_numero`)
 - [x] `etiqueta`, `tier`, `requiere_aprobacion`, `tope_anual_por_cliente`, stock ilimitado
 - [x] Tipos `automatico` / `requiere_aprobacion` / `sorteo`
 - [x] `GET /portal/reglas-puntos` + campos frecuencia/orden/fase
