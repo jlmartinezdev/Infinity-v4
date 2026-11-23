@@ -269,6 +269,40 @@ class TvCuenta extends Model
         return (int) $hoy->diffInDays($vencimiento);
     }
 
+    /** Días de anticipación en el panel del técnico: 1, y 2 si hoy es sábado. */
+    public static function diasAnticipoRenovacionDashboard(?Carbon $hoy = null): int
+    {
+        $hoy = ($hoy ?? Carbon::today())->copy()->startOfDay();
+
+        return $hoy->isSaturday() ? 2 : 1;
+    }
+
+    public function requiereRenovacionEnDashboard(?Carbon $hoy = null): bool
+    {
+        return $this->diasParaVencimiento($hoy) <= self::diasAnticipoRenovacionDashboard($hoy);
+    }
+
+    /**
+     * Cuentas vencidas o que vencen dentro de la ventana del panel del técnico.
+     *
+     * @return \Illuminate\Support\Collection<int, self>
+     */
+    public static function paraRenovarEnDashboard(?Carbon $hoy = null): \Illuminate\Support\Collection
+    {
+        $hoy = ($hoy ?? Carbon::today())->copy()->startOfDay();
+        $limite = $hoy->copy()->addDays(self::diasAnticipoRenovacionDashboard($hoy));
+
+        return static::query()
+            ->where(function ($q) use ($limite) {
+                $q->whereNull('vencimiento_pago')
+                    ->orWhereDate('vencimiento_pago', '<=', $limite->toDateString());
+            })
+            ->get()
+            ->filter(fn (self $cuenta) => $cuenta->requiereRenovacionEnDashboard($hoy))
+            ->sortBy(fn (self $cuenta) => [$cuenta->diasParaVencimiento($hoy), mb_strtolower((string) ($cuenta->nombre ?: $cuenta->usuario_app))])
+            ->values();
+    }
+
     public function etiquetaEstadoVencimiento(): string
     {
         $dias = $this->diasParaVencimiento();

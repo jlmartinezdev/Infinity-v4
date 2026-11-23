@@ -17,9 +17,14 @@
 @endphp
 
 <div class="rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#12161f] shadow-sm overflow-hidden">
-    <div class="px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-white/5">
-        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $distTitulo }}</h2>
-        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $distSubtitulo }}</p>
+    <div class="flex flex-wrap items-start justify-between gap-3 px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-white/5">
+        <div class="min-w-0">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $distTitulo }}</h2>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $distSubtitulo }}</p>
+        </div>
+        @if(filled($distAccion ?? null))
+            <div class="shrink-0">{!! $distAccion !!}</div>
+        @endif
     </div>
     @if($distBins === [])
         <p class="px-4 sm:px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">{{ $distVacio }}</p>

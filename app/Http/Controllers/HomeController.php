@@ -16,6 +16,7 @@ use App\Models\Servicio;
 use App\Models\ServicioConexionEvento;
 use App\Models\Tarea;
 use App\Models\Ticket;
+use App\Models\TvCuenta;
 use App\Models\User;
 use App\Support\CobrosMesVentana;
 use App\Support\MenuUsuario;
@@ -270,6 +271,8 @@ class HomeController extends Controller
             $datos['senal'] = $this->obtenerDashboardSenal();
             $datos['infra'] = $this->obtenerEstadoInfra($user);
             $datos['atencion'] = app(ServicioPppoeEventoController::class)->lineasEnAtencion(Request::create('/', 'GET'));
+            $datos['tvRenovar'] = TvCuenta::paraRenovarEnDashboard();
+            $datos['tvRenovarDias'] = TvCuenta::diasAnticipoRenovacionDashboard();
         } elseif ($tab === 'cajero' || $tab === 'operativo') {
             $datos = array_merge($datos, $this->datosPanelInicio($user, $tab !== 'cajero'));
         } else {
