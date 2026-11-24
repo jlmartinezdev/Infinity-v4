@@ -243,6 +243,12 @@ TXT;
         $this->assertNull($optic['temperatura_c']);
     }
 
+    public function test_el_shell_no_acepta_el_ssid_del_hotspot_con_espacios(): void
+    {
+        $this->assertFalse(HuaweiOnuService::shellAceptaSsid('InterPlus Wi-Fi Zone'));
+        $this->assertTrue(HuaweiOnuService::shellAceptaSsid('InterPlus'));
+    }
+
     public function test_comando_hotspot_deja_la_red_24_abierta(): void
     {
         $cmd = HuaweiOnuService::comandoHotspotSsid(1, 'InterPlus Wi-Fi Zone', 'Open');

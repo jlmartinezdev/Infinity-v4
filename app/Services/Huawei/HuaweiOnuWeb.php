@@ -485,25 +485,52 @@ class HuaweiOnuWeb
         $wanEstado = 'ya estaba';
         if ($bridge === null) {
             $token = self::tokenDe($this->get('/html/bbsp/wan/wan.asp'));
-            $this->post(
+            // Un formulario largo deja el CGI sin respuesta. El alta corta, igual que el ajax de la ONU, sí vuelve.
+            $this->postSinEspera(
                 '/html/bbsp/wan/addcfg.cgi?GROUP_a_x='.rawurlencode('InternetGatewayDevice.WANDevice.1.WANConnectionDevice')
                 .'&GROUP_a_y='.rawurlencode('GROUP_a_x.WANIPConnection')
-                .'&RequestFile=html/bbsp/wan/confirmwancfginfo.html',
-                self::payloadHotspotBridge($vlan, $token)
+                .'&RequestFile=html/ipv6/not_find_file.asp',
+                self::payloadHotspotBridge($vlan, $token),
+                12
             );
-            $wans = self::parseWanConexiones($this->get('/html/bbsp/common/wan_list.asp'));
-            $bridge = self::wanBridgeVlan($wans, $vlan);
+            $bridge = $this->esperarWanBridge($vlan);
             if ($bridge === null) {
                 throw new RuntimeException('La ONU no creó la WAN bridge VLAN '.$vlan.'.');
             }
             $wanEstado = 'creada';
         }
 
+        $this->atarSsid1AlBridge((string) ($bridge['domain'] ?? ''));
+
         return [
             'wan' => $wanEstado,
             'mode' => (string) ($bridge['mode'] ?? 'IP_Bridged'),
             'domain' => (string) ($bridge['domain'] ?? ''),
         ];
+    }
+
+    /**
+     * @return array{tipo: string, domain: string, name: string, mode: string, vlan: int, service: string}|null
+     */
+    protected function esperarWanBridge(int $vlan): ?array
+    {
+        $bridge = null;
+        for ($i = 0; $i < 5; $i++) {
+            if ($i > 0) {
+                sleep(2);
+            }
+            try {
+                $wans = self::parseWanConexiones($this->get('/html/bbsp/common/wan_list.asp'));
+            } catch (Throwable) {
+                continue;
+            }
+            $bridge = self::wanBridgeVlan($wans, $vlan);
+            if ($bridge !== null) {
+                return $bridge;
+            }
+        }
+
+        return $bridge;
     }
 
     /**
@@ -528,25 +555,31 @@ class HuaweiOnuWeb
     {
         return [
             'GROUP_a_y.Enable' => '1',
-            'GROUP_a_y.X_HW_IPv4Enable' => '1',
-            'GROUP_a_y.X_HW_IPv6Enable' => '0',
-            'GROUP_a_y.X_HW_IPv6MultiCastVLAN' => '-1',
-            'GROUP_a_y.X_HW_SERVICELIST' => 'INTERNET',
-            'GROUP_a_y.X_HW_ExServiceList' => '',
-            'GROUP_a_y.X_HW_VLAN' => (string) $vlan,
-            'GROUP_a_y.X_HW_PRI' => '0',
-            'GROUP_a_y.X_HW_PriPolicy' => 'Specified',
-            'GROUP_a_y.X_HW_DefaultPri' => '0',
             'GROUP_a_y.ConnectionType' => 'IP_Bridged',
-            'GROUP_a_y.X_HW_MultiCastVLAN' => '4294967295',
-            'GROUP_a_y.NATEnabled' => '0',
-            'GROUP_a_y.X_HW_NatType' => '0',
-            'GROUP_a_y.MaxMTUSize' => '1500',
-            'GROUP_a_y.X_HW_LanDhcpEnable' => '0',
-            'GROUP_a_y.X_HW_BindPhyPortInfo' => 'SSID1',
+            'GROUP_a_y.X_HW_VLAN' => (string) $vlan,
             'GROUP_a_y.Name' => '2_INTERNET_B_VID_'.$vlan,
             'x.X_HW_Token' => $token,
         ];
+    }
+
+    /**
+     * set.cgi con el puerto SSID se queda colgado. complex.cgi ata el SSID y suelta el 2.4 del PPPoE.
+     */
+    protected function atarSsid1AlBridge(string $domain): void
+    {
+        if ($domain === '') {
+            return;
+        }
+        $token = self::tokenDe($this->get('/html/bbsp/wan/wan.asp'));
+        $this->postSinEspera(
+            '/html/bbsp/wan/complex.cgi?y='.rawurlencode($domain)
+            .'&RequestFile=html/ipv6/not_find_file.asp',
+            [
+                'y.X_HW_BindPhyPortInfo' => 'SSID1',
+                'x.X_HW_Token' => $token,
+            ],
+            12
+        );
     }
 
     /**
@@ -789,6 +822,21 @@ class HuaweiOnuWeb
         ]);
 
         return (string) $res->getBody();
+    }
+
+    /**
+     * @param  array<string, string>  $fields
+     */
+    protected function postSinEspera(string $path, array $fields, int $timeout): void
+    {
+        try {
+            $this->http->post($path, [
+                'form_params' => $fields,
+                'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'],
+                'timeout' => $timeout,
+            ]);
+        } catch (Throwable) {
+        }
     }
 
     protected static function aFloat(string $value): ?float

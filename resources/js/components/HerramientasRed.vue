@@ -3056,6 +3056,20 @@ function confirmarSwal(titulo, texto) {
   }).then(function (r) { return !!r.isConfirmed; });
 }
 
+function marcarPuntoHotspotEnPantalla() {
+  var toggle = document.querySelector('input[name="punto_hotspot"]');
+  if (!toggle || toggle.checked) return;
+  toggle.checked = true;
+  var card = toggle.closest('.cd-switch-card');
+  if (card) card.classList.add('is-active');
+  var status = document.querySelector('[data-switch-status="' + toggle.getAttribute('data-status-id') + '"]');
+  if (status) status.textContent = toggle.getAttribute('data-text-active') || 'Esta ONU emite hotspot';
+  var sel = toggle.getAttribute('data-badge-selector');
+  if (sel) {
+    document.querySelectorAll(sel).forEach(function (badge) { badge.classList.remove('hidden'); });
+  }
+}
+
 function onHuaweiHotspot() {
   var url = payload.value?.urls?.huawei_hotspot;
   if (!url) return;
@@ -3078,6 +3092,7 @@ function onHuaweiHotspot() {
         huaweiSsidsActuales.value = lista;
         huaweiSsidError.value = '';
       }
+      if (ok) marcarPuntoHotspotEnPantalla();
     }).catch(function () {
       outHuawei.value = errHtml('No se pudo configurar el hotspot en la ONU.');
     }).finally(function () {

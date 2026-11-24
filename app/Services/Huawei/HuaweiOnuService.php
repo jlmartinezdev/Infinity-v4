@@ -33,17 +33,20 @@ class HuaweiOnuService
      */
     public function configurarHotspot(Servicio $servicio): array
     {
+        set_time_limit(90);
         $host = $this->hostDe($servicio);
         if ($host === null) {
             return ['success' => false, 'message' => 'El servicio no tiene IP para conectar a la ONU.'];
         }
 
         $cliError = null;
-        if ($this->tieneCli($host)) {
+        // El shell WAP rechaza comillas y nombres con espacio. Ese SSID entra por la web.
+        if (self::shellAceptaSsid(self::HOTSPOT_SSID) && $this->tieneCli($host)) {
             try {
                 $cli = $this->configurarHotspotPorCli($host);
                 $wan = $this->webDe($servicio, true)->asegurarWanBridge(self::HOTSPOT_VLAN);
                 $this->marcarHuaweiSiFalta($servicio);
+                $this->marcarPuntoHotspot($servicio);
 
                 return $this->respuestaHotspot($cli['ssid'], $wan['wan'], $cli['via'].'+web');
             } catch (Throwable $e) {
@@ -54,6 +57,7 @@ class HuaweiOnuService
         try {
             $hecho = $this->webDe($servicio, true)->configurarHotspot24(self::HOTSPOT_SSID, self::HOTSPOT_VLAN);
             $this->marcarHuaweiSiFalta($servicio);
+            $this->marcarPuntoHotspot($servicio);
 
             return $this->respuestaHotspot($hecho['ssid'], $hecho['wan'], 'web');
         } catch (Throwable $e) {
@@ -91,6 +95,13 @@ class HuaweiOnuService
         throw new \RuntimeException('SSH y Telnet no dejaron la red 2.4 abierta.');
     }
 
+    public static function shellAceptaSsid(string $ssid): bool
+    {
+        $ssid = trim($ssid);
+
+        return $ssid !== '' && ! preg_match('/[\s"\\\\]/', $ssid);
+    }
+
     public static function comandoHotspotSsid(int $index, string $ssid, string $security): string
     {
         $ssid = str_replace(['"', '\\'], '', trim($ssid));
@@ -123,7 +134,7 @@ class HuaweiOnuService
     }
 
     /**
-     * @return array{success: bool, message: string, via: string, ssid: string, ssids: list<string>, vlan: int, wan: string}
+     * @return array{success: bool, message: string, via: string, ssid: string, ssids: list<string>, vlan: int, wan: string, punto_hotspot: bool}
      */
     protected function respuestaHotspot(string $ssid, string $wan, string $via): array
     {
@@ -139,7 +150,16 @@ class HuaweiOnuService
             'ssids' => [$ssid],
             'vlan' => self::HOTSPOT_VLAN,
             'wan' => $wan,
+            'punto_hotspot' => true,
         ];
+    }
+
+    protected function marcarPuntoHotspot(Servicio $servicio): void
+    {
+        if ($servicio->punto_hotspot) {
+            return;
+        }
+        $servicio->update(['punto_hotspot' => true]);
     }
 
     /**

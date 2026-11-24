@@ -167,9 +167,8 @@ class HuaweiOnuWebParseTest extends TestCase
 
         $this->assertSame('IP_Bridged', $payload['GROUP_a_y.ConnectionType']);
         $this->assertSame('198', $payload['GROUP_a_y.X_HW_VLAN']);
-        $this->assertSame('SSID1', $payload['GROUP_a_y.X_HW_BindPhyPortInfo']);
-        $this->assertSame('0', $payload['GROUP_a_y.NATEnabled']);
-        $this->assertSame('0', $payload['GROUP_a_y.X_HW_LanDhcpEnable']);
+        $this->assertSame('2_INTERNET_B_VID_198', $payload['GROUP_a_y.Name']);
+        $this->assertArrayNotHasKey('GROUP_a_y.X_HW_BindPhyPortInfo', $payload);
         $this->assertSame('tok', $payload['x.X_HW_Token']);
     }
 
