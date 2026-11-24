@@ -514,6 +514,22 @@ class SorteoService
     }
 
     /**
+     * El QR del recibo sale solo si el cliente participa: sin saldo y con un pago hasta el corte.
+     */
+    public function muestraQrRecibo(Cobro $cobro): bool
+    {
+        $campana = SorteoCampana::activa();
+        $cliente = $cobro->cliente_id
+            ? ($cobro->relationLoaded('cliente') ? $cobro->cliente : Cliente::find($cobro->cliente_id))
+            : null;
+        if (! $campana || ! $cliente) {
+            return false;
+        }
+
+        return $this->clasificar($campana, $cliente)['nivel'] !== 'no';
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function bloqueRecibo(Cobro $cobro): ?array

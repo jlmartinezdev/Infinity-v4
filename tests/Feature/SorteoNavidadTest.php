@@ -382,6 +382,36 @@ class SorteoNavidadTest extends TestCase
         $this->assertStringContainsString('interplus.com.py/sorteo/'.$cliente->cliente_id, $html);
     }
 
+    public function test_recibo_oculta_el_qr_si_el_pago_pasa_el_corte_o_queda_saldo(): void
+    {
+        [$tarde, $facturaTarde] = $this->clienteConFacturaNoviembre();
+        $cobroTarde = $this->cobro($tarde, $facturaTarde, '2026-12-06 00:00:00');
+        $this->prepararRecibo($cobroTarde, $tarde);
+        $this->assertFalse($this->sorteo->muestraQrRecibo($cobroTarde));
+        $htmlTarde = view('cobros._recibo-contenido', ['cobro' => $cobroTarde, 'ajustes' => null])->render();
+        $this->assertStringNotContainsString('interplus.com.py/sorteo/', $htmlTarde);
+        $this->assertStringNotContainsString('Ya estás participando', $htmlTarde);
+
+        [$alDia, $factura] = $this->clienteConFacturaNoviembre();
+        $cobro = $this->cobro($alDia, $factura, '2026-12-05 23:59:00');
+        FacturaInterna::withoutEvents(fn () => FacturaInterna::create([
+            'cliente_id' => $alDia->cliente_id,
+            'tipo_factura' => 'servicio',
+            'periodo_desde' => '2026-12-01',
+            'periodo_hasta' => '2026-12-31',
+            'fecha_emision' => '2026-12-01',
+            'fecha_vencimiento' => '2027-01-05',
+            'estado' => 'emitida',
+            'subtotal' => 100000,
+            'total_impuestos' => 0,
+            'total' => 100000,
+        ]));
+        $this->prepararRecibo($cobro, $alDia);
+        $this->assertFalse($this->sorteo->muestraQrRecibo($cobro));
+        $htmlDeuda = view('cobros._recibo-contenido', ['cobro' => $cobro, 'ajustes' => null])->render();
+        $this->assertStringNotContainsString('interplus.com.py/sorteo/'.$alDia->cliente_id, $htmlDeuda);
+    }
+
     public function test_listado_incluye_todos_los_clientes_activos(): void
     {
         $uno = $this->clienteApp();
@@ -583,5 +613,14 @@ class SorteoNavidadTest extends TestCase
         $cobro->facturaInternas()->attach($factura->id, ['monto' => 100000]);
 
         return $cobro->fresh(['cliente', 'facturaInternas']);
+    }
+
+    private function prepararRecibo(Cobro $cobro, Cliente $cliente): void
+    {
+        $cliente = $cliente->fresh();
+        $cliente->setRelation('servicios', collect());
+        $cobro->setRelation('cliente', $cliente);
+        $cobro->setRelation('facturaInternas', collect());
+        $cobro->setRelation('usuario', null);
     }
 }
