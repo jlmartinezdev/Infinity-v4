@@ -78,7 +78,7 @@
     <div class="cliente-detalle-layout">
         <main class="min-w-0 space-y-5">
             {{-- Resumen --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 <div class="cd-card cd-summary">
                     <p class="cd-label">Pendiente de pago</p>
                     <p class="mt-2 text-3xl font-bold tabular-nums {{ ($totalPendientePago ?? 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">
@@ -155,6 +155,44 @@
                         @endif
                     </p>
                     <svg class="cd-summary__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+                </div>
+                @php
+                    $cuponesSorteo = collect([$sorteoCupones['pago'] ?? null, $sorteoCupones['app'] ?? null, $sorteoCupones['resena'] ?? null])->filter();
+                @endphp
+                <div class="cd-card cd-summary">
+                    <p class="cd-label">Cupón de sorteo</p>
+                    <p class="mt-2 text-3xl font-bold tabular-nums {{ $cuponesSorteo->isNotEmpty() ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">
+                        {{ $sorteoCupones['campana'] ? $cuponesSorteo->count() : '—' }}
+                    </p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        @if(! $sorteoCupones['campana'])
+                            No hay sorteo activo
+                        @else
+                            {{ $sorteoCupones['campana'] }}
+                            @if($sorteoCupones['fecha'])
+                                · {{ $sorteoCupones['fecha'] }}
+                            @endif
+                        @endif
+                        @if($u?->tienePermiso('sorteo.ver'))
+                            · <a href="{{ route('loyalty.sorteo.index') }}" class="cd-link">Ver sorteo</a>
+                        @endif
+                    </p>
+                    @if($cuponesSorteo->isNotEmpty())
+                        <div class="mt-2 flex flex-wrap gap-1 relative z-10">
+                            @if($sorteoCupones['pago'])
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">Pago {{ $sorteoCupones['pago'] }}</span>
+                            @endif
+                            @if($sorteoCupones['app'])
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">App {{ $sorteoCupones['app'] }}</span>
+                            @endif
+                            @if($sorteoCupones['resena'])
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Reseña {{ $sorteoCupones['resena'] }}</span>
+                            @endif
+                        </div>
+                    @elseif($sorteoCupones['campana'])
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Todavía no participa</p>
+                    @endif
+                    <svg class="cd-summary__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z"/></svg>
                 </div>
             </div>
 

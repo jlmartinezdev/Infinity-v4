@@ -443,6 +443,32 @@ class ClienteController extends Controller
             ->limit(15)
             ->get();
 
+        $sorteoCampana = \App\Models\SorteoCampana::activa();
+        $sorteoCupones = [
+            'campana' => $sorteoCampana?->nombre,
+            'fecha' => $sorteoCampana?->fecha_sorteo?->format('d/m/Y'),
+            'pago' => null,
+            'app' => null,
+            'resena' => null,
+        ];
+        if ($sorteoCampana) {
+            $ticketsSorteo = \App\Models\SorteoTicket::query()
+                ->where('campana_id', $sorteoCampana->id)
+                ->where('cliente_id', $cliente->cliente_id)
+                ->where('estado', \App\Models\SorteoTicket::ACTIVO)
+                ->get(['origen', 'numero']);
+            foreach ($ticketsSorteo as $ticketSorteo) {
+                $numeroSorteo = $ticketSorteo->numeroFormateado();
+                if ($ticketSorteo->origen === \App\Models\SorteoTicket::ORIGEN_PAGO) {
+                    $sorteoCupones['pago'] = $numeroSorteo;
+                } elseif ($ticketSorteo->origen === \App\Models\SorteoTicket::ORIGEN_APP) {
+                    $sorteoCupones['app'] = $numeroSorteo;
+                } elseif ($ticketSorteo->origen === \App\Models\SorteoTicket::ORIGEN_RESENA) {
+                    $sorteoCupones['resena'] = $numeroSorteo;
+                }
+            }
+        }
+
         $portalAcciones = app(PortalClienteAccionService::class)->paraCliente((int) $cliente->cliente_id, 15);
         $portalWifiBackup = $portalAcciones->first(fn ($a) => filled($a->wifi_password));
 
@@ -490,6 +516,7 @@ class ClienteController extends Controller
             'loyaltySaldo',
             'loyaltyMovimientos',
             'loyaltyCanjes',
+            'sorteoCupones',
             'portalAcciones',
             'portalWifiBackup',
             'herramientasRedConfig',
