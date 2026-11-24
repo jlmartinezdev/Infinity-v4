@@ -31,9 +31,13 @@ function aplicarEstilosCapturaClara(clonedDoc) {
       color: #111827 !important;
       -webkit-text-fill-color: #111827 !important;
     }
-    .recibo-termico svg {
+    .recibo-termico svg:not(.qr-sorteo) {
       stroke: #111827 !important;
       color: #111827 !important;
+    }
+    svg.qr-sorteo,
+    svg.qr-sorteo * {
+      stroke: none !important;
     }
     .recibo-linea {
       border-top-color: #9ca3af !important;

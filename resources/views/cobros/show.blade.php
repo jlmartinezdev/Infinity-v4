@@ -253,9 +253,15 @@
     #recibo-print .recibo-bloque-linea-simple * {
         color: #000 !important;
     }
-    #recibo-print .recibo-termico svg {
+    #recibo-print .recibo-termico svg:not(.qr-sorteo) {
         stroke: #000 !important;
         color: #000 !important;
+    }
+    #recibo-print svg.qr-sorteo,
+    #recibo-print svg.qr-sorteo * {
+        stroke: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }
 </style>

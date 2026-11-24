@@ -19,7 +19,11 @@ class SorteoQr
             'quietzoneSize' => 2,
         ]);
         $svg = (new QRCode($opciones))->render($url);
-        $svg = str_replace('<svg ', '<svg width="120" height="120" style="display:block;margin:0 auto;" ', $svg);
+        $svg = str_replace(
+            'class="qr-svg qrcode"',
+            'class="qr-svg qrcode qr-sorteo" width="120" height="120" style="display:block;margin:0 auto;"',
+            $svg
+        );
 
         return ['url' => $url, 'svg' => $svg];
     }

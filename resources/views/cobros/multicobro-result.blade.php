@@ -118,9 +118,15 @@
     #recibo-multicobro-print .recibo-bloque-linea-simple * {
         color: #000 !important;
     }
-    #recibo-multicobro-print .recibo-termico svg {
+    #recibo-multicobro-print .recibo-termico svg:not(.qr-sorteo) {
         stroke: #000 !important;
         color: #000 !important;
+    }
+    #recibo-multicobro-print svg.qr-sorteo,
+    #recibo-multicobro-print svg.qr-sorteo * {
+        stroke: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
     .break-after-page { break-after: page; }
 }
