@@ -741,6 +741,77 @@
                                 </div>
                             @endif
 
+                            @if($puedeEditarServicio && $noCancelado)
+                                @php
+                                    $obsAbierta = ($observacionesAbiertas ?? collect())->get($s->servicio_id);
+                                @endphp
+                                <div class="cd-action-group">
+                                    <div class="cd-action-group__title">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Observación del equipo</span>
+                                    </div>
+                                    @if($obsAbierta)
+                                        <div class="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 px-3 py-3 text-sm text-gray-800 dark:text-gray-100">
+                                            <p class="font-medium">En observación hasta {{ $obsAbierta->vence_at?->format('d/m/Y H:i') }}</p>
+                                            <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                                {{ \App\Models\ServicioObservacion::motivoEtiqueta($obsAbierta->motivo) }}
+                                                · {{ \App\Models\ServicioObservacion::horasEtiqueta((int) $obsAbierta->horas) }}
+                                                @if(filled($obsAbierta->equipo))
+                                                    · {{ $obsAbierta->equipo }}
+                                                @endif
+                                            </p>
+                                            @if(filled($obsAbierta->nota))
+                                                <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{{ $obsAbierta->nota }}</p>
+                                            @endif
+                                            <div class="mt-3 flex flex-wrap gap-2">
+                                                <form method="POST" action="{{ route('servicios.observacion.cerrar', $obsAbierta) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="resultado" value="resuelto">
+                                                    <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">Quedó resuelto</button>
+                                                </form>
+                                                <form method="POST" action="{{ route('servicios.observacion.cerrar', $obsAbierta) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="resultado" value="reincidio">
+                                                    <button type="submit" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white">Volvió la falla</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <form method="POST" action="{{ route('servicios.observacion.store', $s) }}" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            @csrf
+                                            <label class="block text-xs text-gray-500 dark:text-gray-400">
+                                                Motivo
+                                                <select name="motivo" class="mt-1 w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12161f] px-2.5 py-2 text-sm text-gray-900 dark:text-white">
+                                                    <option value="cambio_equipo">Cambio de equipo</option>
+                                                    <option value="falla">Falla reportada</option>
+                                                    <option value="senal">Señal o potencia</option>
+                                                </select>
+                                            </label>
+                                            <label class="block text-xs text-gray-500 dark:text-gray-400">
+                                                Tiempo
+                                                <select name="horas" class="mt-1 w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12161f] px-2.5 py-2 text-sm text-gray-900 dark:text-white">
+                                                    <option value="24">24 horas</option>
+                                                    <option value="48">48 horas</option>
+                                                    <option value="72" selected>72 horas</option>
+                                                    <option value="168">7 días</option>
+                                                </select>
+                                            </label>
+                                            <label class="block text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">
+                                                Equipo que quedó
+                                                <input type="text" name="equipo" maxlength="120" placeholder="ONU nueva, serie o modelo" class="mt-1 w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12161f] px-2.5 py-2 text-sm text-gray-900 dark:text-white">
+                                            </label>
+                                            <label class="block text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">
+                                                Nota
+                                                <input type="text" name="nota" maxlength="500" placeholder="Qué se hizo y qué hay que vigilar" class="mt-1 w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12161f] px-2.5 py-2 text-sm text-gray-900 dark:text-white">
+                                            </label>
+                                            <div class="sm:col-span-2">
+                                                <button type="submit" class="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white">Dejar en observación</button>
+                                            </div>
+                                        </form>
+                                    @endif
+                                </div>
+                            @endif
+
                             {{-- 3. Gestión y Facturación --}}
                             @if($puedeEditarServicio || $puedeFacturaServicio)
                                 <div class="cd-action-group">

@@ -273,6 +273,8 @@ class HomeController extends Controller
             $datos['atencion'] = app(ServicioPppoeEventoController::class)->lineasEnAtencion(Request::create('/', 'GET'));
             $datos['tvRenovar'] = TvCuenta::paraRenovarEnDashboard();
             $datos['tvRenovarDias'] = TvCuenta::diasAnticipoRenovacionDashboard();
+            $datos['observacionesEquipo'] = app(\App\Services\Red\EquipoObservacionInforme::class)->filas();
+            $datos['puedeObservarEquipo'] = $user->tienePermiso('servicios.editar') || $user->tienePermiso('servicios.crear');
         } elseif ($tab === 'cajero' || $tab === 'operativo') {
             $datos = array_merge($datos, $this->datosPanelInicio($user, $tab !== 'cajero'));
         } else {

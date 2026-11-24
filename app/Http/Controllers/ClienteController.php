@@ -459,6 +459,12 @@ class ClienteController extends Controller
             );
         }
 
+        $observacionesAbiertas = \App\Models\ServicioObservacion::query()
+            ->whereIn('servicio_id', $cliente->servicios->pluck('servicio_id'))
+            ->whereNull('cerrada_at')
+            ->get()
+            ->keyBy('servicio_id');
+
         $herramientasRedConfig = null;
         if (auth()->user()?->tienePermiso('servicios.ver') && $cliente->servicios->isNotEmpty()) {
             $primero = $cliente->servicios->first();
@@ -488,6 +494,7 @@ class ClienteController extends Controller
             'portalWifiBackup',
             'herramientasRedConfig',
             'serviciosFacturadosMes',
+            'observacionesAbiertas',
         ));
     }
 

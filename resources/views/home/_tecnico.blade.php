@@ -370,6 +370,94 @@
         </section>
     </div>
 
+    @php
+        $observacionesEquipo = $observacionesEquipo ?? [];
+        $puedeObservarEquipo = $puedeObservarEquipo ?? false;
+        $estiloObs = [
+            'reincidio' => 'bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-inset ring-rose-500/20',
+            'estable' => 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-500/20',
+            'en_curso' => 'bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-500/20',
+        ];
+    @endphp
+    <section class="{{ $tarjeta }} overflow-hidden">
+        <div class="flex flex-wrap items-start justify-between gap-3 px-4 sm:px-5 py-4 border-b border-gray-100 dark:border-white/5">
+            <div class="min-w-0">
+                <h2 class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                    Equipos en observación
+                    @if($observacionesEquipo !== [])
+                        <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-gray-700 dark:text-gray-200">{{ count($observacionesEquipo) }}</span>
+                    @endif
+                </h2>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Después de un cambio o una falla, el plazo mira cortes PPPoE, señal y reclamos nuevos. Volvió la falla si hay un reclamo, 2 o más cortes, óptica peor que −27 dBm o antena peor que −75 dBm.</p>
+            </div>
+        </div>
+        @if($observacionesEquipo === [])
+            <p class="px-4 sm:px-5 py-8 text-sm text-center text-gray-500 dark:text-gray-400">Ningún equipo en observación. Se abre desde el servicio del cliente.</p>
+        @else
+            <ul class="divide-y divide-gray-100 dark:divide-white/5">
+                @foreach($observacionesEquipo as $obs)
+                    <li class="px-4 sm:px-5 py-3">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                    @if($obs['cliente_id'])
+                                        <a href="{{ route('clientes.detalle', $obs['cliente_id']) }}?tab=servicio" class="hover:underline">{{ $obs['nombre'] }}</a>
+                                    @else
+                                        {{ $obs['nombre'] }}
+                                    @endif
+                                </p>
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                    {{ $obs['motivo'] }}
+                                    @if(filled($obs['equipo']))
+                                        · {{ $obs['equipo'] }}
+                                    @endif
+                                    @if(filled($obs['plan']))
+                                        · {{ $obs['plan'] }}
+                                    @endif
+                                    @if(filled($obs['ip']))
+                                        · {{ $obs['ip'] }}
+                                    @endif
+                                </p>
+                                @if(filled($obs['nota']))
+                                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{{ $obs['nota'] }}</p>
+                                @endif
+                                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                    {{ $obs['plazo'] }}
+                                    · {{ $obs['cortes'] }} {{ $obs['cortes'] === 1 ? 'corte' : 'cortes' }}
+                                    · {{ $obs['reclamos'] }} {{ $obs['reclamos'] === 1 ? 'reclamo' : 'reclamos' }}
+                                    @if($obs['peor_rx'] !== null)
+                                        · RX {{ number_format($obs['peor_rx'], 1) }} dBm
+                                    @endif
+                                    @if($obs['peor_antena'] !== null)
+                                        · antena {{ number_format($obs['peor_antena'], 0) }} dBm
+                                    @endif
+                                    @if(filled($obs['tecnico']))
+                                        · {{ $obs['tecnico'] }}
+                                    @endif
+                                </p>
+                            </div>
+                            <span class="inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold {{ $estiloObs[$obs['veredicto']] ?? $estiloObs['en_curso'] }}">{{ $obs['veredicto_texto'] }}</span>
+                        </div>
+                        @if($puedeObservarEquipo)
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <form method="POST" action="{{ route('servicios.observacion.cerrar', $obs['id']) }}">
+                                    @csrf
+                                    <input type="hidden" name="resultado" value="resuelto">
+                                    <button type="submit" class="rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1 text-[11px] font-semibold text-gray-700 dark:text-gray-200">Cerrar: quedó resuelto</button>
+                                </form>
+                                <form method="POST" action="{{ route('servicios.observacion.cerrar', $obs['id']) }}">
+                                    @csrf
+                                    <input type="hidden" name="resultado" value="reincidio">
+                                    <button type="submit" class="rounded-lg border border-rose-200 dark:border-rose-500/30 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-300">Cerrar: volvió la falla</button>
+                                </form>
+                            </div>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
+
     {{-- Histogramas de señal --}}
     @php
         $tabsSenal = function (string $activa): string {

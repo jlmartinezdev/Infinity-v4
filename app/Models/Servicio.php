@@ -344,6 +344,12 @@ class Servicio extends Model
         return $this->hasMany(ServicioConexionEvento::class, 'servicio_id', 'servicio_id');
     }
 
+    public function observacionAbierta(): HasOne
+    {
+        return $this->hasOne(ServicioObservacion::class, 'servicio_id', 'servicio_id')
+            ->whereNull('cerrada_at');
+    }
+
     /**
      * Servicio cargado a mano (p. ej. segundo enlace) y aún no cerrado como instalación este mes.
      * Los que vienen de un pedido se finalizan desde pedidos.

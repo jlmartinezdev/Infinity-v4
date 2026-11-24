@@ -861,6 +861,8 @@ Route::middleware(['auth', 'permiso:servicios.crear,servicios.editar'])->group(f
     Route::put('/servicios/{servicio_id}', [ServicioController::class, 'update'])->name('servicios.update');
     Route::post('/servicios/{servicio_id}/ipv6', [ServicioController::class, 'actualizarIpv6'])->name('servicios.ipv6');
     Route::post('/servicios/{servicio_id}/punto-hotspot', [ServicioController::class, 'actualizarPuntoHotspot'])->name('servicios.punto-hotspot');
+    Route::post('/servicios/{servicio_id}/observacion', [\App\Http\Controllers\EquipoObservacionController::class, 'store'])->name('servicios.observacion.store');
+    Route::post('/servicios/observacion/{observacion}/cerrar', [\App\Http\Controllers\EquipoObservacionController::class, 'cerrar'])->name('servicios.observacion.cerrar');
     Route::post('/servicios/{servicio_id}/activar', [ServicioController::class, 'activar'])->name('servicios.activar');
     Route::post('/servicios/{servicio_id}/finalizar-instalacion', [ServicioController::class, 'finalizarInstalacion'])->name('servicios.finalizar-instalacion');
     Route::post('/servicios/{servicio_id}/suspender', [ServicioController::class, 'suspender'])->name('servicios.suspender');

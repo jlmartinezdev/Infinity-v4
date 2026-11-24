@@ -132,13 +132,12 @@ class WhatsAppWebController extends Controller
             $avisos = (int) (clone $pendientes)->count();
             $mensaje = (clone $pendientes)
                 ->orderByDesc('id')
-                ->first(['id', 'telefono', 'contacto_nombre', 'cuerpo', 'tipo']);
+                ->first(['id', 'telefono', 'cuerpo', 'tipo', 'cliente_id']);
             if ($mensaje) {
-                $nombre = trim((string) $mensaje->contacto_nombre);
                 $nuevos[] = [
                     'id' => (int) $mensaje->id,
                     'telefono' => (string) $mensaje->telefono,
-                    'nombre' => $nombre !== '' ? $nombre : (string) $mensaje->telefono,
+                    'nombre' => $this->tituloAvisoWhatsapp($mensaje),
                     'cuerpo' => $this->avisoCuerpo($mensaje),
                 ];
             }
@@ -178,6 +177,58 @@ class WhatsAppWebController extends Controller
                 ];
             })
             ->all();
+    }
+
+    /**
+     * Título del toast: nombre del cliente, o el número si no está en la base.
+     */
+    private function tituloAvisoWhatsapp(WhatsappMensaje $mensaje): string
+    {
+        $cliente = $mensaje->cliente_id
+            ? Cliente::query()->where('cliente_id', $mensaje->cliente_id)->first(['cliente_id', 'nombre', 'apellido'])
+            : null;
+
+        if (! $cliente) {
+            $cliente = WhatsappContacto::query()
+                ->with('cliente:cliente_id,nombre,apellido')
+                ->where('telefono', $mensaje->telefono)
+                ->first()
+                ?->cliente;
+        }
+
+        if ($cliente) {
+            $nombre = trim(trim((string) $cliente->nombre).' '.trim((string) $cliente->apellido));
+            if ($nombre !== '') {
+                return $nombre;
+            }
+        }
+
+        return $this->telefonoVisible((string) $mensaje->telefono);
+    }
+
+    private function telefonoVisible(string $telefono): string
+    {
+        $digits = preg_replace('/\D+/', '', $telefono) ?? '';
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+
+        $national = '';
+        if (str_starts_with($digits, '595') && strlen($digits) >= 12) {
+            $national = substr($digits, 3, 9);
+        } elseif (strlen($digits) === 10 && str_starts_with($digits, '09')) {
+            $national = substr($digits, 1);
+        } elseif (strlen($digits) === 9 && str_starts_with($digits, '9')) {
+            $national = $digits;
+        }
+
+        if (strlen($national) === 9 && str_starts_with($national, '9')) {
+            return '595 '.substr($national, 0, 3).' '.substr($national, 3);
+        }
+
+        $visible = trim($telefono);
+
+        return $visible !== '' ? $visible : 'WhatsApp';
     }
 
     private function avisoCuerpo(WhatsappMensaje $mensaje): string
