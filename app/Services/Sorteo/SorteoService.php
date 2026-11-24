@@ -454,7 +454,7 @@ class SorteoService
         $resenas = SorteoResena::query()->where('campana_id', $campana->id)->whereIn('cliente_id', $ids)->get()->keyBy('cliente_id');
 
         $filas = [];
-        $totales = ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0, 'clientes' => 0, 'con_app' => 0];
+        $totales = ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0, 'clientes' => 0, 'con_app' => 0, 'participando' => 0, 'resena' => 0];
         foreach ($clientes as $cliente) {
             $clase = $this->clasificar($campana, $cliente);
             $totales['clientes']++;
@@ -473,19 +473,27 @@ class SorteoService
             } else {
                 $totales['no']++;
             }
-            if (! $this->pasaFiltro($filtro, $clase['nivel'])) {
-                continue;
-            }
             $delCliente = $tickets->get($cliente->cliente_id, collect());
             $pago = $delCliente->first(fn (SorteoTicket $t) => $t->origen === SorteoTicket::ORIGEN_PAGO && $t->estado === SorteoTicket::ACTIVO);
             $appTicket = $delCliente->first(fn (SorteoTicket $t) => $t->origen === SorteoTicket::ORIGEN_APP && $t->estado === SorteoTicket::ACTIVO);
             $extra = $delCliente->first(fn (SorteoTicket $t) => $t->origen === SorteoTicket::ORIGEN_RESENA && $t->estado === SorteoTicket::ACTIVO);
             $resena = $resenas->get($cliente->cliente_id);
+            $participando = $pago !== null || $appTicket !== null || $extra !== null;
+            $resenaPendiente = $resena !== null && $resena->enviada_at !== null && $resena->marcada_at === null;
+            if ($participando) {
+                $totales['participando']++;
+            }
+            if ($resenaPendiente) {
+                $totales['resena']++;
+            }
+            if (! $this->pasaFiltro($filtro, $clase['nivel'], $participando, $resenaPendiente)) {
+                continue;
+            }
             $filas[] = [
                 'cliente_id' => $cliente->cliente_id,
                 'nombre' => trim($cliente->nombre.' '.$cliente->apellido),
                 'cedula' => $cliente->cedula,
-                'telefono' => $resena->telefono ?? $cliente->telefono,
+                'telefono' => $resena?->telefono ?? $cliente->telefono,
                 'nivel' => $clase['nivel'],
                 'motivo' => $clase['motivo'],
                 'etiqueta' => $clase['etiqueta'],
@@ -493,6 +501,7 @@ class SorteoService
                 'ticket' => $pago?->numeroFormateado(),
                 'app' => $appTicket?->numeroFormateado(),
                 'extra' => $extra?->numeroFormateado(),
+                'cupones' => ($pago ? 1 : 0) + ($appTicket ? 1 : 0) + ($extra ? 1 : 0),
                 'resena' => $resena !== null,
                 'nombre_google' => $resena?->nombre_google,
                 'enviada_at' => $resena?->enviada_at?->timezone($campana->timezone)->format('d/m/Y H:i'),
@@ -562,14 +571,14 @@ class SorteoService
         $campana = SorteoCampana::activa();
         $clase = $campana ? $this->clasificar($campana, $cliente) : null;
         $participa = $clase !== null && $clase['nivel'] !== 'no';
-        $cupones = 0;
+        $origenes = collect();
         $resena = null;
         if ($campana) {
-            $cupones = SorteoTicket::query()
+            $origenes = SorteoTicket::query()
                 ->where('campana_id', $campana->id)
                 ->where('cliente_id', $cliente->cliente_id)
                 ->where('estado', SorteoTicket::ACTIVO)
-                ->count();
+                ->pluck('origen');
             $resena = SorteoResena::query()
                 ->where('campana_id', $campana->id)
                 ->where('cliente_id', $cliente->cliente_id)
@@ -580,11 +589,13 @@ class SorteoService
             'nombre' => $this->nombrePublico($cliente),
             'participa' => $participa,
             'etiqueta' => $clase['etiqueta'] ?? null,
-            'cupones' => $cupones,
+            'cupones' => $origenes->count(),
+            'resena_acreditada' => $origenes->contains(SorteoTicket::ORIGEN_RESENA),
             'falta_celular' => ! $this->datosEnviados($resena),
             'pide_cedula' => ! $this->datosEnviados($resena) && $this->digitosCedula($cliente) !== null,
             'celular_oculto' => $this->datosEnviados($resena) ? $this->celularOculto($resena->telefono ?: $cliente->telefono) : null,
             'google_usuario' => $this->datosEnviados($resena) ? $resena->nombre_google : null,
+            'app_activa' => $this->clienteTieneApp($cliente),
             'campana' => $campana ? $this->campanaPublica($campana) : null,
         ];
     }
@@ -1016,6 +1027,13 @@ class SorteoService
         if ($this->lote !== null) {
             return isset($this->lote['app'][$cliente->cliente_id]);
         }
+
+        return $this->clienteTieneApp($cliente);
+    }
+
+    /** Mismo criterio que el cupón extra: usuario del cliente activo y con push. */
+    private function clienteTieneApp(Cliente $cliente): bool
+    {
         if (! Schema::hasTable('users')) {
             return false;
         }
@@ -1537,13 +1555,15 @@ class SorteoService
         ];
     }
 
-    private function pasaFiltro(string $filtro, string $nivel): bool
+    private function pasaFiltro(string $filtro, string $nivel, bool $participando, bool $resenaPendiente): bool
     {
         return match ($filtro) {
             '100' => $nivel === '100',
             '50' => in_array($nivel, ['100', '50', 'anticipado'], true),
             'aptos' => $nivel !== 'no',
             'no' => $nivel === 'no',
+            'participando' => $participando,
+            'resena' => $resenaPendiente,
             default => true,
         };
     }

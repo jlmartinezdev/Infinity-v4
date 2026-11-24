@@ -53,8 +53,8 @@
         </form>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        @foreach(['100' => 'Apto 100%', '50' => 'Apto 50%', 'aptos' => 'Todos los aptos', 'no' => 'No aptos'] as $clave => $etiqueta)
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        @foreach(['participando' => 'Ya participan', 'resena' => 'Reseña por acreditar', '100' => 'Apto 100%', '50' => 'Apto 50%', 'aptos' => 'Todos los aptos', 'no' => 'No aptos'] as $clave => $etiqueta)
             <a href="{{ route('loyalty.sorteo.index', ['campana' => $campana->id, 'filtro' => $clave, 'q' => $buscar]) }}"
                class="rounded-xl border px-4 py-3 {{ $filtro === $clave ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800' }}">
                 <p class="text-xs text-gray-500">{{ $etiqueta }}</p>
@@ -73,7 +73,16 @@
         <a href="{{ route('loyalty.sorteo.urna', ['campana' => $campana, 'filtro' => $filtro, 'q' => $buscar]) }}" class="px-3 py-2 rounded-lg border text-sm">PDF urna</a>
     </form>
 
-    <p class="text-xs text-gray-500">Los aptos aparecen primero. Esta página muestra {{ $filas->count() }} de {{ $filas->total() }}.</p>
+    <p class="text-xs text-gray-500">
+        @if($filtro === 'participando')
+            Clientes que ya tienen cupón. Para sumar el de reseña, usá «Acreditar cupón».
+        @elseif($filtro === 'resena')
+            Enviaron el nombre de Google y el cupón de reseña todavía no está activo.
+        @else
+            Los aptos aparecen primero.
+        @endif
+        Esta página muestra {{ $filas->count() }} de {{ $filas->total() }}.
+    </p>
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
         <table class="min-w-full text-sm">
             <thead class="text-left text-gray-500">
@@ -81,7 +90,7 @@
                     <th class="px-3 py-2">Cliente</th>
                     <th class="px-3 py-2">CI</th>
                     <th class="px-3 py-2">Nivel</th>
-                    <th class="px-3 py-2">Ticket</th>
+                    <th class="px-3 py-2">Cupones</th>
                     <th class="px-3 py-2">Reseña</th>
                 </tr>
             </thead>
@@ -91,7 +100,16 @@
                     <td class="px-3 py-2">{{ $fila['nombre'] }} <span class="text-gray-400">#{{ $fila['cliente_id'] }}</span></td>
                     <td class="px-3 py-2">{{ $fila['cedula'] }}</td>
                     <td class="px-3 py-2">{{ $fila['etiqueta'] }}</td>
-                    <td class="px-3 py-2">{{ $fila['ticket'] ?? '—' }} @if($fila['app'] ?? null) / app {{ $fila['app'] }} @endif @if($fila['extra']) / extra {{ $fila['extra'] }} @endif</td>
+                    <td class="px-3 py-2">
+                        @if(($fila['cupones'] ?? 0) > 0)
+                            {{ $fila['cupones'] }}
+                            @if($fila['ticket'] ?? null) · pago {{ $fila['ticket'] }} @endif
+                            @if($fila['app'] ?? null) · app {{ $fila['app'] }} @endif
+                            @if($fila['extra']) · reseña {{ $fila['extra'] }} @endif
+                        @else
+                            —
+                        @endif
+                    </td>
                     <td class="px-3 py-2">
                         @php $telOk = $fila['telefono'] === null || $fila['telefono'] === '' || \App\Helpers\TelefonoParaguayHelper::esMovilParaguay($fila['telefono']); @endphp
                         @if($fila['enviada_at'])

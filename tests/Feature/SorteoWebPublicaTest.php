@@ -101,6 +101,8 @@ class SorteoWebPublicaTest extends TestCase
         $this->assertTrue($ficha['pide_cedula']);
         $this->assertNull($ficha['celular_oculto']);
         $this->assertNull($ficha['google_usuario']);
+        $this->assertFalse($ficha['app_activa']);
+        $this->assertFalse($ficha['resena_acreditada']);
         $this->assertArrayNotHasKey('cedula', $ficha);
         $this->assertNotNull($ficha['campana']);
         $this->assertNotEmpty($ficha['campana']['reglas']);
@@ -128,7 +130,20 @@ class SorteoWebPublicaTest extends TestCase
             $this->assertSame('Ya enviaste tus datos para este sorteo.', $e->getMessage());
         }
 
+        $this->assertFalse($guardada['resena_acreditada']);
         $this->assertSame('María G.', $this->sorteo->fichaPublica($cliente->fresh())['google_usuario']);
+
+        $campana = \App\Models\SorteoCampana::activa();
+        SorteoTicket::create([
+            'campana_id' => $campana->id,
+            'cliente_id' => $cliente->cliente_id,
+            'numero' => 1,
+            'origen' => SorteoTicket::ORIGEN_RESENA,
+            'estado' => SorteoTicket::ACTIVO,
+        ]);
+        $conCupon = $this->sorteo->fichaPublica($cliente->fresh());
+        $this->assertTrue($conCupon['resena_acreditada']);
+        $this->assertSame(1, $conCupon['cupones']);
     }
 
     public function test_el_endpoint_exige_el_nombre_y_rechaza_el_segundo_envio(): void
@@ -146,7 +161,8 @@ class SorteoWebPublicaTest extends TestCase
             'Authorization' => 'Bearer token-de-prueba',
         ])->assertOk()
             ->assertJsonPath('data.falta_celular', true)
-            ->assertJsonPath('data.google_usuario', null);
+            ->assertJsonPath('data.google_usuario', null)
+            ->assertJsonPath('data.resena_acreditada', false);
 
         $this->postJson('/api/v1/web/sorteo/celular', [
             'cliente_id' => $cliente->cliente_id,
@@ -165,7 +181,8 @@ class SorteoWebPublicaTest extends TestCase
             'Authorization' => 'Bearer token-de-prueba',
         ])->assertOk()
             ->assertJsonPath('data.falta_celular', false)
-            ->assertJsonPath('data.google_usuario', 'María G.');
+            ->assertJsonPath('data.google_usuario', 'María G.')
+            ->assertJsonPath('data.resena_acreditada', false);
 
         $this->postJson('/api/v1/web/sorteo/celular', [
             'cliente_id' => $cliente->cliente_id,

@@ -23,11 +23,11 @@ class SorteoController extends Controller
     {
         $campanas = SorteoCampana::query()->orderByDesc('id')->get();
         $campana = $this->campana($request, $campanas);
-        $filtro = (string) $request->input('filtro', '');
+        $filtro = (string) $request->input('filtro', 'participando');
         $buscar = trim((string) $request->input('q', ''));
         $resultado = $campana
             ? $this->sorteo->listado($campana, $buscar, $filtro)
-            : ['filas' => [], 'totales' => ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0, 'clientes' => 0, 'con_app' => 0]];
+            : ['filas' => [], 'totales' => ['100' => 0, '50' => 0, 'aptos' => 0, 'no' => 0, 'clientes' => 0, 'con_app' => 0, 'participando' => 0, 'resena' => 0]];
         $page = max(1, (int) $request->input('page', 1));
         $orden = ['100' => 0, 'anticipado' => 1, '50' => 2, 'apto' => 3, 'no' => 4];
         $filas = collect($resultado['filas'])->sortBy(fn (array $fila) => sprintf(
