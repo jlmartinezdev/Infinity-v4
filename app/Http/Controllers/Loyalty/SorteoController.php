@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\PromoAjuste;
 use App\Models\SorteoCampana;
+use App\Models\SorteoGanador;
 use App\Models\SorteoPremioCategoria;
 use App\Services\Sorteo\SorteoService;
 use App\Support\XlsxWriter;
@@ -49,10 +50,25 @@ class SorteoController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        $seccion = (string) $request->input('seccion', 'participantes');
+        if (! in_array($seccion, ['participantes', 'ganadores', 'configuracion'], true) || ! $campana) {
+            $seccion = $campana ? 'participantes' : 'configuracion';
+        }
+        $ganadores = $campana
+            ? SorteoGanador::query()
+                ->where('campana_id', $campana->id)
+                ->with(['cliente', 'categoria'])
+                ->orderBy('categoria_id')
+                ->orderBy('id')
+                ->get()
+                ->groupBy('categoria_id')
+            : collect();
+
         return view('loyalty.sorteo.index', [
             'campanas' => $campanas,
             'campana' => $campana?->load('categorias'),
-            'filas' => $paginadas,
+            'seccion' => $seccion,
+            'ganadores' => $ganadores,            'filas' => $paginadas,
             'resumen' => $resumen,
             'totales' => $resultado['totales'],
             'filtro' => $filtro,
