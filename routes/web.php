@@ -849,6 +849,7 @@ Route::middleware(['auth', 'permiso:servicios.ver'])->group(function () {
     Route::post('/servicios/{servicio_id}/herramientas-red/huawei-ssid', [ServicioController::class, 'herramientasRedHuaweiSsid'])->name('servicios.herramientas-red.huawei-ssid');
     Route::post('/servicios/{servicio_id}/herramientas-red/huawei-optica', [ServicioController::class, 'herramientasRedHuaweiOptica'])->name('servicios.herramientas-red.huawei-optica');
     Route::post('/servicios/{servicio_id}/herramientas-red/huawei-reboot', [ServicioController::class, 'herramientasRedHuaweiReboot'])->name('servicios.herramientas-red.huawei-reboot');
+    Route::post('/servicios/{servicio_id}/herramientas-red/huawei-hotspot', [ServicioController::class, 'herramientasRedHuaweiHotspot'])->name('servicios.herramientas-red.huawei-hotspot');
 });
 Route::middleware(['auth', 'permiso:servicios.crear'])->group(function () {
     Route::post('/servicios', [ServicioController::class, 'store'])->name('servicios.store');

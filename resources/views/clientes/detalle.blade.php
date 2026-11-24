@@ -1935,90 +1935,9 @@
                     @php
                         $primerServicio = $cliente->servicios->first();
                         $ticketConDiagnostico = $tickets->first(fn($t) => filled($t->datos_diagnostico));
-                        $nodoDesc = $primerServicio?->pool?->router?->nodo?->descripcion;
-                        $routerNom = $primerServicio?->pool?->router?->nombre;
-                        $cajaNapActiva = $primerServicio?->cajaNapPuertoActivo?->cajaNap;
-                        $puertoNapActivo = $primerServicio?->cajaNapPuertoActivo?->numero_puerto;
-                        $oltNom = $primerServicio?->cajaNapPuertoActivo?->cajaNap?->salidaPon?->olt?->nombre
-                            ?? $primerServicio?->pool?->olt?->nombre;
-                        $esFibra = $primerServicio && ($primerServicio->cajaNapPuertoActivo || $primerServicio->pool?->olt || str_contains(strtolower($nodoDesc ?? ''), 'ftth') || str_contains(strtolower($primerServicio->plan?->nombre_plan ?? ''), 'ftth'));
                     @endphp
 
-                    {{-- 1. Tarjetas de Resumen de Infraestructura & Topología de Red --}}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3">
-                        {{-- KPI 1: IP & Conectividad --}}
-                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-xs">
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Dirección IP CPE</span>
-                                <div class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                                </div>
-                            </div>
-                            <span class="text-base font-bold font-mono text-gray-900 dark:text-gray-100">{{ $primerServicio?->ip ?: 'Sin IP' }}</span>
-                            <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1 truncate">
-                                Pool: {{ $primerServicio?->pool?->nombre_pool ?? 'Estándar' }}
-                            </p>
-                        </div>
-
-                        {{-- KPI 2: PPPoE & Autenticación --}}
-                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-xs">
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Usuario PPPoE</span>
-                                <div class="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                                </div>
-                            </div>
-                            <span class="block text-sm font-bold font-mono text-gray-900 dark:text-gray-100 truncate">{{ $primerServicio?->usuario_pppoe ?: 'Sin usuario' }}</span>
-                            <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                                Autenticación activa en MikroTik
-                            </p>
-                        </div>
-
-                        {{-- KPI 3: Router & Nodo --}}
-                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-xs">
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Router & Nodo</span>
-                                <div class="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
-                                </div>
-                            </div>
-                            <p class="text-sm font-bold text-gray-900 dark:text-gray-100 truncate" title="{{ $routerNom ?: 'Sin router asignado' }}">
-                                {{ $routerNom ?: 'Sin router' }}
-                            </p>
-                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate" title="{{ $nodoDesc ?: 'Sin nodo' }}">
-                                Nodo: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $nodoDesc ?: '—' }}</span>
-                            </p>
-                        </div>
-
-                        {{-- KPI 4: Topología Óptica (NAP / OLT / Tecnología) --}}
-                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-xs">
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tecnología & Caja NAP</span>
-                                <div class="w-7 h-7 rounded-lg {{ $esFibra ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500' }} flex items-center justify-center">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase {{ $esFibra ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300' }}">
-                                    {{ $esFibra ? 'Fibra GPON' : 'Inalámbrico' }}
-                                </span>
-                                @if($oltNom)
-                                    <span class="text-[11px] text-gray-400 dark:text-gray-500 truncate" title="OLT: {{ $oltNom }}">
-                                        {{ $oltNom }}
-                                    </span>
-                                @endif
-                            </div>
-                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">
-                                @if($cajaNapActiva)
-                                    NAP: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $cajaNapActiva->nombre }}</span> (Pto. {{ $puertoNapActivo }})
-                                @else
-                                    <span class="text-gray-400 italic">Sin puerto NAP registrado</span>
-                                @endif
-                            </p>
-                        </div>
-                    </div>
-
-                    {{-- 2. Barra de Herramientas Operativas & Atajos --}}
+                    {{-- Consola de diagnóstico --}}
                     <div class="cd-card min-w-0 mb-3">
                         <div class="cd-panel__head">
                             <div class="flex items-center gap-2">

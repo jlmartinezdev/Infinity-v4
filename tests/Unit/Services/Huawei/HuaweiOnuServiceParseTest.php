@@ -112,10 +112,13 @@ TXT;
     public function test_parse_wifi_indices_y_ssids(): void
     {
         $raw = <<<'TXT'
+----------------------------------------------------
 SSID Index          : 1
 SSID                : INTERPLUS
+----------------------------------------------------
 SSID Index          : 5
 SSID                : INTERPLUS_5G
+----------------------------------------------------
 TXT;
 
         $this->assertSame([1, 5], HuaweiOnuService::parseWifiIndices($raw));
@@ -238,5 +241,32 @@ TXT;
         $this->assertNull($optic['rx_power_dbm']);
         $this->assertNull($optic['tx_power_dbm']);
         $this->assertNull($optic['temperatura_c']);
+    }
+
+    public function test_comando_hotspot_deja_la_red_24_abierta(): void
+    {
+        $cmd = HuaweiOnuService::comandoHotspotSsid(1, 'InterPlus Wi-Fi Zone', 'Open');
+
+        $this->assertSame(
+            'set ssid index 1 name "InterPlus Wi-Fi Zone" visible 1 security Open',
+            $cmd
+        );
+    }
+
+    public function test_cli_reconoce_ssid_abierto_y_rechaza_wpa(): void
+    {
+        $abierta = <<<'TXT'
+SSID Index                    :1
+SSID                          :InterPlus Wi-Fi Zone
+Authentication Mode           :Open
+----------------------------------------------------
+SSID Index                    :5
+SSID                          :HUAWEI-5G
+Authentication Mode           :WPA/WPA2-PSK
+TXT;
+        $this->assertTrue(HuaweiOnuService::cliHotspotAplicado($abierta, 1, 'InterPlus Wi-Fi Zone'));
+
+        $wpa = str_replace('Open', 'WPA/WPA2-PSK', $abierta);
+        $this->assertFalse(HuaweiOnuService::cliHotspotAplicado($wpa, 1, 'InterPlus Wi-Fi Zone'));
     }
 }

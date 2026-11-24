@@ -9,6 +9,9 @@ use Throwable;
 
 class HuaweiOnuService
 {
+    public const HOTSPOT_SSID = 'InterPlus Wi-Fi Zone';
+
+    public const HOTSPOT_VLAN = 198;
     /**
      * @return array{success: bool, message: string, via?: string, wan?: string, protocol?: string, ipv6?: bool}
      */
@@ -21,6 +24,122 @@ class HuaweiOnuService
 
         // Telnet/SSH solo prende IPv6CP; DHCPv6-PD vive en la web.
         return $this->configurarIpv6Web($servicio);
+    }
+
+    /**
+     * Red 2.4 abierta «InterPlus Wi-Fi Zone» y WAN bridge VLAN 198. No toca la red 5 GHz ni la WAN PPPoE.
+     *
+     * @return array{success: bool, message: string, via?: string, ssid?: string, vlan?: int, wan?: string}
+     */
+    public function configurarHotspot(Servicio $servicio): array
+    {
+        $host = $this->hostDe($servicio);
+        if ($host === null) {
+            return ['success' => false, 'message' => 'El servicio no tiene IP para conectar a la ONU.'];
+        }
+
+        $cliError = null;
+        if ($this->tieneCli($host)) {
+            try {
+                $cli = $this->configurarHotspotPorCli($host);
+                $wan = $this->webDe($servicio, true)->asegurarWanBridge(self::HOTSPOT_VLAN);
+                $this->marcarHuaweiSiFalta($servicio);
+
+                return $this->respuestaHotspot($cli['ssid'], $wan['wan'], $cli['via'].'+web');
+            } catch (Throwable $e) {
+                $cliError = $e->getMessage();
+            }
+        }
+
+        try {
+            $hecho = $this->webDe($servicio, true)->configurarHotspot24(self::HOTSPOT_SSID, self::HOTSPOT_VLAN);
+            $this->marcarHuaweiSiFalta($servicio);
+
+            return $this->respuestaHotspot($hecho['ssid'], $hecho['wan'], 'web');
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => $this->mensajeMixto($cliError, $e->getMessage())];
+        }
+    }
+
+    /**
+     * SSH y, si no responde, Telnet. El shell no tiene comando de WAN.
+     *
+     * @return array{via: string, ssid: string}
+     */
+    protected function configurarHotspotPorCli(string $host): array
+    {
+        $ssid = self::HOTSPOT_SSID;
+        $abierta = self::comandoHotspotSsid(1, $ssid, 'Open');
+        $sinClave = self::comandoHotspotSsid(1, $ssid, 'None');
+        $out = $this->cli($host)->run(
+            [$abierta, 'display wifi information'],
+            function (array $outputs) use ($ssid, $sinClave): array {
+                if (self::cliHotspotAplicado($outputs[1] ?? '', 1, $ssid)) {
+                    return ['save data'];
+                }
+
+                return [$sinClave, 'display wifi information', 'save data'];
+            }
+        );
+
+        foreach ($out['outputs'] as $bloque) {
+            if (self::cliHotspotAplicado($bloque, 1, $ssid)) {
+                return ['via' => $out['via'], 'ssid' => $ssid];
+            }
+        }
+
+        throw new \RuntimeException('SSH y Telnet no dejaron la red 2.4 abierta.');
+    }
+
+    public static function comandoHotspotSsid(int $index, string $ssid, string $security): string
+    {
+        $ssid = str_replace(['"', '\\'], '', trim($ssid));
+        $security = preg_replace('/[^A-Za-z0-9-]/', '', $security) ?? 'Open';
+
+        return 'set ssid index '.$index.' name "'.$ssid.'" visible 1 security '.$security;
+    }
+
+    public static function cliHotspotAplicado(string $raw, int $index, string $ssid): bool
+    {
+        $blocks = preg_split('/-{10,}/', $raw) ?: [];
+        foreach ($blocks as $block) {
+            if (! preg_match('/SSID Index\s*:\s*(\d+)/i', $block, $im) || (int) $im[1] !== $index) {
+                continue;
+            }
+            if (! preg_match('/^SSID\s+:\s*(.+)$/mi', $block, $sm) || trim($sm[1]) !== $ssid) {
+                return false;
+            }
+            if (! preg_match('/Authentication Mode\s*:\s*(.+)$/mi', $block, $am)) {
+                return false;
+            }
+            $auth = strtolower(trim($am[1]));
+
+            return str_contains($auth, 'open')
+                || str_contains($auth, 'none')
+                || $auth === 'disabled';
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array{success: bool, message: string, via: string, ssid: string, ssids: list<string>, vlan: int, wan: string}
+     */
+    protected function respuestaHotspot(string $ssid, string $wan, string $via): array
+    {
+        $wanTxt = $wan === 'creada'
+            ? 'WAN bridge VLAN '.self::HOTSPOT_VLAN.' creada por web'
+            : 'WAN bridge VLAN '.self::HOTSPOT_VLAN.' ya estaba';
+
+        return [
+            'success' => true,
+            'message' => 'Hotspot listo en 2.4: '.$ssid.'. '.$wanTxt.'. La red 5 GHz no se modificó.',
+            'via' => $via,
+            'ssid' => $ssid,
+            'ssids' => [$ssid],
+            'vlan' => self::HOTSPOT_VLAN,
+            'wan' => $wan,
+        ];
     }
 
     /**

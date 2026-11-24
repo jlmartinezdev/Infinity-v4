@@ -133,4 +133,56 @@ class HuaweiOnuWebParseTest extends TestCase
         $this->assertTrue(HuaweiOnuWeb::htmlEsHuawei("var ProductName = 'EG8145V5';"));
         $this->assertFalse(HuaweiOnuWeb::htmlEsHuawei('<html><title>Router</title></html>'));
     }
+
+    public function test_parse_wan_bridge_vlan_198(): void
+    {
+        $ppp = $this->wanJs('WanPPP', 26, [
+            0 => 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1',
+            6 => '1_INTERNET_R_VID_199',
+            11 => 'IP_Routed',
+            21 => '199',
+            25 => 'INTERNET',
+        ]);
+        $ip = $this->wanJs('WanIP', 25, [
+            0 => 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANIPConnection.1',
+            6 => '2_INTERNET_B_VID_198',
+            11 => 'IP_Bridged',
+            19 => '198',
+            24 => 'INTERNET',
+        ]);
+        $wans = HuaweiOnuWeb::parseWanConexiones('var PPPWanList = new Array('.$ppp.',null); var IPWanList = new Array('.$ip.',null);');
+
+        $this->assertCount(2, $wans);
+        $this->assertSame(199, $wans[0]['vlan']);
+        $this->assertSame('IP_Routed', $wans[0]['mode']);
+        $bridge = HuaweiOnuWeb::wanBridgeVlan($wans, 198);
+        $this->assertNotNull($bridge);
+        $this->assertSame('IP_Bridged', $bridge['mode']);
+        $this->assertNull(HuaweiOnuWeb::wanBridgeVlan($wans, 199));
+    }
+
+    public function test_payload_hotspot_bridge_vlan_198_en_ssid1(): void
+    {
+        $payload = HuaweiOnuWeb::payloadHotspotBridge(198, 'tok');
+
+        $this->assertSame('IP_Bridged', $payload['GROUP_a_y.ConnectionType']);
+        $this->assertSame('198', $payload['GROUP_a_y.X_HW_VLAN']);
+        $this->assertSame('SSID1', $payload['GROUP_a_y.X_HW_BindPhyPortInfo']);
+        $this->assertSame('0', $payload['GROUP_a_y.NATEnabled']);
+        $this->assertSame('0', $payload['GROUP_a_y.X_HW_LanDhcpEnable']);
+        $this->assertSame('tok', $payload['x.X_HW_Token']);
+    }
+
+    /**
+     * @param  array<int, string>  $valores
+     */
+    private function wanJs(string $ctor, int $cantidad, array $valores): string
+    {
+        $args = [];
+        for ($i = 0; $i < $cantidad; $i++) {
+            $args[] = '"'.str_replace(['\\', '"'], ['\\\\', '\\"'], $valores[$i] ?? '').'"';
+        }
+
+        return 'new '.$ctor.'('.implode(',', $args).')';
+    }
 }

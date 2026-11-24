@@ -1129,6 +1129,11 @@ class ServicioController extends Controller
         return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->reiniciar($s));
     }
 
+    public function herramientasRedHuaweiHotspot($servicio_id, HuaweiOnuService $huawei)
+    {
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->configurarHotspot($s));
+    }
+
     /**
      * @param  callable(Servicio): array<string, mixed>  $accion
      */

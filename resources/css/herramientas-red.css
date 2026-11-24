@@ -1018,3 +1018,18 @@
 .dark .senal-ahora--atencion { background: rgb(124 45 18 / 0.45); color: #fdba74; }
 .dark .senal-ahora--critica { background: rgb(127 29 29 / 0.45); color: #fca5a5; }
 
+
+/* Grupos de la vista: Diagnóstico, Equipo, Aprovisionamiento, Historial */
+.noc-group + .noc-group {
+    margin-top: 1.75rem;
+}
+.noc-section-title {
+    margin-bottom: 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+.dark .noc-section-title { color: #94a3b8; }
+.noc-group.space-y-4 > .noc-section-title { margin-bottom: 0; }

@@ -96,6 +96,7 @@ class HerramientasRedPayload
                 'huawei_ssid' => route('servicios.herramientas-red.huawei-ssid', $servicio->servicio_id),
                 'huawei_optica' => route('servicios.herramientas-red.huawei-optica', $servicio->servicio_id),
                 'huawei_reboot' => route('servicios.herramientas-red.huawei-reboot', $servicio->servicio_id),
+                'huawei_hotspot' => route('servicios.herramientas-red.huawei-hotspot', $servicio->servicio_id),
                 'servicios_index' => route('servicios.index'),
             ],
             'csrf' => csrf_token(),

@@ -432,6 +432,152 @@ class HuaweiOnuWeb
         return array_map(static fn (string $q): string => substr($q, 1, -1), $m[0]);
     }
 
+    /**
+     * SSID 2.4 (índice 1) abierto y WAN IP en bridge con la VLAN indicada, atada a SSID1.
+     *
+     * @return array{ssid: string, vlan: int, wan: string, mode: string}
+     */
+    public function configurarHotspot24(string $ssid, int $vlan): array
+    {
+        $ssid = trim($ssid);
+        if ($ssid === '' || strlen($ssid) > 32) {
+            throw new RuntimeException('El SSID del hotspot debe tener entre 1 y 32 caracteres.');
+        }
+
+        $bridge = $this->asegurarWanBridge($vlan);
+
+        $wifi = $this->get('/html/amp/wlanbasic/WlanBasic.asp?2G');
+        $domain = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';
+        $this->post(
+            '/html/amp/wlanbasic/set.cgi?y='.rawurlencode($domain)
+            .'&RequestFile=html/amp/wlanbasic/WlanBasic.asp',
+            [
+                'y.Enable' => '1',
+                'y.SSID' => $ssid,
+                'y.SSIDAdvertisementEnabled' => '1',
+                'y.BeaconType' => 'Basic',
+                'y.BasicAuthenticationMode' => 'None',
+                'y.BasicEncryptionModes' => 'None',
+                'x.X_HW_Token' => self::tokenDe($wifi),
+            ]
+        );
+
+        $leido = $this->leerSsidsPorInstancia()[1] ?? '';
+        if ($leido !== $ssid) {
+            throw new RuntimeException('La red 2.4 no quedó como '.$ssid.'.');
+        }
+
+        return [
+            'ssid' => $leido,
+            'vlan' => $vlan,
+            'wan' => $bridge['wan'],
+            'mode' => (string) ($bridge['mode'] ?? 'IP_Bridged'),
+        ];
+    }
+
+    /**
+     * @return array{wan: string, mode: string, domain: string}
+     */
+    public function asegurarWanBridge(int $vlan): array
+    {
+        $wans = self::parseWanConexiones($this->get('/html/bbsp/common/wan_list.asp'));
+        $bridge = self::wanBridgeVlan($wans, $vlan);
+        $wanEstado = 'ya estaba';
+        if ($bridge === null) {
+            $token = self::tokenDe($this->get('/html/bbsp/wan/wan.asp'));
+            $this->post(
+                '/html/bbsp/wan/addcfg.cgi?GROUP_a_x='.rawurlencode('InternetGatewayDevice.WANDevice.1.WANConnectionDevice')
+                .'&GROUP_a_y='.rawurlencode('GROUP_a_x.WANIPConnection')
+                .'&RequestFile=html/bbsp/wan/confirmwancfginfo.html',
+                self::payloadHotspotBridge($vlan, $token)
+            );
+            $wans = self::parseWanConexiones($this->get('/html/bbsp/common/wan_list.asp'));
+            $bridge = self::wanBridgeVlan($wans, $vlan);
+            if ($bridge === null) {
+                throw new RuntimeException('La ONU no creó la WAN bridge VLAN '.$vlan.'.');
+            }
+            $wanEstado = 'creada';
+        }
+
+        return [
+            'wan' => $wanEstado,
+            'mode' => (string) ($bridge['mode'] ?? 'IP_Bridged'),
+            'domain' => (string) ($bridge['domain'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param  list<array{tipo: string, domain: string, name: string, mode: string, vlan: int, service: string}>  $wans
+     * @return array{tipo: string, domain: string, name: string, mode: string, vlan: int, service: string}|null
+     */
+    public static function wanBridgeVlan(array $wans, int $vlan): ?array
+    {
+        foreach ($wans as $wan) {
+            if (($wan['vlan'] ?? 0) === $vlan && str_contains(strtoupper((string) ($wan['mode'] ?? '')), 'BRIDG')) {
+                return $wan;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function payloadHotspotBridge(int $vlan, string $token): array
+    {
+        return [
+            'GROUP_a_y.Enable' => '1',
+            'GROUP_a_y.X_HW_IPv4Enable' => '1',
+            'GROUP_a_y.X_HW_IPv6Enable' => '0',
+            'GROUP_a_y.X_HW_IPv6MultiCastVLAN' => '-1',
+            'GROUP_a_y.X_HW_SERVICELIST' => 'INTERNET',
+            'GROUP_a_y.X_HW_ExServiceList' => '',
+            'GROUP_a_y.X_HW_VLAN' => (string) $vlan,
+            'GROUP_a_y.X_HW_PRI' => '0',
+            'GROUP_a_y.X_HW_PriPolicy' => 'Specified',
+            'GROUP_a_y.X_HW_DefaultPri' => '0',
+            'GROUP_a_y.ConnectionType' => 'IP_Bridged',
+            'GROUP_a_y.X_HW_MultiCastVLAN' => '4294967295',
+            'GROUP_a_y.NATEnabled' => '0',
+            'GROUP_a_y.X_HW_NatType' => '0',
+            'GROUP_a_y.MaxMTUSize' => '1500',
+            'GROUP_a_y.X_HW_LanDhcpEnable' => '0',
+            'GROUP_a_y.X_HW_BindPhyPortInfo' => 'SSID1',
+            'GROUP_a_y.Name' => '2_INTERNET_B_VID_'.$vlan,
+            'x.X_HW_Token' => $token,
+        ];
+    }
+
+    /**
+     * @return list<array{tipo: string, domain: string, name: string, mode: string, vlan: int, service: string}>
+     */
+    public static function parseWanConexiones(string $html): array
+    {
+        $out = [];
+        foreach (['WanPPP' => ['tipo' => 'ppp', 'vlan' => 21, 'service' => 25], 'WanIP' => ['tipo' => 'ip', 'vlan' => 19, 'service' => 24]] as $ctor => $mapa) {
+            if (! preg_match_all('/new '.$ctor.'\(((?:[^()]|\([^()]*\))*)\)/', $html, $m)) {
+                continue;
+            }
+            foreach ($m[1] as $inner) {
+                $args = self::argsJs($inner);
+                if (count($args) <= $mapa['service']) {
+                    continue;
+                }
+                $out[] = [
+                    'tipo' => $mapa['tipo'],
+                    'domain' => self::decodeJs($args[0]),
+                    'name' => self::decodeJs($args[6] ?? ''),
+                    'mode' => self::decodeJs($args[11] ?? ''),
+                    'vlan' => (int) self::decodeJs($args[$mapa['vlan']] ?? '0'),
+                    'service' => strtoupper(self::decodeJs($args[$mapa['service']] ?? '')),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
     public function cambiarWifi(string $ssid, string $password): array
     {
         $html = $this->get('/html/amp/wlanbasic/WlanBasic.asp?2G');

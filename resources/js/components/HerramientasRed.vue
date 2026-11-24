@@ -70,564 +70,938 @@
     >No hay servicios para consultar.</p>
 
     <template v-else-if="payload">
-      <div
-        v-if="wifiBackup"
-        class="mb-4 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3"
-      >
-        <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Backup Wi‑Fi (app)</p>
-          <button
-            v-if="wifiBackup.password"
-            type="button"
-            class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            title="Copiar contraseña WiFi"
-            @click="copyText(wifiBackup.password, 'wifi')"
-          >
-            <svg v-if="!copiedWifi" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-            <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-            <span class="text-[11px]">{{ copiedWifi ? '¡Copiado!' : 'Copiar Clave' }}</span>
-          </button>
-        </div>
-        <p class="mt-1 text-sm text-gray-800 dark:text-gray-100">
-          <span v-if="wifiBackup.ssid" class="font-medium">{{ wifiBackup.ssid }}</span>
-          <span v-else>Clave guardada</span>
-          <span v-if="wifiBackup.changed_at" class="text-xs text-gray-500 dark:text-gray-400"> · {{ wifiBackup.changed_at }}</span>
-        </p>
-        <div class="mt-2 flex items-center gap-2">
-          <code class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{{ wifiBackupVisible ? wifiBackup.password : '••••••••' }}</code>
-          <button
-            type="button"
-            class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-            @click="wifiBackupVisible = !wifiBackupVisible"
-          >{{ wifiBackupVisible ? 'Ocultar' : 'Mostrar' }}</button>
-        </div>
-      </div>
-
-      <!-- Auto-Diagnóstico Rápido 1-Click -->
-      <div class="mb-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-gradient-to-r from-slate-50 via-white to-blue-50/30 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-800/60 p-3.5 shadow-sm">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-bold text-gray-900 dark:text-gray-100">Diagnóstico Rápido NOC</h3>
-                <span class="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
-                  1-Click Health Check
-                </span>
+      <!-- 1. Diagnóstico -->
+      <div class="noc-group">
+        <h2 class="noc-section-title">Diagnóstico</h2>
+        <!-- Auto-Diagnóstico Rápido 1-Click -->
+        <div class="mb-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-gradient-to-r from-slate-50 via-white to-blue-50/30 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-800/60 p-3.5 shadow-sm">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
               </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400">Prueba ping CPE, sesión MikroTik y estado de señal en simultáneo.</p>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-gray-900 dark:text-gray-100">Diagnóstico Rápido NOC</h3>
+                  <span class="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+                    1-Click Health Check
+                  </span>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Prueba ping CPE, sesión MikroTik y estado de señal en simultáneo.</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              v-if="diagnosticoResultado"
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
-              title="Copiar resumen estructurado para WhatsApp o Ticket"
-              @click="copyDiagnosticoResumen"
-            >
-              <svg v-if="!copiedDiag" class="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-              <svg v-else class="h-3.5 w-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              <span>{{ copiedDiag ? '¡Copiado!' : 'Copiar Resumen' }}</span>
-            </button>
-            <button
-              type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
-              :disabled="isDiagnosing || (!canPing && !canMac)"
-              @click="runAutoDiagnostico"
-            >
-              <svg v-if="!isDiagnosing" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 1 0 0118 0z"/></svg>
-              <svg v-else class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              <span>{{ isDiagnosing ? diagnosticoStep : (diagnosticoResultado ? 'Re-ejecutar Diagnóstico' : 'Ejecutar Diagnóstico') }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Panel de resultado del diagnóstico -->
-        <div
-          v-if="diagnosticoResultado"
-          class="mt-3 rounded-lg border p-3"
-          :class="[
-            diagnosticoResultado.status === 'optimo'
-              ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/60 dark:bg-emerald-950/20'
-              : (diagnosticoResultado.status === 'advertencia'
-                ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800/60 dark:bg-amber-950/20'
-                : 'border-rose-200 bg-rose-50/50 dark:border-rose-800/60 dark:bg-rose-950/20')
-          ]"
-        >
-          <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2">
-              <span class="noc-pulse-beacon">
-                <span
-                  class="noc-pulse-beacon-ping"
-                  :class="diagnosticoResultado.status === 'optimo' ? 'bg-emerald-400' : (diagnosticoResultado.status === 'advertencia' ? 'bg-amber-400' : 'bg-rose-400')"
-                ></span>
-                <span
-                  class="noc-pulse-beacon-dot"
-                  :class="diagnosticoResultado.status === 'optimo' ? 'bg-emerald-500' : (diagnosticoResultado.status === 'advertencia' ? 'bg-amber-500' : 'bg-rose-500')"
-                ></span>
-              </span>
-              <h4
-                class="text-xs font-bold uppercase tracking-wider"
-                :class="diagnosticoResultado.status === 'optimo' ? 'text-emerald-800 dark:text-emerald-300' : (diagnosticoResultado.status === 'advertencia' ? 'text-amber-800 dark:text-amber-300' : 'text-rose-800 dark:text-rose-300')"
+              <button
+                v-if="diagnosticoResultado"
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
+                title="Copiar resumen estructurado para WhatsApp o Ticket"
+                @click="copyDiagnosticoResumen"
               >
-                {{ diagnosticoResultado.titulo }}
-              </h4>
-              <span class="text-[10px] text-gray-500 dark:text-gray-400">· {{ diagnosticoResultado.timestamp }}</span>
-            </div>
-          </div>
-          <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">{{ diagnosticoResultado.resumen }}</p>
-
-          <!-- 4 KPIs del diagnóstico -->
-          <div class="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <!-- KPI 1: Ping / Latencia -->
-            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ping CPE</span>
-              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                <template v-if="diagnosticoResultado.ping">
-                  <span>{{ diagnosticoResultado.ping.avg_ms != null ? diagnosticoResultado.ping.avg_ms + ' ms' : (diagnosticoResultado.ping.alive ? 'Online' : 'Sin resp.') }}</span>
-                  <span
-                    class="inline-block h-1.5 w-1.5 rounded-full"
-                    :class="diagnosticoResultado.ping.loss_pct === 0 ? 'bg-emerald-500' : (diagnosticoResultado.ping.loss_pct < 50 ? 'bg-amber-500' : 'bg-rose-500')"
-                  ></span>
-                </template>
-                <template v-else>—</template>
-              </p>
-              <p v-if="diagnosticoResultado.ping" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                {{ diagnosticoResultado.ping.loss_pct }}% pérdida ({{ diagnosticoResultado.ping.received }}/{{ diagnosticoResultado.ping.sent }})
-              </p>
-            </div>
-
-            <!-- KPI 2: Sesión MikroTik -->
-            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Sesión PPPoE</span>
-              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                <template v-if="diagnosticoResultado.mikrotik">
-                  <span :class="diagnosticoResultado.mikrotik.online ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
-                    {{ diagnosticoResultado.mikrotik.online ? 'Activa' : 'Desconectada' }}
-                  </span>
-                </template>
-                <template v-else>—</template>
-              </p>
-              <p v-if="diagnosticoResultado.mikrotik?.uptime" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                Uptime: {{ diagnosticoResultado.mikrotik.uptime }}
-              </p>
-              <p v-else-if="diagnosticoResultado.mikrotik" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                {{ diagnosticoResultado.mikrotik.online ? 'Sin uptime' : 'No responde PPP' }}
-              </p>
-            </div>
-
-            <!-- KPI 3: Tráfico MikroTik -->
-            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tráfico Actual</span>
-              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100">
-                <template v-if="diagnosticoResultado.mikrotik?.download_humano || diagnosticoResultado.mikrotik?.upload_humano">
-                  <span class="text-blue-600 dark:text-blue-400">↓ {{ diagnosticoResultado.mikrotik.download_humano || '0' }}</span>
-                </template>
-                <template v-else>En espera</template>
-              </p>
-              <p v-if="diagnosticoResultado.mikrotik?.upload_humano" class="text-[10px] text-purple-600 dark:text-purple-400 truncate">
-                ↑ {{ diagnosticoResultado.mikrotik.upload_humano }}
-              </p>
-            </div>
-
-            <!-- KPI 4: Señal (Óptica / Antena) -->
-            <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ esFibra ? 'Potencia Óptica' : (esAntena ? 'Señal Antena' : 'Parámetro CPE') }}
-              </span>
-              <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100">
-                <template v-if="diagnosticoResultado.signal?.tipo === 'fibra' && diagnosticoResultado.signal.rx != null">
-                  <span :class="rxQuality(diagnosticoResultado.signal.rx).color">
-                    {{ diagnosticoResultado.signal.rx }} dBm
-                  </span>
-                </template>
-                <template v-else-if="diagnosticoResultado.signal?.tipo === 'antena' && diagnosticoResultado.signal.signal != null">
-                  <span class="text-sky-600 dark:text-sky-400">
-                    {{ diagnosticoResultado.signal.signal }} dBm
-                  </span>
-                </template>
-                <template v-else>—</template>
-              </p>
-              <p v-if="diagnosticoResultado.signal?.tipo === 'fibra' && diagnosticoResultado.signal.rx != null" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                {{ rxQuality(diagnosticoResultado.signal.rx).label }}
-              </p>
-              <p v-else-if="diagnosticoResultado.signal?.tipo === 'antena' && diagnosticoResultado.signal.ccq != null" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                CCQ {{ diagnosticoResultado.signal.ccq }}%
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="noc-tools-grid" :class="{ 'is-4': toolsCols >= 4 }">
-        <!-- Ping -->
-        <section class="noc-card noc-ping">
-          <div class="noc-card-head noc-ping-head">
-            <span class="noc-icon noc-icon--blue">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </span>
-            <div class="min-w-0 flex-1">
-              <h2 class="noc-card-title">Ping CPE</h2>
-              <p class="noc-card-sub">ICMP desde el servidor NOC</p>
-            </div>
-            <span
-              v-if="pingVista"
-              class="noc-ping-loss"
-              :class="pingVista.lossClass"
-            >{{ pingVista.loss }}% pérdida</span>
-          </div>
-          <div class="noc-card-body">
-            <div class="noc-ping-target">
-              <span class="noc-ping-ip">{{ servicio.ip || 'Sin IP asignada' }}</span>
+                <svg v-if="!copiedDiag" class="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                <svg v-else class="h-3.5 w-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                <span>{{ copiedDiag ? '¡Copiado!' : 'Copiar Resumen' }}</span>
+              </button>
               <button
                 type="button"
-                class="noc-ping-play"
-                title="Ejecutar ping"
-                aria-label="Ejecutar ping"
-                :aria-busy="loading.ping ? 'true' : 'false'"
-                :disabled="!canPing || loading.ping"
-                @click="onPing"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
+                :disabled="isDiagnosing || (!canPing && !canMac)"
+                @click="runAutoDiagnostico"
               >
-                <svg v-show="!loading.ping" class="noc-ping-play-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.866l11.196-6.86a1 1 0 0 0 0-1.732L9.5 4.274A1 1 0 0 0 8 5.14z"/></svg>
-                <svg v-show="loading.ping" class="noc-ping-play-icon animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                <svg v-if="!isDiagnosing" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 1 0 0118 0z"/></svg>
+                <svg v-else class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span>{{ isDiagnosing ? diagnosticoStep : (diagnosticoResultado ? 'Re-ejecutar Diagnóstico' : 'Ejecutar Diagnóstico') }}</span>
               </button>
             </div>
-            <div v-show="outPing" class="noc-ping-error" v-html="outPing"></div>
-            <template v-if="pingVista">
-              <div class="noc-ping-stats">
-                <div class="noc-ping-stat">
-                  <span class="noc-ping-k">Latencia</span>
-                  <span class="noc-ping-v" :class="pingVista.latenciaClass">{{ pingVista.latencia }}</span>
-                </div>
-                <div class="noc-ping-stat">
-                  <span class="noc-ping-k">Promedio</span>
-                  <span class="noc-ping-v">{{ pingVista.promedio }}</span>
-                </div>
-                <div class="noc-ping-stat">
-                  <span class="noc-ping-k">Jitter</span>
-                  <span class="noc-ping-v">{{ pingVista.jitter }}</span>
-                </div>
-              </div>
-              <div
-                v-if="pingVista.barras.length"
-                class="noc-ping-chart"
-                role="img"
-                :aria-label="'Latencia de ' + pingVista.barras.length + ' sondas'"
-              >
-                <span
-                  v-for="(bar, i) in pingVista.barras"
-                  :key="'ping-bar-' + i"
-                  class="noc-ping-bar"
-                  :class="{ 'is-lost': bar.lost }"
-                  :style="{ height: bar.h }"
-                  :title="bar.title"
-                ></span>
-              </div>
-              <div class="noc-ping-foot">
-                <span>Seq: {{ pingVista.seq }}</span>
-                <span>{{ pingVista.enviados }} enviados · {{ pingVista.recibidos }} recibidos</span>
-              </div>
-            </template>
           </div>
-        </section>
 
-        <!-- MAC -->
-        <section class="noc-card">
-          <div class="noc-card-head">
-            <span class="noc-icon noc-icon--indigo">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            </span>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <h2 class="noc-card-title">MAC Address</h2>
-                <button
-                  v-if="servicio.mac_address || mikrotikMac"
-                  type="button"
-                  class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                  title="Copiar dirección MAC"
-                  @click="copyText(mikrotikMac || servicio.mac_address, 'mac')"
+          <!-- Panel de resultado del diagnóstico -->
+          <div
+            v-if="diagnosticoResultado"
+            class="mt-3 rounded-lg border p-3"
+            :class="[
+              diagnosticoResultado.status === 'optimo'
+                ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/60 dark:bg-emerald-950/20'
+                : (diagnosticoResultado.status === 'advertencia'
+                  ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800/60 dark:bg-amber-950/20'
+                  : 'border-rose-200 bg-rose-50/50 dark:border-rose-800/60 dark:bg-rose-950/20')
+            ]"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="noc-pulse-beacon">
+                  <span
+                    class="noc-pulse-beacon-ping"
+                    :class="diagnosticoResultado.status === 'optimo' ? 'bg-emerald-400' : (diagnosticoResultado.status === 'advertencia' ? 'bg-amber-400' : 'bg-rose-400')"
+                  ></span>
+                  <span
+                    class="noc-pulse-beacon-dot"
+                    :class="diagnosticoResultado.status === 'optimo' ? 'bg-emerald-500' : (diagnosticoResultado.status === 'advertencia' ? 'bg-amber-500' : 'bg-rose-500')"
+                  ></span>
+                </span>
+                <h4
+                  class="text-xs font-bold uppercase tracking-wider"
+                  :class="diagnosticoResultado.status === 'optimo' ? 'text-emerald-800 dark:text-emerald-300' : (diagnosticoResultado.status === 'advertencia' ? 'text-amber-800 dark:text-amber-300' : 'text-rose-800 dark:text-rose-300')"
                 >
-                  <svg v-if="!copiedMac" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                  <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                  <span class="text-[11px]">{{ copiedMac ? '¡Copiado!' : 'Copiar' }}</span>
+                  {{ diagnosticoResultado.titulo }}
+                </h4>
+                <span class="text-[10px] text-gray-500 dark:text-gray-400">· {{ diagnosticoResultado.timestamp }}</span>
+              </div>
+            </div>
+            <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">{{ diagnosticoResultado.resumen }}</p>
+
+            <!-- 4 KPIs del diagnóstico -->
+            <div class="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <!-- KPI 1: Ping / Latencia -->
+              <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ping CPE</span>
+                <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                  <template v-if="diagnosticoResultado.ping">
+                    <span>{{ diagnosticoResultado.ping.avg_ms != null ? diagnosticoResultado.ping.avg_ms + ' ms' : (diagnosticoResultado.ping.alive ? 'Online' : 'Sin resp.') }}</span>
+                    <span
+                      class="inline-block h-1.5 w-1.5 rounded-full"
+                      :class="diagnosticoResultado.ping.loss_pct === 0 ? 'bg-emerald-500' : (diagnosticoResultado.ping.loss_pct < 50 ? 'bg-amber-500' : 'bg-rose-500')"
+                    ></span>
+                  </template>
+                  <template v-else>—</template>
+                </p>
+                <p v-if="diagnosticoResultado.ping" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                  {{ diagnosticoResultado.ping.loss_pct }}% pérdida ({{ diagnosticoResultado.ping.received }}/{{ diagnosticoResultado.ping.sent }})
+                </p>
+              </div>
+
+              <!-- KPI 2: Sesión MikroTik -->
+              <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Sesión PPPoE</span>
+                <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                  <template v-if="diagnosticoResultado.mikrotik">
+                    <span :class="diagnosticoResultado.mikrotik.online ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
+                      {{ diagnosticoResultado.mikrotik.online ? 'Activa' : 'Desconectada' }}
+                    </span>
+                  </template>
+                  <template v-else>—</template>
+                </p>
+                <p v-if="diagnosticoResultado.mikrotik?.uptime" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                  Uptime: {{ diagnosticoResultado.mikrotik.uptime }}
+                </p>
+                <p v-else-if="diagnosticoResultado.mikrotik" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                  {{ diagnosticoResultado.mikrotik.online ? 'Sin uptime' : 'No responde PPP' }}
+                </p>
+              </div>
+
+              <!-- KPI 3: Tráfico MikroTik -->
+              <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tráfico Actual</span>
+                <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100">
+                  <template v-if="diagnosticoResultado.mikrotik?.download_humano || diagnosticoResultado.mikrotik?.upload_humano">
+                    <span class="text-blue-600 dark:text-blue-400">↓ {{ diagnosticoResultado.mikrotik.download_humano || '0' }}</span>
+                  </template>
+                  <template v-else>En espera</template>
+                </p>
+                <p v-if="diagnosticoResultado.mikrotik?.upload_humano" class="text-[10px] text-purple-600 dark:text-purple-400 truncate">
+                  ↑ {{ diagnosticoResultado.mikrotik.upload_humano }}
+                </p>
+              </div>
+
+              <!-- KPI 4: Señal (Óptica / Antena) -->
+              <div class="rounded-md border border-white/60 bg-white/70 p-2 dark:border-gray-700/50 dark:bg-gray-800/60 shadow-2xs">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {{ esFibra ? 'Potencia Óptica' : (esAntena ? 'Señal Antena' : 'Parámetro CPE') }}
+                </span>
+                <p class="mt-0.5 text-xs font-bold text-gray-900 dark:text-gray-100">
+                  <template v-if="diagnosticoResultado.signal?.tipo === 'fibra' && diagnosticoResultado.signal.rx != null">
+                    <span :class="rxQuality(diagnosticoResultado.signal.rx).color">
+                      {{ diagnosticoResultado.signal.rx }} dBm
+                    </span>
+                  </template>
+                  <template v-else-if="diagnosticoResultado.signal?.tipo === 'antena' && diagnosticoResultado.signal.signal != null">
+                    <span class="text-sky-600 dark:text-sky-400">
+                      {{ diagnosticoResultado.signal.signal }} dBm
+                    </span>
+                  </template>
+                  <template v-else>—</template>
+                </p>
+                <p v-if="diagnosticoResultado.signal?.tipo === 'fibra' && diagnosticoResultado.signal.rx != null" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                  {{ rxQuality(diagnosticoResultado.signal.rx).label }}
+                </p>
+                <p v-else-if="diagnosticoResultado.signal?.tipo === 'antena' && diagnosticoResultado.signal.ccq != null" class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                  CCQ {{ diagnosticoResultado.signal.ccq }}%
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="noc-tools-grid" :class="{ 'is-4': toolsCols >= 4 }">
+          <!-- Ping -->
+          <section class="noc-card noc-ping">
+            <div class="noc-card-head noc-ping-head">
+              <span class="noc-icon noc-icon--blue">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <h2 class="noc-card-title">Ping CPE</h2>
+                <p class="noc-card-sub">ICMP desde el servidor NOC</p>
+              </div>
+              <span
+                v-if="pingVista"
+                class="noc-ping-loss"
+                :class="pingVista.lossClass"
+              >{{ pingVista.loss }}% pérdida</span>
+            </div>
+            <div class="noc-card-body">
+              <div class="noc-ping-target">
+                <span class="noc-ping-ip">{{ servicio.ip || 'Sin IP asignada' }}</span>
+                <button
+                  type="button"
+                  class="noc-ping-play"
+                  title="Ejecutar ping"
+                  aria-label="Ejecutar ping"
+                  :aria-busy="loading.ping ? 'true' : 'false'"
+                  :disabled="!canPing || loading.ping"
+                  @click="onPing"
+                >
+                  <svg v-show="!loading.ping" class="noc-ping-play-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.866l11.196-6.86a1 1 0 0 0 0-1.732L9.5 4.274A1 1 0 0 0 8 5.14z"/></svg>
+                  <svg v-show="loading.ping" class="noc-ping-play-icon animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                 </button>
               </div>
-              <p class="noc-card-sub">Consulta MikroTik RouterOS</p>
+              <div v-show="outPing" class="noc-ping-error" v-html="outPing"></div>
+              <template v-if="pingVista">
+                <div class="noc-ping-stats">
+                  <div class="noc-ping-stat">
+                    <span class="noc-ping-k">Latencia</span>
+                    <span class="noc-ping-v" :class="pingVista.latenciaClass">{{ pingVista.latencia }}</span>
+                  </div>
+                  <div class="noc-ping-stat">
+                    <span class="noc-ping-k">Promedio</span>
+                    <span class="noc-ping-v">{{ pingVista.promedio }}</span>
+                  </div>
+                  <div class="noc-ping-stat">
+                    <span class="noc-ping-k">Jitter</span>
+                    <span class="noc-ping-v">{{ pingVista.jitter }}</span>
+                  </div>
+                </div>
+                <div
+                  v-if="pingVista.barras.length"
+                  class="noc-ping-chart"
+                  role="img"
+                  :aria-label="'Latencia de ' + pingVista.barras.length + ' sondas'"
+                >
+                  <span
+                    v-for="(bar, i) in pingVista.barras"
+                    :key="'ping-bar-' + i"
+                    class="noc-ping-bar"
+                    :class="{ 'is-lost': bar.lost }"
+                    :style="{ height: bar.h }"
+                    :title="bar.title"
+                  ></span>
+                </div>
+                <div class="noc-ping-foot">
+                  <span>Seq: {{ pingVista.seq }}</span>
+                  <span>{{ pingVista.enviados }} enviados · {{ pingVista.recibidos }} recibidos</span>
+                </div>
+              </template>
             </div>
-          </div>
-          <div class="noc-card-body space-y-3">
-            <p class="text-xs text-gray-500 dark:text-gray-400">PPP activo · ARP · DHCP lease</p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--primary"
-                title="Consultar MAC"
-                aria-label="Consultar MAC"
-                :disabled="!canMac || loading.mac"
-                @click="onMac"
-              >
-                <svg v-show="!loading.mac" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                <svg v-show="loading.mac" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--ghost"
-                title="Ver tráfico de sesión"
-                aria-label="Ver tráfico de sesión"
-                :disabled="!canMac || loading.trafico"
-                @click="onTrafico"
-              >
-                <svg v-show="!loading.trafico" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                <svg v-show="loading.trafico" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-            </div>
-            <div v-show="outMac" class="text-sm" v-html="outMac"></div>
-            <div v-show="outTrafico" class="text-sm" v-html="outTrafico"></div>
-          </div>
-        </section>
+          </section>
 
-        <!-- ONU Signal (solo GPON / fibra) -->
-        <section v-if="esFibra" class="noc-card">
+          <!-- MAC -->
+          <section class="noc-card">
+            <div class="noc-card-head">
+              <span class="noc-icon noc-icon--indigo">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <h2 class="noc-card-title">MAC Address</h2>
+                  <button
+                    v-if="servicio.mac_address || mikrotikMac"
+                    type="button"
+                    class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    title="Copiar dirección MAC"
+                    @click="copyText(mikrotikMac || servicio.mac_address, 'mac')"
+                  >
+                    <svg v-if="!copiedMac" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-[11px]">{{ copiedMac ? '¡Copiado!' : 'Copiar' }}</span>
+                  </button>
+                </div>
+                <p class="noc-card-sub">Consulta MikroTik RouterOS</p>
+              </div>
+            </div>
+            <div class="noc-card-body space-y-3">
+              <p class="text-xs text-gray-500 dark:text-gray-400">PPP activo · ARP · DHCP lease</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--primary"
+                  title="Consultar MAC"
+                  aria-label="Consultar MAC"
+                  :disabled="!canMac || loading.mac"
+                  @click="onMac"
+                >
+                  <svg v-show="!loading.mac" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                  <svg v-show="loading.mac" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--ghost"
+                  title="Ver tráfico de sesión"
+                  aria-label="Ver tráfico de sesión"
+                  :disabled="!canMac || loading.trafico"
+                  @click="onTrafico"
+                >
+                  <svg v-show="!loading.trafico" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                  <svg v-show="loading.trafico" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+              </div>
+              <div v-show="outMac" class="text-sm" v-html="outMac"></div>
+              <div v-show="outTrafico" class="text-sm" v-html="outTrafico"></div>
+            </div>
+          </section>
+
+          <!-- ONU Signal (solo GPON / fibra) -->
+          <section v-if="esFibra" class="noc-card">
+            <div class="noc-card-head">
+              <span class="noc-icon noc-icon--amber">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="noc-card-title">ONU Signal</h2>
+                  <span v-if="ultimaOptica" class="noc-live-badge">REGISTRO</span>
+                </div>
+                <p class="noc-card-sub">Señal óptica OLT GPON</p>
+              </div>
+            </div>
+            <div class="noc-card-body space-y-3">
+              <template v-if="ultimaOptica">
+                <div class="grid grid-cols-2 gap-3">
+                  <div v-if="ultimaOptica.tx_power_dbm != null">
+                    <p class="noc-metric-label">TX Power</p>
+                    <p class="noc-metric noc-metric--blue">{{ ultimaOptica.tx_power_dbm }} <span class="text-sm font-normal">dBm</span></p>
+                  </div>
+                  <div v-if="ultimaOptica.rx_power_dbm != null">
+                    <div class="flex items-center justify-between">
+                      <p class="noc-metric-label">RX Power</p>
+                      <span class="text-[10px] font-semibold" :class="rxQuality(ultimaOptica.rx_power_dbm).color">
+                        {{ rxQuality(ultimaOptica.rx_power_dbm).label }}
+                      </span>
+                    </div>
+                    <p :class="Number(ultimaOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber'">
+                      {{ ultimaOptica.rx_power_dbm }} <span class="text-sm font-normal">dBm</span>
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Optical Gauge Bar -->
+                <div v-if="ultimaOptica.rx_power_dbm != null" class="optical-gauge-container">
+                  <div class="optical-gauge-track">
+                    <div
+                      class="optical-gauge-needle"
+                      :style="{ left: rxGaugePercent(ultimaOptica.rx_power_dbm) + '%' }"
+                      :title="'Potencia RX: ' + ultimaOptica.rx_power_dbm + ' dBm'"
+                    ></div>
+                  </div>
+                  <div class="optical-gauge-labels">
+                    <span>-30 dBm (Crítico)</span>
+                    <span>-25 dBm</span>
+                    <span>-20 dBm (Óptimo)</span>
+                    <span>-10 dBm</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div v-if="ultimaOptica.pon_port != null && ultimaOptica.onu_index != null">
+                    PON <span class="font-mono text-gray-700 dark:text-gray-200">{{ ultimaOptica.pon_port }}:{{ ultimaOptica.onu_index }}</span>
+                  </div>
+                  <div v-if="ultimaOptica.onu_estado">
+                    Estado <span class="text-gray-700 dark:text-gray-200">{{ ultimaOptica.onu_estado }}</span>
+                  </div>
+                </div>
+                <p class="text-[10px] text-gray-400">Última lectura · {{ ultimaOptica.ocurrio_at }}</p>
+              </template>
+              <p v-else class="text-xs text-gray-500 dark:text-gray-400">Sin registro de señal óptica. Consultá la ONU para guardar RX/TX.</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--primary"
+                  title="Consultar señal ONU"
+                  aria-label="Consultar señal ONU"
+                  :disabled="!canOlt || loading.olt"
+                  @click="onOlt"
+                >
+                  <svg v-show="!loading.olt" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                  <svg v-show="loading.olt" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--ghost"
+                  title="Aplicar descripción ONU"
+                  aria-label="Aplicar descripción ONU"
+                  :disabled="!canOltDesc || loading.oltDesc"
+                  @click="onOltDesc"
+                >
+                  <svg v-show="!loading.oltDesc" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  <svg v-show="loading.oltDesc" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+              </div>
+              <div v-show="outOlt" class="text-sm" v-html="outOlt"></div>
+            </div>
+          </section>
+
+          <!-- CPE / Antena (solo wireless) -->
+          <section v-if="esAntena" class="noc-card">
+            <div class="noc-card-head">
+              <span class="noc-icon noc-icon--sky">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="noc-card-title">CPE / Antena</h2>
+                  <span v-if="ultimaAntena" class="noc-live-badge">REGISTRO</span>
+                </div>
+                <p class="noc-card-sub">Wireless Ubiquiti</p>
+              </div>
+            </div>
+            <div class="noc-card-body space-y-3">
+              <template v-if="ultimaAntena">
+                <div v-if="ultimaAntena.antena_signal_dbm != null">
+                  <div class="mb-1 flex items-center justify-between text-xs">
+                    <span class="noc-metric-label mb-0">Signal Strength</span>
+                    <span class="font-mono font-semibold text-blue-500">{{ ultimaAntena.antena_signal_dbm }} dBm</span>
+                  </div>
+                  <div class="noc-bar-track">
+                    <div class="noc-bar-fill noc-bar-fill--signal" :style="{ width: barPct(ultimaAntena.antena_signal_dbm) + '%' }"></div>
+                  </div>
+                </div>
+                <div v-if="ultimaAntena.noise_floor_dbm">
+                  <div class="mb-1 flex items-center justify-between text-xs">
+                    <span class="noc-metric-label mb-0">Noise Floor</span>
+                    <span class="font-mono font-semibold text-orange-500">{{ ultimaAntena.noise_floor_dbm }} dBm</span>
+                  </div>
+                  <div class="noc-bar-track">
+                    <div class="noc-bar-fill noc-bar-fill--noise" :style="{ width: barPct(ultimaAntena.noise_floor_dbm) + '%' }"></div>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span v-if="ultimaAntena.antena_snr_db != null">
+                    SNR <strong class="text-gray-700 dark:text-gray-200">{{ ultimaAntena.antena_snr_db }} dB</strong>
+                  </span>
+                  <span v-if="ultimaAntena.ccq">
+                    CCQ <strong class="text-gray-700 dark:text-gray-200">{{ ultimaAntena.ccq }}%</strong>
+                  </span>
+                </div>
+                <p class="text-[10px] text-gray-400">Última lectura · {{ ultimaAntena.ocurrio_at }}</p>
+              </template>
+              <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+                Sin registro de señal antena. Consultá vía SSH <span class="font-mono">wstalist</span>.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--primary"
+                  title="Consultar señal antena"
+                  aria-label="Consultar señal antena"
+                  :disabled="!canAntena || loading.antena"
+                  @click="onAntena"
+                >
+                  <svg v-show="!loading.antena" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                  <svg v-show="loading.antena" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--ghost"
+                  title="Consultar DHCP leases"
+                  aria-label="Consultar DHCP leases"
+                  :disabled="!canAntena || loading.antenaDhcp"
+                  @click="onAntenaDhcp"
+                >
+                  <svg v-show="!loading.antenaDhcp" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                  <svg v-show="loading.antenaDhcp" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+              </div>
+              <div v-show="outAntena" class="text-sm" v-html="outAntena"></div>
+              <div v-show="outAntenaDhcp" class="text-sm" v-html="outAntenaDhcp"></div>
+            </div>
+          </section>
+
+          <section v-if="tr069Enabled" class="noc-card">
+            <div class="noc-card-head">
+              <span class="noc-icon noc-icon--violet">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="noc-card-title">TR-069</h2>
+                  <span v-if="tr069Resumen?.online" class="noc-live-badge">INFORM</span>
+                </div>
+                <p class="noc-card-sub">GenieACS · clave y reboot por ACS</p>
+              </div>
+            </div>
+            <div class="noc-card-body space-y-3">
+              <p class="text-xs text-gray-500 dark:text-gray-400">
+                Serial
+                <span class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.tr069_serial || '—' }}</span>
+                <template v-if="servicio.mac_address">
+                  · MAC <span class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.mac_address }}</span>
+                </template>
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--primary"
+                  title="Consultar CPE en el ACS"
+                  aria-label="Consultar CPE en el ACS"
+                  :disabled="loading.tr069"
+                  @click="onTr069Resumen"
+                >
+                  <svg v-show="!loading.tr069" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                  <svg v-show="loading.tr069" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--ghost"
+                  title="Hosts LAN"
+                  aria-label="Hosts LAN"
+                  :disabled="loading.tr069Hosts"
+                  @click="onTr069Hosts"
+                >
+                  <svg v-show="!loading.tr069Hosts" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                  <svg v-show="loading.tr069Hosts" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--ghost"
+                  title="Refresh parámetros"
+                  aria-label="Refresh parámetros"
+                  :disabled="loading.tr069Refresh"
+                  @click="onTr069Refresh"
+                >
+                  <svg v-show="!loading.tr069Refresh" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  <svg v-show="loading.tr069Refresh" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+                <button
+                  type="button"
+                  class="noc-btn-icon noc-btn-icon--ghost"
+                  title="Reiniciar CPE"
+                  aria-label="Reiniciar CPE"
+                  :disabled="loading.tr069Reboot"
+                  @click="onTr069Reboot"
+                >
+                  <svg v-show="!loading.tr069Reboot" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.636 5.636a9 9 0 1012.728 0M12 3v9"/></svg>
+                  <svg v-show="loading.tr069Reboot" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+              </div>
+              <p v-if="outTr069" class="text-sm" v-html="outTr069"></p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 2. Equipo del cliente -->
+      <div v-if="wifiBackup || huaweiOnu || (cpeSsh && esFibra) || (tr069Enabled && tr069TieneDetalle)" class="noc-group space-y-4">
+        <h2 class="noc-section-title">Equipo del cliente</h2>
+        <div
+          v-if="wifiBackup"
+          class="rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3"
+        >
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Backup Wi‑Fi (app)</p>
+            <button
+              v-if="wifiBackup.password"
+              type="button"
+              class="noc-copy-pill text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              title="Copiar contraseña WiFi"
+              @click="copyText(wifiBackup.password, 'wifi')"
+            >
+              <svg v-if="!copiedWifi" class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <svg v-else class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-[11px]">{{ copiedWifi ? '¡Copiado!' : 'Copiar Clave' }}</span>
+            </button>
+          </div>
+          <p class="mt-1 text-sm text-gray-800 dark:text-gray-100">
+            <span v-if="wifiBackup.ssid" class="font-medium">{{ wifiBackup.ssid }}</span>
+            <span v-else>Clave guardada</span>
+            <span v-if="wifiBackup.changed_at" class="text-xs text-gray-500 dark:text-gray-400"> · {{ wifiBackup.changed_at }}</span>
+          </p>
+          <div class="mt-2 flex items-center gap-2">
+            <code class="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">{{ wifiBackupVisible ? wifiBackup.password : '••••••••' }}</code>
+            <button
+              type="button"
+              class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              @click="wifiBackupVisible = !wifiBackupVisible"
+            >{{ wifiBackupVisible ? 'Ocultar' : 'Mostrar' }}</button>
+          </div>
+        </div>
+
+        <section v-if="huaweiOnu" class="noc-card noc-card--float">
           <div class="noc-card-head">
-            <span class="noc-icon noc-icon--amber">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <span class="noc-icon noc-icon--blue">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
             </span>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <h2 class="noc-card-title">ONU Signal</h2>
-                <span v-if="ultimaOptica" class="noc-live-badge">REGISTRO</span>
+                <h2 class="noc-card-title">ONU Huawei</h2>
+                <span v-if="servicio.ipv6_configurado" class="noc-live-badge">IPv6</span>
               </div>
-              <p class="noc-card-sub">Señal óptica OLT GPON</p>
+              <p class="noc-card-sub">IPv6 por web (DHCPv6-PD) · SSH/Telnet/web · sin TR-069</p>
             </div>
           </div>
-          <div class="noc-card-body space-y-3">
-            <template v-if="ultimaOptica">
-              <div class="grid grid-cols-2 gap-3">
-                <div v-if="ultimaOptica.tx_power_dbm != null">
-                  <p class="noc-metric-label">TX Power</p>
-                  <p class="noc-metric noc-metric--blue">{{ ultimaOptica.tx_power_dbm }} <span class="text-sm font-normal">dBm</span></p>
-                </div>
-                <div v-if="ultimaOptica.rx_power_dbm != null">
-                  <div class="flex items-center justify-between">
-                    <p class="noc-metric-label">RX Power</p>
-                    <span class="text-[10px] font-semibold" :class="rxQuality(ultimaOptica.rx_power_dbm).color">
-                      {{ rxQuality(ultimaOptica.rx_power_dbm).label }}
-                    </span>
-                  </div>
-                  <p :class="Number(ultimaOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber'">
-                    {{ ultimaOptica.rx_power_dbm }} <span class="text-sm font-normal">dBm</span>
+          <div class="noc-card-body space-y-4">
+            <div class="space-y-2">
+              <p class="text-xs text-gray-500 dark:text-gray-400">
+                SSH, Telnet o web en la ONU
+                <span v-if="servicio.ip" class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.ip }}</span>
+                <span v-else class="text-amber-600 dark:text-amber-400">· el servicio no tiene IP</span>
+                <template v-if="servicio.equipo_resumen"> · {{ servicio.equipo_resumen }}</template>
+              </p>
+              <div v-if="huaweiOptica" class="grid grid-cols-3 gap-3">
+                <div v-if="huaweiOptica.rx_power_dbm != null">
+                  <p class="noc-metric-label">RX Power</p>
+                  <p :class="Number(huaweiOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber'">
+                    {{ huaweiOptica.rx_power_dbm }} <span class="text-sm font-normal">dBm</span>
                   </p>
                 </div>
-              </div>
-
-              <!-- Optical Gauge Bar -->
-              <div v-if="ultimaOptica.rx_power_dbm != null" class="optical-gauge-container">
-                <div class="optical-gauge-track">
-                  <div
-                    class="optical-gauge-needle"
-                    :style="{ left: rxGaugePercent(ultimaOptica.rx_power_dbm) + '%' }"
-                    :title="'Potencia RX: ' + ultimaOptica.rx_power_dbm + ' dBm'"
-                  ></div>
+                <div v-if="huaweiOptica.tx_power_dbm != null">
+                  <p class="noc-metric-label">TX Power</p>
+                  <p class="noc-metric noc-metric--blue">{{ huaweiOptica.tx_power_dbm }} <span class="text-sm font-normal">dBm</span></p>
                 </div>
-                <div class="optical-gauge-labels">
-                  <span>-30 dBm (Crítico)</span>
-                  <span>-25 dBm</span>
-                  <span>-20 dBm (Óptimo)</span>
-                  <span>-10 dBm</span>
+                <div v-if="huaweiOptica.temperatura_c != null">
+                  <p class="noc-metric-label">Temp</p>
+                  <p class="noc-metric">{{ huaweiOptica.temperatura_c }} <span class="text-sm font-normal">°C</span></p>
                 </div>
               </div>
-
-              <div class="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <div v-if="ultimaOptica.pon_port != null && ultimaOptica.onu_index != null">
-                  PON <span class="font-mono text-gray-700 dark:text-gray-200">{{ ultimaOptica.pon_port }}:{{ ultimaOptica.onu_index }}</span>
-                </div>
-                <div v-if="ultimaOptica.onu_estado">
-                  Estado <span class="text-gray-700 dark:text-gray-200">{{ ultimaOptica.onu_estado }}</span>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="!canHuawei || huaweiBusy"
+                  @click="onHuaweiIpv6"
+                >{{ loading.huaweiIpv6 ? 'Configurando IPv6…' : 'Configurar IPv6' }}</button>
+                <button
+                  type="button"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="!canHuawei || huaweiBusy"
+                  @click="onHuaweiConectados"
+                >{{ loading.huaweiConectados ? 'Listando…' : 'Listar conectados' }}</button>
+                <button
+                  type="button"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="!canHuawei || huaweiBusy"
+                  @click="onHuaweiOptica"
+                >{{ loading.huaweiOptica ? 'Leyendo óptica…' : 'Señal óptica' }}</button>
+                <button
+                  type="button"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="!canHuawei || huaweiBusy"
+                  @click="onHuaweiReboot"
+                >{{ loading.huaweiReboot ? 'Reiniciando…' : 'Reiniciar ONU' }}</button>
+                <button
+                  type="button"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="!canHuawei || huaweiBusy"
+                  title="Red 2.4 abierta InterPlus Wi-Fi Zone y WAN bridge VLAN 198"
+                  @click="onHuaweiHotspot"
+                >{{ loading.huaweiHotspot ? 'Configurando hotspot…' : 'Configurar hotspot' }}</button>
+                <div ref="huaweiWifiPanel" class="relative ml-auto flex items-center gap-2">
+                  <span
+                    class="inline-flex items-center gap-1.5 min-w-0 text-sm text-gray-800 dark:text-gray-100"
+                    :title="huaweiSsidsActuales.length ? huaweiSsidsActuales.join(' · ') : ''"
+                  >
+                    <svg class="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                    </svg>
+                    <span class="truncate font-medium">{{ huaweiSsidVista }}</span>
+                  </span>
+                  <button
+                    type="button"
+                    class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                    :disabled="!canHuawei || (huaweiBusy && !huaweiWifiOpen)"
+                    :aria-expanded="huaweiWifiOpen"
+                    aria-controls="huawei-wifi-float"
+                    @click="toggleHuaweiWifi"
+                  >{{ huaweiWifiOpen ? 'Cerrar' : 'Editar SSID' }}</button>
+                  <form
+                    v-show="huaweiWifiOpen"
+                    id="huawei-wifi-float"
+                    class="absolute right-0 top-full mt-2 z-30 w-[20rem] rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-3"
+                    @submit.prevent="onHuaweiWifi"
+                  >
+                    <div>
+                      <label for="huawei-ssid" class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">SSID</label>
+                      <input
+                        id="huawei-ssid"
+                        v-model="huaweiSsid"
+                        type="text"
+                        maxlength="32"
+                        autocomplete="off"
+                        :placeholder="loading.huaweiSsid ? 'Leyendo…' : 'SSID'"
+                        :disabled="loading.huaweiSsid"
+                        class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm disabled:opacity-60"
+                        required
+                      >
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <label for="huawei-pass" class="text-xs font-medium text-gray-600 dark:text-gray-300">Nueva clave</label>
+                        <span class="text-xs tabular-nums" :class="huaweiPassword.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'">{{ huaweiPassword.length }}/63</span>
+                      </div>
+                      <div class="relative">
+                        <input
+                          id="huawei-pass"
+                          v-model="huaweiPassword"
+                          :type="huaweiPassVisible ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          minlength="8"
+                          maxlength="63"
+                          class="w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                          required
+                        >
+                        <button
+                          type="button"
+                          class="absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
+                          :aria-label="huaweiPassVisible ? 'Ocultar clave' : 'Mostrar clave'"
+                          :aria-pressed="huaweiPassVisible"
+                          @click="huaweiPassVisible = !huaweiPassVisible"
+                        >
+                          <svg v-if="!huaweiPassVisible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                          </svg>
+                          <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <label for="huawei-pass2" class="text-xs font-medium text-gray-600 dark:text-gray-300">Repetir clave</label>
+                        <span class="text-xs tabular-nums" :class="huaweiPassword2.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'">{{ huaweiPassword2.length }}/63</span>
+                      </div>
+                      <div class="relative">
+                        <input
+                          id="huawei-pass2"
+                          v-model="huaweiPassword2"
+                          :type="huaweiPass2Visible ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          minlength="8"
+                          maxlength="63"
+                          class="w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                          required
+                        >
+                        <button
+                          type="button"
+                          class="absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
+                          :aria-label="huaweiPass2Visible ? 'Ocultar clave' : 'Mostrar clave'"
+                          :aria-pressed="huaweiPass2Visible"
+                          @click="huaweiPass2Visible = !huaweiPass2Visible"
+                        >
+                          <svg v-if="!huaweiPass2Visible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                          </svg>
+                          <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <p v-if="huaweiWifiFormError" class="text-xs text-red-600 dark:text-red-400">{{ huaweiWifiFormError }}</p>
+                    <div class="flex gap-2">
+                      <button
+                        type="submit"
+                        class="noc-btn-ghost inline-flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium"
+                        :disabled="!canHuawei || huaweiBusy"
+                      >
+                        {{ loading.huaweiWifi ? 'Aplicando…' : 'Aplicar WiFi' }}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
-              <p class="text-[10px] text-gray-400">Última lectura · {{ ultimaOptica.ocurrio_at }}</p>
-            </template>
-            <p v-else class="text-xs text-gray-500 dark:text-gray-400">Sin registro de señal óptica. Consultá la ONU para guardar RX/TX.</p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--primary"
-                title="Consultar señal ONU"
-                aria-label="Consultar señal ONU"
-                :disabled="!canOlt || loading.olt"
-                @click="onOlt"
-              >
-                <svg v-show="!loading.olt" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                <svg v-show="loading.olt" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--ghost"
-                title="Aplicar descripción ONU"
-                aria-label="Aplicar descripción ONU"
-                :disabled="!canOltDesc || loading.oltDesc"
-                @click="onOltDesc"
-              >
-                <svg v-show="!loading.oltDesc" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                <svg v-show="loading.oltDesc" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
             </div>
-            <div v-show="outOlt" class="text-sm" v-html="outOlt"></div>
+            <p v-if="huaweiSsidError" class="text-xs text-red-600 dark:text-red-400">
+              {{ huaweiSsidError }}
+              <button type="button" class="underline underline-offset-2 ml-1" @click="cargarHuaweiSsid">Reintentar</button>
+            </p>
+            <div v-if="outHuawei" class="text-sm" v-html="outHuawei"></div>
+            <div v-if="huaweiDispositivos.length" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-900/40">
+                  <tr>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Host</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">IP</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">MAC</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">SSID</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Tiempo</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                  <tr v-for="(dev, idx) in huaweiDispositivos" :key="'hw-dev-' + idx" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                    <td class="px-2 py-2 text-gray-900 dark:text-gray-100 break-all">{{ dev.host || '—' }}</td>
+                    <td class="px-2 py-2 font-mono text-gray-900 dark:text-gray-100">{{ dev.ip || '—' }}</td>
+                    <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ dev.mac }}</td>
+                    <td class="px-2 py-2 text-gray-700 dark:text-gray-300">{{ dev.ssid || '—' }}</td>
+                    <td class="px-2 py-2 text-xs text-gray-500 whitespace-nowrap" :title="dev.tiempo ? dev.tiempo + ' s' : ''">{{ formatAsociadoTiempo(dev.tiempo) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
-        <!-- CPE / Antena (solo wireless) -->
-        <section v-if="esAntena" class="noc-card">
+        <section v-else-if="cpeSsh && esFibra" class="noc-card">
           <div class="noc-card-head">
-            <span class="noc-icon noc-icon--sky">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-2.912a10 10 0 0114.16 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+            <span class="noc-icon noc-icon--blue">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
             </span>
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <h2 class="noc-card-title">CPE / Antena</h2>
-                <span v-if="ultimaAntena" class="noc-live-badge">REGISTRO</span>
-              </div>
-              <p class="noc-card-sub">Wireless Ubiquiti</p>
+              <h2 class="noc-card-title">CPE por SSH</h2>
+              <p class="noc-card-sub">ONU con acceso SSH (no Huawei)</p>
             </div>
           </div>
-          <div class="noc-card-body space-y-3">
-            <template v-if="ultimaAntena">
-              <div v-if="ultimaAntena.antena_signal_dbm != null">
-                <div class="mb-1 flex items-center justify-between text-xs">
-                  <span class="noc-metric-label mb-0">Signal Strength</span>
-                  <span class="font-mono font-semibold text-blue-500">{{ ultimaAntena.antena_signal_dbm }} dBm</span>
-                </div>
-                <div class="noc-bar-track">
-                  <div class="noc-bar-fill noc-bar-fill--signal" :style="{ width: barPct(ultimaAntena.antena_signal_dbm) + '%' }"></div>
-                </div>
-              </div>
-              <div v-if="ultimaAntena.noise_floor_dbm">
-                <div class="mb-1 flex items-center justify-between text-xs">
-                  <span class="noc-metric-label mb-0">Noise Floor</span>
-                  <span class="font-mono font-semibold text-orange-500">{{ ultimaAntena.noise_floor_dbm }} dBm</span>
-                </div>
-                <div class="noc-bar-track">
-                  <div class="noc-bar-fill noc-bar-fill--noise" :style="{ width: barPct(ultimaAntena.noise_floor_dbm) + '%' }"></div>
-                </div>
-              </div>
-              <div class="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span v-if="ultimaAntena.antena_snr_db != null">
-                  SNR <strong class="text-gray-700 dark:text-gray-200">{{ ultimaAntena.antena_snr_db }} dB</strong>
-                </span>
-                <span v-if="ultimaAntena.ccq">
-                  CCQ <strong class="text-gray-700 dark:text-gray-200">{{ ultimaAntena.ccq }}%</strong>
-                </span>
-              </div>
-              <p class="text-[10px] text-gray-400">Última lectura · {{ ultimaAntena.ocurrio_at }}</p>
-            </template>
-            <p v-else class="text-xs text-gray-500 dark:text-gray-400">
-              Sin registro de señal antena. Consultá vía SSH <span class="font-mono">wstalist</span>.
+          <div class="noc-card-body space-y-2">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Este servicio está marcado para comandos por <strong>SSH</strong>, no por ACS.
+              <template v-if="servicio.equipo_resumen"> {{ servicio.equipo_resumen }}.</template>
             </p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--primary"
-                title="Consultar señal antena"
-                aria-label="Consultar señal antena"
-                :disabled="!canAntena || loading.antena"
-                @click="onAntena"
-              >
-                <svg v-show="!loading.antena" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                <svg v-show="loading.antena" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--ghost"
-                title="Consultar DHCP leases"
-                aria-label="Consultar DHCP leases"
-                :disabled="!canAntena || loading.antenaDhcp"
-                @click="onAntenaDhcp"
-              >
-                <svg v-show="!loading.antenaDhcp" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                <svg v-show="loading.antenaDhcp" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-            </div>
-            <div v-show="outAntena" class="text-sm" v-html="outAntena"></div>
-            <div v-show="outAntenaDhcp" class="text-sm" v-html="outAntenaDhcp"></div>
           </div>
         </section>
 
-        <section v-if="tr069Enabled" class="noc-card">
+        <section v-if="tr069Enabled && tr069TieneDetalle" class="noc-card">
           <div class="noc-card-head">
             <span class="noc-icon noc-icon--violet">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </span>
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <h2 class="noc-card-title">TR-069</h2>
-                <span v-if="tr069Resumen?.online" class="noc-live-badge">INFORM</span>
-              </div>
-              <p class="noc-card-sub">GenieACS · clave y reboot por ACS</p>
+              <h2 class="noc-card-title">Detalle TR-069</h2>
+              <p class="noc-card-sub">Estado ACS, hosts LAN y cambio de clave</p>
             </div>
           </div>
           <div class="noc-card-body space-y-3">
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              Serial
-              <span class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.tr069_serial || '—' }}</span>
-              <template v-if="servicio.mac_address">
-                · MAC <span class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.mac_address }}</span>
-              </template>
-            </p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--primary"
-                title="Consultar CPE en el ACS"
-                aria-label="Consultar CPE en el ACS"
-                :disabled="loading.tr069"
-                @click="onTr069Resumen"
-              >
-                <svg v-show="!loading.tr069" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                <svg v-show="loading.tr069" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--ghost"
-                title="Hosts LAN"
-                aria-label="Hosts LAN"
-                :disabled="loading.tr069Hosts"
-                @click="onTr069Hosts"
-              >
-                <svg v-show="!loading.tr069Hosts" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                <svg v-show="loading.tr069Hosts" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--ghost"
-                title="Refresh parámetros"
-                aria-label="Refresh parámetros"
-                :disabled="loading.tr069Refresh"
-                @click="onTr069Refresh"
-              >
-                <svg v-show="!loading.tr069Refresh" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                <svg v-show="loading.tr069Refresh" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
-              <button
-                type="button"
-                class="noc-btn-icon noc-btn-icon--ghost"
-                title="Reiniciar CPE"
-                aria-label="Reiniciar CPE"
-                :disabled="loading.tr069Reboot"
-                @click="onTr069Reboot"
-              >
-                <svg v-show="!loading.tr069Reboot" class="noc-btn-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.636 5.636a9 9 0 1012.728 0M12 3v9"/></svg>
-                <svg v-show="loading.tr069Reboot" class="noc-btn-spinner animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </button>
+            <template v-if="tr069Resumen && tr069Resumen.success">
+              <p v-if="tr069Resumen.aviso" class="text-sm text-amber-700 dark:text-amber-300">{{ tr069Resumen.aviso }}</p>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <p class="noc-metric-label">Estado</p>
+                  <p class="font-semibold" :class="tr069Resumen.online ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'">
+                    {{ tr069Resumen.online ? 'Online' : 'Sin Inform reciente' }}
+                  </p>
+                </div>
+                <div>
+                  <p class="noc-metric-label">Modelo</p>
+                  <p class="font-medium text-gray-900 dark:text-gray-100">{{ tr069Resumen.model || tr069Resumen.product_class || '—' }}</p>
+                  <p v-if="tr069Resumen.manufacturer" class="text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.manufacturer }}</p>
+                </div>
+                <div>
+                  <p class="noc-metric-label">Firmware</p>
+                  <p class="font-mono text-xs text-gray-800 dark:text-gray-200">{{ tr069Resumen.software_version || '—' }}</p>
+                </div>
+                <div>
+                  <p class="noc-metric-label">WAN IP</p>
+                  <p class="font-mono text-gray-900 dark:text-gray-100">{{ tr069Resumen.wan_ip || '—' }}</p>
+                  <p v-if="tr069Resumen.wan_mac" class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.wan_mac }}</p>
+                </div>
+                <div>
+                  <p class="noc-metric-label">LAN CPE</p>
+                  <p class="font-mono text-gray-900 dark:text-gray-100">{{ tr069Resumen.lan_ip || '—' }}</p>
+                </div>
+                <div class="col-span-1 md:col-span-3">
+                  <p class="noc-metric-label">SSID</p>
+                  <p class="text-gray-900 dark:text-gray-100">{{ (tr069Resumen.ssids && tr069Resumen.ssids.length) ? tr069Resumen.ssids.join(' · ') : (tr069Resumen.ssid || '—') }}</p>
+                </div>
+                <div class="col-span-2">
+                  <p class="noc-metric-label">Último Inform</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.last_inform || '—' }}</p>
+                </div>
+              </div>
+            </template>
+            <div v-if="tr069Hosts && tr069Hosts.length" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-900/40">
+                  <tr>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">IP</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">MAC</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Nombre</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">RSSI</th>
+                    <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Origen</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                  <tr v-for="(h, idx) in tr069Hosts" :key="'h-' + idx" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                    <td class="px-2 py-2 font-mono text-gray-900 dark:text-gray-100">{{ h.ip || '—' }}</td>
+                    <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ h.mac || '—' }}</td>
+                    <td class="px-2 py-2 text-gray-700 dark:text-gray-300">{{ h.hostname || '—' }}</td>
+                    <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ h.rssi != null && h.rssi !== '' ? h.rssi + ' dBm' : '—' }}</td>
+                    <td class="px-2 py-2 text-gray-500 dark:text-gray-400">{{ h.source === 'wifi' ? 'WiFi' : (h.source === 'lan' ? 'LAN' : '—') }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <p v-if="outTr069" class="text-sm" v-html="outTr069"></p>
+            <form
+              v-if="tr069Resumen && tr069Resumen.success"
+              class="rounded-lg border border-gray-200 dark:border-gray-600 p-3 space-y-2"
+              @submit.prevent="onTr069Password"
+            >
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Cambiar clave por ACS</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">El CPE no informa la clave actual. Se escribe por TR-069 (WPA2, 8–63 caracteres).</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label for="tr069-pass-tipo" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destino</label>
+                  <select
+                    id="tr069-pass-tipo"
+                    v-model="tr069PassTarget"
+                    class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  >
+                    <option value="wifi-all">WiFi · todos los SSID activos</option>
+                    <option
+                      v-for="w in tr069WifiEnabled"
+                      :key="w.id"
+                      :value="'wifi:' + w.id"
+                    >WiFi · {{ w.ssid }}{{ w.band ? ' (' + w.band + ')' : '' }}</option>
+                    <option v-if="tr069Resumen.puede_admin_password" value="admin">Clave del router (panel)</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="tr069-pass" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nueva clave</label>
+                  <input
+                    id="tr069-pass"
+                    v-model="tr069Password"
+                    type="password"
+                    autocomplete="new-password"
+                    class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                    :minlength="tr069PassTarget === 'admin' ? 4 : 8"
+                    :maxlength="tr069PassTarget === 'admin' ? 64 : 63"
+                    required
+                  >
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <input
+                  v-model="tr069Password2"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Repetir clave"
+                  class="flex-1 min-w-[10rem] py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                  required
+                >
+                <button
+                  type="submit"
+                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
+                  :disabled="loading.tr069Password"
+                >
+                  {{ loading.tr069Password ? 'Encolando…' : 'Aplicar' }}
+                </button>
+              </div>
+            </form>
           </div>
         </section>
       </div>
 
-      <div v-if="esFibra" class="noc-pair" :class="{ 'is-single': !huaweiOnu && !(cpeSsh && esFibra) }">
+      <!-- 3. Aprovisionamiento (fibra) -->
+      <div v-if="esFibra" class="noc-group">
+        <h2 class="noc-section-title">Aprovisionamiento</h2>
         <section class="noc-card">
           <div class="noc-card-head">
             <span class="noc-icon noc-icon--amber">
@@ -650,7 +1024,7 @@
                 placeholder="FHTT… o HWTC…"
               />
             </label>
-            <div class="space-y-2">
+            <div class="grid gap-2 sm:grid-cols-2">
               <label
                 v-for="perfil in perfilesOlt"
                 :key="perfil.modo"
@@ -686,743 +1060,390 @@
             <div v-show="outOltInstalacion" class="text-sm" v-html="outOltInstalacion"></div>
           </div>
         </section>
-
-      <section v-if="huaweiOnu" class="noc-card noc-card--float">
-        <div class="noc-card-head">
-          <span class="noc-icon noc-icon--blue">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
-          </span>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <h2 class="noc-card-title">ONU Huawei</h2>
-              <span v-if="servicio.ipv6_configurado" class="noc-live-badge">IPv6</span>
-            </div>
-            <p class="noc-card-sub">IPv6 por web (DHCPv6-PD) · SSH/Telnet/web · sin TR-069</p>
-          </div>
-        </div>
-        <div class="noc-card-body space-y-4">
-          <div class="space-y-2">
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              SSH, Telnet o web en la ONU
-              <span v-if="servicio.ip" class="font-mono text-gray-800 dark:text-gray-200">{{ servicio.ip }}</span>
-              <span v-else class="text-amber-600 dark:text-amber-400">· el servicio no tiene IP</span>
-              <template v-if="servicio.equipo_resumen"> · {{ servicio.equipo_resumen }}</template>
-            </p>
-            <div v-if="huaweiOptica" class="grid grid-cols-3 gap-3">
-              <div v-if="huaweiOptica.rx_power_dbm != null">
-                <p class="noc-metric-label">RX Power</p>
-                <p :class="Number(huaweiOptica.rx_power_dbm) <= -27 ? 'noc-metric noc-metric--warn' : 'noc-metric noc-metric--amber'">
-                  {{ huaweiOptica.rx_power_dbm }} <span class="text-sm font-normal">dBm</span>
-                </p>
-              </div>
-              <div v-if="huaweiOptica.tx_power_dbm != null">
-                <p class="noc-metric-label">TX Power</p>
-                <p class="noc-metric noc-metric--blue">{{ huaweiOptica.tx_power_dbm }} <span class="text-sm font-normal">dBm</span></p>
-              </div>
-              <div v-if="huaweiOptica.temperatura_c != null">
-                <p class="noc-metric-label">Temp</p>
-                <p class="noc-metric">{{ huaweiOptica.temperatura_c }} <span class="text-sm font-normal">°C</span></p>
-              </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                :disabled="!canHuawei || huaweiBusy"
-                @click="onHuaweiIpv6"
-              >{{ loading.huaweiIpv6 ? 'Configurando IPv6…' : 'Configurar IPv6' }}</button>
-              <button
-                type="button"
-                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                :disabled="!canHuawei || huaweiBusy"
-                @click="onHuaweiConectados"
-              >{{ loading.huaweiConectados ? 'Listando…' : 'Listar conectados' }}</button>
-              <button
-                type="button"
-                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                :disabled="!canHuawei || huaweiBusy"
-                @click="onHuaweiOptica"
-              >{{ loading.huaweiOptica ? 'Leyendo óptica…' : 'Señal óptica' }}</button>
-              <button
-                type="button"
-                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                :disabled="!canHuawei || huaweiBusy"
-                @click="onHuaweiReboot"
-              >{{ loading.huaweiReboot ? 'Reiniciando…' : 'Reiniciar ONU' }}</button>
-              <div ref="huaweiWifiPanel" class="relative ml-auto flex items-center gap-2">
-                <span
-                  class="inline-flex items-center gap-1.5 min-w-0 text-sm text-gray-800 dark:text-gray-100"
-                  :title="huaweiSsidsActuales.length ? huaweiSsidsActuales.join(' · ') : ''"
-                >
-                  <svg class="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
-                  </svg>
-                  <span class="truncate font-medium">{{ huaweiSsidVista }}</span>
-                </span>
-                <button
-                  type="button"
-                  class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                  :disabled="!canHuawei || (huaweiBusy && !huaweiWifiOpen)"
-                  :aria-expanded="huaweiWifiOpen"
-                  aria-controls="huawei-wifi-float"
-                  @click="toggleHuaweiWifi"
-                >{{ huaweiWifiOpen ? 'Cerrar' : 'Editar SSID' }}</button>
-                <form
-                  v-show="huaweiWifiOpen"
-                  id="huawei-wifi-float"
-                  class="absolute right-0 top-full mt-2 z-30 w-[20rem] rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 space-y-3"
-                  @submit.prevent="onHuaweiWifi"
-                >
-                  <div>
-                    <label for="huawei-ssid" class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">SSID</label>
-                    <input
-                      id="huawei-ssid"
-                      v-model="huaweiSsid"
-                      type="text"
-                      maxlength="32"
-                      autocomplete="off"
-                      :placeholder="loading.huaweiSsid ? 'Leyendo…' : 'SSID'"
-                      :disabled="loading.huaweiSsid"
-                      class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm disabled:opacity-60"
-                      required
-                    >
-                  </div>
-                  <div>
-                    <div class="flex items-center justify-between gap-2 mb-1">
-                      <label for="huawei-pass" class="text-xs font-medium text-gray-600 dark:text-gray-300">Nueva clave</label>
-                      <span class="text-xs tabular-nums" :class="huaweiPassword.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'">{{ huaweiPassword.length }}/63</span>
-                    </div>
-                    <div class="relative">
-                      <input
-                        id="huawei-pass"
-                        v-model="huaweiPassword"
-                        :type="huaweiPassVisible ? 'text' : 'password'"
-                        autocomplete="new-password"
-                        minlength="8"
-                        maxlength="63"
-                        class="w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
-                        required
-                      >
-                      <button
-                        type="button"
-                        class="absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
-                        :aria-label="huaweiPassVisible ? 'Ocultar clave' : 'Mostrar clave'"
-                        :aria-pressed="huaweiPassVisible"
-                        @click="huaweiPassVisible = !huaweiPassVisible"
-                      >
-                        <svg v-if="!huaweiPassVisible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
-                        <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="flex items-center justify-between gap-2 mb-1">
-                      <label for="huawei-pass2" class="text-xs font-medium text-gray-600 dark:text-gray-300">Repetir clave</label>
-                      <span class="text-xs tabular-nums" :class="huaweiPassword2.length < 8 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'">{{ huaweiPassword2.length }}/63</span>
-                    </div>
-                    <div class="relative">
-                      <input
-                        id="huawei-pass2"
-                        v-model="huaweiPassword2"
-                        :type="huaweiPass2Visible ? 'text' : 'password'"
-                        autocomplete="new-password"
-                        minlength="8"
-                        maxlength="63"
-                        class="w-full py-2 pl-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
-                        required
-                      >
-                      <button
-                        type="button"
-                        class="absolute inset-y-0 right-0 px-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
-                        :aria-label="huaweiPass2Visible ? 'Ocultar clave' : 'Mostrar clave'"
-                        :aria-pressed="huaweiPass2Visible"
-                        @click="huaweiPass2Visible = !huaweiPass2Visible"
-                      >
-                        <svg v-if="!huaweiPass2Visible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
-                        <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  <p v-if="huaweiWifiFormError" class="text-xs text-red-600 dark:text-red-400">{{ huaweiWifiFormError }}</p>
-                  <div class="flex gap-2">
-                    <button
-                      type="submit"
-                      class="noc-btn-ghost inline-flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium"
-                      :disabled="!canHuawei || huaweiBusy"
-                    >
-                      {{ loading.huaweiWifi ? 'Aplicando…' : 'Aplicar WiFi' }}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-          <p v-if="huaweiSsidError" class="text-xs text-red-600 dark:text-red-400">
-            {{ huaweiSsidError }}
-            <button type="button" class="underline underline-offset-2 ml-1" @click="cargarHuaweiSsid">Reintentar</button>
-          </p>
-          <div v-if="outHuawei" class="text-sm" v-html="outHuawei"></div>
-          <div v-if="huaweiDispositivos.length" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-              <thead class="bg-gray-50 dark:bg-gray-900/40">
-                <tr>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Host</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">IP</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">MAC</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">SSID</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Tiempo</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                <tr v-for="(dev, idx) in huaweiDispositivos" :key="'hw-dev-' + idx" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                  <td class="px-2 py-2 text-gray-900 dark:text-gray-100 break-all">{{ dev.host || '—' }}</td>
-                  <td class="px-2 py-2 font-mono text-gray-900 dark:text-gray-100">{{ dev.ip || '—' }}</td>
-                  <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ dev.mac }}</td>
-                  <td class="px-2 py-2 text-gray-700 dark:text-gray-300">{{ dev.ssid || '—' }}</td>
-                  <td class="px-2 py-2 text-xs text-gray-500 whitespace-nowrap" :title="dev.tiempo ? dev.tiempo + ' s' : ''">{{ formatAsociadoTiempo(dev.tiempo) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section v-else-if="cpeSsh && esFibra" class="noc-card">
-        <div class="noc-card-head">
-          <span class="noc-icon noc-icon--blue">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0v4M5 11h14v10H5V11z"/></svg>
-          </span>
-          <div class="flex-1 min-w-0">
-            <h2 class="noc-card-title">CPE por SSH</h2>
-            <p class="noc-card-sub">ONU con acceso SSH (no Huawei)</p>
-          </div>
-        </div>
-        <div class="noc-card-body space-y-2">
-          <p class="text-sm text-gray-700 dark:text-gray-300">
-            Este servicio está marcado para comandos por <strong>SSH</strong>, no por ACS.
-            <template v-if="servicio.equipo_resumen"> {{ servicio.equipo_resumen }}.</template>
-          </p>
-        </div>
-      </section>
       </div>
 
-      <section v-if="tr069Enabled && tr069TieneDetalle" class="noc-card mt-4">
-        <div class="noc-card-head">
-          <span class="noc-icon noc-icon--violet">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </span>
-          <div class="flex-1 min-w-0">
-            <h2 class="noc-card-title">Detalle TR-069</h2>
-            <p class="noc-card-sub">Estado ACS, hosts LAN y cambio de clave</p>
+      <!-- 4. Historial -->
+      <div class="noc-group">
+        <h2 class="noc-section-title">Historial</h2>
+        <section class="noc-card">
+          <div class="noc-card-head border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+            <div>
+              <h2 class="noc-card-title text-base">Registro de actividad reciente</h2>
+              <p class="noc-card-sub">{{ registroSubtitulo }}<template v-if="!senal"> · últimos 30</template></p>
+            </div>
           </div>
-        </div>
-        <div class="noc-card-body space-y-3">
-          <template v-if="tr069Resumen && tr069Resumen.success">
-            <p v-if="tr069Resumen.aviso" class="text-sm text-amber-700 dark:text-amber-300">{{ tr069Resumen.aviso }}</p>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+
+          <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
+            <div class="mb-3 flex items-center justify-between gap-3">
               <div>
-                <p class="noc-metric-label">Estado</p>
-                <p class="font-semibold" :class="tr069Resumen.online ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'">
-                  {{ tr069Resumen.online ? 'Online' : 'Sin Inform reciente' }}
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Sesión PPPoE · 12 h</p>
+                <p v-if="timeline" class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                  {{ timeline.inicio }} → {{ timeline.fin }}
                 </p>
               </div>
-              <div>
-                <p class="noc-metric-label">Modelo</p>
-                <p class="font-medium text-gray-900 dark:text-gray-100">{{ tr069Resumen.model || tr069Resumen.product_class || '—' }}</p>
-                <p v-if="tr069Resumen.manufacturer" class="text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.manufacturer }}</p>
-              </div>
-              <div>
-                <p class="noc-metric-label">Firmware</p>
-                <p class="font-mono text-xs text-gray-800 dark:text-gray-200">{{ tr069Resumen.software_version || '—' }}</p>
-              </div>
-              <div>
-                <p class="noc-metric-label">WAN IP</p>
-                <p class="font-mono text-gray-900 dark:text-gray-100">{{ tr069Resumen.wan_ip || '—' }}</p>
-                <p v-if="tr069Resumen.wan_mac" class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.wan_mac }}</p>
-              </div>
-              <div>
-                <p class="noc-metric-label">LAN CPE</p>
-                <p class="font-mono text-gray-900 dark:text-gray-100">{{ tr069Resumen.lan_ip || '—' }}</p>
-              </div>
-              <div class="col-span-1 md:col-span-3">
-                <p class="noc-metric-label">SSID</p>
-                <p class="text-gray-900 dark:text-gray-100">{{ (tr069Resumen.ssids && tr069Resumen.ssids.length) ? tr069Resumen.ssids.join(' · ') : (tr069Resumen.ssid || '—') }}</p>
-              </div>
-              <div class="col-span-2">
-                <p class="noc-metric-label">Último Inform</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ tr069Resumen.last_inform || '—' }}</p>
-              </div>
-            </div>
-          </template>
-          <div v-if="tr069Hosts && tr069Hosts.length" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-              <thead class="bg-gray-50 dark:bg-gray-900/40">
-                <tr>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">IP</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">MAC</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Nombre</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">RSSI</th>
-                  <th class="px-2 py-2 text-left text-xs font-medium uppercase text-gray-500">Origen</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                <tr v-for="(h, idx) in tr069Hosts" :key="'h-' + idx" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                  <td class="px-2 py-2 font-mono text-gray-900 dark:text-gray-100">{{ h.ip || '—' }}</td>
-                  <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ h.mac || '—' }}</td>
-                  <td class="px-2 py-2 text-gray-700 dark:text-gray-300">{{ h.hostname || '—' }}</td>
-                  <td class="px-2 py-2 font-mono text-gray-700 dark:text-gray-300">{{ h.rssi != null && h.rssi !== '' ? h.rssi + ' dBm' : '—' }}</td>
-                  <td class="px-2 py-2 text-gray-500 dark:text-gray-400">{{ h.source === 'wifi' ? 'WiFi' : (h.source === 'lan' ? 'LAN' : '—') }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <form
-            v-if="tr069Resumen && tr069Resumen.success"
-            class="rounded-lg border border-gray-200 dark:border-gray-600 p-3 space-y-2"
-            @submit.prevent="onTr069Password"
-          >
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Cambiar clave por ACS</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400">El CPE no informa la clave actual. Se escribe por TR-069 (WPA2, 8–63 caracteres).</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label for="tr069-pass-tipo" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destino</label>
-                <select
-                  id="tr069-pass-tipo"
-                  v-model="tr069PassTarget"
-                  class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                >
-                  <option value="wifi-all">WiFi · todos los SSID activos</option>
-                  <option
-                    v-for="w in tr069WifiEnabled"
-                    :key="w.id"
-                    :value="'wifi:' + w.id"
-                  >WiFi · {{ w.ssid }}{{ w.band ? ' (' + w.band + ')' : '' }}</option>
-                  <option v-if="tr069Resumen.puede_admin_password" value="admin">Clave del router (panel)</option>
-                </select>
-              </div>
-              <div>
-                <label for="tr069-pass" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nueva clave</label>
-                <input
-                  id="tr069-pass"
-                  v-model="tr069Password"
-                  type="password"
-                  autocomplete="new-password"
-                  class="w-full py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
-                  :minlength="tr069PassTarget === 'admin' ? 4 : 8"
-                  :maxlength="tr069PassTarget === 'admin' ? 64 : 63"
-                  required
-                >
-              </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <input
-                v-model="tr069Password2"
-                type="password"
-                autocomplete="new-password"
-                placeholder="Repetir clave"
-                class="flex-1 min-w-[10rem] py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono"
-                required
+              <span
+                v-if="timeline"
+                class="pppoe-estado"
+                :class="'pppoe-estado--' + (timeline.estado_actual || 'unknown')"
               >
-              <button
-                type="submit"
-                class="noc-btn-ghost inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium"
-                :disabled="loading.tr069Password"
-              >
-                {{ loading.tr069Password ? 'Encolando…' : 'Aplicar' }}
-              </button>
+                {{ timeline.estado_actual === 'up' ? 'Conectado' : (timeline.estado_actual === 'down' ? 'Desconectado' : 'Sin datos') }}
+              </span>
             </div>
-          </form>
-        </div>
-      </section>
 
-      <section class="noc-card mt-6">
-        <div class="noc-card-head border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <div>
-            <h2 class="noc-card-title text-base">Registro de actividad reciente</h2>
-            <p class="noc-card-sub">{{ registroSubtitulo }}<template v-if="!senal"> · últimos 30</template></p>
-          </div>
-        </div>
-
-        <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Sesión PPPoE · 12 h</p>
-              <p v-if="timeline" class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                {{ timeline.inicio }} → {{ timeline.fin }}
-              </p>
+            <div v-if="timeline" class="mb-3 grid grid-cols-3 gap-2">
+              <div class="pppoe-stat">
+                <p class="pppoe-stat-label">Conectado</p>
+                <p class="pppoe-stat-value">{{ timeline.conectado_humano }}</p>
+              </div>
+              <div class="pppoe-stat">
+                <p class="pppoe-stat-label">Cortes</p>
+                <p class="pppoe-stat-value">{{ pppoeCortes }}</p>
+              </div>
+              <div class="pppoe-stat">
+                <p class="pppoe-stat-label">Desconectado</p>
+                <p class="pppoe-stat-value">{{ timeline.desconectado_humano }}</p>
+              </div>
             </div>
-            <span
-              v-if="timeline"
-              class="pppoe-estado"
-              :class="'pppoe-estado--' + (timeline.estado_actual || 'unknown')"
-            >
-              {{ timeline.estado_actual === 'up' ? 'Conectado' : (timeline.estado_actual === 'down' ? 'Desconectado' : 'Sin datos') }}
-            </span>
-          </div>
 
-          <div v-if="timeline" class="mb-3 grid grid-cols-3 gap-2">
-            <div class="pppoe-stat">
-              <p class="pppoe-stat-label">Conectado</p>
-              <p class="pppoe-stat-value">{{ timeline.conectado_humano }}</p>
-            </div>
-            <div class="pppoe-stat">
-              <p class="pppoe-stat-label">Cortes</p>
-              <p class="pppoe-stat-value">{{ pppoeCortes }}</p>
-            </div>
-            <div class="pppoe-stat">
-              <p class="pppoe-stat-label">Desconectado</p>
-              <p class="pppoe-stat-value">{{ timeline.desconectado_humano }}</p>
-            </div>
-          </div>
-
-          <div class="pppoe-timeline-track pppoe-timeline-track--chart">
-            <div
-              v-for="(seg, idx) in (timeline?.segmentos || [])"
-              :key="'seg-' + idx"
-              class="pppoe-timeline-seg"
-              :class="timelineSegClass(seg.estado)"
-              :style="{ left: seg.left_pct + '%', width: seg.width_pct + '%' }"
-              :title="seg.title"
-            ></div>
-          </div>
-
-          <div v-if="timeline && timeline.marcas && timeline.marcas.length" class="relative mt-1.5 h-3">
-            <span
-              v-for="(marca, idx) in timeline.marcas"
-              :key="'marca-' + idx"
-              class="absolute text-[9px] text-gray-400/80 dark:text-gray-500"
-              :style="{ left: marca.left_pct + '%', transform: idx === 0 ? 'none' : (idx === timeline.marcas.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)') }"
-            >{{ marca.label }}</span>
-          </div>
-
-          <div v-if="pppoeCambios.length" class="mt-3 flex gap-2 overflow-x-auto pb-1">
-            <div
-              v-for="(ev, idx) in pppoeCambios"
-              :key="'pppoe-' + idx"
-              class="pppoe-cambio"
-              :title="ev.detalle"
-            >
-              <span class="pppoe-cambio-dot" :class="ev.badge === 'down' ? 'pppoe-cambio-dot--down' : 'pppoe-cambio-dot--up'"></span>
-              <span class="pppoe-cambio-hora">{{ ev.hora }}</span>
-              <span class="pppoe-cambio-que">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
-            </div>
-          </div>
-
-          <div class="pppoe-eventos">
-            <button
-              type="button"
-              class="pppoe-eventos-toggle"
-              :aria-expanded="pppoeEventosAbiertos ? 'true' : 'false'"
-              @click="pppoeEventosAbiertos = !pppoeEventosAbiertos"
-            >
-              <span>{{ pppoeEventosAbiertos ? 'Ocultar eventos' : 'Ver eventos' }}</span>
-              <span class="pppoe-eventos-count">{{ pppoeEventos.length }}</span>
-              <svg class="pppoe-eventos-chevron" :class="{ 'is-open': pppoeEventosAbiertos }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <div v-show="pppoeEventosAbiertos" class="pppoe-eventos-list">
-              <p v-if="!pppoeEventos.length" class="pppoe-eventos-vacio">No hay cortes ni reconexiones en las últimas lecturas.</p>
+            <div class="pppoe-timeline-track pppoe-timeline-track--chart">
               <div
-                v-for="(ev, idx) in pppoeEventos"
-                :key="'pppoe-ev-' + idx"
-                class="pppoe-evento"
+                v-for="(seg, idx) in (timeline?.segmentos || [])"
+                :key="'seg-' + idx"
+                class="pppoe-timeline-seg"
+                :class="timelineSegClass(seg.estado)"
+                :style="{ left: seg.left_pct + '%', width: seg.width_pct + '%' }"
+                :title="seg.title"
+              ></div>
+            </div>
+
+            <div v-if="timeline && timeline.marcas && timeline.marcas.length" class="relative mt-1.5 h-3">
+              <span
+                v-for="(marca, idx) in timeline.marcas"
+                :key="'marca-' + idx"
+                class="absolute text-[9px] text-gray-400/80 dark:text-gray-500"
+                :style="{ left: marca.left_pct + '%', transform: idx === 0 ? 'none' : (idx === timeline.marcas.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)') }"
+              >{{ marca.label }}</span>
+            </div>
+
+            <div v-if="pppoeCambios.length" class="mt-3 flex gap-2 overflow-x-auto pb-1">
+              <div
+                v-for="(ev, idx) in pppoeCambios"
+                :key="'pppoe-' + idx"
+                class="pppoe-cambio"
+                :title="ev.detalle"
               >
                 <span class="pppoe-cambio-dot" :class="ev.badge === 'down' ? 'pppoe-cambio-dot--down' : 'pppoe-cambio-dot--up'"></span>
-                <span class="pppoe-evento-cuando">
-                  <span class="pppoe-cambio-hora">{{ ev.hora }}</span>
-                  <span class="pppoe-evento-fecha">{{ ev.fecha }}</span>
-                </span>
-                <span class="pppoe-evento-que" :class="ev.badge === 'down' ? 'is-down' : 'is-up'">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
-                <span class="pppoe-evento-detalle">{{ ev.detalle || '—' }}</span>
+                <span class="pppoe-cambio-hora">{{ ev.hora }}</span>
+                <span class="pppoe-cambio-que">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div v-if="senal" class="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-                {{ senal.etiqueta }} · {{ senalVentanaLabel }}
-              </p>
-              <p v-if="senalGrafico" class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                {{ senalGrafico.rango }}
-              </p>
-            </div>
-            <span
-              v-if="senalUltima"
-              class="senal-ahora"
-              :class="'senal-ahora--' + senalUltima.nivel"
-            >{{ senalUltima.dbm }} dBm</span>
-          </div>
-
-          <div class="senal-filtros">
-            <div class="senal-filtro">
-              <span id="senal-ventana" class="senal-filtro-k">Ventana</span>
-              <div class="senal-chips" role="group" aria-labelledby="senal-ventana">
-                <button
-                  v-for="v in senalVentanas"
-                  :key="v.id"
-                  type="button"
-                  class="senal-chip"
-                  :class="{ 'is-on': senalVentana === v.id }"
-                  :aria-pressed="senalVentana === v.id ? 'true' : 'false'"
-                  @click="elegirVentanaSenal(v.id)"
+            <div class="pppoe-eventos">
+              <button
+                type="button"
+                class="pppoe-eventos-toggle"
+                :aria-expanded="pppoeEventosAbiertos ? 'true' : 'false'"
+                @click="pppoeEventosAbiertos = !pppoeEventosAbiertos"
+              >
+                <span>{{ pppoeEventosAbiertos ? 'Ocultar eventos' : 'Ver eventos' }}</span>
+                <span class="pppoe-eventos-count">{{ pppoeEventos.length }}</span>
+                <svg class="pppoe-eventos-chevron" :class="{ 'is-open': pppoeEventosAbiertos }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <div v-show="pppoeEventosAbiertos" class="pppoe-eventos-list">
+                <p v-if="!pppoeEventos.length" class="pppoe-eventos-vacio">No hay cortes ni reconexiones en las últimas lecturas.</p>
+                <div
+                  v-for="(ev, idx) in pppoeEventos"
+                  :key="'pppoe-ev-' + idx"
+                  class="pppoe-evento"
                 >
-                  {{ v.label }}
-                  <span class="senal-chip-n">{{ senalConteosVentana[v.id] }}</span>
-                </button>
-              </div>
-            </div>
-            <div class="senal-filtro">
-              <span id="senal-calidad" class="senal-filtro-k">Calidad</span>
-              <div class="senal-chips" role="group" aria-labelledby="senal-calidad">
-                <button
-                  type="button"
-                  class="senal-chip"
-                  :class="{ 'is-on': senalCalidad === 'todas' }"
-                  :aria-pressed="senalCalidad === 'todas' ? 'true' : 'false'"
-                  @click="elegirCalidadSenal('todas')"
-                >
-                  Todas
-                  <span class="senal-chip-n">{{ senalConteosCalidad.todas }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="senal-chip"
-                  :class="{ 'is-on': senalCalidad === 'atencion' }"
-                  :aria-pressed="senalCalidad === 'atencion' ? 'true' : 'false'"
-                  @click="elegirCalidadSenal('atencion')"
-                >
-                  Atención
-                  <span class="senal-chip-n">{{ senalConteosCalidad.atencion }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="senal-chip"
-                  :class="{ 'is-on': senalCalidad === 'critica' }"
-                  :aria-pressed="senalCalidad === 'critica' ? 'true' : 'false'"
-                  @click="elegirCalidadSenal('critica')"
-                >
-                  Crítica
-                  <span class="senal-chip-n">{{ senalConteosCalidad.critica }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="senalGrafico" class="senal-plot">
-            <p class="sr-only">Con el foco en el gráfico, las flechas izquierda y derecha recorren cada lectura.</p>
-            <div class="senal-stage">
-            <svg
-              class="senal-chart"
-              :viewBox="'0 0 ' + senalGrafico.w + ' ' + senalGrafico.h"
-              role="img"
-              :aria-label="senalAria"
-              tabindex="0"
-              @pointerdown="onSenalMove"
-              @pointermove="onSenalMove"
-              @pointerleave="onSenalLeave"
-              @keydown="onSenalKey"
-            >
-              <defs>
-                <linearGradient
-                  id="senal-area-fill"
-                  gradientUnits="userSpaceOnUse"
-                  x1="0"
-                  :y1="senalGrafico.plotTop"
-                  x2="0"
-                  :y2="senalGrafico.plotBottom"
-                >
-                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.55" />
-                  <stop offset="42%" stop-color="#2563eb" stop-opacity="0.22" />
-                  <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0" />
-                </linearGradient>
-              </defs>
-              <line
-                v-for="(tick, idx) in senalGrafico.yTicks"
-                :key="'yg-' + idx"
-                class="senal-grid"
-                :x1="senalGrafico.plotLeft"
-                :x2="senalGrafico.plotRight"
-                :y1="tick.y"
-                :y2="tick.y"
-              />
-              <line
-                v-for="(tick, idx) in senalGrafico.xTicks"
-                :key="'xg-' + idx"
-                class="senal-grid"
-                :x1="tick.x"
-                :x2="tick.x"
-                :y1="senalGrafico.plotTop"
-                :y2="senalGrafico.plotBottom"
-              />
-              <text
-                v-for="(tick, idx) in senalGrafico.yTicks"
-                :key="'yl-' + idx"
-                :x="senalGrafico.plotLeft - 6"
-                :y="tick.y"
-                text-anchor="end"
-                dominant-baseline="middle"
-              >{{ tick.label }}</text>
-              <path
-                v-if="senalGrafico.area"
-                class="senal-area"
-                fill="url(#senal-area-fill)"
-                :d="senalGrafico.area"
-              />
-              <path
-                v-if="senalGrafico.path"
-                class="senal-line"
-                :d="senalGrafico.path"
-              />
-              <line
-                class="senal-umbral senal-umbral--atencion"
-                :x1="senalGrafico.plotLeft"
-                :x2="senalGrafico.plotRight"
-                :y1="senalGrafico.yAtencion"
-                :y2="senalGrafico.yAtencion"
-              />
-              <line
-                class="senal-umbral senal-umbral--critica"
-                :x1="senalGrafico.plotLeft"
-                :x2="senalGrafico.plotRight"
-                :y1="senalGrafico.yCritica"
-                :y2="senalGrafico.yCritica"
-              />
-              <text
-                v-for="(tick, idx) in senalGrafico.xTicks"
-                :key="'xl-' + idx"
-                :x="tick.x"
-                :y="senalGrafico.h - 6"
-                :text-anchor="tick.anchor"
-              >{{ tick.label }}</text>
-            </svg>
-            <div
-              v-if="senalCursor"
-              class="senal-cursor"
-              :class="{ 'is-flip': senalCursor.flip }"
-              :style="{
-                '--x': senalCursor.x + '%',
-                '--y': senalCursor.y + '%',
-                '--line-top': senalCursor.lineTop + '%',
-                '--line-h': senalCursor.lineH + '%',
-              }"
-            >
-              <span class="senal-cursor-line"></span>
-              <span class="senal-cursor-dot"></span>
-              <div class="senal-tip" role="tooltip">
-                <div class="senal-tip-row"><span>Fecha</span><strong>{{ senalCursor.fecha }}</strong></div>
-                <div class="senal-tip-row"><span>Hora</span><strong>{{ senalCursor.hora }}</strong></div>
-                <div class="senal-tip-row">
-                  <span>{{ senal.metrica === 'rssi' ? 'RSSI' : 'RX' }}</span>
-                  <strong class="senal-tip-rx">
-                    <svg v-if="senalCursor.tendencia === 'baja'" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M2.5 7.2 6 10.5l3.5-3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <svg v-else-if="senalCursor.tendencia === 'sube'" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10.5v-9M2.5 4.8 6 1.5l3.5 3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    {{ senalCursor.dbm }} dBm
-                  </strong>
+                  <span class="pppoe-cambio-dot" :class="ev.badge === 'down' ? 'pppoe-cambio-dot--down' : 'pppoe-cambio-dot--up'"></span>
+                  <span class="pppoe-evento-cuando">
+                    <span class="pppoe-cambio-hora">{{ ev.hora }}</span>
+                    <span class="pppoe-evento-fecha">{{ ev.fecha }}</span>
+                  </span>
+                  <span class="pppoe-evento-que" :class="ev.badge === 'down' ? 'is-down' : 'is-up'">{{ ev.badge === 'down' ? 'Corte' : 'Volvió' }}</span>
+                  <span class="pppoe-evento-detalle">{{ ev.detalle || '—' }}</span>
                 </div>
               </div>
             </div>
-            </div>
-            <p class="senal-leyenda">
-              <span class="senal-leyenda-item is-atencion">Atención ≤ {{ senal.atencion }} dBm</span>
-              <span class="senal-leyenda-item is-critica">Crítica ≤ {{ senal.critica }} dBm</span>
-            </p>
-            <div v-if="senalLectura" class="senal-lectura" aria-live="polite">
-              <span class="senal-lectura-k">{{ senalLecturaKicker }}</span>
-              <span class="senal-lectura-hora">{{ senalLectura.hora }}</span>
-              <span class="senal-lectura-dbm" :class="'is-' + senalLectura.nivel">{{ senalLectura.dbm }} dBm</span>
-              <span class="senal-lectura-nivel">{{ senalLectura.nivelLabel }}</span>
-              <span class="senal-lectura-meta">{{ senalLectura.meta }}</span>
-            </div>
           </div>
-          <p v-else class="senal-vacio">No hay lecturas de señal en esta ventana. Ampliá el rango.</p>
-        </div>
 
-        <!-- Filtros de eventos (servicios sin serie de señal) -->
-        <template v-else>
-        <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-gray-500 dark:text-gray-400 font-medium mr-1">Filtrar:</span>
-            <button
-              type="button"
-              class="rounded-md px-2.5 py-1 font-medium transition-colors"
-              :class="eventsFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
-              @click="eventsFilter = 'todos'"
-            >Todos ({{ eventos.length }})</button>
-            <button
-              type="button"
-              class="rounded-md px-2.5 py-1 font-medium transition-colors"
-              :class="eventsFilter === 'optica' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
-              @click="eventsFilter = 'optica'"
-            >Señal / Óptica</button>
-            <button
-              type="button"
-              class="rounded-md px-2.5 py-1 font-medium transition-colors"
-              :class="eventsFilter === 'noc' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
-              @click="eventsFilter = 'noc'"
-            >NOC / Sistema</button>
-          </div>
-          <div class="relative w-full sm:w-48">
-            <input
-              v-model="eventsSearch"
-              type="search"
-              placeholder="Buscar evento..."
-              class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-1 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-            >
-          </div>
-        </div>
+          <div v-if="senal" class="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                  {{ senal.etiqueta }} · {{ senalVentanaLabel }}
+                </p>
+                <p v-if="senalGrafico" class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                  {{ senalGrafico.rango }}
+                </p>
+              </div>
+              <span
+                v-if="senalUltima"
+                class="senal-ahora"
+                :class="'senal-ahora--' + senalUltima.nivel"
+              >{{ senalUltima.dbm }} dBm</span>
+            </div>
 
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-            <thead class="bg-gray-50 dark:bg-gray-900/40">
-              <tr>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Fecha</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Detalle</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Fuente</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr
-                v-for="(ev, idx) in filteredEventos"
-                :key="'ev-' + idx"
-                class="hover:bg-gray-50 dark:hover:bg-gray-700/40"
+            <div class="senal-filtros">
+              <div class="senal-filtro">
+                <span id="senal-ventana" class="senal-filtro-k">Ventana</span>
+                <div class="senal-chips" role="group" aria-labelledby="senal-ventana">
+                  <button
+                    v-for="v in senalVentanas"
+                    :key="v.id"
+                    type="button"
+                    class="senal-chip"
+                    :class="{ 'is-on': senalVentana === v.id }"
+                    :aria-pressed="senalVentana === v.id ? 'true' : 'false'"
+                    @click="elegirVentanaSenal(v.id)"
+                  >
+                    {{ v.label }}
+                    <span class="senal-chip-n">{{ senalConteosVentana[v.id] }}</span>
+                  </button>
+                </div>
+              </div>
+              <div class="senal-filtro">
+                <span id="senal-calidad" class="senal-filtro-k">Calidad</span>
+                <div class="senal-chips" role="group" aria-labelledby="senal-calidad">
+                  <button
+                    type="button"
+                    class="senal-chip"
+                    :class="{ 'is-on': senalCalidad === 'todas' }"
+                    :aria-pressed="senalCalidad === 'todas' ? 'true' : 'false'"
+                    @click="elegirCalidadSenal('todas')"
+                  >
+                    Todas
+                    <span class="senal-chip-n">{{ senalConteosCalidad.todas }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="senal-chip"
+                    :class="{ 'is-on': senalCalidad === 'atencion' }"
+                    :aria-pressed="senalCalidad === 'atencion' ? 'true' : 'false'"
+                    @click="elegirCalidadSenal('atencion')"
+                  >
+                    Atención
+                    <span class="senal-chip-n">{{ senalConteosCalidad.atencion }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="senal-chip"
+                    :class="{ 'is-on': senalCalidad === 'critica' }"
+                    :aria-pressed="senalCalidad === 'critica' ? 'true' : 'false'"
+                    @click="elegirCalidadSenal('critica')"
+                  >
+                    Crítica
+                    <span class="senal-chip-n">{{ senalConteosCalidad.critica }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="senalGrafico" class="senal-plot">
+              <p class="sr-only">Con el foco en el gráfico, las flechas izquierda y derecha recorren cada lectura.</p>
+              <div class="senal-stage">
+              <svg
+                class="senal-chart"
+                :viewBox="'0 0 ' + senalGrafico.w + ' ' + senalGrafico.h"
+                role="img"
+                :aria-label="senalAria"
+                tabindex="0"
+                @pointerdown="onSenalMove"
+                @pointermove="onSenalMove"
+                @pointerleave="onSenalLeave"
+                @keydown="onSenalKey"
               >
-                <td class="whitespace-nowrap px-3 py-2 text-gray-700 dark:text-gray-200">{{ ev.ocurrio_at }}</td>
-                <td class="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">
-                  <span
-                    v-if="ev.badge"
-                    class="noc-log-badge"
-                    :class="'noc-log-badge--' + ev.badge"
-                  >{{ ev.badge_label }}</span>
-                  <template v-else>{{ ev.badge_label }}</template>
-                </td>
-                <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ ev.detalle }}</td>
-                <td class="px-3 py-2 text-xs text-gray-500">{{ ev.fuente || '—' }}</td>
-              </tr>
-              <tr v-if="!filteredEventos.length">
-                <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">
-                  {{ eventos.length ? 'No hay eventos que coincidan con la búsqueda o filtro.' : 'Todavía no hay lecturas de señal. La sesión PPPoE está en el gráfico de arriba.' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        </template>
-      </section>
+                <defs>
+                  <linearGradient
+                    id="senal-area-fill"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    :y1="senalGrafico.plotTop"
+                    x2="0"
+                    :y2="senalGrafico.plotBottom"
+                  >
+                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.55" />
+                    <stop offset="42%" stop-color="#2563eb" stop-opacity="0.22" />
+                    <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <line
+                  v-for="(tick, idx) in senalGrafico.yTicks"
+                  :key="'yg-' + idx"
+                  class="senal-grid"
+                  :x1="senalGrafico.plotLeft"
+                  :x2="senalGrafico.plotRight"
+                  :y1="tick.y"
+                  :y2="tick.y"
+                />
+                <line
+                  v-for="(tick, idx) in senalGrafico.xTicks"
+                  :key="'xg-' + idx"
+                  class="senal-grid"
+                  :x1="tick.x"
+                  :x2="tick.x"
+                  :y1="senalGrafico.plotTop"
+                  :y2="senalGrafico.plotBottom"
+                />
+                <text
+                  v-for="(tick, idx) in senalGrafico.yTicks"
+                  :key="'yl-' + idx"
+                  :x="senalGrafico.plotLeft - 6"
+                  :y="tick.y"
+                  text-anchor="end"
+                  dominant-baseline="middle"
+                >{{ tick.label }}</text>
+                <path
+                  v-if="senalGrafico.area"
+                  class="senal-area"
+                  fill="url(#senal-area-fill)"
+                  :d="senalGrafico.area"
+                />
+                <path
+                  v-if="senalGrafico.path"
+                  class="senal-line"
+                  :d="senalGrafico.path"
+                />
+                <line
+                  class="senal-umbral senal-umbral--atencion"
+                  :x1="senalGrafico.plotLeft"
+                  :x2="senalGrafico.plotRight"
+                  :y1="senalGrafico.yAtencion"
+                  :y2="senalGrafico.yAtencion"
+                />
+                <line
+                  class="senal-umbral senal-umbral--critica"
+                  :x1="senalGrafico.plotLeft"
+                  :x2="senalGrafico.plotRight"
+                  :y1="senalGrafico.yCritica"
+                  :y2="senalGrafico.yCritica"
+                />
+                <text
+                  v-for="(tick, idx) in senalGrafico.xTicks"
+                  :key="'xl-' + idx"
+                  :x="tick.x"
+                  :y="senalGrafico.h - 6"
+                  :text-anchor="tick.anchor"
+                >{{ tick.label }}</text>
+              </svg>
+              <div
+                v-if="senalCursor"
+                class="senal-cursor"
+                :class="{ 'is-flip': senalCursor.flip }"
+                :style="{
+                  '--x': senalCursor.x + '%',
+                  '--y': senalCursor.y + '%',
+                  '--line-top': senalCursor.lineTop + '%',
+                  '--line-h': senalCursor.lineH + '%',
+                }"
+              >
+                <span class="senal-cursor-line"></span>
+                <span class="senal-cursor-dot"></span>
+                <div class="senal-tip" role="tooltip">
+                  <div class="senal-tip-row"><span>Fecha</span><strong>{{ senalCursor.fecha }}</strong></div>
+                  <div class="senal-tip-row"><span>Hora</span><strong>{{ senalCursor.hora }}</strong></div>
+                  <div class="senal-tip-row">
+                    <span>{{ senal.metrica === 'rssi' ? 'RSSI' : 'RX' }}</span>
+                    <strong class="senal-tip-rx">
+                      <svg v-if="senalCursor.tendencia === 'baja'" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M2.5 7.2 6 10.5l3.5-3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <svg v-else-if="senalCursor.tendencia === 'sube'" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10.5v-9M2.5 4.8 6 1.5l3.5 3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      {{ senalCursor.dbm }} dBm
+                    </strong>
+                  </div>
+                </div>
+              </div>
+              </div>
+              <p class="senal-leyenda">
+                <span class="senal-leyenda-item is-atencion">Atención ≤ {{ senal.atencion }} dBm</span>
+                <span class="senal-leyenda-item is-critica">Crítica ≤ {{ senal.critica }} dBm</span>
+              </p>
+              <div v-if="senalLectura" class="senal-lectura" aria-live="polite">
+                <span class="senal-lectura-k">{{ senalLecturaKicker }}</span>
+                <span class="senal-lectura-hora">{{ senalLectura.hora }}</span>
+                <span class="senal-lectura-dbm" :class="'is-' + senalLectura.nivel">{{ senalLectura.dbm }} dBm</span>
+                <span class="senal-lectura-nivel">{{ senalLectura.nivelLabel }}</span>
+                <span class="senal-lectura-meta">{{ senalLectura.meta }}</span>
+              </div>
+            </div>
+            <p v-else class="senal-vacio">No hay lecturas de señal en esta ventana. Ampliá el rango.</p>
+          </div>
+
+          <!-- Filtros de eventos (servicios sin serie de señal) -->
+          <template v-else>
+          <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-gray-500 dark:text-gray-400 font-medium mr-1">Filtrar:</span>
+              <button
+                type="button"
+                class="rounded-md px-2.5 py-1 font-medium transition-colors"
+                :class="eventsFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+                @click="eventsFilter = 'todos'"
+              >Todos ({{ eventos.length }})</button>
+              <button
+                type="button"
+                class="rounded-md px-2.5 py-1 font-medium transition-colors"
+                :class="eventsFilter === 'optica' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+                @click="eventsFilter = 'optica'"
+              >Señal / Óptica</button>
+              <button
+                type="button"
+                class="rounded-md px-2.5 py-1 font-medium transition-colors"
+                :class="eventsFilter === 'noc' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-700'"
+                @click="eventsFilter = 'noc'"
+              >NOC / Sistema</button>
+            </div>
+            <div class="relative w-full sm:w-48">
+              <input
+                v-model="eventsSearch"
+                type="search"
+                placeholder="Buscar evento..."
+                class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-1 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+              >
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              <thead class="bg-gray-50 dark:bg-gray-900/40">
+                <tr>
+                  <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Fecha</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Detalle</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Fuente</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr
+                  v-for="(ev, idx) in filteredEventos"
+                  :key="'ev-' + idx"
+                  class="hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                >
+                  <td class="whitespace-nowrap px-3 py-2 text-gray-700 dark:text-gray-200">{{ ev.ocurrio_at }}</td>
+                  <td class="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">
+                    <span
+                      v-if="ev.badge"
+                      class="noc-log-badge"
+                      :class="'noc-log-badge--' + ev.badge"
+                    >{{ ev.badge_label }}</span>
+                    <template v-else>{{ ev.badge_label }}</template>
+                  </td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ ev.detalle }}</td>
+                  <td class="px-3 py-2 text-xs text-gray-500">{{ ev.fuente || '—' }}</td>
+                </tr>
+                <tr v-if="!filteredEventos.length">
+                  <td colspan="4" class="px-3 py-6 text-center text-gray-500 dark:text-gray-400">
+                    {{ eventos.length ? 'No hay eventos que coincidan con la búsqueda o filtro.' : 'Todavía no hay lecturas de señal. La sesión PPPoE está en el gráfico de arriba.' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          </template>
+        </section>
+      </div>
 
       <p v-if="!compact" class="mt-4 text-xs text-gray-400 dark:text-gray-500">
         Antena Ubiquiti: SSH a la IP del servicio con <span class="font-mono">wstalist</span> (RSSI, noise, CCQ, TX/RX, distancia, MAC remota)
@@ -1500,6 +1521,7 @@ const loading = reactive({
   huaweiSsid: false,
   huaweiOptica: false,
   huaweiReboot: false,
+  huaweiHotspot: false,
 });
 let huaweiSsidReq = 0;
 
@@ -1551,6 +1573,7 @@ const huaweiBusy = computed(() =>
   || loading.huaweiSsid
   || loading.huaweiOptica
   || loading.huaweiReboot
+  || loading.huaweiHotspot
 );
 const huaweiSsidVista = computed(() => {
   if (loading.huaweiSsid && !huaweiSsid.value) return 'Leyendo…';
@@ -3011,6 +3034,58 @@ function onHuaweiOptica() {
   });
 }
 
+function confirmarSwal(titulo, texto) {
+  var Swal = window.Swal;
+  if (!Swal || typeof Swal.fire !== 'function') {
+    return Promise.resolve(window.confirm(titulo + '\n\n' + texto));
+  }
+  var oscuro = document.documentElement.classList.contains('dark');
+  return Swal.fire({
+    icon: 'warning',
+    title: titulo,
+    text: texto,
+    showCancelButton: true,
+    confirmButtonColor: '#7c3aed',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Configurar',
+    cancelButtonText: 'Cancelar',
+    reverseButtons: true,
+    focusCancel: true,
+    background: oscuro ? '#1f2937' : undefined,
+    color: oscuro ? '#f3f4f6' : undefined,
+  }).then(function (r) { return !!r.isConfirmed; });
+}
+
+function onHuaweiHotspot() {
+  var url = payload.value?.urls?.huawei_hotspot;
+  if (!url) return;
+  confirmarSwal(
+    'Configurar hotspot',
+    'La red 2.4 se cambia por SSH o Telnet (si no, por la web) a «InterPlus Wi-Fi Zone». La WAN bridge VLAN 198 se crea por la web. La red 5 GHz no se modifica.'
+  ).then(function (ok) {
+    if (!ok) return;
+    loading.huaweiHotspot = true;
+    outHuawei.value = '<p class="text-gray-500 dark:text-gray-400">Configurando hotspot en la ONU…</p>';
+    postJson(url).then(function (res) {
+      var d = res.data || {};
+      var ok = res.ok && d.success !== false;
+      outHuawei.value = huaweiMsgHtml(d, ok);
+      if (ok && d.ssid) {
+        huaweiSsid.value = d.ssid;
+        var lista = huaweiSsidsActuales.value.slice();
+        if (lista.length) lista[0] = d.ssid;
+        else lista = [d.ssid];
+        huaweiSsidsActuales.value = lista;
+        huaweiSsidError.value = '';
+      }
+    }).catch(function () {
+      outHuawei.value = errHtml('No se pudo configurar el hotspot en la ONU.');
+    }).finally(function () {
+      loading.huaweiHotspot = false;
+    });
+  });
+}
+
 function onHuaweiReboot() {
   var url = payload.value?.urls?.huawei_reboot;
   if (!url) return;
@@ -3031,7 +3106,7 @@ function onHuaweiReboot() {
 function cargarHuaweiSsid() {
   var url = payload.value?.urls?.huawei_ssid;
   if (!url || !canHuawei.value) return;
-  if (loading.huaweiConectados || loading.huaweiIpv6 || loading.huaweiWifi || loading.huaweiOptica || loading.huaweiReboot) return;
+  if (loading.huaweiConectados || loading.huaweiIpv6 || loading.huaweiWifi || loading.huaweiOptica || loading.huaweiReboot || loading.huaweiHotspot) return;
   var req = ++huaweiSsidReq;
   loading.huaweiSsid = true;
   huaweiSsidError.value = '';
@@ -3043,10 +3118,10 @@ function cargarHuaweiSsid() {
       aplicarSsidLeido(d, false);
       return;
     }
-    huaweiSsidError.value = d.message || 'No se pudo leer el SSID.';
+    huaweiSsidError.value = 'ONU desconectado';
   }).catch(function () {
     if (req !== huaweiSsidReq) return;
-    huaweiSsidError.value = 'No se pudo leer el SSID.';
+    huaweiSsidError.value = 'ONU desconectado';
   }).finally(function () {
     if (req === huaweiSsidReq) loading.huaweiSsid = false;
   });
