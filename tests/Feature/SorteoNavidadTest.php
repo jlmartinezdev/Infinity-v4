@@ -412,6 +412,19 @@ class SorteoNavidadTest extends TestCase
         $this->assertStringNotContainsString('interplus.com.py/sorteo/'.$alDia->cliente_id, $htmlDeuda);
     }
 
+    public function test_recibo_anterior_a_la_vigencia_no_lleva_qr_aunque_el_cliente_participe(): void
+    {
+        [$cliente, $factura] = $this->clienteConFacturaNoviembre();
+        $viejo = $this->cobro($cliente, $factura, '2026-10-15 10:00:00');
+        $this->prepararRecibo($viejo, $cliente);
+
+        $this->assertNotSame('no', $this->sorteo->clasificar(SorteoCampana::activa(), $cliente->fresh())['nivel']);
+        $this->assertFalse($this->sorteo->muestraQrRecibo($viejo));
+        $html = view('cobros._recibo-contenido', ['cobro' => $viejo, 'ajustes' => null])->render();
+        $this->assertStringNotContainsString('interplus.com.py/sorteo/', $html);
+        $this->assertStringNotContainsString('Ya estás participando', $html);
+    }
+
     public function test_listado_incluye_todos_los_clientes_activos(): void
     {
         $uno = $this->clienteApp();

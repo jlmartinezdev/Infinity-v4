@@ -514,7 +514,8 @@ class SorteoService
     }
 
     /**
-     * El QR del recibo sale solo si el cliente participa: sin saldo y con un pago hasta el corte.
+     * El QR sale en este recibo si el cliente participa y el cobro cae dentro de la vigencia:
+     * desde el inicio del período hasta el corte de pago.
      */
     public function muestraQrRecibo(Cobro $cobro): bool
     {
@@ -522,11 +523,23 @@ class SorteoService
         $cliente = $cobro->cliente_id
             ? ($cobro->relationLoaded('cliente') ? $cobro->cliente : Cliente::find($cobro->cliente_id))
             : null;
-        if (! $campana || ! $cliente) {
+        if (! $campana || ! $cliente || ! $this->cobroDentroDeVigencia($campana, $cobro)) {
             return false;
         }
 
         return $this->clasificar($campana, $cliente)['nivel'] !== 'no';
+    }
+
+    private function cobroDentroDeVigencia(SorteoCampana $campana, Cobro $cobro): bool
+    {
+        if (! $cobro->fecha_pago || ! $campana->periodo_uso_desde) {
+            return false;
+        }
+        $tz = $campana->timezone ?: 'America/Asuncion';
+        $fecha = Carbon::parse($cobro->fecha_pago)->timezone($tz);
+        $desde = Carbon::parse($campana->periodo_uso_desde->toDateString().' 00:00:00', $tz);
+
+        return $fecha->gte($desde) && $fecha->lte($campana->limite());
     }
 
     /**
