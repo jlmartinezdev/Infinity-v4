@@ -15,16 +15,21 @@
         ];
     }
 
-    if ($solicitud->estado === 'pendiente' && $puedeEditar) {
+    if (in_array($solicitud->estado, ['pendiente', 'rechazada'], true) && $puedeEditar) {
         $menuItems[] = [
             'type' => 'form',
             'action' => route('solicitudes-acceso.aprobar', $solicitud),
             'method' => 'POST',
-            'label' => 'Aprobar y generar clave',
-            'confirm' => '¿Aprobar #'.$solicitud->id.' y generar clave PLUS?',
+            'label' => $solicitud->estado === 'rechazada' ? 'Aprobar otra vez' : 'Aprobar y generar clave',
+            'confirm' => $solicitud->estado === 'rechazada'
+                ? '¿Aprobar otra vez #'.$solicitud->id.' y generar clave PLUS?'
+                : '¿Aprobar #'.$solicitud->id.' y generar clave PLUS?',
             'color' => 'emerald',
             'icon' => 'check',
         ];
+    }
+
+    if ($solicitud->estado === 'pendiente' && $puedeEditar) {
         $menuItems[] = [
             'type' => 'form',
             'action' => route('solicitudes-acceso.rechazar', $solicitud),
@@ -115,13 +120,13 @@
 
 <div class="flex items-center justify-end gap-0.5 acciones-sol-row">
     {{-- Acciones rápidas (icono) según estado --}}
-    @if($solicitud->estado === 'pendiente' && $puedeEditar)
+    @if(in_array($solicitud->estado, ['pendiente', 'rechazada'], true) && $puedeEditar)
         <form action="{{ route('solicitudes-acceso.aprobar', $solicitud) }}" method="POST" class="inline"
-              onsubmit="return confirm('¿Aprobar #{{ $solicitud->id }} y generar clave PLUS?');">
+              onsubmit="return confirm('{{ $solicitud->estado === 'rechazada' ? '¿Aprobar otra vez #'.$solicitud->id.' y generar clave PLUS?' : '¿Aprobar #'.$solicitud->id.' y generar clave PLUS?' }}');">
             @csrf
             <button type="submit"
                     class="p-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
-                    title="Aprobar">
+                    title="{{ $solicitud->estado === 'rechazada' ? 'Aprobar otra vez' : 'Aprobar' }}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </button>
         </form>

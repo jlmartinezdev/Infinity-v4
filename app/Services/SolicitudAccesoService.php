@@ -159,8 +159,9 @@ class SolicitudAccesoService
         if (! in_array($solicitud->estado, [
             SolicitudAcceso::ESTADO_PENDIENTE,
             SolicitudAcceso::ESTADO_PENDIENTE_VERIFICACION,
+            SolicitudAcceso::ESTADO_RECHAZADA,
         ], true)) {
-            throw new \RuntimeException('Solo se pueden corregir solicitudes pendientes.');
+            throw new \RuntimeException('Solo se pueden corregir solicitudes pendientes o rechazadas.');
         }
 
         if (array_key_exists('nombre', $datos) && filled($datos['nombre'])) {
@@ -200,7 +201,10 @@ class SolicitudAccesoService
      */
     public function aprobar(SolicitudAcceso $solicitud, User $aprobador, array $opciones = []): array
     {
-        if ($solicitud->estado !== SolicitudAcceso::ESTADO_PENDIENTE) {
+        if (! in_array($solicitud->estado, [
+            SolicitudAcceso::ESTADO_PENDIENTE,
+            SolicitudAcceso::ESTADO_RECHAZADA,
+        ], true)) {
             throw new \RuntimeException('La solicitud ya fue procesada.');
         }
 

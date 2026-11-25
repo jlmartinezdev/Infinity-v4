@@ -57,7 +57,7 @@
         <div class="lg:col-span-2 space-y-4">
             <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Datos de la solicitud</h2>
-                @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && $puedeEditar)
+                @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion', 'rechazada'], true) && $puedeEditar)
                     <form action="{{ route('solicitudes-acceso.actualizar', $solicitud) }}" method="POST" class="space-y-4">
                         @csrf
                         @method('PUT')
@@ -191,7 +191,7 @@
                     <p class="text-sm text-amber-700 dark:text-amber-300">No hay cliente con este documento. Al aprobar sin vínculo manual se creará uno nuevo.</p>
                 @endif
 
-                @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && $puedeEditar)
+                @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion', 'rechazada'], true) && $puedeEditar)
                     <div class="mt-4 border-t border-gray-100 dark:border-gray-700 pt-4" id="vinculacion-manual">
                         <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Vincular manualmente a un cliente</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Buscá por nombre, cédula o #ID si el documento de la solicitud no coincide (OCR / typo).</p>
@@ -336,7 +336,7 @@
                 @endif
             </div>
 
-            @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && auth()->user()?->tienePermiso('solicitudes-acceso.editar'))
+            @if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion', 'rechazada'], true) && auth()->user()?->tienePermiso('solicitudes-acceso.editar'))
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 space-y-3">
                     @if($solicitud->estado === 'pendiente_verificacion')
                         <p class="text-xs text-violet-700 dark:text-violet-300">
@@ -344,11 +344,15 @@
                         </p>
                     @else
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Corregí datos arriba si hace falta, vinculá un cliente en “Cruce”, y después aprobá.
+                            @if($solicitud->estado === 'rechazada')
+                                Esta solicitud fue rechazada. Podés corregir los datos, vincular un cliente y aprobarla otra vez.
+                            @else
+                                Corregí datos arriba si hace falta, vinculá un cliente en “Cruce”, y después aprobá.
+                            @endif
                         </p>
                         <form action="{{ route('solicitudes-acceso.aprobar', $solicitud) }}" method="POST"
                               id="form-aprobar-solicitud"
-                              onsubmit="return confirm('¿Aprobar y generar clave PLUS para la app?');"
+                              onsubmit="return confirm('{{ $solicitud->estado === 'rechazada' ? '¿Aprobar otra vez y generar clave PLUS para la app?' : '¿Aprobar y generar clave PLUS para la app?' }}');"
                               class="space-y-3">
                             @csrf
                             <input type="hidden" name="cliente_id_vinculacion" id="input-cliente-vinculacion"
@@ -383,10 +387,11 @@
                             </div>
                             <button type="submit"
                                     class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">
-                                Aprobar y generar clave
+                                {{ $solicitud->estado === 'rechazada' ? 'Aprobar otra vez y generar clave' : 'Aprobar y generar clave' }}
                             </button>
                         </form>
                     @endif
+                    @if($solicitud->estado !== 'rechazada')
                     <form action="{{ route('solicitudes-acceso.rechazar', $solicitud) }}" method="POST"
                           onsubmit="return confirm('¿Rechazar esta solicitud?');"
                           class="space-y-2">
@@ -398,6 +403,7 @@
                             Rechazar
                         </button>
                     </form>
+                    @endif
                 </div>
             @endif
         </div>
@@ -406,7 +412,7 @@
 
 @include('solicitudes-acceso._menu_script')
 
-@if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion'], true) && $puedeEditar)
+@if(in_array($solicitud->estado, ['pendiente', 'pendiente_verificacion', 'rechazada'], true) && $puedeEditar)
 <script>
 (function () {
     var urlBuscar = @json(route('solicitudes-acceso.buscar-clientes'));
