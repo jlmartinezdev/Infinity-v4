@@ -30,6 +30,30 @@ class PlantillaPedidoPendiente
     }
 
     /**
+     * La plantilla exige un solo dato: el nombre. Si el formulario lo manda vacío, se usa el del chat.
+     *
+     * @param  list<array{type?: string, text?: string}>  $bodyParameters
+     * @return list<array{type: string, text: string}>
+     */
+    public static function parametros(array $bodyParameters, string $nombre): array
+    {
+        foreach ($bodyParameters as $parametro) {
+            $texto = trim((string) ($parametro['text'] ?? ''));
+            if ($texto !== '') {
+                return [['type' => 'text', 'text' => mb_substr($texto, 0, 80)]];
+            }
+        }
+
+        $nombre = trim((string) (preg_replace('/\s+/u', ' ', $nombre) ?? ''));
+        $letras = preg_match_all('/\p{L}/u', $nombre);
+        if ($letras < 2) {
+            $nombre = 'cliente';
+        }
+
+        return [['type' => 'text', 'text' => mb_substr($nombre, 0, 80)]];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function definicion(): array

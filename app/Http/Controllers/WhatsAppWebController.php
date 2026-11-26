@@ -1499,9 +1499,10 @@ class WhatsAppWebController extends Controller
             'plantillasPendientes' => $pendientes,
             'defaultLang' => (string) config('whatsapp.default_template_language', 'es'),
             'configured' => $this->whatsapp->isConfigured(),
-            'telefonoPrefill' => (string) $request->get('telefono', ''),
-            'plantillaPrefill' => (string) $request->get('plantilla', ''),
-            'paramsPrefill' => (string) $request->get('params', ''),
+            'telefonoPrefill' => $telefonoPrefill = (string) $request->get('telefono', ''),
+            'plantillaPrefill' => $plantillaPrefill = (string) $request->get('plantilla', ''),
+            'paramsPrefill' => $this->paramsPrefillPlantilla($telefonoPrefill, $plantillaPrefill, (string) $request->get('params', '')),
+            'nombreSugerido' => $telefonoPrefill !== '' ? $this->whatsapp->nombreVisibleParaPlantilla($telefonoPrefill) : '',
         ]);
     }
 
@@ -1690,6 +1691,15 @@ class WhatsAppWebController extends Controller
             $params,
             $this->metaManual()
         );
+    }
+
+    private function paramsPrefillPlantilla(string $telefono, string $plantilla, string $params): string
+    {
+        if (trim($params) !== '' || $plantilla !== \App\Services\WhatsApp\PlantillaPedidoPendiente::nombre() || $telefono === '') {
+            return $params;
+        }
+
+        return $this->whatsapp->nombreVisibleParaPlantilla($telefono);
     }
 
     private function metaManual(): array

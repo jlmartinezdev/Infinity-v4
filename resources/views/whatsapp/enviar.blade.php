@@ -39,7 +39,9 @@
     @endif
 
     <div class="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <form method="POST" action="{{ route('whatsapp.enviar.store') }}" class="space-y-4 p-4 sm:p-5" id="form-wa-enviar">
+        <form method="POST" action="{{ route('whatsapp.enviar.store') }}" class="space-y-4 p-4 sm:p-5" id="form-wa-enviar"
+              data-nombre-sugerido="{{ $nombreSugerido ?? '' }}"
+              data-plantilla-pedido="{{ \App\Services\WhatsApp\PlantillaPedidoPendiente::nombre() }}">
             @csrf
 
             <div>
@@ -90,7 +92,7 @@
                                     ];
                                 @endphp
                                 <option value="{{ $t['name'] }}"
-                                        data-meta="{{ e(json_encode($metaTpl, JSON_UNESCAPED_UNICODE)) }}"
+                                        data-meta="{{ json_encode($metaTpl, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) }}"
                                         @selected(old('plantilla', $plantillaPrefill ?? '') === $t['name'])>
                                     {{ $t['name'] }} ({{ $t['language'] }} · {{ count($bodyParams) }} param{{ count($bodyParams) === 1 ? '' : 's' }})
                                 </option>
@@ -161,6 +163,8 @@
     var preview = document.getElementById('wa-preview-plantilla');
     var previewBody = document.getElementById('wa-preview-body');
     var oldParams = (paramsHidden && paramsHidden.value) ? paramsHidden.value.split(/\r\n|\r|\n/) : [];
+    var nombreSugerido = form.getAttribute('data-nombre-sugerido') || '';
+    var plantillaPedido = form.getAttribute('data-plantilla-pedido') || '';
 
     function sync() {
         var modo = (form.querySelector('input[name="modo"]:checked') || {}).value || 'texto';
@@ -172,9 +176,17 @@
     function syncParamsHidden() {
         if (!paramsBox || !paramsHidden) return;
         var inputs = paramsBox.querySelectorAll('input[data-wa-param]');
+        if (!inputs.length) return;
         var lines = [];
         inputs.forEach(function (inp) { lines.push(inp.value.trim()); });
         paramsHidden.value = lines.join('\n');
+    }
+
+    function paramsDesdeCuerpo(body) {
+        var matches = String(body || '').match(/\{\{\s*[^}]+\s*\}\}/g) || [];
+        return matches.map(function (_, i) {
+            return { label: i === 0 && sel && sel.value === plantillaPedido ? 'Nombre' : ('{{' + (i + 1) + '}}'), example: '' };
+        });
     }
 
     function renderParams() {
@@ -182,8 +194,9 @@
         var opt = sel.options[sel.selectedIndex];
         var meta = {};
         try { meta = opt && opt.dataset.meta ? JSON.parse(opt.dataset.meta) : {}; } catch (e) { meta = {}; }
-        var params = Array.isArray(meta.params) ? meta.params : [];
         var body = meta.body || '';
+        var params = Array.isArray(meta.params) ? meta.params.slice() : [];
+        if (!params.length) params = paramsDesdeCuerpo(body);
 
         if (lang && meta.lang) lang.value = meta.lang;
 
@@ -201,7 +214,6 @@
         if (!params.length) {
             paramsBox.classList.add('hidden');
             if (paramsHint) paramsHint.classList.add('hidden');
-            if (paramsHidden) paramsHidden.value = '';
             return;
         }
 
@@ -219,7 +231,9 @@
             input.setAttribute('data-wa-param', '1');
             input.className = 'w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-gray-200 dark:bg-gray-900/40 dark:ring-gray-600';
             input.placeholder = p.example || ('Valor para ' + (p.label || (i + 1)));
-            if (oldParams[i]) input.value = oldParams[i];
+            var valor = oldParams[i] || '';
+            if (!valor && i === 0 && sel && sel.value === plantillaPedido) valor = nombreSugerido;
+            if (valor) input.value = valor;
             input.addEventListener('input', syncParamsHidden);
             wrap.appendChild(label);
             wrap.appendChild(input);

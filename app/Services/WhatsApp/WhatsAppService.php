@@ -36,6 +36,37 @@ class WhatsAppService
     }
 
     /**
+     * Nombre para {{1}} de la plantilla de pedido pendiente.
+     */
+    public function nombreVisibleParaPlantilla(string $telefono): string
+    {
+        $candidatos = array_values(array_unique(array_filter([
+            $this->normalizePhone($telefono),
+            preg_replace('/\D+/', '', $telefono) ?: null,
+        ])));
+
+        $contacto = $candidatos === []
+            ? null
+            : WhatsappContacto::query()->with('cliente')->whereIn('telefono', $candidatos)->first();
+
+        $nombre = '';
+        if ($contacto?->cliente) {
+            $nombre = trim(($contacto->cliente->nombre ?? '').' '.($contacto->cliente->apellido ?? ''));
+        }
+        if ($nombre === '') {
+            $nombre = trim((string) ($contacto?->nombre ?? ''));
+        }
+        if ($nombre === '') {
+            $cliente = $this->findClienteByPhone($telefono);
+            if ($cliente) {
+                $nombre = trim(($cliente->nombre ?? '').' '.($cliente->apellido ?? ''));
+            }
+        }
+
+        return PlantillaPedidoPendiente::parametros([], $nombre)[0]['text'];
+    }
+
+    /**
      * Busca cliente por teléfono (variantes local / E.164).
      * Esqueleto: match simple; se puede refinar después.
      */
@@ -379,6 +410,16 @@ class WhatsAppService
     ): WhatsappMensaje {
         $telefono = $this->normalizePhone($to);
         $language = $language ?: (string) config('whatsapp.default_template_language', 'es');
+
+        if ($templateName === PlantillaPedidoPendiente::nombre()) {
+            $bodyParameters = PlantillaPedidoPendiente::parametros(
+                $bodyParameters,
+                $this->nombreVisibleParaPlantilla($to)
+            );
+            if (is_string($cuerpoVisible) && str_contains($cuerpoVisible, '{{')) {
+                $cuerpoVisible = null;
+            }
+        }
 
         $cuerpo = filled($cuerpoVisible)
             ? trim((string) $cuerpoVisible)

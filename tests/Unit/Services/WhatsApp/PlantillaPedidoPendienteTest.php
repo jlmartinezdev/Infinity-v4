@@ -24,4 +24,24 @@ class PlantillaPedidoPendienteTest extends TestCase
         $this->assertSame('es', $def['language']);
         $this->assertSame('Sí, retomemos', $def['components'][1]['buttons'][0]['text']);
     }
+
+    public function test_completa_el_nombre_si_el_envio_no_trae_parametros(): void
+    {
+        $this->assertSame(
+            [['type' => 'text', 'text' => 'Ana']],
+            PlantillaPedidoPendiente::parametros([], 'Ana')
+        );
+        $this->assertSame(
+            [['type' => 'text', 'text' => 'Ana']],
+            PlantillaPedidoPendiente::parametros([['type' => 'text', 'text' => '']], 'Ana')
+        );
+        $this->assertSame(
+            [['type' => 'text', 'text' => 'Luis']],
+            PlantillaPedidoPendiente::parametros([['type' => 'text', 'text' => 'Luis']], 'Ana')
+        );
+        $this->assertSame(
+            [['type' => 'text', 'text' => 'cliente']],
+            PlantillaPedidoPendiente::parametros([], '0981123456')
+        );
+    }
 }
