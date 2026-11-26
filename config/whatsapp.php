@@ -291,6 +291,8 @@ TXT,
         'ap_wireless_caido' => env('WHATSAPP_TEMPLATE_AP_WIRELESS_CAIDO', env('WHATSAPP_TEMPLATE_ROUTER_CAIDO', 'router_caido_ping')),
         /** Ver docs/whatsapp-plantilla-isp-failover.md */
         'isp_failover' => env('WHATSAPP_TEMPLATE_ISP_FAILOVER', 'isp_failover_salida'),
+        /** Ver docs/whatsapp-plantilla-pedido-pendiente.md */
+        'pedido_pendiente' => env('WHATSAPP_TEMPLATE_PEDIDO_PENDIENTE', 'pedido_pendiente_retomar'),
     ],
 
     /**
@@ -312,6 +314,7 @@ TXT,
         'router_caido' => env('WHATSAPP_TEMPLATE_ROUTER_CAIDO_LANG', ''),
         'ap_wireless_caido' => env('WHATSAPP_TEMPLATE_AP_WIRELESS_CAIDO_LANG', env('WHATSAPP_TEMPLATE_ROUTER_CAIDO_LANG', '')),
         'isp_failover' => env('WHATSAPP_TEMPLATE_ISP_FAILOVER_LANG', ''),
+        'pedido_pendiente' => env('WHATSAPP_TEMPLATE_PEDIDO_PENDIENTE_LANG', 'es'),
     ],
 
     /**

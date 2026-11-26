@@ -70,6 +70,10 @@ html.wa-fullscreen .wa-app { height: 100%; border-radius: 0; border: 0; box-shad
         'puedeCrearPedido' => $puedeCrearPedido ?? false,
         'puedeCrearCobro' => $puedeCrearCobro ?? false,
         'pedidoFormConfig' => $pedidoFormConfig ?? null,
+        'plantillaPedido' => [
+            'nombre' => \App\Services\WhatsApp\PlantillaPedidoPendiente::nombre(),
+            'idioma' => \App\Services\WhatsApp\PlantillaPedidoPendiente::idioma(),
+        ],
         'urls' => $urls,
         'flash' => $flash ?? ['success' => null, 'error' => null],
     ];
@@ -80,6 +84,7 @@ window.__WHATSAPP_MENSAJES_CONFIG__ = @json($config);
 
 @push('scripts')
 <script src="{{ asset(mix('js/whatsapp-mensajes.js')) }}" defer></script>
+<script src="{{ asset('js/whatsapp-retomar-pedido.js') }}?v=1" defer></script>
 <script src="{{ asset('js/twemoji.min.js') }}?v=1" defer></script>
 <script src="{{ asset('js/whatsapp-ficha.js') }}?v=6" defer></script>
 <script src="{{ asset('js/whatsapp-encargo.js') }}?v=2" defer></script>

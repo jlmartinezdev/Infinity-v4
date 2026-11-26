@@ -280,6 +280,13 @@
                 title="Abrir ficha del cliente"
               >Cliente</a>
               <a
+                v-if="puedeEditar && hiloMeta.pedido && plantillaPedidoNombre"
+                data-retomar-pedido
+                :href="plantillaPedidoUrl(telActivo)"
+                class="wa-accent rounded-lg px-2.5 py-1.5 text-xs font-medium hover:opacity-80"
+                title="Plantilla para retomar el pedido pendiente"
+              >Retomar pedido</a>
+              <a
                 v-if="puedeEditar"
                 :href="plantillaUrl(telActivo)"
                 class="wa-accent rounded-lg px-2.5 py-1.5 text-xs font-medium hover:opacity-80"
@@ -543,7 +550,7 @@
           <template v-if="puedeEditar && configured">
             <div v-if="hiloMeta.fuera_ventana" class="wa-warn relative z-10 border-t px-4 py-2 text-xs">
               Fuera de ventana 24 h: el texto libre va a fallar.
-              <a :href="plantillaUrl(telActivo)" class="font-semibold underline">Enviar con plantilla APPROVED</a>
+              <a :href="hiloMeta.pedido && plantillaPedidoNombre ? plantillaPedidoUrl(telActivo) : plantillaUrl(telActivo)" class="font-semibold underline">{{ hiloMeta.pedido && plantillaPedidoNombre ? 'Retomar pedido con plantilla' : 'Enviar con plantilla APPROVED' }}</a>
             </div>
             <div
               v-if="sugerenciaIa && puedeEditar"
@@ -1285,6 +1292,7 @@ export default {
     puedeCrearPedido: { type: Boolean, default: false },
     puedeCrearCobro: { type: Boolean, default: false },
     pedidoFormConfig: { type: Object, default: null },
+    plantillaPedido: { type: Object, default: null },
     urls: { type: Object, default: () => ({}) },
     flash: { type: Object, default: () => ({}) },
   },
@@ -1440,6 +1448,9 @@ export default {
         ? 'Salir de pantalla completa (Esc)'
         : 'Pantalla completa (ocultar menús)';
     },
+    plantillaPedidoNombre() {
+      return String(this.plantillaPedido?.nombre || '').trim();
+    },
     puedeGuardarContacto() {
       const nombre = (this.contactoForm.nombre || '').trim();
       return !!(nombre || this.contactoForm.cliente_id || this.contactoForm.quitar_cliente);
@@ -1522,6 +1533,18 @@ export default {
     plantillaUrl(tel) {
       const base = this.urls.enviarPlantilla || '/whatsapp/enviar';
       return `${base}?telefono=${encodeURIComponent(tel || '')}`;
+    },
+    plantillaPedidoUrl(tel) {
+      const url = new URL(this.plantillaUrl(tel), window.location.origin);
+      url.searchParams.set('plantilla', this.plantillaPedidoNombre);
+      url.searchParams.set('params', this.nombreParaPlantillaPedido());
+      return `${url.pathname}${url.search}`;
+    },
+    nombreParaPlantillaPedido() {
+      const name = String(this.hiloMeta.nombre || this.hiloMeta.cliente_nombre || '').trim();
+      const letters = name.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g) || [];
+      if (letters.length < 2) return 'cliente';
+      return name.slice(0, 80);
     },
     ticks(estado) {
       if (estado === 'leido') return '✓✓';

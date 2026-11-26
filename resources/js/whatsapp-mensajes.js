@@ -19,6 +19,7 @@ if (el) {
         puedeCrearPedido: !!cfg.puedeCrearPedido,
         puedeCrearCobro: !!cfg.puedeCrearCobro,
         pedidoFormConfig: cfg.pedidoFormConfig || null,
+        plantillaPedido: cfg.plantillaPedido || null,
         urls: cfg.urls || {},
         flash: cfg.flash || {},
       });

@@ -642,6 +642,87 @@ class WhatsAppService
     }
 
     /**
+     * Busca una plantilla por nombre, sin usar la caché del listado.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function buscarPlantilla(string $name): ?array
+    {
+        $name = trim($name);
+        $waba = (string) config('whatsapp.business_account_id');
+        if ($name === '' || $waba === '' || ! filled(config('whatsapp.token'))) {
+            return null;
+        }
+
+        try {
+            $version = trim((string) config('whatsapp.api_version', 'v21.0'), '/');
+            $base = rtrim((string) config('whatsapp.graph_base_url', 'https://graph.facebook.com'), '/');
+            $response = $this->http()->get("{$base}/{$version}/{$waba}/message_templates", [
+                'fields' => 'name,status,language,category,rejected_reason',
+                'name' => $name,
+                'limit' => 20,
+            ]);
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $match = collect($response->json('data', []))->first(
+                static fn ($t) => is_array($t) && ($t['name'] ?? '') === $name
+            );
+
+            return is_array($match) ? $match : null;
+        } catch (\Throwable $e) {
+            Log::warning('[WhatsApp] No se pudo buscar la plantilla '.$name.': '.$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Crea una plantilla en el WABA. Meta la deja PENDING hasta aprobarla.
+     *
+     * @param  array<string, mixed>  $definition
+     * @return array{ok: bool, id?: string, status?: string, category?: string, error?: string, code?: int|string|null}
+     */
+    public function crearPlantilla(array $definition): array
+    {
+        $waba = (string) config('whatsapp.business_account_id');
+        if ($waba === '' || ! filled(config('whatsapp.token'))) {
+            return ['ok' => false, 'error' => 'WhatsApp no está configurado.'];
+        }
+
+        $version = trim((string) config('whatsapp.api_version', 'v21.0'), '/');
+        $base = rtrim((string) config('whatsapp.graph_base_url', 'https://graph.facebook.com'), '/');
+        $response = $this->http()->post("{$base}/{$version}/{$waba}/message_templates", $definition);
+        $this->olvidarCachePlantillas();
+
+        if (! $response->successful()) {
+            $error = $response->json('error') ?: [];
+
+            return [
+                'ok' => false,
+                'error' => (string) ($error['message'] ?? 'Meta rechazó la plantilla.'),
+                'code' => $error['code'] ?? $response->status(),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'id' => (string) $response->json('id', ''),
+            'status' => (string) $response->json('status', 'PENDING'),
+            'category' => (string) $response->json('category', ''),
+        ];
+    }
+
+    public function olvidarCachePlantillas(): void
+    {
+        $waba = (string) config('whatsapp.business_account_id');
+        foreach ([50, 100, 200] as $limit) {
+            Cache::forget('whatsapp:templates:v1:'.$waba.':'.$limit);
+        }
+    }
+
+    /**
      * Resuelve el idioma real de una plantilla APPROVED en Meta.
      * Prioridad: preferido exacto → mismo prefijo (es → es_AR) → es_AR → es → primero APPROVED.
      */

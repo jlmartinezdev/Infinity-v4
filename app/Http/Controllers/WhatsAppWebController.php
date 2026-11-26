@@ -1501,6 +1501,7 @@ class WhatsAppWebController extends Controller
             'configured' => $this->whatsapp->isConfigured(),
             'telefonoPrefill' => (string) $request->get('telefono', ''),
             'plantillaPrefill' => (string) $request->get('plantilla', ''),
+            'paramsPrefill' => (string) $request->get('params', ''),
         ]);
     }
 

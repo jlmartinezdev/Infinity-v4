@@ -6,6 +6,11 @@
 @php
     $aprobadas = $plantillasAprobadas ?? [];
     $pendientes = $plantillasPendientes ?? [];
+    $plantillaPedida = old('plantilla', $plantillaPrefill ?? '');
+    $plantillaPedidaPendiente = $plantillaPedida !== '' && collect($pendientes)->contains(
+        static fn (array $t) => ($t['name'] ?? '') === $plantillaPedida
+    );
+    $modoInicial = old('modo', $plantillaPedida !== '' ? 'plantilla' : (count($aprobadas) ? 'texto' : 'plantilla'));
 @endphp
 <div class="max-w-3xl mx-auto">
     <div class="mb-6">
@@ -48,11 +53,11 @@
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Modo</label>
                 <div class="flex flex-wrap gap-3 pt-1">
                     <label class="inline-flex items-center gap-2 text-sm">
-                        <input type="radio" name="modo" value="texto" class="js-wa-modo text-emerald-600" @checked(old('modo', count($aprobadas) ? 'texto' : 'plantilla') === 'texto')>
+                        <input type="radio" name="modo" value="texto" class="js-wa-modo text-emerald-600" @checked($modoInicial === 'texto')>
                         Texto libre <span class="text-xs text-gray-400">(solo si hay ventana 24h)</span>
                     </label>
                     <label class="inline-flex items-center gap-2 text-sm">
-                        <input type="radio" name="modo" value="plantilla" class="js-wa-modo text-emerald-600" @checked(old('modo', count($aprobadas) ? 'texto' : 'plantilla') === 'plantilla')>
+                        <input type="radio" name="modo" value="plantilla" class="js-wa-modo text-emerald-600" @checked($modoInicial === 'plantilla')>
                         Plantilla <span class="text-xs text-gray-400">(fuera de 24h)</span>
                     </label>
                 </div>
@@ -111,7 +116,12 @@
 
                 <div id="wa-params-fields" class="space-y-2 hidden"></div>
                 <textarea name="params" id="wa-params" rows="3" class="hidden"
-                          placeholder="parametro 1&#10;parametro 2">{{ old('params') }}</textarea>
+                          placeholder="parametro 1&#10;parametro 2">{{ old('params', $paramsPrefill ?? '') }}</textarea>
+                @if($plantillaPedidaPendiente)
+                    <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                        La plantilla <span class="font-mono">{{ $plantillaPedida }}</span> está en revisión de Meta. Se puede enviar cuando quede APPROVED.
+                    </p>
+                @endif
                 <p id="wa-params-hint" class="text-xs text-gray-400 hidden">Completá cada variable en el orden que aparece en el body.</p>
 
                 @if(count($pendientes))
