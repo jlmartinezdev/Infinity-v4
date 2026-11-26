@@ -180,7 +180,7 @@
     @if($cobro->concepto)
     <div class="recibo-mono text-xs text-gray-900 mt-2">
         <div class="">
-            <span class="text-right max-w-[60%]">{{ $ascii($cobro->concepto) }}</span>
+            <span class="text-right max-w-[60%]">{{ $ascii(\App\Support\ReciboDescripcion::paraCobro($cobro)) }}</span>
         </div>
     </div>
     @endif
@@ -280,7 +280,7 @@
     @endif
 
     @if($cobro->concepto)
-        <p class="mt-2">{{ $ascii($cobro->concepto) }}</p>
+        <p class="mt-2">{{ $ascii(\App\Support\ReciboDescripcion::paraCobro($cobro)) }}</p>
     @endif
 
     <p class="mt-2 font-bold">TOTAL: {{ number_format($cobro->monto, 0, ',', '.') }} PYG</p>

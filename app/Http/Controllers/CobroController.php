@@ -183,16 +183,21 @@ class CobroController extends Controller
         $facturasPendientes = $cliente
             ? $this->facturasPendientesDeCliente($cliente)
             : collect();
-        $montoPlan = $cliente && $facturasPendientes->isEmpty()
-            ? $this->montoPlanDeCliente($cliente)
-            : 0.0;
+        $sugerido = $cliente && $facturasPendientes->isEmpty()
+            ? $this->montoSugeridoSinFactura($cliente)
+            : ['plan' => 0.0, 'tv' => 0.0, 'total' => 0.0];
+        $conceptoSugerido = $cliente && $facturasPendientes->isEmpty()
+            ? $this->conceptoSugeridoSinFactura($cliente)
+            : '';
 
         return view('cobros.create', [
             'cliente' => $cliente,
             'facturaInternaId' => $facturaInternaId,
             'facturaInternaIdsPreseleccionados' => $idsPreseleccionados,
             'facturasPendientes' => $facturasPendientes,
-            'montoPlan' => $montoPlan,
+            'montoPlan' => $sugerido['total'],
+            'montoTv' => $sugerido['tv'],
+            'conceptoSugerido' => $conceptoSugerido,
             'formasPago' => Cobro::formasPago(),
         ]);
     }
@@ -239,16 +244,59 @@ class CobroController extends Controller
     }
 
     /**
-     * Suma del precio mensual de los planes de los servicios activos.
-     * Se usa como monto sugerido cuando el cliente no tiene facturas pendientes.
+     * Monto sugerido cuando el cliente todavía no tiene factura del período.
+     * Suma el plan y, si la app de TV está activa, su precio.
+     *
+     * @return array{plan: float, tv: float, total: float}
      */
-    private function montoPlanDeCliente(Cliente $cliente): float
+    private function montoSugeridoSinFactura(Cliente $cliente): array
     {
-        return round((float) $cliente->servicios()
+        $plan = 0.0;
+        $tv = 0.0;
+
+        $servicios = $cliente->servicios()
             ->where('estado', Servicio::ESTADO_ACTIVO)
             ->with('plan:plan_id,precio')
-            ->get()
-            ->sum(fn (Servicio $servicio) => (float) ($servicio->plan->precio ?? 0)), 2);
+            ->get();
+
+        foreach ($servicios as $servicio) {
+            $plan += (float) ($servicio->plan->precio ?? 0);
+            $precioApp = (float) ($servicio->precio_app ?? 0);
+            if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0) {
+                $tv += $precioApp;
+            }
+        }
+
+        return [
+            'plan' => round($plan, 2),
+            'tv' => round($tv, 2),
+            'total' => round($plan + $tv, 2),
+        ];
+    }
+
+    /**
+     * Concepto del recibo cuando todavía no hay factura: nombre del plan y, si corresponde, Servicio especial.
+     */
+    private function conceptoSugeridoSinFactura(Cliente $cliente): string
+    {
+        $partes = [];
+        $servicios = $cliente->servicios()
+            ->where('estado', Servicio::ESTADO_ACTIVO)
+            ->with('plan:plan_id,nombre')
+            ->get();
+
+        foreach ($servicios as $servicio) {
+            $nombre = trim((string) ($servicio->plan->nombre ?? ''));
+            if ($nombre !== '' && ! in_array($nombre, $partes, true)) {
+                $partes[] = $nombre;
+            }
+            $precioApp = (float) ($servicio->precio_app ?? 0);
+            if ((bool) ($servicio->app_tv ?? false) && $precioApp > 0 && ! in_array('Servicio especial', $partes, true)) {
+                $partes[] = 'Servicio especial';
+            }
+        }
+
+        return implode(' / ', $partes);
     }
 
     public function store(Request $request)

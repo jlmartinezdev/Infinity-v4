@@ -68,7 +68,7 @@
                         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                             No hay facturas pendientes para este cliente.
                             @if(($montoPlan ?? 0) > 0)
-                                El monto se completa con el plan: {{ number_format($montoPlan, 0, ',', '.') }} PYG.
+                                El monto se completa con el plan{{ ($montoTv ?? 0) > 0 ? ' y la app de TV' : '' }}: {{ number_format($montoPlan, 0, ',', '.') }} PYG.
                             @endif
                         </p>
                     @endif
@@ -106,7 +106,7 @@
 
                 <div>
                     <label for="concepto" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Concepto</label>
-                    <input type="text" name="concepto" id="concepto" value="{{ old('concepto', 'Mensualidad') }}" maxlength="500" placeholder="Mensualidad, reconexión, descripción de factura..."
+                    <input type="text" name="concepto" id="concepto" value="{{ old('concepto', $facturasPendientes->isEmpty() ? ($conceptoSugerido ?: 'Mensualidad') : $facturasPendientes->pluck('concepto')->filter()->unique()->implode(' | ')) }}" maxlength="500" placeholder="{{ $facturasPendientes->isEmpty() ? 'Nombre del plan' : 'Mensualidad, reconexión, descripción de factura...' }}"
                            class="mt-1 w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500">
                     @error('concepto')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
                 </div>
@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var conceptoYaCargado = {{ old('concepto') ? 'true' : 'false' }};
     var montoYaCargado = {{ old('monto') ? 'true' : 'false' }};
     var montoPlan = {{ json_encode((float) ($montoPlan ?? 0)) }};
+    var conceptoSugerido = {{ json_encode((string) ($conceptoSugerido ?? '')) }};
 
     function formatMonto(n) {
         return Number(n || 0).toLocaleString('es-PY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -169,7 +170,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 montoInput.value = '';
             }
         }
-        if (conceptoInput && !conceptoYaCargado) conceptoInput.value = conceptos.join(' | ').substring(0, 500);
+        if (conceptoInput && !conceptoYaCargado) {
+            if (conceptos.length) {
+                conceptoInput.value = conceptos.join(' | ').substring(0, 500);
+            } else if (checkboxes().length === 0 && conceptoSugerido) {
+                conceptoInput.value = conceptoSugerido;
+            } else {
+                conceptoInput.value = '';
+            }
+        }
     }
 
     checkboxes().forEach(function(cb) {

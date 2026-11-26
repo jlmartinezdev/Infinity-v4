@@ -79,7 +79,7 @@ class PortalReciboPresenter
             'monto_formato' => $this->pyg($monto),
             'forma_pago' => (string) ($cobro->forma_pago ?? ''),
             'forma_pago_label' => $this->formaPagoLabel($cobro),
-            'concepto' => $this->ascii($cobro->concepto) ?: null,
+            'concepto' => $this->conceptoRecibo($cobro),
             'referencia' => $this->ascii($cobro->referencia) ?: null,
         ];
     }
@@ -107,7 +107,7 @@ class PortalReciboPresenter
             'forma_pago' => (string) ($cobro->forma_pago ?? ''),
             'forma_pago_label' => $this->formaPagoLabel($cobro),
             'referencia' => $this->ascii($cobro->referencia) ?: null,
-            'concepto' => $this->ascii($cobro->concepto) ?: null,
+            'concepto' => $this->conceptoRecibo($cobro),
             'observaciones' => $this->ascii($cobro->observaciones) ?: null,
             'cajero' => $this->ascii($cobro->usuario?->name) ?: '—',
             'saldo_a_favor' => $saldoFavor,
@@ -347,6 +347,11 @@ class PortalReciboPresenter
     private function pyg(float $n): string
     {
         return number_format($n, 0, ',', '.').' PYG';
+    }
+
+    private function conceptoRecibo(Cobro $cobro): ?string
+    {
+        return $this->ascii(ReciboDescripcion::paraCobro($cobro)) ?: null;
     }
 
     private function ascii(?string $s): string

@@ -68,7 +68,7 @@
             @endforeach
         @endif
         @if($cobro->concepto)
-            <p style="margin:6px 0 0 0;">{{ $ascii($cobro->concepto) }}</p>
+            <p style="margin:6px 0 0 0;">{{ $ascii(\App\Support\ReciboDescripcion::paraCobro($cobro)) }}</p>
         @endif
         <p class="bold" style="margin:8px 0 0 0;">TOTAL: {{ number_format($cobro->monto, 0, ',', '.') }} PYG</p>
         @if($saldoAFavorTotal > 0)
@@ -148,7 +148,7 @@
 
     @if($cobro->concepto)
         <div class="mono" style="margin-top:8px;">
-            <p style="margin:0;">{{ $ascii($cobro->concepto) }}</p>
+            <p style="margin:0;">{{ $ascii(\App\Support\ReciboDescripcion::paraCobro($cobro)) }}</p>
         </div>
     @endif
 
