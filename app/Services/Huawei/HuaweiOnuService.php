@@ -980,6 +980,105 @@ class HuaweiOnuService
         return $cliError ? $cliError.' · Web: '.$webError : $webError;
     }
 
+    public static function esErrorTlsLegacy(array $result): bool
+    {
+        if (($result['success'] ?? true) !== false) {
+            return false;
+        }
+        $msg = (string) ($result['message'] ?? '');
+
+        return str_contains($msg, '0A000152') || str_contains($msg, 'unsafe legacy renegotiation');
+    }
+
+    /**
+     * La ONU abre la web con un TLS viejo que OpenSSL 3 rechaza dentro de Apache.
+     * Un proceso nuevo, con la opción UnsafeLegacyRenegotiation, sí puede leerla.
+     *
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>|null
+     */
+    public function ejecutarConTlsLegacy(string $operacion, int $servicioId, array $extra = []): ?array
+    {
+        $script = base_path('scripts/huawei-web-legacy.php');
+        $cnf = config_path('huawei-openssl-legacy.cnf');
+        $php = $this->phpCli();
+        if ($php === '' || ! is_file($script) || ! is_file($cnf)) {
+            return null;
+        }
+
+        $env = getenv();
+        if (! is_array($env)) {
+            $env = [];
+        }
+        $env['OPENSSL_CONF'] = $cnf;
+
+        $cmd = [$php, $script];
+        $pipes = [];
+        $proc = @proc_open($cmd, [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, base_path(), $env, ['bypass_shell' => true]);
+        if (! is_resource($proc)) {
+            return null;
+        }
+
+        $payload = json_encode(array_merge($extra, [
+            'op' => $operacion,
+            'servicio_id' => $servicioId,
+        ]), JSON_UNESCAPED_UNICODE);
+        fwrite($pipes[0], $payload === false ? '{}' : $payload);
+        fclose($pipes[0]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        $stdout = '';
+        $inicio = time();
+        do {
+            $stdout .= (string) stream_get_contents($pipes[1]);
+            stream_get_contents($pipes[2]);
+            $estado = proc_get_status($proc);
+            if (! ($estado['running'] ?? false)) {
+                break;
+            }
+            usleep(100000);
+        } while ((time() - $inicio) < 50);
+
+        $stdout .= (string) stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($proc);
+
+        $json = json_decode($stdout, true);
+
+        return is_array($json) ? $json : null;
+    }
+
+    protected function phpCli(): string
+    {
+        $bin = is_string(PHP_BINARY) ? PHP_BINARY : '';
+        $base = strtolower(basename($bin));
+        if ($bin !== '' && str_starts_with($base, 'php') && ! str_contains($base, 'fpm') && is_file($bin)) {
+            return $bin;
+        }
+
+        $candidatos = [
+            dirname($bin).DIRECTORY_SEPARATOR.'php.exe',
+            'C:\\xampp\\php\\php.exe',
+            '/usr/bin/php',
+            '/usr/bin/php8.3',
+            '/usr/bin/php8.2',
+            '/usr/bin/php8.1',
+        ];
+        foreach ($candidatos as $ruta) {
+            if (is_file($ruta)) {
+                return $ruta;
+            }
+        }
+
+        return 'php';
+    }
+
     protected function cli(string $host): HuaweiOnuCli
     {
         return new HuaweiOnuCli(

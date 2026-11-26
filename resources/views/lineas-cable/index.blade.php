@@ -94,6 +94,13 @@
             </a>
 
             @if($puedeCrear)
+                <button type="button" onclick="abrirModalCajaFusion()"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 text-sm font-semibold shadow-sm hover:bg-indigo-50 dark:hover:bg-gray-700 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Caja de fusión</span>
+                </button>
                 <a href="{{ route('sistema.lineas-cable.create') }}"
                     class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold shadow-sm transition-colors">
                     {{-- SVG Plus --}}
@@ -325,6 +332,46 @@
             @endif
         </form>
 
+        <div id="cajas-fusion" class="border-b border-gray-100 dark:border-gray-700 px-4 py-4 space-y-3">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-bold text-gray-900 dark:text-gray-100">Cajas de fusión</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Acá se unen dos cables. Cada cable puede cambiar de color y de cantidad de pelos.</p>
+                </div>
+                @if($puedeCrear)
+                    <button type="button" onclick="abrirModalCajaFusion()"
+                        class="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
+                        Agregar caja
+                    </button>
+                @endif
+            </div>
+            @if($cajasFusion->isEmpty())
+                <p class="text-xs text-gray-500 dark:text-gray-400">Todavía no hay cajas de fusión.</p>
+            @else
+                <div class="flex flex-wrap gap-2">
+                    @foreach($cajasFusion as $caja)
+                        @php
+                            $unidos = $cablesEnFusion->filter(fn ($c) =>
+                                ($c->origen_tipo === 'caja_fusion' && (int) $c->origen_id === (int) $caja->caja_fusion_id)
+                                || ($c->destino_tipo === 'caja_fusion' && (int) $c->destino_id === (int) $caja->caja_fusion_id)
+                            );
+                        @endphp
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 px-3 py-2 text-xs">
+                            <p class="font-bold text-gray-900 dark:text-gray-100">{{ $caja->codigo }}@if($caja->ubicacion) <span class="font-normal text-gray-500 dark:text-gray-400">· {{ $caja->ubicacion }}</span>@endif</p>
+                            @if($caja->lat && $caja->lon)
+                                <a href="https://www.google.com/maps?q={{ $caja->lat }},{{ $caja->lon }}" target="_blank" rel="noopener" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ number_format((float) $caja->lat, 5, '.', '') }}, {{ number_format((float) $caja->lon, 5, '.', '') }}</a>
+                            @endif
+                            @if($unidos->isEmpty())
+                                <p class="text-gray-500 dark:text-gray-400">Sin cables unidos</p>
+                            @else
+                                <p class="text-gray-700 dark:text-gray-300">{{ $unidos->map(fn ($c) => ($c->nombre ?: 'Cable #'.$c->linea_cable_id).' ('.$c->cantidad_hilos.' FO)')->join(' · ') }}</p>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
         {{-- TABLA MODERNIZADA DE CABLES DE PLANTA EXTERNA --}}
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 cable-table text-left">
@@ -507,6 +554,10 @@
                             {{-- Trazado GPS --}}
                             <td class="px-4 py-3.5 align-middle">
                                 @if($hasCoords)
+                                    @php
+                                        $gpsIni = $l->coordenadas[0] ?? null;
+                                        $gpsFin = $l->coordenadas[count($l->coordenadas) - 1] ?? null;
+                                    @endphp
                                     <a href="{{ route('sistema.cajas-nap.mapa') }}"
                                         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/60 hover:bg-cyan-100 transition-colors">
                                         {{-- SVG Route --}}
@@ -515,6 +566,12 @@
                                         </svg>
                                         <span>Ruta en mapa</span>
                                     </a>
+                                    @if(is_array($gpsIni) && is_array($gpsFin))
+                                        <div class="mt-1 text-[10px] leading-tight text-gray-500 dark:text-gray-400">
+                                            {{ number_format((float) $gpsIni[0], 5, '.', '') }}, {{ number_format((float) $gpsIni[1], 5, '.', '') }}
+                                            → {{ number_format((float) $gpsFin[0], 5, '.', '') }}, {{ number_format((float) $gpsFin[1], 5, '.', '') }}
+                                        </div>
+                                    @endif
                                 @else
                                     <span class="text-xs text-gray-400">Directo (auto)</span>
                                 @endif
@@ -597,6 +654,68 @@
         @endif
     </div>
 
+    @php
+        $erroresCaja = $errors->has('codigo') || $errors->has('ubicacion') || $errors->has('lat') || $errors->has('lon') || $errors->has('notas');
+    @endphp
+    <div id="modal-caja-fusion" class="{{ $erroresCaja ? 'flex' : 'hidden' }} fixed inset-0 z-50 overflow-y-auto bg-black/60 items-center justify-center p-4" onclick="cerrarModalCajaFusion()">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden" onclick="event.stopPropagation()">
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">Nueva caja de fusión</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">El punto donde se unen dos cables.</p>
+                </div>
+                <button type="button" onclick="cerrarModalCajaFusion()" class="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form method="POST" action="{{ route('sistema.cajas-fusion.store') }}" class="p-5 space-y-4">
+                @csrf
+                <div>
+                    <label for="caja-fusion-codigo" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Código</label>
+                    <input type="text" id="caja-fusion-codigo" readonly tabindex="-1" value="{{ $codigoCajaSugerido }}"
+                        class="w-full h-11 px-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se asigna solo al guardar.</p>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">Ubicación en el mapa</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="caja-fusion-satelite" class="h-8 px-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-semibold text-gray-700 dark:text-gray-200">Mapa</button>
+                            <button type="button" id="caja-fusion-mi-gps" class="h-8 px-2.5 rounded-lg border border-indigo-300 dark:border-indigo-700 text-xs font-semibold text-indigo-700 dark:text-indigo-300">Usar mi GPS</button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Hacé clic en el mapa para marcar la caja. Podés arrastrar el punto.</p>
+                    @if(config('services.google.maps_key'))
+                        <div id="mapa-caja-fusion" class="rounded-xl border border-gray-200 dark:border-gray-700" style="height:224px"></div>
+                    @else
+                        <p class="text-xs text-amber-700 dark:text-amber-300">Falta la clave de Google Maps. Cargá la latitud y la longitud a mano.</p>
+                    @endif
+                    <p id="caja-fusion-coords" class="mt-1 text-xs text-gray-500 dark:text-gray-400">Sin punto marcado</p>
+                    <input type="hidden" name="lat" id="caja-fusion-lat" value="{{ old('lat') }}">
+                    <input type="hidden" name="lon" id="caja-fusion-lon" value="{{ old('lon') }}">
+                    @error('lat')<p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>@enderror
+                    @error('lon')<p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label for="caja-fusion-ubicacion" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Referencia</label>
+                    <input type="text" name="ubicacion" id="caja-fusion-ubicacion" maxlength="200" value="{{ old('ubicacion') }}" placeholder="Poste, esquina o referencia"
+                        class="w-full h-11 px-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100">
+                    @error('ubicacion')<p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label for="caja-fusion-notas" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+                    <textarea name="notas" id="caja-fusion-notas" rows="2" maxlength="2000" placeholder="Detalle de la fusión"
+                        class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100">{{ old('notas') }}</textarea>
+                    @error('notas')<p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>@enderror
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-1">
+                    <button type="button" onclick="cerrarModalCajaFusion()" class="h-10 px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200">Cancelar</button>
+                    <button type="submit" class="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Agregar caja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {{-- MODAL INTERACTIVO: GESTIÓN DE PELOS DEL CABLE (VANILLA JS) --}}
     <div id="modal-pelos-cable" class="hidden fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs items-center justify-center p-4">
         <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden" onclick="event.stopPropagation()">
@@ -623,11 +742,15 @@
             <form id="form-guardar-pelos" method="POST" action="" class="flex-1 overflow-y-auto p-5 space-y-4">
                 @csrf
 
-                <div class="flex items-center justify-between bg-indigo-50/60 dark:bg-indigo-950/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                <div class="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/60 dark:bg-indigo-950/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
                     <div class="text-xs text-indigo-900 dark:text-indigo-200">
                         <strong id="modal-cable-info"></strong>
-                        · Asigne el estado a cada hilo (Iluminado, Libre, Reservado, Dañado) y escriba su uso en campo.
+                        · Cambiá el color y el estado de cada pelo. La cantidad nueva se aplica al guardar.
                     </div>
+                    <label class="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        Pelos
+                        <select name="cantidad_hilos" id="modal-cantidad-hilos" class="h-8 px-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100"></select>
+                    </label>
                 </div>
 
                 {{-- Tabla de pelos --}}
@@ -667,6 +790,8 @@
 @push('scripts')
 <script>
     const CABLES_DATA = @json($cablesIndexados);
+    const COLORES_TIA = @json(array_values($coloresTIA));
+    const CAPACIDADES_CABLE = @json(array_values($capacidades));
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -685,6 +810,11 @@
         document.getElementById('modal-cable-nombre').innerText = cable.nombre;
         document.getElementById('modal-cable-info').innerText = cable.cantidad_hilos + ' hilos totales';
         document.getElementById('form-guardar-pelos').action = @js(route('sistema.lineas-cable.pelos.guardar', '__ID__')).replace('__ID__', cable.linea_cable_id);
+        const capSel = document.getElementById('modal-cantidad-hilos');
+        const capacidades = CAPACIDADES_CABLE.includes(Number(cable.cantidad_hilos))
+            ? CAPACIDADES_CABLE
+            : [Number(cable.cantidad_hilos)].concat(CAPACIDADES_CABLE);
+        capSel.innerHTML = capacidades.map((cap) => `<option value="${cap}" ${Number(cap) === Number(cable.cantidad_hilos) ? 'selected' : ''}>${cap} FO</option>`).join('');
 
         const tbody = document.getElementById('modal-pelos-tbody');
         tbody.innerHTML = '';
@@ -705,9 +835,9 @@
                         </span>
                     </td>
                     <td class="px-3 py-2 align-middle">
-                        <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-bold text-white shadow-xs" style="background-color: ${pelo.color_pelo_hex}">
-                            <span class="${pelo.texto}">${pelo.color_pelo}</span>
-                        </span>
+                        <select name="pelos[${idx}][color_pos]" class="w-full text-xs py-1 px-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            ${COLORES_TIA.map((c) => `<option value="${c.pos}" ${Number(pelo.color_pos) === Number(c.pos) ? 'selected' : ''}>${c.nombre}</option>`).join('')}
+                        </select>
                     </td>
                     <td class="px-3 py-2 align-middle">
                         <select name="pelos[${idx}][estado]" class="w-full text-xs py-1 px-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold focus:ring-1 focus:ring-indigo-500">
@@ -736,10 +866,115 @@
         modal.classList.remove('flex');
     }
 
+    const MAPA_CAJA_KEY = @json((string) config('services.google.maps_key'));
+    let mapaCaja = null;
+    let marcaCaja = null;
+
+    function textoPuntoCaja(lat, lon) {
+        const coords = document.getElementById('caja-fusion-coords');
+        if (!coords) return;
+        coords.textContent = (lat === null || lon === null)
+            ? 'Sin punto marcado'
+            : Number(lat).toFixed(6) + ', ' + Number(lon).toFixed(6);
+    }
+
+    function ponerMarcaCaja(lat, lon) {
+        document.getElementById('caja-fusion-lat').value = Number(lat).toFixed(6);
+        document.getElementById('caja-fusion-lon').value = Number(lon).toFixed(6);
+        textoPuntoCaja(lat, lon);
+        if (!mapaCaja || !window.google) return;
+        const pos = new google.maps.LatLng(lat, lon);
+        if (!marcaCaja) {
+            marcaCaja = new google.maps.Marker({
+                map: mapaCaja,
+                position: pos,
+                draggable: true
+            });
+            marcaCaja.addListener('dragend', function (e) {
+                ponerMarcaCaja(e.latLng.lat(), e.latLng.lng());
+            });
+        } else {
+            marcaCaja.setPosition(pos);
+        }
+        mapaCaja.panTo(pos);
+        if (mapaCaja.getZoom() < 15) mapaCaja.setZoom(16);
+    }
+
+    function dibujarMapaCaja() {
+        const el = document.getElementById('mapa-caja-fusion');
+        if (!el || !window.google || !google.maps) return;
+        if (!mapaCaja) {
+            mapaCaja = new google.maps.Map(el, {
+                center: { lat: -26.6125, lng: -56.2463 },
+                zoom: 14,
+                mapTypeId: 'hybrid',
+                mapTypeControl: false,
+                streetViewControl: false
+            });
+            mapaCaja.addListener('click', function (e) {
+                ponerMarcaCaja(e.latLng.lat(), e.latLng.lng());
+            });
+        }
+        google.maps.event.trigger(mapaCaja, 'resize');
+        const lat = parseFloat(document.getElementById('caja-fusion-lat').value);
+        const lon = parseFloat(document.getElementById('caja-fusion-lon').value);
+        if (isFinite(lat) && isFinite(lon)) {
+            ponerMarcaCaja(lat, lon);
+        }
+    }
+
+    window.iniciarMapaCajaFusion = dibujarMapaCaja;
+
+    function prepararMapaCaja() {
+        if (!MAPA_CAJA_KEY) return;
+        if (window.google && google.maps) {
+            setTimeout(dibujarMapaCaja, 60);
+            return;
+        }
+        if (!document.getElementById('google-maps-caja-fusion')) {
+            const script = document.createElement('script');
+            script.id = 'google-maps-caja-fusion';
+            script.async = true;
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(MAPA_CAJA_KEY) + '&callback=iniciarMapaCajaFusion';
+            document.head.appendChild(script);
+        }
+    }
+
+    document.getElementById('caja-fusion-satelite')?.addEventListener('click', function () {
+        if (!mapaCaja) return;
+        const sat = mapaCaja.getMapTypeId() === 'hybrid' || mapaCaja.getMapTypeId() === 'satellite';
+        mapaCaja.setMapTypeId(sat ? 'roadmap' : 'hybrid');
+        this.textContent = sat ? 'Satélite' : 'Mapa';
+    });
+
+    document.getElementById('caja-fusion-mi-gps')?.addEventListener('click', function () {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            ponerMarcaCaja(pos.coords.latitude, pos.coords.longitude);
+            if (mapaCaja) mapaCaja.setZoom(17);
+        });
+    });
+
+    function abrirModalCajaFusion() {
+        const modal = document.getElementById('modal-caja-fusion');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        const referencia = document.getElementById('caja-fusion-ubicacion');
+        if (referencia) referencia.focus();
+        prepararMapaCaja();
+    }
+
+    function cerrarModalCajaFusion() {
+        const modal = document.getElementById('modal-caja-fusion');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
     // Cerrar con Escape o clic fuera
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             cerrarModalPelos();
+            cerrarModalCajaFusion();
         }
     });
 

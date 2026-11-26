@@ -29,6 +29,7 @@ if (el) {
     agregarEstadoUrl: cfg.agregarEstadoUrl || '',
     eliminarEstadoUrl: cfg.eliminarEstadoUrl || '',
     esAdmin: Boolean(cfg.esAdmin),
+    puedeVerWhatsapp: Boolean(cfg.puedeVerWhatsapp),
     esperaAmpliacionRedUrl: cfg.esperaAmpliacionRedUrl || '',
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',
     crearAgendaUrl: cfg.crearAgendaUrl || '',

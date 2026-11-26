@@ -1087,17 +1087,17 @@ class ServicioController extends Controller
 
     public function herramientasRedHuaweiIpv6($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->configurarIpv6($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->configurarIpv6($s), 'configurarIpv6');
     }
 
     public function herramientasRedHuaweiConectados($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->listarConectados($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->listarConectados($s), 'listarConectados');
     }
 
     public function herramientasRedHuaweiDhcp($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->listarDhcpLeases($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->listarDhcpLeases($s), 'listarDhcpLeases');
     }
 
     public function herramientasRedHuaweiWifi(Request $request, $servicio_id, HuaweiOnuService $huawei)
@@ -1110,36 +1110,39 @@ class ServicioController extends Controller
         return $this->respuestaHuaweiOnu(
             $servicio_id,
             $huawei,
-            fn (Servicio $s) => $huawei->cambiarWifi($s, $validated['ssid'], $validated['password'])
+            fn (Servicio $s) => $huawei->cambiarWifi($s, $validated['ssid'], $validated['password']),
+            'cambiarWifi',
+            ['ssid' => $validated['ssid'], 'password' => $validated['password']]
         );
     }
 
     public function herramientasRedHuaweiSsid($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->leerWifi($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->leerWifi($s), 'leerWifi');
     }
 
     public function herramientasRedHuaweiOptica($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->leerOptica($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->leerOptica($s), 'leerOptica');
     }
 
     public function herramientasRedHuaweiReboot($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->reiniciar($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->reiniciar($s), 'reiniciar');
     }
 
     public function herramientasRedHuaweiHotspot($servicio_id, HuaweiOnuService $huawei)
     {
-        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->configurarHotspot($s));
+        return $this->respuestaHuaweiOnu($servicio_id, $huawei, fn (Servicio $s) => $huawei->configurarHotspot($s), 'configurarHotspot');
     }
 
     /**
      * @param  callable(Servicio): array<string, mixed>  $accion
+     * @param  array<string, mixed>  $extra
      */
-    protected function respuestaHuaweiOnu($servicio_id, HuaweiOnuService $huawei, callable $accion)
+    protected function respuestaHuaweiOnu($servicio_id, HuaweiOnuService $huawei, callable $accion, ?string $operacion = null, array $extra = [])
     {
-        @set_time_limit(60);
+        @set_time_limit(70);
         $servicio = Servicio::query()->findOrFail($servicio_id);
         if (! $huawei->puedeOperar($servicio)) {
             return response()->json([
@@ -1149,6 +1152,12 @@ class ServicioController extends Controller
         }
 
         $result = $accion($servicio);
+        if ($operacion && HuaweiOnuService::esErrorTlsLegacy($result)) {
+            $reintento = $huawei->ejecutarConTlsLegacy($operacion, (int) $servicio->servicio_id, $extra);
+            if (is_array($reintento)) {
+                $result = $reintento;
+            }
+        }
 
         return response()->json([
             ...$result,

@@ -88,6 +88,7 @@
         'agregarEstadoUrl' => route('pedidos.agregar-estado', ':pedido'),
         'eliminarEstadoUrl' => auth()->user()?->esAdministrador() ? route('pedidos.eliminar-estado', ':pedido') : '',
         'esAdmin' => (bool) auth()->user()?->esAdministrador(),
+        'puedeVerWhatsapp' => (bool) auth()->user()?->tienePermiso('whatsapp.ver'),
         'esperaAmpliacionRedUrl' => route('pedidos.espera-ampliacion-red', ':pedido'),
         'crearUsuarioPppoeUrl' => route('pedidos.crear-usuario-pppoe', ':pedido'),
         'crearAgendaUrl' => route('pedidos.crear-agenda', ':pedido'),

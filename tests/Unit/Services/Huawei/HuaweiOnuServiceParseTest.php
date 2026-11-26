@@ -275,4 +275,20 @@ TXT;
         $wpa = str_replace('Open', 'WPA/WPA2-PSK', $abierta);
         $this->assertFalse(HuaweiOnuService::cliHotspotAplicado($wpa, 1, 'InterPlus Wi-Fi Zone'));
     }
+
+    public function test_detecta_el_tls_viejo_de_la_web_huawei(): void
+    {
+        $this->assertTrue(HuaweiOnuService::esErrorTlsLegacy([
+            'success' => false,
+            'message' => 'OpenSSL/3.0.11: error:0A000152:SSL routines::unsafe legacy renegotiation disabled',
+        ]));
+        $this->assertFalse(HuaweiOnuService::esErrorTlsLegacy([
+            'success' => true,
+            'message' => 'SSID actual: Casa',
+        ]));
+        $this->assertFalse(HuaweiOnuService::esErrorTlsLegacy([
+            'success' => false,
+            'message' => 'El servicio no tiene IP para conectar a la ONU.',
+        ]));
+    }
 }

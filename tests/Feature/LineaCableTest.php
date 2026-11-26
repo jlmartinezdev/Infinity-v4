@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CajaFusion;
 use App\Models\LineaCable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ class LineaCableTest extends TestCase
             $this->fail('Esta prueba solo puede correr sobre sqlite en memoria.');
         }
 
-        foreach (['linea_cables', 'fibra_colores', 'nodos'] as $tabla) {
+        foreach (['linea_cables', 'fibra_colores', 'nodos', 'cajas_fusion'] as $tabla) {
             Schema::dropIfExists($tabla);
         }
         Schema::create('fibra_colores', function (Blueprint $t) {
@@ -33,6 +34,15 @@ class LineaCableTest extends TestCase
         Schema::create('nodos', function (Blueprint $t) {
             $t->increments('nodo_id');
             $t->string('descripcion');
+            $t->timestamps();
+        });
+        Schema::create('cajas_fusion', function (Blueprint $t) {
+            $t->increments('caja_fusion_id');
+            $t->string('codigo', 60)->unique();
+            $t->string('ubicacion', 200)->nullable();
+            $t->decimal('lat', 10, 7)->nullable();
+            $t->decimal('lon', 10, 7)->nullable();
+            $t->text('notas')->nullable();
             $t->timestamps();
         });
         Schema::create('linea_cables', function (Blueprint $t) {
@@ -160,6 +170,7 @@ class LineaCableTest extends TestCase
             'sistema.lineas-cable.edit'         => 'permiso:ftth-lineas-cable.editar',
             'sistema.lineas-cable.update'       => 'permiso:ftth-lineas-cable.editar',
             'sistema.lineas-cable.pelos.guardar' => 'permiso:ftth-lineas-cable.editar',
+            'sistema.cajas-fusion.store'        => 'permiso:ftth-lineas-cable.crear',
             'sistema.lineas-cable.destroy'      => 'permiso:ftth-lineas-cable.eliminar',
         ];
 
@@ -177,5 +188,146 @@ class LineaCableTest extends TestCase
         $this->assertStringContainsString('Nodo: Nodo Centro', $html);
         $this->assertMatchesRegularExpression('/>\s*1\s*<\/span>\s*<span[^>]*>\s*\/ 12 iluminados/', $html);
         $this->assertStringNotContainsString("cable O&#039;Brien?')", $html);
+        $this->assertStringContainsString('Cajas de fusión', $html);
+        $this->assertStringContainsString('Caja de fusión', $html);
+        $this->assertStringContainsString('abrirModalCajaFusion()', $html);
+        $this->assertStringContainsString('CF-001', $html);
+        $this->assertStringContainsString('caja-fusion-satelite', $html);
+        $this->assertStringContainsString("mapTypeId: 'hybrid'", $html);
+    }
+
+    public function test_un_cable_puede_continuar_en_otro_y_no_en_si_mismo(): void
+    {
+        $troncal = $this->cable(['nombre' => 'TRONCAL']);
+        $continua = $this->cable(['nombre' => 'CONTINUA', 'origen_id' => 2, 'destino_id' => 1]);
+
+        $this->put(route('sistema.lineas-cable.update', $continua), $this->datosForm([
+            'nombre' => 'CONTINUA',
+            'origen_tipo' => 'linea_cable',
+            'origen_id' => $troncal->linea_cable_id,
+            'cantidad_hilos' => 6,
+        ]))->assertSessionHasNoErrors();
+
+        $continua->refresh();
+        $this->assertSame('linea_cable', $continua->origen_tipo);
+        $this->assertSame('Cable: TRONCAL', $continua->origen_etiqueta);
+        $this->assertSame(6, $continua->cantidad_hilos);
+
+        $this->put(route('sistema.lineas-cable.update', $troncal), $this->datosForm([
+            'destino_tipo' => 'linea_cable',
+            'destino_id' => $troncal->linea_cable_id,
+        ]))->assertSessionHasErrors('destino_id');
+    }
+
+    public function test_la_caja_de_fusion_une_cables_y_el_pelo_cambia_de_color(): void
+    {
+        $this->post(route('sistema.cajas-fusion.store'), [
+            'codigo' => 'MANUAL',
+            'ubicacion' => 'Poste 12',
+            'lat' => -26.6125,
+            'lon' => -56.2463,
+        ])->assertRedirect(route('sistema.lineas-cable.index'));
+
+        $caja = CajaFusion::query()->first();
+        $this->assertNotNull($caja);
+        $this->assertSame('CF-001', $caja->codigo);
+        $this->assertEqualsWithDelta(-26.6125, $caja->lat, 0.000001);
+        $this->assertEqualsWithDelta(-56.2463, $caja->lon, 0.000001);
+
+        $this->post(route('sistema.lineas-cable.store'), $this->datosForm([
+            'nombre' => 'SALIDA',
+            'destino_tipo' => 'caja_fusion',
+            'destino_id' => $caja->caja_fusion_id,
+            'cantidad_hilos' => 12,
+        ]))->assertSessionHasNoErrors();
+
+        $cable = LineaCable::where('nombre', 'SALIDA')->first();
+        $this->assertSame('Fusión: CF-001', $cable->destino_etiqueta);
+
+        $this->post(route('sistema.cajas-fusion.store'), [
+            'ubicacion' => 'Poste 13',
+        ])->assertRedirect(route('sistema.lineas-cable.index'));
+        $this->assertSame('CF-002', CajaFusion::where('ubicacion', 'Poste 13')->value('codigo'));
+
+        $this->post(route('sistema.lineas-cable.pelos.guardar', $cable), [
+            'cantidad_hilos' => 4,
+            'pelos' => [
+                ['numero' => 1, 'estado' => 'iluminado', 'uso' => 'Continúa', 'color_pos' => 7],
+            ],
+        ])->assertRedirect();
+
+        $fresco = $cable->fresh();
+        $this->assertSame(4, $fresco->cantidad_hilos);
+        $pelo = collect($fresco->pelos)->firstWhere('numero', 1);
+        $this->assertSame('Rojo', $pelo['color_pelo']);
+        $this->assertSame('Continúa', $pelo['uso']);
+        $this->assertCount(4, $fresco->pelos);
+    }
+
+    public function test_el_cable_guarda_punto_de_inicio_y_punto_de_fin(): void
+    {
+        $this->post(route('sistema.lineas-cable.store'), $this->datosForm([
+            'nombre' => 'GPS-1',
+            'inicio_lat' => '-26,600000 -56,450000',
+            'fin_lat' => -26.61,
+            'fin_lon' => -56.46,
+        ]))->assertSessionHasNoErrors();
+
+        $cable = LineaCable::where('nombre', 'GPS-1')->first();
+        $this->assertEqualsWithDelta(-26.6, $cable->coordenadas[0][0], 0.000001);
+        $this->assertEqualsWithDelta(-56.45, $cable->coordenadas[0][1], 0.000001);
+        $this->assertEqualsWithDelta(-26.61, $cable->coordenadas[1][0], 0.000001);
+
+        $cable->update(['coordenadas' => [[-26.1, -56.1], [-26.2, -56.2], [-26.3, -56.3]]]);
+        $this->put(route('sistema.lineas-cable.update', $cable), $this->datosForm([
+            'nombre' => 'GPS-1',
+            'inicio_lat' => -26.11,
+            'inicio_lon' => -56.11,
+            'fin_lat' => -26.33,
+            'fin_lon' => -56.33,
+        ]))->assertSessionHasNoErrors();
+
+        $coords = $cable->fresh()->coordenadas;
+        $this->assertCount(3, $coords);
+        $this->assertEqualsWithDelta(-26.11, $coords[0][0], 0.000001);
+        $this->assertEqualsWithDelta(-26.2, $coords[1][0], 0.000001);
+        $this->assertEqualsWithDelta(-26.33, $coords[2][0], 0.000001);
+
+        $this->put(route('sistema.lineas-cable.update', $cable), $this->datosForm([
+            'nombre' => 'GPS-1',
+            'inicio_lat' => -26.11,
+        ]))->assertSessionHasErrors(['inicio_lon', 'fin_lat', 'fin_lon']);
+
+        $this->put(route('sistema.lineas-cable.update', $cable), $this->datosForm([
+            'nombre' => 'GPS-1',
+            'inicio_lat' => '',
+            'inicio_lon' => '',
+            'fin_lat' => '',
+            'fin_lon' => '',
+        ]))->assertSessionHasNoErrors();
+        $this->assertNull($cable->fresh()->coordenadas);
+    }
+
+    public function test_el_cable_guarda_el_recorrido_por_la_calle(): void
+    {
+        $this->post(route('sistema.lineas-cable.store'), $this->datosForm([
+            'nombre' => 'RUTA-1',
+            'inicio_lat' => -26.6,
+            'inicio_lon' => -56.45,
+            'fin_lat' => -26.61,
+            'fin_lon' => -56.46,
+            'coordenadas' => [
+                [-26.6, -56.45],
+                [-26.604, -56.453],
+                [-26.607, -56.456],
+                [-26.61, -56.46],
+            ],
+        ]))->assertSessionHasNoErrors();
+
+        $coords = LineaCable::where('nombre', 'RUTA-1')->first()->coordenadas;
+        $this->assertCount(4, $coords);
+        $this->assertEqualsWithDelta(-26.604, $coords[1][0], 0.000001);
+        $this->assertEqualsWithDelta(-56.456, $coords[2][1], 0.000001);
+        $this->assertEqualsWithDelta(-26.61, $coords[3][0], 0.000001);
     }
 }

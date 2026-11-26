@@ -27953,6 +27953,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       type: Boolean,
       default: false
     },
+    puedeVerWhatsapp: {
+      type: Boolean,
+      default: false
+    },
     esperaAmpliacionRedUrl: {
       type: String,
       default: ''
@@ -28679,6 +28683,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         }
       }
       return "https://www.google.com/maps/search/?api=1&query=".concat(encodeURIComponent(gps));
+    };
+    var urlChatWhatsapp = function urlChatWhatsapp(pedido) {
+      var _pedido$cliente;
+      if (!props.puedeVerWhatsapp) return '';
+      var tel = String(((_pedido$cliente = pedido === null || pedido === void 0 ? void 0 : pedido.cliente) === null || _pedido$cliente === void 0 ? void 0 : _pedido$cliente.telefono) || '').replace(/\D/g, '');
+      if (!tel) return '';
+      return '/whatsapp/mensajes?tel=' + encodeURIComponent(tel);
     };
     var tieneEstadoAprobado = function tieneEstadoAprobado(pedido) {
       if (!pedido.estado_pedido_detalles || pedido.estado_pedido_detalles.length === 0) return false;
@@ -29646,6 +29657,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       claseDiasEsperaKanban: claseDiasEsperaKanban,
       formatFechaHora: formatFechaHora,
       getMapsUrl: getMapsUrl,
+      urlChatWhatsapp: urlChatWhatsapp,
       tieneEstadoAprobado: tieneEstadoAprobado,
       getEstadoActual: getEstadoActual,
       getBadgeClassEstado: getBadgeClassEstado,
@@ -31195,7 +31207,7 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
       d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
     })], -1 /* CACHED */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ver mapa ", -1 /* CACHED */)])), 8 /* PROPS */, _hoisted_85)) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_86, [_cache[66] || (_cache[66] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
       class: "font-medium text-gray-700 dark:text-gray-300"
-    }, "Selección:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_87, " Nodo: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getNodoDescripcion((_$setup$getSeleccionP = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP === void 0 ? void 0 : _$setup$getSeleccionP.nodo_id) || '—') + " · Tecnología: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getTecnologiaDescripcion((_$setup$getSeleccionP2 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP2 === void 0 ? void 0 : _$setup$getSeleccionP2.tecnologia_id) || '—') + " · Plan: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getPlanNombre((_$setup$getSeleccionP3 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP3 === void 0 ? void 0 : _$setup$getSeleccionP3.plan_id) || '—'), 1 /* TEXT */)])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Historial de Estados "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h4", {
+    }, "Selección:", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", _hoisted_87, " Nodo: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getNodoDescripcion((_$setup$getSeleccionP = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP === void 0 ? void 0 : _$setup$getSeleccionP.nodo_id) || '—') + " · Tecnología: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getTecnologiaDescripcion((_$setup$getSeleccionP2 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP2 === void 0 ? void 0 : _$setup$getSeleccionP2.tecnologia_id) || '—') + " · Plan: " + (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($setup.getPlanNombre((_$setup$getSeleccionP3 = $setup.getSeleccionPedido(pedido)) === null || _$setup$getSeleccionP3 === void 0 ? void 0 : _$setup$getSeleccionP3.plan_id) || '—'), 1 /* TEXT */)])]), $setup.urlChatWhatsapp(pedido) ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", { key: "wa" }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("a", { href: $setup.urlChatWhatsapp(pedido), target: "_blank", rel: "noopener", class: "inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold" }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("svg", { class: "w-3.5 h-3.5", fill: "currentColor", viewBox: "0 0 32 32", "aria-hidden": "true" }, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("path", { d: "M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.381 1.262.619 1.694.791.712.306 1.36.263 1.871.16.571-.116 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" })]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)(" Ver chat de WhatsApp ")], 8, ["href"])])) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Historial de Estados "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", null, [_cache[80] || (_cache[80] = (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h4", {
       class: "text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3"
     }, "Historial de Estados", -1 /* CACHED */)), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_88, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($setup.getDetallesOrdenados(pedido.estado_pedido_detalles), function (detalle) {
       var _detalle$estado_pedid, _detalle$estado_pedid2, _detalle$estado_pedid3;
@@ -37120,6 +37132,7 @@ if (el) {
     agregarEstadoUrl: cfg.agregarEstadoUrl || '',
     eliminarEstadoUrl: cfg.eliminarEstadoUrl || '',
     esAdmin: Boolean(cfg.esAdmin),
+    puedeVerWhatsapp: Boolean(cfg.puedeVerWhatsapp),
     esperaAmpliacionRedUrl: cfg.esperaAmpliacionRedUrl || '',
     crearUsuarioPppoeUrl: cfg.crearUsuarioPppoeUrl || '',
     crearAgendaUrl: cfg.crearAgendaUrl || '',

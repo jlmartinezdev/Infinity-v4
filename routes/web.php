@@ -1154,6 +1154,9 @@ Route::prefix('sistema')->name('sistema.')->middleware(['auth', 'permiso:sistema
     Route::get('splitters-secundarios/{splitterSecundario}/edit', [SplitterSecundarioController::class, 'edit'])->name('splitters-secundarios.edit');
     Route::put('splitters-secundarios/{splitterSecundario}', [SplitterSecundarioController::class, 'update'])->name('splitters-secundarios.update');
     Route::delete('splitters-secundarios/{splitterSecundario}', [SplitterSecundarioController::class, 'destroy'])->name('splitters-secundarios.destroy');
+    Route::post('cajas-fusion', [LineaCableController::class, 'storeCajaFusion'])
+        ->name('cajas-fusion.store')
+        ->middleware('permiso:ftth-lineas-cable.crear');
     Route::post('lineas-cable/{lineas_cable}/pelos', [LineaCableController::class, 'guardarPelos'])
         ->name('lineas-cable.pelos.guardar')
         ->middleware('permiso:ftth-lineas-cable.editar');

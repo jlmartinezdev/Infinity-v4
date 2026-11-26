@@ -142,11 +142,13 @@
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Tipo de Elemento</label>
                         <select name="origen_tipo" data-extremo-tipo="origen" required
                             class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 font-semibold">
-                            <option value="nodo">Nodo / Central</option>
-                            <option value="salida_pon">Salida PON</option>
-                            <option value="caja_nap">Caja NAP</option>
-                            <option value="splitter_primario">Splitter Primario</option>
-                            <option value="splitter_secundario">Splitter Secundario</option>
+                            @php $tipoOrigen = old('origen_tipo', $lineaCable->origen_tipo); @endphp
+                            <option value="nodo" @selected($tipoOrigen === 'nodo')>Nodo / Central</option>
+                            <option value="salida_pon" @selected($tipoOrigen === 'salida_pon')>Salida PON</option>
+                            <option value="caja_nap" @selected($tipoOrigen === 'caja_nap')>Caja NAP</option>
+                            <option value="splitter_primario" @selected($tipoOrigen === 'splitter_primario')>Splitter Primario</option>
+                            <option value="splitter_secundario" @selected($tipoOrigen === 'splitter_secundario')>Splitter Secundario</option>
+                            @include('lineas-cable._extremo-tipos', ['tipo' => $tipoOrigen])
                         </select>
                     </div>
 
@@ -208,6 +210,13 @@
                                 @endforeach
                             </select>
                         </div>
+                        @include('lineas-cable._extremo-paneles', [
+                            'lado' => 'origen',
+                            'tipo' => old('origen_tipo', $lineaCable->origen_tipo),
+                            'id' => old('origen_id', $lineaCable->origen_id),
+                            'cables' => $cables,
+                            'cajasFusion' => $cajasFusion,
+                        ])
                     </div>
                 </div>
 
@@ -222,11 +231,13 @@
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Tipo de Elemento</label>
                         <select name="destino_tipo" data-extremo-tipo="destino" required
                             class="w-full h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 font-semibold">
-                            <option value="caja_nap">Caja NAP</option>
-                            <option value="nodo">Nodo / Central</option>
-                            <option value="salida_pon">Salida PON</option>
-                            <option value="splitter_primario">Splitter Primario</option>
-                            <option value="splitter_secundario">Splitter Secundario</option>
+                            @php $tipoDestino = old('destino_tipo', $lineaCable->destino_tipo); @endphp
+                            <option value="caja_nap" @selected($tipoDestino === 'caja_nap')>Caja NAP</option>
+                            <option value="nodo" @selected($tipoDestino === 'nodo')>Nodo / Central</option>
+                            <option value="salida_pon" @selected($tipoDestino === 'salida_pon')>Salida PON</option>
+                            <option value="splitter_primario" @selected($tipoDestino === 'splitter_primario')>Splitter Primario</option>
+                            <option value="splitter_secundario" @selected($tipoDestino === 'splitter_secundario')>Splitter Secundario</option>
+                            @include('lineas-cable._extremo-tipos', ['tipo' => $tipoDestino])
                         </select>
                     </div>
 
@@ -288,10 +299,19 @@
                                 @endforeach
                             </select>
                         </div>
+                        @include('lineas-cable._extremo-paneles', [
+                            'lado' => 'destino',
+                            'tipo' => old('destino_tipo', $lineaCable->destino_tipo),
+                            'id' => old('destino_id', $lineaCable->destino_id),
+                            'cables' => $cables,
+                            'cajasFusion' => $cajasFusion,
+                        ])
                     </div>
                 </div>
             </div>
         </div>
+
+        @include('lineas-cable._gps')
 
         {{-- SECCIÓN 3: NOTAS DE TENDIDO --}}
         <div>

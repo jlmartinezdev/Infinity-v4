@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CajaFusion;
 use App\Models\CajaNap;
 use App\Models\FibraColor;
 use App\Models\LineaCable;
@@ -87,6 +88,15 @@ class LineaCableController extends Controller
             'cables_drop'         => $cablesDrop,
         ];
 
+        $cajasFusion = CajaFusion::orderBy('codigo')->get();
+        $codigoCajaSugerido = CajaFusion::siguienteCodigo();
+        $cablesEnFusion = LineaCable::query()
+            ->where(function ($q) {
+                $q->where('origen_tipo', 'caja_fusion')->orWhere('destino_tipo', 'caja_fusion');
+            })
+            ->orderBy('nombre')
+            ->get(['linea_cable_id', 'nombre', 'cantidad_hilos', 'origen_tipo', 'origen_id', 'destino_tipo', 'destino_id']);
+
         $fibraColores = FibraColor::activos()->orderBy('nombre')->get();
         $coloresTIA = LineaCable::COLORES_TIA598;
         $tiposCable = LineaCable::TIPOS_CABLE;
@@ -102,7 +112,10 @@ class LineaCableController extends Controller
             'estados',
             'capacidades',
             'busqueda',
-            'perPage'
+            'perPage',
+            'cajasFusion',
+            'cablesEnFusion',
+            'codigoCajaSugerido'
         ));
     }
 
@@ -119,6 +132,8 @@ class LineaCableController extends Controller
         $tiposCable = LineaCable::TIPOS_CABLE;
         $estados = LineaCable::ESTADOS;
         $capacidades = LineaCable::CAPACIDADES_ESTANDAR;
+        $cables = LineaCable::orderBy('nombre')->orderBy('linea_cable_id')->get(['linea_cable_id', 'nombre', 'cantidad_hilos']);
+        $cajasFusion = CajaFusion::orderBy('codigo')->get();
 
         return view('lineas-cable.create', compact(
             'fibraColores',
@@ -130,7 +145,9 @@ class LineaCableController extends Controller
             'coloresTIA',
             'tiposCable',
             'estados',
-            'capacidades'
+            'capacidades',
+            'cables',
+            'cajasFusion'
         ));
     }
 
@@ -164,6 +181,12 @@ class LineaCableController extends Controller
         $tiposCable = LineaCable::TIPOS_CABLE;
         $estados = LineaCable::ESTADOS;
         $capacidades = LineaCable::CAPACIDADES_ESTANDAR;
+        $cables = LineaCable::query()
+            ->where('linea_cable_id', '!=', $lineaCable->linea_cable_id)
+            ->orderBy('nombre')
+            ->orderBy('linea_cable_id')
+            ->get(['linea_cable_id', 'nombre', 'cantidad_hilos']);
+        $cajasFusion = CajaFusion::orderBy('codigo')->get();
 
         return view('lineas-cable.edit', compact(
             'lineaCable',
@@ -176,7 +199,9 @@ class LineaCableController extends Controller
             'coloresTIA',
             'tiposCable',
             'estados',
-            'capacidades'
+            'capacidades',
+            'cables',
+            'cajasFusion'
         ));
     }
 
@@ -184,7 +209,7 @@ class LineaCableController extends Controller
     {
         $lineaCable = $lineas_cable;
 
-        $validated = $this->validarCable($request);
+        $validated = $this->validarCable($request, (int) $lineaCable->linea_cable_id, $lineaCable->coordenadas);
 
         $lineaCable->update($validated);
 
@@ -197,13 +222,19 @@ class LineaCableController extends Controller
     public function guardarPelos(Request $request, LineaCable $lineas_cable)
     {
         $request->validate([
+            'cantidad_hilos'          => ['nullable', 'integer', 'min:1', 'max:288'],
             'pelos'                   => ['nullable', 'array'],
             'pelos.*.numero'          => ['required', 'integer', 'min:1'],
             'pelos.*.estado'          => ['nullable', 'in:'.implode(',', LineaCable::ESTADOS_PELO)],
+            'pelos.*.color_pos'       => ['nullable', 'integer', 'min:1', 'max:12'],
             'pelos.*.uso'             => ['nullable', 'string', 'max:255'],
             'pelos.*.destino_detalle' => ['nullable', 'string', 'max:255'],
             'pelos.*.atenuacion_db'   => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
+
+        if ($request->filled('cantidad_hilos')) {
+            $lineas_cable->cantidad_hilos = (int) $request->input('cantidad_hilos');
+        }
 
         $pelosInput = $request->input('pelos', []);
         $total = $lineas_cable->cantidad_hilos > 0 ? (int) $lineas_cable->cantidad_hilos : 12;
@@ -215,19 +246,38 @@ class LineaCableController extends Controller
             $detalle[$actual['numero']] = [
                 'numero'          => $actual['numero'],
                 'estado'          => $actual['estado'],
+                'color_pos'       => $actual['color_pos'],
                 'uso'             => $actual['uso'],
                 'destino_detalle' => $actual['destino_detalle'],
                 'atenuacion_db'   => $actual['atenuacion_db'],
             ];
         }
 
+        $detalle = array_filter($detalle, fn ($num) => $num >= 1 && $num <= $total, ARRAY_FILTER_USE_KEY);
+
         foreach ($pelosInput as $p) {
             $num = (int) ($p['numero'] ?? 0);
             if ($num < 1 || $num > $total) {
                 continue;
             }
+            if (! isset($detalle[$num])) {
+                $detalle[$num] = [
+                    'numero' => $num,
+                    'estado' => 'libre',
+                    'color_pos' => (($num - 1) % 12) + 1,
+                    'uso' => '',
+                    'destino_detalle' => '',
+                    'atenuacion_db' => null,
+                ];
+            }
             if (array_key_exists('estado', $p)) {
                 $detalle[$num]['estado'] = in_array($p['estado'], LineaCable::ESTADOS_PELO, true) ? $p['estado'] : 'libre';
+            }
+            if (array_key_exists('color_pos', $p) && $p['color_pos'] !== '' && $p['color_pos'] !== null) {
+                $colorPos = (int) $p['color_pos'];
+                if (isset(LineaCable::COLORES_TIA598[$colorPos])) {
+                    $detalle[$num]['color_pos'] = $colorPos;
+                }
             }
             foreach (['uso', 'destino_detalle'] as $campo) {
                 if (array_key_exists($campo, $p)) {
@@ -239,9 +289,9 @@ class LineaCableController extends Controller
             }
         }
 
-        $lineas_cable->update([
-            'hilos_detalle' => array_values($detalle),
-        ]);
+        ksort($detalle);
+        $lineas_cable->hilos_detalle = array_values($detalle);
+        $lineas_cable->save();
 
         if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
@@ -258,8 +308,44 @@ class LineaCableController extends Controller
      * Reglas comunes de alta y edición. Comprueba que el origen y el destino existan
      * en la tabla que corresponde a su tipo y arma el nombre si viene vacío.
      */
-    protected function validarCable(Request $request): array
+    public function storeCajaFusion(Request $request)
     {
+        foreach (['lat', 'lon'] as $campo) {
+            $valor = $request->input($campo);
+            $request->merge([$campo => ($valor === '' || $valor === null) ? null : $valor]);
+        }
+
+        $validated = $request->validate([
+            'ubicacion' => ['nullable', 'string', 'max:200'],
+            'lat'       => ['nullable', 'numeric', 'between:-90,90', 'required_with:lon'],
+            'lon'       => ['nullable', 'numeric', 'between:-180,180', 'required_with:lat'],
+            'notas'     => ['nullable', 'string', 'max:2000'],
+        ], [], [
+            'lat' => 'latitud',
+            'lon' => 'longitud',
+        ]);
+
+        $caja = CajaFusion::create([
+            'codigo'    => CajaFusion::siguienteCodigo(),
+            'ubicacion' => filled($validated['ubicacion'] ?? null) ? trim($validated['ubicacion']) : null,
+            'lat'       => isset($validated['lat']) ? round((float) $validated['lat'], 6) : null,
+            'lon'       => isset($validated['lon']) ? round((float) $validated['lon'], 6) : null,
+            'notas'     => filled($validated['notas'] ?? null) ? trim($validated['notas']) : null,
+        ]);
+
+        return redirect()
+            ->route('sistema.lineas-cable.index')
+            ->with('success', "Caja de fusión '{$caja->codigo}' agregada. Ya se puede usar para unir cables.");
+    }
+
+    /**
+     * Reglas comunes de alta y edición. Comprueba que el origen y el destino existan
+     * en la tabla que corresponde a su tipo y arma el nombre si viene vacío.
+     */
+    protected function validarCable(Request $request, ?int $exceptoId = null, ?array $coordsActuales = null): array
+    {
+        $this->normalizarPuntosGps($request);
+
         $tipos = implode(',', array_keys(LineaCable::EXTREMOS));
 
         $existeExtremo = function (string $prefix) use ($request) {
@@ -282,7 +368,11 @@ class LineaCableController extends Controller
             'destino_tipo'    => ['required', 'in:'.$tipos],
             'destino_id'      => ['required', 'integer', 'min:1', $existeExtremo('destino')],
             'longitud_metros' => ['nullable', 'numeric', 'min:0', 'max:999999'],
-            'coordenadas'     => ['nullable', 'array'],
+            'inicio_lat'      => ['nullable', 'numeric', 'between:-90,90', 'required_with:inicio_lon,fin_lat,fin_lon'],
+            'inicio_lon'      => ['nullable', 'numeric', 'between:-180,180', 'required_with:inicio_lat,fin_lat,fin_lon'],
+            'fin_lat'         => ['nullable', 'numeric', 'between:-90,90', 'required_with:fin_lon,inicio_lat,inicio_lon'],
+            'fin_lon'         => ['nullable', 'numeric', 'between:-180,180', 'required_with:fin_lat,inicio_lat,inicio_lon'],
+            'coordenadas'     => ['nullable', 'array', 'max:200'],
             'coordenadas.*'   => ['array', 'size:2'],
             'coordenadas.*.0' => ['required', 'numeric', 'between:-90,90'],
             'coordenadas.*.1' => ['required', 'numeric', 'between:-180,180'],
@@ -290,6 +380,10 @@ class LineaCableController extends Controller
         ], [], [
             'origen_id'  => 'origen',
             'destino_id' => 'destino',
+            'inicio_lat' => 'latitud de inicio',
+            'inicio_lon' => 'longitud de inicio',
+            'fin_lat'    => 'latitud de fin',
+            'fin_lon'    => 'longitud de fin',
         ]);
 
         if ($validated['origen_tipo'] === $validated['destino_tipo'] && (int) $validated['origen_id'] === (int) $validated['destino_id']) {
@@ -298,17 +392,134 @@ class LineaCableController extends Controller
             ]);
         }
 
+        if ($exceptoId) {
+            foreach (['origen', 'destino'] as $lado) {
+                if ($validated[$lado.'_tipo'] === 'linea_cable' && (int) $validated[$lado.'_id'] === $exceptoId) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        $lado.'_id' => 'Un cable no puede unirse a sí mismo.',
+                    ]);
+                }
+            }
+        }
+
         if (empty($validated['nombre'])) {
             $tipoLabel = strtoupper(substr($validated['tipo_cable'], 0, 4));
             $validated['nombre'] = $tipoLabel.'-'.$validated['cantidad_hilos'].'FO-'.date('ymdHis');
         }
 
-        $coords = $validated['coordenadas'] ?? null;
-        $validated['coordenadas'] = is_array($coords) && count($coords) > 0
-            ? array_values(array_map(fn ($c) => [(float) $c[0], (float) $c[1]], $coords))
-            : null;
+        $inicio = $this->parGps($validated['inicio_lat'] ?? null, $validated['inicio_lon'] ?? null);
+        $fin = $this->parGps($validated['fin_lat'] ?? null, $validated['fin_lon'] ?? null);
+        unset($validated['inicio_lat'], $validated['inicio_lon'], $validated['fin_lat'], $validated['fin_lon']);
+
+        $ruta = $this->rutaPublicada($validated['coordenadas'] ?? null);
+
+        if ($inicio && $fin && $ruta) {
+            $ruta[0] = $inicio;
+            $ruta[count($ruta) - 1] = $fin;
+            $validated['coordenadas'] = $ruta;
+        } elseif ($inicio && $fin) {
+            $path = is_array($coordsActuales) ? array_values($coordsActuales) : [];
+            if (count($path) > 2) {
+                $path[0] = $inicio;
+                $path[count($path) - 1] = $fin;
+                $validated['coordenadas'] = array_map(fn ($c) => [(float) $c[0], (float) $c[1]], $path);
+            } else {
+                $validated['coordenadas'] = [$inicio, $fin];
+            }
+        } elseif ($request->exists('inicio_lat') || $request->exists('fin_lat')) {
+            $validated['coordenadas'] = null;
+        } else {
+            $coords = $validated['coordenadas'] ?? null;
+            $validated['coordenadas'] = is_array($coords) && count($coords) > 0
+                ? array_values(array_map(fn ($c) => [(float) $c[0], (float) $c[1]], $coords))
+                : null;
+        }
 
         return $validated;
+    }
+
+    /**
+     * Deja la latitud y la longitud como número, o null si el campo viene vacío.
+     * Si en la latitud se pegan los dos números, los separa.
+     */
+    private function normalizarPuntosGps(Request $request): void
+    {
+        foreach (['inicio', 'fin'] as $lado) {
+            $latKey = $lado.'_lat';
+            $lonKey = $lado.'_lon';
+            $lat = $this->textoCoord($request->input($latKey));
+            $lon = $this->textoCoord($request->input($lonKey));
+
+            if ($lat !== null && $lon === null && preg_match('/^(-?\d+(?:\.\d+)?)[\s,;]+(-?\d+(?:\.\d+)?)$/', $lat, $m)) {
+                $lat = $m[1];
+                $lon = $m[2];
+            }
+
+            $request->merge([$latKey => $lat, $lonKey => $lon]);
+        }
+    }
+
+    private function textoCoord(mixed $valor): ?string
+    {
+        if ($valor === null) {
+            return null;
+        }
+
+        $texto = trim((string) $valor);
+        if ($texto === '') {
+            return null;
+        }
+
+        $esPar = str_contains($texto, ';')
+            || preg_match('/\s/', $texto)
+            || substr_count($texto, ',') >= 2
+            || substr_count($texto, '.') >= 2;
+        if ($esPar && preg_match('/^(-?\d+(?:[.,]\d+)?)(?:\s*[;,]\s*|\s+)(-?\d+(?:[.,]\d+)?)$/', $texto, $m)) {
+            return str_replace(',', '.', $m[1]).' '.str_replace(',', '.', $m[2]);
+        }
+
+        return str_replace(',', '.', $texto);
+    }
+
+    /**
+     * Recorrido que calculó el mapa (la calle entre el inicio y el fin).
+     *
+     * @return list<array{0: float, 1: float}>|null
+     */
+    private function rutaPublicada(?array $coords): ?array
+    {
+        if (! is_array($coords) || count($coords) < 2) {
+            return null;
+        }
+
+        $out = [];
+        foreach ($coords as $punto) {
+            if (! is_array($punto) || count($punto) < 2 || ! is_numeric($punto[0]) || ! is_numeric($punto[1])) {
+                return null;
+            }
+            $lat = round((float) $punto[0], 6);
+            $lon = round((float) $punto[1], 6);
+            if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+                return null;
+            }
+            $ultimo = $out[count($out) - 1] ?? null;
+            if ($ultimo && $ultimo[0] === $lat && $ultimo[1] === $lon) {
+                continue;
+            }
+            $out[] = [$lat, $lon];
+        }
+
+        return count($out) >= 2 ? $out : null;
+    }
+
+    /** @return array{0: float, 1: float}|null */
+    private function parGps(mixed $lat, mixed $lon): ?array
+    {
+        if ($lat === null || $lat === '' || $lon === null || $lon === '') {
+            return null;
+        }
+
+        return [round((float) $lat, 6), round((float) $lon, 6)];
     }
 
     public function destroy(LineaCable $lineas_cable)

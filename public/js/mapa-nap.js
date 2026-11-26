@@ -27685,6 +27685,30 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 bounds.extend(pos);
               });
 
+              (data.cajas_fusion || []).forEach(function (c) {
+                var pos = { lat: c.lat, lng: c.lon };
+                var marker = new google.maps.Marker({
+                  position: pos,
+                  map: map,
+                  title: 'Caja de fusión: ' + (c.codigo || ''),
+                  zIndex: 400,
+                  icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 9,
+                    fillColor: '#7C3AED',
+                    fillOpacity: 1,
+                    strokeColor: '#4C1D95',
+                    strokeWeight: 2
+                  }
+                });
+                var mapsQ = encodeURIComponent(c.lat + ',' + c.lon);
+                var content = '<div style="padding:10px;min-width:160px;max-width:min(92vw,280px);font-family:system-ui,sans-serif"><div style="font-size:10px;font-weight:600;color:#6d28d9;text-transform:uppercase">Caja de fusión</div><div style="font-size:15px;font-weight:700;color:#111827;margin-top:2px">' + escapeHtml(c.codigo || '') + '</div>' + (c.ubicacion ? '<div style="font-size:12px;color:#374151;margin-top:4px">' + escapeHtml(c.ubicacion) + '</div>' : '') + '<div style="margin-top:8px"><a href="https://www.google.com/maps?q=' + mapsQ + '" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#7c3aed">Abrir en Maps</a></div></div>';
+                var infoFusion = new google.maps.InfoWindow({ content: content });
+                marker.addListener('click', function () { infoFusion.open(map, marker); });
+                markers.push(marker);
+                bounds.extend(pos);
+              });
+
               // Líneas de cable (polylines)
               (data.lineas || []).forEach(function (l) {
                 var path = (l.path || []).map(function (pt) {

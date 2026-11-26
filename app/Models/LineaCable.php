@@ -55,6 +55,8 @@ class LineaCable extends Model
         'splitter_primario'   => SplitterPrimario::class,
         'splitter_secundario' => SplitterSecundario::class,
         'salida_pon'          => SalidaPon::class,
+        'linea_cable'         => self::class,
+        'caja_fusion'         => CajaFusion::class,
     ];
 
     protected $table = 'linea_cables';
@@ -129,11 +131,15 @@ class LineaCable extends Model
             $tuboNum = (int) ceil($i / 12);
             $posTubo = (($tuboNum - 1) % 12) + 1;
             $posPelo = (($i - 1) % 12) + 1;
+            $saved = $indexados[$i] ?? null;
+            $colorPos = isset($saved['color_pos']) ? (int) $saved['color_pos'] : $posPelo;
+            if (! isset(self::COLORES_TIA598[$colorPos])) {
+                $colorPos = $posPelo;
+            }
 
             $colorTuboInfo = self::COLORES_TIA598[$posTubo] ?? self::COLORES_TIA598[1];
-            $colorPeloInfo = self::COLORES_TIA598[$posPelo] ?? self::COLORES_TIA598[1];
+            $colorPeloInfo = self::COLORES_TIA598[$colorPos] ?? self::COLORES_TIA598[1];
 
-            $saved = $indexados[$i] ?? null;
             $estado = $saved['estado'] ?? 'libre';
 
             $pelos[] = [
@@ -142,6 +148,7 @@ class LineaCable extends Model
                 'color_tubo'      => $colorTuboInfo['nombre'],
                 'color_tubo_hex'  => $colorTuboInfo['hex'],
                 'pelo_en_tubo'    => $posPelo,
+                'color_pos'       => $colorPos,
                 'color_pelo'      => $colorPeloInfo['nombre'],
                 'color_pelo_hex'  => $colorPeloInfo['hex'],
                 'clase_bg'        => $colorPeloInfo['clase_bg'],
@@ -265,6 +272,8 @@ class LineaCable extends Model
             'salida_pon'          => 'Salida PON: '.$model->codigo,
             'splitter_primario'   => 'Splitter 1º: '.$model->codigo,
             'splitter_secundario' => 'Splitter 2º: '.$model->codigo,
+            'linea_cable'         => 'Cable: '.($model->nombre ?: '#'.$id),
+            'caja_fusion'         => 'Fusión: '.($model->codigo ?: '#'.$id),
             default               => ucfirst($tipo).' #'.$id,
         };
     }
@@ -284,9 +293,11 @@ class LineaCable extends Model
         if (! $tipo || ! $id) return null;
 
         return match ($tipo) {
-            'caja_nap'   => route('sistema.cajas-nap.show', $id),
-            'salida_pon' => route('sistema.salida-pons.index', ['q' => $id]),
-            default      => null,
+            'caja_nap'    => route('sistema.cajas-nap.show', $id),
+            'salida_pon'  => route('sistema.salida-pons.index', ['q' => $id]),
+            'linea_cable' => route('sistema.lineas-cable.edit', $id),
+            'caja_fusion' => route('sistema.lineas-cable.index').'#cajas-fusion',
+            default       => null,
         };
     }
 

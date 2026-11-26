@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CajaFusion;
 use App\Models\CajaNap;
 use App\Models\CajaNapPuertoActivo;
 use App\Models\LineaCable;
@@ -509,10 +510,27 @@ class CajaNapController extends Controller
             }
         }
 
+        $cajasFusion = CajaFusion::query()
+            ->whereNotNull('lat')
+            ->whereNotNull('lon')
+            ->orderBy('codigo')
+            ->get()
+            ->map(fn (CajaFusion $caja) => [
+                'id' => $caja->caja_fusion_id,
+                'codigo' => $caja->codigo,
+                'ubicacion' => $caja->ubicacion,
+                'lat' => (float) $caja->lat,
+                'lon' => (float) $caja->lon,
+                'coords_texto' => $fmtCoords((float) $caja->lat, (float) $caja->lon),
+            ])
+            ->values()
+            ->all();
+
         return response()->json([
             'cajas' => $cajas->values()->all(),
             'nodos' => $nodosData,
             'salida_pons' => $ponsData,
+            'cajas_fusion' => $cajasFusion,
             'lineas' => $lineasData,
         ]);
     }
@@ -522,7 +540,7 @@ class CajaNapController extends Controller
         if ($model instanceof Nodo) {
             return $model->getCoordenadasParaMapa();
         }
-        if ($model instanceof CajaNap) {
+        if ($model instanceof CajaNap || $model instanceof CajaFusion) {
             return $model->lat && $model->lon ? ['lat' => (float) $model->lat, 'lon' => (float) $model->lon] : null;
         }
         if ($model instanceof SalidaPon) {
