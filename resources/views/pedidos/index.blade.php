@@ -17,7 +17,7 @@
                     'cedula' => $pedido->cliente->cedula,
                     'telefono' => $pedido->cliente->telefono,
                 ],
-                'plan' => $pedido->plan ? ['nombre' => $pedido->plan->nombre] : null,
+                'plan' => $pedido->plan ? ['nombre' => $pedido->plan->nombre, 'tecnologia_id' => $pedido->plan->tecnologia_id] : null,
                 'fecha_pedido' => $pedido->fecha_pedido ? $pedido->fecha_pedido->toDateString() : null,
                 'ubicacion' => $pedido->ubicacion,
                 'maps_gps' => $pedido->maps_gps,

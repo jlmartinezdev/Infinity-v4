@@ -291,16 +291,23 @@ class StaffPedidoInstalacionService
         $conDatos->loadMissing([
             'nodo:nodo_id,descripcion,ciudad',
             'tipoTecnologia:tecnologia_id,descripcion',
-            'plan:plan_id,nombre',
+            'plan:plan_id,nombre,tecnologia_id',
         ]);
+
+        $tecnologiaId = $conDatos->tecnologia_id ? (int) $conDatos->tecnologia_id : null;
+        $planId = $conDatos->plan_id ? (int) $conDatos->plan_id : null;
+        $techPlan = $conDatos->plan?->tecnologia_id;
+        if ($planId && $tecnologiaId && (int) $techPlan !== $tecnologiaId) {
+            $planId = null;
+        }
 
         return [
             'nodo_id' => $conDatos->nodo_id ? (int) $conDatos->nodo_id : null,
             'nodo' => $conDatos->nodo?->descripcion,
-            'tecnologia_id' => $conDatos->tecnologia_id ? (int) $conDatos->tecnologia_id : null,
+            'tecnologia_id' => $tecnologiaId,
             'tecnologia' => $conDatos->tipoTecnologia?->descripcion,
-            'plan_id' => $conDatos->plan_id ? (int) $conDatos->plan_id : null,
-            'plan' => $conDatos->plan?->nombre,
+            'plan_id' => $planId,
+            'plan' => $planId ? $conDatos->plan?->nombre : null,
         ];
     }
 

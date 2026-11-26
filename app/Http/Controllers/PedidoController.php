@@ -43,12 +43,9 @@ class PedidoController extends Controller
 
         // Filtros (estado_id, cliente_id, mostrar_instalados) se aplican en Vue (client-side)
         $pedidos = $query->get();
-        $pedidos->transform(function ($pedido) {
-            $ultimoConTecnologia = $pedido->estadoPedidoDetalles
-                ->whereNotNull('tecnologia_id')
-                ->sortByDesc('created_at')
-                ->first();
-            $pedido->tecnologia_id_seleccionado = $ultimoConTecnologia?->tecnologia_id;
+        $nodoOpciones = app(PedidoNodoOpcionesService::class);
+        $pedidos->transform(function ($pedido) use ($nodoOpciones) {
+            $pedido->tecnologia_id_seleccionado = $nodoOpciones->tecnologiaVigenteId($pedido->estadoPedidoDetalles);
 
             return $pedido;
         });
@@ -662,55 +659,96 @@ class PedidoController extends Controller
             $updateData['pool_id'] = $validated['pool_id'];
         }
 
-        // Si no se enviaron nodo_id, tecnologia_id o plan_id, copiar solo de detalles del mismo pedido_id
+        // Si este estado no elige nodo, heredar el último aprobado. No conservar un plan de otra tecnología.
         $pedidoId = (int) $pedido->pedido_id;
-        if (! isset($updateData['nodo_id'])) {
-            $ultimoConNodo = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
+        $estadoActual = EstadoPedido::find($validated['estado_id']);
+        $parametro = strtoupper((string) ($estadoActual->parametro ?? ''));
+        $exigePlan = str_contains($parametro, 'SELECCIONAR_PLAN') || str_contains($parametro, 'SELECIONAR_PLAN');
+        $ultimoAprobado = function (string $columna) use ($pedidoId, $validated) {
+            return EstadoPedidoDetalle::where('pedido_id', $pedidoId)
                 ->where('estado_id', '!=', $validated['estado_id'])
-                ->whereNotNull('nodo_id')
+                ->where('estado', 'A')
+                ->whereNotNull($columna)
                 ->orderByDesc('fecha')
                 ->orderByDesc('created_at')
                 ->first();
-            if ($ultimoConNodo) {
-                $updateData['nodo_id'] = $ultimoConNodo->nodo_id;
+        };
+
+        if (empty($validated['nodo_id'])) {
+            $fuente = $ultimoAprobado('nodo_id');
+            if ($fuente) {
+                $updateData['nodo_id'] = $fuente->nodo_id;
+                if (empty($updateData['tecnologia_id']) && $fuente->tecnologia_id) {
+                    $updateData['tecnologia_id'] = $fuente->tecnologia_id;
+                }
+                if (empty($updateData['pool_id']) && $fuente->pool_id) {
+                    $updateData['pool_id'] = $fuente->pool_id;
+                }
             }
         }
-        if (! isset($updateData['tecnologia_id'])) {
-            $ultimoConTecnologia = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
-                ->where('estado_id', '!=', $validated['estado_id'])
-                ->whereNotNull('tecnologia_id')
-                ->orderByDesc('fecha')
-                ->orderByDesc('created_at')
-                ->first();
-            if ($ultimoConTecnologia) {
-                $updateData['tecnologia_id'] = $ultimoConTecnologia->tecnologia_id;
+        if (empty($updateData['tecnologia_id'])) {
+            $fuenteTech = $ultimoAprobado('tecnologia_id');
+            if ($fuenteTech) {
+                $updateData['tecnologia_id'] = $fuenteTech->tecnologia_id;
             }
         }
-        if (! isset($updateData['plan_id'])) {
-            $ultimoConPlan = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
-                ->where('estado_id', '!=', $validated['estado_id'])
-                ->whereNotNull('plan_id')
-                ->orderByDesc('fecha')
-                ->orderByDesc('created_at')
-                ->first();
-            if ($ultimoConPlan) {
-                $updateData['plan_id'] = $ultimoConPlan->plan_id;
+        if (empty($updateData['pool_id'])) {
+            $fuentePool = $ultimoAprobado('pool_id');
+            if ($fuentePool) {
+                $updateData['pool_id'] = $fuentePool->pool_id;
             }
         }
-        if (! isset($updateData['pool_id'])) {
-            $ultimoConPool = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
-                ->where('estado_id', '!=', $validated['estado_id'])
-                ->whereNotNull('pool_id')
-                ->orderByDesc('fecha')
-                ->orderByDesc('created_at')
-                ->first();
-            if ($ultimoConPool) {
-                $updateData['pool_id'] = $ultimoConPool->pool_id;
+
+        $tecnologiaFinal = ! empty($updateData['tecnologia_id']) ? (int) $updateData['tecnologia_id'] : null;
+        $planEnviado = array_key_exists('plan_id', $validated) && $validated['plan_id'] !== null
+            ? (int) $validated['plan_id']
+            : null;
+        $planHeredado = null;
+        if ($planEnviado === null) {
+            if ($detalle->plan_id && $nodoOpciones->tecnologiaDePlan((int) $detalle->plan_id) === $tecnologiaFinal) {
+                $planHeredado = (int) $detalle->plan_id;
+            } elseif ($tecnologiaFinal === null && $detalle->plan_id) {
+                $planHeredado = (int) $detalle->plan_id;
+            } else {
+                $ultimoConPlan = EstadoPedidoDetalle::where('pedido_id', $pedidoId)
+                    ->where('estado_id', '!=', $validated['estado_id'])
+                    ->whereNotNull('plan_id')
+                    ->orderByDesc('fecha')
+                    ->orderByDesc('created_at')
+                    ->first();
+                if ($ultimoConPlan && ($tecnologiaFinal === null || $nodoOpciones->tecnologiaDePlan((int) $ultimoConPlan->plan_id) === $tecnologiaFinal)) {
+                    $planHeredado = (int) $ultimoConPlan->plan_id;
+                }
             }
         }
+
+        $resueltoPlan = $nodoOpciones->resolverPlanAlAprobar(
+            $planEnviado,
+            $planHeredado,
+            $tecnologiaFinal,
+            $planEnviado ? $nodoOpciones->tecnologiaDePlan($planEnviado) : null,
+            $planHeredado ? $nodoOpciones->tecnologiaDePlan($planHeredado) : null,
+            $exigePlan,
+        );
+        if ($resueltoPlan['error']) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $resueltoPlan['error'],
+                ], 422);
+            }
+
+            return redirect()->route('pedidos.index')->with('error', $resueltoPlan['error']);
+        }
+        $updateData['plan_id'] = $resueltoPlan['plan_id'];
+
         EstadoPedidoDetalle::where('pedido_id', $pedidoId)
             ->where('estado_id', $validated['estado_id'])
             ->update($updateData);
+
+        if (! empty($validated['nodo_id']) && $tecnologiaFinal) {
+            $nodoOpciones->soltarSeleccionDeOtraTecnologia($pedidoId, (int) $validated['estado_id'], $tecnologiaFinal);
+        }
 
         // Si se guardó plan_id (acción seleccionar_plan), actualizar prioridad_instalacion del pedido con la prioridad del plan
         if (! empty($updateData['plan_id'])) {
@@ -1094,10 +1132,29 @@ class PedidoController extends Controller
                 ->with('error', $msg);
         }
 
-        // 4. Plan del pedido (del último detalle con plan_id o pedido.plan_id)
-        $planId = $detalleEstado3->plan_id ?? $pedido->plan_id;
+        // 4. Plan compatible con la tecnología del nodo. El plan de antena no sirve si el nodo ya es GPON.
+        $tecnologiaId = app(PedidoNodoOpcionesService::class)->tecnologiaVigenteId($pedido->estadoPedidoDetalles);
+        $planId = null;
+        $detallesConPlan = $pedido->estadoPedidoDetalles
+            ->whereNotNull('plan_id')
+            ->sortByDesc(fn (EstadoPedidoDetalle $d) => optional($d->fecha)?->timestamp ?? 0);
+        foreach ($detallesConPlan as $detallePlan) {
+            $techPlan = app(PedidoNodoOpcionesService::class)->tecnologiaDePlan((int) $detallePlan->plan_id);
+            if ($tecnologiaId === null || $techPlan === $tecnologiaId) {
+                $planId = (int) $detallePlan->plan_id;
+                break;
+            }
+        }
+        if (! $planId && $pedido->plan_id) {
+            $techPedido = app(PedidoNodoOpcionesService::class)->tecnologiaDePlan((int) $pedido->plan_id);
+            if ($tecnologiaId === null || $techPedido === $tecnologiaId) {
+                $planId = (int) $pedido->plan_id;
+            }
+        }
         if (! $planId) {
-            $msg = 'No hay plan asociado al pedido.';
+            $msg = $tecnologiaId
+                ? 'El plan guardado no corresponde a la tecnología del nodo. Confirmá un plan de esa tecnología.'
+                : 'No hay plan asociado al pedido.';
             if ($wantsJson) {
                 return response()->json(['message' => $msg], 422);
             }
@@ -1577,10 +1634,13 @@ class PedidoController extends Controller
     public function pedidoParaMapa(Pedido $pedido): array
     {
         $detalles = $pedido->estadoPedidoDetalles->keyBy('estado_id');
-        $ultimoConTecnologia = $pedido->estadoPedidoDetalles
-            ->whereNotNull('tecnologia_id')
-            ->sortByDesc('created_at')
-            ->first();
+        $tecnologiaIdVigente = app(PedidoNodoOpcionesService::class)->tecnologiaVigenteId($pedido->estadoPedidoDetalles);
+        $ultimoConTecnologia = $tecnologiaIdVigente
+            ? $pedido->estadoPedidoDetalles->first(fn (EstadoPedidoDetalle $d) => (int) $d->tecnologia_id === $tecnologiaIdVigente)
+            : null;
+        if ($ultimoConTecnologia) {
+            $ultimoConTecnologia->loadMissing('tipoTecnologia');
+        }
         $tecnologiaDesc = $ultimoConTecnologia?->tipoTecnologia?->descripcion ?? null;
         $estadosPendientes = $pedido->estadoPedidoDetalles
             ->where('estado', 'P')
@@ -1599,8 +1659,16 @@ class PedidoController extends Controller
             ->first();
         $nodo = $detalleConNodo?->nodo;
         $zona = trim((string) ($nodo?->ciudad ?: $nodo?->descripcion ?: ''));
-        $planConfirmado = $detalles->get(2)?->plan?->nombre;
+        $planDetalle = $detalles->get(2)?->plan;
+        $planConfirmado = $planDetalle?->nombre;
+        if ($planDetalle && $tecnologiaIdVigente && (int) $planDetalle->tecnologia_id !== (int) $tecnologiaIdVigente) {
+            $planConfirmado = null;
+        }
         $planSolicitado = $pedido->plan?->nombre;
+        $planVisible = $planConfirmado;
+        if (! $planVisible && $pedido->plan && ($tecnologiaIdVigente === null || (int) $pedido->plan->tecnologia_id === (int) $tecnologiaIdVigente)) {
+            $planVisible = $planSolicitado;
+        }
 
         return [
             'pedido_id' => $pedido->pedido_id,
@@ -1618,11 +1686,11 @@ class PedidoController extends Controller
             'documento' => $pedido->cliente?->cedula,
             'zona' => $zona !== '' ? $zona : null,
             'nodo' => $nodo?->descripcion,
-            'plan' => $planConfirmado ?: $planSolicitado,
+            'plan' => $planVisible,
             'plan_confirmado' => $planConfirmado,
             'plan_solicitado' => $planSolicitado,
             'tecnologia_descripcion' => $tecnologiaDesc,
-            'tecnologia_id_seleccionado' => $ultimoConTecnologia?->tecnologia_id,
+            'tecnologia_id_seleccionado' => $tecnologiaIdVigente,
             'estados_pendientes' => $estadosPendientes,
             'analisis_factibilidad' => $this->mapEstadoDetalleParaMapa($detalles->get(1)),
             'confirmacion_plan' => $this->mapEstadoDetalleParaMapa($detalles->get(2)),

@@ -28775,6 +28775,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       var nodo_id = pick('nodo_id');
       var tecnologia_id = pick('tecnologia_id');
       var plan_id = pick('plan_id');
+      if (plan_id != null && tecnologia_id != null) {
+        var planTech = (props.planes || []).find(function (x) {
+          return String(x.plan_id) === String(plan_id);
+        });
+        if (planTech && planTech.tecnologia_id != null && String(planTech.tecnologia_id) !== String(tecnologia_id)) {
+          plan_id = null;
+        }
+      }
       if (nodo_id == null && tecnologia_id == null && plan_id == null) return null;
       return {
         nodo_id: nodo_id,
@@ -28817,7 +28825,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         });
         if (d !== null && d !== void 0 && d.plan_nombre) return d.plan_nombre;
       }
-      return (pedido === null || pedido === void 0 || (_pedido$plan = pedido.plan) === null || _pedido$plan === void 0 ? void 0 : _pedido$plan.nombre) || '';
+      var planPedido = pedido === null || pedido === void 0 ? void 0 : pedido.plan;
+      if (!(planPedido !== null && planPedido !== void 0 && planPedido.nombre)) return '';
+      if ((sel === null || sel === void 0 ? void 0 : sel.tecnologia_id) != null && planPedido.tecnologia_id != null && String(planPedido.tecnologia_id) !== String(sel.tecnologia_id)) return '';
+      return planPedido.nombre;
     };
     var categoriaPlan = function categoriaPlan(nombre) {
       var n = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -37652,7 +37663,11 @@ function _aprobarEstadoPedido() {
                     case 11:
                       if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
                         selectPlan = document.getElementById('swal-select-plan');
-                        if (selectPlan !== null && selectPlan !== void 0 && selectPlan.value) planIdValue = selectPlan.value;
+                        if (!(selectPlan !== null && selectPlan !== void 0 && selectPlan.value)) {
+                          sweetalert2__WEBPACK_IMPORTED_MODULE_1___default().showValidationMessage('Elegí un plan de la tecnología del nodo.');
+                          return _context2.a(2, false);
+                        }
+                        planIdValue = selectPlan.value;
                       }
                       return _context2.a(2, true);
                   }

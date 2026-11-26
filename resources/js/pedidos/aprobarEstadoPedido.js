@@ -426,7 +426,11 @@ export async function aprobarEstadoPedido(config, pedido, estadoId, parametro, o
             }
             if (acciones.includes(ACCION_SELECCIONAR_PLAN)) {
                 const selectPlan = document.getElementById('swal-select-plan');
-                if (selectPlan?.value) planIdValue = selectPlan.value;
+                if (!selectPlan?.value) {
+                    Swal.showValidationMessage('Elegí un plan de la tecnología del nodo.');
+                    return false;
+                }
+                planIdValue = selectPlan.value;
             }
             return true;
         },

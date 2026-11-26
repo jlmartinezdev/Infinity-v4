@@ -1551,9 +1551,23 @@ const getSeleccionPedido = (pedido) => {
     };
     const nodo_id = pick('nodo_id');
     const tecnologia_id = pick('tecnologia_id');
-    const plan_id = pick('plan_id');
+    let plan_id = pick('plan_id');
+    if (!planCompatibleConTecnologia(plan_id, tecnologia_id)) plan_id = null;
     if (nodo_id == null && tecnologia_id == null && plan_id == null) return null;
     return { nodo_id, tecnologia_id, plan_id };
+};
+
+const tecnologiaDelPlan = (planId) => {
+    if (planId == null || planId === '') return null;
+    const p = (props.planes || []).find(x => String(x.plan_id) === String(planId));
+    return p?.tecnologia_id ?? null;
+};
+
+const planCompatibleConTecnologia = (planId, tecnologiaId) => {
+    if (planId == null || planId === '' || tecnologiaId == null || tecnologiaId === '') return true;
+    const techPlan = tecnologiaDelPlan(planId);
+    if (techPlan == null || techPlan === '') return true;
+    return String(techPlan) === String(tecnologiaId);
 };
 
 const getNodoDescripcion = (nodoId) => {
@@ -1584,7 +1598,12 @@ const nombrePlanSeleccionado = (pedido) => {
         );
         if (d?.plan_nombre) return d.plan_nombre;
     }
-    return pedido?.plan?.nombre || '';
+    const planPedido = pedido?.plan;
+    if (!planPedido?.nombre) return '';
+    if (sel?.tecnologia_id != null && planPedido.tecnologia_id != null && String(planPedido.tecnologia_id) !== String(sel.tecnologia_id)) {
+        return '';
+    }
+    return planPedido.nombre;
 };
 
 const categoriaPlan = (nombre) => {
