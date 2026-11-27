@@ -1048,7 +1048,7 @@ class FacturaController extends Controller
 
     /**
      * @param  \Illuminate\Support\Collection<int|string, object>  $emisionesMes
-     * @return list<array{id: int, nombre: string, total: int, pendientes: int, cliente_ids: list<int>, meses_texto: string}>
+     * @return list<array{id: int, nombre: string, total: int, pendientes: int, emitidos: int, porcentaje: int, estado: string, ultima_fecha: ?string, cliente_ids: list<int>, meses_texto: string, historial: list<array{ym: string, label: string, clientes: int}>}>
      */
     private function listasFeParaVista($emisionesMes): array
     {
@@ -1067,21 +1067,36 @@ class FacturaController extends Controller
         return $listas
             ->map(function (FacturaElectronicaLista $lista) use ($emisionesMes, $idsPorLista, $periodos) {
                 $ids = $idsPorLista[$lista->id] ?? [];
+                $total = count($ids);
                 $pendientes = 0;
+                $ultimaFecha = null;
                 foreach ($ids as $id) {
-                    if (! $emisionesMes->has($id)) {
+                    $emision = $emisionesMes->get($id);
+                    if ($emision === null) {
                         $pendientes++;
+
+                        continue;
+                    }
+                    $fecha = $emision->ultima_fecha ? Carbon::parse($emision->ultima_fecha)->toDateString() : null;
+                    if ($fecha !== null && ($ultimaFecha === null || $fecha > $ultimaFecha)) {
+                        $ultimaFecha = $fecha;
                     }
                 }
+                $emitidos = $total - $pendientes;
                 $resumen = FacturaElectronicaListaPeriodos::resumenLista($ids, $periodos);
 
                 return [
                     'id' => $lista->id,
                     'nombre' => $lista->nombre,
-                    'total' => count($ids),
+                    'total' => $total,
                     'pendientes' => $pendientes,
+                    'emitidos' => $emitidos,
+                    'porcentaje' => $total > 0 ? (int) floor($emitidos * 100 / $total) : 0,
+                    'estado' => FacturaElectronicaListaPeriodos::estadoLista($total, $emitidos),
+                    'ultima_fecha' => $ultimaFecha,
                     'cliente_ids' => $ids,
                     'meses_texto' => FacturaElectronicaListaPeriodos::textoResumen($resumen),
+                    'historial' => $resumen,
                 ];
             })
             ->all();

@@ -40,21 +40,78 @@
         </div>
     </div>
 
+    @php
+        $tabInicial = (request()->filled('buscar') || request()->boolean('solo_pendientes') || request()->filled('page'))
+            ? 'clientes'
+            : null;
+    @endphp
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <form method="GET" action="{{ route('facturas.create') }}" class="p-4 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+        {{-- Opciones comunes a ambas pestañas: período, fecha de emisión y monto. --}}
+        <div class="p-4 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 flex flex-col lg:flex-row gap-3 lg:items-end">
+            <form method="GET" action="{{ route('facturas.create') }}" class="sm:w-56">
+                <label for="periodo" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Período a facturar</label>
+                <select name="periodo" id="periodo"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                        onchange="this.form.submit()">
+                    @foreach($periodosOpciones as $op)
+                        <option value="{{ $op['value'] }}" {{ ($periodoYm ?? '') === $op['value'] ? 'selected' : '' }}>
+                            {{ $op['label'] }}
+                        </option>
+                    @endforeach
+                </select>
+                @if(request()->filled('buscar'))
+                    <input type="hidden" name="buscar" value="{{ request('buscar') }}">
+                @endif
+                @if(request()->boolean('solo_pendientes'))
+                    <input type="hidden" name="solo_pendientes" value="1">
+                @endif
+            </form>
+            <div class="sm:w-48">
+                <label for="fecha_emision" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fecha de emisión del DE</label>
+                <input type="date" name="fecha_emision" id="fecha_emision" form="form-masivo"
+                       value="{{ old('fecha_emision', $fechaEmision) }}"
+                       max="{{ $fechaMaximaEmision ?? now()->toDateString() }}"
+                       required
+                       class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                @error('fecha_emision')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+            </div>
+            <div class="sm:w-52">
+                <label for="monto_modo" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto por cliente</label>
+                <select name="monto_modo" id="monto_modo" form="form-masivo"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="plan">Precio del plan (normal)</option>
+                    <option value="500000">500.000 Gs.</option>
+                    <option value="1000000">1.000.000 Gs.</option>
+                    <option value="otro">Otro monto…</option>
+                </select>
+            </div>
+            <div id="wrap-monto-otro" class="hidden sm:w-40">
+                <label for="monto_fijo" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto (Gs.)</label>
+                <input type="number" name="monto_fijo" id="monto_fijo" form="form-masivo" min="1" step="1" placeholder="Ej. 750000"
+                       class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 lg:pb-2 lg:flex-1">
+                La fecha de emisión sale en el XML de SIFEN (no posterior al tope ni a hoy). Vale para lotes y para la selección de clientes.
+            </p>
+        </div>
+
+        <div class="flex border-b border-gray-200 dark:border-gray-600 px-4 gap-1" role="tablist">
+            <button type="button" role="tab" data-tab="lotes" id="tab-btn-lotes" aria-controls="tab-lotes"
+                    class="tab-facturar -mb-px px-4 py-3 text-sm font-medium border-b-2">
+                Listas para lote
+                <span class="ml-1 inline-flex px-1.5 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ count($listasFe ?? []) }}</span>
+            </button>
+            <button type="button" role="tab" data-tab="clientes" id="tab-btn-clientes" aria-controls="tab-clientes"
+                    class="tab-facturar -mb-px px-4 py-3 text-sm font-medium border-b-2">
+                Clientes
+                <span class="ml-1 inline-flex px-1.5 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ number_format($clientes->total(), 0, ',', '.') }}</span>
+            </button>
+        </div>
+
+        <div data-panel="clientes" class="tab-panel-facturar hidden">
+        <form method="GET" action="{{ route('facturas.create') }}" class="p-4 border-b border-gray-200 dark:border-gray-600">
+            <input type="hidden" name="periodo" value="{{ $periodoYm }}">
             <div class="flex flex-col lg:flex-row gap-3 lg:items-end">
-                <div class="sm:w-56">
-                    <label for="periodo" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Período a facturar</label>
-                    <select name="periodo" id="periodo"
-                            class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                            onchange="this.form.submit()">
-                        @foreach($periodosOpciones as $op)
-                            <option value="{{ $op['value'] }}" {{ ($periodoYm ?? '') === $op['value'] ? 'selected' : '' }}>
-                                {{ $op['label'] }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
                 <div class="flex-1 min-w-0">
                     <label for="buscar" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Buscar cliente</label>
                     <input type="text" name="buscar" id="buscar" value="{{ request('buscar') }}"
@@ -69,38 +126,97 @@
                 <button type="submit" class="px-5 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 text-sm">Buscar</button>
             </div>
         </form>
+        </div>
 
-        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
+        <div data-panel="lotes" class="tab-panel-facturar px-4 py-3 bg-white dark:bg-gray-800">
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
                 <div>
-                    <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Listas de clientes</h2>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Listas para facturar por lote</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Marque clientes, guarde con un nombre y facture esa lista en lotes de hasta {{ \App\Support\FacturaElectronicaListaLote::MAX }}.
-                        Puede ir sumando de a 50 (páginas) a la misma lista. Un cliente no puede repetirse en otra lista.
+                        Cada lote emite hasta {{ \App\Support\FacturaElectronicaListaLote::MAX }} clientes pendientes de la lista.
+                        Para crear o ampliar una lista, vaya a la pestaña «Clientes», marque clientes y pulse «Guardar lista». Un cliente no puede repetirse en otra lista.
                     </p>
                 </div>
             </div>
             @if(($listasFe ?? []) === [])
-                <p class="text-sm text-gray-500 dark:text-gray-400">Todavía no hay listas. Seleccione clientes y pulse «Guardar lista».</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Todavía no hay listas. En la pestaña «Clientes», seleccione clientes y pulse «Guardar lista».</p>
             @else
+                @php
+                    $listasCol = collect($listasFe);
+                    $nListasCompletas = $listasCol->where('estado', 'completa')->count();
+                    $nListasParciales = $listasCol->where('estado', 'parcial')->count();
+                    $nListasPendientes = $listasCol->where('estado', 'pendiente')->count();
+                    $nClientesListas = $listasCol->sum('total');
+                    $nEmitidosListas = $listasCol->sum('emitidos');
+                    $pctListas = $nClientesListas > 0 ? (int) floor($nEmitidosListas * 100 / $nClientesListas) : 0;
+                @endphp
+                <div class="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2.5">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <p class="text-xs text-gray-600 dark:text-gray-300">
+                            <span class="capitalize font-semibold text-gray-800 dark:text-gray-100">{{ $mesLabel }}</span>:
+                            {{ number_format($nEmitidosListas, 0, ',', '.') }} de {{ number_format($nClientesListas, 0, ',', '.') }} clientes en listas facturados ({{ $pctListas }}%)
+                        </p>
+                        <div class="flex flex-wrap gap-1.5" id="filtros-listas">
+                            <button type="button" class="filtro-lista px-2.5 py-1 text-xs font-medium rounded-full bg-purple-600 text-white" data-filtro="todas">Todas ({{ count($listasFe) }})</button>
+                            <button type="button" class="filtro-lista px-2.5 py-1 text-xs font-medium rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200" data-filtro="por-facturar">Por facturar ({{ $nListasPendientes + $nListasParciales }})</button>
+                            <button type="button" class="filtro-lista px-2.5 py-1 text-xs font-medium rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200" data-filtro="completa">Facturadas este mes ({{ $nListasCompletas }})</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                        <div class="h-full bg-green-500" style="width: {{ $pctListas }}%"></div>
+                    </div>
+                </div>
                 <ul class="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                     @foreach($listasFe as $lista)
-                        <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2.5 bg-gray-50/80 dark:bg-gray-900/30">
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $lista['nombre'] }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                        @php
+                            $estadoLista = $lista['estado'] ?? 'pendiente';
+                            $completa = $estadoLista === 'completa';
+                            $badge = match ($estadoLista) {
+                                'completa' => ['Facturada este mes', 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'],
+                                'parcial' => ['Parcial', 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'],
+                                'vacia' => ['Vacía', 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'],
+                                default => ['Sin facturar', 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'],
+                            };
+                            $historial = $lista['historial'] ?? [];
+                        @endphp
+                        <li class="item-lista-fe px-3 py-3 {{ $completa ? 'bg-green-50/70 dark:bg-green-900/10' : 'bg-gray-50/80 dark:bg-gray-900/30' }}"
+                            data-estado="{{ $estadoLista }}">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $lista['nombre'] }}</p>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $badge[1] }}">
+                                        @if($completa)
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                        @endif
+                                        {{ $badge[0] }}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                     {{ $lista['total'] }} cliente(s)
-                                    · {{ $lista['pendientes'] }} pendiente(s) en {{ $mesLabel }}
+                                    · <span class="text-green-700 dark:text-green-400">{{ $lista['emitidos'] ?? 0 }} emitido(s)</span>
+                                    · <span class="{{ $lista['pendientes'] > 0 ? 'text-amber-700 dark:text-amber-400' : '' }}">{{ $lista['pendientes'] }} pendiente(s)</span>
+                                    en <span class="capitalize">{{ $mesLabel }}</span>
+                                    @if(! empty($lista['ultima_fecha']))
+                                        · última emisión {{ \Carbon\Carbon::parse($lista['ultima_fecha'])->format('d/m/Y') }}
+                                    @endif
                                 </p>
-                                @if(! empty($lista['meses_texto']))
-                                    <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                                        Facturado: <span class="font-medium">{{ $lista['meses_texto'] }}</span>
-                                    </p>
-                                @else
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Todavía no hay DE emitida de esta lista.</p>
+                                <div class="mt-1.5 h-1.5 w-full max-w-sm rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                    <div class="h-full {{ $completa ? 'bg-green-500' : 'bg-purple-500' }}" style="width: {{ $lista['porcentaje'] ?? 0 }}%"></div>
+                                </div>
+                                @if($historial === [])
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Todavía no hay DE emitida de esta lista.</p>
                                 @endif
                             </div>
                             <div class="flex flex-wrap gap-1.5 shrink-0">
+                                @if($historial !== [])
+                                    <button type="button"
+                                            class="btn-historial-lista px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            aria-expanded="false"
+                                            aria-controls="historial-lista-{{ $lista['id'] }}">
+                                        Historial ({{ count($historial) }})
+                                    </button>
+                                @endif
                                 <button type="button"
                                         class="btn-ver-lista px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
                                         data-url="{{ route('facturas.listas.show', ['lista' => $lista['id'], 'periodo' => $periodoYm]) }}"
@@ -117,8 +233,8 @@
                                         data-url="{{ route('facturas.listas.facturar', $lista['id']) }}"
                                         data-nombre="{{ $lista['nombre'] }}"
                                         data-pendientes="{{ $lista['pendientes'] }}"
-                                        @if($lista['pendientes'] < 1) disabled @endif>
-                                    Facturar lote
+                                        @if($lista['pendientes'] < 1) disabled title="Todos los clientes de la lista ya tienen DE en {{ $mesLabel }}" @endif>
+                                    {{ $completa ? 'Facturada ✓' : ($lista['pendientes'] > \App\Support\FacturaElectronicaListaLote::MAX ? 'Facturar lote ('.\App\Support\FacturaElectronicaListaLote::MAX.')' : 'Facturar lote ('.$lista['pendientes'].')') }}
                                 </button>
                                 <form method="POST" action="{{ route('facturas.listas.destroy', $lista['id']) }}" class="inline"
                                       onsubmit="return confirm('¿Eliminar la lista «{{ $lista['nombre'] }}»?');">
@@ -129,32 +245,43 @@
                                     </button>
                                 </form>
                             </div>
+                        </div>
+                        @if($historial !== [])
+                            <div id="historial-lista-{{ $lista['id'] }}" class="historial-lista hidden mt-2.5 pt-2.5 border-t border-gray-200 dark:border-gray-700">
+                                <p class="text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">Historial de facturación (últimos 18 meses)</p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                                    @foreach($historial as $h)
+                                        @php
+                                            $hTotal = max(1, (int) $lista['total']);
+                                            $hN = (int) $h['clientes'];
+                                            $hCompleto = $hN >= $hTotal;
+                                            $esActual = $h['ym'] === $periodoYm;
+                                        @endphp
+                                        <a href="{{ route('facturas.create', ['periodo' => $h['ym']]) }}"
+                                           class="block rounded-lg border px-2 py-1.5 text-xs hover:border-purple-400 {{ $esActual ? 'border-purple-400 dark:border-purple-500' : 'border-gray-200 dark:border-gray-700' }} {{ $hCompleto ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-800' }}"
+                                           title="Ver período {{ $h['label'] }}">
+                                            <span class="block capitalize font-medium text-gray-800 dark:text-gray-100">{{ $h['label'] }}</span>
+                                            <span class="{{ $hCompleto ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400' }}">
+                                                {{ $hN }}/{{ (int) $lista['total'] }} {{ $hCompleto ? '✓' : '' }}
+                                            </span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                         </li>
                     @endforeach
                 </ul>
+                <p id="listas-sin-resultado" class="hidden text-sm text-gray-500 dark:text-gray-400 py-3 text-center">No hay listas con ese filtro.</p>
             @endif
         </div>
 
+        <div data-panel="clientes" class="tab-panel-facturar hidden">
         <form method="POST" action="{{ route('facturas.store-masivo') }}" id="form-masivo">
             @csrf
             <input type="hidden" name="emitir" id="input-emitir" value="0">
             <input type="hidden" name="periodo" id="input-periodo" value="{{ $periodoYm }}">
             <div id="cliente-ids-persistidos"></div>
-
-            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 flex flex-col sm:flex-row sm:items-end gap-3">
-                <div class="sm:w-56">
-                    <label for="fecha_emision" class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Fecha de emisión del DE</label>
-                    <input type="date" name="fecha_emision" id="fecha_emision"
-                           value="{{ old('fecha_emision', $fechaEmision) }}"
-                           max="{{ $fechaMaximaEmision ?? now()->toDateString() }}"
-                           required
-                           class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                    @error('fecha_emision')<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 pb-2 sm:max-w-xl">
-                    Sale en el XML de SIFEN. No puede ser posterior al tope ni a hoy. El período de arriba es el mes facturado (líneas).
-                </p>
-            </div>
 
             <div id="barra-masivo" class="hidden sticky top-0 z-10 px-4 py-3 border-b border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30 flex flex-col gap-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -180,26 +307,6 @@
                             Crear y enviar a SIFEN
                         </button>
                     </div>
-                </div>
-                <div class="flex flex-col sm:flex-row sm:items-end gap-3 pt-1 border-t border-purple-200/70 dark:border-purple-800/70">
-                    <div class="sm:w-56">
-                        <label for="monto_modo" class="block text-xs font-medium text-purple-800 dark:text-purple-200 mb-1">Monto por cliente</label>
-                        <select name="monto_modo" id="monto_modo"
-                                class="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-600 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-                            <option value="plan">Precio del plan (normal)</option>
-                            <option value="500000">500.000 Gs.</option>
-                            <option value="1000000">1.000.000 Gs.</option>
-                            <option value="otro">Otro monto…</option>
-                        </select>
-                    </div>
-                    <div id="wrap-monto-otro" class="hidden sm:w-44">
-                        <label for="monto_fijo" class="block text-xs font-medium text-purple-800 dark:text-purple-200 mb-1">Monto (Gs.)</label>
-                        <input type="number" name="monto_fijo" id="monto_fijo" min="1" step="1" placeholder="Ej. 750000"
-                               class="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-600 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-                    </div>
-                    <p class="text-xs text-purple-700 dark:text-purple-300 pb-2 sm:max-w-md">
-                        Con monto fijo se usa la misma descripción (plan + período), pero el importe por cliente es el elegido.
-                    </p>
                 </div>
             </div>
 
@@ -298,6 +405,7 @@
                 {{ $clientes->links() }}
             </div>
         @endif
+        </div>
     </div>
 
     <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
@@ -974,6 +1082,7 @@
             guardarSeleccion(ids);
             restaurarChecksDesdeStorage();
             actualizarBarra();
+            mostrarTab('clientes');
             if (ids.length > MAX) {
                 avisar('Lista con ' + ids.length + ' clientes. La tanda inmediata admite ' + MAX + '; use «Facturar lote» (máx. ' + loteMax + ' por vez).');
             }
@@ -1063,6 +1172,89 @@
             }
         });
     });
+
+    // Pestañas: listas para lote / clientes.
+    const TAB_KEY = 'facturas_create_tab';
+    function mostrarTab(tab) {
+        if (tab !== 'lotes' && tab !== 'clientes') tab = 'lotes';
+        document.querySelectorAll('.tab-panel-facturar').forEach(function (p) {
+            p.classList.toggle('hidden', p.getAttribute('data-panel') !== tab);
+        });
+        document.querySelectorAll('.tab-facturar').forEach(function (b) {
+            const activo = b.getAttribute('data-tab') === tab;
+            b.setAttribute('aria-selected', activo ? 'true' : 'false');
+            b.classList.toggle('border-purple-600', activo);
+            b.classList.toggle('text-purple-700', activo);
+            b.classList.toggle('dark:text-purple-300', activo);
+            b.classList.toggle('border-transparent', !activo);
+            b.classList.toggle('text-gray-500', !activo);
+            b.classList.toggle('dark:text-gray-400', !activo);
+        });
+        try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
+    }
+    document.querySelectorAll('.tab-facturar').forEach(function (b) {
+        b.addEventListener('click', function () {
+            mostrarTab(b.getAttribute('data-tab'));
+        });
+    });
+    (function () {
+        let inicial = @json($tabInicial);
+        if (!inicial) {
+            try { inicial = localStorage.getItem(TAB_KEY); } catch (e) {}
+        }
+        if (!inicial) {
+            inicial = listasFe.length > 0 ? 'lotes' : 'clientes';
+        }
+        mostrarTab(inicial);
+    })();
+
+    // Historial por lista (desplegable).
+    document.querySelectorAll('.btn-historial-lista').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const panel = document.getElementById(btn.getAttribute('aria-controls') || '');
+            if (!panel) return;
+            const abrir = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !abrir);
+            btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        });
+    });
+
+    // Filtro de listas por estado del período.
+    const FILTRO_LISTAS_KEY = 'facturas_listas_filtro';
+    function aplicarFiltroListas(filtro) {
+        let visibles = 0;
+        document.querySelectorAll('.item-lista-fe').forEach(function (li) {
+            const estado = li.getAttribute('data-estado') || '';
+            let ver = true;
+            if (filtro === 'completa') ver = estado === 'completa';
+            if (filtro === 'por-facturar') ver = estado === 'pendiente' || estado === 'parcial';
+            li.classList.toggle('hidden', !ver);
+            if (ver) visibles++;
+        });
+        const vacio = document.getElementById('listas-sin-resultado');
+        if (vacio) vacio.classList.toggle('hidden', visibles > 0);
+        document.querySelectorAll('.filtro-lista').forEach(function (b) {
+            const activo = b.getAttribute('data-filtro') === filtro;
+            b.classList.toggle('bg-purple-600', activo);
+            b.classList.toggle('text-white', activo);
+            b.classList.toggle('border', !activo);
+            b.classList.toggle('border-gray-300', !activo);
+            b.classList.toggle('dark:border-gray-600', !activo);
+            b.classList.toggle('text-gray-700', !activo);
+            b.classList.toggle('dark:text-gray-200', !activo);
+        });
+        try { localStorage.setItem(FILTRO_LISTAS_KEY, filtro); } catch (e) {}
+    }
+    document.querySelectorAll('.filtro-lista').forEach(function (b) {
+        b.addEventListener('click', function () {
+            aplicarFiltroListas(b.getAttribute('data-filtro') || 'todas');
+        });
+    });
+    if (document.querySelector('.filtro-lista')) {
+        let filtroInicial = 'todas';
+        try { filtroInicial = localStorage.getItem(FILTRO_LISTAS_KEY) || 'todas'; } catch (e) {}
+        aplicarFiltroListas(filtroInicial);
+    }
 
     restaurarChecksDesdeStorage();
     actualizarBarra();

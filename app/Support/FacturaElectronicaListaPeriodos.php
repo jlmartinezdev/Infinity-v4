@@ -127,6 +127,21 @@ final class FacturaElectronicaListaPeriodos
         return $txt;
     }
 
+    /**
+     * Estado de una lista en el período: vacia, completa, parcial o pendiente.
+     */
+    public static function estadoLista(int $total, int $emitidos): string
+    {
+        if ($total <= 0) {
+            return 'vacia';
+        }
+        if ($emitidos >= $total) {
+            return 'completa';
+        }
+
+        return $emitidos > 0 ? 'parcial' : 'pendiente';
+    }
+
     private static function valor(mixed $fila, string $clave): mixed
     {
         if (is_array($fila)) {

@@ -48,4 +48,12 @@ class FacturaElectronicaListaPeriodosTest extends TestCase
         $this->assertSame(1, $resumen[1]['clientes']);
         $this->assertStringContainsString('septiembre', FacturaElectronicaListaPeriodos::textoResumen($resumen));
     }
+
+    public function test_estado_de_la_lista_en_el_periodo(): void
+    {
+        $this->assertSame('vacia', FacturaElectronicaListaPeriodos::estadoLista(0, 0));
+        $this->assertSame('pendiente', FacturaElectronicaListaPeriodos::estadoLista(30, 0));
+        $this->assertSame('parcial', FacturaElectronicaListaPeriodos::estadoLista(30, 12));
+        $this->assertSame('completa', FacturaElectronicaListaPeriodos::estadoLista(30, 30));
+    }
 }
