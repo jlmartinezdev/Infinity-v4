@@ -11,7 +11,7 @@ class HotspotPortalMikrotikCommand extends Command
 {
     protected $signature = 'hotspot:portal-mikrotik
                             {nombres* : Nombres de router (ej. MK-N2-BORDE)}
-                            {--trial=30m : Duración del acceso de prueba en el perfil hotspot}';
+                            {--trial=24h : Duración del acceso de prueba en el perfil hotspot}';
 
     protected $description = 'Carga el portal cautivo de hotspot/ al MikroTik (HTML del login).';
 

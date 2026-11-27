@@ -15,7 +15,7 @@ class HotspotPortalDeployService
     /**
      * @return array{success: bool, subidos?: int, error?: string, archivos?: list<string>}
      */
-    public function desplegar(Router $router, ?string $origen = null, string $trialUptime = '30m'): array
+    public function desplegar(Router $router, ?string $origen = null, string $trialUptime = '24h'): array
     {
         $origen = $origen ?: base_path('hotspot');
         if (! is_dir($origen)) {
@@ -370,7 +370,7 @@ class HotspotPortalDeployService
                 $this->ejecutarSet($client, (new Query('/ip/hotspot/profile/set'))
                     ->equal('.id', (string) $perfil['.id'])
                     ->equal('trial-uptime-limit', $trialUptime)
-                    ->equal('trial-uptime-reset', '3d'), $nombre);
+                    ->equal('trial-uptime-reset', '1d'), $nombre);
             }
 
             $this->ejecutarSet($client, (new Query('/ip/hotspot/profile/set'))
