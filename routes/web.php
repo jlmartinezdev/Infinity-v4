@@ -39,6 +39,7 @@ use App\Http\Controllers\HotspotPlanController;
 use App\Http\Controllers\ImportarCsvClientesController;
 use App\Http\Controllers\IspFailoverController;
 use App\Http\Controllers\LineaCableController;
+use App\Http\Controllers\McpOAuthController;
 use App\Http\Controllers\LiquidacionSueldoController;
 use App\Http\Controllers\Loyalty\CanjeController as LoyaltyCanjeController;
 use App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboardController;
@@ -109,6 +110,16 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login/dispositivo', [AuthController::class, 'loginDispositivo'])
     ->middleware('throttle:20,1')
     ->name('login.dispositivo');
+
+// OAuth del conector MCP (ChatGPT y Gemini). El token fijo de Claude no pasa por acá.
+Route::get('/.well-known/oauth-protected-resource', [McpOAuthController::class, 'recurso']);
+Route::get('/.well-known/oauth-protected-resource/{resto}', [McpOAuthController::class, 'recurso'])->where('resto', '.*');
+Route::get('/.well-known/oauth-authorization-server', [McpOAuthController::class, 'servidor']);
+Route::get('/.well-known/oauth-authorization-server/{resto}', [McpOAuthController::class, 'servidor'])->where('resto', '.*');
+Route::get('/oauth/protected-resource', [McpOAuthController::class, 'recurso']);
+Route::get('/oauth/authorization-server', [McpOAuthController::class, 'servidor']);
+Route::get('/oauth/authorize', [McpOAuthController::class, 'autorizar'])->name('mcp.oauth.authorize');
+Route::post('/oauth/authorize', [McpOAuthController::class, 'decidir'])->middleware('throttle:30,1');
 
 // Recibo PDF público (enlace WhatsApp — token HMAC, sin login)
 // Acepta también el bug de plantilla Meta: /recibo/{{1}}{id}/{token}

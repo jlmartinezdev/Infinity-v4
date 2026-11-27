@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\McpWhatsappController;
+use App\Http\Controllers\McpOAuthController;
 use App\Http\Controllers\Api\HotspotVentaController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ClienteController;
@@ -54,6 +56,14 @@ Route::options('/hotspot/planes', [HotspotVentaController::class, 'opciones']);
 Route::options('/hotspot/comprar', [HotspotVentaController::class, 'opciones']);
 Route::options('/hotspot/ventas/{token}', [HotspotVentaController::class, 'opciones'])
     ->where('token', '[A-Za-z0-9]{20,80}');
+
+Route::post('/mcp/whatsapp', McpWhatsappController::class)
+    ->middleware(['mcp.whatsapp', 'throttle:60,1']);
+
+Route::post('/oauth/register', [McpOAuthController::class, 'registrar'])
+    ->middleware('throttle:20,1');
+Route::post('/oauth/token', [McpOAuthController::class, 'token'])
+    ->middleware('throttle:60,1');
 
 Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
