@@ -19,6 +19,7 @@ use App\Models\Ticket;
 use App\Models\TvCuenta;
 use App\Models\User;
 use App\Support\CobrosMesVentana;
+use App\Support\HerramientasRedPayload;
 use App\Support\MenuUsuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -466,34 +467,47 @@ class HomeController extends Controller
             ];
         }
 
-        $ultimosAntena = function () {
-            return DB::table('servicio_conexion_eventos')
-                ->selectRaw('servicio_id, MAX(servicio_conexion_evento_id) as id')
-                ->where('tipo', ServicioConexionEvento::TIPO_SENAL_ANTENA)
-                ->whereNotNull('antena_signal_dbm')
-                ->groupBy('servicio_id');
-        };
-
-        $resumenAntena = DB::table('servicio_conexion_eventos as e')
-            ->joinSub($ultimosAntena(), 'u', 'u.id', '=', 'e.servicio_conexion_evento_id')
-            ->selectRaw('
-                COUNT(*) as total,
-                SUM(CASE WHEN e.antena_signal_dbm >= -65 THEN 1 ELSE 0 END) as buena,
-                SUM(CASE WHEN e.antena_signal_dbm < -65 AND e.antena_signal_dbm >= -75 THEN 1 ELSE 0 END) as regular,
-                SUM(CASE WHEN e.antena_signal_dbm < -75 THEN 1 ELSE 0 END) as debil
-            ')
-            ->first();
+        $ultimosAntena = DB::table('servicio_conexion_eventos')
+            ->selectRaw('servicio_id, MAX(servicio_conexion_evento_id) as id')
+            ->where('tipo', ServicioConexionEvento::TIPO_SENAL_ANTENA)
+            ->whereNotNull('antena_signal_dbm')
+            ->groupBy('servicio_id');
 
         $filasAntena = DB::table('servicio_conexion_eventos as e')
-            ->joinSub($ultimosAntena(), 'u', 'u.id', '=', 'e.servicio_conexion_evento_id')
+            ->joinSub($ultimosAntena, 'u', 'u.id', '=', 'e.servicio_conexion_evento_id')
             ->leftJoin('servicios as s', 's.servicio_id', '=', 'e.servicio_id')
             ->leftJoin('clientes as c', 'c.cliente_id', '=', 's.cliente_id')
+            ->where(function ($q) {
+                $q->whereNull('s.estado')->orWhere('s.estado', '!=', Servicio::ESTADO_CANCELADO);
+            })
             ->get(['e.servicio_id', 'e.antena_signal_dbm', 'c.nombre', 'c.apellido']);
 
+        $serviciosAntena = Servicio::query()
+            ->with(HerramientasRedPayload::relaciones())
+            ->whereIn('servicio_id', $filasAntena->pluck('servicio_id')->filter()->unique()->all())
+            ->get()
+            ->keyBy('servicio_id');
+        $filasAntena = $filasAntena->filter(function ($fila) use ($serviciosAntena) {
+            $servicio = $serviciosAntena->get($fila->servicio_id);
+
+            return $servicio && HerramientasRedPayload::esAntena($servicio);
+        })->values();
+
+        $buenaAntena = 0;
+        $regularAntena = 0;
+        $debilAntena = 0;
         $gruposAntena = [];
         foreach ($filasAntena as $fila) {
             if ($fila->antena_signal_dbm === null) {
                 continue;
+            }
+            $valor = (float) $fila->antena_signal_dbm;
+            if ($valor >= -65) {
+                $buenaAntena++;
+            } elseif ($valor >= -75) {
+                $regularAntena++;
+            } else {
+                $debilAntena++;
             }
             $dbm = (int) round((float) $fila->antena_signal_dbm);
             $nombre = trim(((string) ($fila->nombre ?? '')).' '.((string) ($fila->apellido ?? '')));
@@ -524,10 +538,10 @@ class HomeController extends Controller
                 'online' => $online,
             ],
             'antena' => [
-                'total' => (int) ($resumenAntena->total ?? 0),
-                'buena' => (int) ($resumenAntena->buena ?? 0),
-                'regular' => (int) ($resumenAntena->regular ?? 0),
-                'debil' => (int) ($resumenAntena->debil ?? 0),
+                'total' => $buenaAntena + $regularAntena + $debilAntena,
+                'buena' => $buenaAntena,
+                'regular' => $regularAntena,
+                'debil' => $debilAntena,
             ],
             'distribucion_optica' => $distribucionOptica,
             'distribucion_antena' => $distribucionAntena,
